@@ -8,6 +8,7 @@ type Event = {
   id: string
   name: string
   description: string | null
+  category: string | null
   startDate: Date
   endDate: Date
   userId: string
@@ -63,7 +64,14 @@ export default function EventList({ events }: { events: Event[] }) {
         >
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <h3 className="font-semibold text-gray-900 text-lg">{event.name}</h3>
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-semibold text-gray-900 text-lg">{event.name}</h3>
+                {event.category && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    {event.category}
+                  </span>
+                )}
+              </div>
               {event.description && (
                 <p className="text-gray-600 mt-1 text-sm">{event.description}</p>
               )}

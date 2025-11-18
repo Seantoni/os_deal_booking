@@ -3,11 +3,13 @@
 import { createEvent } from '@/app/actions/events'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import CategorySelect from './CategorySelect'
 
 export default function EventForm() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [category, setCategory] = useState('')
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -15,11 +17,15 @@ export default function EventForm() {
     setError('')
 
     const formData = new FormData(event.currentTarget)
+    if (category) {
+      formData.set('category', category)
+    }
 
     try {
       await createEvent(formData)
       // Reset form
       event.currentTarget.reset()
+      setCategory('')
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create event')
@@ -48,6 +54,13 @@ export default function EventForm() {
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Team Meeting"
         />
+      </div>
+
+      <div>
+        <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
+          Category
+        </label>
+        <CategorySelect value={category} onChange={setCategory} />
       </div>
 
       <div>

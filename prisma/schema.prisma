@@ -17,6 +17,7 @@ model Event {
   id          String   @id @default(cuid())
   name        String
   description String?
+  category    String?
   startDate   DateTime
   endDate     DateTime
   userId      String
@@ -24,4 +25,5 @@ model Event {
   updatedAt   DateTime @updatedAt
 
   @@index([userId])
+  @@index([category])
 }

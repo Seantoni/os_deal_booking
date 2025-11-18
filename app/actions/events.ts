@@ -13,6 +13,7 @@ export async function createEvent(formData: FormData) {
 
   const name = formData.get('name') as string
   const description = formData.get('description') as string
+  const category = formData.get('category') as string
   const startDate = formData.get('startDate') as string
   const endDate = formData.get('endDate') as string
 
@@ -24,6 +25,7 @@ export async function createEvent(formData: FormData) {
     data: {
       name,
       description: description || null,
+      category: category || null,
       startDate: new Date(startDate),
       endDate: new Date(endDate),
       userId,
