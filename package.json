@@ -6,10 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:setup": "prisma generate && prisma migrate dev --name init"
   },
   "dependencies": {
+    "@clerk/nextjs": "^6.35.2",
+    "@prisma/client": "^6.19.0",
+    "dotenv": "^17.2.3",
     "next": "16.0.3",
+    "prisma": "^6.19.0",
     "react": "19.2.0",
     "react-dom": "19.2.0"
   },
