@@ -15,8 +15,11 @@
   "dependencies": {
     "@clerk/nextjs": "^6.35.2",
     "@prisma/client": "^6.19.0",
+    "@thednp/dommatrix": "^2.0.12",
     "dotenv": "^17.2.3",
     "next": "16.0.3",
+    "openai": "^6.9.1",
+    "pdf2json": "^4.0.0",
     "prisma": "^6.19.0",
     "react": "19.2.0",
     "react-dom": "19.2.0"

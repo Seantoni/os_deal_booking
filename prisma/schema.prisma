@@ -18,6 +18,7 @@ model Event {
   name        String
   description String?
   category    String?
+  merchant    String?  // Merchant/Aliado name for 30-day tracking
   startDate   DateTime
   endDate     DateTime
   userId      String
@@ -26,4 +27,5 @@ model Event {
 
   @@index([userId])
   @@index([category])
+  @@index([merchant])
 }

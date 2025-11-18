@@ -3,12 +3,14 @@
 import { deleteEvent } from '@/app/actions/events'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { getCategoryColors } from '@/lib/categories'
 
 type Event = {
   id: string
   name: string
   description: string | null
   category: string | null
+  merchant: string | null
   startDate: Date
   endDate: Date
   userId: string
@@ -37,14 +39,19 @@ export default function EventList({ events }: { events: Event[] }) {
   }
 
   function formatDate(date: Date) {
-    return new Date(date).toLocaleString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    })
+    // Use UTC methods to avoid timezone shifts for date-only values
+    const d = new Date(date)
+    const year = d.getUTCFullYear()
+    const month = d.getUTCMonth()
+    const day = d.getUTCDate()
+    
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    
+    const localDate = new Date(year, month, day)
+    const dayOfWeek = dayNames[localDate.getDay()]
+    
+    return `${dayOfWeek}, ${monthNames[month]} ${day}, ${year}`
   }
 
   if (events.length === 0) {
@@ -67,11 +74,16 @@ export default function EventList({ events }: { events: Event[] }) {
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="font-semibold text-gray-900 text-lg">{event.name}</h3>
                 {event.category && (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getCategoryColors(event.category).bg} ${getCategoryColors(event.category).text}`}>
                     {event.category}
                   </span>
                 )}
               </div>
+              {event.merchant && (
+                <p className="text-gray-700 text-sm font-medium mt-1">
+                  Aliado: {event.merchant}
+                </p>
+              )}
               {event.description && (
                 <p className="text-gray-600 mt-1 text-sm">{event.description}</p>
               )}

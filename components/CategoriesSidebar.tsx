@@ -1,6 +1,6 @@
 'use client'
 
-import { CATEGORIES } from '@/lib/categories'
+import { CATEGORIES, getCategoryColors } from '@/lib/categories'
 import { useState } from 'react'
 
 interface CategoriesSidebarProps {
@@ -69,6 +69,7 @@ export default function CategoriesSidebar({ selectedCategories, onCategoryToggle
           {filteredCategories.length > 0 ? (
             filteredCategories.map((category) => {
               const isSelected = selectedCategories.includes(category)
+              const colors = getCategoryColors(category)
               
               return (
                 <button
@@ -80,16 +81,22 @@ export default function CategoriesSidebar({ selectedCategories, onCategoryToggle
                       : 'text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                    isSelected
-                      ? 'bg-blue-600 border-blue-600'
-                      : 'border-gray-300'
-                  }`}>
-                    {isSelected && (
-                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    )}
+                  <div className="flex items-center gap-2">
+                    {/* Color Indicator */}
+                    <div className={`w-3 h-3 rounded-full ${colors.indicator}`}></div>
+                    
+                    {/* Checkbox */}
+                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                      isSelected
+                        ? 'bg-blue-600 border-blue-600'
+                        : 'border-gray-300'
+                    }`}>
+                      {isSelected && (
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </div>
                   </div>
                   <span className="truncate">{category}</span>
                 </button>
