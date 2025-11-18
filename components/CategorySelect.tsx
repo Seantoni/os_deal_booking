@@ -11,14 +11,14 @@ interface CategorySelectProps {
 export default function CategorySelect({ value, onChange }: CategorySelectProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [search, setSearch] = useState('')
-  const [filteredCategories, setFilteredCategories] = useState(CATEGORIES)
+  const [filteredCategories, setFilteredCategories] = useState<string[]>([...CATEGORIES])
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const filtered = CATEGORIES.filter(cat =>
       cat.toLowerCase().includes(search.toLowerCase())
     )
-    setFilteredCategories(filtered)
+    setFilteredCategories([...filtered])
   }, [search])
 
   useEffect(() => {
