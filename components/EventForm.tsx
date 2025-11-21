@@ -4,12 +4,13 @@ import { createEvent } from '@/app/actions/events'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import CategorySelect from './CategorySelect'
+import { CategoryOption } from '@/lib/categories'
 
 export default function EventForm() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [category, setCategory] = useState('')
+  const [categoryOption, setCategoryOption] = useState<CategoryOption | null>(null)
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -17,15 +18,18 @@ export default function EventForm() {
     setError('')
 
     const formData = new FormData(event.currentTarget)
-    if (category) {
-      formData.set('category', category)
+    if (categoryOption) {
+      formData.set('category', categoryOption.label)
+      formData.set('parentCategory', categoryOption.parent)
+      if (categoryOption.sub1) formData.set('subCategory1', categoryOption.sub1)
+      if (categoryOption.sub2) formData.set('subCategory2', categoryOption.sub2)
     }
 
     try {
       await createEvent(formData)
       // Reset form
       event.currentTarget.reset()
-      setCategory('')
+      setCategoryOption(null)
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create event')
@@ -52,7 +56,7 @@ export default function EventForm() {
           name="name"
           required
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Team Meeting"
+          placeholder="Event Name"
         />
       </div>
 
@@ -60,7 +64,7 @@ export default function EventForm() {
         <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
           Category
         </label>
-        <CategorySelect value={category} onChange={setCategory} />
+        <CategorySelect selectedOption={categoryOption} onChange={setCategoryOption} />
       </div>
 
       <div>
@@ -112,4 +116,3 @@ export default function EventForm() {
     </form>
   )
 }
-

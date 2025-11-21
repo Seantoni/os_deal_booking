@@ -14,18 +14,73 @@ datasource db {
 }
 
 model Event {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  category    String?
-  merchant    String?  // Merchant/Aliado name for 30-day tracking
-  startDate   DateTime
-  endDate     DateTime
-  userId      String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  category       String?
+  parentCategory String?
+  subCategory1   String?
+  subCategory2   String?
+  subCategory3   String?
+  merchant       String?  // Merchant/Aliado name for 30-day tracking
+  startDate      DateTime
+  endDate        DateTime
+  status         String   @default("approved") // pending, approved, rejected
+  userId         String
+  bookingRequestId String?  // Link to booking request if created from one
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([userId])
+  @@index([status])
   @@index([category])
+  @@index([parentCategory])
+  @@index([subCategory1])
+  @@index([subCategory2])
+  @@index([subCategory3])
   @@index([merchant])
+  @@index([bookingRequestId])
+}
+
+model BookingRequest {
+  id              String    @id @default(cuid())
+  name            String
+  description     String?
+  category        String?
+  parentCategory  String?
+  subCategory1    String?
+  subCategory2    String?
+  subCategory3    String?
+  merchant        String?
+  businessEmail   String    // Email del Comercio
+  startDate       DateTime
+  endDate         DateTime
+  status          String    @default("draft") // draft, pending, approved, booked, rejected
+  eventId         String?   // Link to created event if sent
+  userId          String    // User who created the request
+  processedAt     DateTime? // When approved/rejected/booked
+  processedBy     String?   // Email of who approved/rejected/booked
+  rejectionReason String?   // Reason for rejection
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([eventId])
+  @@index([businessEmail])
+  @@index([parentCategory])
+}
+
+model UserProfile {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique // Clerk user ID
+  email     String?
+  name      String?
+  role      String   @default("sales") // "admin" or "sales"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clerkId])
+  @@index([role])
+  @@index([email])
 }

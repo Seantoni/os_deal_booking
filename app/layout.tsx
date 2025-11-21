@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Calendar Clone",
-  description: "A Google Calendar clone built with Next.js",
+  title: "OS Deals Booking",
+  description: "OfertaSimple booking and reservation management system",
 };
 
 export default function RootLayout({
@@ -25,13 +25,13 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en">
-        <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        >
-          {children}
-        </body>
-      </html>
+    <html lang="en">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        {children}
+      </body>
+    </html>
     </ClerkProvider>
   );
 }

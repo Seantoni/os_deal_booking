@@ -7,9 +7,14 @@ type Event = {
   name: string
   description: string | null
   category: string | null
+  parentCategory: string | null
+  subCategory1: string | null
+  subCategory2: string | null
+  subCategory3: string | null
   merchant: string | null
   startDate: Date
   endDate: Date
+  status: string
   userId: string
   createdAt: Date
   updatedAt: Date
@@ -70,7 +75,9 @@ export default function DayEventsModal({ isOpen, onClose, date, events, onEventC
             {events.length > 0 ? (
               <div className="space-y-3">
                 {events.map((event) => {
-                  const colors = getCategoryColors(event.category)
+                  // Use parent category for color
+                  const colors = getCategoryColors(event.parentCategory)
+                  
                   return (
                     <div
                       key={event.id}
@@ -116,4 +123,3 @@ export default function DayEventsModal({ isOpen, onClose, date, events, onEventC
     </div>
   )
 }
-

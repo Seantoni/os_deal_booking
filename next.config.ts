@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Empty config to start with defaults and Turbopack support
 };
 
 export default nextConfig;

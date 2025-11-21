@@ -4,18 +4,26 @@ import { createEvent, updateEvent, deleteEvent } from '@/app/actions/events'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import CategorySelect from './CategorySelect'
-import { getMaxDuration, getDaysDifference } from '@/lib/categories'
-import { checkUniquenesViolation, check30DayMerchantRule, getDailyLimitStatus, MIN_DAILY_LAUNCHES, MAX_DAILY_LAUNCHES, getEventsOnDate } from '@/lib/validation'
+import { getMaxDuration, getDaysDifference, getCategoryOptions, CategoryOption } from '@/lib/categories'
+import { checkUniquenesViolation, check30DayMerchantRule, getDailyLimitStatus, getEventsOnDate } from '@/lib/validation'
 import type { ParsedBookingData } from '@/app/actions/pdf-parse'
+import { getSettings, getBusinessException } from '@/lib/settings'
+import WarningIcon from '@mui/icons-material/Warning'
+import BlockIcon from '@mui/icons-material/Block'
+import EventIcon from '@mui/icons-material/Event'
 
 type Event = {
   id: string
   name: string
   description: string | null
   category: string | null
+  parentCategory: string | null
+  subCategory1: string | null
+  subCategory2: string | null
   merchant: string | null
   startDate: Date
   endDate: Date
+  status: string
 }
 
 interface EventModalProps {
@@ -26,15 +34,16 @@ interface EventModalProps {
   eventToEdit?: Event | null
   allEvents?: Event[]
   pdfExtractedData?: ParsedBookingData | null
+  userRole?: string
 }
 
-export default function EventModal({ isOpen, onClose, selectedDate, selectedEndDate, eventToEdit, allEvents = [], pdfExtractedData }: EventModalProps) {
+export default function EventModal({ isOpen, onClose, selectedDate, selectedEndDate, eventToEdit, allEvents = [], pdfExtractedData, userRole = 'sales' }: EventModalProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [category, setCategory] = useState('')
+  const [categoryOption, setCategoryOption] = useState<CategoryOption | null>(null)
   const [merchant, setMerchant] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -43,14 +52,27 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
   const [merchantWarning, setMerchantWarning] = useState('')
   const [dailyLimitWarnings, setDailyLimitWarnings] = useState<string[]>([])
   const [dateAdjustmentInfo, setDateAdjustmentInfo] = useState('')
+  const [userSettings, setUserSettings] = useState(getSettings())
+  const [showRejectionField, setShowRejectionField] = useState(false)
+  const [rejectionReason, setRejectionReason] = useState('')
 
-  // Format date for date input (full day only) - use UTC to avoid timezone shifts
+  // Reload settings when modal opens (in case they changed)
+  useEffect(() => {
+    if (isOpen) {
+      setUserSettings(getSettings())
+    }
+  }, [isOpen])
+
+  // Format date for date input (full day only) - use Panama timezone for consistency
   const formatDate = (date: Date) => {
     const d = new Date(date)
-    const year = d.getUTCFullYear()
-    const month = String(d.getUTCMonth() + 1).padStart(2, '0')
-    const day = String(d.getUTCDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
+    // Use Panama timezone to get the correct date
+    return d.toLocaleDateString('en-CA', {
+      timeZone: 'America/Panama', // Panama EST (UTC-5)
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }) // Returns YYYY-MM-DD format
   }
 
   // Pre-fill form when editing or creating with date or PDF data
@@ -60,10 +82,29 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
         // Editing mode - pre-fill with event data
         setName(eventToEdit.name)
         setDescription(eventToEdit.description || '')
-        setCategory(eventToEdit.category || '')
         setMerchant(eventToEdit.merchant || '')
         setStartDate(formatDate(new Date(eventToEdit.startDate)))
         setEndDate(formatDate(new Date(eventToEdit.endDate)))
+
+        // Find matching category option
+        const options = getCategoryOptions();
+        let match: CategoryOption | undefined;
+        
+        if (eventToEdit.parentCategory) {
+            match = options.find(opt => 
+                opt.parent === eventToEdit.parentCategory && 
+                opt.sub1 === eventToEdit.subCategory1 && 
+                opt.sub2 === eventToEdit.subCategory2
+            );
+        }
+        
+        // Fallback for legacy or if exact match fail
+        if (!match && eventToEdit.category) {
+            match = options.find(opt => opt.label === eventToEdit.category || opt.value === eventToEdit.category);
+        }
+        
+        setCategoryOption(match || null)
+
       } else if (pdfExtractedData) {
         // PDF extraction mode - pre-fill with extracted data
         // Use businessName as the event name
@@ -78,7 +119,95 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
             .filter(Boolean)
             .join('\n\n')
         )
-        setCategory(pdfExtractedData.category || '')
+        
+        // Try to map PDF category string to an option
+        if (pdfExtractedData.category) {
+             const options = getCategoryOptions();
+             const categoryStr = pdfExtractedData.category.trim();
+             
+             console.log('[EventModal] PDF Category received:', categoryStr);
+             console.log('[EventModal] Available options count:', options.length);
+             
+             // Try exact match first
+             let match = options.find(opt => opt.label === categoryStr || opt.value === categoryStr);
+             
+             // If no exact match, try case-insensitive exact match
+             if (!match) {
+               match = options.find(opt => 
+                 opt.label.toLowerCase() === categoryStr.toLowerCase()
+               );
+             }
+             
+             // If still no match, try partial match (category contains option or vice versa)
+             if (!match) {
+               match = options.find(opt => 
+                 opt.label.toLowerCase().includes(categoryStr.toLowerCase()) ||
+                 categoryStr.toLowerCase().includes(opt.label.toLowerCase())
+               );
+             }
+             
+             // If still no match, try matching parts of the hierarchy
+             if (!match && categoryStr.includes('>')) {
+               const parts = categoryStr.split('>').map(p => p.trim());
+               console.log('[EventModal] Category parts:', parts);
+               
+               if (parts.length >= 3) {
+                 // Try matching as "MAIN > SUB > LEAF"
+                 match = options.find(opt => 
+                   opt.parent.toLowerCase() === parts[0].toLowerCase() && 
+                   opt.sub1?.toLowerCase() === parts[1].toLowerCase() && 
+                   opt.sub2?.toLowerCase() === parts[2].toLowerCase()
+                 );
+               }
+               if (!match && parts.length >= 2) {
+                 // Try matching as "MAIN > SUB"
+                 match = options.find(opt => 
+                   opt.parent.toLowerCase() === parts[0].toLowerCase() && 
+                   opt.sub1?.toLowerCase() === parts[1].toLowerCase() && 
+                   !opt.sub2
+                 );
+               }
+               if (!match && parts.length >= 1) {
+                 // Try matching as "MAIN" only
+                 match = options.find(opt => 
+                   opt.parent.toLowerCase() === parts[0].toLowerCase() && 
+                   !opt.sub1
+                 );
+                 // Or any option with this main category
+                 if (!match) {
+                   match = options.find(opt => 
+                     opt.parent.toLowerCase() === parts[0].toLowerCase()
+                   );
+                 }
+               }
+             }
+             
+             // Last resort: try matching any part of the category string
+             if (!match) {
+               // Split by spaces and common delimiters
+               const searchTerms = categoryStr.split(/[\s>]+/).filter(t => t.length > 2);
+               for (const term of searchTerms) {
+                 match = options.find(opt => 
+                   opt.label.toLowerCase().includes(term.toLowerCase()) ||
+                   opt.parent.toLowerCase().includes(term.toLowerCase()) ||
+                   opt.sub1?.toLowerCase().includes(term.toLowerCase()) ||
+                   opt.sub2?.toLowerCase().includes(term.toLowerCase())
+                 );
+                 if (match) break;
+               }
+             }
+             
+             if (match) {
+               console.log('[EventModal] Category matched:', match.label);
+               setCategoryOption(match);
+             } else {
+               console.warn('[EventModal] Could not match category:', categoryStr);
+               console.log('[EventModal] First 5 available options:', options.slice(0, 5).map(opt => opt.label));
+             }
+        } else {
+          console.log('[EventModal] No category in PDF data');
+        }
+        
         setMerchant(pdfExtractedData.merchant || pdfExtractedData.businessName || '')
         
         // Auto-calculate dates based on PDF data with smart validation
@@ -104,8 +233,26 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
             const maxAttempts = 90 // Check up to 90 days ahead
             
             while (foundConflict && attempts < maxAttempts) {
-              // Get max duration for the category
-              const maxDuration = getMaxDuration(pdfExtractedData.category)
+              // Get max duration for the category (with business exceptions)
+              let categoryParent = pdfExtractedData.category;
+              // Try to resolve parent if we can finding a match
+              if (pdfExtractedData.category) {
+                 const options = getCategoryOptions();
+                 const match = options.find(opt => opt.label.includes(pdfExtractedData.category!) || opt.value.includes(pdfExtractedData.category!));
+                 if (match) categoryParent = match.parent;
+              }
+              
+              let maxDuration = getMaxDuration(categoryParent)
+              if (pdfExtractedData.merchant) {
+                const exceptionDuration = getBusinessException(
+                  pdfExtractedData.merchant, 
+                  'duration', 
+                  userSettings.businessExceptions
+                )
+                if (exceptionDuration !== null) {
+                  maxDuration = exceptionDuration
+                }
+              }
               
               // Calculate total days (respecting category max)
               let totalDays = maxDuration // Default to max
@@ -143,13 +290,15 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
           // Set adjustment info message if date was changed
           if (adjustmentReasons.length > 0) {
             const originalDateStr = originalStartDate.toLocaleDateString('es-PA', { 
+              timeZone: 'America/Panama',
               year: 'numeric', month: 'short', day: 'numeric' 
             })
             const newDateStr = startDateObj.toLocaleDateString('es-PA', { 
+              timeZone: 'America/Panama',
               year: 'numeric', month: 'short', day: 'numeric' 
             })
             setDateAdjustmentInfo(
-              `📅 Fecha ajustada de ${originalDateStr} a ${newDateStr} (${adjustmentReasons.join(', ')})`
+              `Fecha ajustada de ${originalDateStr} a ${newDateStr} (${adjustmentReasons.join(', ')})`
             )
           } else {
             setDateAdjustmentInfo('')
@@ -158,12 +307,33 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
           // Set the validated start date
           setStartDate(formatDate(startDateObj))
           
-          // Calculate end date based on totalDays or category max duration
-          const maxDuration = pdfExtractedData.category ? getMaxDuration(pdfExtractedData.category) : 5
+          // Calculate end date based on totalDays or category max duration (with business exceptions)
+          let parentCatForDuration = pdfExtractedData.category;
+          if (pdfExtractedData.category) {
+             const options = getCategoryOptions();
+             const match = options.find(opt => opt.label.includes(pdfExtractedData.category!) || opt.value.includes(pdfExtractedData.category!));
+             if (match) parentCatForDuration = match.parent;
+          }
+
+          let maxDuration = parentCatForDuration 
+            ? getMaxDuration(parentCatForDuration) 
+            : 5
+          
+          if (pdfExtractedData.merchant) {
+            const exceptionDuration = getBusinessException(
+              pdfExtractedData.merchant, 
+              'duration', 
+              userSettings.businessExceptions
+            )
+            if (exceptionDuration !== null) {
+              maxDuration = exceptionDuration
+            }
+          }
+          
           let totalDays = maxDuration
           
           if (pdfExtractedData.totalDays) {
-            // Cap to category maximum
+            // Cap to category maximum (or exception)
             totalDays = Math.min(pdfExtractedData.totalDays, maxDuration)
             
             // Add info if days were capped
@@ -197,7 +367,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       // Reset when modal closes
       setName('')
       setDescription('')
-      setCategory('')
+      setCategoryOption(null)
       setMerchant('')
       setStartDate('')
       setEndDate('')
@@ -218,39 +388,58 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
     const start = new Date(startDate + 'T12:00:00')
     const end = new Date(endDate + 'T12:00:00')
     
-    // Duration validation
-    if (category) {
+    const categoryLabel = categoryOption ? categoryOption.label : ''
+    const parentCategory = categoryOption ? categoryOption.parent : ''
+    
+    // Duration validation (check business exceptions first)
+    if (parentCategory) {
       const duration = getDaysDifference(start, end)
-      const maxDuration = getMaxDuration(category)
+      
+      // Check for business exception on duration
+      let maxDuration = getMaxDuration(parentCategory)
+      if (merchant) {
+        const exceptionDuration = getBusinessException(merchant, 'duration', userSettings.businessExceptions)
+        if (exceptionDuration !== null) {
+          maxDuration = exceptionDuration
+        }
+      }
       
       if (duration > maxDuration) {
-        setDurationWarning(`⚠️ Esta categoría tiene un máximo de ${maxDuration} días. Duración actual: ${duration} días.`)
+        setDurationWarning(`Esta categoría principal (${parentCategory}) tiene un máximo de ${maxDuration} días. Duración actual: ${duration} días.`)
       } else {
         setDurationWarning('')
       }
     }
     
     // Uniqueness validation
-    if (category) {
+    if (categoryLabel) {
       const uniqueCheck = checkUniquenesViolation(
         allEvents,
-        { category, startDate: start, endDate: end },
+        { category: categoryLabel, startDate: start, endDate: end },
         eventToEdit?.id
       )
       
       if (uniqueCheck.violated && uniqueCheck.conflictingEvent) {
-        setUniquenessWarning(`⚠️ Ya existe otra oferta de "${category}" activa en estas fechas: "${uniqueCheck.conflictingEvent.name}"`)
+        setUniquenessWarning(`Ya existe otra oferta de "${categoryLabel}" activa en estas fechas: "${uniqueCheck.conflictingEvent.name}"`)
       } else {
         setUniquenessWarning('')
       }
     }
     
-    // 30-day merchant rule
+    // 30-day merchant rule (with business exceptions)
     if (merchant) {
-      const merchantCheck = check30DayMerchantRule(allEvents, merchant, start, eventToEdit?.id)
+      const merchantCheck = check30DayMerchantRule(
+        allEvents, 
+        merchant, 
+        start, 
+        eventToEdit?.id,
+        userSettings.merchantRepeatDays,
+        userSettings.businessExceptions
+      )
       
       if (merchantCheck.violated && merchantCheck.lastEvent) {
-        setMerchantWarning(`⚠️ El aliado "${merchant}" tuvo una oferta hace menos de 30 días. Debe esperar ${merchantCheck.daysUntilAllowed} días más.`)
+        const requiredDays = merchantCheck.daysUntilAllowed! + Math.floor((start.getTime() - new Date(merchantCheck.lastEvent.endDate).getTime()) / (1000 * 60 * 60 * 24))
+        setMerchantWarning(`El aliado "${merchant}" tuvo una oferta hace menos de ${requiredDays} días. Debe esperar ${merchantCheck.daysUntilAllowed} días más.`)
       } else {
         setMerchantWarning('')
       }
@@ -258,49 +447,75 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       setMerchantWarning('')
     }
     
-    // Daily limit check for all days in range
+    // Daily limit check for all days in range (check for daily limit exemption)
     const warnings: string[] = []
-    const current = new Date(start)
-    while (current <= end) {
-      const eventsOnDay = getEventsOnDate(allEvents, current).filter(e => 
+    
+    // Check if this merchant is exempt from daily limits
+    const isDailyLimitExempt = merchant 
+      ? getBusinessException(merchant, 'dailyLimitExempt', userSettings.businessExceptions) === 1
+      : false
+    
+    if (!isDailyLimitExempt) {
+      // Only check the launch date (start date) for daily limits
+      // Daily count is based on launch date, not on all days in the event range
+      // Only count events with 'booked' status (finalized bookings)
+      const bookedEvents = allEvents.filter(event => event.status === 'booked')
+      const launchDate = new Date(start)
+      const eventsOnLaunchDay = getEventsOnDate(bookedEvents, launchDate).filter(e => 
         e.id !== eventToEdit?.id // Exclude current event if editing
       )
-      const count = eventsOnDay.length + 1 // +1 for the event we're creating/editing
-      const status = getDailyLimitStatus(count)
+      const count = eventsOnLaunchDay.length + 1 // +1 for the event we're creating/editing
+      const status = getDailyLimitStatus(count, userSettings.minDailyLaunches, userSettings.maxDailyLaunches)
       
       if (status === 'over') {
-        const dateStr = current.toLocaleDateString('es-PA', { month: 'short', day: 'numeric' })
-        warnings.push(`${dateStr}: ${count} ofertas (máx ${MAX_DAILY_LAUNCHES})`)
+        const dateStr = launchDate.toLocaleDateString('es-PA', { timeZone: 'America/Panama', month: 'short', day: 'numeric' })
+        warnings.push(`${dateStr}: ${count} ofertas (máx ${userSettings.maxDailyLaunches})`)
       }
-      
-      current.setDate(current.getDate() + 1)
     }
     setDailyLimitWarnings(warnings)
     
-  }, [startDate, endDate, category, merchant, allEvents, eventToEdit])
+  }, [startDate, endDate, categoryOption, merchant, allEvents, eventToEdit, userSettings])
+
+  // Check if all required fields are filled
+  const hasEmptyRequiredFields = () => {
+    return !name || !categoryOption || !merchant || !startDate || !endDate
+  }
+
+  // Check if there are any blocking validation errors
+  const hasBlockingErrors = () => {
+    return !!(
+      hasEmptyRequiredFields() ||
+      durationWarning ||
+      uniquenessWarning ||
+      merchantWarning ||
+      dailyLimitWarnings.length > 0
+    )
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    
+    // Check for empty required fields first
+    if (hasEmptyRequiredFields()) {
+      setError('Por favor completa todos los campos requeridos (*)')
+      return
+    }
+    
+    // Block submission if there are validation errors
+    if (hasBlockingErrors()) {
+      setError('No se puede guardar. Por favor corrige las advertencias de validación antes de continuar.')
+      return
+    }
+    
     setLoading(true)
     setError('')
 
     const formData = new FormData(event.currentTarget)
-    if (category) {
-      formData.set('category', category)
-    }
-
-    // Validate duration
-    if (startDate && endDate && category) {
-      const start = new Date(startDate)
-      const end = new Date(endDate)
-      const duration = getDaysDifference(start, end)
-      const maxDuration = getMaxDuration(category)
-      
-      if (duration > maxDuration) {
-        setError(`La duración excede el máximo permitido de ${maxDuration} días para esta categoría.`)
-        setLoading(false)
-        return
-      }
+    if (categoryOption) {
+      formData.set('category', categoryOption.label) // Store full path as category for display
+      formData.set('parentCategory', categoryOption.parent)
+      if (categoryOption.sub1) formData.set('subCategory1', categoryOption.sub1)
+      if (categoryOption.sub2) formData.set('subCategory2', categoryOption.sub2)
     }
 
     try {
@@ -315,7 +530,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       // Reset all form state manually
       setName('')
       setDescription('')
-      setCategory('')
+      setCategoryOption(null)
       setMerchant('')
       setStartDate('')
       setEndDate('')
@@ -343,6 +558,49 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete event')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleBook() {
+    if (!eventToEdit) return
+    
+    if (!confirm('Are you sure you want to book this event? It will be finalized.')) {
+      return
+    }
+
+    setLoading(true)
+    try {
+      // Import the book function
+      const { bookEvent } = await import('@/app/actions/events')
+      await bookEvent(eventToEdit.id)
+      router.refresh()
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to book event')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleReject() {
+    if (!eventToEdit) return
+    
+    if (!rejectionReason.trim()) {
+      setError('Please provide a reason for rejection')
+      return
+    }
+
+    setLoading(true)
+    try {
+      // Import the reject function
+      const { rejectEvent } = await import('@/app/actions/events')
+      await rejectEvent(eventToEdit.id, rejectionReason)
+      router.refresh()
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reject event')
     } finally {
       setLoading(false)
     }
@@ -388,8 +646,9 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
             )}
             
             {dateAdjustmentInfo && (
-              <div className="bg-cyan-50 border border-cyan-200 text-cyan-800 px-4 py-3 rounded text-sm">
-                {dateAdjustmentInfo}
+              <div className="bg-cyan-50 border border-cyan-200 text-cyan-800 px-4 py-3 rounded text-sm flex items-start gap-2">
+                <EventIcon fontSize="small" className="mt-0.5 flex-shrink-0" />
+                <span>{dateAdjustmentInfo}</span>
               </div>
             )}
             
@@ -400,31 +659,50 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
             )}
             
             {durationWarning && (
-              <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded text-sm">
-                {durationWarning}
+              <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded text-sm flex items-start gap-2">
+                <WarningIcon fontSize="small" className="mt-0.5 flex-shrink-0" />
+                <span>{durationWarning}</span>
               </div>
             )}
             
             {uniquenessWarning && (
-              <div className="bg-orange-50 border border-orange-200 text-orange-800 px-4 py-3 rounded text-sm">
-                {uniquenessWarning}
+              <div className="bg-orange-50 border border-orange-200 text-orange-800 px-4 py-3 rounded text-sm flex items-start gap-2">
+                <WarningIcon fontSize="small" className="mt-0.5 flex-shrink-0" />
+                <span>{uniquenessWarning}</span>
               </div>
             )}
             
             {merchantWarning && (
-              <div className="bg-purple-50 border border-purple-200 text-purple-800 px-4 py-3 rounded text-sm">
-                {merchantWarning}
+              <div className="bg-purple-50 border border-purple-200 text-purple-800 px-4 py-3 rounded text-sm flex items-start gap-2">
+                <WarningIcon fontSize="small" className="mt-0.5 flex-shrink-0" />
+                <span>{merchantWarning}</span>
               </div>
             )}
             
             {dailyLimitWarnings.length > 0 && (
               <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded text-sm">
-                <strong>⚠️ Días que exceden el máximo de {MAX_DAILY_LAUNCHES} ofertas:</strong>
-                <ul className="mt-1 ml-4 list-disc">
-                  {dailyLimitWarnings.map((warning, idx) => (
-                    <li key={idx}>{warning}</li>
-                  ))}
-                </ul>
+                <div className="flex items-start gap-2">
+                  <WarningIcon fontSize="small" className="mt-0.5 flex-shrink-0" />
+                  <div>
+                    <strong>Días que exceden el máximo de {userSettings.maxDailyLaunches} ofertas:</strong>
+                    <ul className="mt-1 ml-4 list-disc">
+                      {dailyLimitWarnings.map((warning, idx) => (
+                        <li key={idx}>{warning}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {hasBlockingErrors() && (
+              <div className="bg-red-100 border border-red-300 text-red-900 px-4 py-3 rounded text-sm font-medium flex items-start gap-2">
+                <BlockIcon fontSize="small" className="mt-0.5 flex-shrink-0" />
+                <span>
+                  {hasEmptyRequiredFields() 
+                    ? 'Por favor completa todos los campos requeridos (*)' 
+                    : 'No se puede guardar hasta que se corrijan todas las advertencias anteriores'}
+                </span>
               </div>
             )}
 
@@ -440,20 +718,23 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Team Meeting"
+                placeholder="Event Name"
               />
             </div>
 
             <div>
               <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
-                Category
+                Category *
               </label>
-              <CategorySelect value={category} onChange={setCategory} />
+              <CategorySelect selectedOption={categoryOption} onChange={setCategoryOption} />
+              {!categoryOption && (
+                <p className="text-xs text-red-600 mt-1">Categoría es requerida</p>
+              )}
             </div>
 
             <div>
               <label htmlFor="merchant" className="block text-sm font-medium text-gray-700 mb-1">
-                Merchant / Aliado
+                Merchant / Aliado *
               </label>
               <input
                 type="text"
@@ -461,6 +742,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                 name="merchant"
                 value={merchant}
                 onChange={(e) => setMerchant(e.target.value)}
+                required
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Nombre del comercio o aliado"
               />
@@ -468,7 +750,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
 
             <div>
               <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                Description
+                Description *
               </label>
               <textarea
                 id="description"
@@ -476,8 +758,9 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                 rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                required
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Optional event description..."
+                placeholder="Descripción del evento..."
               />
             </div>
 
@@ -513,10 +796,27 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
               </div>
             </div>
 
+            {/* Rejection Reason Field - Only for approved events when rejecting */}
+            {eventToEdit && eventToEdit.status === 'approved' && showRejectionField && userRole === 'admin' && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                <label htmlFor="rejectionReason" className="block text-sm font-medium text-red-900 mb-2">
+                  Rejection Reason *
+                </label>
+                <textarea
+                  id="rejectionReason"
+                  rows={3}
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  className="w-full px-3 py-2 border border-red-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                  placeholder="Explain why this booking is being rejected..."
+                />
+              </div>
+            )}
+
             {/* Footer Buttons */}
             <div className="flex items-center justify-between pt-4 border-t border-gray-200">
               <div>
-                {eventToEdit && (
+                {eventToEdit && userRole === 'admin' && eventToEdit.status !== 'approved' && (
                   <button
                     type="button"
                     onClick={handleDelete}
@@ -535,13 +835,63 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                 >
                   Cancel
                 </button>
+                
+                {/* For approved events: Show Book and Reject buttons (admin only) */}
+                {eventToEdit && eventToEdit.status === 'approved' && userRole === 'admin' ? (
+                  <>
+                    {!showRejectionField ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setShowRejectionField(true)}
+                          disabled={loading}
+                          className="px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50"
+                        >
+                          Reject
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleBook}
+                          disabled={loading || hasBlockingErrors()}
+                          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                            loading || hasBlockingErrors()
+                              ? 'bg-gray-400 text-white cursor-not-allowed opacity-50'
+                              : 'bg-green-600 text-white hover:bg-green-700'
+                          }`}
+                        >
+                          {loading ? 'Booking...' : 'Book Event'}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleReject}
+                        disabled={loading || !rejectionReason.trim()}
+                        className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                          loading || !rejectionReason.trim()
+                            ? 'bg-gray-400 text-white cursor-not-allowed opacity-50'
+                            : 'bg-red-600 text-white hover:bg-red-700'
+                        }`}
+                      >
+                        {loading ? 'Rejecting...' : 'Confirm Rejection'}
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  /* For booked events or new events: Show regular Save button */
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  disabled={loading || hasBlockingErrors()}
+                  className={`px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors ${
+                    loading || hasBlockingErrors()
+                      ? 'bg-gray-400 text-white cursor-not-allowed opacity-50'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                  title={hasBlockingErrors() ? 'Corrige las advertencias de validación para continuar' : ''}
                 >
-                  {loading ? (eventToEdit ? 'Updating...' : 'Creating...') : (eventToEdit ? 'Update Event' : 'Create Event')}
+                    {loading ? (eventToEdit ? 'Updating...' : 'Creating...') : (eventToEdit ? 'Save Changes' : 'Create Event')}
                 </button>
+                )}
               </div>
             </div>
           </form>
@@ -550,4 +900,3 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
     </div>
   )
 }
-

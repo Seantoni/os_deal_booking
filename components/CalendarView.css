@@ -1,0 +1,148 @@
+/* Calendar View Custom Styles */
+.calendar-container {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e0 #f1f5f9;
+}
+
+.calendar-container::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.calendar-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+
+.calendar-container::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 10px;
+  transition: background 0.3s;
+}
+
+.calendar-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Calendar Day Cell */
+.calendar-day {
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.calendar-day:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.calendar-day.today {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border-color: #3b82f6;
+}
+
+.calendar-day.in-range {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+}
+
+/* Event Card Animations */
+.event-card {
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.event-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 20;
+}
+
+.event-card.pending {
+  animation: pulse-border 2s infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(234, 179, 8, 0);
+  }
+}
+
+/* Daily Count Badge */
+.daily-count-badge {
+  transition: all 0.2s ease;
+}
+
+.daily-count-badge:hover {
+  transform: scale(1.1);
+}
+
+/* Toggle Button Group */
+.toggle-group {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.toggle-button {
+  transition: all 0.2s ease;
+}
+
+.toggle-button.active {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Navigation Buttons */
+.nav-button {
+  transition: all 0.2s ease;
+}
+
+.nav-button:hover {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  transform: scale(1.05);
+}
+
+.nav-button:active {
+  transform: scale(0.95);
+}
+
+/* Day Header */
+.day-header {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+/* Empty Day */
+.empty-day {
+  background: repeating-linear-gradient(
+    45deg,
+    #f9fafb,
+    #f9fafb 10px,
+    #f3f4f6 10px,
+    #f3f4f6 20px
+  );
+}
+
+/* Event Spanning Bar */
+.event-spanning {
+  transition: all 0.2s ease;
+}
+
+.event-spanning:hover {
+  z-index: 15 !important;
+}
+
+/* Resize Handle */
+.resize-handle {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.event-spanning:hover .resize-handle {
+  opacity: 1;
+}
+
+/* Smooth animations */
+* {
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+

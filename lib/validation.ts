@@ -1,4 +1,6 @@
 import { getDaysDifference } from './categories'
+import { getBusinessException, type BusinessException } from './settings'
+import { getDateComponentsInPanama } from './timezone'
 
 type Event = {
   id?: string
@@ -9,41 +11,48 @@ type Event = {
   endDate: Date
 }
 
-// Daily limits
+// Daily limits (can be overridden by settings)
 export const MIN_DAILY_LAUNCHES = 5
 export const MAX_DAILY_LAUNCHES = 13
 
-// Get count of events on a specific date
+// Get count of events that START (launch/run) on a specific date
+// This counts events based on their launch date (startDate), not if they span that day
 export function getEventsOnDate(events: Event[], date: Date): Event[] {
-  const targetYear = date.getFullYear()
-  const targetMonth = date.getMonth()
-  const targetDay = date.getDate()
+  // Use Panama timezone for consistent date comparison
+  // Extract target date components in Panama timezone
+  // getDateComponentsInPanama returns month as 1-12 (1-indexed)
+  const targetPanama = getDateComponentsInPanama(date)
+  const targetYear = targetPanama.year
+  const targetMonth = targetPanama.month // 1-indexed (1-12)
+  const targetDay = targetPanama.day
   
   return events.filter(event => {
     const startDate = new Date(event.startDate)
-    const endDate = new Date(event.endDate)
     
-    const startYear = startDate.getUTCFullYear()
-    const startMonth = startDate.getUTCMonth()
-    const startDay = startDate.getUTCDate()
+    // Extract event start date components in Panama timezone
+    const eventPanama = getDateComponentsInPanama(startDate)
+    const eventYear = eventPanama.year
+    const eventMonth = eventPanama.month // 1-indexed (1-12)
+    const eventDay = eventPanama.day
     
-    const endYear = endDate.getUTCFullYear()
-    const endMonth = endDate.getUTCMonth()
-    const endDay = endDate.getUTCDate()
-    
-    // Check if this date falls within the event's date range
-    const eventStart = new Date(startYear, startMonth, startDay)
-    const eventEnd = new Date(endYear, endMonth, endDay)
-    const checkDate = new Date(targetYear, targetMonth, targetDay)
-    
-    return checkDate >= eventStart && checkDate <= eventEnd
+    // Only count events that START on this exact date
+    return eventYear === targetYear && 
+           eventMonth === targetMonth && 
+           eventDay === targetDay
   })
 }
 
 // Check if daily limit is violated
-export function getDailyLimitStatus(count: number): 'under' | 'ok' | 'over' {
-  if (count < MIN_DAILY_LAUNCHES) return 'under'
-  if (count > MAX_DAILY_LAUNCHES) return 'over'
+export function getDailyLimitStatus(
+  count: number, 
+  minDaily?: number, 
+  maxDaily?: number
+): 'under' | 'ok' | 'over' {
+  const min = minDaily ?? MIN_DAILY_LAUNCHES
+  const max = maxDaily ?? MAX_DAILY_LAUNCHES
+  
+  if (count < min) return 'under'
+  if (count > max) return 'over'
   return 'ok'
 }
 
@@ -75,14 +84,23 @@ export function checkUniquenesViolation(
   return { violated: false }
 }
 
-// Check 30-day merchant rule
+// Check 30-day merchant rule (with business exceptions support)
 export function check30DayMerchantRule(
   events: Event[],
   merchant: string | null,
   newStartDate: Date,
-  excludeEventId?: string
+  excludeEventId?: string,
+  merchantRepeatDays?: number,
+  businessExceptions?: BusinessException[]
 ): { violated: boolean; lastEvent?: Event; daysUntilAllowed?: number } {
   if (!merchant) return { violated: false }
+  
+  // Check for business exception
+  const exceptionDays = businessExceptions 
+    ? getBusinessException(merchant, 'repeatDays', businessExceptions)
+    : null
+  
+  const requiredDays = exceptionDays !== null ? exceptionDays : (merchantRepeatDays ?? 30)
   
   const merchantEvents = events.filter(event => {
     if (excludeEventId && event.id === excludeEventId) return false
@@ -99,11 +117,11 @@ export function check30DayMerchantRule(
     // Calculate days between event end and new start
     const daysSince = Math.floor((newStartDate.getTime() - eventEndLocal.getTime()) / (1000 * 60 * 60 * 24))
     
-    if (daysSince < 30) {
+    if (daysSince < requiredDays) {
       return {
         violated: true,
         lastEvent: event,
-        daysUntilAllowed: 30 - daysSince
+        daysUntilAllowed: requiredDays - daysSince
       }
     }
   }
