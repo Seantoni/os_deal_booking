@@ -6,25 +6,8 @@ import { getEventsOnDate, getDailyLimitStatus } from '@/lib/validation'
 import { getSettings } from '@/lib/settings'
 import { formatDateForPanama } from '@/lib/timezone'
 import EventSearchResults from './EventSearchResults'
+import type { Event } from '@/types'
 import './CalendarView.css'
-
-type Event = {
-  id: string
-  name: string
-  description: string | null
-  category: string | null
-  parentCategory: string | null
-  subCategory1: string | null
-  subCategory2: string | null
-  subCategory3: string | null
-  merchant: string | null
-  startDate: Date
-  endDate: Date
-  status: string
-  userId: string
-  createdAt: Date
-  updatedAt: Date
-}
 
 type ViewMode = 'launch' | 'live'
 type CalendarViewMode = 'month' | 'week' | 'day'

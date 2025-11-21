@@ -5,19 +5,7 @@ import { useRouter } from 'next/navigation'
 import HamburgerMenu from './HamburgerMenu'
 import { deleteEvent } from '@/app/actions/events'
 import { getCategoryColors } from '@/lib/categories'
-
-type Event = {
-  id: string
-  name: string
-  description: string | null
-  category: string | null
-  merchant: string | null
-  startDate: Date
-  endDate: Date
-  userId: string
-  createdAt: Date
-  updatedAt: Date
-}
+import type { Event } from '@/types'
 
 interface ReservationsClientProps {
   events: Event[]

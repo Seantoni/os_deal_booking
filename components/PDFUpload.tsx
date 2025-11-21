@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { parsePDFForBooking, ParsedBookingData } from '@/app/actions/pdf-parse'
+import { parsePDFForBooking } from '@/app/actions/pdf-parse'
+import type { ParsedBookingData } from '@/types'
 
 interface PDFUploadProps {
   onDataExtracted: (data: ParsedBookingData) => void

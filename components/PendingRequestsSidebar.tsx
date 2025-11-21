@@ -3,29 +3,7 @@
 import { useState } from 'react'
 import { getCategoryColors } from '@/lib/categories'
 import { formatDateForPanama } from '@/lib/timezone'
-
-type BookingRequest = {
-  id: string
-  name: string
-  description: string | null
-  category: string | null
-  parentCategory: string | null
-  subCategory1: string | null
-  subCategory2: string | null
-  subCategory3: string | null
-  merchant: string | null
-  businessEmail: string
-  startDate: Date
-  endDate: Date
-  status: string
-  eventId: string | null
-  userId: string
-  processedAt: Date | null
-  processedBy: string | null
-  rejectionReason: string | null
-  createdAt: Date
-  updatedAt: Date
-}
+import type { BookingRequest } from '@/types'
 
 interface PendingRequestsSidebarProps {
   requests: BookingRequest[]

@@ -3,7 +3,8 @@
 import { useState, useRef } from 'react'
 import AddIcon from '@mui/icons-material/Add'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
-import { parsePDFForBooking, ParsedBookingData } from '@/app/actions/pdf-parse'
+import { parsePDFForBooking } from '@/app/actions/pdf-parse'
+import type { ParsedBookingData } from '@/types'
 
 interface EventsHeaderActionsProps {
   userRole: 'admin' | 'sales'

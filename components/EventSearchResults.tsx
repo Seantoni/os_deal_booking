@@ -2,24 +2,7 @@
 
 import { getCategoryColors } from '@/lib/categories'
 import { formatDateForPanama } from '@/lib/timezone'
-
-type Event = {
-  id: string
-  name: string
-  description: string | null
-  category: string | null
-  parentCategory: string | null
-  subCategory1: string | null
-  subCategory2: string | null
-  subCategory3: string | null
-  merchant: string | null
-  startDate: Date
-  endDate: Date
-  status: string
-  userId: string
-  createdAt: Date
-  updatedAt: Date
-}
+import type { Event } from '@/types'
 
 interface EventSearchResultsProps {
   events: Event[]
@@ -91,79 +74,79 @@ export default function EventSearchResults({ events, searchQuery, onEventClick, 
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
-                <tr>
+              <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Event Name
-                  </th>
+                  Event Name
+                </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                     Merchant
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Category
-                  </th>
+                  Category
+                </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Run At
-                  </th>
+                  Run At
+                </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    End At
-                  </th>
+                  End At
+                </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
                 {filteredEvents.map((event) => {
-                  const colors = getCategoryColors(event.parentCategory)
-                  const isBooked = event.status === 'booked'
-                  const isApproved = event.status === 'approved'
-                  
-                  return (
-                    <tr
-                      key={event.id}
-                      onClick={() => onEventClick?.(event)}
+                const colors = getCategoryColors(event.parentCategory)
+                const isBooked = event.status === 'booked'
+                const isApproved = event.status === 'approved'
+                
+                return (
+                  <tr
+                    key={event.id}
+                    onClick={() => onEventClick?.(event)}
                       className="hover:bg-gray-50 transition-colors cursor-pointer"
-                    >
+                  >
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2">
                           <div className={`w-3 h-3 rounded-full ${colors.indicator} flex-shrink-0`}></div>
-                          <span className="text-sm font-medium text-gray-900">{event.name}</span>
-                        </div>
-                      </td>
+                        <span className="text-sm font-medium text-gray-900">{event.name}</span>
+                      </div>
+                    </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="text-sm text-gray-700">{event.merchant || '-'}</span>
-                      </td>
+                      <span className="text-sm text-gray-700">{event.merchant || '-'}</span>
+                    </td>
                       <td className="px-4 py-3">
                         <span className="text-sm text-gray-600">{getCategoryDisplay(event)}</span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className="text-sm text-gray-900 font-medium">{formatDate(event.startDate)}</span>
-                      </td>
+                    </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className="text-sm text-gray-900">{formatDate(event.endDate)}</span>
-                      </td>
+                    </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          isBooked
-                            ? 'bg-green-100 text-green-800'
-                            : isApproved
-                            ? 'bg-orange-100 text-orange-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {event.status}
-                        </span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                        isBooked
+                          ? 'bg-green-100 text-green-800'
+                          : isApproved
+                          ? 'bg-orange-100 text-orange-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {event.status}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
           </div>
         ) : (
           <div className="text-center py-12">
             <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+              </svg>
             <h3 className="mt-2 text-sm font-medium text-gray-900">No results found</h3>
             <p className="mt-1 text-sm text-gray-500">
               Try searching with different keywords

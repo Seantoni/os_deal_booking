@@ -4,19 +4,7 @@ import { deleteEvent } from '@/app/actions/events'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { getCategoryColors } from '@/lib/categories'
-
-type Event = {
-  id: string
-  name: string
-  description: string | null
-  category: string | null
-  merchant: string | null
-  startDate: Date
-  endDate: Date
-  userId: string
-  createdAt: Date
-  updatedAt: Date
-}
+import type { Event } from '@/types'
 
 export default function EventList({ events }: { events: Event[] }) {
   const router = useRouter()

@@ -1,24 +1,7 @@
 'use client'
 
 import { getCategoryColors } from '@/lib/categories'
-
-type Event = {
-  id: string
-  name: string
-  description: string | null
-  category: string | null
-  parentCategory: string | null
-  subCategory1: string | null
-  subCategory2: string | null
-  subCategory3: string | null
-  merchant: string | null
-  startDate: Date
-  endDate: Date
-  status: string
-  userId: string
-  createdAt: Date
-  updatedAt: Date
-}
+import type { Event } from '@/types'
 
 interface DayEventsModalProps {
   isOpen: boolean

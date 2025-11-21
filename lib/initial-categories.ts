@@ -1,8 +1,6 @@
-export type CategoryHierarchy = {
-  [mainCategory: string]: {
-    [subCategory: string]: string[];
-  };
-};
+import type { CategoryHierarchy } from '@/types/category'
+
+export type { CategoryHierarchy }
 
 export const INITIAL_CATEGORY_HIERARCHY: CategoryHierarchy = {
   "HOTELES": {

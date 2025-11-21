@@ -58,9 +58,9 @@ export function verifyApprovalToken(token: string): {
     // Parse payload
     const data = JSON.parse(payload)
     
-    // Check token age (24 hours)
+    // Check token age (1 year / 365 days)
     const tokenAge = Date.now() - data.timestamp
-    const maxAge = 24 * 60 * 60 * 1000 // 24 hours
+    const maxAge = 365 * 24 * 60 * 60 * 1000 // 365 days (1 year)
     
     if (tokenAge > maxAge) {
       return { valid: false, error: 'Token expired' }

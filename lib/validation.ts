@@ -1,15 +1,7 @@
 import { getDaysDifference } from './categories'
 import { getBusinessException, type BusinessException } from './settings'
 import { getDateComponentsInPanama } from './timezone'
-
-type Event = {
-  id?: string
-  name: string
-  category: string | null
-  merchant: string | null
-  startDate: Date
-  endDate: Date
-}
+import type { Event } from '@/types'
 
 // Daily limits (can be overridden by settings)
 export const MIN_DAILY_LAUNCHES = 5

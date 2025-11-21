@@ -3,28 +3,10 @@
 import { auth } from '@clerk/nextjs/server'
 import { getOpenAIClient } from '@/lib/openai'
 import { getCategoryHierarchy, getCategoryOptions } from '@/lib/categories'
+import type { ParsedBookingData } from '@/types'
 
 // Use pdf2json for server-side PDF parsing (Node.js friendly)
 const PDFParser = require('pdf2json')
-
-export type ParsedBookingData = {
-  name?: string
-  businessName?: string
-  businessEmail?: string
-  category?: string
-  parentCategory?: string
-  subCategory1?: string
-  subCategory2?: string
-  subCategory3?: string
-  serviceProduct?: string
-  description?: string
-  merchant?: string
-  discount?: string
-  notes?: string
-  suggestedStartDate?: string // Format: YYYY-MM-DD
-  suggestedEndDate?: string // Format: YYYY-MM-DD
-  totalDays?: number
-}
 
 /**
  * Format category hierarchy for AI prompt

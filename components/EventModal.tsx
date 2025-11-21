@@ -1,30 +1,19 @@
 'use client'
 
-import { createEvent, updateEvent, deleteEvent } from '@/app/actions/events'
+import { createEvent, updateEvent, deleteEvent, bookEvent, rejectEvent } from '@/app/actions/events'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import CategorySelect from './CategorySelect'
-import { getMaxDuration, getDaysDifference, getCategoryOptions, CategoryOption } from '@/lib/categories'
+import { getMaxDuration, getDaysDifference, getCategoryOptions, getCategoryColors, SEVEN_DAY_CATEGORIES } from '@/lib/categories'
+import type { CategoryOption } from '@/lib/categories'
 import { checkUniquenesViolation, check30DayMerchantRule, getDailyLimitStatus, getEventsOnDate } from '@/lib/validation'
-import type { ParsedBookingData } from '@/app/actions/pdf-parse'
+import { formatDateForPanama } from '@/lib/timezone'
+import type { Event, ParsedBookingData } from '@/types'
 import { getSettings, getBusinessException } from '@/lib/settings'
 import WarningIcon from '@mui/icons-material/Warning'
 import BlockIcon from '@mui/icons-material/Block'
 import EventIcon from '@mui/icons-material/Event'
 
-type Event = {
-  id: string
-  name: string
-  description: string | null
-  category: string | null
-  parentCategory: string | null
-  subCategory1: string | null
-  subCategory2: string | null
-  merchant: string | null
-  startDate: Date
-  endDate: Date
-  status: string
-}
 
 interface EventModalProps {
   isOpen: boolean

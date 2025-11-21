@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-
-export type UserRole = 'admin' | 'sales' | null
+import type { UserRole } from '@/types'
 
 export function useUserRole() {
   const [role, setRole] = useState<UserRole>(null)

@@ -7,8 +7,7 @@ import { getUserRole } from '@/lib/roles'
 import { resend, EMAIL_CONFIG } from '@/lib/email/config'
 import { renderBookingRequestEmail } from '@/lib/email/templates/booking-request'
 import { generateApprovalToken } from '@/lib/tokens'
-
-export type BookingRequestStatus = 'draft' | 'pending' | 'approved' | 'booked' | 'rejected'
+import type { BookingRequestStatus } from '@/types'
 
 /**
  * Create or update a booking request as draft

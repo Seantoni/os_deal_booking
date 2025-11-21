@@ -55,15 +55,11 @@ export function getAllCategories(): string[] {
 
 export const CATEGORIES = getAllCategories(); // Note: This evaluates once at load time.
 
-export type Category = string; // Simplified type since strict union is hard with dynamic data
+// Re-export centralized types
+export type { Category, CategoryOption, CategoryColors } from '@/types/category'
 
-export type CategoryOption = {
-  label: string;
-  value: string; // Unique ID basically, or just label
-  parent: string;
-  sub1: string | null;
-  sub2: string | null;
-};
+// Import for use in this file
+import type { CategoryOption } from '@/types/category'
 
 export function getCategoryOptions(): CategoryOption[] {
   const hierarchy = getCategoryHierarchy();

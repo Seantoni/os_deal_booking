@@ -9,48 +9,7 @@ import EventModal from './EventModal'
 import DayEventsModal from './DayEventsModal'
 import HamburgerMenu from './HamburgerMenu'
 import { updateEvent } from '@/app/actions/events'
-import { ParsedBookingData } from '@/app/actions/pdf-parse'
-
-type Event = {
-  id: string
-  name: string
-  description: string | null
-  category: string | null
-  parentCategory: string | null
-  subCategory1: string | null
-  subCategory2: string | null
-  subCategory3: string | null
-  merchant: string | null
-  startDate: Date
-  endDate: Date
-  status: string
-  userId: string
-  createdAt: Date
-  updatedAt: Date
-}
-
-type BookingRequest = {
-  id: string
-  name: string
-  description: string | null
-  category: string | null
-  parentCategory: string | null
-  subCategory1: string | null
-  subCategory2: string | null
-  subCategory3: string | null
-  merchant: string | null
-  businessEmail: string
-  startDate: Date
-  endDate: Date
-  status: string
-  eventId: string | null
-  userId: string
-  processedAt: Date | null
-  processedBy: string | null
-  rejectionReason: string | null
-  createdAt: Date
-  updatedAt: Date
-}
+import type { Event, BookingRequest, ParsedBookingData } from '@/types'
 
 interface EventsPageClientProps {
   events: Event[]

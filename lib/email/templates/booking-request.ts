@@ -139,7 +139,7 @@ export function renderBookingRequestEmail(props: BookingRequestEmailProps): stri
       <!-- Footer Note -->
       <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; font-size: 12px; color: #6b7280; text-align: center;">
         <p style="margin: 0;">
-          Este enlace expirará en 24 horas. Si tiene preguntas, por favor contacte a ${escapeHtml(requesterEmail || 'OfertaSimple')}.
+          Este enlace expirará en 1 año. Si tiene preguntas, por favor contacte a ${escapeHtml(requesterEmail || 'OfertaSimple')}.
         </p>
       </div>
     </div>

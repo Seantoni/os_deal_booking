@@ -1,25 +1,8 @@
 import { type CategoryHierarchy, INITIAL_CATEGORY_HIERARCHY, getInitialFlatCategories } from './initial-categories'
+import type { CategoryDurations, BusinessException, BookingSettings } from '@/types/settings'
 
-export type CategoryDurations = {
-  [category: string]: number
-}
-
-export type BusinessException = {
-  id: string
-  businessName: string
-  exceptionType: 'duration' | 'repeatDays' | 'dailyLimitExempt'
-  exceptionValue: number
-  notes?: string
-}
-
-export type BookingSettings = {
-  minDailyLaunches: number
-  maxDailyLaunches: number
-  categoryDurations: CategoryDurations
-  merchantRepeatDays: number
-  businessExceptions: BusinessException[]
-  customCategories: CategoryHierarchy
-}
+// Re-export centralized types
+export type { CategoryDurations, BusinessException, BookingSettings }
 
 // Categories with 7-day max duration (defined here or in constants to avoid cycle)
 const SEVEN_DAY_CATEGORIES = [
