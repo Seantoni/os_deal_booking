@@ -209,7 +209,7 @@ export async function bookEvent(eventId: string) {
         })
 
         // Send booking confirmation email
-        const { sendBookingConfirmationEmail } = await import('@/lib/email')
+        const { sendBookingConfirmationEmail } = await import('@/lib/email/services/booking-confirmation')
         const { currentUser } = await import('@clerk/nextjs/server')
         const user = await currentUser()
         const requesterEmail = user?.emailAddresses?.[0]?.emailAddress
@@ -285,7 +285,7 @@ export async function rejectEvent(eventId: string, rejectionReason: string) {
 
     // Send rejection email
     try {
-      const { sendRejectionEmail } = await import('@/lib/email')
+      const { sendRejectionEmail } = await import('@/lib/email/services/rejection')
       await sendRejectionEmail(bookingRequest, rejectionReason)
     } catch (emailError) {
       console.error('Error sending rejection email:', emailError)
