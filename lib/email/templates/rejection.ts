@@ -6,7 +6,7 @@ interface RejectionEmailProps {
 
 /**
  * Generate HTML string for rejection email
- * This email is sent when a booking request is rejected
+ * Optimized for readability and clarity with OfertaSimple branding
  */
 export function renderRejectionEmail(props: RejectionEmailProps): string {
   const { requestName, merchant, rejectionReason } = props
@@ -27,72 +27,65 @@ export function renderRejectionEmail(props: RejectionEmailProps): string {
 <html>
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solicitud Rechazada - OfertaSimple</title>
 </head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 40px 20px;">
-  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-    <!-- Header -->
-    <div style="background-color: #dc2626; padding: 30px; text-align: center;">
-      <h1 style="color: #ffffff; font-size: 24px; font-weight: bold; margin: 0;">
-        Solicitud de Booking Rechazada
+<body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 0; -webkit-text-size-adjust: none;">
+  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+    
+    <!-- Header with Branding -->
+    <div style="background-color: #ffffff; padding: 20px 30px; border-bottom: 3px solid #e84c0f; text-align: center;">
+       <div style="font-size: 24px; font-weight: 800; color: #e84c0f; letter-spacing: -0.5px;">
+         OfertaSimple
+       </div>
+       <div style="font-size: 14px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-top: 5px;">
+         OS Deals Booking
+       </div>
+    </div>
+
+    <!-- Main Title Area -->
+    <div style="background-color: #fef2f2; padding: 40px 30px; text-align: center;">
+      <h1 style="margin: 0 0 10px 0; color: #dc2626; font-size: 24px; font-weight: 700; line-height: 1.3;">
+        Solicitud Rechazada
       </h1>
-      <p style="color: #fecaca; font-size: 14px; margin: 8px 0 0 0;">
-        OS Deals Booking - OfertaSimple
+      <p style="margin: 0; color: #7f1d1d; font-size: 16px; line-height: 1.5;">
+        La solicitud de booking para <strong>${escapeHtml(requestName)}</strong> no ha sido aprobada.
       </p>
     </div>
 
-    <!-- Content -->
-    <div style="padding: 30px;">
-      <p style="font-size: 16px; color: #374151; margin-bottom: 24px;">
-        Lamentamos informarle que su solicitud de booking ha sido rechazada.
-      </p>
+    <!-- Details Box -->
+    <div style="padding: 0 30px 40px 30px;">
+      <div style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 30px; margin-top: -20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+        
+        <div style="margin-bottom: 25px; border-bottom: 1px solid #f3f4f6; padding-bottom: 20px;">
+          <h2 style="margin: 0 0 5px 0; font-size: 20px; color: #111827; font-weight: 700;">
+            ${escapeHtml(requestName)}
+          </h2>
+          ${merchant ? `<div style="color: #6b7280; font-size: 14px;">Merchant/Aliado: ${escapeHtml(merchant)}</div>` : ''}
+        </div>
 
-      <!-- Request Details -->
-      <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; padding: 20px; margin-bottom: 24px;">
-        <h2 style="font-size: 18px; font-weight: bold; color: #111827; margin-top: 0; margin-bottom: 12px;">
-          Detalles de la Solicitud
-        </h2>
+        <div style="background-color: #fff5f5; border-left: 4px solid #ef4444; padding: 20px; border-radius: 0 8px 8px 0;">
+          <h3 style="margin: 0 0 10px 0; font-size: 14px; text-transform: uppercase; color: #b91c1c; letter-spacing: 0.5px;">
+            Motivo del Rechazo
+          </h3>
+          <div style="font-size: 15px; color: #450a0a; line-height: 1.6; white-space: pre-wrap;">${escapeHtml(rejectionReason)}</div>
+        </div>
 
-        <p style="font-size: 14px; color: #6b7280; margin: 8px 0;">
-          <strong>Evento:</strong> ${escapeHtml(requestName)}
-        </p>
-        ${merchant ? `
-        <p style="font-size: 14px; color: #6b7280; margin: 8px 0;">
-          <strong>Merchant:</strong> ${escapeHtml(merchant)}
-        </p>
-        ` : ''}
-      </div>
-
-      <!-- Rejection Reason -->
-      <div style="background-color: #f9fafb; border-radius: 6px; padding: 20px; margin-bottom: 24px;">
-        <h3 style="font-size: 16px; font-weight: bold; color: #dc2626; margin-top: 0; margin-bottom: 12px;">
-          Motivo del Rechazo
-        </h3>
-        <p style="font-size: 14px; color: #374151; line-height: 1.6; white-space: pre-wrap; margin: 0;">
-          ${escapeHtml(rejectionReason)}
-        </p>
-      </div>
-
-      <p style="font-size: 14px; color: #6b7280; margin-bottom: 0;">
-        Si tiene preguntas o desea discutir esta decisión, por favor contacte a nuestro equipo.
-      </p>
-
-      <!-- Footer Note -->
-      <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; margin-top: 24px; font-size: 12px; color: #6b7280; text-align: center;">
-        <p style="margin: 0;">
-          Para más información, contacte a OfertaSimple.
-        </p>
+        <div style="margin-top: 25px; font-size: 14px; color: #6b7280; line-height: 1.5; text-align: center;">
+          Si tiene preguntas o desea discutir esta decisión, por favor contacte al equipo de aprobaciones.
+        </div>
       </div>
     </div>
 
-    <!-- Footer -->
+    <!-- Footer Info -->
     <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
       <p style="font-size: 12px; color: #9ca3af; margin: 0;">
-        © 2025 OfertaSimple - OS Deals Sistema de Reservas
+        &copy; ${new Date().getFullYear()} OfertaSimple. Todos los derechos reservados.
       </p>
     </div>
+
   </div>
 </body>
 </html>
   `.trim()
 }
-
