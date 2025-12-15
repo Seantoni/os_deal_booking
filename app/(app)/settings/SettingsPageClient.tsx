@@ -21,6 +21,9 @@ import RequestPageIcon from '@mui/icons-material/RequestPage'
 import BuildIcon from '@mui/icons-material/Build'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import { useUserRole } from '@/hooks/useUserRole'
+import EmailPreviewTab from './components/EmailPreviewTab'
+import EmailIcon from '@mui/icons-material/Email'
 import './styles.css'
 
 const isDev = process.env.NODE_ENV === 'development'
@@ -30,7 +33,8 @@ export default function SettingsPageClient() {
   const [saved, setSaved] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState<{ created: number; updated: number; deactivated: number } | null>(null)
-  const [activeTab, setActiveTab] = useState<'general' | 'categories' | 'form-builder' | 'system' | 'access'>('general')
+  const [activeTab, setActiveTab] = useState<'general' | 'categories' | 'form-builder' | 'system' | 'access' | 'email-preview'>('general')
+  const { isAdmin } = useUserRole()
   const [formBuilderSubTab, setFormBuilderSubTab] = useState<'entity-fields' | 'request-form'>('entity-fields')
   const confirmDialog = useConfirmDialog()
   const [isPending, startTransition] = useTransition()
@@ -256,6 +260,19 @@ export default function SettingsPageClient() {
               <PersonAddIcon fontSize="small" style={{ fontSize: 18 }} />
               <span>Access</span>
             </button>
+            {isAdmin && (
+              <button
+                onClick={() => handleTabChange('email-preview')}
+                className={`flex items-center gap-2 px-4 py-3 text-xs font-medium transition-colors border-b-2 -mb-px ${
+                  activeTab === 'email-preview'
+                    ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                <EmailIcon fontSize="small" style={{ fontSize: 18 }} />
+                <span>Email Preview</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -365,6 +382,12 @@ export default function SettingsPageClient() {
           {activeTab === 'access' && (
             <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
               <AccessManagementTab />
+            </div>
+          )}
+
+          {activeTab === 'email-preview' && isAdmin && (
+            <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+              <EmailPreviewTab isAdmin={isAdmin} />
             </div>
           )}
         </div>

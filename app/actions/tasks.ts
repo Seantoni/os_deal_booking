@@ -72,7 +72,13 @@ export async function getUserTasks(): Promise<{
       ],
     })
 
-    return { success: true, data: tasks as TaskWithOpportunity[] }
+    // Cast category to the expected union type
+    const typedTasks = tasks.map((task) => ({
+      ...task,
+      category: task.category as 'meeting' | 'todo',
+    }))
+
+    return { success: true, data: typedTasks as TaskWithOpportunity[] }
   } catch (error) {
     return handleServerActionError(error, 'getUserTasks')
   }
