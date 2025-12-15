@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from '@clerk/nextjs';
+import { esES } from '@clerk/localizations';
 import ToastProvider from '@/components/common/ToastProvider';
 import CommandPaletteProvider from '@/components/common/CommandPaletteProvider';
 import "./globals.css";
@@ -38,8 +39,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
-    <html lang="en">
+    <ClerkProvider localization={esES}>
+    <html lang="es">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
