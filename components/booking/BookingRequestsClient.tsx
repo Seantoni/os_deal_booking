@@ -319,7 +319,6 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
         const query = searchQuery.toLowerCase()
         return (
           request.name.toLowerCase().includes(query) ||
-          (request.description && request.description.toLowerCase().includes(query)) ||
           (request.merchant && request.merchant.toLowerCase().includes(query)) ||
           request.businessEmail.toLowerCase().includes(query) ||
           (request.parentCategory && request.parentCategory.toLowerCase().includes(query))
