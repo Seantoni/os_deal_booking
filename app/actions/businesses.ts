@@ -229,7 +229,20 @@ export async function createBusiness(formData: FormData) {
     })
 
     if (existingBusiness) {
-      return { success: false, error: 'Business already exists', existingBusiness }
+      // Get owner info if ownerId exists
+      let ownerInfo: { name: string | null; email: string | null } | null = null
+      if (existingBusiness.ownerId) {
+        const ownerProfile = await prisma.userProfile.findUnique({
+          where: { clerkId: existingBusiness.ownerId },
+          select: { name: true, email: true },
+        })
+        ownerInfo = ownerProfile
+      }
+      return { 
+        success: false, 
+        error: 'Business already exists', 
+        existingBusiness: { ...existingBusiness, owner: ownerInfo }
+      }
     }
 
     if (!name || !contactName || !contactPhone || !contactEmail) {

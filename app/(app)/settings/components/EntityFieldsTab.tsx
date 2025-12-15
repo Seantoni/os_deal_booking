@@ -50,6 +50,8 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import RefreshIcon from '@mui/icons-material/Refresh'
+import LockIcon from '@mui/icons-material/Lock'
+import LockOpenIcon from '@mui/icons-material/LockOpen'
 
 const FIELD_TYPES: { value: CustomFieldType; label: string }[] = [
   { value: 'text', label: 'Text (single line)' },
@@ -264,7 +266,7 @@ export default function EntityFieldsTab() {
   // Field operations
   const handleUpdateField = async (
     fieldId: string, 
-    updates: { isVisible?: boolean; isRequired?: boolean; isReadonly?: boolean; width?: FieldWidth }
+    updates: { isVisible?: boolean; isRequired?: boolean; isReadonly?: boolean; canEditAfterCreation?: boolean; width?: FieldWidth }
   ) => {
     setSaving(true)
     try {
@@ -889,6 +891,25 @@ export default function EntityFieldsTab() {
                             >
                               Read-only
                             </button>
+
+                            {/* Lock after creation Toggle (only for business entity) */}
+                            {activeEntity === 'business' && (
+                              <button
+                                onClick={() => handleUpdateField(field.id, { canEditAfterCreation: !field.canEditAfterCreation })}
+                                className={`p-1.5 rounded transition-colors ${
+                                  field.canEditAfterCreation
+                                    ? 'text-amber-600 hover:bg-amber-50'
+                                    : 'text-gray-400 hover:bg-gray-100'
+                                }`}
+                                title={field.canEditAfterCreation ? 'Lock after creation enabled - only admin can edit after field is saved' : 'Enable lock after creation - only admin can edit after field is saved'}
+                              >
+                                {field.canEditAfterCreation ? (
+                                  <LockIcon fontSize="small" />
+                                ) : (
+                                  <LockOpenIcon fontSize="small" />
+                                )}
+                              </button>
+                            )}
 
                             {/* Edit button for custom fields */}
                             {field.fieldSource === 'custom' && (

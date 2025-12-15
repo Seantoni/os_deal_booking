@@ -545,6 +545,7 @@ model FormFieldConfig {
   isVisible    Boolean  @default(true) // Whether field is shown in the form
   isRequired   Boolean  @default(false) // Whether field is required (overrides built-in default)
   isReadonly   Boolean  @default(false) // Whether field is read-only
+  canEditAfterCreation Boolean @default(false) // If true, only admin can edit after field has been filled and saved (with unlock)
   width        String   @default("full") // 'full' | 'half' - field width in form
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

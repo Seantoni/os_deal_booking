@@ -56,11 +56,11 @@ export default function SettingsPageClient() {
         if (response.ok) {
           const result = await response.json()
           if (isDev) {
-            console.log('[SettingsPageClient] Loaded settings from DB:', {
-              success: result.success,
-              hasRequestFormFields: !!result.data?.requestFormFields,
-              requestFormFieldsCount: result.data?.requestFormFields ? Object.keys(result.data.requestFormFields).length : 0,
-            })
+          console.log('[SettingsPageClient] Loaded settings from DB:', {
+            success: result.success,
+            hasRequestFormFields: !!result.data?.requestFormFields,
+            requestFormFieldsCount: result.data?.requestFormFields ? Object.keys(result.data.requestFormFields).length : 0,
+          })
           }
           if (result.success && result.data) {
             setSettings(result.data)
@@ -85,10 +85,10 @@ export default function SettingsPageClient() {
     
     try {
       if (isDev) {
-        console.log('[SettingsPageClient] Saving settings:', {
-          hasRequestFormFields: !!settings.requestFormFields,
-          requestFormFieldsCount: settings.requestFormFields ? Object.keys(settings.requestFormFields).length : 0,
-        })
+      console.log('[SettingsPageClient] Saving settings:', {
+        hasRequestFormFields: !!settings.requestFormFields,
+        requestFormFieldsCount: settings.requestFormFields ? Object.keys(settings.requestFormFields).length : 0,
+      })
       }
 
       // Save to database

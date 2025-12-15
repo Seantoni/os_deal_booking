@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { createBusiness, updateBusiness, createOpportunity } from '@/app/actions/crm'
@@ -52,7 +52,8 @@ export default function BusinessFormModal({
   const [error, setError] = useState('')
   const [opportunityModalOpen, setOpportunityModalOpen] = useState(false)
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null)
-  const [nameUnlocked, setNameUnlocked] = useState(false)
+  // Track unlocked state for fields with canEditAfterCreation
+  const [unlockedFields, setUnlockedFields] = useState<Record<string, boolean>>({})
 
   // Load supporting data using existing hook
   const {
@@ -116,13 +117,21 @@ export default function BusinessFormModal({
     initialValues,
   })
 
-  // Clear stale errors and reset name lock whenever the modal opens or closes
+  // Clear stale errors and reset field locks whenever the modal opens or closes
   useEffect(() => {
     if (!isOpen) {
       setError('')
-      setNameUnlocked(false)
+      setUnlockedFields({})
     }
   }, [isOpen])
+
+  // Helper to toggle unlock state for a field
+  const toggleFieldUnlock = useCallback((fieldKey: string) => {
+    setUnlockedFields(prev => ({
+      ...prev,
+      [fieldKey]: !prev[fieldKey]
+    }))
+  }, [])
 
   function handleEditOpportunity(opportunity: Opportunity) {
     setSelectedOpportunity(opportunity)
@@ -204,9 +213,10 @@ export default function BusinessFormModal({
         onSuccess(result.data)
         onClose()
       } else {
-        const existing = result.existingBusiness as Business | undefined
+        const existing = result.existingBusiness as (Business & { owner?: { name: string | null; email: string | null } }) | undefined
         if (existing) {
-          setError(`Business already exists: ${existing.name}`)
+          const ownerInfo = existing.owner?.name || existing.owner?.email || 'Unknown'
+          setError(`Business already exists: "${existing.name}" (Owner: ${ownerInfo})`)
         } else {
           setError(result.error || 'Failed to save business')
         }
@@ -236,9 +246,10 @@ export default function BusinessFormModal({
       const businessResult: CreateResult = await createBusiness(formData)
 
       if (!businessResult.success || !businessResult.data) {
-        const existing = businessResult.existingBusiness as Business | undefined
+        const existing = businessResult.existingBusiness as (Business & { owner?: { name: string | null; email: string | null } }) | undefined
         if (existing) {
-          setError(`Business already exists: ${existing.name}`)
+          const ownerInfo = existing.owner?.name || existing.owner?.email || 'Unknown'
+          setError(`Business already exists: "${existing.name}" (Owner: ${ownerInfo})`)
         } else {
           setError(businessResult.error || 'Failed to create business')
         }
@@ -274,15 +285,10 @@ export default function BusinessFormModal({
     }
   }
 
-  if (!isOpen) return null
-
   const isEditMode = !!business
-  // Name is editable when creating new business (by anyone)
-  // Once saved (edit mode), only admin can edit by first unlocking
-  const canEditName = !isEditMode || (isAdmin && nameUnlocked)
 
   // Prepare categories and users for dynamic fields
-  const categoryOptions = categories.map(cat => ({
+  const categoryOptions = useMemo(() => categories.map(cat => ({
     id: cat.id,
     categoryKey: cat.categoryKey,
     parentCategory: cat.parentCategory,
@@ -290,48 +296,116 @@ export default function BusinessFormModal({
     subCategory2: cat.subCategory2,
     subCategory3: cat.subCategory3,
     subCategory4: cat.subCategory4,
-  }))
+  })), [categories])
 
-  const userOptions = users.map(user => ({
+  const userOptions = useMemo(() => users.map(user => ({
     clerkId: user.clerkId,
     name: user.name,
     email: user.email,
-  }))
+  })), [users])
 
-  // Field overrides for special logic
-  const fieldOverrides: Record<string, { canEdit?: boolean }> = {
-    name: { canEdit: canEditName },
-  }
+  // Build field overrides and addons based on form configuration
+  // Fields with canEditAfterCreation=true are locked after first save (only admin can unlock)
+  // Business name is ALWAYS locked after creation (hardcoded requirement)
+  const fieldOverrides: Record<string, { canEdit?: boolean }> = useMemo(() => {
+    const overrides: Record<string, { canEdit?: boolean }> = {}
+    
+    // Business name is always locked after creation (hardcoded requirement)
+    const lockedFieldKeys = new Set<string>(['name'])
+    
+    // Add fields from form config that have canEditAfterCreation enabled
+    if (dynamicForm.initialized) {
+      for (const section of dynamicForm.sections) {
+        for (const field of section.fields) {
+          if (field.canEditAfterCreation) {
+            lockedFieldKeys.add(field.fieldKey)
+          }
+        }
+      }
+    }
+    
+    // Apply lock logic to all locked fields
+    for (const fieldKey of lockedFieldKeys) {
+      const currentValue = dynamicForm.getAllValues()[fieldKey]
+      const hasValue = currentValue && currentValue.trim() !== ''
+      
+      // In edit mode with a value: locked by default for EVERYONE (including admin)
+      // Admin must explicitly click unlock to edit
+      // In create mode or empty field: anyone can edit
+      if (isEditMode && hasValue) {
+        // Only allow edit if admin AND explicitly unlocked
+        const canEdit = isAdmin && unlockedFields[fieldKey] === true
+        overrides[fieldKey] = { canEdit }
+      } else {
+        // Creating new or field is empty - anyone can edit
+        overrides[fieldKey] = { canEdit: true }
+      }
+    }
+    
+    return overrides
+  }, [dynamicForm.initialized, dynamicForm.sections, isEditMode, isAdmin, unlockedFields, dynamicForm])
 
-  // Field addons (lock icon for name field in edit mode for admin)
-  const fieldAddons: Record<string, React.ReactElement> = {}
-  if (isEditMode && isAdmin) {
-    fieldAddons.name = (
-      <div className="flex flex-col items-start gap-1">
-        <button
-          type="button"
-          onClick={() => setNameUnlocked(!nameUnlocked)}
-          className={`p-2 rounded-md transition-colors ${
-            nameUnlocked
-              ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-          }`}
-          title={nameUnlocked ? 'Bloqueado habilitado - click para bloquear' : 'Click para desbloquear edición'}
-        >
-          {nameUnlocked ? (
-            <LockOpenIcon fontSize="small" />
-          ) : (
-            <LockIcon fontSize="small" />
-          )}
-        </button>
-        {nameUnlocked && (
-          <p className="text-[10px] text-red-600 font-medium max-w-[120px] leading-tight">
-            Solo modificar si es necesario
-          </p>
-        )}
-      </div>
-    )
-  }
+  // Field addons (lock icons for fields with canEditAfterCreation in edit mode for admin)
+  // Business name always shows lock icon for admin in edit mode
+  const fieldAddons: Record<string, React.ReactElement> = useMemo(() => {
+    const addons: Record<string, React.ReactElement> = {}
+    
+    if (!isEditMode || !isAdmin) return addons
+    
+    // Business name is always locked after creation (hardcoded requirement)
+    const lockedFieldKeys = new Set<string>(['name'])
+    
+    // Add fields from form config that have canEditAfterCreation enabled
+    if (dynamicForm.initialized) {
+      for (const section of dynamicForm.sections) {
+        for (const field of section.fields) {
+          if (field.canEditAfterCreation) {
+            lockedFieldKeys.add(field.fieldKey)
+          }
+        }
+      }
+    }
+    
+    // Create lock icons for all locked fields that have values
+    for (const fieldKey of lockedFieldKeys) {
+      const currentValue = dynamicForm.getAllValues()[fieldKey]
+      const hasValue = currentValue && currentValue.trim() !== ''
+      
+      // Only show lock icon if field has a value (i.e., has been filled before)
+      if (hasValue) {
+        const isUnlocked = unlockedFields[fieldKey] || false
+        addons[fieldKey] = (
+          <div className="flex flex-col items-start gap-1">
+            <button
+              type="button"
+              onClick={() => toggleFieldUnlock(fieldKey)}
+              className={`p-2 rounded-md transition-colors ${
+                isUnlocked
+                  ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              }`}
+              title={isUnlocked ? 'Bloqueado habilitado - click para bloquear' : 'Click para desbloquear edición'}
+            >
+              {isUnlocked ? (
+                <LockOpenIcon fontSize="small" />
+              ) : (
+                <LockIcon fontSize="small" />
+              )}
+            </button>
+            {isUnlocked && (
+              <p className="text-[10px] text-red-600 font-medium max-w-[120px] leading-tight">
+                Solo modificar si es necesario
+              </p>
+            )}
+          </div>
+        )
+      }
+    }
+    
+    return addons
+  }, [isEditMode, isAdmin, dynamicForm.initialized, dynamicForm.sections, unlockedFields, dynamicForm, toggleFieldUnlock])
+
+  if (!isOpen) return null
 
   return (
     <>

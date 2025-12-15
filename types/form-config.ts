@@ -55,6 +55,7 @@ export interface FormFieldConfig {
   isVisible: boolean
   isRequired: boolean
   isReadonly: boolean
+  canEditAfterCreation: boolean // If true, only admin can edit after field has been filled and saved (with unlock)
   width: FieldWidth
 }
 
