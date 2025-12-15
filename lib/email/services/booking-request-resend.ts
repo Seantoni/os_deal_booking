@@ -21,7 +21,6 @@ export async function resendBookingRequestEmail(bookingRequest: {
   parentCategory: string | null
   subCategory1: string | null
   subCategory2: string | null
-  description: string | null
   startDate: Date
   endDate: Date
   userId: string

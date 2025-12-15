@@ -81,7 +81,6 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
 
     const data = {
       name: requestName,
-      description: fields.description,
       category: fields.category,
       parentCategory: fields.parentCategory,
       subCategory1: fields.subCategory1,
@@ -289,7 +288,6 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
     
     const data = {
       name: requestName,
-      description: description || null,
       category: category || null,
       parentCategory: parentCategory || null,
       subCategory1: subCategory1 || null,
@@ -397,7 +395,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
         where: { id: bookingRequest.eventId },
         data: {
           name: data.name!,
-          description: data.description,
+          description: null, // BookingRequest no longer has description
           category: standardizedCategory, // Store standardized key in category field
           parentCategory: data.parentCategory,
           subCategory1: data.subCategory1,
@@ -415,7 +413,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       event = await prisma.event.create({
         data: {
           name: data.name!,
-          description: data.description,
+          description: null, // BookingRequest no longer has description
           category: standardizedCategory, // Store standardized key in category field
           parentCategory: data.parentCategory,
           subCategory1: data.subCategory1,
@@ -474,7 +472,6 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       businessEmail: data.businessEmail!,
       merchant: data.merchant || undefined,
       category: categoryString,
-      description: data.description || undefined,
       additionalInfo: (data as any).additionalInfo || null,
       bookingData: data as any,
       startDate: formatDateForEmail(startDateTime),
@@ -508,7 +505,6 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
           businessEmail: data.businessEmail!,
           merchant: data.merchant || undefined,
           category: categoryString,
-          description: data.description || undefined,
           additionalInfo: (data as any).additionalInfo || null,
           bookingData: data as any,
           startDate: formatDateForEmail(startDateTime),
@@ -832,7 +828,6 @@ export async function updateBookingRequest(requestId: string, formData: FormData
       where: { id: requestId },
       data: {
         name: fields.name || undefined,
-        description: fields.description || undefined,
         category: fields.category || undefined,
         parentCategory: fields.parentCategory || undefined,
         subCategory1: fields.subCategory1 || undefined,
@@ -860,7 +855,6 @@ export async function updateBookingRequest(requestId: string, formData: FormData
         where: { id: bookingRequest.eventId },
         data: {
           name: fields.name || undefined,
-          description: fields.description || undefined,
           category: standardizedCategory, // Store standardized key in category field
           parentCategory: fields.parentCategory || undefined,
           subCategory1: fields.subCategory1 || undefined,
