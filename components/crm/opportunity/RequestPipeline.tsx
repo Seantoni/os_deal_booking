@@ -1,6 +1,6 @@
 'use client'
 
-import { REQUEST_STATUS_LABELS, REQUEST_STATUS_COLORS } from './constants'
+import { REQUEST_STATUS_LABELS, REQUEST_STATUS_COLORS } from '@/lib/constants/booking-request-statuses'
 import CheckIcon from '@mui/icons-material/Check'
 import type { BookingRequest } from '@/types'
 
