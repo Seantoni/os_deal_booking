@@ -47,7 +47,6 @@ model Event {
 model BookingRequest {
   id              String    @id @default(cuid())
   name            String
-  description     String?
   category        String?
   parentCategory  String?
   subCategory1    String?

@@ -60,7 +60,6 @@ export async function POST(req: Request) {
           category: 'Restaurantes',
           startDate: '1 de enero de 2025',
           endDate: '31 de enero de 2025',
-          description: 'Esta es una descripción de ejemplo para el evento.',
         })
         break
 
@@ -74,7 +73,6 @@ export async function POST(req: Request) {
           endDate: '31 de enero de 2025',
           approveUrl: `${appBaseUrl}/api/booking-requests/approve?token=test-token`,
           rejectUrl: `${appBaseUrl}/api/booking-requests/reject?token=test-token`,
-          description: 'Esta es una descripción de ejemplo para la solicitud.',
         })
         break
 

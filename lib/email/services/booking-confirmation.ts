@@ -50,7 +50,6 @@ export async function sendBookingConfirmationEmail(
       category: categoryDisplay || undefined,
       startDate: formatDateForEmail(event.startDate),
       endDate: formatDateForEmail(event.endDate),
-      description: event.description || undefined,
     })
 
     // Send email to business and CC to requester

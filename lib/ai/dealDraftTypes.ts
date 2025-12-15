@@ -28,7 +28,6 @@ export interface DealDraftInput {
   subCategory2?: string | null
   
   // Business details
-  description?: string | null
   businessReview?: string | null
   offerDetails?: string | null
   addressAndHours?: string | null

@@ -168,7 +168,7 @@ export default function DealFormModal({
         {/* Modal Panel */}
         <div className={`w-full max-w-4xl bg-white shadow-2xl rounded-2xl flex flex-col max-h-[90vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${
           isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-      }`}>
+        }`}>
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-start justify-between">

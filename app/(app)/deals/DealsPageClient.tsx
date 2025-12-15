@@ -61,7 +61,7 @@ const COLUMNS: ColumnConfig[] = [
 ]
 
 // Search fields for deals
-const SEARCH_FIELDS = ['bookingRequest.name', 'bookingRequest.businessEmail', 'bookingRequest.description']
+const SEARCH_FIELDS = ['bookingRequest.name', 'bookingRequest.businessEmail', 'bookingRequest.merchant']
 
 export default function DealsPageClient() {
   const { isAdmin } = useUserRole()

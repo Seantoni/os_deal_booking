@@ -62,7 +62,6 @@ export default function PublicBookingForm({ token }: PublicBookingFormProps) {
       
       // Basic fields
       formDataToSubmit.append('name', formData.businessName || '')
-      formDataToSubmit.append('description', '')
       formDataToSubmit.append('category', formData.category || '')
       formDataToSubmit.append('parentCategory', formData.parentCategory || '')
       formDataToSubmit.append('subCategory1', formData.subCategory1 || '')

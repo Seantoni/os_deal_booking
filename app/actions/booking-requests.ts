@@ -1060,7 +1060,6 @@ export async function resendBookingRequest(requestId: string, emails?: string | 
           parentCategory: bookingRequest.parentCategory,
           subCategory1: bookingRequest.subCategory1,
           subCategory2: bookingRequest.subCategory2,
-          description: bookingRequest.description,
           startDate: bookingRequest.startDate,
           endDate: bookingRequest.endDate,
           userId: bookingRequest.userId,

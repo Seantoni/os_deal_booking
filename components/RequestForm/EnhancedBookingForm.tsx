@@ -87,7 +87,7 @@ export default function EnhancedBookingForm({ requestId, initialFormData }: Enha
     const paymentPlan = searchParams.get('paymentPlan')
     const address = searchParams.get('address')
     const neighborhood = searchParams.get('neighborhood')
-    const description = searchParams.get('description')
+    // Note: description field has been removed from BookingRequest
     const website = searchParams.get('website')
     const instagram = searchParams.get('instagram')
     
@@ -281,7 +281,7 @@ export default function EnhancedBookingForm({ requestId, initialFormData }: Enha
           addressAndHours: addressAndHoursFromBusiness || prev.addressAndHours,
           socialMedia: socialFromBusiness || prev.socialMedia,
           contactDetails: website || prev.contactDetails,
-          businessReview: description || prev.businessReview,
+          businessReview: prev.businessReview,
           approverBusinessName: legalName || businessName || prev.approverBusinessName,
         }
       })

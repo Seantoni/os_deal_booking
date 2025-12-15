@@ -1,5 +1,4 @@
 import type { BookingFormData } from '@/components/RequestForm/types'
-import { parseEnhancedDescription } from '@/lib/email/utils/description-parser'
 import { getAppBaseUrl } from '@/lib/config/env'
 
 interface BookingRequestEmailProps {
@@ -7,7 +6,6 @@ interface BookingRequestEmailProps {
   businessEmail: string
   merchant?: string
   category?: string
-  description?: string
   startDate: string
   endDate: string
   approveUrl: string
@@ -33,26 +31,24 @@ export function renderBookingRequestEmail(props: BookingRequestEmailProps): stri
     businessEmail,
     merchant,
     category,
-    description,
     startDate,
     endDate,
     approveUrl,
     rejectUrl,
     requesterEmail,
     additionalInfo,
-  tncUrl,
-  bookingData,
-  hideActions = false,
+    tncUrl,
+    bookingData,
+    hideActions = false,
   } = props
 
-  // Parse enhanced description
-  const enhancedData = parseEnhancedDescription(description)
+  // Get data from bookingData (no longer parsing from description)
   const additionalInfoData = additionalInfo
     ? {
         templateDisplayName: additionalInfo.templateDisplayName,
         fields: Object.entries(additionalInfo.fields || {}).map(([label, value]) => ({ label, value })),
       }
-    : enhancedData.additionalInfo
+    : null
 
 const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
 
@@ -107,14 +103,15 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
       .replace(/'/g, '&#039;')
   }
 
-  // Format pricing options
+  // Format pricing options from bookingData
   const renderPricingOptions = () => {
-    if (!enhancedData.pricingOptions || enhancedData.pricingOptions.length === 0) return ''
+    const pricingOptions = (bookingData as any)?.pricingOptions
+    if (!pricingOptions || !Array.isArray(pricingOptions) || pricingOptions.length === 0) return ''
     
     return `
       <div style="margin-top: 16px;">
         <h3 style="font-size: 16px; font-weight: bold; color: #111827; margin-bottom: 12px;">Opciones de Precio:</h3>
-        ${enhancedData.pricingOptions.map((opt, i) => `
+        ${pricingOptions.map((opt: any, i: number) => `
           <div style="background-color: #ffffff; border-left: 4px solid #2563eb; padding: 12px; margin-bottom: 12px; border-radius: 4px;">
             <p style="font-weight: bold; color: #111827; margin: 0 0 8px 0;">${i + 1}. ${escapeHtml(opt.title)}</p>
             ${opt.description ? `<p style="color: #374151; margin: 0 0 8px 0; font-size: 14px;">${escapeHtml(opt.description)}</p>` : ''}
@@ -174,10 +171,10 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
               <td style="padding: 8px 0; font-size: 14px; color: #111827;">${escapeHtml(category)}</td>
             </tr>
             ` : ''}
-            ${enhancedData.campaignDuration ? `
+            ${(bookingData as any)?.campaignDuration ? `
             <tr>
               <td style="padding: 8px 0; font-size: 14px; color: #6b7280; font-weight: 600;">Duración de Campaña:</td>
-              <td style="padding: 8px 0; font-size: 14px; color: #111827;">${escapeHtml(enhancedData.campaignDuration)}</td>
+              <td style="padding: 8px 0; font-size: 14px; color: #111827;">${escapeHtml((bookingData as any)?.campaignDuration)}</td>
             </tr>
             ` : ''}
             <tr>
@@ -201,63 +198,63 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
           </tbody>
         </table>
 
-        ${enhancedData.redemptionMode ? `
+        ${(bookingData as any)?.redemptionMode ? `
         <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
           <p style="font-size: 14px; color: #6b7280; font-weight: 600; margin-bottom: 4px;">Modalidad de Canje:</p>
-          <p style="font-size: 14px; color: #374151; margin: 0;">${escapeHtml(enhancedData.redemptionMode)}</p>
+          <p style="font-size: 14px; color: #374151; margin: 0;">${escapeHtml((bookingData as any)?.redemptionMode)}</p>
         </div>
         ` : ''}
 
-        ${enhancedData.isRecurring ? `
+        ${(bookingData as any)?.isRecurring ? `
         <div style="margin-top: 12px;">
           <p style="font-size: 14px; color: #6b7280; font-weight: 600; margin-bottom: 4px;">Recurrencia:</p>
-          <p style="font-size: 14px; color: #374151; margin: 0;">${escapeHtml(enhancedData.isRecurring)}</p>
+          <p style="font-size: 14px; color: #374151; margin: 0;">${escapeHtml((bookingData as any)?.isRecurring)}</p>
         </div>
         ` : ''}
 
-        ${enhancedData.paymentType ? `
+        ${(bookingData as any)?.paymentType ? `
         <div style="margin-top: 12px;">
           <p style="font-size: 14px; color: #6b7280; font-weight: 600; margin-bottom: 4px;">Tipo de Pago:</p>
-          <p style="font-size: 14px; color: #374151; margin: 0;">${escapeHtml(enhancedData.paymentType)}</p>
+          <p style="font-size: 14px; color: #374151; margin: 0;">${escapeHtml((bookingData as any)?.paymentType)}</p>
         </div>
         ` : ''}
 
-        ${enhancedData.redemptionContact ? `
+        ${((bookingData as any)?.redemptionContactName || (bookingData as any)?.redemptionContactEmail || (bookingData as any)?.redemptionContactPhone) ? `
         <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
           <p style="font-size: 14px; color: #6b7280; font-weight: 600; margin-bottom: 8px;">Contacto de Canje:</p>
-          ${enhancedData.redemptionContact.name ? `<p style="font-size: 14px; color: #374151; margin: 4px 0;">Nombre: ${escapeHtml(enhancedData.redemptionContact.name)}</p>` : ''}
-          ${enhancedData.redemptionContact.email ? `<p style="font-size: 14px; color: #374151; margin: 4px 0;">Email: ${escapeHtml(enhancedData.redemptionContact.email)}</p>` : ''}
-          ${enhancedData.redemptionContact.phone ? `<p style="font-size: 14px; color: #374151; margin: 4px 0;">Teléfono: ${escapeHtml(enhancedData.redemptionContact.phone)}</p>` : ''}
+          ${(bookingData as any)?.redemptionContactName ? `<p style="font-size: 14px; color: #374151; margin: 4px 0;">Nombre: ${escapeHtml((bookingData as any)?.redemptionContactName)}</p>` : ''}
+          ${(bookingData as any)?.redemptionContactEmail ? `<p style="font-size: 14px; color: #374151; margin: 4px 0;">Email: ${escapeHtml((bookingData as any)?.redemptionContactEmail)}</p>` : ''}
+          ${(bookingData as any)?.redemptionContactPhone ? `<p style="font-size: 14px; color: #374151; margin: 4px 0;">Teléfono: ${escapeHtml((bookingData as any)?.redemptionContactPhone)}</p>` : ''}
         </div>
         ` : ''}
 
-        ${enhancedData.businessReview ? `
+        ${(bookingData as any)?.businessReview ? `
         <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
           <p style="font-size: 14px; color: #6b7280; font-weight: 600; margin-bottom: 8px;">Reseña del Negocio:</p>
-          <p style="font-size: 14px; color: #374151; line-height: 1.5; white-space: pre-wrap; margin: 0;">${escapeHtml(enhancedData.businessReview)}</p>
+          <p style="font-size: 14px; color: #374151; line-height: 1.5; white-space: pre-wrap; margin: 0;">${escapeHtml((bookingData as any)?.businessReview)}</p>
         </div>
         ` : ''}
 
-        ${enhancedData.offerDetails ? `
+        ${(bookingData as any)?.offerDetails ? `
         <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
           <p style="font-size: 14px; color: #6b7280; font-weight: 600; margin-bottom: 8px;">Detalle del Contenido:</p>
-          <p style="font-size: 14px; color: #374151; line-height: 1.5; white-space: pre-wrap; margin: 0;">${escapeHtml(enhancedData.offerDetails)}</p>
+          <p style="font-size: 14px; color: #374151; line-height: 1.5; white-space: pre-wrap; margin: 0;">${escapeHtml((bookingData as any)?.offerDetails)}</p>
         </div>
         ` : ''}
 
         ${renderPricingOptions()}
 
-        ${enhancedData.cancellationPolicy ? `
+        ${(bookingData as any)?.cancellationPolicy ? `
         <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
           <p style="font-size: 14px; color: #6b7280; font-weight: 600; margin-bottom: 8px;">Políticas de Cancelación:</p>
-          <p style="font-size: 14px; color: #374151; line-height: 1.5; white-space: pre-wrap; margin: 0;">${escapeHtml(enhancedData.cancellationPolicy)}</p>
+          <p style="font-size: 14px; color: #374151; line-height: 1.5; white-space: pre-wrap; margin: 0;">${escapeHtml((bookingData as any)?.cancellationPolicy)}</p>
         </div>
         ` : ''}
 
-        ${enhancedData.additionalComments ? `
+        ${(bookingData as any)?.additionalComments ? `
         <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
           <p style="font-size: 14px; color: #6b7280; font-weight: 600; margin-bottom: 8px;">Comentarios Adicionales:</p>
-          <p style="font-size: 14px; color: #374151; line-height: 1.5; white-space: pre-wrap; margin: 0;">${escapeHtml(enhancedData.additionalComments)}</p>
+          <p style="font-size: 14px; color: #374151; line-height: 1.5; white-space: pre-wrap; margin: 0;">${escapeHtml((bookingData as any)?.additionalComments)}</p>
         </div>
         ` : ''}
 

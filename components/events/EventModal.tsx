@@ -93,10 +93,15 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
   }, [isOpen, eventToEdit, bookingRequestId])
 
   // Update description when linkedBookingRequest is loaded (for creating from booking request)
+  // Note: BookingRequest no longer has description field - use businessReview or offerDetails if needed
   useEffect(() => {
     // Only update if we're creating (not editing) and have a booking request
-    if (!eventToEdit && linkedBookingRequest && linkedBookingRequest.description) {
-      setDescription(linkedBookingRequest.description)
+    if (!eventToEdit && linkedBookingRequest) {
+      // Use offerDetails or businessReview as event description if available
+      const desc = (linkedBookingRequest as { offerDetails?: string; businessReview?: string })?.offerDetails 
+        || (linkedBookingRequest as { offerDetails?: string; businessReview?: string })?.businessReview 
+        || ''
+      if (desc) setDescription(desc)
     }
   }, [linkedBookingRequest, eventToEdit])
 
@@ -110,8 +115,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
     if (isOpen) {
       if (eventToEdit) {
         // Editing mode - pre-fill with event data
-        // If there's a linked booking request, use its description (which contains full form data)
-        const descriptionToUse = linkedBookingRequest?.description || eventToEdit.description || ''
+        const descriptionToUse = eventToEdit.description || ''
         
         setName(eventToEdit.name)
         setDescription(descriptionToUse)
@@ -165,7 +169,11 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       } else if (linkedBookingRequest && !eventToEdit) {
         // Creating from booking request - pre-fill with booking request data
         setName(linkedBookingRequest.name || '')
-        setDescription(linkedBookingRequest.description || '')
+        // Use offerDetails or businessReview as fallback description
+        const desc = (linkedBookingRequest as { offerDetails?: string; businessReview?: string })?.offerDetails 
+          || (linkedBookingRequest as { offerDetails?: string; businessReview?: string })?.businessReview 
+          || ''
+        setDescription(desc)
         setMerchant(linkedBookingRequest.merchant || '')
         
         // Set category from booking request

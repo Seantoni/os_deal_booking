@@ -7,7 +7,6 @@ import type { BookingRequestStatus } from '@/lib/constants'
 export type BookingRequest = {
   id: string
   name: string
-  description: string | null
   category: string | null
   parentCategory: string | null
   subCategory1: string | null

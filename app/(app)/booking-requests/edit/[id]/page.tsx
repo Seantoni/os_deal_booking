@@ -3,7 +3,6 @@ import { redirect, notFound } from 'next/navigation'
 import { requirePageAccess } from '@/lib/auth/page-access'
 import { getBookingRequest } from '@/app/actions/booking'
 import EnhancedBookingForm from '@/components/RequestForm'
-import { parseEnhancedDescription } from '@/lib/email/utils/description-parser'
 
 interface EditBookingRequestPageProps {
   params: Promise<{ id: string }>
@@ -35,10 +34,8 @@ export default async function EditBookingRequestPage({ params }: EditBookingRequ
     redirect('/booking-requests')
   }
 
-  // Parse the enhanced description to extract form data
-  const enhancedData = bookingRequest.description 
-    ? parseEnhancedDescription(bookingRequest.description)
-    : null
+  // Note: Description field has been removed - all data is now stored in individual fields
+  const enhancedData = null
 
   // Format dates for input fields (YYYY-MM-DD)
   const formatDateForInput = (date: Date) => {

@@ -3,22 +3,30 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { getBookingRequest, getFieldComments, addFieldComment, updateFieldComment, deleteFieldComment } from '@/app/actions/booking'
-import { parseFieldComments, getCommentsForField, getCommentCountsByField, type FieldComment } from '@/types'
+import { 
+  parseFieldComments, 
+  getCommentsForField, 
+  getCommentCountsByField, 
+  type FieldComment,
+  type BookingRequestViewData,
+  type SectionDefinition,
+  type FieldDefinition,
+  type AdditionalInfo,
+} from '@/types'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useUser } from '@clerk/nextjs'
+import { FIELD_TEMPLATES } from '@/components/RequestForm/config/field-templates'
+import { FieldWithComments } from './FieldWithComments'
 import toast from 'react-hot-toast'
 
 // Icons
 import CloseIcon from '@mui/icons-material/Close'
 import DescriptionIcon from '@mui/icons-material/Description'
 import CommentIcon from '@mui/icons-material/Comment'
-import AddCommentIcon from '@mui/icons-material/AddComment'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import HistoryIcon from '@mui/icons-material/History'
-import PersonIcon from '@mui/icons-material/Person'
 import SearchIcon from '@mui/icons-material/Search'
 import ClearIcon from '@mui/icons-material/Clear'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
@@ -26,8 +34,14 @@ import EventIcon from '@mui/icons-material/Event'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 
+// Helper to get field value from requestData using dynamic key access
+function getFieldValue(data: BookingRequestViewData | null, key: string): unknown {
+  if (!data) return undefined
+  return (data as unknown as Record<string, unknown>)[key]
+}
+
 // Field sections configuration (base)
-const BASE_SECTIONS = [
+const BASE_SECTIONS: SectionDefinition[] = [
   {
     title: 'General Information',
     fields: [
@@ -37,7 +51,6 @@ const BASE_SECTIONS = [
       { key: 'subCategory1', label: 'Subcategory 1' },
       { key: 'subCategory2', label: 'Subcategory 2' },
       { key: 'subCategory3', label: 'Subcategory 3' },
-      { key: 'description', label: 'Description', type: 'description' },
       { key: 'merchant', label: 'Merchant/Aliado' },
     ],
   },
@@ -144,10 +157,6 @@ interface BookingRequestViewModalProps {
   hideBackdrop?: boolean // Hide backdrop when used alongside another modal
 }
 
-interface BookingRequestData {
-  [key: string]: unknown
-}
-
 export default function BookingRequestViewModal({
   isOpen,
   onClose,
@@ -159,7 +168,7 @@ export default function BookingRequestViewModal({
   const { user } = useUser()
   const userId = user?.id
   const [loading, setLoading] = useState(true)
-  const [requestData, setRequestData] = useState<BookingRequestData | null>(null)
+  const [requestData, setRequestData] = useState<BookingRequestViewData | null>(null)
   const [comments, setComments] = useState<FieldComment[]>([])
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
   
@@ -186,9 +195,9 @@ export default function BookingRequestViewModal({
       ])
 
       if (requestResult.success && requestResult.data) {
-        setRequestData(requestResult.data as unknown as BookingRequestData)
+        setRequestData(requestResult.data as BookingRequestViewData)
         // Also parse comments from request data if server didn't return them
-        const requestComments = parseFieldComments((requestResult.data as BookingRequestData).fieldComments)
+        const requestComments = parseFieldComments(requestResult.data.fieldComments)
         setComments(commentsResult.success && commentsResult.data ? commentsResult.data : requestComments)
       }
 
@@ -211,15 +220,29 @@ export default function BookingRequestViewModal({
   const commentCounts = getCommentCountsByField(comments)
 
   // Additional Info (dynamic templates)
-  const additionalInfo = useMemo(() => {
-    const info = (requestData as any)?.additionalInfo
+  const additionalInfo = useMemo((): { templateDisplayName: string; fields: { label: string; value: string }[] } | null => {
+    const info = requestData?.additionalInfo as AdditionalInfo | null
     if (!info || typeof info !== 'object') return null
-    const fields = Object.entries((info as any).fields || {}).map(([label, value]) => ({
-      label,
-      value: value as string,
+    
+    const templateName = info.templateName || info.templateDisplayName || ''
+    const template = templateName ? FIELD_TEMPLATES[templateName] : null
+    
+    // Create a map of field names to labels from the template
+    const fieldLabelMap = new Map<string, string>()
+    if (template) {
+      template.fields.forEach(field => {
+        fieldLabelMap.set(field.name, field.label)
+      })
+    }
+    
+    // Map fields using labels from template if available, otherwise use field name as fallback
+    const fields = Object.entries(info.fields || {}).map(([fieldName, value]) => ({
+      label: fieldLabelMap.get(fieldName) || fieldName,
+      value: String(value),
     }))
+    
     return {
-      templateDisplayName: (info as any).templateDisplayName || (info as any).templateName || '',
+      templateDisplayName: info.templateDisplayName || templateName || '',
       fields,
     }
   }, [requestData])
@@ -254,7 +277,7 @@ export default function BookingRequestViewModal({
   }, [additionalInfo])
 
   // Combine base sections with optional additional info section
-  const allSections = useMemo(() => {
+  const allSections = useMemo((): SectionDefinition[] => {
     if (additionalSection?.section) {
       return [additionalSection.section, ...BASE_SECTIONS]
     }
@@ -400,6 +423,12 @@ export default function BookingRequestViewModal({
     setEditCommentText(comment.text)
   }
 
+  // Toggle comment field - used by FieldWithComments
+  const handleToggleComment = useCallback((fieldKey: string | null) => {
+    setActiveCommentField(fieldKey)
+    setNewCommentText('')
+  }, [])
+
   // Replicate request - navigate to form with pre-filled data
   function handleReplicate() {
     if (!requestData) return
@@ -420,7 +449,6 @@ export default function BookingRequestViewModal({
       if (emails.length > 0) params.set('additionalEmails', JSON.stringify(emails))
     }
     if (requestData.merchant) params.set('merchant', String(requestData.merchant))
-    if (requestData.description) params.set('description', String(requestData.description))
     if (requestData.category) params.set('category', String(requestData.category))
     if (requestData.parentCategory) params.set('parentCategory', String(requestData.parentCategory))
     if (requestData.subCategory1) params.set('subCategory1', String(requestData.subCategory1))
@@ -565,15 +593,15 @@ export default function BookingRequestViewModal({
 
           {/* Request History Reference */}
           {!loading && requestData && (() => {
-            const status = String(requestData.status || 'draft')
-            const processedAt = requestData.processedAt ? new Date(String(requestData.processedAt)) : null
-            const startDate = requestData.startDate ? new Date(String(requestData.startDate)) : null
-            const endDate = requestData.endDate ? new Date(String(requestData.endDate)) : null
-            const createdAt = requestData.createdAt ? new Date(String(requestData.createdAt)) : null
-            const processedByUser = requestData.processedByUser as { name?: string; email?: string } | null
-            const createdByUser = requestData.createdByUser as { name?: string; email?: string } | null
-            const processedByName = processedByUser?.name || processedByUser?.email || String(requestData.processedBy || '')
-            const createdByName = createdByUser?.name || createdByUser?.email || String(requestData.userId || '')
+            const status = requestData.status || 'draft'
+            const processedAt = requestData.processedAt ? new Date(requestData.processedAt) : null
+            const startDate = requestData.startDate ? new Date(requestData.startDate) : null
+            const endDate = requestData.endDate ? new Date(requestData.endDate) : null
+            const createdAt = requestData.createdAt ? new Date(requestData.createdAt) : null
+            const processedByUser = requestData.processedByUser
+            const createdByUser = requestData.createdByUser
+            const processedByName = processedByUser?.name || processedByUser?.email || requestData.processedBy || ''
+            const createdByName = createdByUser?.name || createdByUser?.email || requestData.userId || ''
 
             return (
               <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/50">
@@ -716,22 +744,31 @@ export default function BookingRequestViewModal({
               ) : (
                 <div className="space-y-6">
                   {/* Additional Info Section (if exists) */}
-                  {additionalInfo && additionalInfo.fields.length > 0 && (
-                    <div className="bg-white rounded-xl border border-blue-100 overflow-hidden shadow-sm ring-1 ring-blue-50">
-                      <div className="w-full px-6 py-4 bg-blue-50/50 border-b border-blue-100 flex items-center justify-between">
+                  {additionalInfo && additionalInfo.fields.length > 0 && additionalSection && (
+                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200">
+                      <div className="w-full px-6 py-4 bg-white border-b border-slate-100 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-blue-900 uppercase tracking-wide">
+                          <span className="text-sm font-bold text-slate-800 uppercase tracking-wide">
                             Información Adicional {additionalInfo.templateDisplayName ? `(${additionalInfo.templateDisplayName})` : ''}
                           </span>
                         </div>
                       </div>
-                      <div className="p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {additionalInfo.fields.map((f) => (
-                            <div key={f.label} className="p-4 rounded-lg border border-blue-100 bg-blue-50/30">
-                              <p className="text-xs font-bold uppercase tracking-wider text-blue-700/70 mb-1">{f.label}</p>
-                              <p className="text-sm text-slate-900 break-words whitespace-pre-wrap font-medium">{String(f.value)}</p>
-                            </div>
+                      <div className="p-6 bg-white">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                          {additionalSection.section.fields.map((field) => (
+                            <FieldWithComments
+                              key={field.key}
+                              fieldKey={field.key}
+                              label={field.label}
+                              value={additionalSection.values[field.key] ?? ''}
+                              comments={getCommentsForField(comments, field.key)}
+                              activeCommentField={activeCommentField}
+                              newCommentText={newCommentText}
+                              savingComment={savingComment}
+                              onToggleComment={handleToggleComment}
+                              onCommentTextChange={setNewCommentText}
+                              onAddComment={handleAddComment}
+                            />
                           ))}
                         </div>
                       </div>
@@ -771,129 +808,29 @@ export default function BookingRequestViewModal({
                           <div className="p-6 bg-white">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                               {section.fields.map(field => {
-                                const value =
+                                const rawValue =
                                   (additionalSection?.values && additionalSection.values[field.key]) ??
-                                  requestData?.[field.key]
-                                const fieldComments = getCommentsForField(comments, field.key)
-                                const hasComments = fieldComments.length > 0
-                                const isAddingComment = activeCommentField === field.key
+                                  getFieldValue(requestData, field.key)
                                 const isFieldMatch = searchQuery && (
                                   field.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
                                   field.key.toLowerCase().includes(searchQuery.toLowerCase())
                                 )
 
                                 return (
-                                  <div
+                                  <FieldWithComments
                                     key={field.key}
-                                    className={`relative group rounded-lg p-3 -m-3 transition-colors ${
-                                      isFieldMatch 
-                                        ? 'bg-yellow-50/50 ring-1 ring-yellow-200' 
-                                        : hasComments 
-                                          ? 'bg-blue-50/30' 
-                                          : 'hover:bg-slate-50'
-                                    }`}
-                                  >
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div className="flex-1 min-w-0">
-                                        <label className={`text-[11px] font-bold uppercase tracking-wider mb-1 block ${
-                                          isFieldMatch ? 'text-yellow-800' : 'text-slate-500 group-hover:text-slate-700'
-                                        }`}>
-                                          {field.label}
-                                        </label>
-                                        <div className="text-sm text-slate-900 break-words font-medium leading-relaxed">
-                                          {formatFieldValue(
-                                            value,
-                                            'type' in field ? (field as { type?: string }).type : undefined
-                                          )}
-                                        </div>
-                                      </div>
-                                      
-                                      {/* Comment indicator/button */}
-                                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        {hasComments && (
-                                          <span className="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold ring-1 ring-blue-200">
-                                            {fieldComments.length}
-                                          </span>
-                                        )}
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            setActiveCommentField(isAddingComment ? null : field.key)
-                                            setNewCommentText('')
-                                          }}
-                                          className={`p-1.5 rounded-md transition-colors ${
-                                            isAddingComment
-                                              ? 'bg-blue-100 text-blue-700'
-                                              : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
-                                          }`}
-                                          title="Add comment"
-                                        >
-                                          <AddCommentIcon style={{ fontSize: 16 }} />
-                                        </button>
-                                      </div>
-                                    </div>
-
-                                    {/* Show field comments inline */}
-                                    {hasComments && (
-                                      <div className="mt-3 pt-3 border-t border-blue-100/50 space-y-2">
-                                        {fieldComments.slice(0, 2).map(comment => (
-                                          <div key={comment.id} className="text-xs text-slate-600 bg-white/50 p-2 rounded border border-slate-100">
-                                            <div className="flex items-start gap-2">
-                                              <CommentIcon style={{ fontSize: 12 }} className="text-blue-500 mt-0.5 flex-shrink-0" />
-                                              <div className="flex-1 min-w-0">
-                                                <span className="font-semibold text-slate-800">
-                                                  {comment.authorName || comment.authorEmail?.split('@')[0] || 'User'}:
-                                                </span>
-                                                <span className="ml-1 line-clamp-2">{comment.text}</span>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        ))}
-                                        {fieldComments.length > 2 && (
-                                          <p className="text-[10px] font-medium text-blue-600 pl-1 hover:underline cursor-pointer">
-                                            +{fieldComments.length - 2} more comments
-                                          </p>
-                                        )}
-                                      </div>
-                                    )}
-
-                                    {/* Add comment form */}
-                                    {isAddingComment && (
-                                      <div className="mt-3 pt-3 border-t border-blue-100 relative z-10">
-                                        <textarea
-                                          value={newCommentText}
-                                          onChange={e => setNewCommentText(e.target.value)}
-                                          placeholder="Add a comment..."
-                                          className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none shadow-sm"
-                                          rows={2}
-                                          autoFocus
-                                          onClick={e => e.stopPropagation()}
-                                        />
-                                        <div className="flex justify-end gap-2 mt-2">
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              setActiveCommentField(null)
-                                              setNewCommentText('')
-                                            }}
-                                            className="px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
-                                          >
-                                            Cancel
-                                          </button>
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              handleAddComment()
-                                            }}
-                                            disabled={!newCommentText.trim() || savingComment}
-                                            className="px-2.5 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
-                                          >
-                                            {savingComment ? 'Saving...' : 'Add Comment'}
-                                          </button>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
+                                    fieldKey={field.key}
+                                    label={field.label}
+                                    value={formatFieldValue(rawValue, field.type)}
+                                    comments={getCommentsForField(comments, field.key)}
+                                    isHighlighted={!!isFieldMatch}
+                                    activeCommentField={activeCommentField}
+                                    newCommentText={newCommentText}
+                                    savingComment={savingComment}
+                                    onToggleComment={handleToggleComment}
+                                    onCommentTextChange={setNewCommentText}
+                                    onAddComment={handleAddComment}
+                                  />
                                 )
                               })}
                             </div>

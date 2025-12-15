@@ -8,6 +8,15 @@ export type { Event, EventStatus } from './event'
 
 // Booking request types
 export type { BookingRequest } from './booking-request'
+export type {
+  BookingRequestViewData,
+  PricingOption,
+  AdditionalInfo,
+  UserReference,
+  FieldDefinition,
+  FieldType,
+  SectionDefinition,
+} from './booking-request-view'
 export type { BookingRequestStatus } from '@/lib/constants'
 
 // Category types

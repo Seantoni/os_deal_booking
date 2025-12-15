@@ -275,7 +275,7 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
     const event = await prisma.event.create({
       data: {
         name: bookingRequest.name,
-        description: bookingRequest.description,
+        description: null, // Events can have their own description if needed
         category: standardizedCategory,
         parentCategory: bookingRequest.parentCategory,
         subCategory1: bookingRequest.subCategory1,
