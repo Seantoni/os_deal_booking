@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import CategorySelect from '@/components/shared/CategorySelect'
 import { getCategoryOptions, type CategoryOption } from '@/lib/categories'
-import { Input, Textarea } from '@/components/ui'
+import { Input } from '@/components/ui'
 import { saveBookingRequestDraft, sendBookingRequest } from '@/app/actions/booking'
 import type { BookingRequest } from '@/types'
 
@@ -15,7 +15,6 @@ interface BookingRequestFormProps {
 export default function BookingRequestForm({ requestToEdit }: BookingRequestFormProps) {
   const router = useRouter()
   const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
   const [categoryOption, setCategoryOption] = useState<CategoryOption | null>(null)
   const [merchant, setMerchant] = useState('')
   const [businessEmail, setBusinessEmail] = useState('')
@@ -29,7 +28,6 @@ export default function BookingRequestForm({ requestToEdit }: BookingRequestForm
   useEffect(() => {
     if (requestToEdit) {
       setName(requestToEdit.name)
-      setDescription(requestToEdit.description || '')
       setMerchant(requestToEdit.merchant || '')
       setBusinessEmail(requestToEdit.businessEmail)
       
@@ -67,7 +65,6 @@ export default function BookingRequestForm({ requestToEdit }: BookingRequestForm
       // Create FormData
       const formData = new FormData()
       formData.append('name', name)
-      formData.append('description', description)
       formData.append('category', categoryOption?.value || '')
       formData.append('parentCategory', categoryOption?.parent || '')
       formData.append('subCategory1', categoryOption?.sub1 || '')
@@ -146,21 +143,6 @@ export default function BookingRequestForm({ requestToEdit }: BookingRequestForm
             required
             size="sm"
             fullWidth={false}
-          />
-        </div>
-
-        {/* Description */}
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">
-            Description
-          </label>
-          <Textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Enter event description"
-            size="sm"
-            fullWidth={false}
-            className="min-h-[80px]"
           />
         </div>
 
