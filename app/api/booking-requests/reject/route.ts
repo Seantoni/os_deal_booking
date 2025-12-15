@@ -1,35 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyApprovalToken } from '@/lib/tokens'
+import { getAppBaseUrl } from '@/lib/config/env'
+import { logger } from '@/lib/logger'
 
 function getBaseUrl(request: NextRequest): string {
-  // Try to get base URL from environment variable first
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    // Remove trailing slash if present
-    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')
+  // Prefer configured base URL (validated in production)
+  try {
+    return getAppBaseUrl()
+  } catch {
+    // Fallback to constructing from request (useful in dev/preview)
+    const protocol = request.headers.get('x-forwarded-proto') || 'http'
+    const host = request.headers.get('host') || 'localhost:3000'
+    return `${protocol}://${host}`
   }
-  
-  // Fallback to constructing from request
-  const protocol = request.headers.get('x-forwarded-proto') || 'http'
-  const host = request.headers.get('host') || 'localhost:3000'
-  return `${protocol}://${host}`
 }
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const token = searchParams.get('token')
 
-  console.log('Reject route called with token:', token ? 'present' : 'missing')
+  logger.debug('Reject route called with token:', token ? 'present' : 'missing')
 
   if (!token) {
-    console.error('Missing token in reject route')
+    logger.error('Missing token in reject route')
     const baseUrl = getBaseUrl(request)
     return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/error?message=Missing token`))
   }
 
   // Verify token
   const verification = verifyApprovalToken(token)
-  console.log('Token verification result:', { 
+  logger.debug('Token verification result:', { 
     valid: verification.valid, 
     action: verification.action, 
     requestId: verification.requestId,
@@ -39,59 +40,47 @@ export async function GET(request: NextRequest) {
   if (!verification.valid || verification.action !== 'reject') {
     const baseUrl = getBaseUrl(request)
     const errorMsg = encodeURIComponent(verification.error || 'Invalid token')
-    console.error('Token verification failed:', verification.error)
+    logger.error('Token verification failed:', verification.error)
     return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/error?message=${errorMsg}`))
   }
 
   if (!verification.requestId) {
     const baseUrl = getBaseUrl(request)
-    console.error('No requestId in verified token')
+    logger.error('No requestId in verified token')
     return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/error?message=Invalid token: missing request ID`))
   }
 
   try {
-    // Get the booking request first to know who is rejecting
-    console.log('Fetching booking request:', verification.requestId)
+    // Verify the booking request exists
+    logger.debug('Fetching booking request:', verification.requestId)
     const existingRequest = await prisma.bookingRequest.findUnique({
       where: { id: verification.requestId },
     })
 
     if (!existingRequest) {
-      console.error('Booking request not found:', verification.requestId)
+      logger.error('Booking request not found:', verification.requestId)
       const baseUrl = getBaseUrl(request)
       return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/error?message=Request not found`))
     }
 
-    // Update booking request status to rejected
-    console.log('Updating booking request:', verification.requestId)
-    const bookingRequest = await prisma.bookingRequest.update({
-      where: { id: verification.requestId },
-      data: { 
-        status: 'rejected',
-        processedAt: new Date(),
-        processedBy: existingRequest.businessEmail,
-      },
-    })
-
-    console.log('✓ Booking request rejected successfully:', bookingRequest.id)
-    console.log('✓ Rejected by:', bookingRequest.processedBy, 'at:', bookingRequest.processedAt)
-
-    // Also update the linked event status if it exists
-    if (bookingRequest.eventId) {
-      await prisma.event.update({
-        where: { id: bookingRequest.eventId },
-        data: { status: 'rejected' },
-      })
-      console.log('Linked event updated to rejected:', bookingRequest.eventId)
+    // Check if already processed (approved, booked, or rejected)
+    if (existingRequest.status === 'approved' || existingRequest.status === 'booked') {
+      const baseUrl = getBaseUrl(request)
+      return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/already-processed?status=approved&id=${existingRequest.id}`))
+    }
+    
+    if (existingRequest.status === 'rejected') {
+      const baseUrl = getBaseUrl(request)
+      return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/already-processed?status=rejected&id=${existingRequest.id}`))
     }
 
-    // Redirect to success page
+    // Redirect to form page to collect rejection reason
     const baseUrl = getBaseUrl(request)
-    return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/rejected?id=${bookingRequest.id}`))
+    return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/rejected?token=${token}`))
   } catch (error) {
-    console.error('Error rejecting booking request:', error)
+    logger.error('Error in reject route:', error)
     const baseUrl = getBaseUrl(request)
-    const errorMsg = error instanceof Error ? encodeURIComponent(error.message) : 'Failed to reject request'
+    const errorMsg = error instanceof Error ? encodeURIComponent(error.message) : 'Failed to process request'
     return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/error?message=${errorMsg}`))
   }
 }

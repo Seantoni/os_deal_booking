@@ -1,7 +1,14 @@
 import type { NextConfig } from "next";
 
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+});
+
 const nextConfig: NextConfig = {
-  // Empty config to start with defaults and Turbopack support
+  // Performance optimizations
+  experimental: {
+    optimizePackageImports: ['@mui/icons-material', '@mui/material'],
+  },
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

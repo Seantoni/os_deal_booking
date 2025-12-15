@@ -1,5 +1,6 @@
 import { resend, EMAIL_CONFIG } from '../config'
 import { renderRejectionEmail } from '../templates/rejection'
+import { prisma } from '@/lib/prisma'
 
 /**
  * Send rejection email to business and requester
@@ -15,10 +16,28 @@ export async function sendRejectionEmail(
   rejectionReason: string
 ) {
   try {
-    // Get the user's email from Clerk
-    const { currentUser } = await import('@clerk/nextjs/server')
-    const user = await currentUser()
-    const requesterEmail = user?.emailAddresses?.[0]?.emailAddress
+    // Get the requester's email from UserProfile (user who created the request)
+    let requesterEmail: string | null = null
+    try {
+      const userProfile = await prisma.userProfile.findUnique({
+        where: { clerkId: bookingRequest.userId },
+        select: { email: true },
+      })
+      requesterEmail = userProfile?.email || null
+      
+      // If not found in UserProfile, try to get from Clerk
+      if (!requesterEmail) {
+        const { clerkClient } = await import('@clerk/nextjs/server')
+        const clerk = await clerkClient()
+        const user = await clerk.users.getUser(bookingRequest.userId)
+        requesterEmail = user.emailAddresses.find(e => e.id === user.primaryEmailAddressId)?.emailAddress 
+          || user.emailAddresses[0]?.emailAddress 
+          || null
+      }
+    } catch (userError) {
+      console.error('Error getting requester email:', userError)
+      // Continue without requester email - still send to business
+    }
 
     // Create rejection email HTML
     const emailHtml = renderRejectionEmail({
@@ -27,7 +46,12 @@ export async function sendRejectionEmail(
       rejectionReason,
     })
 
-    // Send email to business and CC to requester
+    // Send email to business and requester (if found)
+    const recipients = [bookingRequest.businessEmail]
+    if (requesterEmail) {
+      recipients.push(requesterEmail)
+    }
+
     await resend.emails.send({
       from: `OS Deals Booking <${EMAIL_CONFIG.from}>`,
       to: bookingRequest.businessEmail,
@@ -37,7 +61,7 @@ export async function sendRejectionEmail(
       html: emailHtml,
     })
 
-    console.log(`✓ Rejection email sent to ${bookingRequest.businessEmail}`)
+    console.log(`✓ Rejection email sent to ${bookingRequest.businessEmail}${requesterEmail ? ` (CC: ${requesterEmail})` : ''}`)
   } catch (error) {
     console.error('Error sending rejection email:', error)
     throw error

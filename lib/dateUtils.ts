@@ -1,9 +1,25 @@
 /**
- * Date formatting utilities that ensure consistency across the app
+ * Date Utilities Facade
+ * 
+ * This file serves as a convenience re-export layer for date-related utilities.
+ * All core date functions are organized in the `lib/date/` folder:
+ * 
+ * - `lib/date/timezone.ts` - Panama timezone handling (UTC-5)
+ * - `lib/date/formatting.ts` - Date display formatting utilities
+ * - `lib/date/index.ts` - Central exports from lib/date/
+ * 
+ * USAGE:
+ * - For new code, prefer importing directly from `@/lib/date` for better tree-shaking
+ * - This file exists for backwards compatibility and convenience
+ * 
  * All dates are stored in UTC but displayed in Panama timezone (EST, UTC-5)
  */
 
-import { formatDateForPanama, formatDateTimeForPanama, PANAMA_TIMEZONE } from './timezone'
+import { formatDateForPanama, formatDateTimeForPanama, PANAMA_TIMEZONE } from './date/timezone'
+import { formatDateForDisplay, formatDateShort, calculateDaysDifference, calculateDaysUntil } from './date/formatting'
+
+// Re-export from lib/date/ for backwards compatibility
+export { formatDateForDisplay, formatDateShort, calculateDaysDifference, calculateDaysUntil }
 
 /**
  * Format a date for display in the UI (Panama timezone)

@@ -4,10 +4,12 @@
 
 export type Category = string
 
+// Recursive type for category hierarchy
+// Can be an array of strings (leaf nodes) or nested objects
+export type CategoryNode = string[] | { [key: string]: CategoryNode }
+
 export type CategoryHierarchy = {
-  [mainCategory: string]: {
-    [subCategory: string]: string[]
-  }
+  [mainCategory: string]: CategoryNode
 }
 
 export type CategoryOption = {
@@ -16,6 +18,8 @@ export type CategoryOption = {
   parent: string
   sub1: string | null
   sub2: string | null
+  sub3: string | null
+  sub4: string | null
 }
 
 export type CategoryColors = {

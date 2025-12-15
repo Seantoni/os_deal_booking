@@ -7,11 +7,13 @@
 export type { Event, EventStatus } from './event'
 
 // Booking request types
-export type { BookingRequest, BookingRequestStatus } from './booking-request'
+export type { BookingRequest } from './booking-request'
+export type { BookingRequestStatus } from '@/lib/constants'
 
 // Category types
 export type {
   Category,
+  CategoryNode,
   CategoryHierarchy,
   CategoryOption,
   CategoryColors,
@@ -22,8 +24,65 @@ export type {
 export type { UserRole, UserProfile } from './user'
 
 // Settings types
-export type { BusinessException, BookingSettings } from './settings'
+export type { BusinessException, BookingSettings, RequestFieldConfig, RequestFormFieldsConfig } from './settings'
 
-// PDF parsing types
-export type { ParsedBookingData } from './pdf'
+// Booking field types and utilities
+export type {
+  CategoryFields,
+  BookingIdentificationFields,
+  BookingDateFields,
+  ContactFields,
+  EventModalPrefillData,
+} from './booking-fields'
+export {
+  mapBookingRequestToEventData,
+  buildCategoryDisplayString,
+  hasCategoryData,
+  extractCategoryFields,
+  formatDateForInput,
+  REQUIRED_BOOKING_FIELDS,
+  CATEGORY_FIELDS,
+  EVENT_MODAL_FIELDS,
+} from './booking-fields'
 
+// Business and Opportunity types
+export type { Business, Opportunity, Task } from './business'
+export type { OpportunityStage } from '@/lib/constants'
+
+// Lead types
+export type { Lead } from './lead'
+export type { LeadStage } from '@/lib/constants'
+
+// Deal types
+export type { Deal } from './deal'
+
+// Field Comment types
+export type { FieldComment, FieldCommentEdit } from './field-comment'
+export { 
+  isFieldCommentArray, 
+  parseFieldComments, 
+  getCommentsForField, 
+  getCommentCountsByField 
+} from './field-comment'
+
+// Form Configuration types
+export type {
+  FormEntityType,
+  FieldWidth,
+  FieldSource,
+  BuiltinFieldDefinition,
+  FormSectionBase,
+  FormSection,
+  FormSectionWithDefinitions,
+  FormFieldConfig,
+  FormFieldWithDefinition,
+} from './form-config'
+export {
+  BUSINESS_BUILTIN_FIELDS,
+  OPPORTUNITY_BUILTIN_FIELDS,
+  DEAL_BUILTIN_FIELDS,
+  LEAD_BUILTIN_FIELDS,
+  getBuiltinFieldsForEntity,
+  getBuiltinFieldDefinition,
+  DEFAULT_SECTIONS,
+} from './form-config'

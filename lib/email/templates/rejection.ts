@@ -87,7 +87,7 @@ export function renderRejectionEmail(props: RejectionEmailProps): string {
     <!-- Footer -->
     <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
       <p style="font-size: 12px; color: #9ca3af; margin: 0;">
-        © 2025 OfertaSimple - OS Deals Booking System
+        © 2025 OfertaSimple - OS Deals Sistema de Reservas
       </p>
     </div>
   </div>

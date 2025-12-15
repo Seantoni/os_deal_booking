@@ -1,5 +1,6 @@
 import { type CategoryHierarchy, INITIAL_CATEGORY_HIERARCHY, getInitialFlatCategories } from './initial-categories'
-import type { CategoryDurations, BusinessException, BookingSettings } from '@/types/settings'
+import type { CategoryDurations, BusinessException, BookingSettings, RequestFormFieldsConfig, CategoryNode } from '@/types'
+import { getDefaultRequestFormFieldsConfig } from './config/request-form-fields'
 
 // Re-export centralized types
 export type { CategoryDurations, BusinessException, BookingSettings }
@@ -11,43 +12,39 @@ const SEVEN_DAY_CATEGORIES = [
   "SHOWS Y EVENTOS"
 ] as const;
 
+// Helper to check if a node is a leaf array
+function isLeafArray(node: CategoryNode): node is string[] {
+  return Array.isArray(node)
+}
+
+// Helper to check if category exists in a CategoryNode (recursive)
+function categoryExistsInNode(node: CategoryNode, category: string): boolean {
+  if (isLeafArray(node)) {
+    return node.includes(category)
+  }
+  // Check if category is a key in the object
+  if (category in node) return true
+  // Check children recursively
+  for (const key of Object.keys(node)) {
+    if (categoryExistsInNode(node[key], category)) return true
+  }
+  return false
+}
+
 // Initialize default durations for all categories
 const getDefaultCategoryDurations = (): CategoryDurations => {
   const durations: CategoryDurations = {}
   const flatCategories = getInitialFlatCategories();
   
   flatCategories.forEach(category => {
-    // Simple heuristic: if the category string contains one of the main categories, give it 7 days?
-    // Or we just rely on defaults.
-    // The original logic was: SEVEN_DAY_CATEGORIES.includes(category) ? 7 : 5
-    // Since 'category' here is a leaf or sub, strict equality check against MAIN names usually fails unless they match.
-    // But let's keep it simple.
-    
-    // We can check if any 7-day main category is part of the string or hierarchy logic.
-    // For now, default to 5 unless matched.
-    
-    // Actually, we need to know the parent to decide 7 vs 5.
-    // But getInitialFlatCategories returns just strings.
-    // Let's approximate or just set 5 for everything initially, user can change in settings.
-    
-    // Or, we iterate the hierarchy to build it correctly.
     let isSevenDay = false;
     for (const main of SEVEN_DAY_CATEGORIES) {
-       // If this flat category belongs to a 7-day main category...
-       // This is hard to know from just the flat string if names are not unique or prefixed.
-       // But let's try to iterate the INITIAL_CATEGORY_HIERARCHY.
        const subs = INITIAL_CATEGORY_HIERARCHY[main];
        if (subs) {
-          // Check if 'category' is a sub or leaf of 'main'
-          if (Object.keys(subs).includes(category)) {
+          // Check if 'category' exists in the hierarchy under this main category
+          if (categoryExistsInNode(subs, category)) {
              isSevenDay = true;
              break;
-          }
-          for (const sub in subs) {
-             if (subs[sub].includes(category)) {
-                isSevenDay = true;
-                break;
-             }
           }
        }
        if (isSevenDay) break;
@@ -65,33 +62,49 @@ export const DEFAULT_SETTINGS: BookingSettings = {
   merchantRepeatDays: 30,
   businessExceptions: [],
   customCategories: INITIAL_CATEGORY_HIERARCHY,
+  hiddenCategoryPaths: {},
+  additionalInfoMappings: {},
+  requestFormFields: getDefaultRequestFormFieldsConfig(),
 }
 
-// Local storage keys
+// Local storage keys (deprecated - now using database)
 const SETTINGS_KEY = 'os_booking_settings'
 
+/**
+ * Get settings - tries database first, falls back to localStorage for migration, then defaults
+ * @deprecated Use getSettingsFromDB() server action instead for new code
+ */
 export function getSettings(): BookingSettings {
   if (typeof window === 'undefined') return DEFAULT_SETTINGS
   
+  // Try localStorage first (for migration period)
   const stored = localStorage.getItem(SETTINGS_KEY)
-  if (!stored) return DEFAULT_SETTINGS
-  
-  try {
-    const parsed = JSON.parse(stored)
-    // Merge with defaults to ensure all categories are present
-    return {
-      ...DEFAULT_SETTINGS,
-      ...parsed,
-      categoryDurations: {
-        ...DEFAULT_SETTINGS.categoryDurations,
-        ...parsed.categoryDurations,
-      },
-      businessExceptions: parsed.businessExceptions || [],
-      customCategories: parsed.customCategories || DEFAULT_SETTINGS.customCategories,
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored)
+      // Merge with defaults to ensure all fields are present
+      return {
+        ...DEFAULT_SETTINGS,
+        ...parsed,
+        categoryDurations: {
+          ...DEFAULT_SETTINGS.categoryDurations,
+          ...parsed.categoryDurations,
+        },
+        businessExceptions: parsed.businessExceptions || [],
+        customCategories: parsed.customCategories || DEFAULT_SETTINGS.customCategories,
+        additionalInfoMappings: parsed.additionalInfoMappings || {},
+        hiddenCategoryPaths: parsed.hiddenCategoryPaths || {},
+        requestFormFields: {
+          ...DEFAULT_SETTINGS.requestFormFields,
+          ...parsed.requestFormFields,
+        },
+      }
+    } catch {
+      // If parsing fails, continue to defaults
     }
-  } catch {
-    return DEFAULT_SETTINGS
   }
+  
+  return DEFAULT_SETTINGS
 }
 
 // Helper to get business exception value
@@ -107,8 +120,14 @@ export function getBusinessException(
   return exception ? exception.exceptionValue : null
 }
 
+/**
+ * Save settings - saves to both localStorage (for backward compatibility) and database
+ * @deprecated Use saveSettingsToDB() server action instead for new code
+ */
 export function saveSettings(settings: BookingSettings): void {
   if (typeof window === 'undefined') return
+  
+  // Keep localStorage for backward compatibility during migration
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
   
   // Dispatch custom event to notify components in the same tab
@@ -118,6 +137,10 @@ export function saveSettings(settings: BookingSettings): void {
   }
 }
 
+/**
+ * Reset settings - clears localStorage
+ * @deprecated Use resetSettingsToDefaults() server action instead for new code
+ */
 export function resetSettings(): void {
   if (typeof window === 'undefined') return
   localStorage.removeItem(SETTINGS_KEY)

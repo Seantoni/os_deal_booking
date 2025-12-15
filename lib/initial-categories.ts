@@ -1,6 +1,27 @@
-import type { CategoryHierarchy } from '@/types/category'
+import type { CategoryHierarchy, CategoryNode } from '@/types'
 
 export type { CategoryHierarchy }
+
+// Helper to check if a node is a leaf array
+function isLeafArray(node: CategoryNode): node is string[] {
+  return Array.isArray(node);
+}
+
+// Recursively collect leaf categories
+function collectLeaves(node: CategoryNode, results: string[]): void {
+  if (isLeafArray(node)) {
+    results.push(...node);
+  } else {
+    for (const key of Object.keys(node)) {
+      const child = node[key];
+      if (isLeafArray(child) && child.length === 0) {
+        results.push(key);
+      } else {
+        collectLeaves(child, results);
+      }
+    }
+  }
+}
 
 export const INITIAL_CATEGORY_HIERARCHY: CategoryHierarchy = {
   "HOTELES": {
@@ -107,14 +128,7 @@ export const INITIAL_CATEGORY_HIERARCHY: CategoryHierarchy = {
 export function getInitialFlatCategories(): string[] {
   const all: string[] = [];
   for (const main in INITIAL_CATEGORY_HIERARCHY) {
-    for (const sub in INITIAL_CATEGORY_HIERARCHY[main]) {
-      const leaves = INITIAL_CATEGORY_HIERARCHY[main][sub];
-      if (leaves.length > 0) {
-        all.push(...leaves);
-      } else {
-        all.push(sub);
-      }
-    }
+    collectLeaves(INITIAL_CATEGORY_HIERARCHY[main], all);
   }
   return all;
 }

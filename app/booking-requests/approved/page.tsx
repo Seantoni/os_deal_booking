@@ -1,11 +1,10 @@
-import Link from 'next/link'
-
-export default async function ApprovedPage({
+// This route is public; no auth required for viewing the approved page
+export default function ApprovedBookingRequestsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ id?: string }>
+  searchParams: { id?: string; approvedBy?: string }
 }) {
-  const params = await searchParams
+  const params = searchParams
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center px-4">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center border-2 border-green-200">
@@ -23,13 +22,24 @@ export default async function ApprovedPage({
           ¡Solicitud Aprobada!
         </h1>
         
-        <p className="text-gray-600 mb-6">
+        <p className="text-gray-600 mb-4">
           La solicitud de booking ha sido aprobada exitosamente. El estado se ha actualizado a "Approved".
         </p>
 
+        {/* Approver Info */}
+        {params.approvedBy && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <p className="text-sm text-green-800">
+              <span className="font-medium">Aprobado por:</span>
+              <br />
+              <span className="text-green-700">{params.approvedBy}</span>
+            </p>
+          </div>
+        )}
+
         {params.id && (
-          <p className="text-sm text-gray-500 mb-6">
-            Request ID: {params.id}
+          <p className="text-xs text-gray-400 mb-6">
+            ID: {params.id}
           </p>
         )}
 
@@ -50,4 +60,3 @@ export default async function ApprovedPage({
     </div>
   )
 }
-

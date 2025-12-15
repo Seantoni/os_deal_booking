@@ -2,6 +2,7 @@
 
 import { auth } from '@clerk/nextjs/server'
 import { getOpenAIClient } from '@/lib/openai'
+import { logger } from '@/lib/logger'
 
 /**
  * Test OpenAI API connection
@@ -37,7 +38,7 @@ export async function testOpenAIConnection() {
       model: response.model,
     }
   } catch (error) {
-    console.error('OpenAI API Error:', error)
+    logger.error('OpenAI API Error:', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

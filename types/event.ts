@@ -11,10 +11,11 @@ export type Event = {
   subCategory1: string | null
   subCategory2: string | null
   subCategory3: string | null
+  subCategory4: string | null
   merchant: string | null
   startDate: Date
   endDate: Date
-  status: string // 'pending' | 'approved' | 'booked' | 'rejected'
+  status: string // 'pending' | 'approved' | 'pre-booked' | 'booked' | 'rejected'
   userId: string
   bookingRequestId?: string | null
   createdAt: Date
@@ -24,5 +25,5 @@ export type Event = {
 /**
  * Event status options
  */
-export type EventStatus = 'pending' | 'approved' | 'booked' | 'rejected'
+export type EventStatus = 'pending' | 'approved' | 'pre-booked' | 'booked' | 'rejected'
 

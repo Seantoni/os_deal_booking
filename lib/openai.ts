@@ -1,15 +1,10 @@
 import OpenAI from 'openai'
+import { ENV } from '@/lib/config/env'
 
-// Initialize OpenAI client
+// Initialize OpenAI client using validated environment configuration
 export function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY
-  
-  if (!apiKey) {
-    throw new Error('OPENAI_API_KEY is not set in environment variables')
-  }
-  
   return new OpenAI({
-    apiKey: apiKey,
+    apiKey: ENV.OPENAI_API_KEY,
   })
 }
 

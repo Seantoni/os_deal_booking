@@ -1,0 +1,473 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { saveBookingRequestDraft, sendBookingRequest } from '@/app/actions/booking'
+import type { BookingFormData } from './types'
+import { STEPS, INITIAL_FORM_DATA, getStepKeyByIndex, getStepIndexByKey, getStepIdByKey } from './constants'
+import { validateStep, buildFormDataForSubmit } from './request_form_utils'
+import ProgressBar from './components/ProgressBar'
+import NavigationButtons from './components/NavigationButtons'
+import CategoryAvailabilityList from './components/CategoryAvailabilityList'
+import { Dropdown } from '@/components/ui'
+import { getCategoryOptions } from '@/lib/categories'
+import type { CategoryOption, RequestFormFieldsConfig } from '@/types'
+import ConfiguracionStep from './steps/ConfiguracionStep'
+import OperatividadStep from './steps/OperatividadStep'
+import DirectorioStep from './steps/DirectorioStep'
+import FiscalesStep from './steps/FiscalesStep'
+import NegocioStep from './steps/NegocioStep'
+import DescripcionStep from './steps/DescripcionStep'
+import EstructuraStep from './steps/EstructuraStep'
+import PoliticasStep from './steps/PoliticasStep'
+import InformacionAdicionalStep from './steps/InformacionAdicionalStep'
+import toast from 'react-hot-toast'
+
+interface EnhancedBookingFormProps {
+  requestId?: string
+  initialFormData?: Partial<BookingFormData>
+}
+
+export default function EnhancedBookingForm({ requestId, initialFormData }: EnhancedBookingFormProps = {}) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [currentStepKey, setCurrentStepKey] = useState<string>('configuracion')
+  const [formData, setFormData] = useState<BookingFormData>({ ...INITIAL_FORM_DATA, ...initialFormData })
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [saving, setSaving] = useState(false)
+  const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([])
+  const [requiredFields, setRequiredFields] = useState<RequestFormFieldsConfig>({})
+
+  // Fetch request form field configuration from settings
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        // Add cache-busting param to prevent browser caching
+        const response = await fetch('/api/settings?t=' + Date.now())
+        if (response.ok) {
+          const result = await response.json()
+          console.log('[EnhancedBookingForm] Settings loaded:', {
+            success: result.success,
+            hasRequestFormFields: !!result.data?.requestFormFields,
+            // Show actual required values
+            businessName_required: result.data?.requestFormFields?.businessName?.required,
+            partnerEmail_required: result.data?.requestFormFields?.partnerEmail?.required,
+            category_required: result.data?.requestFormFields?.category?.required,
+          })
+          if (result.success && result.data?.requestFormFields) {
+            setRequiredFields(result.data.requestFormFields)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load request form settings:', error)
+      }
+    }
+    loadSettings()
+  }, [])
+
+  // Helper to check if a field is required
+  const isFieldRequired = useCallback((fieldKey: string): boolean => {
+    return requiredFields[fieldKey]?.required ?? false
+  }, [requiredFields])
+
+  // Pre-fill form from query parameters (from CRM opportunity or NewRequestModal)
+  useEffect(() => {
+    const fromOpportunity = searchParams.get('fromOpportunity')
+    const partnerEmail = searchParams.get('partnerEmail')
+    const legalName = searchParams.get('legalName')
+    const ruc = searchParams.get('ruc')
+    const province = searchParams.get('province')
+    const district = searchParams.get('district')
+    const corregimiento = searchParams.get('corregimiento')
+    const bank = searchParams.get('bank')
+    const bankAccountName = searchParams.get('bankAccountName')
+    const accountNumber = searchParams.get('accountNumber')
+    const accountType = searchParams.get('accountType')
+    const paymentPlan = searchParams.get('paymentPlan')
+    const address = searchParams.get('address')
+    const neighborhood = searchParams.get('neighborhood')
+    const description = searchParams.get('description')
+    const website = searchParams.get('website')
+    const instagram = searchParams.get('instagram')
+    
+    if (fromOpportunity) {
+      const businessName = searchParams.get('businessName')
+      const businessEmail = searchParams.get('businessEmail')
+      const contactName = searchParams.get('contactName')
+      const contactPhone = searchParams.get('contactPhone')
+      const parentCategory = searchParams.get('parentCategory')
+      const subCategory1 = searchParams.get('subCategory1')
+      const subCategory2 = searchParams.get('subCategory2')
+
+      console.log('[EnhancedBookingForm] Pre-filling from opportunity:', {
+        fromOpportunity,
+        businessName,
+        businessEmail,
+        parentCategory,
+        subCategory1,
+        subCategory2,
+      })
+
+      // Build category value for compatibility with CategorySelect
+      const categoryValue = parentCategory 
+        ? `${parentCategory}${subCategory1 ? ' > ' + subCategory1 : ''}${subCategory2 ? ' > ' + subCategory2 : ''}`
+        : ''
+
+      setFormData(prev => {
+        const addressAndHoursFromBusiness = [address, neighborhood].filter(Boolean).join(', ')
+        const socialFromBusiness = [instagram, website].filter(Boolean).join(' | ')
+
+        return {
+        ...prev,
+        businessName: businessName || prev.businessName,
+        // Only use the primary contact email from business, don't auto-populate additional emails
+        partnerEmail: businessEmail || partnerEmail || prev.partnerEmail,
+        redemptionContactName: contactName || prev.redemptionContactName,
+        redemptionContactPhone: contactPhone || prev.redemptionContactPhone,
+        redemptionContactEmail: businessEmail || partnerEmail || prev.redemptionContactEmail,
+        approverName: contactName || prev.approverName,
+        approverEmail: businessEmail || partnerEmail || prev.approverEmail,
+        category: categoryValue || prev.category,
+        parentCategory: parentCategory || prev.parentCategory,
+        subCategory1: subCategory1 || prev.subCategory1,
+        subCategory2: subCategory2 || prev.subCategory2,
+        opportunityId: fromOpportunity,
+          legalName: legalName || prev.legalName,
+          rucDv: ruc || prev.rucDv,
+          province: province || prev.province,
+          district: district || prev.district,
+          corregimiento: corregimiento || prev.corregimiento,
+          bank: bank || prev.bank,
+          bankAccountName: bankAccountName || prev.bankAccountName,
+          accountNumber: accountNumber || prev.accountNumber,
+          accountType: accountType || prev.accountType,
+          paymentInstructions: paymentPlan || prev.paymentInstructions,
+          addressAndHours: addressAndHoursFromBusiness || prev.addressAndHours,
+          socialMedia: socialFromBusiness || prev.socialMedia,
+          contactDetails: website || prev.contactDetails,
+          businessReview: description || prev.businessReview,
+          approverBusinessName: legalName || businessName || prev.approverBusinessName,
+        }
+      })
+    } else if (partnerEmail) {
+      // Pre-fill from NewRequestModal (primary email only)
+      console.log('[EnhancedBookingForm] Pre-filling email from NewRequestModal:', {
+        partnerEmail,
+      })
+      
+      setFormData(prev => {
+        return {
+        ...prev,
+        partnerEmail: partnerEmail || prev.partnerEmail,
+        }
+      })
+    }
+  }, [searchParams])
+  
+  // Load category options (client-side)
+  useEffect(() => {
+    setCategoryOptions(getCategoryOptions())
+  }, [])
+  
+  // All categories now have the "Información Adicional" step (dynamic templates handle content)
+  const availableSteps = STEPS
+  
+  // Helper to get current step index for calculations (based on available steps)
+  const currentStepIndex = availableSteps.findIndex(step => step.key === currentStepKey)
+  const currentStepId = getStepIdByKey(currentStepKey) || 1
+
+  const updateFormData = (field: keyof BookingFormData, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+    // Clear error for this field
+    if (errors[field]) {
+      setErrors(prev => {
+        const newErrors = { ...prev }
+        delete newErrors[field]
+        return newErrors
+      })
+    }
+  }
+
+  const handleValidateStep = (stepKey: string): boolean => {
+    const stepId = getStepIdByKey(stepKey) || 1
+    const newErrors = validateStep(stepId, formData, requiredFields)
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const totalSteps = availableSteps.length
+
+
+  const handleNext = () => {
+    if (handleValidateStep(currentStepKey)) {
+      const nextIndex = currentStepIndex + 1
+      if (nextIndex < availableSteps.length) {
+        const nextStepKey = availableSteps[nextIndex].key
+        setCurrentStepKey(nextStepKey)
+      }
+    }
+  }
+
+  const handlePrevious = () => {
+    const prevIndex = currentStepIndex - 1
+    if (prevIndex >= 0) {
+      const prevStepKey = availableSteps[prevIndex].key
+      setCurrentStepKey(prevStepKey)
+    }
+  }
+  
+  const handleStepClick = (stepKey: string) => {
+    const clickedIndex = getStepIndexByKey(stepKey)
+    // Only allow clicking on steps that are before the current step
+    if (clickedIndex < currentStepIndex) {
+      setCurrentStepKey(stepKey)
+    }
+  }
+
+  const handleGoBack = () => {
+    router.push('/booking-requests')
+  }
+
+  const handleSaveDraft = async () => {
+    setSaving(true)
+    
+    try {
+      const formDataToSend = buildFormDataForSubmit(formData)
+      const result = await saveBookingRequestDraft(formDataToSend, requestId)
+      
+      if (result.success) {
+        toast.success(requestId ? 'Borrador actualizado exitosamente' : 'Borrador guardado exitosamente')
+        if (requestId) {
+          router.push('/booking-requests')
+        }
+      } else {
+        toast.error('Error guardando borrador: ' + result.error)
+      }
+    } catch (error) {
+      toast.error('Error: ' + (error instanceof Error ? error.message : 'Unknown error'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSubmit = async () => {
+    if (!formData.businessName || !formData.partnerEmail || !formData.startDate || !formData.endDate) {
+      toast.error('Por favor complete todos los campos requeridos')
+      return
+    }
+    
+    setSaving(true)
+    
+    try {
+      const formDataToSend = buildFormDataForSubmit(formData)
+      const result = await sendBookingRequest(formDataToSend, requestId)
+      
+      if (result.success) {
+        toast.success('Solicitud enviada exitosamente')
+        router.push('/booking-requests')
+      } else {
+        toast.error('Error enviando solicitud: ' + result.error)
+      }
+    } catch (error) {
+      toast.error('Error: ' + (error instanceof Error ? error.message : 'Unknown error'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const addPricingOption = () => {
+    setFormData(prev => ({
+      ...prev,
+      pricingOptions: [
+        ...prev.pricingOptions,
+        { title: '', description: '', price: '', realValue: '', quantity: 'Ilimitado' }
+      ]
+    }))
+  }
+
+  const removePricingOption = (index: number) => {
+    setFormData(prev => {
+      const currentOptions = Array.isArray(prev.pricingOptions) ? prev.pricingOptions : []
+      return {
+        ...prev,
+        pricingOptions: currentOptions.filter((_, i) => i !== index)
+      }
+    })
+  }
+
+  const updatePricingOption = (index: number, field: string, value: string) => {
+    setFormData(prev => {
+      const currentOptions = Array.isArray(prev.pricingOptions) ? prev.pricingOptions : []
+      return {
+        ...prev,
+        pricingOptions: currentOptions.map((option, i) =>
+          i === index ? { ...option, [field]: value } : option
+        )
+      }
+    })
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-100 py-12 px-4 sm:px-6 lg:px-8 font-sans">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="flex gap-6">
+          {/* Category Availability Sidebar - Only visible on Configuración */}
+          {currentStepKey === 'configuracion' && (
+            <div className="flex-shrink-0">
+              <div className="mb-4 w-80">
+                <p className="text-xs font-semibold text-gray-700 mb-1">Seleccionar categoría</p>
+                <Dropdown
+                  fullWidth
+                  items={categoryOptions.map(opt => ({
+                    value: opt.value,
+                    label: opt.label,
+                    description: opt.parent,
+                  }))}
+                  selectedLabel={
+                    categoryOptions.find(opt => opt.value === formData.category)?.label || formData.category || ''
+                  }
+                  placeholder="Buscar y seleccionar categoría"
+                  onSelect={(value) => {
+                    const option = categoryOptions.find(o => o.value === value)
+                    if (!option) return
+                    updateFormData('category', option.value)
+                    updateFormData('parentCategory', option.parent)
+                    updateFormData('subCategory1', option.sub1 || '')
+                    updateFormData('subCategory2', option.sub2 || '')
+                  }}
+                />
+              </div>
+              <CategoryAvailabilityList 
+                onCategorySelect={(option) => {
+                  // Update form data with selected category
+                  updateFormData('category', option.value)
+                  updateFormData('parentCategory', option.parent)
+                  updateFormData('subCategory1', option.sub1 || '')
+                  updateFormData('subCategory2', option.sub2 || '')
+                }}
+              />
+            </div>
+          )}
+
+          {/* Main Content Area */}
+          <div className={`flex-1 ${currentStepKey === 'configuracion' ? '' : 'max-w-5xl mx-auto'}`}>
+            <ProgressBar 
+              steps={availableSteps}
+              currentStepKey={currentStepKey}
+              onStepClick={handleStepClick}
+            />
+
+            {/* Form Content */}
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-visible mt-6">
+              <div className="p-8 sm:p-10 overflow-visible">
+                <div className="animate-fadeIn overflow-visible">
+                {currentStepKey === 'configuracion' && (
+                  <ConfiguracionStep 
+                    formData={formData}
+                    errors={errors}
+                    updateFormData={updateFormData}
+                    isFieldRequired={isFieldRequired}
+                  />
+                )}
+
+              {currentStepKey === 'operatividad' && (
+                <OperatividadStep 
+                  formData={formData}
+                  errors={errors}
+                  updateFormData={updateFormData}
+                  isFieldRequired={isFieldRequired}
+                />
+              )}
+
+              {currentStepKey === 'directorio' && (
+                <DirectorioStep 
+                  formData={formData}
+                  errors={errors}
+                  updateFormData={updateFormData}
+                  isFieldRequired={isFieldRequired}
+                />
+              )}
+
+              {currentStepKey === 'fiscales' && (
+                <FiscalesStep 
+                  formData={formData}
+                  errors={errors}
+                  updateFormData={updateFormData}
+                  isFieldRequired={isFieldRequired}
+                />
+              )}
+
+              {currentStepKey === 'negocio' && (
+                <NegocioStep 
+                  formData={formData}
+                  errors={errors}
+                  updateFormData={updateFormData}
+                  isFieldRequired={isFieldRequired}
+                />
+              )}
+
+              {currentStepKey === 'descripcion' && (
+                <DescripcionStep 
+                  formData={formData}
+                  errors={errors}
+                  updateFormData={updateFormData}
+                  isFieldRequired={isFieldRequired}
+                />
+              )}
+
+              {currentStepKey === 'estructura' && (
+                <EstructuraStep 
+                  formData={formData}
+                  errors={errors}
+                  updateFormData={updateFormData}
+                  addPricingOption={addPricingOption}
+                  removePricingOption={removePricingOption}
+                  updatePricingOption={updatePricingOption}
+                  isFieldRequired={isFieldRequired}
+                />
+              )}
+
+              {currentStepKey === 'politicas' && (
+                <PoliticasStep
+                  formData={formData}
+                  errors={errors}
+                  updateFormData={updateFormData}
+                  updatePricingOption={updatePricingOption}
+                  isFieldRequired={isFieldRequired}
+                />
+              )}
+
+              {currentStepKey === 'informacion-adicional' && (
+                <InformacionAdicionalStep 
+                  formData={formData}
+                  errors={errors}
+                  updateFormData={updateFormData}
+                  isFieldRequired={isFieldRequired}
+                />
+              )}
+                </div>
+              </div>
+            </div>
+
+            <NavigationButtons
+              currentStepIndex={currentStepIndex}
+              totalSteps={totalSteps}
+              saving={saving}
+              onPrevious={handlePrevious}
+              onNext={handleNext}
+              onSaveDraft={handleSaveDraft}
+              onSubmit={handleSubmit}
+              onGoBack={handleGoBack}
+            />
+
+            {/* Footer */}
+            <div className="mt-8 text-center text-sm text-gray-400 pb-8">
+              OfertaSimple Booking System • {new Date().getFullYear()}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+

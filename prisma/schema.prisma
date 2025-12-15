@@ -14,22 +14,23 @@ datasource db {
 }
 
 model Event {
-  id             String   @id @default(cuid())
-  name           String
-  description    String?
-  category       String?
-  parentCategory String?
-  subCategory1   String?
-  subCategory2   String?
-  subCategory3   String?
-  merchant       String?  // Merchant/Aliado name for 30-day tracking
-  startDate      DateTime
-  endDate        DateTime
-  status         String   @default("approved") // pending, approved, rejected
-  userId         String
-  bookingRequestId String?  // Link to booking request if created from one
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id               String   @id @default(cuid())
+  name             String
+  description      String?
+  category         String?
+  parentCategory   String?
+  subCategory1     String?
+  subCategory2     String?
+  subCategory3     String?
+  subCategory4     String?
+  merchant         String? // Merchant/Aliado name for 30-day tracking
+  startDate        DateTime
+  endDate          DateTime
+  status           String   @default("approved") // pending, approved, pre-booked, booked, rejected
+  userId           String
+  bookingRequestId String? // Link to booking request if created from one
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([userId])
   @@index([status])
@@ -38,6 +39,7 @@ model Event {
   @@index([subCategory1])
   @@index([subCategory2])
   @@index([subCategory3])
+  @@index([subCategory4])
   @@index([merchant])
   @@index([bookingRequestId])
 }
@@ -51,24 +53,126 @@ model BookingRequest {
   subCategory1    String?
   subCategory2    String?
   subCategory3    String?
+  subCategory4    String?
   merchant        String?
-  businessEmail   String    // Email del Comercio
+  businessEmail   String // Email del Comercio
+  additionalEmails Json? // Additional recipient emails (stored as JSON array)
   startDate       DateTime
   endDate         DateTime
   status          String    @default("draft") // draft, pending, approved, booked, rejected
-  eventId         String?   // Link to created event if sent
-  userId          String    // User who created the request
+  eventId         String? // Link to created event if sent
+  opportunityId   String? // Link to opportunity if created from one
+  dealId          String?   @unique // Link to deal (if booked and deal was created)
+  userId          String // User who created the request
+  sourceType      String    @default("internal") // internal, public_link
+  publicLinkToken String?   @unique // Link to PublicRequestLink token if created from public form
   processedAt     DateTime? // When approved/rejected/booked
-  processedBy     String?   // Email of who approved/rejected/booked
-  rejectionReason String?   // Reason for rejection
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  processedBy     String? // Email of who approved/rejected/booked
+  rejectionReason String? // Reason for rejection
+
+  // Step 1: Configuración General y Vigencia (merged)
+  campaignDuration String? // Duración de Campaña
+
+  // Step 2: Operatividad y Pagos
+  redemptionMode      String? // Modalidad de Canje
+  isRecurring         String? // ¿Esta Oferta es recurrente?
+  recurringOfferLink  String? // Enlace de oferta a replicar
+  paymentType         String? // Tipo de Pago
+  paymentInstructions String? // Instrucciones de Pago
+
+  // Step 3: Directorio de Responsables
+  redemptionContactName  String? // Nombre del encargado de canje
+  redemptionContactEmail String? // Email del encargado de canje
+  redemptionContactPhone String? // Teléfono del encargado de canje
+
+  // Step 4: Datos Fiscales, Bancarios y de Ubicación
+  legalName       String? // Razón Social
+  rucDv           String? // RUC y DV
+  bankAccountName String? // Nombre en Cuenta Bancaria
+  bank            String? // Banco
+  accountNumber   String? // Número de Cuenta
+  accountType     String? // Tipo de Cuenta (Ahorros/Corriente)
+  addressAndHours String? // Dirección y Horario
+  province        String? // Provincia
+  district        String? // Distrito
+  corregimiento   String? // Corregimiento
+
+  // Step 5: Reglas de Negocio y Restricciones
+  includesTaxes        String? // Impuestos (Sí/No/Exento)
+  validOnHolidays      String? // Válido en feriados (Sí/No)
+  hasExclusivity       String? // ¿Tiene Acuerdo de Exclusividad? (Sí/No)
+  blackoutDates        String? // Fechas blackout
+  exclusivityCondition String? // Condición de exclusividad
+  giftVouchers         String? // Vouchers para regalar (Sí/No)
+  hasOtherBranches     String? // ¿Tiene otra sucursal que no es válida? (Sí/No)
+  vouchersPerPerson    String? // Vouchers por persona
+  commission           String? // Comisión
+
+  // Step 6: Descripción y Canales de Venta
+  redemptionMethods Json? // Métodos de Canje (array: Whatsapp, Teléfono, Correo, App, Web, Otro)
+  contactDetails    String? // Número, correo electrónico y/o app específico
+  socialMedia       String? // Redes Sociales y Web
+  businessReview    String? // Reseña del Negocio (Máx 300 caracteres)
+  offerDetails      String? // Detalle del Contenido (Temario o Sinopsis/Descripción)
+
+  // Step 7: Estructura de la Oferta (Opciones de Compra)
+  pricingOptions Json? // Array of { title, description, price, realValue, quantity }
+
+  // Step 8: Políticas Generales
+  cancellationPolicy String? // Políticas de cancelación
+  marketValidation   String? // ¿El paquete se ofrece regularmente por el Aliado? (Sí/No)
+  additionalComments String? // Comentarios adicionales del asesor comercial
+
+  // Step 9: Información Adicional (Dynamic template-based fields)
+  additionalInfo Json? // { templateName: string, fields: Record<string, string> }
+
+  // Field Comments (for internal notes on specific fields)
+  fieldComments Json? // Array of FieldComment objects: { id, fieldKey, text, authorId, authorName, authorEmail, createdAt, updatedAt, editHistory }
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  dealFromBookingRequest Deal?              @relation("DealBookingRequest") // Back reference to Deal (relation is owned by Deal.bookingRequestId)
+  publicLink             PublicRequestLink? @relation(fields: [publicLinkToken], references: [token], onDelete: SetNull)
 
   @@index([userId])
   @@index([status])
   @@index([eventId])
+  @@index([opportunityId])
+  @@index([dealId])
+  @@index([publicLinkToken])
+  @@index([sourceType])
   @@index([businessEmail])
   @@index([parentCategory])
+}
+
+model Deal {
+  id               String   @id @default(cuid())
+  bookingRequestId String   @unique // One-to-one relationship with BookingRequest
+  opportunityId    String?  @unique // Link to opportunity (one-to-one relationship)
+  responsibleId    String? // Clerk user ID who is responsible for the deal (Editor role)
+  ereResponsibleId String? // Clerk user ID who is the ERE responsible for the deal (ERE role)
+  status           String   @default("pendiente_por_asignar") // pendiente_por_asignar, asignado, elaboracion, imagenes, borrador_enviado, borrador_aprobado
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // AI-generated draft content
+  draftContent Json? // JSON object containing all draft sections
+  draftStatus  String @default("pending") // pending, generating, completed, failed
+  draftError   String? // Error message if generation failed
+
+  // Relations
+  bookingRequest BookingRequest @relation("DealBookingRequest", fields: [bookingRequestId], references: [id], onDelete: Cascade)
+  opportunity    Opportunity?   @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+
+  @@index([bookingRequestId])
+  @@index([opportunityId])
+  @@index([responsibleId])
+  @@index([ereResponsibleId])
+  @@index([status])
+  @@index([draftStatus])
+  @@map("deals")
 }
 
 model UserProfile {
@@ -76,11 +180,407 @@ model UserProfile {
   clerkId   String   @unique // Clerk user ID
   email     String?
   name      String?
-  role      String   @default("sales") // "admin" or "sales"
+  role      String   @default("sales") // "admin", "sales", "editor", or "ere"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Relations
+  businessSalesReps BusinessSalesRep[]
 
   @@index([clerkId])
   @@index([role])
   @@index([email])
+}
+
+model AllowedEmail {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String // Clerk user ID who granted access
+
+  // Invitation fields
+  invitedRole       String?  // Role assigned during invitation (admin, sales, editor, ere)
+  invitationStatus  String?  // pending, accepted, expired
+  invitedAt         DateTime? // When invitation was sent
+  invitedBy         String?  // Clerk user ID who sent the invitation
+  clerkInvitationId String?  // Clerk's invitation ID for tracking
+
+  // Relations
+  auditLogs AccessAuditLog[]
+
+  @@index([email])
+  @@index([isActive])
+  @@index([invitationStatus])
+  @@map("allowed_emails")
+}
+
+model AccessAuditLog {
+  id          String   @id @default(cuid())
+  email       String
+  action      String // 'granted' | 'revoked' | 'reactivated' | 'invited' | 'invitation_accepted'
+  performedBy String // Clerk user ID
+  performedAt DateTime @default(now())
+  notes       String?
+
+  allowedEmail   AllowedEmail? @relation(fields: [allowedEmailId], references: [id], onDelete: SetNull)
+  allowedEmailId String?
+
+  @@index([email])
+  @@index([performedAt])
+  @@index([action])
+  @@map("access_audit_logs")
+}
+
+model Category {
+  id             String   @id @default(cuid())
+  parentCategory String // Main category (e.g., "HOTELES")
+  subCategory1   String? // First subcategory (e.g., "Hotel de Playa")
+  subCategory2   String? // Second subcategory (e.g., "Todo Incluido")
+  subCategory3   String? // Third subcategory (optional)
+  subCategory4   String? // Fourth subcategory (optional)
+  categoryKey    String   @unique // Standardized key format: "PARENT:SUB1:SUB2:SUB3:SUB4"
+  maxDuration    Int      @default(5) // Maximum duration in days (5 or 7)
+  isActive       Boolean  @default(true)
+  displayOrder   Int      @default(0) // For sorting categories
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  businesses Business[]
+  leads      Lead[]
+
+  @@index([parentCategory])
+  @@index([categoryKey])
+  @@index([isActive])
+  @@index([displayOrder])
+  @@map("categories")
+}
+
+model Settings {
+  id                 String   @id @default("default") // Single settings record
+  minDailyLaunches   Int      @default(5)
+  maxDailyLaunches   Int      @default(13)
+  merchantRepeatDays Int      @default(30)
+  categoryDurations  Json // Map of category -> duration
+  businessExceptions Json // Array of BusinessException objects
+  customCategories   Json // CategoryHierarchy structure
+  additionalInfoMappings Json? // Optional overrides for additional-info template mapping
+  hiddenCategoryPaths Json? // Optional visibility flags for categories
+  requestFormFields  Json? // Request form field configurations (required/optional)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  updatedBy          String? // Clerk user ID who last updated
+
+  @@map("settings")
+}
+
+model Lead {
+  id            String    @id @default(cuid())
+  name          String // Business/Company name
+  contactName   String
+  contactPhone  String
+  contactEmail  String
+  categoryId    String? // Reference to Category
+  responsibleId String? // Clerk user ID who is responsible for the lead
+  stage         String    @default("por_asignar") // por_asignar, asignado, convertido
+  website       String?
+  instagram     String?
+  description   String?
+  source        String? // How the lead was acquired (e.g., "referral", "website", "cold call")
+  notes         String? // Additional notes
+  businessId    String?   @unique // Link to Business if converted
+  convertedAt   DateTime? // When the lead was converted to a business
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  business Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+
+  @@index([categoryId])
+  @@index([responsibleId])
+  @@index([stage])
+  @@index([name])
+  @@index([businessId])
+  @@map("leads")
+}
+
+model Business {
+  id           String   @id @default(cuid())
+  name         String
+  contactName  String
+  contactPhone String
+  contactEmail String
+  categoryId   String? // Reference to Category
+  ownerId      String? // Clerk user ID who owns/created the business
+  salesTeam    String? // Inside Sales or Outside Sales
+  website      String?
+  instagram    String?
+  description  String?
+  tier         Int? // 1, 2, or 3
+  sourceType    String  @default("manual") // 'api' for synced from external source, 'manual' otherwise
+  metrics       Json?
+  leadId       String?  @unique // Link back to original lead if converted from one
+  // Profile / legal
+  ruc                  String?
+  razonSocial          String?
+  province             String?
+  district             String?
+  corregimiento        String?
+  // Assignments
+  accountManager       String?
+  ere                  String?
+  salesType            String?
+  isAsesor             String?
+  osAsesor             String?
+  // Banking & payments
+  paymentPlan          String?
+  bank                 String?
+  beneficiaryName      String?
+  accountNumber        String?
+  accountType          String?
+  emailPaymentContacts String?
+  // Location / web
+  address            String?
+  neighborhood       String?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  category      Category?          @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  salesReps     BusinessSalesRep[] // Many-to-many with UserProfile
+  opportunities Opportunity[]
+  lead          Lead? // Back-reference to original lead
+
+  @@index([categoryId])
+  @@index([name])
+  @@index([ownerId])
+  @@index([leadId])
+  @@map("businesses")
+}
+
+// Join table for many-to-many relationship between Business and UserProfile (sales reps)
+model BusinessSalesRep {
+  id         String   @id @default(cuid())
+  businessId String
+  salesRepId String // UserProfile clerkId
+  createdAt  DateTime @default(now())
+
+  business Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  salesRep UserProfile @relation(fields: [salesRepId], references: [clerkId], onDelete: Cascade)
+
+  @@unique([businessId, salesRepId])
+  @@index([businessId])
+  @@index([salesRepId])
+  @@map("business_sales_reps")
+}
+
+model Opportunity {
+  id               String    @id @default(cuid())
+  businessId       String
+  stage            String    @default("iniciacion") // iniciacion, reunion, propuesta_enviada, propuesta_aprobada, won, lost
+  startDate        DateTime
+  closeDate        DateTime?
+  notes            String?
+  lostReason       String? // Reason why opportunity was lost
+  userId           String // Clerk user ID who created the opportunity
+  responsibleId    String? // Clerk user ID who is responsible (defaults to creator, admin can change)
+  nextActivityDate DateTime? // Date of next task
+  lastActivityDate DateTime? // Date of last task
+  hasRequest       Boolean   @default(false) // Whether this opportunity has been converted to a booking request
+  bookingRequestId String? // Direct link to the booking request created from this opportunity
+  dealId           String?   @unique // Link to deal (if booking request was booked and deal was created)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relations
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  tasks    Task[] // Tasks linked to this opportunity
+  deal     Deal? // Deal created from this opportunity's booked request
+
+  @@index([businessId])
+  @@index([stage])
+  @@index([userId])
+  @@index([responsibleId])
+  @@index([bookingRequestId])
+  @@index([dealId])
+  @@map("opportunities")
+}
+
+model Task {
+  id            String   @id @default(cuid())
+  opportunityId String
+  category      String // "meeting" or "todo"
+  title         String
+  date          DateTime // Date only (no time)
+  completed     Boolean  @default(false)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@index([opportunityId])
+  @@index([date])
+  @@index([category])
+  @@map("tasks")
+}
+
+model PublicRequestLink {
+  id             String    @id @default(cuid())
+  token          String    @unique // Unique token for the public link
+  createdBy      String // Clerk user ID who generated the link
+  recipientEmail String // Email address where the link was sent
+  isUsed         Boolean   @default(false) // Whether this link has been used
+  usedAt         DateTime? // When the link was used (when request was submitted)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Relations
+  bookingRequest BookingRequest? // The booking request created from this link (relation owned by BookingRequest.publicLinkToken)
+
+  @@index([token])
+  @@index([createdBy])
+  @@index([recipientEmail])
+  @@index([isUsed])
+  @@map("public_request_links")
+}
+
+model SavedFilter {
+  id         String   @id @default(cuid())
+  name       String // Display name for the filter (e.g., "Hot Leads", "Closing This Week")
+  entityType String // 'deals' | 'opportunities' | 'businesses'
+  filters    Json // Array of filter rules: { field, operator, value, conjunction }
+  createdBy  String // Clerk user ID who created the filter
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([entityType])
+  @@index([createdBy])
+  @@map("saved_filters")
+}
+
+model CustomField {
+  id           String   @id @default(cuid())
+  fieldKey     String   @unique // Auto-generated unique key (e.g., "cf_priority_abc123")
+  label        String // Display name (e.g., "Priority")
+  fieldType    String // text, textarea, number, date, select, checkbox, email, phone, url
+  entityType   String // 'business' | 'opportunity' | 'deal' | 'lead'
+  isRequired   Boolean  @default(false)
+  placeholder  String?
+  defaultValue String?
+  helpText     String?
+  options      Json? // For select fields: array of { value, label }
+  displayOrder Int      @default(0) // Order in which fields appear
+  showInTable  Boolean  @default(false) // Whether to show in list/table view
+  isActive     Boolean  @default(true)
+  createdBy    String // Clerk user ID who created the field
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  values CustomFieldValue[]
+
+  @@index([entityType])
+  @@index([fieldKey])
+  @@index([isActive])
+  @@index([displayOrder])
+  @@map("custom_fields")
+}
+
+model CustomFieldValue {
+  id            String   @id @default(cuid())
+  customFieldId String
+  entityId      String // ID of the business, opportunity, or deal
+  entityType    String // 'business' | 'opportunity' | 'deal' | 'lead' (denormalized for easier queries)
+  value         String? // Stored as string, parsed based on field type
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  customField CustomField @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+
+  @@unique([customFieldId, entityId]) // One value per field per entity
+  @@index([customFieldId])
+  @@index([entityId])
+  @@index([entityType])
+  @@map("custom_field_values")
+}
+
+// ============================================================================
+// Form Configuration (Entity Fields Management)
+// ============================================================================
+
+model FormSection {
+  id           String   @id @default(cuid())
+  entityType   String // 'business' | 'opportunity' | 'deal' | 'lead'
+  name         String // Section display name (e.g., "Basic Information", "Contact Details")
+  displayOrder Int      @default(0) // Order in which sections appear
+  isCollapsed  Boolean  @default(false) // Default collapsed state in modal
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  fields FormFieldConfig[]
+
+  @@index([entityType])
+  @@index([displayOrder])
+  @@index([isActive])
+  @@map("form_sections")
+}
+
+model FormFieldConfig {
+  id           String   @id @default(cuid())
+  entityType   String // 'business' | 'opportunity' | 'deal' | 'lead' (denormalized for easier queries)
+  sectionId    String // Reference to FormSection
+  fieldKey     String // Built-in field name (e.g., "name", "contactEmail") or CustomField.fieldKey
+  fieldSource  String   @default("builtin") // 'builtin' | 'custom' - indicates if this is a built-in or custom field
+  displayOrder Int      @default(0) // Order within the section
+  isVisible    Boolean  @default(true) // Whether field is shown in the form
+  isRequired   Boolean  @default(false) // Whether field is required (overrides built-in default)
+  isReadonly   Boolean  @default(false) // Whether field is read-only
+  width        String   @default("full") // 'full' | 'half' - field width in form
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  section FormSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@unique([entityType, fieldKey]) // Each field can only appear once per entity type
+  @@index([entityType])
+  @@index([sectionId])
+  @@index([fieldKey])
+  @@index([displayOrder])
+  @@map("form_field_configs")
+}
+
+// Activity/Audit Log for tracking user actions
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String   // Clerk user ID
+  userName    String?  // Cached user name for quick display
+  userEmail   String?  // Cached email
+  
+  action      String   // CREATE, UPDATE, DELETE, VIEW, LOGIN, STATUS_CHANGE, etc.
+  entityType  String   // Business, Opportunity, Deal, Lead, BookingRequest, Event, Settings
+  entityId    String?  // ID of the affected entity
+  entityName  String?  // Cached name for quick display (e.g., business name)
+  
+  details     Json?    // Additional context (field changes, old/new values, metadata)
+  ipAddress   String?  // User's IP address
+  userAgent   String?  // Browser/client info
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("activity_logs")
 }

@@ -2,6 +2,8 @@
  * Booking request type definition
  * Represents a request to book an event that needs approval
  */
+import type { BookingRequestStatus } from '@/lib/constants'
+
 export type BookingRequest = {
   id: string
   name: string
@@ -11,22 +13,23 @@ export type BookingRequest = {
   subCategory1: string | null
   subCategory2: string | null
   subCategory3: string | null
+  subCategory4: string | null
   merchant: string | null
   businessEmail: string
   startDate: Date
   endDate: Date
-  status: string // 'draft' | 'pending' | 'approved' | 'booked' | 'rejected'
+  status: BookingRequestStatus
   eventId: string | null
+  opportunityId: string | null
   userId: string
   processedAt: Date | null
   processedBy: string | null
   rejectionReason: string | null
+  sourceType: string // 'internal' | 'public_link'
+  publicLinkToken: string | null
   createdAt: Date
   updatedAt: Date
 }
 
-/**
- * Booking request status options
- */
-export type BookingRequestStatus = 'draft' | 'pending' | 'approved' | 'booked' | 'rejected'
+// BookingRequestStatus is now exported from @/lib/constants
 
