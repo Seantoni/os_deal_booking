@@ -516,7 +516,7 @@ export default function OpportunityFormModal({
       {/* Modal Container */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         {/* Modal Panel */}
-        <div className={`w-full max-w-4xl bg-white shadow-2xl rounded-xl flex flex-col max-h-[90vh] pointer-events-auto transform transition-all duration-300 ${
+        <div className={`w-full max-w-4xl bg-white shadow-2xl rounded-2xl flex flex-col max-h-[90vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${
           isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
         }`}>
           {/* Header */}
