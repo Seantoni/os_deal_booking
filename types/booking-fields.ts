@@ -188,8 +188,8 @@ export function mapBookingRequestToEventData(request: BookingRequest): EventModa
     suggestedStartDate: formatDateForInput(request.startDate),
     suggestedEndDate: formatDateForInput(request.endDate),
     
-    // Content - use businessReview or empty since BookingRequest no longer has description
-    description: request.businessReview || request.offerDetails || '',
+    // Content - BookingRequest no longer has description, use empty string
+    description: '',
     
     // Reference to source
     bookingRequestId: request.id,
