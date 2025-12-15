@@ -114,7 +114,7 @@ export async function toggleTaskComplete(taskId: string): Promise<{
 
     invalidateEntity('opportunities')
     invalidateEntity('tasks')
-    return { success: true, data: task }
+    return { success: true, data: { ...task, category: task.category as 'meeting' | 'todo' } }
   } catch (error) {
     return handleServerActionError(error, 'toggleTaskComplete')
   }
