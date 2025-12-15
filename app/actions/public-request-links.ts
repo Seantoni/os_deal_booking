@@ -208,7 +208,6 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
     const bookingRequest = await prisma.bookingRequest.create({
       data: {
         name: requestName,
-        description: fields.description,
         category: standardizedCategory,
         parentCategory: fields.parentCategory,
         subCategory1: fields.subCategory1,
