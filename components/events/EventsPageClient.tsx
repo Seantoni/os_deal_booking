@@ -278,7 +278,6 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
     const { updateBookingRequest } = await import('@/app/actions/booking-requests')
     const formData = new FormData()
     formData.append('name', request.name)
-    formData.append('description', request.description || '')
     formData.append('merchant', request.merchant || '')
     formData.append('businessEmail', request.businessEmail)
     formData.append('startDate', startDateStr)

@@ -485,17 +485,6 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
                 </div>
               )}
 
-              {/* Description */}
-              {request.description && (
-                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                    <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Descripción Completa</h3>
-                  </div>
-                  <div className="p-4">
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{request.description}</p>
-                  </div>
-                </div>
-              )}
 
               {/* Cancellation Policy */}
               {request.cancellationPolicy && (
