@@ -17,6 +17,7 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import HandshakeIcon from '@mui/icons-material/Handshake'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import HistoryIcon from '@mui/icons-material/History'
+import AssignmentIcon from '@mui/icons-material/Assignment'
 
 // Sidebar item type
 type SidebarItem = {
@@ -30,6 +31,7 @@ const adminSidebarConfig = {
   mainItems: [
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
     { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
+    { name: 'Tasks', href: '/tasks', Icon: AssignmentIcon },
     { name: 'Calendar', href: '/events', Icon: CalendarMonthIcon },
     { name: 'Reservations', href: '/reservations', Icon: ListAltIcon },
     { name: 'Requests', href: '/booking-requests', Icon: RequestPageIcon },
@@ -48,6 +50,7 @@ const salesSidebarConfig = {
   mainItems: [
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
     { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
+    { name: 'Tasks', href: '/tasks', Icon: AssignmentIcon },
     { name: 'Calendar', href: '/events', Icon: CalendarMonthIcon },
     { name: 'Reservations', href: '/reservations', Icon: ListAltIcon },
     { name: 'Requests', href: '/booking-requests', Icon: RequestPageIcon },

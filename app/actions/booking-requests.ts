@@ -21,6 +21,7 @@ import { getAppBaseUrl } from '@/lib/config/env'
 import { parseDateInPanamaTime, parseEndDateInPanamaTime } from '@/lib/date/timezone'
 import { buildCategoryKey } from '@/lib/category-utils'
 import { logActivity } from '@/lib/activity-log'
+import { generateRequestName, countBusinessRequests } from '@/lib/utils/request-naming'
 
 /**
  * Create or update a booking request as draft
@@ -70,8 +71,16 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
           ) as Prisma.InputJsonValue)
         : Prisma.JsonNull
 
+    // Generate request name with format: "Business Name | Dec-15-2025 | #3"
+    // Only generate new name for new requests, preserve existing name on updates
+    let requestName = fields.name!
+    if (!requestId) {
+      const existingCount = await countBusinessRequests(fields.name!)
+      requestName = generateRequestName(fields.name!, existingCount)
+    }
+
     const data = {
-      name: fields.name!,
+      name: requestName,
       description: fields.description,
       category: fields.category,
       parentCategory: fields.parentCategory,
@@ -270,8 +279,16 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
 
     const opportunityId = (formData.get('opportunityId') as string) || null
     
+    // Generate request name with format: "Business Name | Dec-15-2025 | #3"
+    // Only generate new name for new requests, preserve existing name on updates
+    let requestName = name
+    if (!requestId) {
+      const existingCount = await countBusinessRequests(name)
+      requestName = generateRequestName(name, existingCount)
+    }
+    
     const data = {
-      name,
+      name: requestName,
       description: description || null,
       category: category || null,
       parentCategory: parentCategory || null,
@@ -619,6 +636,43 @@ export async function refreshBookingRequests(): Promise<{
     return { success: true, data: requests }
   } catch (error) {
     return handleServerActionError(error, 'refreshBookingRequests')
+  }
+}
+
+/**
+ * Get booking requests by business ID
+ * Fetches all requests linked to a business through opportunities
+ */
+export async function getRequestsByBusiness(businessId: string) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    // Get all opportunities for this business
+    const opportunities = await prisma.opportunity.findMany({
+      where: { businessId },
+      select: { id: true },
+    })
+
+    if (opportunities.length === 0) {
+      return { success: true, data: [] }
+    }
+
+    const opportunityIds = opportunities.map(o => o.id)
+
+    // Get all booking requests linked to these opportunities
+    const requests = await prisma.bookingRequest.findMany({
+      where: {
+        opportunityId: { in: opportunityIds },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    return { success: true, data: requests }
+  } catch (error) {
+    return handleServerActionError(error, 'getRequestsByBusiness')
   }
 }
 

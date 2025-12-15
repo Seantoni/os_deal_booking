@@ -19,6 +19,7 @@ import ResponsibleUserSection from './ResponsibleUserSection'
 import OpportunityResponsibleReference from './OpportunityResponsibleReference'
 import BookingRequestSection from './BookingRequestSection'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
+import FormModalSkeleton from '@/components/common/FormModalSkeleton'
 
 interface DealFormModalProps {
   isOpen: boolean
@@ -162,10 +163,12 @@ export default function DealFormModal({
         onClick={onClose}
       ></div>
 
-      {/* Right Side Panel */}
-      <div className={`fixed right-0 top-0 h-full w-full max-w-2xl z-50 bg-white shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out ${
-        isOpen ? 'translate-x-0' : 'translate-x-full'
-      }`}>
+      {/* Modal Container */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        {/* Modal Panel */}
+        <div className={`w-full max-w-4xl bg-white shadow-2xl rounded-xl flex flex-col max-h-[90vh] pointer-events-auto transform transition-all duration-300 ${
+          isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+        }`}>
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-start justify-between">
@@ -199,26 +202,7 @@ export default function DealFormModal({
           )}
 
           {(loadingData || dynamicForm.loading) ? (
-            <div className="p-4 space-y-4">
-              <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 animate-pulse">
-                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-              </div>
-              {[1, 2].map((i) => (
-                <div key={i} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                    <div className="h-3 bg-gray-200 rounded w-1/4 animate-pulse"></div>
-                  </div>
-                  <div className="p-3 space-y-2.5">
-                    {[1, 2].map((j) => (
-                      <div key={j} className="flex items-center gap-3">
-                        <div className="h-4 bg-gray-200 rounded w-32 animate-pulse"></div>
-                        <div className="flex-1 h-8 bg-gray-200 rounded animate-pulse"></div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <FormModalSkeleton sections={2} fieldsPerSection={2} />
           ) : (
             <div className="p-4 space-y-4">
               {/* Opportunity Responsible Reference */}
@@ -329,6 +313,7 @@ export default function DealFormModal({
             </div>
           </div>
         </form>
+        </div>
       </div>
 
       {/* Booking Request Modal */}

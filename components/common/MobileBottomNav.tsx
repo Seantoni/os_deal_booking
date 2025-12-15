@@ -16,6 +16,7 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import SettingsIcon from '@mui/icons-material/Settings'
 import CloseIcon from '@mui/icons-material/Close'
 import MenuIcon from '@mui/icons-material/Menu'
+import AssignmentIcon from '@mui/icons-material/Assignment'
 
 type NavItem = {
   name: string
@@ -44,6 +45,7 @@ const editorPrimaryNav: NavItem[] = [
 
 // Secondary nav items (shown in "More" menu)
 const adminSecondaryNav: NavItem[] = [
+  { name: 'Tasks', href: '/tasks', Icon: AssignmentIcon },
   { name: 'Calendar', href: '/events', Icon: CalendarMonthIcon },
   { name: 'Reservations', href: '/reservations', Icon: ListAltIcon },
   { name: 'Leads', href: '/leads', Icon: PersonAddIcon },
@@ -53,6 +55,7 @@ const adminSecondaryNav: NavItem[] = [
 ]
 
 const salesSecondaryNav: NavItem[] = [
+  { name: 'Tasks', href: '/tasks', Icon: AssignmentIcon },
   { name: 'Calendar', href: '/events', Icon: CalendarMonthIcon },
   { name: 'Reservations', href: '/reservations', Icon: ListAltIcon },
   { name: 'Businesses', href: '/businesses', Icon: BusinessIcon },

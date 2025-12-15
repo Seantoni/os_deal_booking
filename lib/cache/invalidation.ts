@@ -104,6 +104,11 @@ export const CACHE_ENTITIES = {
     paths: ['/access-management'],
     cascadeInvalidates: [],
   },
+  tasks: {
+    tags: ['tasks'],
+    paths: ['/tasks'],
+    cascadeInvalidates: ['opportunities'],
+  },
 } as const
 
 export type CacheEntity = keyof typeof CACHE_ENTITIES
@@ -209,6 +214,7 @@ export function invalidateUserCache(clerkId: string): void {
     '/events',
     '/pipeline',
     '/dashboard',
+    '/tasks',
   ]
   
   for (const path of roleSensitivePaths) {

@@ -112,7 +112,7 @@ model BookingRequest {
   redemptionMethods Json? // Métodos de Canje (array: Whatsapp, Teléfono, Correo, App, Web, Otro)
   contactDetails    String? // Número, correo electrónico y/o app específico
   socialMedia       String? // Redes Sociales y Web
-  businessReview    String? // Reseña del Negocio (Máx 300 caracteres)
+  businessReview    String? // Reseña del Negocio (Máx 1,000 caracteres)
   offerDetails      String? // Detalle del Contenido (Temario o Sinopsis/Descripción)
 
   // Step 7: Estructura de la Oferta (Opciones de Compra)
@@ -382,6 +382,7 @@ model BusinessSalesRep {
 model Opportunity {
   id               String    @id @default(cuid())
   businessId       String
+  name             String? // Opportunity name (defaults to business name - creation date if not provided)
   stage            String    @default("iniciacion") // iniciacion, reunion, propuesta_enviada, propuesta_aprobada, won, lost
   startDate        DateTime
   closeDate        DateTime?

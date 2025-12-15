@@ -78,8 +78,8 @@ export const validateStep = (
       break
     case 6:
       // Descripción: Descripción y Canales
-      if (formData.businessReview && formData.businessReview.length > 300) {
-        newErrors.businessReview = 'Máximo 300 caracteres'
+      if (formData.businessReview && formData.businessReview.length > 1000) {
+        newErrors.businessReview = 'Máximo 1,000 caracteres'
       }
       break
     case 7:

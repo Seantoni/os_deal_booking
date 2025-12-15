@@ -76,6 +76,7 @@ export type Business = {
 export type Opportunity = {
   id: string
   businessId: string
+  name: string | null
   stage: OpportunityStage
   startDate: Date
   closeDate: Date | null

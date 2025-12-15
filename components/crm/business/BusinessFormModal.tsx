@@ -6,7 +6,7 @@ import { useUser } from '@clerk/nextjs'
 import { createBusiness, updateBusiness, createOpportunity } from '@/app/actions/crm'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
-import type { Business, Opportunity } from '@/types'
+import type { Business, Opportunity, BookingRequest } from '@/types'
 import toast from 'react-hot-toast'
 import CloseIcon from '@mui/icons-material/Close'
 import BusinessIcon from '@mui/icons-material/Business'
@@ -15,11 +15,14 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenIcon from '@mui/icons-material/LockOpen'
 import OpportunityFormModal from '../opportunity/OpportunityFormModal'
+import BookingRequestViewModal from '@/components/booking/request-view/BookingRequestViewModal'
 import { useBusinessForm } from './useBusinessForm'
 import ReferenceInfoBar from './ReferenceInfoBar'
 import OpportunitiesSection from './OpportunitiesSection'
+import RequestsSection from './RequestsSection'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
 import { Button, Alert } from '@/components/ui'
+import FormModalSkeleton from '@/components/common/FormModalSkeleton'
 
 interface BusinessFormModalProps {
   isOpen: boolean
@@ -52,6 +55,8 @@ export default function BusinessFormModal({
   const [error, setError] = useState('')
   const [opportunityModalOpen, setOpportunityModalOpen] = useState(false)
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null)
+  const [requestViewModalOpen, setRequestViewModalOpen] = useState(false)
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
   // Track unlocked state for fields with canEditAfterCreation
   const [unlockedFields, setUnlockedFields] = useState<Record<string, boolean>>({})
 
@@ -64,6 +69,7 @@ export default function BusinessFormModal({
     categories,
     users,
     opportunities,
+    requests,
     loadingData,
     loadFormData,
   } = useBusinessForm({
@@ -141,6 +147,11 @@ export default function BusinessFormModal({
   function handleCreateNewOpportunity() {
     setSelectedOpportunity(null)
     setOpportunityModalOpen(true)
+  }
+
+  function handleViewRequest(request: BookingRequest) {
+    setSelectedRequestId(request.id)
+    setRequestViewModalOpen(true)
   }
 
   async function handleOpportunitySuccess(opportunity: Opportunity) {
@@ -421,16 +432,10 @@ export default function BusinessFormModal({
       ></div>
 
       {/* Modal Container */}
-      <div className={`fixed z-50 ${
-        isEditMode 
-          ? 'inset-y-0 right-0 h-full w-full max-w-2xl pointer-events-none' 
-          : 'inset-0 flex items-center justify-center p-4 pointer-events-none'
-      }`}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         {/* Modal Panel */}
-        <div className={`${
-          isEditMode
-            ? `h-full w-full bg-white shadow-2xl flex flex-col pointer-events-auto transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`
-            : `w-full max-w-2xl bg-white shadow-2xl rounded-xl flex flex-col max-h-[90vh] pointer-events-auto transform transition-all duration-300 ${isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`
+        <div className={`w-full max-w-4xl bg-white shadow-2xl rounded-xl flex flex-col max-h-[90vh] pointer-events-auto transform transition-all duration-300 ${
+          isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
         }`}>
           {/* Header */}
           <div className="bg-white border-b border-gray-200 px-6 py-4">
@@ -480,26 +485,7 @@ export default function BusinessFormModal({
             )}
 
             {(loadingData || dynamicForm.loading) ? (
-              <div className="p-4 space-y-4">
-                <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 animate-pulse">
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                </div>
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                      <div className="h-3 bg-gray-200 rounded w-1/4 animate-pulse"></div>
-                    </div>
-                    <div className="p-3 space-y-2.5">
-                      {[1, 2, 3].map((j) => (
-                        <div key={j} className="flex items-center gap-3">
-                          <div className="h-4 bg-gray-200 rounded w-32 animate-pulse"></div>
-                          <div className="flex-1 h-8 bg-gray-200 rounded animate-pulse"></div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <FormModalSkeleton sections={3} fieldsPerSection={3} />
             ) : (
               <div className="p-4 space-y-4">
                 {/* Reference Info Bar (special section - not from form config) */}
@@ -544,6 +530,16 @@ export default function BusinessFormModal({
                     opportunities={opportunities}
                     onEditOpportunity={handleEditOpportunity}
                     onCreateNew={handleCreateNewOpportunity}
+                    businessName={business.name}
+                  />
+                )}
+
+                {/* Requests Section (special section - not from form config) */}
+                {business && (
+                  <RequestsSection
+                    requests={requests}
+                    onViewRequest={handleViewRequest}
+                    businessName={business.name}
                   />
                 )}
               </div>
@@ -599,6 +595,17 @@ export default function BusinessFormModal({
         preloadedBusinesses={business ? [business] : undefined}
         preloadedCategories={categories}
         preloadedUsers={users}
+      />
+
+      {/* Request View Modal */}
+      <BookingRequestViewModal
+        isOpen={requestViewModalOpen}
+        onClose={() => {
+          setRequestViewModalOpen(false)
+          setSelectedRequestId(null)
+        }}
+        requestId={selectedRequestId}
+        hideBackdrop={true}
       />
     </>
   )

@@ -99,7 +99,7 @@ ${text}`
         { role: 'user', content: prompt },
       ],
       temperature: 0.7,
-      max_tokens: 500, // Limit tokens to ensure ~1,000 characters
+      max_tokens: 800, // Allow enough tokens for ~1,000 characters (Spanish: ~2.5 chars/token, so 800 tokens ≈ 2,000 chars max, but we'll truncate to 1,000)
     })
 
     let result = completion.choices[0]?.message?.content?.trim() || ''

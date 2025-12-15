@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { getOpportunities, deleteOpportunity } from '@/app/actions/crm'
 import type { Opportunity } from '@/types'
@@ -64,6 +65,7 @@ const COLUMNS: ColumnConfig[] = [
 const SEARCH_FIELDS = ['business.name', 'notes', 'business.contactName', 'business.contactEmail']
 
 export default function OpportunitiesPageClient() {
+  const searchParams = useSearchParams()
   const { role: userRole } = useUserRole()
   const isAdmin = userRole === 'admin'
   
@@ -127,9 +129,21 @@ export default function OpportunitiesPageClient() {
   
   const confirmDialog = useConfirmDialog()
 
-  // Handle opening opportunity from session storage (e.g., from search)
+  // Handle opening opportunity from URL query params or session storage
   useEffect(() => {
     if (opportunities.length > 0) {
+      // First check URL query params (e.g., ?open=opportunityId from Tasks page)
+      const openFromUrl = searchParams.get('open')
+      if (openFromUrl) {
+        const opp = opportunities.find(o => o.id === openFromUrl)
+        if (opp) {
+          setSelectedOpportunity(opp)
+          setOpportunityModalOpen(true)
+        }
+        return // Don't check sessionStorage if URL param was present
+      }
+
+      // Fallback to sessionStorage (e.g., from search)
       const openOpportunityId = sessionStorage.getItem('openOpportunityId')
       if (openOpportunityId) {
         sessionStorage.removeItem('openOpportunityId')
@@ -140,7 +154,7 @@ export default function OpportunitiesPageClient() {
         }
       }
     }
-  }, [opportunities])
+  }, [opportunities, searchParams])
 
   // Extract businesses from opportunities for preloading
   const businessesFromOpportunities = useMemo(() => {

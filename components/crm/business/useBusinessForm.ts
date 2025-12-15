@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getAllUsers, getOpportunitiesByBusiness } from '@/app/actions/crm'
 import { getCategories } from '@/app/actions/categories'
-import type { Business, Opportunity } from '@/types'
+import { getRequestsByBusiness } from '@/app/actions/booking-requests'
+import type { Business, Opportunity, BookingRequest } from '@/types'
 
 interface UseBusinessFormProps {
   isOpen: boolean
@@ -38,6 +39,7 @@ export function useBusinessForm({
   const [categories, setCategories] = useState<any[]>([])
   const [users, setUsers] = useState<any[]>([])
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
+  const [requests, setRequests] = useState<BookingRequest[]>([])
 
   // Loading state
   const [loadingData, setLoadingData] = useState(false)
@@ -65,6 +67,7 @@ export function useBusinessForm({
     setDescription('')
     setTier('')
     setOpportunities([])
+    setRequests([])
 
     setLoadingData(true)
     try {
@@ -84,14 +87,17 @@ export function useBusinessForm({
         fetchPromises.push(getAllUsers())
         fetchKeys.push('users')
       }
-      // Always fetch opportunities for the business if editing
+      // Always fetch opportunities and requests for the business if editing
       if (currentBusiness) {
         fetchPromises.push(getOpportunitiesByBusiness(currentBusiness.id))
         fetchKeys.push('opportunities')
+        fetchPromises.push(getRequestsByBusiness(currentBusiness.id))
+        fetchKeys.push('requests')
       }
 
       // Parallel fetch only missing data
       let opportunitiesData: any[] = []
+      let requestsData: any[] = []
       if (fetchPromises.length > 0) {
         const results = await Promise.all(fetchPromises)
         fetchKeys.forEach((key, index) => {
@@ -100,6 +106,7 @@ export function useBusinessForm({
             if (key === 'categories') categoriesData = result.data
             else if (key === 'users') usersData = result.data
             else if (key === 'opportunities') opportunitiesData = result.data
+            else if (key === 'requests') requestsData = result.data
         }
         })
       }
@@ -123,6 +130,7 @@ export function useBusinessForm({
         setTier(currentBusiness.tier?.toString() || '')
 
         setOpportunities(opportunitiesData)
+        setRequests(requestsData)
       } else {
         // New business - default owner to current user
         setOwnerId(currentUserId || '')
@@ -179,6 +187,8 @@ export function useBusinessForm({
     users,
     opportunities,
     setOpportunities,
+    requests,
+    setRequests,
     
     // Loading
     loadingData,

@@ -2,13 +2,19 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { getBusinesses, deleteBusiness, getOpportunities } from '@/app/actions/crm'
 import { syncBusinessesFromApi } from '@/app/actions/crm/sync-business-metrics'
 import type { Business, Opportunity } from '@/types'
 import AddIcon from '@mui/icons-material/Add'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
-import BusinessFormModal from '@/components/crm/business/BusinessFormModal'
+
+// Lazy load heavy modal component
+const BusinessFormModal = dynamic(() => import('@/components/crm/business/BusinessFormModal'), {
+  loading: () => <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"><div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div></div>,
+  ssr: false,
+})
 import toast from 'react-hot-toast'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'

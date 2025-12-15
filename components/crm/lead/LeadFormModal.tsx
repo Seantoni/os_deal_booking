@@ -14,6 +14,7 @@ import BusinessIcon from '@mui/icons-material/Business'
 import { logger } from '@/lib/logger'
 import { Button, Select, Alert } from '@/components/ui'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
+import FormModalSkeleton from '@/components/common/FormModalSkeleton'
 
 interface LeadFormModalProps {
   isOpen: boolean
@@ -238,16 +239,10 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
       ></div>
 
       {/* Modal Container */}
-      <div className={`fixed z-50 ${
-        isEditMode 
-          ? 'inset-y-0 right-0 h-full w-full max-w-2xl pointer-events-none' 
-          : 'inset-0 flex items-center justify-center p-4 pointer-events-none'
-      }`}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         {/* Modal Panel */}
-        <div className={`${
-          isEditMode
-            ? `h-full w-full bg-white shadow-2xl flex flex-col pointer-events-auto transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`
-            : `w-full max-w-2xl bg-white shadow-2xl rounded-xl flex flex-col max-h-[90vh] pointer-events-auto transform transition-all duration-300 ${isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`
+        <div className={`w-full max-w-4xl bg-white shadow-2xl rounded-xl flex flex-col max-h-[90vh] pointer-events-auto transform transition-all duration-300 ${
+          isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
         }`}>
           {/* Header */}
           <div className="bg-white border-b border-gray-200 px-6 py-4">
@@ -284,26 +279,7 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
             )}
 
             {(loadingData || dynamicForm.loading) ? (
-              <div className="p-4 space-y-4">
-                <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 animate-pulse">
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                </div>
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                      <div className="h-3 bg-gray-200 rounded w-1/4 animate-pulse"></div>
-                    </div>
-                    <div className="p-3 space-y-2.5">
-                      {[1, 2, 3].map((j) => (
-                        <div key={j} className="flex items-center gap-3">
-                          <div className="h-4 bg-gray-200 rounded w-32 animate-pulse"></div>
-                          <div className="flex-1 h-8 bg-gray-200 rounded animate-pulse"></div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <FormModalSkeleton sections={3} fieldsPerSection={3} />
             ) : (
               <div className="p-4 space-y-4">
                 {/* Stage and Responsible Bar */}

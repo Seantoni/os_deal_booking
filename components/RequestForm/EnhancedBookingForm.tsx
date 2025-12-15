@@ -70,8 +70,9 @@ export default function EnhancedBookingForm({ requestId, initialFormData }: Enha
     return requiredFields[fieldKey]?.required ?? false
   }, [requiredFields])
 
-  // Pre-fill form from query parameters (from CRM opportunity or NewRequestModal)
+  // Pre-fill form from query parameters (from CRM opportunity, NewRequestModal, or Replicate)
   useEffect(() => {
+    const isReplicate = searchParams.get('replicate') === 'true'
     const fromOpportunity = searchParams.get('fromOpportunity')
     const partnerEmail = searchParams.get('partnerEmail')
     const legalName = searchParams.get('legalName')
@@ -89,6 +90,141 @@ export default function EnhancedBookingForm({ requestId, initialFormData }: Enha
     const description = searchParams.get('description')
     const website = searchParams.get('website')
     const instagram = searchParams.get('instagram')
+    
+    // Handle replication - pre-fill ALL fields from query parameters
+    if (isReplicate) {
+      console.log('[EnhancedBookingForm] Pre-filling from replicated request')
+      
+      setFormData(prev => {
+        const newData = { ...prev }
+        
+        // Step 1: Configuración
+        const businessName = searchParams.get('businessName')
+        if (businessName) newData.businessName = businessName
+        const partnerEmailParam = searchParams.get('partnerEmail')
+        if (partnerEmailParam) newData.partnerEmail = partnerEmailParam
+        const additionalEmailsParam = searchParams.get('additionalEmails')
+        if (additionalEmailsParam) {
+          try {
+            newData.additionalEmails = JSON.parse(additionalEmailsParam)
+          } catch (e) { /* ignore parse error */ }
+        }
+        const categoryParam = searchParams.get('category')
+        if (categoryParam) newData.category = categoryParam
+        const parentCategoryParam = searchParams.get('parentCategory')
+        if (parentCategoryParam) newData.parentCategory = parentCategoryParam
+        const subCategory1Param = searchParams.get('subCategory1')
+        if (subCategory1Param) newData.subCategory1 = subCategory1Param
+        const subCategory2Param = searchParams.get('subCategory2')
+        if (subCategory2Param) newData.subCategory2 = subCategory2Param
+        const subCategory3Param = searchParams.get('subCategory3')
+        if (subCategory3Param) newData.subCategory3 = subCategory3Param
+        const campaignDurationParam = searchParams.get('campaignDuration')
+        if (campaignDurationParam) newData.campaignDuration = campaignDurationParam
+        
+        // Step 2: Operatividad
+        const redemptionModeParam = searchParams.get('redemptionMode')
+        if (redemptionModeParam) newData.redemptionMode = redemptionModeParam
+        const isRecurringParam = searchParams.get('isRecurring')
+        if (isRecurringParam) newData.isRecurring = isRecurringParam
+        const recurringOfferLinkParam = searchParams.get('recurringOfferLink')
+        if (recurringOfferLinkParam) newData.recurringOfferLink = recurringOfferLinkParam
+        const paymentTypeParam = searchParams.get('paymentType')
+        if (paymentTypeParam) newData.paymentType = paymentTypeParam
+        const paymentInstructionsParam = searchParams.get('paymentInstructions')
+        if (paymentInstructionsParam) newData.paymentInstructions = paymentInstructionsParam
+        
+        // Step 3: Directorio
+        const redemptionContactNameParam = searchParams.get('redemptionContactName')
+        if (redemptionContactNameParam) newData.redemptionContactName = redemptionContactNameParam
+        const redemptionContactEmailParam = searchParams.get('redemptionContactEmail')
+        if (redemptionContactEmailParam) newData.redemptionContactEmail = redemptionContactEmailParam
+        const redemptionContactPhoneParam = searchParams.get('redemptionContactPhone')
+        if (redemptionContactPhoneParam) newData.redemptionContactPhone = redemptionContactPhoneParam
+        
+        // Step 4: Fiscales
+        const legalNameParam = searchParams.get('legalName')
+        if (legalNameParam) newData.legalName = legalNameParam
+        const rucDvParam = searchParams.get('rucDv')
+        if (rucDvParam) newData.rucDv = rucDvParam
+        const bankAccountNameParam = searchParams.get('bankAccountName')
+        if (bankAccountNameParam) newData.bankAccountName = bankAccountNameParam
+        const bankParam = searchParams.get('bank')
+        if (bankParam) newData.bank = bankParam
+        const accountNumberParam = searchParams.get('accountNumber')
+        if (accountNumberParam) newData.accountNumber = accountNumberParam
+        const accountTypeParam = searchParams.get('accountType')
+        if (accountTypeParam) newData.accountType = accountTypeParam
+        const addressAndHoursParam = searchParams.get('addressAndHours')
+        if (addressAndHoursParam) newData.addressAndHours = addressAndHoursParam
+        const provinceParam = searchParams.get('province')
+        if (provinceParam) newData.province = provinceParam
+        const districtParam = searchParams.get('district')
+        if (districtParam) newData.district = districtParam
+        const corregimientoParam = searchParams.get('corregimiento')
+        if (corregimientoParam) newData.corregimiento = corregimientoParam
+        
+        // Step 5: Negocio
+        const includesTaxesParam = searchParams.get('includesTaxes')
+        if (includesTaxesParam) newData.includesTaxes = includesTaxesParam
+        const validOnHolidaysParam = searchParams.get('validOnHolidays')
+        if (validOnHolidaysParam) newData.validOnHolidays = validOnHolidaysParam
+        const hasExclusivityParam = searchParams.get('hasExclusivity')
+        if (hasExclusivityParam) newData.hasExclusivity = hasExclusivityParam
+        const blackoutDatesParam = searchParams.get('blackoutDates')
+        if (blackoutDatesParam) newData.blackoutDates = blackoutDatesParam
+        const exclusivityConditionParam = searchParams.get('exclusivityCondition')
+        if (exclusivityConditionParam) newData.exclusivityCondition = exclusivityConditionParam
+        const giftVouchersParam = searchParams.get('giftVouchers')
+        if (giftVouchersParam) newData.giftVouchers = giftVouchersParam
+        const hasOtherBranchesParam = searchParams.get('hasOtherBranches')
+        if (hasOtherBranchesParam) newData.hasOtherBranches = hasOtherBranchesParam
+        const vouchersPerPersonParam = searchParams.get('vouchersPerPerson')
+        if (vouchersPerPersonParam) newData.vouchersPerPerson = vouchersPerPersonParam
+        const commissionParam = searchParams.get('commission')
+        if (commissionParam) newData.commission = commissionParam
+        
+        // Step 6: Descripción
+        const redemptionMethodsParam = searchParams.get('redemptionMethods')
+        if (redemptionMethodsParam) {
+          try {
+            newData.redemptionMethods = JSON.parse(redemptionMethodsParam)
+          } catch (e) { /* ignore parse error */ }
+        }
+        const contactDetailsParam = searchParams.get('contactDetails')
+        if (contactDetailsParam) newData.contactDetails = contactDetailsParam
+        const socialMediaParam = searchParams.get('socialMedia')
+        if (socialMediaParam) newData.socialMedia = socialMediaParam
+        const businessReviewParam = searchParams.get('businessReview')
+        if (businessReviewParam) newData.businessReview = businessReviewParam
+        const offerDetailsParam = searchParams.get('offerDetails')
+        if (offerDetailsParam) newData.offerDetails = offerDetailsParam
+        
+        // Step 7: Estructura (Pricing Options)
+        const pricingOptionsParam = searchParams.get('pricingOptions')
+        if (pricingOptionsParam) {
+          try {
+            newData.pricingOptions = JSON.parse(pricingOptionsParam)
+          } catch (e) { /* ignore parse error */ }
+        }
+        
+        // Step 8: Políticas
+        const cancellationPolicyParam = searchParams.get('cancellationPolicy')
+        if (cancellationPolicyParam) newData.cancellationPolicy = cancellationPolicyParam
+        const marketValidationParam = searchParams.get('marketValidation')
+        if (marketValidationParam) newData.marketValidation = marketValidationParam
+        const additionalCommentsParam = searchParams.get('additionalComments')
+        if (additionalCommentsParam) newData.additionalComments = additionalCommentsParam
+        
+        // Note: additionalInfo (Step 9) contains template-specific fields
+        // These are handled separately in InformacionAdicionalStep
+        // The additionalInfo JSON is passed but needs special handling
+        
+        return newData
+      })
+      
+      return // Don't process other pre-fill logic when replicating
+    }
     
     if (fromOpportunity) {
       const businessName = searchParams.get('businessName')

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { getBookingRequest, getFieldComments, addFieldComment, updateFieldComment, deleteFieldComment } from '@/app/actions/booking'
 import { parseFieldComments, getCommentsForField, getCommentCountsByField, type FieldComment } from '@/types'
 import { useUserRole } from '@/hooks/useUserRole'
@@ -23,6 +24,7 @@ import ClearIcon from '@mui/icons-material/Clear'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import EventIcon from '@mui/icons-material/Event'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 
 // Field sections configuration (base)
 const BASE_SECTIONS = [
@@ -152,6 +154,7 @@ export default function BookingRequestViewModal({
   requestId,
   hideBackdrop = false,
 }: BookingRequestViewModalProps) {
+  const router = useRouter()
   const { isAdmin } = useUserRole()
   const { user } = useUser()
   const userId = user?.id
@@ -397,6 +400,104 @@ export default function BookingRequestViewModal({
     setEditCommentText(comment.text)
   }
 
+  // Replicate request - navigate to form with pre-filled data
+  function handleReplicate() {
+    if (!requestData) return
+
+    // Build query parameters with all replicable fields
+    const params = new URLSearchParams()
+    
+    // Flag to indicate this is a replication
+    params.set('replicate', 'true')
+    
+    // Step 1: Configuración
+    if (requestData.name) params.set('businessName', String(requestData.name))
+    if (requestData.businessEmail) params.set('partnerEmail', String(requestData.businessEmail))
+    if (requestData.additionalEmails) {
+      const emails = Array.isArray(requestData.additionalEmails) 
+        ? requestData.additionalEmails 
+        : []
+      if (emails.length > 0) params.set('additionalEmails', JSON.stringify(emails))
+    }
+    if (requestData.merchant) params.set('merchant', String(requestData.merchant))
+    if (requestData.description) params.set('description', String(requestData.description))
+    if (requestData.category) params.set('category', String(requestData.category))
+    if (requestData.parentCategory) params.set('parentCategory', String(requestData.parentCategory))
+    if (requestData.subCategory1) params.set('subCategory1', String(requestData.subCategory1))
+    if (requestData.subCategory2) params.set('subCategory2', String(requestData.subCategory2))
+    if (requestData.subCategory3) params.set('subCategory3', String(requestData.subCategory3))
+    if (requestData.campaignDuration) params.set('campaignDuration', String(requestData.campaignDuration))
+    
+    // Step 2: Operatividad
+    if (requestData.redemptionMode) params.set('redemptionMode', String(requestData.redemptionMode))
+    if (requestData.isRecurring) params.set('isRecurring', String(requestData.isRecurring))
+    if (requestData.recurringOfferLink) params.set('recurringOfferLink', String(requestData.recurringOfferLink))
+    if (requestData.paymentType) params.set('paymentType', String(requestData.paymentType))
+    if (requestData.paymentInstructions) params.set('paymentInstructions', String(requestData.paymentInstructions))
+    
+    // Step 3: Directorio
+    if (requestData.redemptionContactName) params.set('redemptionContactName', String(requestData.redemptionContactName))
+    if (requestData.redemptionContactEmail) params.set('redemptionContactEmail', String(requestData.redemptionContactEmail))
+    if (requestData.redemptionContactPhone) params.set('redemptionContactPhone', String(requestData.redemptionContactPhone))
+    
+    // Step 4: Fiscales
+    if (requestData.legalName) params.set('legalName', String(requestData.legalName))
+    if (requestData.rucDv) params.set('rucDv', String(requestData.rucDv))
+    if (requestData.bankAccountName) params.set('bankAccountName', String(requestData.bankAccountName))
+    if (requestData.bank) params.set('bank', String(requestData.bank))
+    if (requestData.accountNumber) params.set('accountNumber', String(requestData.accountNumber))
+    if (requestData.accountType) params.set('accountType', String(requestData.accountType))
+    if (requestData.addressAndHours) params.set('addressAndHours', String(requestData.addressAndHours))
+    if (requestData.province) params.set('province', String(requestData.province))
+    if (requestData.district) params.set('district', String(requestData.district))
+    if (requestData.corregimiento) params.set('corregimiento', String(requestData.corregimiento))
+    
+    // Step 5: Negocio
+    if (requestData.includesTaxes) params.set('includesTaxes', String(requestData.includesTaxes))
+    if (requestData.validOnHolidays) params.set('validOnHolidays', String(requestData.validOnHolidays))
+    if (requestData.hasExclusivity) params.set('hasExclusivity', String(requestData.hasExclusivity))
+    if (requestData.blackoutDates) params.set('blackoutDates', String(requestData.blackoutDates))
+    if (requestData.exclusivityCondition) params.set('exclusivityCondition', String(requestData.exclusivityCondition))
+    if (requestData.giftVouchers) params.set('giftVouchers', String(requestData.giftVouchers))
+    if (requestData.hasOtherBranches) params.set('hasOtherBranches', String(requestData.hasOtherBranches))
+    if (requestData.vouchersPerPerson) params.set('vouchersPerPerson', String(requestData.vouchersPerPerson))
+    if (requestData.commission) params.set('commission', String(requestData.commission))
+    
+    // Step 6: Descripción
+    if (requestData.redemptionMethods) {
+      const methods = Array.isArray(requestData.redemptionMethods) 
+        ? requestData.redemptionMethods 
+        : []
+      if (methods.length > 0) params.set('redemptionMethods', JSON.stringify(methods))
+    }
+    if (requestData.contactDetails) params.set('contactDetails', String(requestData.contactDetails))
+    if (requestData.socialMedia) params.set('socialMedia', String(requestData.socialMedia))
+    if (requestData.businessReview) params.set('businessReview', String(requestData.businessReview))
+    if (requestData.offerDetails) params.set('offerDetails', String(requestData.offerDetails))
+    
+    // Step 7: Estructura (Pricing Options)
+    if (requestData.pricingOptions) {
+      const pricing = Array.isArray(requestData.pricingOptions) 
+        ? requestData.pricingOptions 
+        : []
+      if (pricing.length > 0) params.set('pricingOptions', JSON.stringify(pricing))
+    }
+    
+    // Step 8: Políticas
+    if (requestData.cancellationPolicy) params.set('cancellationPolicy', String(requestData.cancellationPolicy))
+    if (requestData.marketValidation) params.set('marketValidation', String(requestData.marketValidation))
+    if (requestData.additionalComments) params.set('additionalComments', String(requestData.additionalComments))
+    
+    // Step 9: Información Adicional (template-specific fields)
+    if (requestData.additionalInfo && typeof requestData.additionalInfo === 'object') {
+      params.set('additionalInfo', JSON.stringify(requestData.additionalInfo))
+    }
+
+    // Navigate to the booking request form with pre-filled data
+    onClose()
+    router.push(`/booking-requests/new?${params.toString()}`)
+  }
+
   if (!isOpen) return null
 
   return (
@@ -409,38 +510,53 @@ export default function BookingRequestViewModal({
         />
       )}
 
-      {/* Modal */}
-      <div className="fixed inset-y-0 right-0 z-50 flex max-w-5xl w-full pointer-events-none">
-        <div className="pointer-events-auto w-full bg-white shadow-2xl flex flex-col transform transition-transform duration-300">
+      {/* Modal Container */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        {/* Modal Panel */}
+        <div className={`w-full max-w-5xl bg-white shadow-2xl rounded-xl flex flex-col max-h-[90vh] pointer-events-auto transform transition-all duration-300 ${
+          isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+        }`}>
           {/* Header */}
-          <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg border border-blue-200">
-                <DescriptionIcon className="text-blue-600" fontSize="medium" />
+          <div className="bg-white border-b border-slate-200 px-6 py-5 flex items-center justify-between flex-shrink-0">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-sm text-white">
+                <DescriptionIcon fontSize="medium" />
               </div>
               <div>
-                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Booking Request</p>
-                <h2 className="text-xl font-bold text-gray-900">
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-0.5">Booking Request</p>
+                <h2 className="text-xl font-bold text-slate-900 tracking-tight">
                   {(requestData?.name as string) || 'Loading...'}
                 </h2>
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {/* Replicate Button */}
+              <button
+                onClick={handleReplicate}
+                disabled={loading || !requestData}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Replicate this request"
+              >
+                <ContentCopyIcon style={{ fontSize: 16 }} />
+                <span>Replicar</span>
+              </button>
               <button
                 onClick={() => setShowSidebar(!showSidebar)}
-                className={`p-2 rounded-md transition-colors ${
-                  showSidebar ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                className={`p-2 rounded-lg transition-all ${
+                  showSidebar 
+                    ? 'bg-blue-50 text-blue-600 border border-blue-100' 
+                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-200'
                 }`}
                 title={showSidebar ? 'Hide comments sidebar' : 'Show comments sidebar'}
               >
                 <CommentIcon fontSize="small" />
                 {comments.length > 0 && (
-                  <span className="ml-1 text-xs font-medium">{comments.length}</span>
+                  <span className="ml-1.5 text-xs font-bold">{comments.length}</span>
                 )}
               </button>
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-500 transition-colors"
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
               >
                 <CloseIcon fontSize="medium" />
               </button>
@@ -460,16 +576,16 @@ export default function BookingRequestViewModal({
             const createdByName = createdByUser?.name || createdByUser?.email || String(requestData.userId || '')
 
             return (
-              <div className="px-6 py-3 border-b border-gray-200 bg-gradient-to-r from-slate-50 to-gray-50">
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
+              <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/50">
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-xs">
                   {/* Status badge */}
-                  <div className="flex items-center gap-1.5">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium ${
-                      status === 'approved' ? 'bg-green-100 text-green-700' :
-                      status === 'booked' ? 'bg-blue-100 text-blue-700' :
-                      status === 'rejected' ? 'bg-red-100 text-red-700' :
-                      status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-gray-100 text-gray-700'
+                  <div className="flex items-center">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md font-semibold border ${
+                      status === 'approved' ? 'bg-green-50 text-green-700 border-green-200' :
+                      status === 'booked' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                      status === 'rejected' ? 'bg-red-50 text-red-700 border-red-200' :
+                      status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                      'bg-slate-100 text-slate-700 border-slate-200'
                     }`}>
                       {status.charAt(0).toUpperCase() + status.slice(1)}
                     </span>
@@ -477,19 +593,19 @@ export default function BookingRequestViewModal({
 
                   {/* Approved/Booked info */}
                   {(status === 'approved' || status === 'booked') && processedAt && (
-                    <div className="flex items-center gap-1.5 text-gray-600">
+                    <div className="flex items-center gap-2 text-slate-600">
                       {status === 'booked' ? (
-                        <EventIcon style={{ fontSize: 14 }} className="text-blue-500" />
+                        <EventIcon style={{ fontSize: 16 }} className="text-blue-500" />
                       ) : (
-                        <CheckCircleIcon style={{ fontSize: 14 }} className="text-green-500" />
+                        <CheckCircleIcon style={{ fontSize: 16 }} className="text-green-500" />
                       )}
                       <span>
-                        <span className="font-medium">{status === 'booked' ? 'Booked:' : 'Approved:'}</span>{' '}
+                        <span className="font-semibold text-slate-700">{status === 'booked' ? 'Booked:' : 'Approved:'}</span>{' '}
                         {processedAt.toLocaleDateString('en-US', { 
                           month: 'short', day: 'numeric', year: 'numeric' 
                         })}
                         {processedByName && (
-                          <span className="text-gray-500"> by {processedByName}</span>
+                          <span className="text-slate-500"> by {processedByName}</span>
                         )}
                       </span>
                     </div>
@@ -497,10 +613,10 @@ export default function BookingRequestViewModal({
 
                   {/* Campaign dates */}
                   {(startDate || endDate) && (
-                    <div className="flex items-center gap-1.5 text-gray-600">
-                      <PlayArrowIcon style={{ fontSize: 14 }} className="text-purple-500" />
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <PlayArrowIcon style={{ fontSize: 16 }} className="text-indigo-500" />
                       <span>
-                        <span className="font-medium">Campaign:</span>{' '}
+                        <span className="font-semibold text-slate-700">Campaign:</span>{' '}
                         {startDate && startDate.toLocaleDateString('en-US', { 
                           month: 'short', day: 'numeric' 
                         })}
@@ -514,8 +630,8 @@ export default function BookingRequestViewModal({
 
                   {/* Created info */}
                   {createdAt && (
-                    <div className="flex items-center gap-1.5 text-gray-500">
-                      <HistoryIcon style={{ fontSize: 14 }} />
+                    <div className="flex items-center gap-2 text-slate-500 ml-auto">
+                      <HistoryIcon style={{ fontSize: 16 }} />
                       <span>
                         Created {createdAt.toLocaleDateString('en-US', { 
                           month: 'short', day: 'numeric', year: 'numeric' 
@@ -532,114 +648,128 @@ export default function BookingRequestViewModal({
           })()}
 
           {/* Search Bar */}
-          <div className="px-6 py-3 border-b border-gray-200 bg-white">
+          <div className="px-6 py-4 border-b border-slate-200 bg-white">
             <div className="relative">
               <SearchIcon 
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" 
-                style={{ fontSize: 18 }} 
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" 
+                style={{ fontSize: 20 }} 
               />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search fields (e.g., category, bank, contact...)"
-                className="w-full pl-9 pr-9 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-10 pr-10 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm bg-white"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors"
                 >
-                  <ClearIcon style={{ fontSize: 18 }} />
+                  <ClearIcon style={{ fontSize: 16 }} />
                 </button>
               )}
             </div>
             {searchQuery && (
-              <p className="text-xs text-gray-500 mt-1.5">
+              <p className="text-xs text-slate-500 mt-2 font-medium ml-1">
                 Showing {filteredSections.length} of {allSections.length} sections
               </p>
             )}
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-hidden flex">
+          <div className="flex-1 overflow-hidden flex bg-slate-50">
             {/* Main Content */}
-            <div className={`flex-1 overflow-y-auto p-6 bg-gray-50 ${showSidebar ? 'pr-4' : ''}`}>
+            <div className={`flex-1 overflow-y-auto p-6 md:p-8 ${showSidebar ? 'pr-6' : ''}`}>
               {loading ? (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {[1, 2, 3].map(i => (
-                    <div key={i} className="bg-white rounded-lg border border-gray-200 p-4 animate-pulse">
-                      <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
-                      <div className="space-y-2">
-                        <div className="h-3 bg-gray-200 rounded w-3/4"></div>
-                        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                    <div key={i} className="bg-white rounded-xl border border-slate-200 p-6 animate-pulse shadow-sm">
+                      <div className="h-5 bg-slate-200 rounded w-1/4 mb-6"></div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-3">
+                          <div className="h-3 bg-slate-200 rounded w-1/3"></div>
+                          <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="h-3 bg-slate-200 rounded w-1/3"></div>
+                          <div className="h-4 bg-slate-200 rounded w-3/4"></div>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : filteredSections.length === 0 ? (
-                <div className="text-center py-12">
-                  <SearchIcon className="mx-auto text-gray-300 mb-3" style={{ fontSize: 48 }} />
-                  <p className="text-gray-500 text-sm">No fields match &quot;{searchQuery}&quot;</p>
+                <div className="text-center py-16">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 mb-4">
+                    <SearchIcon className="text-slate-400" style={{ fontSize: 32 }} />
+                  </div>
+                  <h3 className="text-lg font-medium text-slate-900 mb-1">No matches found</h3>
+                  <p className="text-slate-500 text-sm mb-4">No fields match &quot;{searchQuery}&quot;</p>
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="mt-2 text-sm text-blue-600 hover:text-blue-700"
+                    className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
                   >
                     Clear search
                   </button>
                 </div>
               ) : (
-                <div className="space-y-4">
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="w-full px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-gray-700">
-              Información Adicional {additionalInfo?.templateDisplayName ? `(${additionalInfo.templateDisplayName})` : ''}
-            </span>
-          </div>
-        </div>
-        <div className="p-4">
-          {additionalInfo && additionalInfo.fields.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {additionalInfo.fields.map((f) => (
-                <div key={f.label} className="p-3 rounded-lg border border-gray-100 bg-gray-50">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{f.label}</p>
-                  <p className="text-sm text-gray-900 mt-1 break-words whitespace-pre-wrap">{String(f.value)}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-500">Sin información adicional.</p>
-          )}
-        </div>
-      </div>
+                <div className="space-y-6">
+                  {/* Additional Info Section (if exists) */}
+                  {additionalInfo && additionalInfo.fields.length > 0 && (
+                    <div className="bg-white rounded-xl border border-blue-100 overflow-hidden shadow-sm ring-1 ring-blue-50">
+                      <div className="w-full px-6 py-4 bg-blue-50/50 border-b border-blue-100 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-blue-900 uppercase tracking-wide">
+                            Información Adicional {additionalInfo.templateDisplayName ? `(${additionalInfo.templateDisplayName})` : ''}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {additionalInfo.fields.map((f) => (
+                            <div key={f.label} className="p-4 rounded-lg border border-blue-100 bg-blue-50/30">
+                              <p className="text-xs font-bold uppercase tracking-wider text-blue-700/70 mb-1">{f.label}</p>
+                              <p className="text-sm text-slate-900 break-words whitespace-pre-wrap font-medium">{String(f.value)}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {filteredSections.map(section => {
+                    // Skip rendering Additional Info section here if we rendered it above
+                    if (section.title.startsWith('Información Adicional') && additionalInfo) return null
+
                     const isExpanded = expandedSections.has(section.title)
                     const sectionHasComments = section.fields.some(f => commentCounts[f.key] > 0)
                     
                     return (
-                      <div key={section.title} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                      <div key={section.title} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200">
                         {/* Section Header */}
                         <button
                           onClick={() => toggleSection(section.title)}
-                          className="w-full px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between hover:bg-gray-100 transition-colors"
+                          className="w-full px-6 py-4 bg-white border-b border-slate-100 flex items-center justify-between hover:bg-slate-50/80 transition-colors group"
                         >
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-gray-700">{section.title}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-bold text-slate-800 uppercase tracking-wide group-hover:text-blue-700 transition-colors">{section.title}</span>
                             {sectionHasComments && (
-                              <span className="inline-flex items-center px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">
-                                <CommentIcon style={{ fontSize: 12 }} className="mr-0.5" />
+                              <span className="inline-flex items-center px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs font-semibold ring-1 ring-blue-100">
+                                <CommentIcon style={{ fontSize: 12 }} className="mr-1" />
                                 {section.fields.reduce((acc, f) => acc + (commentCounts[f.key] || 0), 0)}
                               </span>
                             )}
                           </div>
-                          {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                          <div className={`text-slate-400 group-hover:text-blue-600 transition-colors transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+                            <ExpandMoreIcon fontSize="small" />
+                          </div>
                         </button>
 
                         {/* Section Content */}
                         {isExpanded && (
-                          <div className="p-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="p-6 bg-white">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                               {section.fields.map(field => {
                                 const value =
                                   (additionalSection?.values && additionalSection.values[field.key]) ??
@@ -655,45 +785,46 @@ export default function BookingRequestViewModal({
                                 return (
                                   <div
                                     key={field.key}
-                                    className={`p-3 rounded-lg border ${
+                                    className={`relative group rounded-lg p-3 -m-3 transition-colors ${
                                       isFieldMatch 
-                                        ? 'border-yellow-300 bg-yellow-50 ring-2 ring-yellow-200' 
+                                        ? 'bg-yellow-50/50 ring-1 ring-yellow-200' 
                                         : hasComments 
-                                          ? 'border-blue-200 bg-blue-50/30' 
-                                          : 'border-gray-100 bg-gray-50'
-                                    } relative group`}
+                                          ? 'bg-blue-50/30' 
+                                          : 'hover:bg-slate-50'
+                                    }`}
                                   >
-                                    <div className="flex items-start justify-between gap-2">
+                                    <div className="flex items-start justify-between gap-3">
                                       <div className="flex-1 min-w-0">
-                                        <label className={`text-xs font-medium uppercase tracking-wide ${
-                                          isFieldMatch ? 'text-yellow-700' : 'text-gray-500'
+                                        <label className={`text-[11px] font-bold uppercase tracking-wider mb-1 block ${
+                                          isFieldMatch ? 'text-yellow-800' : 'text-slate-500 group-hover:text-slate-700'
                                         }`}>
                                           {field.label}
                                         </label>
-                                        <p className="text-sm text-gray-900 mt-1 break-words">
+                                        <div className="text-sm text-slate-900 break-words font-medium leading-relaxed">
                                           {formatFieldValue(
                                             value,
                                             'type' in field ? (field as { type?: string }).type : undefined
                                           )}
-                                        </p>
+                                        </div>
                                       </div>
                                       
                                       {/* Comment indicator/button */}
-                                      <div className="flex items-center gap-1">
+                                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                         {hasComments && (
-                                          <span className="inline-flex items-center justify-center w-5 h-5 bg-blue-500 text-white rounded-full text-xs font-medium">
+                                          <span className="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold ring-1 ring-blue-200">
                                             {fieldComments.length}
                                           </span>
                                         )}
                                         <button
-                                          onClick={() => {
+                                          onClick={(e) => {
+                                            e.stopPropagation()
                                             setActiveCommentField(isAddingComment ? null : field.key)
                                             setNewCommentText('')
                                           }}
-                                          className={`p-1 rounded transition-colors ${
+                                          className={`p-1.5 rounded-md transition-colors ${
                                             isAddingComment
-                                              ? 'bg-blue-100 text-blue-600'
-                                              : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100'
+                                              ? 'bg-blue-100 text-blue-700'
+                                              : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
                                           }`}
                                           title="Add comment"
                                         >
@@ -704,13 +835,13 @@ export default function BookingRequestViewModal({
 
                                     {/* Show field comments inline */}
                                     {hasComments && (
-                                      <div className="mt-2 pt-2 border-t border-blue-200 space-y-2">
+                                      <div className="mt-3 pt-3 border-t border-blue-100/50 space-y-2">
                                         {fieldComments.slice(0, 2).map(comment => (
-                                          <div key={comment.id} className="text-xs text-gray-600">
-                                            <div className="flex items-start gap-1">
+                                          <div key={comment.id} className="text-xs text-slate-600 bg-white/50 p-2 rounded border border-slate-100">
+                                            <div className="flex items-start gap-2">
                                               <CommentIcon style={{ fontSize: 12 }} className="text-blue-500 mt-0.5 flex-shrink-0" />
                                               <div className="flex-1 min-w-0">
-                                                <span className="font-medium text-gray-700">
+                                                <span className="font-semibold text-slate-800">
                                                   {comment.authorName || comment.authorEmail?.split('@')[0] || 'User'}:
                                                 </span>
                                                 <span className="ml-1 line-clamp-2">{comment.text}</span>
@@ -719,38 +850,45 @@ export default function BookingRequestViewModal({
                                           </div>
                                         ))}
                                         {fieldComments.length > 2 && (
-                                          <p className="text-xs text-blue-600">+{fieldComments.length - 2} more</p>
+                                          <p className="text-[10px] font-medium text-blue-600 pl-1 hover:underline cursor-pointer">
+                                            +{fieldComments.length - 2} more comments
+                                          </p>
                                         )}
                                       </div>
                                     )}
 
                                     {/* Add comment form */}
                                     {isAddingComment && (
-                                      <div className="mt-3 pt-3 border-t border-gray-200">
+                                      <div className="mt-3 pt-3 border-t border-blue-100 relative z-10">
                                         <textarea
                                           value={newCommentText}
                                           onChange={e => setNewCommentText(e.target.value)}
                                           placeholder="Add a comment..."
-                                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                          className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none shadow-sm"
                                           rows={2}
                                           autoFocus
+                                          onClick={e => e.stopPropagation()}
                                         />
                                         <div className="flex justify-end gap-2 mt-2">
                                           <button
-                                            onClick={() => {
+                                            onClick={(e) => {
+                                              e.stopPropagation()
                                               setActiveCommentField(null)
                                               setNewCommentText('')
                                             }}
-                                            className="px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded"
+                                            className="px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
                                           >
                                             Cancel
                                           </button>
                                           <button
-                                            onClick={handleAddComment}
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleAddComment()
+                                            }}
                                             disabled={!newCommentText.trim() || savingComment}
-                                            className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                                            className="px-2.5 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
                                           >
-                                            {savingComment ? 'Saving...' : 'Add'}
+                                            {savingComment ? 'Saving...' : 'Add Comment'}
                                           </button>
                                         </div>
                                       </div>
@@ -770,51 +908,56 @@ export default function BookingRequestViewModal({
 
             {/* Comments Sidebar */}
             {showSidebar && (
-              <div className="w-80 border-l border-gray-200 bg-white flex flex-col flex-shrink-0">
-                <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-                  <h3 className="text-sm font-semibold text-gray-700">
-                    All Comments ({comments.length})
+              <div className="w-80 border-l border-slate-200 bg-white flex flex-col flex-shrink-0 shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)] z-10">
+                <div className="px-5 py-4 border-b border-slate-200 bg-slate-50/50">
+                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">
+                    Comments ({comments.length})
                   </h3>
                 </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50/30">
                   {comments.length === 0 ? (
-                    <p className="text-sm text-gray-500 text-center py-8">
-                      No comments yet. Click the comment icon next to any field to add one.
-                    </p>
+                    <div className="text-center py-10 px-4">
+                      <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <CommentIcon className="text-slate-300" />
+                      </div>
+                      <p className="text-sm font-medium text-slate-900">No comments yet</p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Click the comment icon next to any field to start a discussion.
+                      </p>
+                    </div>
                   ) : (
                     comments.map(comment => {
                       const isEditing = editingCommentId === comment.id
                       const canEdit = comment.authorId === userId || isAdmin
                       const canDelete = isAdmin
                       const fieldLabel = allSections
-                        .flatMap(s => s.fields)
+                        .flatMap(s => s.fields as Array<{ key: string; label: string }>)
                         .find(f => f.key === comment.fieldKey)?.label || comment.fieldKey
 
                       return (
-                        <div key={comment.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                        <div key={comment.id} className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                           {/* Comment header */}
                           <div className="flex items-start justify-between gap-2 mb-2">
                             <div>
-                              <p className="text-xs font-medium text-blue-600">{fieldLabel}</p>
-                              <div className="flex items-center gap-1.5 mt-1 text-xs text-gray-500">
-                                <PersonIcon style={{ fontSize: 12 }} />
-                                <span>{comment.authorName || comment.authorEmail || 'Unknown'}</span>
-                                <span>•</span>
+                              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wide mb-1">{fieldLabel}</p>
+                              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                <span className="font-semibold text-slate-900">{comment.authorName || comment.authorEmail?.split('@')[0] || 'Unknown'}</span>
+                                <span className="w-0.5 h-0.5 bg-slate-300 rounded-full"></span>
                                 <span>{new Date(comment.createdAt).toLocaleDateString()}</span>
                                 {comment.updatedAt && (
                                   <>
-                                    <span>•</span>
-                                    <span className="text-orange-600">edited</span>
+                                    <span className="w-0.5 h-0.5 bg-slate-300 rounded-full"></span>
+                                    <span className="text-amber-600 font-medium text-[10px] bg-amber-50 px-1 rounded">edited</span>
                                   </>
                                 )}
                               </div>
                             </div>
                             {!isEditing && (canEdit || canDelete) && (
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 {canEdit && (
                                   <button
                                     onClick={() => startEditComment(comment)}
-                                    className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                                     title="Edit comment"
                                   >
                                     <EditIcon style={{ fontSize: 14 }} />
@@ -823,7 +966,7 @@ export default function BookingRequestViewModal({
                                 {canDelete && (
                                   <button
                                     onClick={() => handleDeleteComment(comment.id)}
-                                    className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
                                     title="Delete comment"
                                   >
                                     <DeleteIcon style={{ fontSize: 14 }} />
@@ -835,11 +978,11 @@ export default function BookingRequestViewModal({
 
                           {/* Comment content */}
                           {isEditing ? (
-                            <div>
+                            <div className="mt-2">
                               <textarea
                                 value={editCommentText}
                                 onChange={e => setEditCommentText(e.target.value)}
-                                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
                                 rows={3}
                                 autoFocus
                               />
@@ -849,37 +992,37 @@ export default function BookingRequestViewModal({
                                     setEditingCommentId(null)
                                     setEditCommentText('')
                                   }}
-                                  className="px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded"
+                                  className="px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
                                 >
                                   Cancel
                                 </button>
                                 <button
                                   onClick={() => handleEditComment(comment.id)}
                                   disabled={!editCommentText.trim() || savingComment}
-                                  className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                                  className="px-2.5 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
                                 >
                                   {savingComment ? 'Saving...' : 'Save'}
                                 </button>
                               </div>
                             </div>
                           ) : (
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{comment.text}</p>
+                            <div className="mt-2 text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{comment.text}</div>
                           )}
 
                           {/* Edit history */}
                           {comment.editHistory.length > 0 && !isEditing && (
-                            <details className="mt-2">
-                              <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600 flex items-center gap-1">
+                            <details className="mt-3 pt-2 border-t border-slate-100">
+                              <summary className="text-[10px] font-medium text-slate-400 cursor-pointer hover:text-slate-600 flex items-center gap-1 select-none">
                                 <HistoryIcon style={{ fontSize: 12 }} />
                                 View edit history ({comment.editHistory.length})
                               </summary>
-                              <div className="mt-2 pl-3 border-l-2 border-gray-200 space-y-2">
+                              <div className="mt-2 pl-3 border-l-2 border-slate-200 space-y-2">
                                 {comment.editHistory.map((edit, i) => (
-                                  <div key={i} className="text-xs text-gray-500">
-                                    <p className="text-gray-400">
+                                  <div key={i} className="text-xs text-slate-500">
+                                    <p className="text-[10px] font-medium text-slate-400 mb-0.5">
                                       {new Date(edit.editedAt).toLocaleString()}
                                     </p>
-                                    <p className="text-gray-600 line-through">{edit.text}</p>
+                                    <p className="text-slate-600 line-through bg-slate-50 px-1 py-0.5 rounded inline-block">{edit.text}</p>
                                   </div>
                                 ))}
                               </div>

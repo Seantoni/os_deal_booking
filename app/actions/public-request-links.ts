@@ -12,6 +12,7 @@ import { parseDateInPanamaTime, parseEndDateInPanamaTime } from '@/lib/date/time
 import { buildCategoryKey } from '@/lib/category-utils'
 import { getAppBaseUrl } from '@/lib/config/env'
 import { logger } from '@/lib/logger'
+import { generateRequestName, countBusinessRequests } from '@/lib/utils/request-naming'
 
 /**
  * Generate a public request link and send it via email
@@ -198,11 +199,15 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
       fields.category
     )
 
+    // Generate request name with format: "Business Name | Dec-15-2025 | #3"
+    const existingCount = await countBusinessRequests(fields.name!)
+    const requestName = generateRequestName(fields.name!, existingCount)
+
     // Create booking request with status 'approved' (as requested)
     // Use the userId from the public link creator (createdBy)
     const bookingRequest = await prisma.bookingRequest.create({
       data: {
-        name: fields.name!,
+        name: requestName,
         description: fields.description,
         category: standardizedCategory,
         parentCategory: fields.parentCategory,

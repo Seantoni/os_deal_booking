@@ -1,10 +1,16 @@
 'use client'
 
 import { useState, useMemo, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { Opportunity, BookingRequest } from '@/types'
-import OpportunityFormModal from '@/components/crm/opportunity/OpportunityFormModal'
 import { EntityTable, RowActionsMenu, StatusPill } from '@/components/shared/table'
 import { type ColumnConfig } from '@/components/shared'
+
+// Lazy load heavy modal component
+const OpportunityFormModal = dynamic(() => import('@/components/crm/opportunity/OpportunityFormModal'), {
+  loading: () => <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"><div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div></div>,
+  ssr: false,
+})
 
 type PipelineItem = {
   opportunity: Opportunity | null

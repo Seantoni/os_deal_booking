@@ -8,6 +8,7 @@ export const PAGE_ACCESS: Record<string, UserRole[]> = {
   '/events': ['admin', 'sales'],
   '/dashboard': ['admin', 'sales'],
   '/pipeline': ['admin', 'sales'],
+  '/tasks': ['admin', 'sales'],
   '/leads': ['admin'],
   '/businesses': ['admin', 'sales'],
   '/opportunities': ['admin', 'sales'],
