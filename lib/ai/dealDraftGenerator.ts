@@ -171,9 +171,6 @@ function formatBusinessInfo(input: DealDraftInput): string {
   lines.push(`Fecha de fin: ${endDate.toLocaleDateString('es-ES')}`)
   
   // Business details
-  if (input.description) {
-    lines.push(`Descripción: ${input.description}`)
-  }
   if (input.businessReview) {
     lines.push(`Reseña del negocio: ${input.businessReview}`)
   }
