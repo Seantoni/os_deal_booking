@@ -1,7 +1,7 @@
 'use client'
 
 import { getCategoryOptions, CategoryOption } from '@/lib/categories'
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, memo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { Input } from '@/components/ui'
 
@@ -36,7 +36,7 @@ interface CategorySelectProps {
   size?: 'sm' | 'md'
 }
 
-export default function CategorySelect({
+function CategorySelect({
   // Legacy props
   selectedOption,
   onChange,
@@ -147,7 +147,7 @@ export default function CategorySelect({
     return null
   }, [isLegacyMode, selectedOption, value, options])
 
-  const handleSelect = (option: CategoryOption) => {
+  const handleSelect = useCallback((option: CategoryOption) => {
     // Call legacy onChange if provided
     if (onChange) {
       onChange(option)
@@ -158,7 +158,7 @@ export default function CategorySelect({
     }
     setIsOpen(false)
     setSearch('')
-  }
+  }, [onChange, onValueChange])
 
   const displayValue = currentSelection ? currentSelection.label : placeholder
 
@@ -294,3 +294,6 @@ export default function CategorySelect({
     </div>
   )
 }
+
+// Memoize to prevent re-renders when parent form updates unrelated fields
+export default memo(CategorySelect)

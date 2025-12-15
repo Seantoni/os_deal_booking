@@ -304,6 +304,11 @@ export default function BusinessFormModal({
     email: user.email,
   })), [users])
 
+  // Memoize all values separately to avoid recalculating on every render
+  const allFormValues = useMemo(() => {
+    return { ...dynamicForm.values, ...dynamicForm.customFieldValues }
+  }, [dynamicForm.values, dynamicForm.customFieldValues])
+
   // Build field overrides and addons based on form configuration
   // Fields with canEditAfterCreation=true are locked after first save (only admin can unlock)
   // Business name is ALWAYS locked after creation (hardcoded requirement)
@@ -326,7 +331,7 @@ export default function BusinessFormModal({
     
     // Apply lock logic to all locked fields
     for (const fieldKey of lockedFieldKeys) {
-      const currentValue = dynamicForm.getAllValues()[fieldKey]
+      const currentValue = allFormValues[fieldKey]
       const hasValue = currentValue && currentValue.trim() !== ''
       
       // In edit mode with a value: locked by default for EVERYONE (including admin)
@@ -343,7 +348,7 @@ export default function BusinessFormModal({
     }
     
     return overrides
-  }, [dynamicForm.initialized, dynamicForm.sections, isEditMode, isAdmin, unlockedFields, dynamicForm])
+  }, [dynamicForm.initialized, dynamicForm.sections, isEditMode, isAdmin, unlockedFields, allFormValues])
 
   // Field addons (lock icons for fields with canEditAfterCreation in edit mode for admin)
   // Business name always shows lock icon for admin in edit mode
@@ -368,7 +373,7 @@ export default function BusinessFormModal({
     
     // Create lock icons for all locked fields that have values
     for (const fieldKey of lockedFieldKeys) {
-      const currentValue = dynamicForm.getAllValues()[fieldKey]
+      const currentValue = allFormValues[fieldKey]
       const hasValue = currentValue && currentValue.trim() !== ''
       
       // Only show lock icon if field has a value (i.e., has been filled before)
@@ -403,7 +408,7 @@ export default function BusinessFormModal({
     }
     
     return addons
-  }, [isEditMode, isAdmin, dynamicForm.initialized, dynamicForm.sections, unlockedFields, dynamicForm, toggleFieldUnlock])
+  }, [isEditMode, isAdmin, dynamicForm.initialized, dynamicForm.sections, unlockedFields, allFormValues, toggleFieldUnlock])
 
   if (!isOpen) return null
 
@@ -513,7 +518,7 @@ export default function BusinessFormModal({
                   <DynamicFormSection
                     key={section.id}
                     section={section}
-                    values={dynamicForm.getAllValues()}
+                    values={allFormValues}
                     onChange={dynamicForm.setValue}
                     disabled={loading}
                     categories={categoryOptions}

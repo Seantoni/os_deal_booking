@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import { Input, Select, Textarea } from '@/components/ui'
 import CategorySelect from './CategorySelect'
 import type { FormFieldWithDefinition, BuiltinFieldDefinition } from '@/types'
@@ -44,7 +45,7 @@ interface DynamicFormFieldProps {
   isEditMode?: boolean
 }
 
-export default function DynamicFormField({
+function DynamicFormField({
   field,
   value,
   onChange,
@@ -322,3 +323,6 @@ export default function DynamicFormField({
       )
   }
 }
+
+// Memoize to prevent re-renders when other fields change
+export default memo(DynamicFormField)

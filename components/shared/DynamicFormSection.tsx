@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type ReactElement } from 'react'
+import { useState, memo, type ReactElement } from 'react'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import DynamicFormField from './DynamicFormField'
@@ -47,7 +47,7 @@ interface DynamicFormSectionProps {
   isEditMode?: boolean
 }
 
-export default function DynamicFormSection({
+function DynamicFormSection({
   section,
   values,
   onChange,
@@ -183,3 +183,6 @@ export default function DynamicFormSection({
     </div>
   )
 }
+
+// Memoize to prevent re-renders when sibling sections update
+export default memo(DynamicFormSection)
