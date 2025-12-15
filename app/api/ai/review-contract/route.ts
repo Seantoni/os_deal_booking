@@ -119,7 +119,7 @@ export async function POST(req: Request) {
     const contractSummary = buildContractSummary(formData)
     
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4.1',
       messages: [
         { role: 'system', content: RESTAURANT_REVIEW_PROMPT },
         { role: 'user', content: `Revisa el siguiente contrato de promoción de restaurante y responde SOLO con JSON válido:\n\n${contractSummary}` },

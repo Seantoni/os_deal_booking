@@ -20,7 +20,7 @@ export async function testOpenAIConnection() {
     
     // Simple test call to verify connection
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4.1',
       messages: [
         {
           role: 'user',

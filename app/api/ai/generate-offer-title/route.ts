@@ -25,7 +25,7 @@ export async function POST(req: Request) {
 Descripción: ${description}`
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4.1',
       messages: [
         { role: 'system', content: 'Eres un experto en marketing que crea títulos de ofertas cortos y atractivos en español.' },
         { role: 'user', content: prompt },
