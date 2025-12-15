@@ -22,8 +22,7 @@ interface BookingRequestEmailProps {
 
 /**
  * Generate HTML string for booking request email
- * This email is sent to the business to approve or reject a booking request
- * Now includes enhanced form data in structured format
+ * Optimized for readability and clarity with OfertaSimple branding
  */
 export function renderBookingRequestEmail(props: BookingRequestEmailProps): string {
   const {
@@ -42,7 +41,7 @@ export function renderBookingRequestEmail(props: BookingRequestEmailProps): stri
     hideActions = false,
   } = props
 
-  // Get data from bookingData (no longer parsing from description)
+  // Get data from bookingData
   const additionalInfoData = additionalInfo
     ? {
         templateDisplayName: additionalInfo.templateDisplayName,
@@ -50,7 +49,7 @@ export function renderBookingRequestEmail(props: BookingRequestEmailProps): stri
       }
     : null
 
-const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
+  const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
 
   // Helpers
   const formatValue = (val: any): string => {
@@ -58,41 +57,6 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
     return typeof val === 'string' ? val : val ?? ''
   }
 
-  const renderFieldGrid = (
-    title: string,
-    fields: Array<{ key: keyof BookingFormData | string; label: string; fullWidth?: boolean }>
-  ) => {
-    if (!bookingData) return ''
-    const filled = fields.filter(f => {
-      const value = (bookingData as any)?.[f.key]
-      if (Array.isArray(value)) return value.length > 0
-      return value !== undefined && value !== null && String(value).trim() !== ''
-    })
-    if (filled.length === 0) return ''
-
-    const cards = filled
-      .map(f => {
-        const value = formatValue((bookingData as any)?.[f.key])
-        return `
-          <div style="background-color:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:12px;${f.fullWidth ? 'grid-column:1/-1;' : ''}">
-            <p style="margin:0 0 6px 0;font-size:12px;color:#6b7280;font-weight:600;">${escapeHtml(f.label)}</p>
-            <p style="margin:0;font-size:14px;color:#111827;white-space:pre-wrap;">${escapeHtml(value)}</p>
-          </div>
-        `
-      })
-      .join('')
-
-    return `
-      <div style="margin-top:16px;padding-top:16px;border-top:1px solid #e5e7eb;">
-        <p style="font-size:14px;color:#111827;font-weight:700;margin-bottom:10px;">${title}</p>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
-          ${cards}
-        </div>
-      </div>
-    `
-  }
-
-  // Escape HTML in user-provided content
   const escapeHtml = (text: string | undefined | null) => {
     if (!text) return ''
     return String(text)
@@ -103,22 +67,82 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
       .replace(/'/g, '&#039;')
   }
 
-  // Format pricing options from bookingData
+  // Section renderer
+  const renderSection = (
+    title: string,
+    fields: Array<{ key: keyof BookingFormData | string; label: string; fullWidth?: boolean; value?: string }>
+  ) => {
+    if (!bookingData) return ''
+    
+    // Filter fields that have values
+    const filled = fields.filter(f => {
+      // If direct value provided, check it
+      if (f.value !== undefined) return f.value !== null && String(f.value).trim() !== ''
+      
+      // Otherwise check bookingData
+      const value = (bookingData as any)?.[f.key]
+      if (Array.isArray(value)) return value.length > 0
+      return value !== undefined && value !== null && String(value).trim() !== ''
+    })
+
+    if (filled.length === 0) return ''
+
+    const rows = filled.map(f => {
+      const value = f.value !== undefined ? f.value : formatValue((bookingData as any)?.[f.key])
+      return `
+        <tr>
+          <td style="padding: 12px 0; border-bottom: 1px solid #f0f0f0;">
+            <div style="font-size: 13px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
+              ${escapeHtml(f.label)}
+            </div>
+            <div style="font-size: 15px; color: #111827; line-height: 1.5;">
+              ${escapeHtml(value)}
+            </div>
+          </td>
+        </tr>
+      `
+    }).join('')
+
+    return `
+      <div style="margin-bottom: 30px;">
+        <h3 style="margin: 0 0 15px 0; font-size: 18px; color: #111827; font-weight: 700; border-left: 4px solid #e84c0f; padding-left: 10px;">
+          ${title}
+        </h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          ${rows}
+        </table>
+      </div>
+    `
+  }
+
+  // Pricing options renderer
   const renderPricingOptions = () => {
     const pricingOptions = (bookingData as any)?.pricingOptions
     if (!pricingOptions || !Array.isArray(pricingOptions) || pricingOptions.length === 0) return ''
     
     return `
-      <div style="margin-top: 16px;">
-        <h3 style="font-size: 16px; font-weight: bold; color: #111827; margin-bottom: 12px;">Opciones de Precio:</h3>
-        ${pricingOptions.map((opt: any, i: number) => `
-          <div style="background-color: #ffffff; border-left: 4px solid #2563eb; padding: 12px; margin-bottom: 12px; border-radius: 4px;">
-            <p style="font-weight: bold; color: #111827; margin: 0 0 8px 0;">${i + 1}. ${escapeHtml(opt.title)}</p>
-            ${opt.description ? `<p style="color: #374151; margin: 0 0 8px 0; font-size: 14px;">${escapeHtml(opt.description)}</p>` : ''}
-            ${opt.price && opt.realValue ? `<p style="color: #059669; font-weight: 600; margin: 0 0 4px 0;">Paga $${escapeHtml(opt.price)} y consume $${escapeHtml(opt.realValue)}</p>` : ''}
-            ${opt.quantity ? `<p style="color: #6b7280; font-size: 13px; margin: 0;">Cantidad: ${escapeHtml(opt.quantity)}</p>` : ''}
-          </div>
-        `).join('')}
+      <div style="margin-bottom: 30px;">
+        <h3 style="margin: 0 0 15px 0; font-size: 18px; color: #111827; font-weight: 700; border-left: 4px solid #e84c0f; padding-left: 10px;">
+          Opciones de Precio
+        </h3>
+        <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px;">
+          ${pricingOptions.map((opt: any, i: number) => `
+            <div style="margin-bottom: ${i === pricingOptions.length - 1 ? '0' : '20px'}; padding-bottom: ${i === pricingOptions.length - 1 ? '0' : '20px'}; border-bottom: ${i === pricingOptions.length - 1 ? 'none' : '1px solid #e2e8f0'};">
+              <div style="font-weight: 700; color: #111827; font-size: 16px; margin-bottom: 4px;">
+                ${i + 1}. ${escapeHtml(opt.title)}
+              </div>
+              ${opt.description ? `<div style="color: #4b5563; font-size: 14px; margin-bottom: 8px;">${escapeHtml(opt.description)}</div>` : ''}
+              <div style="display: flex; flex-wrap: wrap; gap: 15px; font-size: 14px;">
+                ${opt.price && opt.realValue ? `
+                  <span style="color: #059669; font-weight: 600; background-color: #ecfdf5; padding: 2px 8px; border-radius: 4px;">
+                    Precio: $${escapeHtml(opt.price)} / Valor: $${escapeHtml(opt.realValue)}
+                  </span>
+                ` : ''}
+                ${opt.quantity ? `<span style="color: #6b7280;">Cantidad: ${escapeHtml(opt.quantity)}</span>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
       </div>
     `
   }
@@ -128,266 +152,147 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
 <html>
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solicitud de Aprobación - OfertaSimple</title>
 </head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 40px 20px;">
-  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-    <!-- Header -->
-    <div style="background-color: #2563eb; padding: 30px; text-align: center;">
-      <h1 style="color: #ffffff; font-size: 24px; font-weight: bold; margin: 0;">
-        Nueva Solicitud de Booking
+<body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 0; -webkit-text-size-adjust: none;">
+  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+    
+    <!-- Header with Branding -->
+    <div style="background-color: #ffffff; padding: 20px 30px; border-bottom: 3px solid #e84c0f; text-align: center;">
+       <!-- Assuming logo exists at this URL, otherwise just text -->
+       <div style="font-size: 24px; font-weight: 800; color: #e84c0f; letter-spacing: -0.5px;">
+         OfertaSimple
+       </div>
+       <div style="font-size: 14px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-top: 5px;">
+         OS Deals Booking
+       </div>
+    </div>
+
+    <!-- Main Title Area -->
+    <div style="background-color: #f8fafc; padding: 40px 30px; text-align: center;">
+      <h1 style="margin: 0 0 10px 0; color: #111827; font-size: 24px; font-weight: 700; line-height: 1.3;">
+        Solicitud de Aprobación
       </h1>
-      <p style="color: #dbeafe; font-size: 14px; margin: 8px 0 0 0;">
-        OS Deals Booking - OfertaSimple
+      <p style="margin: 0; color: #4b5563; font-size: 16px; line-height: 1.5;">
+        Se ha generado una nueva propuesta para <strong>${escapeHtml(merchant || requestName)}</strong>.
+        <br>Por favor revise los detalles y confirme su aprobación.
       </p>
     </div>
 
-    <!-- Content -->
-    <div style="padding: 30px;">
-      <p style="font-size: 16px; color: #374151; margin-bottom: 24px;">
-        Se ha recibido una nueva solicitud de booking para su negocio. Por favor revise los detalles a continuación:
-      </p>
-
-      <!-- Request Details -->
-      <div style="background-color: #f9fafb; border-radius: 6px; padding: 20px; margin-bottom: 24px;">
-        <h2 style="font-size: 18px; font-weight: bold; color: #111827; margin-top: 0; margin-bottom: 16px;">
-          Detalles de la Solicitud
-        </h2>
-
+    <!-- Key Information Summary Box -->
+    <div style="padding: 0 30px;">
+      <div style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 25px; margin-top: -20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
         <table style="width: 100%; border-collapse: collapse;">
-          <tbody>
-            <tr>
-              <td style="padding: 8px 0; font-size: 14px; color: #6b7280; font-weight: 600; width: 140px;">Nombre del Evento:</td>
-              <td style="padding: 8px 0; font-size: 14px; color: #111827; font-weight: bold;">${escapeHtml(requestName)}</td>
-            </tr>
-            ${merchant ? `
-            <tr>
-              <td style="padding: 8px 0; font-size: 14px; color: #6b7280; font-weight: 600;">Merchant/Aliado:</td>
-              <td style="padding: 8px 0; font-size: 14px; color: #111827;">${escapeHtml(merchant)}</td>
-            </tr>
-            ` : ''}
-            ${category ? `
-            <tr>
-              <td style="padding: 8px 0; font-size: 14px; color: #6b7280; font-weight: 600;">Categoría:</td>
-              <td style="padding: 8px 0; font-size: 14px; color: #111827;">${escapeHtml(category)}</td>
-            </tr>
-            ` : ''}
-            ${(bookingData as any)?.campaignDuration ? `
-            <tr>
-              <td style="padding: 8px 0; font-size: 14px; color: #6b7280; font-weight: 600;">Duración de Campaña:</td>
-              <td style="padding: 8px 0; font-size: 14px; color: #111827;">${escapeHtml((bookingData as any)?.campaignDuration)}</td>
-            </tr>
-            ` : ''}
-            <tr>
-              <td style="padding: 8px 0; font-size: 14px; color: #6b7280; font-weight: 600;">Fecha de Inicio:</td>
-              <td style="padding: 8px 0; font-size: 14px; color: #111827;">${escapeHtml(startDate)}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; font-size: 14px; color: #6b7280; font-weight: 600;">Fecha de Fin:</td>
-              <td style="padding: 8px 0; font-size: 14px; color: #111827;">${escapeHtml(endDate)}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; font-size: 14px; color: #6b7280; font-weight: 600;">Email del Negocio:</td>
-              <td style="padding: 8px 0; font-size: 14px; color: #2563eb;">${escapeHtml(businessEmail)}</td>
-            </tr>
-            ${requesterEmail ? `
-            <tr>
-              <td style="padding: 8px 0; font-size: 14px; color: #6b7280; font-weight: 600;">Solicitado por:</td>
-              <td style="padding: 8px 0; font-size: 14px; color: #111827;">${escapeHtml(requesterEmail)}</td>
-            </tr>
-            ` : ''}
-          </tbody>
+          <tr>
+            <td style="padding-bottom: 15px; width: 50%;">
+              <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">Evento / Campaña</div>
+              <div style="font-size: 16px; color: #111827; font-weight: 600; margin-top: 4px;">${escapeHtml(requestName)}</div>
+            </td>
+            <td style="padding-bottom: 15px; width: 50%;">
+              <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">Categoría</div>
+              <div style="font-size: 16px; color: #111827; font-weight: 600; margin-top: 4px;">${escapeHtml(category || 'General')}</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-top: 15px; border-top: 1px solid #f3f4f6;">
+              <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">Fecha de Inicio</div>
+              <div style="font-size: 16px; color: #111827; font-weight: 600; margin-top: 4px;">${escapeHtml(startDate)}</div>
+            </td>
+            <td style="padding-top: 15px; border-top: 1px solid #f3f4f6;">
+              <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">Fecha de Fin</div>
+              <div style="font-size: 16px; color: #111827; font-weight: 600; margin-top: 4px;">${escapeHtml(endDate)}</div>
+            </td>
+          </tr>
         </table>
+      </div>
+    </div>
 
-        ${(bookingData as any)?.redemptionMode ? `
-        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-          <p style="font-size: 14px; color: #6b7280; font-weight: 600; margin-bottom: 4px;">Modalidad de Canje:</p>
-          <p style="font-size: 14px; color: #374151; margin: 0;">${escapeHtml((bookingData as any)?.redemptionMode)}</p>
-        </div>
-        ` : ''}
+    <!-- Content Details -->
+    <div style="padding: 40px 30px;">
+      
+      ${renderSection('Información General', [
+        { key: 'merchant', label: 'Merchant / Aliado', value: merchant },
+        { key: 'businessEmail', label: 'Email del Negocio', value: businessEmail },
+        { key: 'campaignDuration', label: 'Duración de Campaña' },
+        { key: 'redemptionMode', label: 'Modalidad de Canje' },
+        { key: 'isRecurring', label: 'Recurrencia' },
+        { key: 'paymentType', label: 'Tipo de Pago' },
+      ])}
 
-        ${(bookingData as any)?.isRecurring ? `
-        <div style="margin-top: 12px;">
-          <p style="font-size: 14px; color: #6b7280; font-weight: 600; margin-bottom: 4px;">Recurrencia:</p>
-          <p style="font-size: 14px; color: #374151; margin: 0;">${escapeHtml((bookingData as any)?.isRecurring)}</p>
-        </div>
-        ` : ''}
+      ${renderSection('Reseña y Contenido', [
+        { key: 'businessReview', label: 'Reseña del Negocio' },
+        { key: 'offerDetails', label: 'Detalle de la Oferta' },
+      ])}
 
-        ${(bookingData as any)?.paymentType ? `
-        <div style="margin-top: 12px;">
-          <p style="font-size: 14px; color: #6b7280; font-weight: 600; margin-bottom: 4px;">Tipo de Pago:</p>
-          <p style="font-size: 14px; color: #374151; margin: 0;">${escapeHtml((bookingData as any)?.paymentType)}</p>
-        </div>
-        ` : ''}
+      ${renderPricingOptions()}
 
-        ${((bookingData as any)?.redemptionContactName || (bookingData as any)?.redemptionContactEmail || (bookingData as any)?.redemptionContactPhone) ? `
-        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-          <p style="font-size: 14px; color: #6b7280; font-weight: 600; margin-bottom: 8px;">Contacto de Canje:</p>
-          ${(bookingData as any)?.redemptionContactName ? `<p style="font-size: 14px; color: #374151; margin: 4px 0;">Nombre: ${escapeHtml((bookingData as any)?.redemptionContactName)}</p>` : ''}
-          ${(bookingData as any)?.redemptionContactEmail ? `<p style="font-size: 14px; color: #374151; margin: 4px 0;">Email: ${escapeHtml((bookingData as any)?.redemptionContactEmail)}</p>` : ''}
-          ${(bookingData as any)?.redemptionContactPhone ? `<p style="font-size: 14px; color: #374151; margin: 4px 0;">Teléfono: ${escapeHtml((bookingData as any)?.redemptionContactPhone)}</p>` : ''}
-        </div>
-        ` : ''}
+      ${renderSection('Condiciones y Políticas', [
+        { key: 'cancellationPolicy', label: 'Políticas de Cancelación' },
+        { key: 'additionalComments', label: 'Comentarios Adicionales' },
+        { key: 'validOnHolidays', label: 'Válido en Feriados' },
+        { key: 'appointmentRequired', label: 'Requiere Cita Previa' },
+      ])}
 
-        ${(bookingData as any)?.businessReview ? `
-        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-          <p style="font-size: 14px; color: #6b7280; font-weight: 600; margin-bottom: 8px;">Reseña del Negocio:</p>
-          <p style="font-size: 14px; color: #374151; line-height: 1.5; white-space: pre-wrap; margin: 0;">${escapeHtml((bookingData as any)?.businessReview)}</p>
-        </div>
-        ` : ''}
-
-        ${(bookingData as any)?.offerDetails ? `
-        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-          <p style="font-size: 14px; color: #6b7280; font-weight: 600; margin-bottom: 8px;">Detalle del Contenido:</p>
-          <p style="font-size: 14px; color: #374151; line-height: 1.5; white-space: pre-wrap; margin: 0;">${escapeHtml((bookingData as any)?.offerDetails)}</p>
-        </div>
-        ` : ''}
-
-        ${renderPricingOptions()}
-
-        ${(bookingData as any)?.cancellationPolicy ? `
-        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-          <p style="font-size: 14px; color: #6b7280; font-weight: 600; margin-bottom: 8px;">Políticas de Cancelación:</p>
-          <p style="font-size: 14px; color: #374151; line-height: 1.5; white-space: pre-wrap; margin: 0;">${escapeHtml((bookingData as any)?.cancellationPolicy)}</p>
-        </div>
-        ` : ''}
-
-        ${(bookingData as any)?.additionalComments ? `
-        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-          <p style="font-size: 14px; color: #6b7280; font-weight: 600; margin-bottom: 8px;">Comentarios Adicionales:</p>
-          <p style="font-size: 14px; color: #374151; line-height: 1.5; white-space: pre-wrap; margin: 0;">${escapeHtml((bookingData as any)?.additionalComments)}</p>
-        </div>
-        ` : ''}
-
-        ${additionalInfoData && additionalInfoData.fields?.length ? `
-        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-          <p style="font-size: 14px; color: #6b7280; font-weight: 600; margin-bottom: 8px;">
-            Información Adicional${additionalInfoData.templateDisplayName ? ` (${escapeHtml(additionalInfoData.templateDisplayName)})` : ''}:
-          </p>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px;">
-            ${additionalInfoData.fields.map((f) => `
-              <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px;">
-                <p style="margin: 0 0 4px 0; font-size: 13px; color: #6b7280; font-weight: 600;">${escapeHtml(f.label)}</p>
-                <p style="margin: 0; font-size: 13px; color: #111827; white-space: pre-wrap;">${escapeHtml(f.value)}</p>
-              </div>
+      <!-- Dynamic Additional Info -->
+      ${additionalInfoData && additionalInfoData.fields?.length ? `
+        <div style="margin-bottom: 30px;">
+          <h3 style="margin: 0 0 15px 0; font-size: 18px; color: #111827; font-weight: 700; border-left: 4px solid #e84c0f; padding-left: 10px;">
+            Información Adicional${additionalInfoData.templateDisplayName ? ` (${escapeHtml(additionalInfoData.templateDisplayName)})` : ''}
+          </h3>
+          <table style="width: 100%; border-collapse: collapse;">
+            ${additionalInfoData.fields.map(f => `
+              <tr>
+                <td style="padding: 12px 0; border-bottom: 1px solid #f0f0f0;">
+                  <div style="font-size: 13px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
+                    ${escapeHtml(f.label)}
+                  </div>
+                  <div style="font-size: 15px; color: #111827; line-height: 1.5;">
+                    ${escapeHtml(f.value)}
+                  </div>
+                </td>
+              </tr>
             `).join('')}
+          </table>
+        </div>
+      ` : ''}
+
+      ${renderSection('Datos de Contacto', [
+        { key: 'redemptionContactName', label: 'Nombre de Contacto' },
+        { key: 'redemptionContactEmail', label: 'Email de Contacto' },
+        { key: 'redemptionContactPhone', label: 'Teléfono' },
+        { key: 'addressAndHours', label: 'Dirección y Horario' },
+      ])}
+
+      <!-- Action Buttons -->
+      ${!hideActions ? `
+        <div style="margin-top: 40px; background-color: #f8fafc; padding: 30px; border-radius: 12px; text-align: center;">
+          <h3 style="margin: 0 0 20px 0; font-size: 18px; color: #111827;">¿Aprueba esta solicitud?</h3>
+          
+          <div style="display: flex; flex-direction: column; gap: 15px; max-width: 300px; margin: 0 auto;">
+            <a href="${approveUrl}" style="display: block; width: 100%; box-sizing: border-box; background-color: #10b981; color: #ffffff; font-size: 16px; font-weight: bold; padding: 16px 24px; border-radius: 8px; text-decoration: none; text-align: center; box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2);">
+              ✓ APROBAR SOLICITUD
+            </a>
+            
+            <a href="${rejectUrl}" style="display: block; width: 100%; box-sizing: border-box; background-color: #ffffff; color: #ef4444; border: 2px solid #ef4444; font-size: 16px; font-weight: bold; padding: 14px 24px; border-radius: 8px; text-decoration: none; text-align: center;">
+              Rechazar Solicitud
+            </a>
+          </div>
+
+          <div style="margin-top: 20px; font-size: 13px; color: #6b7280; line-height: 1.5;">
+            Al hacer clic en "Aprobar Solicitud", usted acepta los 
+            <a href="${termsLink}" style="color: #2563eb; text-decoration: underline;">Términos y Condiciones</a>
+            de OfertaSimple.
           </div>
         </div>
-        ` : ''}
+      ` : ''}
 
-      ${renderFieldGrid('Configuración / Operatividad', [
-        { key: 'advisorEmail', label: 'Correo del Asesor' },
-        { key: 'businessName', label: 'Nombre del Negocio' },
-        { key: 'partnerEmail', label: 'Correo del Aliado' },
-        { key: 'additionalEmails', label: 'Correos Adicionales' },
-        { key: 'assignedAdvisor', label: 'Asesor Asignado' },
-        { key: 'salesType', label: 'Tipo de Venta' },
-        { key: 'agencyContact', label: 'Contacto de Agencia' },
-        { key: 'tentativeLaunchDate', label: 'Fecha Tentativa de Lanzamiento' },
-        { key: 'campaignDuration', label: 'Duración de Campaña' },
-        { key: 'internalPeriod', label: 'Periodo Interno' },
-        { key: 'redemptionMode', label: 'Modalidad de Canje' },
-        { key: 'isRecurring', label: 'Oferta Recurrente' },
-        { key: 'recurringOfferLink', label: 'Enlace Recurrente', fullWidth: true },
-        { key: 'paymentType', label: 'Tipo de Pago' },
-        { key: 'paymentInstructions', label: 'Instrucciones de Pago', fullWidth: true },
-      ])}
-
-      ${renderFieldGrid('Directorio y Aprobadores', [
-        { key: 'redemptionContactName', label: 'Contacto de Canje - Nombre' },
-        { key: 'redemptionContactEmail', label: 'Contacto de Canje - Email' },
-        { key: 'redemptionContactPhone', label: 'Contacto de Canje - Teléfono' },
-        { key: 'approverBusinessName', label: 'Negocio Aprobador' },
-        { key: 'approverName', label: 'Nombre Aprobador' },
-        { key: 'approverEmail', label: 'Email Aprobador' },
-      ])}
-
-      ${renderFieldGrid('Datos Fiscales y Ubicación', [
-        { key: 'legalName', label: 'Razón Social' },
-        { key: 'rucDv', label: 'RUC y DV' },
-        { key: 'bankAccountName', label: 'Nombre en Cuenta Bancaria' },
-        { key: 'bank', label: 'Banco' },
-        { key: 'accountNumber', label: 'Número de Cuenta' },
-        { key: 'accountType', label: 'Tipo de Cuenta' },
-        { key: 'addressAndHours', label: 'Dirección y Horario', fullWidth: true },
-        { key: 'province', label: 'Provincia' },
-        { key: 'district', label: 'Distrito' },
-        { key: 'corregimiento', label: 'Corregimiento' },
-      ])}
-
-      ${renderFieldGrid('Reglas de Negocio', [
-        { key: 'includesTaxes', label: 'Incluye Impuestos' },
-        { key: 'validOnHolidays', label: 'Válido en Feriados' },
-        { key: 'hasExclusivity', label: 'Tiene Exclusividad' },
-        { key: 'blackoutDates', label: 'Fechas Blackout', fullWidth: true },
-        { key: 'exclusivityCondition', label: 'Condición de Exclusividad', fullWidth: true },
-        { key: 'giftVouchers', label: 'Vouchers para Regalar' },
-        { key: 'hasOtherBranches', label: 'Otras Sucursales no Válidas' },
-        { key: 'vouchersPerPerson', label: 'Vouchers por Persona' },
-        { key: 'commission', label: 'Comisión' },
-      ])}
-
-      ${renderFieldGrid('Descripción y Canales', [
-        { key: 'contactDetails', label: 'Contacto para Canje' },
-        { key: 'socialMedia', label: 'Redes Sociales' },
-        { key: 'redemptionMethods', label: 'Métodos de Canje' },
-        { key: 'businessReview', label: 'Reseña del Negocio', fullWidth: true },
-        { key: 'offerDetails', label: 'Detalle del Contenido', fullWidth: true },
-      ])}
-
-      ${renderFieldGrid('Políticas', [
-        { key: 'cancellationPolicy', label: 'Políticas de Cancelación', fullWidth: true },
-        { key: 'marketValidation', label: 'Validación de Mercado' },
-        { key: 'additionalComments', label: 'Comentarios Finales', fullWidth: true },
-      ])}
+      <!-- Footer Info -->
+      <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; text-align: center;">
+        <p style="margin: 0 0 10px 0;">Solicitud enviada por: ${escapeHtml(requesterEmail || 'Equipo de OfertaSimple')}</p>
+        <p style="margin: 0;">&copy; ${new Date().getFullYear()} OfertaSimple. Todos los derechos reservados.</p>
       </div>
 
-      ${hideActions ? '' : `
-      <!-- Action Buttons -->
-      <div style="text-align: center; margin-bottom: 24px;">
-        <p style="font-size: 16px; color: #374151; font-weight: 600; margin-bottom: 20px;">
-          ¿Desea aprobar esta solicitud de booking?
-        </p>
-
-        <div style="display: flex; gap: 12px; justify-content: center;">
-          <!-- Approve Button -->
-          <a href="${approveUrl}" style="display: inline-block; background-color: #10b981; color: #ffffff; font-size: 16px; font-weight: bold; padding: 14px 32px; border-radius: 8px; text-decoration: none; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
-            ✓ Aprobar
-          </a>
-
-          <!-- Reject Button -->
-          <a href="${rejectUrl}" style="display: inline-block; background-color: #ef4444; color: #ffffff; font-size: 16px; font-weight: bold; padding: 14px 32px; border-radius: 8px; text-decoration: none; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
-            ✗ No Aprobar
-          </a>
-        </div>
-      </div>
-      `}
-
-      <!-- Terms notice -->
-      <div style="margin-top: 12px; padding: 14px; background-color: #eef2ff; border: 1px solid #e0e7ff; border-radius: 6px; text-align: center;">
-        <p style="margin: 0 0 8px 0; font-size: 13px; color: #4338ca;">
-          Al aprobar este acuerdo, también acepto los términos y condiciones publicados en la siguiente página.
-        </p>
-        <a
-          href="${termsLink}"
-          style="display: inline-block; padding: 10px 18px; background-color: #2563eb; color: #ffffff; font-size: 13px; font-weight: 600; border-radius: 6px; text-decoration: none;"
-        >
-          Ver Términos y Condiciones
-        </a>
-      </div>
-
-      <!-- Footer Note -->
-      <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; font-size: 12px; color: #6b7280; text-align: center;">
-        <p style="margin: 0;">
-          Este enlace expirará en 1 año. Si tiene preguntas, por favor contacte a ${escapeHtml(requesterEmail || 'OfertaSimple')}.
-        </p>
-      </div>
-    </div>
-
-    <!-- Footer -->
-    <div style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-      <p style="font-size: 12px; color: #9ca3af; margin: 0;">
-        © 2025 OfertaSimple - OS Deals Sistema de Reservas
-      </p>
     </div>
   </div>
 </body>
