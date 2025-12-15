@@ -34,9 +34,6 @@ export default async function EditBookingRequestPage({ params }: EditBookingRequ
     redirect('/booking-requests')
   }
 
-  // Note: Description field has been removed - all data is now stored in individual fields
-  const enhancedData = null
-
   // Format dates for input fields (YYYY-MM-DD)
   const formatDateForInput = (date: Date) => {
     const d = new Date(date)
@@ -73,16 +70,16 @@ export default async function EditBookingRequestPage({ params }: EditBookingRequ
     salesType: '',
     agencyContact: '',
     tentativeLaunchDate: formatDateForInput(bookingRequest.startDate),
-    campaignDuration: br.campaignDuration || enhancedData?.campaignDuration || '',
+    campaignDuration: br.campaignDuration || '',
     internalPeriod: '',
-    redemptionMode: br.redemptionMode || enhancedData?.redemptionMode || '',
-    isRecurring: br.isRecurring || enhancedData?.isRecurring || '',
+    redemptionMode: br.redemptionMode || '',
+    isRecurring: br.isRecurring || '',
     recurringOfferLink: br.recurringOfferLink || '',
-    paymentType: br.paymentType || enhancedData?.paymentType || '',
+    paymentType: br.paymentType || '',
     paymentInstructions: br.paymentInstructions || '',
-    redemptionContactName: br.redemptionContactName || enhancedData?.redemptionContact?.name || '',
-    redemptionContactEmail: br.redemptionContactEmail || enhancedData?.redemptionContact?.email || '',
-    redemptionContactPhone: br.redemptionContactPhone || enhancedData?.redemptionContact?.phone || '',
+    redemptionContactName: br.redemptionContactName || '',
+    redemptionContactEmail: br.redemptionContactEmail || '',
+    redemptionContactPhone: br.redemptionContactPhone || '',
     approverBusinessName: '',
     approverName: '',
     approverEmail: '',
@@ -108,18 +105,18 @@ export default async function EditBookingRequestPage({ params }: EditBookingRequ
     redemptionMethods: br.redemptionMethods || [],
     contactDetails: br.contactDetails || '',
     socialMedia: br.socialMedia || '',
-    businessReview: br.businessReview || enhancedData?.businessReview || '',
-    offerDetails: br.offerDetails || enhancedData?.offerDetails || '',
-    pricingOptions: (br.pricingOptions || enhancedData?.pricingOptions || []).map((opt: any) => ({
+    businessReview: br.businessReview || '',
+    offerDetails: br.offerDetails || '',
+    pricingOptions: (br.pricingOptions || []).map((opt: any) => ({
       title: opt?.title ?? '',
       description: opt?.description ?? '',
       price: opt?.price ?? '',
       realValue: opt?.realValue ?? '',
       quantity: opt?.quantity ?? 'Ilimitado',
     })),
-    cancellationPolicy: br.cancellationPolicy || enhancedData?.cancellationPolicy || '',
+    cancellationPolicy: br.cancellationPolicy || '',
     marketValidation: br.marketValidation || '',
-    additionalComments: br.additionalComments || enhancedData?.additionalComments || '',
+    additionalComments: br.additionalComments || '',
     // Category-specific fields would need to be parsed from description
     validForDineIn: '',
     validForTakeout: '',
