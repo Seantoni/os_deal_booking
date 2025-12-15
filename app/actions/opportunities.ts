@@ -283,7 +283,6 @@ export async function getPipelineData() {
                     subCategory1: true,
                     subCategory2: true,
                     processedAt: true,
-                    description: true,
                     opportunityId: true,
                   },
                 },
