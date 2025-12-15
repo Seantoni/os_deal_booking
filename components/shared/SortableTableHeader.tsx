@@ -53,7 +53,7 @@ export function SortableTableHeader({
   onSort,
 }: SortableTableHeaderProps) {
   return (
-    <thead className="bg-gray-50/50 border-b border-gray-200">
+    <thead className="bg-slate-100 border-b border-slate-200">
       <tr>
         {columns.map((column) => {
           const isActive = sortColumn === column.key
@@ -66,8 +66,8 @@ export function SortableTableHeader({
           return (
             <th
               key={column.key}
-              className={`px-4 py-[5px] text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap ${alignClass} ${
-                column.sortable ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''
+              className={`px-4 py-3 text-xs font-bold text-slate-700 uppercase tracking-wider whitespace-nowrap ${alignClass} ${
+                column.sortable ? 'cursor-pointer hover:bg-slate-200/50 transition-colors' : ''
               } ${column.width || ''} ${column.className || ''}`}
               onClick={column.sortable ? () => onSort(column.key) : undefined}
             >
@@ -77,8 +77,8 @@ export function SortableTableHeader({
                 <span>{column.label}</span>
                 {column.sortable && isActive && (
                   sortDirection === 'asc' 
-                    ? <ArrowUpwardIcon style={{ fontSize: 14 }} /> 
-                    : <ArrowDownwardIcon style={{ fontSize: 14 }} />
+                    ? <ArrowUpwardIcon style={{ fontSize: 14 }} className="text-blue-600" /> 
+                    : <ArrowDownwardIcon style={{ fontSize: 14 }} className="text-blue-600" />
                 )}
               </div>
             </th>

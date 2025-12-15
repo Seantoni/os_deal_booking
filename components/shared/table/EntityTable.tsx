@@ -22,7 +22,7 @@ export default function EntityTable({
   className = '',
 }: EntityTableProps) {
   return (
-    <div className={`bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm ${className}`}>
+    <div className={`bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm ${className}`}>
       <div className="overflow-x-auto">
         <table className="w-full text-[13px] text-left">
           <SortableTableHeader
@@ -31,7 +31,7 @@ export default function EntityTable({
             sortDirection={sortDirection}
             onSort={onSort}
           />
-          <tbody className="divide-y divide-gray-100 text-sm">
+          <tbody className="divide-y divide-slate-100 text-sm">
             {children}
           </tbody>
         </table>
