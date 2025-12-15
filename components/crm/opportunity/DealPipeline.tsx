@@ -1,6 +1,6 @@
 'use client'
 
-import { DEAL_STATUS_LABELS, DEAL_STATUS_COLORS } from './constants'
+import { DEAL_STATUS_LABELS, DEAL_STATUS_COLORS } from '../deal/constants'
 import CheckIcon from '@mui/icons-material/Check'
 import type { Deal } from '@/types'
 
