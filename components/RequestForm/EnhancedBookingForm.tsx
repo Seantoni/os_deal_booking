@@ -377,10 +377,10 @@ export default function EnhancedBookingForm({ requestId, initialFormData }: Enha
           router.push('/booking-requests')
         }
       } else {
-        toast.error('Error guardando borrador: ' + result.error)
+        toast.error('Error al guardar borrador: ' + result.error)
       }
     } catch (error) {
-      toast.error('Error: ' + (error instanceof Error ? error.message : 'Unknown error'))
+      toast.error('Error: ' + (error instanceof Error ? error.message : 'Error desconocido'))
     } finally {
       setSaving(false)
     }
@@ -402,10 +402,10 @@ export default function EnhancedBookingForm({ requestId, initialFormData }: Enha
         toast.success('Solicitud enviada exitosamente')
         router.push('/booking-requests')
       } else {
-        toast.error('Error enviando solicitud: ' + result.error)
+        toast.error('Error al enviar solicitud: ' + result.error)
       }
     } catch (error) {
-      toast.error('Error: ' + (error instanceof Error ? error.message : 'Unknown error'))
+      toast.error('Error: ' + (error instanceof Error ? error.message : 'Error desconocido'))
     } finally {
       setSaving(false)
     }

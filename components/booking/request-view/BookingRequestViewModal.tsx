@@ -43,109 +43,109 @@ function getFieldValue(data: BookingRequestViewData | null, key: string): unknow
 // Field sections configuration (base)
 const BASE_SECTIONS: SectionDefinition[] = [
   {
-    title: 'General Information',
+    title: 'Información General',
     fields: [
-      { key: 'name', label: 'Business Name' },
-      { key: 'businessEmail', label: 'Business Email' },
-      { key: 'parentCategory', label: 'Category' },
-      { key: 'subCategory1', label: 'Subcategory 1' },
-      { key: 'subCategory2', label: 'Subcategory 2' },
-      { key: 'subCategory3', label: 'Subcategory 3' },
+      { key: 'name', label: 'Nombre del Negocio' },
+      { key: 'businessEmail', label: 'Email del Negocio' },
+      { key: 'parentCategory', label: 'Categoría' },
+      { key: 'subCategory1', label: 'Subcategoría 1' },
+      { key: 'subCategory2', label: 'Subcategoría 2' },
+      { key: 'subCategory3', label: 'Subcategoría 3' },
       { key: 'merchant', label: 'Merchant/Aliado' },
     ],
   },
   {
-    title: 'Campaign Details',
+    title: 'Detalles de la Campaña',
     fields: [
-      { key: 'startDate', label: 'Start Date', type: 'date' },
-      { key: 'endDate', label: 'End Date', type: 'date' },
-      { key: 'campaignDuration', label: 'Campaign Duration' },
+      { key: 'startDate', label: 'Fecha de Inicio', type: 'date' },
+      { key: 'endDate', label: 'Fecha de Fin', type: 'date' },
+      { key: 'campaignDuration', label: 'Duración de la Campaña' },
     ],
   },
   {
-    title: 'Operations & Payments',
+    title: 'Operaciones y Pagos',
     fields: [
-      { key: 'redemptionMode', label: 'Redemption Mode' },
-      { key: 'isRecurring', label: 'Is Recurring' },
-      { key: 'recurringOfferLink', label: 'Recurring Offer Link' },
-      { key: 'paymentType', label: 'Payment Type' },
-      { key: 'paymentInstructions', label: 'Payment Instructions' },
+      { key: 'redemptionMode', label: 'Modalidad de Canje' },
+      { key: 'isRecurring', label: 'Es Recurrente' },
+      { key: 'recurringOfferLink', label: 'Enlace de Oferta Recurrente' },
+      { key: 'paymentType', label: 'Tipo de Pago' },
+      { key: 'paymentInstructions', label: 'Instrucciones de Pago' },
     ],
   },
   {
-    title: 'Contact Directory',
+    title: 'Directorio de Contactos',
     fields: [
-      { key: 'redemptionContactName', label: 'Redemption Contact Name' },
-      { key: 'redemptionContactEmail', label: 'Redemption Contact Email' },
-      { key: 'redemptionContactPhone', label: 'Redemption Contact Phone' },
+      { key: 'redemptionContactName', label: 'Nombre del Contacto de Canje' },
+      { key: 'redemptionContactEmail', label: 'Email del Contacto de Canje' },
+      { key: 'redemptionContactPhone', label: 'Teléfono del Contacto de Canje' },
     ],
   },
   {
-    title: 'Fiscal & Banking Information',
+    title: 'Información Fiscal y Bancaria',
     fields: [
-      { key: 'legalName', label: 'Legal Name (Razón Social)' },
+      { key: 'legalName', label: 'Razón Social' },
       { key: 'rucDv', label: 'RUC y DV' },
-      { key: 'bankAccountName', label: 'Bank Account Name' },
-      { key: 'bank', label: 'Bank' },
-      { key: 'accountNumber', label: 'Account Number' },
-      { key: 'accountType', label: 'Account Type' },
+      { key: 'bankAccountName', label: 'Nombre en Cuenta Bancaria' },
+      { key: 'bank', label: 'Banco' },
+      { key: 'accountNumber', label: 'Número de Cuenta' },
+      { key: 'accountType', label: 'Tipo de Cuenta' },
     ],
   },
   {
-    title: 'Location',
+    title: 'Ubicación',
     fields: [
-      { key: 'addressAndHours', label: 'Address & Hours' },
-      { key: 'province', label: 'Province' },
-      { key: 'district', label: 'District' },
+      { key: 'addressAndHours', label: 'Dirección y Horario' },
+      { key: 'province', label: 'Provincia' },
+      { key: 'district', label: 'Distrito' },
       { key: 'corregimiento', label: 'Corregimiento' },
     ],
   },
   {
-    title: 'Business Rules & Restrictions',
+    title: 'Reglas de Negocio y Restricciones',
     fields: [
-      { key: 'includesTaxes', label: 'Includes Taxes' },
-      { key: 'validOnHolidays', label: 'Valid on Holidays' },
-      { key: 'hasExclusivity', label: 'Has Exclusivity' },
-      { key: 'exclusivityCondition', label: 'Exclusivity Condition' },
-      { key: 'blackoutDates', label: 'Blackout Dates' },
-      { key: 'giftVouchers', label: 'Gift Vouchers' },
-      { key: 'hasOtherBranches', label: 'Has Other Branches' },
-      { key: 'vouchersPerPerson', label: 'Vouchers Per Person' },
-      { key: 'commission', label: 'Commission' },
+      { key: 'includesTaxes', label: 'Incluye Impuestos' },
+      { key: 'validOnHolidays', label: 'Válido en Feriados' },
+      { key: 'hasExclusivity', label: 'Tiene Exclusividad' },
+      { key: 'exclusivityCondition', label: 'Condición de Exclusividad' },
+      { key: 'blackoutDates', label: 'Fechas Blackout' },
+      { key: 'giftVouchers', label: 'Vouchers para Regalar' },
+      { key: 'hasOtherBranches', label: 'Tiene Otras Sucursales' },
+      { key: 'vouchersPerPerson', label: 'Vouchers por Persona' },
+      { key: 'commission', label: 'Comisión' },
     ],
   },
   {
-    title: 'Description & Sales Channels',
+    title: 'Descripción y Canales de Venta',
     fields: [
-      { key: 'redemptionMethods', label: 'Redemption Methods', type: 'json' },
-      { key: 'contactDetails', label: 'Contact Details' },
-      { key: 'socialMedia', label: 'Social Media' },
-      { key: 'businessReview', label: 'Business Review' },
-      { key: 'offerDetails', label: 'Offer Details' },
+      { key: 'redemptionMethods', label: 'Métodos de Canje', type: 'json' },
+      { key: 'contactDetails', label: 'Detalles de Contacto' },
+      { key: 'socialMedia', label: 'Redes Sociales' },
+      { key: 'businessReview', label: 'Reseña del Negocio' },
+      { key: 'offerDetails', label: 'Detalles de la Oferta' },
     ],
   },
   {
-    title: 'Pricing Options',
+    title: 'Opciones de Precio',
     fields: [
-      { key: 'pricingOptions', label: 'Pricing Options', type: 'pricing' },
+      { key: 'pricingOptions', label: 'Opciones de Precio', type: 'pricing' },
     ],
   },
   {
-    title: 'General Policies',
+    title: 'Políticas Generales',
     fields: [
-      { key: 'cancellationPolicy', label: 'Cancellation Policy' },
-      { key: 'marketValidation', label: 'Market Validation' },
-      { key: 'additionalComments', label: 'Additional Comments' },
+      { key: 'cancellationPolicy', label: 'Política de Cancelación' },
+      { key: 'marketValidation', label: 'Validación de Mercado' },
+      { key: 'additionalComments', label: 'Comentarios Adicionales' },
     ],
   },
   {
-    title: 'Request Status',
+    title: 'Estado de la Solicitud',
     fields: [
-      { key: 'status', label: 'Status' },
-      { key: 'sourceType', label: 'Source Type' },
-      { key: 'processedAt', label: 'Processed At', type: 'date' },
-      { key: 'processedBy', label: 'Processed By' },
-      { key: 'rejectionReason', label: 'Rejection Reason' },
+      { key: 'status', label: 'Estado' },
+      { key: 'sourceType', label: 'Tipo de Origen' },
+      { key: 'processedAt', label: 'Procesado En', type: 'date' },
+      { key: 'processedBy', label: 'Procesado Por' },
+      { key: 'rejectionReason', label: 'Razón del Rechazo' },
     ],
   },
 ]
@@ -204,7 +204,7 @@ export default function BookingRequestViewModal({
       // Expand first few sections by default (base sections)
       setExpandedSections(new Set(BASE_SECTIONS.slice(0, 3).map(s => s.title)))
     } catch (error) {
-      toast.error('Failed to load request data')
+      toast.error('Error al cargar los datos de la solicitud')
     } finally {
       setLoading(false)
     }
@@ -277,9 +277,21 @@ export default function BookingRequestViewModal({
   }, [additionalInfo])
 
   // Combine base sections with optional additional info section
+  // Insert "Información Adicional" after "Pricing Options" section
   const allSections = useMemo((): SectionDefinition[] => {
     if (additionalSection?.section) {
-      return [additionalSection.section, ...BASE_SECTIONS]
+      // Find the index of "Pricing Options" section
+      const pricingOptionsIndex = BASE_SECTIONS.findIndex(s => s.title === 'Pricing Options')
+      if (pricingOptionsIndex >= 0) {
+        // Insert after Pricing Options
+        return [
+          ...BASE_SECTIONS.slice(0, pricingOptionsIndex + 1),
+          additionalSection.section,
+          ...BASE_SECTIONS.slice(pricingOptionsIndex + 1),
+        ]
+      }
+      // Fallback: if Pricing Options not found, append at end
+      return [...BASE_SECTIONS, additionalSection.section]
     }
     return BASE_SECTIONS
   }, [additionalSection])
@@ -331,7 +343,7 @@ export default function BookingRequestViewModal({
     }
     if (type === 'date' && (value instanceof Date || typeof value === 'string')) {
       const date = value instanceof Date ? value : new Date(value)
-      return date.toLocaleDateString('en-US', {
+      return date.toLocaleDateString('es-ES', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
@@ -368,9 +380,9 @@ export default function BookingRequestViewModal({
         setComments(prev => [...prev, result.data!])
         setNewCommentText('')
         setActiveCommentField(null)
-        toast.success('Comment added')
+        toast.success('Comentario agregado')
       } else {
-        toast.error(result.error || 'Failed to add comment')
+        toast.error(result.error || 'Error al agregar comentario')
       }
     } finally {
       setSavingComment(false)
@@ -388,9 +400,9 @@ export default function BookingRequestViewModal({
         setComments(prev => prev.map(c => c.id === commentId ? result.data! : c))
         setEditingCommentId(null)
         setEditCommentText('')
-        toast.success('Comment updated')
+        toast.success('Comentario actualizado')
       } else {
-        toast.error(result.error || 'Failed to update comment')
+        toast.error(result.error || 'Error al actualizar comentario')
       }
     } finally {
       setSavingComment(false)
@@ -401,16 +413,16 @@ export default function BookingRequestViewModal({
   async function handleDeleteComment(commentId: string) {
     if (!requestId) return
     
-    if (!confirm('Are you sure you want to delete this comment?')) return
+    if (!confirm('¿Estás seguro de que deseas eliminar este comentario?')) return
     
     setSavingComment(true)
     try {
       const result = await deleteFieldComment(requestId, commentId)
       if (result.success) {
         setComments(prev => prev.filter(c => c.id !== commentId))
-        toast.success('Comment deleted')
+        toast.success('Comentario eliminado')
       } else {
-        toast.error(result.error || 'Failed to delete comment')
+        toast.error(result.error || 'Error al eliminar comentario')
       }
     } finally {
       setSavingComment(false)
@@ -556,9 +568,9 @@ export default function BookingRequestViewModal({
                 <DescriptionIcon fontSize="medium" />
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-0.5">Booking Request</p>
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-0.5">Solicitud de Reserva</p>
                 <h2 className="text-xl font-bold text-slate-900 tracking-tight">
-                  {(requestData?.name as string) || 'Loading...'}
+                  {(requestData?.name as string) || 'Cargando...'}
                 </h2>
               </div>
             </div>
@@ -568,7 +580,7 @@ export default function BookingRequestViewModal({
                 onClick={handleReplicate}
                 disabled={loading || !requestData}
                 className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Replicate this request"
+                title="Replicar esta solicitud"
               >
                 <ContentCopyIcon style={{ fontSize: 16 }} />
                 <span>Replicar</span>
@@ -580,7 +592,7 @@ export default function BookingRequestViewModal({
                     ? 'bg-blue-50 text-blue-600 border border-blue-100' 
                     : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-200'
                 }`}
-                title={showSidebar ? 'Hide comments sidebar' : 'Show comments sidebar'}
+                title={showSidebar ? 'Ocultar panel de comentarios' : 'Mostrar panel de comentarios'}
               >
                 <CommentIcon fontSize="small" />
                 {comments.length > 0 && (
@@ -633,12 +645,12 @@ export default function BookingRequestViewModal({
                         <CheckCircleIcon style={{ fontSize: 16 }} className="text-green-500" />
                       )}
                       <span>
-                        <span className="font-semibold text-slate-700">{status === 'booked' ? 'Booked:' : 'Approved:'}</span>{' '}
-                        {processedAt.toLocaleDateString('en-US', { 
+                        <span className="font-semibold text-slate-700">{status === 'booked' ? 'Reservado:' : 'Aprobado:'}</span>{' '}
+                        {processedAt.toLocaleDateString('es-ES', { 
                           month: 'short', day: 'numeric', year: 'numeric' 
                         })}
                         {processedByName && (
-                          <span className="text-slate-500"> by {processedByName}</span>
+                          <span className="text-slate-500"> por {processedByName}</span>
                         )}
                       </span>
                     </div>
@@ -649,12 +661,12 @@ export default function BookingRequestViewModal({
                     <div className="flex items-center gap-2 text-slate-600">
                       <PlayArrowIcon style={{ fontSize: 16 }} className="text-indigo-500" />
                       <span>
-                        <span className="font-semibold text-slate-700">Campaign:</span>{' '}
-                        {startDate && startDate.toLocaleDateString('en-US', { 
+                        <span className="font-semibold text-slate-700">Campaña:</span>{' '}
+                        {startDate && startDate.toLocaleDateString('es-ES', { 
                           month: 'short', day: 'numeric' 
                         })}
                         {startDate && endDate && ' → '}
-                        {endDate && endDate.toLocaleDateString('en-US', { 
+                        {endDate && endDate.toLocaleDateString('es-ES', { 
                           month: 'short', day: 'numeric', year: 'numeric' 
                         })}
                       </span>
@@ -666,11 +678,11 @@ export default function BookingRequestViewModal({
                     <div className="flex items-center gap-2 text-slate-500 ml-auto">
                       <HistoryIcon style={{ fontSize: 16 }} />
                       <span>
-                        Created {createdAt.toLocaleDateString('en-US', { 
+                        Creado {createdAt.toLocaleDateString('es-ES', { 
                           month: 'short', day: 'numeric', year: 'numeric' 
                         })}
                         {createdByName && (
-                          <span> by {createdByName}</span>
+                          <span> por {createdByName}</span>
                         )}
                       </span>
                     </div>
@@ -691,7 +703,7 @@ export default function BookingRequestViewModal({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search fields (e.g., category, bank, contact...)"
+                placeholder="Buscar campos (ej: categoría, banco, contacto...)"
                 className="w-full pl-10 pr-10 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm bg-white"
               />
               {searchQuery && (
@@ -705,7 +717,7 @@ export default function BookingRequestViewModal({
             </div>
             {searchQuery && (
               <p className="text-xs text-slate-500 mt-2 font-medium ml-1">
-                Showing {filteredSections.length} of {allSections.length} sections
+                Mostrando {filteredSections.length} de {allSections.length} secciones
               </p>
             )}
           </div>
@@ -737,52 +749,18 @@ export default function BookingRequestViewModal({
                   <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-100 mb-4">
                     <SearchIcon className="text-slate-400" style={{ fontSize: 32 }} />
                   </div>
-                  <h3 className="text-lg font-medium text-slate-900 mb-1">No matches found</h3>
-                  <p className="text-slate-500 text-sm mb-4">No fields match &quot;{searchQuery}&quot;</p>
+                  <h3 className="text-lg font-medium text-slate-900 mb-1">No se encontraron coincidencias</h3>
+                  <p className="text-slate-500 text-sm mb-4">Ningún campo coincide con &quot;{searchQuery}&quot;</p>
                   <button
                     onClick={() => setSearchQuery('')}
                     className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
                   >
-                    Clear search
+                    Limpiar búsqueda
                   </button>
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {/* Additional Info Section (if exists) */}
-                  {additionalInfo && additionalInfo.fields.length > 0 && additionalSection && (
-                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200">
-                      <div className="w-full px-6 py-4 bg-white border-b border-slate-100 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-slate-800 uppercase tracking-wide">
-                            Información Adicional {additionalInfo.templateDisplayName ? `(${additionalInfo.templateDisplayName})` : ''}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="p-6 bg-white">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                          {additionalSection.section.fields.map((field) => (
-                            <FieldWithComments
-                              key={field.key}
-                              fieldKey={field.key}
-                              label={field.label}
-                              value={additionalSection.values[field.key] ?? ''}
-                              comments={getCommentsForField(comments, field.key)}
-                              activeCommentField={activeCommentField}
-                              newCommentText={newCommentText}
-                              savingComment={savingComment}
-                              onToggleComment={handleToggleComment}
-                              onCommentTextChange={setNewCommentText}
-                              onAddComment={handleAddComment}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
                   {filteredSections.map(section => {
-                    // Skip rendering Additional Info section here if we rendered it above
-                    if (section.title.startsWith('Información Adicional') && additionalInfo) return null
 
                     const isExpanded = expandedSections.has(section.title)
                     const sectionHasComments = section.fields.some(f => commentCounts[f.key] > 0)
@@ -853,7 +831,7 @@ export default function BookingRequestViewModal({
               <div className="w-80 border-l border-slate-200 bg-white flex flex-col flex-shrink-0 shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)] z-10">
                 <div className="px-5 py-4 border-b border-slate-200 bg-slate-50/50">
                   <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">
-                    Comments ({comments.length})
+                    Comentarios ({comments.length})
                   </h3>
                 </div>
                 <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50/30">
@@ -862,9 +840,9 @@ export default function BookingRequestViewModal({
                       <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
                         <CommentIcon className="text-slate-300" />
                       </div>
-                      <p className="text-sm font-medium text-slate-900">No comments yet</p>
+                      <p className="text-sm font-medium text-slate-900">Aún no hay comentarios</p>
                       <p className="text-xs text-slate-500 mt-1">
-                        Click the comment icon next to any field to start a discussion.
+                        Haz clic en el icono de comentario junto a cualquier campo para iniciar una discusión.
                       </p>
                     </div>
                   ) : (
@@ -883,7 +861,7 @@ export default function BookingRequestViewModal({
                             <div>
                               <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wide mb-1">{fieldLabel}</p>
                               <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                                <span className="font-semibold text-slate-900">{comment.authorName || comment.authorEmail?.split('@')[0] || 'Unknown'}</span>
+                                <span className="font-semibold text-slate-900">{comment.authorName || comment.authorEmail?.split('@')[0] || 'Desconocido'}</span>
                                 <span className="w-0.5 h-0.5 bg-slate-300 rounded-full"></span>
                                 <span>{new Date(comment.createdAt).toLocaleDateString()}</span>
                                 {comment.updatedAt && (
@@ -900,7 +878,7 @@ export default function BookingRequestViewModal({
                                   <button
                                     onClick={() => startEditComment(comment)}
                                     className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                                    title="Edit comment"
+                                    title="Editar comentario"
                                   >
                                     <EditIcon style={{ fontSize: 14 }} />
                                   </button>
@@ -909,7 +887,7 @@ export default function BookingRequestViewModal({
                                   <button
                                     onClick={() => handleDeleteComment(comment.id)}
                                     className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                                    title="Delete comment"
+                                    title="Eliminar comentario"
                                   >
                                     <DeleteIcon style={{ fontSize: 14 }} />
                                   </button>
@@ -936,14 +914,14 @@ export default function BookingRequestViewModal({
                                   }}
                                   className="px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
                                 >
-                                  Cancel
+                                  Cancelar
                                 </button>
                                 <button
                                   onClick={() => handleEditComment(comment.id)}
                                   disabled={!editCommentText.trim() || savingComment}
                                   className="px-2.5 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
                                 >
-                                  {savingComment ? 'Saving...' : 'Save'}
+                                  {savingComment ? 'Guardando...' : 'Guardar'}
                                 </button>
                               </div>
                             </div>
@@ -956,7 +934,7 @@ export default function BookingRequestViewModal({
                             <details className="mt-3 pt-2 border-t border-slate-100">
                               <summary className="text-[10px] font-medium text-slate-400 cursor-pointer hover:text-slate-600 flex items-center gap-1 select-none">
                                 <HistoryIcon style={{ fontSize: 12 }} />
-                                View edit history ({comment.editHistory.length})
+                                Ver historial de ediciones ({comment.editHistory.length})
                               </summary>
                               <div className="mt-2 pl-3 border-l-2 border-slate-200 space-y-2">
                                 {comment.editHistory.map((edit, i) => (
