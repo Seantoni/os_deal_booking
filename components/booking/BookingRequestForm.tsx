@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import CategorySelect from '@/components/shared/CategorySelect'
 import { getCategoryOptions, type CategoryOption } from '@/lib/categories'
@@ -20,9 +20,12 @@ export default function BookingRequestForm({ requestToEdit }: BookingRequestForm
   const [businessEmail, setBusinessEmail] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+
+  // React 19: useTransition for non-blocking UI during form actions
+  const [isPending, startTransition] = useTransition()
+  const isSubmitting = isPending
 
   // Pre-fill form if editing
   useEffect(() => {
@@ -56,50 +59,50 @@ export default function BookingRequestForm({ requestToEdit }: BookingRequestForm
     }
   }, [requestToEdit])
 
-  const handleSubmit = async (action: 'draft' | 'send') => {
+  // React 19: Form submit handler using useTransition
+  const handleSubmit = (action: 'draft' | 'send') => {
     setError(null)
     setSuccess(null)
-    setIsSubmitting(true)
 
-    try {
-      // Create FormData
-      const formData = new FormData()
-      formData.append('name', name)
-      formData.append('category', categoryOption?.value || '')
-      formData.append('parentCategory', categoryOption?.parent || '')
-      formData.append('subCategory1', categoryOption?.sub1 || '')
-      formData.append('subCategory2', categoryOption?.sub2 || '')
-      formData.append('merchant', merchant)
-      formData.append('businessEmail', businessEmail)
-      formData.append('startDate', startDate)
-      formData.append('endDate', endDate)
+    startTransition(async () => {
+      try {
+        // Create FormData
+        const formData = new FormData()
+        formData.append('name', name)
+        formData.append('category', categoryOption?.value || '')
+        formData.append('parentCategory', categoryOption?.parent || '')
+        formData.append('subCategory1', categoryOption?.sub1 || '')
+        formData.append('subCategory2', categoryOption?.sub2 || '')
+        formData.append('merchant', merchant)
+        formData.append('businessEmail', businessEmail)
+        formData.append('startDate', startDate)
+        formData.append('endDate', endDate)
 
-      let result
-      if (action === 'draft') {
-        result = await saveBookingRequestDraft(formData, requestToEdit?.id)
-        if (result.success) {
-          setSuccess('Draft saved successfully!')
+        let result
+        if (action === 'draft') {
+          result = await saveBookingRequestDraft(formData, requestToEdit?.id)
+          if (result.success) {
+            setSuccess('Draft saved successfully!')
+          }
+        } else {
+          result = await sendBookingRequest(formData, requestToEdit?.id)
+          if (result.success) {
+            setSuccess('Booking request sent! Status changed to Pending.')
+            setTimeout(() => {
+              router.push('/booking-requests')
+              router.refresh()
+            }, 1500)
+          }
         }
-      } else {
-        result = await sendBookingRequest(formData, requestToEdit?.id)
-        if (result.success) {
-          setSuccess('Booking request sent! Status changed to Pending.')
-          setTimeout(() => {
-            router.push('/booking-requests')
-            router.refresh()
-          }, 1500)
-        }
-      }
 
-      if (!result.success) {
-        setError(result.error || 'An error occurred')
+        if (!result.success) {
+          setError(result.error || 'An error occurred')
+        }
+      } catch (err) {
+        console.error('Form submission error:', err)
+        setError('An unexpected error occurred')
       }
-    } catch (err) {
-      console.error('Form submission error:', err)
-      setError('An unexpected error occurred')
-    } finally {
-      setIsSubmitting(false)
-    }
+    })
   }
 
   return (

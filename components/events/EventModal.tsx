@@ -1,7 +1,7 @@
 'use client'
 
 import { createEvent, updateEvent, deleteEvent, bookEvent, rejectEvent, refreshCalendarData } from '@/app/actions/events'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useTransition, useReducer } from 'react'
 import dynamic from 'next/dynamic'
 import CategorySelect from '@/components/shared/CategorySelect'
 import BusinessSelect, { type BusinessWithStatus } from '@/components/shared/BusinessSelect'
@@ -20,6 +20,80 @@ import toast from 'react-hot-toast'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { Button, Input, Textarea, Alert } from '@/components/ui'
+
+// ============================================================================
+// useReducer: Consolidated form state management
+// ============================================================================
+type FormState = {
+  // Form fields
+  name: string
+  description: string
+  merchant: string
+  startDate: string
+  endDate: string
+  categoryOption: CategoryOption | null
+  // UI state
+  showRejectionField: boolean
+  rejectionReason: string
+  showBookingRequestModal: boolean
+  // Validation/warnings
+  error: string
+  durationWarning: string
+  uniquenessWarning: string
+  merchantWarning: string
+  dailyLimitWarnings: string[]
+  dateAdjustmentInfo: string
+}
+
+type FormAction =
+  | { type: 'SET_FIELD'; field: keyof FormState; value: FormState[keyof FormState] }
+  | { type: 'SET_FORM_DATA'; payload: Partial<FormState> }
+  | { type: 'SET_WARNINGS'; payload: Pick<FormState, 'durationWarning' | 'uniquenessWarning' | 'merchantWarning' | 'dailyLimitWarnings' | 'dateAdjustmentInfo'> }
+  | { type: 'CLEAR_WARNINGS' }
+  | { type: 'RESET_FORM' }
+
+const initialFormState: FormState = {
+  name: '',
+  description: '',
+  merchant: '',
+  startDate: '',
+  endDate: '',
+  categoryOption: null,
+  showRejectionField: false,
+  rejectionReason: '',
+  showBookingRequestModal: false,
+  error: '',
+  durationWarning: '',
+  uniquenessWarning: '',
+  merchantWarning: '',
+  dailyLimitWarnings: [],
+  dateAdjustmentInfo: '',
+}
+
+function formReducer(state: FormState, action: FormAction): FormState {
+  switch (action.type) {
+    case 'SET_FIELD':
+      return { ...state, [action.field]: action.value }
+    case 'SET_FORM_DATA':
+      return { ...state, ...action.payload }
+    case 'SET_WARNINGS':
+      return { ...state, ...action.payload }
+    case 'CLEAR_WARNINGS':
+      return {
+        ...state,
+        error: '',
+        durationWarning: '',
+        uniquenessWarning: '',
+        merchantWarning: '',
+        dailyLimitWarnings: [],
+        dateAdjustmentInfo: '',
+      }
+    case 'RESET_FORM':
+      return initialFormState
+    default:
+      return state
+  }
+}
 
 // Lazy load the booking request view modal
 const BookingRequestViewModal = dynamic(() => import('@/components/booking/request-view/BookingRequestViewModal'), {
@@ -42,25 +116,34 @@ interface EventModalProps {
 }
 
 export default function EventModal({ isOpen, onClose, selectedDate, selectedEndDate, eventToEdit, bookingRequestId, allEvents = [], userRole = 'sales', readOnly = false, onSuccess }: EventModalProps) {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
   const confirmDialog = useConfirmDialog()
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [categoryOption, setCategoryOption] = useState<CategoryOption | null>(null)
-  const [merchant, setMerchant] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
-  const [durationWarning, setDurationWarning] = useState('')
-  const [uniquenessWarning, setUniquenessWarning] = useState('')
-  const [merchantWarning, setMerchantWarning] = useState('')
-  const [dailyLimitWarnings, setDailyLimitWarnings] = useState<string[]>([])
-  const [dateAdjustmentInfo, setDateAdjustmentInfo] = useState('')
+
+  // React 19: useTransition for non-blocking UI during form actions
+  const [isPending, startTransition] = useTransition()
+  const loading = isPending
+  
+  // React 19: useReducer for consolidated form state management
+  const [formState, dispatch] = useReducer(formReducer, initialFormState)
+  const {
+    name, description, merchant, startDate, endDate, categoryOption,
+    showRejectionField, rejectionReason, showBookingRequestModal,
+    error, durationWarning, uniquenessWarning, merchantWarning, dailyLimitWarnings, dateAdjustmentInfo,
+  } = formState
+  
+  // Separate state for data that doesn't fit the form pattern
   const [userSettings, setUserSettings] = useState(getSettings())
-  const [showRejectionField, setShowRejectionField] = useState(false)
-  const [rejectionReason, setRejectionReason] = useState('')
   const [linkedBookingRequest, setLinkedBookingRequest] = useState<any>(null)
-  const [showBookingRequestModal, setShowBookingRequestModal] = useState(false)
+  
+  // Helper functions to dispatch common actions
+  const setField = useCallback(<K extends keyof FormState>(field: K, value: FormState[K]) => {
+    dispatch({ type: 'SET_FIELD', field, value })
+  }, [])
+  
+  const setFormData = useCallback((data: Partial<FormState>) => {
+    dispatch({ type: 'SET_FORM_DATA', payload: data })
+  }, [])
+  
+  const setError = useCallback((value: string) => setField('error', value), [setField])
 
   // Reload settings when modal opens (in case they changed)
   useEffect(() => {
@@ -101,7 +184,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       const desc = (linkedBookingRequest as { offerDetails?: string; businessReview?: string })?.offerDetails 
         || (linkedBookingRequest as { offerDetails?: string; businessReview?: string })?.businessReview 
         || ''
-      if (desc) setDescription(desc)
+      if (desc) setField('description', desc)
     }
   }, [linkedBookingRequest, eventToEdit])
 
@@ -117,11 +200,13 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
         // Editing mode - pre-fill with event data
         const descriptionToUse = eventToEdit.description || ''
         
-        setName(eventToEdit.name)
-        setDescription(descriptionToUse)
-        setMerchant(linkedBookingRequest?.merchant || eventToEdit.merchant || '')
-        setStartDate(formatDate(new Date(eventToEdit.startDate)))
-        setEndDate(formatDate(new Date(eventToEdit.endDate)))
+        setFormData({
+          name: eventToEdit.name,
+          description: descriptionToUse,
+          merchant: linkedBookingRequest?.merchant || eventToEdit.merchant || '',
+          startDate: formatDate(new Date(eventToEdit.startDate)),
+          endDate: formatDate(new Date(eventToEdit.endDate)),
+        })
 
         // Find matching category option - prefer booking request category data
         const options = getCategoryOptions();
@@ -164,17 +249,19 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
         }
         
         console.log('[EventModal] Final category match:', match?.label || 'NO MATCH')
-        setCategoryOption(match || null)
+        setField('categoryOption', match || null)
 
       } else if (linkedBookingRequest && !eventToEdit) {
         // Creating from booking request - pre-fill with booking request data
-        setName(linkedBookingRequest.name || '')
         // Use offerDetails or businessReview as fallback description
         const desc = (linkedBookingRequest as { offerDetails?: string; businessReview?: string })?.offerDetails 
           || (linkedBookingRequest as { offerDetails?: string; businessReview?: string })?.businessReview 
           || ''
-        setDescription(desc)
-        setMerchant(linkedBookingRequest.merchant || '')
+        setFormData({
+          name: linkedBookingRequest.name || '',
+          description: desc,
+          merchant: linkedBookingRequest.merchant || '',
+        })
         
         // Set category from booking request
         const options = getCategoryOptions()
@@ -203,48 +290,43 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
           }
         }
         
-        setCategoryOption(match || null)
+        setField('categoryOption', match || null)
         
         // Set dates if available from booking request
         if (linkedBookingRequest.startDate) {
-          setStartDate(formatDate(new Date(linkedBookingRequest.startDate)))
+          setField('startDate', formatDate(new Date(linkedBookingRequest.startDate)))
         }
         if (linkedBookingRequest.endDate) {
-          setEndDate(formatDate(new Date(linkedBookingRequest.endDate)))
+          setField('endDate', formatDate(new Date(linkedBookingRequest.endDate)))
         } else if (selectedDate) {
           // Fallback to selected date if no end date
           const start = new Date(selectedDate)
           const end = selectedEndDate ? new Date(selectedEndDate) : new Date(selectedDate)
-          setStartDate(formatDate(start))
-          setEndDate(formatDate(end))
+          setFormData({
+            startDate: formatDate(start),
+            endDate: formatDate(end),
+          })
         }
       } else if (selectedDate) {
         // Creating mode - pre-fill dates from calendar
         const start = new Date(selectedDate)
         const end = selectedEndDate ? new Date(selectedEndDate) : new Date(selectedDate)
         
-        setStartDate(formatDate(start))
-        setEndDate(formatDate(end))
+        setFormData({
+          startDate: formatDate(start),
+          endDate: formatDate(end),
+        })
       }
     } else {
       // Reset when modal closes
-      setName('')
-      setDescription('')
-      setCategoryOption(null)
-      setMerchant('')
-      setStartDate('')
-      setEndDate('')
-      setDateAdjustmentInfo('')
+      dispatch({ type: 'RESET_FORM' })
     }
-  }, [selectedDate, selectedEndDate, eventToEdit, isOpen, allEvents, linkedBookingRequest])
+  }, [selectedDate, selectedEndDate, eventToEdit, isOpen, allEvents, linkedBookingRequest, setFormData, setField])
 
   // Check all validations whenever relevant fields change
   useEffect(() => {
     if (!startDate || !endDate) {
-      setDurationWarning('')
-      setUniquenessWarning('')
-      setMerchantWarning('')
-      setDailyLimitWarnings([])
+      dispatch({ type: 'CLEAR_WARNINGS' })
       return
     }
 
@@ -253,6 +335,12 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
     
     const categoryLabel = categoryOption ? categoryOption.label : ''
     const parentCategory = categoryOption ? categoryOption.parent : ''
+    
+    // Compute all warnings together
+    let newDurationWarning = ''
+    let newUniquenessWarning = ''
+    let newMerchantWarning = ''
+    const newDailyLimitWarnings: string[] = []
     
     // Duration validation (check business exceptions first)
     if (parentCategory) {
@@ -268,9 +356,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       }
       
       if (duration > maxDuration) {
-        setDurationWarning(`Esta categoría principal (${parentCategory}) tiene un máximo de ${maxDuration} días. Duración actual: ${duration} días.`)
-      } else {
-        setDurationWarning('')
+        newDurationWarning = `Esta categoría principal (${parentCategory}) tiene un máximo de ${maxDuration} días. Duración actual: ${duration} días.`
       }
     }
     
@@ -283,9 +369,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       )
       
       if (uniqueCheck.violated && uniqueCheck.conflictingEvent) {
-        setUniquenessWarning(`Ya existe otra oferta de "${categoryLabel}" activa en estas fechas: "${uniqueCheck.conflictingEvent.name}"`)
-      } else {
-        setUniquenessWarning('')
+        newUniquenessWarning = `Ya existe otra oferta de "${categoryLabel}" activa en estas fechas: "${uniqueCheck.conflictingEvent.name}"`
       }
     }
     
@@ -302,17 +386,11 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       
       if (merchantCheck.violated && merchantCheck.lastEvent) {
         const requiredDays = merchantCheck.daysUntilAllowed! + Math.floor((start.getTime() - new Date(merchantCheck.lastEvent.endDate).getTime()) / (1000 * 60 * 60 * 24))
-        setMerchantWarning(`El negocio "${merchant}" tuvo una oferta hace menos de ${requiredDays} días. Debe esperar ${merchantCheck.daysUntilAllowed} días más.`)
-      } else {
-        setMerchantWarning('')
+        newMerchantWarning = `El negocio "${merchant}" tuvo una oferta hace menos de ${requiredDays} días. Debe esperar ${merchantCheck.daysUntilAllowed} días más.`
       }
-    } else {
-      setMerchantWarning('')
     }
     
     // Daily limit check for all days in range (check for daily limit exemption)
-    const warnings: string[] = []
-    
     // Check if this merchant is exempt from daily limits
     const isDailyLimitExempt = merchant 
       ? getBusinessException(merchant, 'dailyLimitExempt', userSettings.businessExceptions) === 1
@@ -332,10 +410,21 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       
       if (status === 'over') {
         const dateStr = launchDate.toLocaleDateString('es-PA', { timeZone: 'America/Panama', month: 'short', day: 'numeric' })
-        warnings.push(`${dateStr}: ${count} ofertas (máx ${userSettings.maxDailyLaunches})`)
+        newDailyLimitWarnings.push(`${dateStr}: ${count} ofertas (máx ${userSettings.maxDailyLaunches})`)
       }
     }
-    setDailyLimitWarnings(warnings)
+    
+    // Batch update all warnings at once
+    dispatch({
+      type: 'SET_WARNINGS',
+      payload: {
+        durationWarning: newDurationWarning,
+        uniquenessWarning: newUniquenessWarning,
+        merchantWarning: newMerchantWarning,
+        dailyLimitWarnings: newDailyLimitWarnings,
+        dateAdjustmentInfo: '',
+      },
+    })
     
   }, [startDate, endDate, categoryOption, merchant, allEvents, eventToEdit, userSettings])
 
@@ -379,35 +468,29 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
     if (merchantWarning) warningMessages.push(merchantWarning)
     if (dailyLimitWarnings.length > 0) warningMessages.push(...dailyLimitWarnings)
 
-    const proceedSave = async () => {
-      setLoading(true)
-    try {
-      let result: Event
-      if (eventToEdit) {
-        result = await updateEvent(eventToEdit.id, formData)
-        if (onSuccess) {
-          onSuccess(result, 'update')
+    // React 19: Wrap async save in startTransition
+    const proceedSave = () => {
+      startTransition(async () => {
+        try {
+          let result: Event
+          if (eventToEdit) {
+            result = await updateEvent(eventToEdit.id, formData)
+            if (onSuccess) {
+              onSuccess(result, 'update')
+            }
+          } else {
+            result = await createEvent(formData)
+            if (onSuccess) {
+              onSuccess(result, 'create')
+            }
+          }
+          
+          dispatch({ type: 'RESET_FORM' })
+          onClose()
+        } catch (err) {
+          setField('error', err instanceof Error ? err.message : `Error al ${eventToEdit ? 'actualizar' : 'crear'} el evento`)
         }
-      } else {
-        result = await createEvent(formData)
-        if (onSuccess) {
-          onSuccess(result, 'create')
-        }
-      }
-      
-      setName('')
-      setDescription('')
-      setCategoryOption(null)
-      setMerchant('')
-      setStartDate('')
-      setEndDate('')
-      setDurationWarning('')
-      onClose()
-    } catch (err) {
-        setError(err instanceof Error ? err.message : `Error al ${eventToEdit ? 'actualizar' : 'crear'} el evento`)
-    } finally {
-      setLoading(false)
-    }
+      })
     }
 
     if (warningMessages.length > 0) {
@@ -421,9 +504,10 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       if (!confirmed) return
     }
 
-    await proceedSave()
+    proceedSave()
   }
 
+  // React 19: Delete handler using useTransition
   async function handleDelete() {
     if (!eventToEdit) return
     
@@ -442,22 +526,22 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       onSuccess(eventToEdit, 'delete')
     }
 
-    setLoading(true)
-    try {
-      await deleteEvent(eventToEdit.id)
-      toast.success('Event deleted successfully')
-      // onSuccess callback already called for optimistic update
-      onClose()
-    } catch (err) {
-      // Optimistic update already rolled back via onSuccess
-      const errorMsg = err instanceof Error ? err.message : 'Failed to delete event'
-      setError(errorMsg)
-      toast.error(errorMsg)
-    } finally {
-      setLoading(false)
-    }
+    startTransition(async () => {
+      try {
+        await deleteEvent(eventToEdit.id)
+        toast.success('Event deleted successfully')
+        // onSuccess callback already called for optimistic update
+        onClose()
+      } catch (err) {
+        // Optimistic update already rolled back via onSuccess
+        const errorMsg = err instanceof Error ? err.message : 'Failed to delete event'
+        setField('error', errorMsg)
+        toast.error(errorMsg)
+      }
+    })
   }
 
+  // React 19: Book handler using useTransition
   async function handleBook() {
     if (!eventToEdit) return
     
@@ -477,29 +561,29 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       onSuccess(updatedEvent, 'book')
     }
 
-    setLoading(true)
-    try {
-      // Import the book function
-      const { bookEvent } = await import('@/app/actions/events')
-      await bookEvent(eventToEdit.id)
-      toast.success('Event booked successfully')
-      // onSuccess callback already called for optimistic update
-      onClose()
-    } catch (err) {
-      // Optimistic update already rolled back via onSuccess
-      const errorMsg = err instanceof Error ? err.message : 'Failed to book event'
-      setError(errorMsg)
-      toast.error(errorMsg)
-    } finally {
-      setLoading(false)
-    }
+    startTransition(async () => {
+      try {
+        // Import the book function
+        const { bookEvent } = await import('@/app/actions/events')
+        await bookEvent(eventToEdit.id)
+        toast.success('Event booked successfully')
+        // onSuccess callback already called for optimistic update
+        onClose()
+      } catch (err) {
+        // Optimistic update already rolled back via onSuccess
+        const errorMsg = err instanceof Error ? err.message : 'Failed to book event'
+        setField('error', errorMsg)
+        toast.error(errorMsg)
+      }
+    })
   }
 
-  async function handleReject() {
+  // React 19: Reject handler using useTransition
+  function handleReject() {
     if (!eventToEdit) return
     
     if (!rejectionReason.trim()) {
-      setError('Please provide a reason for rejection')
+      setField('error', 'Please provide a reason for rejection')
       return
     }
 
@@ -509,19 +593,18 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       onSuccess(updatedEvent, 'reject')
     }
 
-    setLoading(true)
-    try {
-      // Import the reject function
-      const { rejectEvent } = await import('@/app/actions/events')
-      await rejectEvent(eventToEdit.id, rejectionReason)
-      // onSuccess callback already called for optimistic update
-      onClose()
-    } catch (err) {
-      // Optimistic update already rolled back via onSuccess
-      setError(err instanceof Error ? err.message : 'Failed to reject event')
-    } finally {
-      setLoading(false)
-    }
+    startTransition(async () => {
+      try {
+        // Import the reject function
+        const { rejectEvent } = await import('@/app/actions/events')
+        await rejectEvent(eventToEdit.id, rejectionReason)
+        // onSuccess callback already called for optimistic update
+        onClose()
+      } catch (err) {
+        // Optimistic update already rolled back via onSuccess
+        setField('error', err instanceof Error ? err.message : 'Failed to reject event')
+      }
+    })
   }
 
   if (!isOpen) return null
@@ -592,7 +675,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                 </div>
                   <Button
                     type="button"
-                    onClick={() => setShowBookingRequestModal(true)}
+                    onClick={() => setField('showBookingRequestModal', true)}
                     variant="primary"
                     size="sm"
                     leftIcon={<VisibilityIcon style={{ fontSize: 14 }} />}
@@ -677,7 +760,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
               label={`Event Name ${!readOnly ? '*' : ''}`}
               required={!readOnly}
                 value={name}
-              onChange={(e) => !readOnly && setName(e.target.value)}
+              onChange={(e) => !readOnly && setField('name', e.target.value)}
               readOnly={readOnly}
                 placeholder="Event Name"
               />
@@ -692,7 +775,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                 </div>
               ) : (
                 <>
-              <CategorySelect selectedOption={categoryOption} onChange={setCategoryOption} />
+              <CategorySelect selectedOption={categoryOption} onChange={(opt) => setField('categoryOption', opt)} />
               {!categoryOption && (
                 <p className="text-xs text-red-600 mt-1">Categoría es requerida</p>
                   )}
@@ -712,7 +795,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
             ) : (
               <BusinessSelect
                 value={merchant}
-                onChange={(businessName) => setMerchant(businessName)}
+                onChange={(businessName) => setField('merchant', businessName)}
                 label="Business"
                 required
                 error={!merchant ? 'Business is required' : undefined}
@@ -727,7 +810,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
               label={`Description ${!readOnly ? '*' : ''}`}
                 rows={3}
                 value={description}
-              onChange={(e) => !readOnly && setDescription(e.target.value)}
+              onChange={(e) => !readOnly && setField('description', e.target.value)}
               readOnly={readOnly}
               required={!readOnly}
                 placeholder="Descripción del evento..."
@@ -741,7 +824,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                 label={`Start Date ${!readOnly ? '*' : ''}`}
                 required={!readOnly}
                   value={startDate}
-                onChange={(e) => !readOnly && setStartDate(e.target.value)}
+                onChange={(e) => !readOnly && setField('startDate', e.target.value)}
                 readOnly={readOnly}
               />
 
@@ -752,7 +835,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                 label={`End Date ${!readOnly ? '*' : ''}`}
                 required={!readOnly}
                   value={endDate}
-                onChange={(e) => !readOnly && setEndDate(e.target.value)}
+                onChange={(e) => !readOnly && setField('endDate', e.target.value)}
                 readOnly={readOnly}
                 />
             </div>
@@ -765,7 +848,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                   label="Rejection Reason *"
                   rows={3}
                   value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
+                  onChange={(e) => setField('rejectionReason', e.target.value)}
                   className="border-red-300 focus:ring-red-500"
                   placeholder="Explain why this booking is being rejected..."
                 />
@@ -814,7 +897,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                       <>
                         <Button
                           type="button"
-                          onClick={() => setShowRejectionField(true)}
+                          onClick={() => setField('showRejectionField', true)}
                           variant="destructive"
                           disabled={loading}
                         >
@@ -876,7 +959,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       {/* Booking Request View Modal */}
       <BookingRequestViewModal
         isOpen={showBookingRequestModal}
-        onClose={() => setShowBookingRequestModal(false)}
+        onClose={() => setField('showBookingRequestModal', false)}
         requestId={linkedBookingRequest?.id || null}
         hideBackdrop={true}
       />

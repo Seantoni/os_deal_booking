@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useActionState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { createBusiness, updateBusiness, createOpportunity } from '@/app/actions/crm'
@@ -8,6 +8,12 @@ import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
 import type { Business, Opportunity, BookingRequest } from '@/types'
 import toast from 'react-hot-toast'
+
+// Action state types for React 19 useActionState
+type FormActionState = {
+  success: boolean
+  error: string | null
+}
 import CloseIcon from '@mui/icons-material/Close'
 import BusinessIcon from '@mui/icons-material/Business'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
@@ -51,9 +57,11 @@ export default function BusinessFormModal({
   const router = useRouter()
   const { user } = useUser()
   const { isAdmin } = useUserRole()
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [opportunityModalOpen, setOpportunityModalOpen] = useState(false)
+
+  // React 19: useTransition for non-blocking UI during form actions
+  const [isPending, startTransition] = useTransition()
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null)
   const [requestViewModalOpen, setRequestViewModalOpen] = useState(false)
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
@@ -122,6 +130,108 @@ export default function BusinessFormModal({
     entityId: business?.id,
     initialValues,
   })
+
+  // React 19: useActionState for save/update business action
+  const [saveState, saveAction, isSavePending] = useActionState<FormActionState, FormData>(
+    async (_prevState, formData) => {
+      try {
+        const result: CreateResult = business
+          ? await updateBusiness(business.id, formData)
+          : await createBusiness(formData)
+
+        if (result.success && result.data) {
+          // Save custom field values
+          const customFieldResult = await dynamicForm.saveCustomFields(result.data.id)
+          if (!customFieldResult.success) {
+            console.warn('Failed to save custom fields:', customFieldResult.error)
+          }
+          onSuccess(result.data)
+          onClose()
+          return { success: true, error: null }
+        } else {
+          const existing = result.existingBusiness as (Business & { owner?: { name: string | null; email: string | null } }) | undefined
+          if (existing) {
+            const ownerInfo = existing.owner?.name || existing.owner?.email || 'Unknown'
+            const errorMsg = `Business already exists: "${existing.name}" (Owner: ${ownerInfo})`
+            setError(errorMsg)
+            return { success: false, error: errorMsg }
+          } else {
+            const errorMsg = result.error || 'Failed to save business'
+            setError(errorMsg)
+            return { success: false, error: errorMsg }
+          }
+        }
+      } catch (err) {
+        const errorMsg = 'An error occurred'
+        setError(errorMsg)
+        return { success: false, error: errorMsg }
+      }
+    },
+    { success: false, error: null }
+  )
+
+  // React 19: useActionState for create business & opportunity action
+  const [createWithOppState, createWithOppAction, isCreateWithOppPending] = useActionState<FormActionState, FormData>(
+    async (_prevState, formData) => {
+      try {
+        const allValues = dynamicForm.getAllValues()
+        
+        if (!allValues.name || !allValues.contactName || !allValues.contactPhone || !allValues.contactEmail) {
+          const errorMsg = 'Please fill in all required fields'
+          setError(errorMsg)
+          return { success: false, error: errorMsg }
+        }
+
+        const businessResult: CreateResult = await createBusiness(formData)
+
+        if (!businessResult.success || !businessResult.data) {
+          const existing = businessResult.existingBusiness as (Business & { owner?: { name: string | null; email: string | null } }) | undefined
+          if (existing) {
+            const ownerInfo = existing.owner?.name || existing.owner?.email || 'Unknown'
+            const errorMsg = `Business already exists: "${existing.name}" (Owner: ${ownerInfo})`
+            setError(errorMsg)
+            return { success: false, error: errorMsg }
+          } else {
+            const errorMsg = businessResult.error || 'Failed to create business'
+            setError(errorMsg)
+            return { success: false, error: errorMsg }
+          }
+        }
+
+        // Save custom field values
+        const customFieldResult = await dynamicForm.saveCustomFields(businessResult.data.id)
+        if (!customFieldResult.success) {
+          console.warn('Failed to save custom fields:', customFieldResult.error)
+        }
+
+        const opportunityFormData = new FormData()
+        opportunityFormData.append('businessId', businessResult.data.id)
+        opportunityFormData.append('stage', 'iniciacion')
+        opportunityFormData.append('startDate', new Date().toISOString().split('T')[0])
+
+        const opportunityResult = await createOpportunity(opportunityFormData)
+
+        if (opportunityResult.success && businessResult.data && opportunityResult.data) {
+          sessionStorage.setItem('openOpportunityId', opportunityResult.data.id)
+          onClose()
+          router.push('/opportunities')
+          return { success: true, error: null }
+        } else {
+          const errorMsg = 'Business created but failed to create opportunity: ' + (opportunityResult.error || 'Unknown error')
+          setError(errorMsg)
+          return { success: false, error: errorMsg }
+        }
+      } catch (err) {
+        const errorMsg = 'An error occurred: ' + (err instanceof Error ? err.message : 'Unknown error')
+        setError(errorMsg)
+        return { success: false, error: errorMsg }
+      }
+    },
+    { success: false, error: null }
+  )
+
+  // Combined loading state for UI feedback
+  const loading = isSavePending || isCreateWithOppPending || isPending
 
   // Clear stale errors and reset field locks whenever the modal opens or closes
   useEffect(() => {
@@ -203,97 +313,24 @@ export default function BusinessFormModal({
     return formData
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  // React 19: Handler that triggers the save action
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    setLoading(true)
-
-    try {
+    startTransition(() => {
       const formData = buildFormData()
-
-      const result: CreateResult = business
-        ? await updateBusiness(business.id, formData)
-        : await createBusiness(formData)
-
-      if (result.success && result.data) {
-        // Save custom field values
-        const customFieldResult = await dynamicForm.saveCustomFields(result.data.id)
-        if (!customFieldResult.success) {
-          console.warn('Failed to save custom fields:', customFieldResult.error)
-        }
-        onSuccess(result.data)
-        onClose()
-      } else {
-        const existing = result.existingBusiness as (Business & { owner?: { name: string | null; email: string | null } }) | undefined
-        if (existing) {
-          const ownerInfo = existing.owner?.name || existing.owner?.email || 'Unknown'
-          setError(`Business already exists: "${existing.name}" (Owner: ${ownerInfo})`)
-        } else {
-          setError(result.error || 'Failed to save business')
-        }
-      }
-    } catch (err) {
-      setError('An error occurred')
-    } finally {
-      setLoading(false)
-    }
+      saveAction(formData)
+    })
   }
 
-  async function handleCreateBusinessAndOpportunity(e: React.FormEvent) {
+  // React 19: Handler that triggers the create business & opportunity action
+  function handleCreateBusinessAndOpportunity(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    setLoading(true)
-
-    try {
-      const allValues = dynamicForm.getAllValues()
-      
-      if (!allValues.name || !allValues.contactName || !allValues.contactPhone || !allValues.contactEmail) {
-        setError('Please fill in all required fields')
-        setLoading(false)
-        return
-      }
-
+    startTransition(() => {
       const formData = buildFormData()
-      const businessResult: CreateResult = await createBusiness(formData)
-
-      if (!businessResult.success || !businessResult.data) {
-        const existing = businessResult.existingBusiness as (Business & { owner?: { name: string | null; email: string | null } }) | undefined
-        if (existing) {
-          const ownerInfo = existing.owner?.name || existing.owner?.email || 'Unknown'
-          setError(`Business already exists: "${existing.name}" (Owner: ${ownerInfo})`)
-        } else {
-          setError(businessResult.error || 'Failed to create business')
-        }
-        setLoading(false)
-        return
-      }
-
-      // Save custom field values
-      const customFieldResult = await dynamicForm.saveCustomFields(businessResult.data.id)
-      if (!customFieldResult.success) {
-        console.warn('Failed to save custom fields:', customFieldResult.error)
-      }
-
-      const opportunityFormData = new FormData()
-      opportunityFormData.append('businessId', businessResult.data.id)
-      opportunityFormData.append('stage', 'iniciacion')
-      opportunityFormData.append('startDate', new Date().toISOString().split('T')[0])
-
-      const opportunityResult = await createOpportunity(opportunityFormData)
-
-      if (opportunityResult.success && businessResult.data && opportunityResult.data) {
-        sessionStorage.setItem('openOpportunityId', opportunityResult.data.id)
-        onClose()
-        router.push('/opportunities')
-        return
-      } else {
-        setError('Business created but failed to create opportunity: ' + (opportunityResult.error || 'Unknown error'))
-      }
-    } catch (err) {
-      setError('An error occurred: ' + (err instanceof Error ? err.message : 'Unknown error'))
-    } finally {
-      setLoading(false)
-    }
+      createWithOppAction(formData)
+    })
   }
 
   const isEditMode = !!business

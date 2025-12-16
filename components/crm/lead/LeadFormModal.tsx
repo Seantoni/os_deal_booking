@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useTransition } from 'react'
 import { createLead, updateLead, updateLeadStage, getLeadResponsibleUsers } from '@/app/actions/leads'
 import { getCategories } from '@/app/actions/categories'
 import { LEAD_STAGE_LABELS, LEAD_STAGE_COLORS } from '@/lib/constants'
@@ -42,9 +42,15 @@ interface ResponsibleUser {
 
 export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: LeadFormModalProps) {
   const { isAdmin } = useUserRole()
-  const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
   const [error, setError] = useState('')
+  
+  // React 19: useTransition for non-blocking UI during form actions
+  const [isSubmitPending, startSubmitTransition] = useTransition()
+  const [isStagePending, startStageTransition] = useTransition()
+  
+  // Combined loading state for UI
+  const loading = isSubmitPending || isStagePending
   
   // Special fields not part of dynamic form
   const [responsibleId, setResponsibleId] = useState<string | null>(null)
@@ -115,97 +121,100 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
     }
   }, [isOpen, loadFormData])
 
-  async function handleSubmit(e: React.FormEvent) {
+  // React 19: Form submit handler using useTransition
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    setLoading(true)
 
-    try {
-      const allValues = dynamicForm.getAllValues()
-      
-      // Validate required fields
-      if (!allValues.name || !allValues.contactName || !allValues.contactPhone || !allValues.contactEmail) {
-        setError('Please fill in all required fields')
-        setLoading(false)
-        return
-      }
-
-      const data = {
-        name: allValues.name,
-        contactName: allValues.contactName,
-        contactPhone: allValues.contactPhone,
-        contactEmail: allValues.contactEmail,
-        categoryId: allValues.categoryId || null,
-        responsibleId: responsibleId || null,
-        website: allValues.website || null,
-        instagram: allValues.instagram || null,
-        description: allValues.description || null,
-        source: allValues.source || null,
-        notes: allValues.notes || null,
-      }
-
-      const result = lead
-        ? await updateLead(lead.id, data)
-        : await createLead(data)
-
-      if (result.success && result.data) {
-        // Save custom field values
-        const customFieldResult = await dynamicForm.saveCustomFields(result.data.id)
-        if (!customFieldResult.success) {
-          console.warn('Failed to save custom fields:', customFieldResult.error)
-        }
-        onSuccess(result.data as Lead)
-        onClose()
-      } else {
-        setError(result.error || 'Failed to save lead')
-      }
-    } catch (err) {
-      setError('An error occurred')
-    } finally {
-      setLoading(false)
+    const allValues = dynamicForm.getAllValues()
+    
+    // Validate required fields and extract validated values
+    const name = allValues.name
+    const contactName = allValues.contactName
+    const contactPhone = allValues.contactPhone
+    const contactEmail = allValues.contactEmail
+    
+    if (!name || !contactName || !contactPhone || !contactEmail) {
+      setError('Please fill in all required fields')
+      return
     }
+
+    // Build data object with guaranteed non-null required fields
+    const data = {
+      name,
+      contactName,
+      contactPhone,
+      contactEmail,
+      categoryId: allValues.categoryId || null,
+      responsibleId: responsibleId || null,
+      website: allValues.website || null,
+      instagram: allValues.instagram || null,
+      description: allValues.description || null,
+      source: allValues.source || null,
+      notes: allValues.notes || null,
+    }
+
+    startSubmitTransition(async () => {
+      try {
+        const result = lead
+          ? await updateLead(lead.id, data)
+          : await createLead(data)
+
+        if (result.success && result.data) {
+          // Save custom field values
+          const customFieldResult = await dynamicForm.saveCustomFields(result.data.id)
+          if (!customFieldResult.success) {
+            console.warn('Failed to save custom fields:', customFieldResult.error)
+          }
+          onSuccess(result.data as Lead)
+          onClose()
+        } else {
+          setError(result.error || 'Failed to save lead')
+        }
+      } catch (err) {
+        setError('An error occurred')
+      }
+    })
   }
 
-  async function handleStageChange(newStage: LeadStage) {
+  // React 19: Stage change handler using useTransition
+  function handleStageChange(newStage: LeadStage) {
     if (!lead) return
 
     setError('')
-    setLoading(true)
-
-    try {
-      const allValues = dynamicForm.getAllValues()
-      
-      // If moving to 'asignado', validate required fields and responsible
-      if (newStage === 'asignado' && lead.stage === 'por_asignar') {
-        if (!allValues.name || !allValues.contactName || !allValues.contactPhone || !allValues.contactEmail) {
-          setError('Please fill in all required fields before converting')
-          setLoading(false)
-          return
-        }
-        if (!responsibleId) {
-          setError('Please assign a responsible user before converting')
-          setLoading(false)
-          return
-        }
+    
+    const allValues = dynamicForm.getAllValues()
+    
+    // If moving to 'asignado', validate required fields and responsible
+    if (newStage === 'asignado' && lead.stage === 'por_asignar') {
+      if (!allValues.name || !allValues.contactName || !allValues.contactPhone || !allValues.contactEmail) {
+        setError('Please fill in all required fields before converting')
+        return
       }
-
-      const result = await updateLeadStage(lead.id, newStage, responsibleId)
-
-      if (result.success && result.data) {
-        if ('business' in result.data && result.data.business) {
-          onSuccess(result.data.lead as Lead)
-        } else {
-          onSuccess(result.data as Lead)
-        }
-        setStage(newStage)
-      } else {
-        setError(result.error || 'Failed to update stage')
+      if (!responsibleId) {
+        setError('Please assign a responsible user before converting')
+        return
       }
-    } catch (err) {
-      setError('An error occurred')
-    } finally {
-      setLoading(false)
     }
+
+    startStageTransition(async () => {
+      try {
+        const result = await updateLeadStage(lead.id, newStage, responsibleId)
+
+        if (result.success && result.data) {
+          if ('business' in result.data && result.data.business) {
+            onSuccess(result.data.lead as Lead)
+          } else {
+            onSuccess(result.data as Lead)
+          }
+          setStage(newStage)
+        } else {
+          setError(result.error || 'Failed to update stage')
+        }
+      } catch (err) {
+        setError('An error occurred')
+      }
+    })
   }
 
   if (!isOpen) return null

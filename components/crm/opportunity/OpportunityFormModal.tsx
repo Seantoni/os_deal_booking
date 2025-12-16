@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useTransition, useOptimistic } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { createOpportunity, updateOpportunity, createTask, updateTask, deleteTask } from '@/app/actions/crm'
 import { useUserRole } from '@/hooks/useUserRole'
@@ -53,10 +53,18 @@ export default function OpportunityFormModal({
   const { user } = useUser()
   const { isAdmin } = useUserRole()
   const [activeTab, setActiveTab] = useState<'details' | 'activity'>('details')
-  const [loading, setLoading] = useState(false)
-  const [savingStage, setSavingStage] = useState(false)
   const [error, setError] = useState('')
   const [taskModalOpen, setTaskModalOpen] = useState(false)
+
+  // React 19: useTransition for non-blocking UI during form actions
+  const [isSubmitPending, startSubmitTransition] = useTransition()
+  const [isStagePending, startStageTransition] = useTransition()
+  const [isTaskPending, startTaskTransition] = useTransition()
+  const [isTogglePending, startToggleTransition] = useTransition()
+  
+  // Combined loading states for UI
+  const loading = isSubmitPending || isTaskPending
+  const savingStage = isStagePending
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [businessModalOpen, setBusinessModalOpen] = useState(false)
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null)
@@ -95,6 +103,13 @@ export default function OpportunityFormModal({
     preloadedCategories,
     preloadedUsers,
   })
+
+  // React 19: useOptimistic for instant task completion UI updates
+  const [optimisticTasks, addOptimisticToggle] = useOptimistic(
+    tasks,
+    (currentTasks, taskId: string) =>
+      currentTasks.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t)
+  )
 
   // Build initial values from opportunity entity
   // Note: categoryId, tier, contactName, contactPhone, contactEmail come from the linked business
@@ -192,45 +207,45 @@ export default function OpportunityFormModal({
     await saveStageChange(newStage)
   }
 
-  async function saveStageChange(newStage: OpportunityStage, lostReason?: string) {
+  // React 19: Stage change handler using useTransition
+  function saveStageChange(newStage: OpportunityStage, lostReason?: string) {
     if (!opportunity || savingStage) return
 
     const previousStage = stage
     setStage(newStage)
-    setSavingStage(true)
     setError('')
 
-    try {
-      const allValues = dynamicForm.getAllValues()
-      const formData = new FormData()
-      formData.append('businessId', allValues.businessId || businessId)
-      formData.append('stage', newStage)
-      formData.append('startDate', allValues.startDate || '')
-      if (allValues.closeDate) formData.append('closeDate', allValues.closeDate)
-      if (allValues.notes) formData.append('notes', allValues.notes)
-      // For existing opportunities, only admin can change responsible
-      // For new opportunities, always send the responsible (defaults to creator)
-      if (responsibleId) formData.append('responsibleId', responsibleId)
-      if (allValues.categoryId) formData.append('categoryId', allValues.categoryId)
-      if (allValues.tier) formData.append('tier', allValues.tier)
-      if (allValues.contactName) formData.append('contactName', allValues.contactName)
-      if (allValues.contactPhone) formData.append('contactPhone', allValues.contactPhone)
-      if (allValues.contactEmail) formData.append('contactEmail', allValues.contactEmail)
-      if (lostReason) formData.append('lostReason', lostReason)
+    startStageTransition(async () => {
+      try {
+        const allValues = dynamicForm.getAllValues()
+        const formData = new FormData()
+        formData.append('businessId', allValues.businessId || businessId)
+        formData.append('stage', newStage)
+        formData.append('startDate', allValues.startDate || '')
+        if (allValues.closeDate) formData.append('closeDate', allValues.closeDate)
+        if (allValues.notes) formData.append('notes', allValues.notes)
+        // For existing opportunities, only admin can change responsible
+        // For new opportunities, always send the responsible (defaults to creator)
+        if (responsibleId) formData.append('responsibleId', responsibleId)
+        if (allValues.categoryId) formData.append('categoryId', allValues.categoryId)
+        if (allValues.tier) formData.append('tier', allValues.tier)
+        if (allValues.contactName) formData.append('contactName', allValues.contactName)
+        if (allValues.contactPhone) formData.append('contactPhone', allValues.contactPhone)
+        if (allValues.contactEmail) formData.append('contactEmail', allValues.contactEmail)
+        if (lostReason) formData.append('lostReason', lostReason)
 
-      const result = await updateOpportunity(opportunity.id, formData)
-      if (result.success && result.data) {
-        onSuccess(result.data)
-      } else {
-        setError(result.error || 'Failed to update stage')
+        const result = await updateOpportunity(opportunity.id, formData)
+        if (result.success && result.data) {
+          onSuccess(result.data)
+        } else {
+          setError(result.error || 'Failed to update stage')
+          setStage(previousStage)
+        }
+      } catch (err) {
+        setError('An error occurred while updating stage')
         setStage(previousStage)
       }
-    } catch (err) {
-      setError('An error occurred while updating stage')
-      setStage(previousStage)
-    } finally {
-      setSavingStage(false)
-    }
+    })
   }
 
   async function handleLostReasonConfirm(reason: string) {
@@ -246,51 +261,52 @@ export default function OpportunityFormModal({
     setPendingLostStage(null)
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  // React 19: Form submit handler using useTransition
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    setLoading(true)
 
-    try {
-      const allValues = dynamicForm.getAllValues()
-      const formData = new FormData()
-      formData.append('businessId', allValues.businessId || businessId)
-      formData.append('stage', stage)
-      formData.append('startDate', allValues.startDate || '')
-      if (allValues.closeDate) formData.append('closeDate', allValues.closeDate)
-      if (allValues.notes) formData.append('notes', allValues.notes)
-      // For existing opportunities, only admin can change responsible
-      // For new opportunities, always send the responsible (defaults to creator)
-      if (responsibleId) formData.append('responsibleId', responsibleId)
-      if (allValues.categoryId) formData.append('categoryId', allValues.categoryId)
-      if (allValues.tier) formData.append('tier', allValues.tier)
-      if (allValues.contactName) formData.append('contactName', allValues.contactName)
-      if (allValues.contactPhone) formData.append('contactPhone', allValues.contactPhone)
-      if (allValues.contactEmail) formData.append('contactEmail', allValues.contactEmail)
+    startSubmitTransition(async () => {
+      try {
+        const allValues = dynamicForm.getAllValues()
+        const formData = new FormData()
+        formData.append('businessId', allValues.businessId || businessId)
+        formData.append('stage', stage)
+        formData.append('startDate', allValues.startDate || '')
+        if (allValues.closeDate) formData.append('closeDate', allValues.closeDate)
+        if (allValues.notes) formData.append('notes', allValues.notes)
+        // For existing opportunities, only admin can change responsible
+        // For new opportunities, always send the responsible (defaults to creator)
+        if (responsibleId) formData.append('responsibleId', responsibleId)
+        if (allValues.categoryId) formData.append('categoryId', allValues.categoryId)
+        if (allValues.tier) formData.append('tier', allValues.tier)
+        if (allValues.contactName) formData.append('contactName', allValues.contactName)
+        if (allValues.contactPhone) formData.append('contactPhone', allValues.contactPhone)
+        if (allValues.contactEmail) formData.append('contactEmail', allValues.contactEmail)
 
-      const result = opportunity
-        ? await updateOpportunity(opportunity.id, formData)
-        : await createOpportunity(formData)
+        const result = opportunity
+          ? await updateOpportunity(opportunity.id, formData)
+          : await createOpportunity(formData)
 
-      if (result.success && result.data) {
-        // Save custom field values
-        const customFieldResult = await dynamicForm.saveCustomFields(result.data.id)
-        if (!customFieldResult.success) {
-          console.warn('Failed to save custom fields:', customFieldResult.error)
+        if (result.success && result.data) {
+          // Save custom field values
+          const customFieldResult = await dynamicForm.saveCustomFields(result.data.id)
+          if (!customFieldResult.success) {
+            console.warn('Failed to save custom fields:', customFieldResult.error)
+          }
+          onSuccess(result.data)
+          onClose()
+        } else {
+          setError(result.error || 'Failed to save opportunity')
         }
-        onSuccess(result.data)
-        onClose()
-      } else {
-        setError(result.error || 'Failed to save opportunity')
+      } catch (err) {
+        setError('An error occurred')
       }
-    } catch (err) {
-      setError('An error occurred')
-    } finally {
-      setLoading(false)
-    }
+    })
   }
 
-  async function handleTaskSubmit(data: {
+  // React 19: Task submit handler using useTransition
+  function handleTaskSubmit(data: {
     category: 'meeting' | 'todo'
     title: string
     date: string
@@ -302,66 +318,66 @@ export default function OpportunityFormModal({
     }
 
     setError('')
-    setLoading(true)
 
-    try {
-      const formData = new FormData()
-      formData.append('opportunityId', opportunity.id)
-      formData.append('category', data.category)
-      formData.append('title', data.title)
-      formData.append('date', data.date)
-      if (data.notes) formData.append('notes', data.notes)
+    startTaskTransition(async () => {
+      try {
+        const formData = new FormData()
+        formData.append('opportunityId', opportunity.id)
+        formData.append('category', data.category)
+        formData.append('title', data.title)
+        formData.append('date', data.date)
+        if (data.notes) formData.append('notes', data.notes)
 
-      const newTask: Task = {
-        id: selectedTask?.id || 'temp-' + Date.now(),
-        opportunityId: opportunity.id,
-        category: data.category,
-        title: data.title,
-        date: new Date(data.date),
-        completed: false,
-        notes: data.notes || null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }
-
-      if (selectedTask) {
-        setTasks(prev => prev.map(t => t.id === selectedTask.id ? newTask : t))
-      } else {
-        setTasks(prev => [...prev, newTask])
-      }
-
-      const result = selectedTask
-        ? await updateTask(selectedTask.id, formData)
-        : await createTask(formData)
-
-      if (result.success && result.data) {
-        if (selectedTask) {
-          setTasks(prev => prev.map(t => t.id === selectedTask.id ? result.data : t))
-        } else {
-          setTasks(prev => prev.map(t => t.id === newTask.id ? result.data : t))
+        const newTask: Task = {
+          id: selectedTask?.id || 'temp-' + Date.now(),
+          opportunityId: opportunity.id,
+          category: data.category,
+          title: data.title,
+          date: new Date(data.date),
+          completed: false,
+          notes: data.notes || null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         }
-        setTaskModalOpen(false)
-        setSelectedTask(null)
-      } else {
+
+        if (selectedTask) {
+          setTasks(prev => prev.map(t => t.id === selectedTask.id ? newTask : t))
+        } else {
+          setTasks(prev => [...prev, newTask])
+        }
+
+        const result = selectedTask
+          ? await updateTask(selectedTask.id, formData)
+          : await createTask(formData)
+
+        if (result.success && result.data) {
+          if (selectedTask) {
+            setTasks(prev => prev.map(t => t.id === selectedTask.id ? result.data : t))
+          } else {
+            setTasks(prev => prev.map(t => t.id === newTask.id ? result.data : t))
+          }
+          setTaskModalOpen(false)
+          setSelectedTask(null)
+        } else {
+          if (selectedTask) {
+            setTasks(prev => prev.map(t => t.id === selectedTask.id ? selectedTask : t))
+          } else {
+            setTasks(prev => prev.filter(t => t.id !== newTask.id))
+          }
+          setError(result.error || 'Failed to save task')
+        }
+      } catch (err) {
         if (selectedTask) {
           setTasks(prev => prev.map(t => t.id === selectedTask.id ? selectedTask : t))
         } else {
-          setTasks(prev => prev.filter(t => t.id !== newTask.id))
+          setTasks(prev => prev.filter(t => !t.id.startsWith('temp-')))
         }
-        setError(result.error || 'Failed to save task')
+        setError('An error occurred')
       }
-    } catch (err) {
-      if (selectedTask) {
-        setTasks(prev => prev.map(t => t.id === selectedTask.id ? selectedTask : t))
-      } else {
-        setTasks(prev => prev.filter(t => !t.id.startsWith('temp-')))
-      }
-      setError('An error occurred')
-    } finally {
-      setLoading(false)
-    }
+    })
   }
 
+  // React 19: Task delete handler using useTransition
   async function handleDeleteTask(taskId: string) {
     const confirmed = await confirmDialog.confirm({
       title: 'Delete Task',
@@ -373,54 +389,55 @@ export default function OpportunityFormModal({
 
     if (!confirmed) return
 
-    setLoading(true)
-    
     const taskToDelete = tasks.find(t => t.id === taskId)
     setTasks(prev => prev.filter(t => t.id !== taskId))
 
-    try {
-      const result = await deleteTask(taskId)
-      if (!result.success) {
+    startTaskTransition(async () => {
+      try {
+        const result = await deleteTask(taskId)
+        if (!result.success) {
+          if (taskToDelete) {
+            setTasks(prev => [...prev, taskToDelete].sort((a, b) => 
+              new Date(a.date).getTime() - new Date(b.date).getTime()
+            ))
+          }
+          setError(result.error || 'Failed to delete task')
+        }
+      } catch (err) {
         if (taskToDelete) {
           setTasks(prev => [...prev, taskToDelete].sort((a, b) => 
             new Date(a.date).getTime() - new Date(b.date).getTime()
           ))
         }
-        setError(result.error || 'Failed to delete task')
+        setError('An error occurred')
       }
-    } catch (err) {
-      if (taskToDelete) {
-        setTasks(prev => [...prev, taskToDelete].sort((a, b) => 
-          new Date(a.date).getTime() - new Date(b.date).getTime()
-        ))
-      }
-      setError('An error occurred')
-    } finally {
-      setLoading(false)
-    }
+    })
   }
 
-  async function handleToggleTaskComplete(task: Task) {
-    const updatedTask = { ...task, completed: !task.completed }
-    setTasks(prev => prev.map(t => t.id === task.id ? updatedTask : t))
+  // React 19: Toggle task completion with useOptimistic for instant UI update
+  function handleToggleTaskComplete(task: Task) {
+    startToggleTransition(async () => {
+      // Instant optimistic update
+      addOptimisticToggle(task.id)
 
-    try {
-      const formData = new FormData()
-      formData.append('category', task.category)
-      formData.append('title', task.title)
-      formData.append('date', new Date(task.date).toISOString().split('T')[0])
-      formData.append('completed', (!task.completed).toString())
-      formData.append('notes', task.notes || '')
+      try {
+        const formData = new FormData()
+        formData.append('category', task.category)
+        formData.append('title', task.title)
+        formData.append('date', new Date(task.date).toISOString().split('T')[0])
+        formData.append('completed', (!task.completed).toString())
+        formData.append('notes', task.notes || '')
 
-      const result = await updateTask(task.id, formData)
-      if (result.success && result.data) {
-        setTasks(prev => prev.map(t => t.id === task.id ? result.data : t))
-      } else {
-        setTasks(prev => prev.map(t => t.id === task.id ? task : t))
+        const result = await updateTask(task.id, formData)
+        if (result.success && result.data) {
+          // Update actual state to match
+          setTasks(prev => prev.map(t => t.id === task.id ? result.data : t))
+        }
+        // On failure, optimistic state automatically reverts when transition ends
+      } catch (err) {
+        // On error, optimistic state automatically reverts when transition ends
       }
-    } catch (err) {
-      setTasks(prev => prev.map(t => t.id === task.id ? task : t))
-    }
+    })
   }
 
   function openTaskModal(task?: Task) {
@@ -671,7 +688,7 @@ export default function OpportunityFormModal({
                   </div>
                 ) : (
                   <TaskManager
-                    tasks={tasks}
+                    tasks={optimisticTasks}
                     onAddTask={() => openTaskModal()}
                     onEditTask={(task) => openTaskModal(task)}
                     onDeleteTask={handleDeleteTask}

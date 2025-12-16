@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useTransition } from 'react'
 import Link from 'next/link'
 import { updateDealResponsible, updateDealStatus } from '@/app/actions/deals'
 import { useUserRole } from '@/hooks/useUserRole'
@@ -35,10 +35,16 @@ export default function DealFormModal({
   onSuccess,
 }: DealFormModalProps) {
   const { isAdmin, isSales } = useUserRole()
-  const [loading, setLoading] = useState(false)
-  const [savingStatus, setSavingStatus] = useState(false)
   const [error, setError] = useState('')
   const [bookingRequestModalOpen, setBookingRequestModalOpen] = useState(false)
+
+  // React 19: useTransition for non-blocking UI during form actions
+  const [isSubmitPending, startSubmitTransition] = useTransition()
+  const [isStatusPending, startStatusTransition] = useTransition()
+  
+  // Combined loading states for UI
+  const loading = isSubmitPending
+  const savingStatus = isStatusPending
 
   const {
     responsibleId,
@@ -75,70 +81,68 @@ export default function DealFormModal({
     initialValues,
   })
 
-  // Auto-save when status changes
-  async function handleStatusChange(newStatus: string) {
+  // React 19: Status change handler using useTransition
+  function handleStatusChange(newStatus: string) {
     if (!deal || !isAdmin || savingStatus) return
     
     const previousStatus = status
     setStatus(newStatus)
-    setSavingStatus(true)
     setError('')
     
-    try {
-      const result = await updateDealStatus(deal.id, newStatus)
-      if (result.success) {
-        onSuccess()
-      } else {
-        setError(result.error || 'Failed to update deal status')
+    startStatusTransition(async () => {
+      try {
+        const result = await updateDealStatus(deal.id, newStatus)
+        if (result.success) {
+          onSuccess()
+        } else {
+          setError(result.error || 'Failed to update deal status')
+          setStatus(previousStatus)
+        }
+      } catch (err) {
+        setError('An error occurred while updating status')
         setStatus(previousStatus)
       }
-    } catch (err) {
-      setError('An error occurred while updating status')
-      setStatus(previousStatus)
-    } finally {
-      setSavingStatus(false)
-    }
+    })
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  // React 19: Form submit handler using useTransition
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     
     if (!isAdmin) {
       return
     }
     
-    setError('')
-    setLoading(true)
-
-    try {
-      if (!deal) {
-        setError('Deal not found')
-        setLoading(false)
-        return
-      }
-
-      // Update both responsibles and status
-      const [responsibleResult, statusResult] = await Promise.all([
-        updateDealResponsible(deal.id, responsibleId || null, ereResponsibleId || null),
-        updateDealStatus(deal.id, status),
-      ])
-
-      if (responsibleResult.success && statusResult.success) {
-        // Save custom field values
-        const customFieldResult = await dynamicForm.saveCustomFields(deal.id)
-        if (!customFieldResult.success) {
-          console.warn('Failed to save custom fields:', customFieldResult.error)
-        }
-        onSuccess()
-        onClose()
-      } else {
-        setError(responsibleResult.error || statusResult.error || 'Failed to update deal')
-      }
-    } catch (err) {
-      setError('An error occurred')
-    } finally {
-      setLoading(false)
+    if (!deal) {
+      setError('Deal not found')
+      return
     }
+    
+    setError('')
+
+    startSubmitTransition(async () => {
+      try {
+        // Update both responsibles and status
+        const [responsibleResult, statusResult] = await Promise.all([
+          updateDealResponsible(deal.id, responsibleId || null, ereResponsibleId || null),
+          updateDealStatus(deal.id, status),
+        ])
+
+        if (responsibleResult.success && statusResult.success) {
+          // Save custom field values
+          const customFieldResult = await dynamicForm.saveCustomFields(deal.id)
+          if (!customFieldResult.success) {
+            console.warn('Failed to save custom fields:', customFieldResult.error)
+          }
+          onSuccess()
+          onClose()
+        } else {
+          setError(responsibleResult.error || statusResult.error || 'Failed to update deal')
+        }
+      } catch (err) {
+        setError('An error occurred')
+      }
+    })
   }
 
   if (!isOpen) return null

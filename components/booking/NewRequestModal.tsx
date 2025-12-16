@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { generateAndSendPublicLink } from '@/app/actions/booking'
 import CloseIcon from '@mui/icons-material/Close'
@@ -19,11 +19,14 @@ interface NewRequestModalProps {
 export default function NewRequestModal({ isOpen, onClose, queryParams }: NewRequestModalProps) {
   const router = useRouter()
   const [emails, setEmails] = useState<string[]>(['']) // Array of emails
-  const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null)
   const [sentEmails, setSentEmails] = useState<string[]>([])
+
+  // React 19: useTransition for non-blocking UI during form actions
+  const [isPending, startTransition] = useTransition()
+  const isGenerating = isPending
 
   if (!isOpen) return null
 
@@ -58,7 +61,8 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
     onClose()
   }
 
-  const handleGenerateLink = async () => {
+  // React 19: Generate link handler using useTransition
+  const handleGenerateLink = () => {
     // Filter valid emails
     const validEmails = emails.filter(e => e && e.includes('@'))
     
@@ -67,27 +71,26 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
       return
     }
 
-    setIsGenerating(true)
     setError(null)
     setSuccess(false)
 
-    try {
-      const result = await generateAndSendPublicLink(validEmails)
-      
-      if (result.success && result.data) {
-        setSuccess(true)
-        setGeneratedUrl(result.data.url)
-        setSentEmails(validEmails)
-        setEmails(['']) // Clear email fields
-      } else {
-        setError(result.error || 'Failed to generate link')
+    startTransition(async () => {
+      try {
+        const result = await generateAndSendPublicLink(validEmails)
+        
+        if (result.success && result.data) {
+          setSuccess(true)
+          setGeneratedUrl(result.data.url)
+          setSentEmails(validEmails)
+          setEmails(['']) // Clear email fields
+        } else {
+          setError(result.error || 'Failed to generate link')
+        }
+      } catch (err) {
+        console.error('Error generating link:', err)
+        setError('An unexpected error occurred')
       }
-    } catch (err) {
-      console.error('Error generating link:', err)
-      setError('An unexpected error occurred')
-    } finally {
-      setIsGenerating(false)
-    }
+    })
   }
 
   const addEmailField = () => {

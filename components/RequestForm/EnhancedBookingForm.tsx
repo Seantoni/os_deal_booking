@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useActionState, useTransition } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { saveBookingRequestDraft, sendBookingRequest, getBookingRequest } from '@/app/actions/booking'
 import type { BookingFormData } from './types'
@@ -23,6 +23,12 @@ import PoliticasStep from './steps/PoliticasStep'
 import InformacionAdicionalStep from './steps/InformacionAdicionalStep'
 import toast from 'react-hot-toast'
 
+// Action state types for React 19 useActionState
+type FormActionState = {
+  success: boolean
+  error: string | null
+}
+
 interface EnhancedBookingFormProps {
   requestId?: string
   initialFormData?: Partial<BookingFormData>
@@ -34,7 +40,6 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   const [currentStepKey, setCurrentStepKey] = useState<string>('configuracion')
   const [formData, setFormData] = useState<BookingFormData>({ ...INITIAL_FORM_DATA, ...initialFormData })
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [saving, setSaving] = useState(false)
   const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([])
   const [requiredFields, setRequiredFields] = useState<RequestFormFieldsConfig>({})
   const [loadingEdit, setLoadingEdit] = useState(false)
@@ -42,6 +47,58 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   // Get editId from URL (for continuing to edit a draft)
   const editIdFromUrl = searchParams.get('editId')
   const requestId = propRequestId || editIdFromUrl || undefined
+
+  // React 19: useTransition for non-blocking UI during form actions
+  const [isPending, startTransition] = useTransition()
+
+  // React 19: useActionState for save draft action
+  const [draftState, saveDraftAction, isDraftPending] = useActionState<FormActionState, FormData>(
+    async (_prevState, submittedFormData) => {
+      try {
+        const result = await saveBookingRequestDraft(submittedFormData, requestId)
+        if (result.success) {
+          toast.success(requestId ? 'Borrador actualizado exitosamente' : 'Borrador guardado exitosamente')
+          if (requestId) {
+            router.push('/booking-requests')
+          }
+          return { success: true, error: null }
+        } else {
+          toast.error('Error al guardar borrador: ' + result.error)
+          return { success: false, error: result.error || 'Error desconocido' }
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
+        toast.error('Error: ' + errorMsg)
+        return { success: false, error: errorMsg }
+      }
+    },
+    { success: false, error: null }
+  )
+
+  // React 19: useActionState for submit/send action
+  const [submitState, submitAction, isSubmitPending] = useActionState<FormActionState, FormData>(
+    async (_prevState, submittedFormData) => {
+      try {
+        const result = await sendBookingRequest(submittedFormData, requestId)
+        if (result.success) {
+          toast.success('Solicitud enviada exitosamente')
+          router.push('/booking-requests')
+          return { success: true, error: null }
+        } else {
+          toast.error('Error al enviar solicitud: ' + result.error)
+          return { success: false, error: result.error || 'Error desconocido' }
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
+        toast.error('Error: ' + errorMsg)
+        return { success: false, error: errorMsg }
+      }
+    },
+    { success: false, error: null }
+  )
+
+  // Combined saving state for UI feedback
+  const saving = isDraftPending || isSubmitPending || isPending
 
   // Fetch request form field configuration from settings
   useEffect(() => {
@@ -470,51 +527,25 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     router.push('/booking-requests')
   }
 
-  const handleSaveDraft = async () => {
-    setSaving(true)
-    
-    try {
+  // React 19: Handler that triggers the save draft action
+  const handleSaveDraft = () => {
+    startTransition(() => {
       const formDataToSend = buildFormDataForSubmit(formData)
-      const result = await saveBookingRequestDraft(formDataToSend, requestId)
-      
-      if (result.success) {
-        toast.success(requestId ? 'Borrador actualizado exitosamente' : 'Borrador guardado exitosamente')
-        if (requestId) {
-          router.push('/booking-requests')
-        }
-      } else {
-        toast.error('Error al guardar borrador: ' + result.error)
-      }
-    } catch (error) {
-      toast.error('Error: ' + (error instanceof Error ? error.message : 'Error desconocido'))
-    } finally {
-      setSaving(false)
-    }
+      saveDraftAction(formDataToSend)
+    })
   }
 
-  const handleSubmit = async () => {
+  // React 19: Handler that triggers the submit action with validation
+  const handleSubmit = () => {
     if (!formData.businessName || !formData.partnerEmail || !formData.startDate || !formData.endDate) {
       toast.error('Por favor complete todos los campos requeridos')
       return
     }
     
-    setSaving(true)
-    
-    try {
+    startTransition(() => {
       const formDataToSend = buildFormDataForSubmit(formData)
-      const result = await sendBookingRequest(formDataToSend, requestId)
-      
-      if (result.success) {
-        toast.success('Solicitud enviada exitosamente')
-        router.push('/booking-requests')
-      } else {
-        toast.error('Error al enviar solicitud: ' + result.error)
-      }
-    } catch (error) {
-      toast.error('Error: ' + (error instanceof Error ? error.message : 'Error desconocido'))
-    } finally {
-      setSaving(false)
-    }
+      submitAction(formDataToSend)
+    })
   }
 
   const addPricingOption = () => {

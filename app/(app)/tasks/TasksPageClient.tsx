@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useOptimistic, useTransition } from 'react'
 import dynamic from 'next/dynamic'
 import { getUserTasks, toggleTaskComplete, type TaskWithOpportunity } from '@/app/actions/tasks'
 import { updateTask, deleteTask } from '@/app/actions/opportunities'
@@ -91,6 +91,16 @@ export default function TasksPageClient() {
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null)
   const [loadingOpportunity, setLoadingOpportunity] = useState(false)
 
+  // React 19: useOptimistic for instant UI updates on task completion
+  const [optimisticTasks, addOptimisticTask] = useOptimistic(
+    tasks,
+    (currentTasks, taskId: string) => 
+      currentTasks.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t)
+  )
+  
+  // React 19: useTransition for non-blocking toggle
+  const [isToggling, startToggleTransition] = useTransition()
+
   // Sorting state
   const [sortColumn, setSortColumn] = useState<string | null>('date')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
@@ -126,9 +136,9 @@ export default function TasksPageClient() {
     }
   }
 
-  // Filter tasks
+  // Filter tasks - uses optimisticTasks for instant UI feedback
   const filteredTasks = useMemo(() => {
-    let filtered = tasks
+    let filtered = optimisticTasks
 
     // Apply status filter
     const now = new Date()
@@ -163,7 +173,7 @@ export default function TasksPageClient() {
     }
 
     return filtered
-  }, [tasks, activeFilter, searchQuery])
+  }, [optimisticTasks, activeFilter, searchQuery])
 
   // Sort tasks
   const sortedTasks = useMemo(() => {
@@ -179,31 +189,35 @@ export default function TasksPageClient() {
     })
   }, [filteredTasks, sortColumn, sortDirection])
 
-  // Count for filters
+  // Count for filters - uses optimisticTasks for instant UI feedback
   const counts = useMemo(() => {
     const now = new Date()
     now.setHours(0, 0, 0, 0)
     return {
-      all: tasks.length,
-      pending: tasks.filter(t => !t.completed).length,
-      completed: tasks.filter(t => t.completed).length,
-      overdue: tasks.filter(t => !t.completed && new Date(t.date) < now).length,
-      meetings: tasks.filter(t => t.category === 'meeting').length,
-      todos: tasks.filter(t => t.category === 'todo').length,
+      all: optimisticTasks.length,
+      pending: optimisticTasks.filter(t => !t.completed).length,
+      completed: optimisticTasks.filter(t => t.completed).length,
+      overdue: optimisticTasks.filter(t => !t.completed && new Date(t.date) < now).length,
+      meetings: optimisticTasks.filter(t => t.category === 'meeting').length,
+      todos: optimisticTasks.filter(t => t.category === 'todo').length,
     }
-  }, [tasks])
+  }, [optimisticTasks])
 
-  // Handle toggle complete
-  const handleToggleComplete = async (task: TaskWithOpportunity) => {
-    // Optimistic update
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: !t.completed } : t))
+  // React 19: Handle toggle complete using useOptimistic for instant UI update
+  const handleToggleComplete = (task: TaskWithOpportunity) => {
+    startToggleTransition(async () => {
+      // Instant optimistic update
+      addOptimisticTask(task.id)
 
-    const result = await toggleTaskComplete(task.id)
-    if (!result.success) {
-      // Revert
-      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: task.completed } : t))
-      toast.error(result.error || 'Failed to update task')
-    }
+      const result = await toggleTaskComplete(task.id)
+      if (result.success) {
+        // Update actual state to match
+        setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: !t.completed } : t))
+      } else {
+        // On failure, the optimistic state will automatically revert when transition ends
+        toast.error(result.error || 'Failed to update task')
+      }
+    })
   }
 
   // Handle edit task

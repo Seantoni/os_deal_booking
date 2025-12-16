@@ -47,7 +47,7 @@ interface TaskModalProps {
     title: string
     date: string
     notes: string
-  }) => Promise<void>
+  }) => void | Promise<void>
   loading?: boolean
   error?: string
   businessName?: string // For auto-filling "Reunión con"
