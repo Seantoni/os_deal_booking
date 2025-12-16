@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { saveBookingRequestDraft, sendBookingRequest } from '@/app/actions/booking'
+import { saveBookingRequestDraft, sendBookingRequest, getBookingRequest } from '@/app/actions/booking'
 import type { BookingFormData } from './types'
 import { STEPS, INITIAL_FORM_DATA, getStepKeyByIndex, getStepIndexByKey, getStepIdByKey } from './constants'
 import { validateStep, buildFormDataForSubmit } from './request_form_utils'
@@ -28,7 +28,7 @@ interface EnhancedBookingFormProps {
   initialFormData?: Partial<BookingFormData>
 }
 
-export default function EnhancedBookingForm({ requestId, initialFormData }: EnhancedBookingFormProps = {}) {
+export default function EnhancedBookingForm({ requestId: propRequestId, initialFormData }: EnhancedBookingFormProps = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [currentStepKey, setCurrentStepKey] = useState<string>('configuracion')
@@ -37,6 +37,11 @@ export default function EnhancedBookingForm({ requestId, initialFormData }: Enha
   const [saving, setSaving] = useState(false)
   const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([])
   const [requiredFields, setRequiredFields] = useState<RequestFormFieldsConfig>({})
+  const [loadingEdit, setLoadingEdit] = useState(false)
+  
+  // Get editId from URL (for continuing to edit a draft)
+  const editIdFromUrl = searchParams.get('editId')
+  const requestId = propRequestId || editIdFromUrl || undefined
 
   // Fetch request form field configuration from settings
   useEffect(() => {
@@ -69,6 +74,106 @@ export default function EnhancedBookingForm({ requestId, initialFormData }: Enha
   const isFieldRequired = useCallback((fieldKey: string): boolean => {
     return requiredFields[fieldKey]?.required ?? false
   }, [requiredFields])
+
+  // Load existing request for editing (when editId is in URL)
+  useEffect(() => {
+    if (!editIdFromUrl) return
+    
+    const loadExistingRequest = async () => {
+      setLoadingEdit(true)
+      try {
+        const result = await getBookingRequest(editIdFromUrl)
+        if (result.success && result.data) {
+          const data = result.data
+          console.log('[EnhancedBookingForm] Loading existing request for editing:', data.id)
+          
+          // Map request data to form data
+          setFormData(prev => ({
+            ...prev,
+            // Configuración
+            businessName: data.name || data.merchant || '',
+            partnerEmail: data.businessEmail || '',
+            additionalEmails: Array.isArray(data.additionalEmails) ? data.additionalEmails : [],
+            category: data.category || '',
+            parentCategory: data.parentCategory || '',
+            subCategory1: data.subCategory1 || '',
+            subCategory2: data.subCategory2 || '',
+            subCategory3: data.subCategory3 || '',
+            startDate: data.startDate ? new Date(data.startDate).toISOString().split('T')[0] : '',
+            endDate: data.endDate ? new Date(data.endDate).toISOString().split('T')[0] : '',
+            campaignDuration: data.campaignDuration || '',
+            opportunityId: data.opportunityId || '',
+            
+            // Operatividad
+            redemptionMode: data.redemptionMode || '',
+            isRecurring: data.isRecurring || '',
+            recurringOfferLink: data.recurringOfferLink || '',
+            paymentType: data.paymentType || '',
+            paymentInstructions: data.paymentInstructions || '',
+            
+            // Directorio
+            redemptionContactName: data.redemptionContactName || '',
+            redemptionContactEmail: data.redemptionContactEmail || '',
+            redemptionContactPhone: data.redemptionContactPhone || '',
+            
+            // Fiscales
+            legalName: data.legalName || '',
+            rucDv: data.rucDv || '',
+            bankAccountName: data.bankAccountName || '',
+            bank: data.bank || '',
+            accountNumber: data.accountNumber || '',
+            accountType: data.accountType || '',
+            addressAndHours: data.addressAndHours || '',
+            province: data.province || '',
+            district: data.district || '',
+            corregimiento: data.corregimiento || '',
+            
+            // Negocio
+            includesTaxes: data.includesTaxes || '',
+            validOnHolidays: data.validOnHolidays || '',
+            hasExclusivity: data.hasExclusivity || '',
+            blackoutDates: data.blackoutDates || '',
+            exclusivityCondition: data.exclusivityCondition || '',
+            giftVouchers: data.giftVouchers || '',
+            hasOtherBranches: data.hasOtherBranches || '',
+            vouchersPerPerson: data.vouchersPerPerson || '',
+            commission: data.commission || '',
+            
+            // Descripción
+            redemptionMethods: Array.isArray(data.redemptionMethods) ? data.redemptionMethods : [],
+            contactDetails: data.contactDetails || '',
+            socialMedia: data.socialMedia || '',
+            businessReview: data.businessReview || '',
+            offerDetails: data.offerDetails || '',
+            
+            // Estructura (Pricing)
+            pricingOptions: Array.isArray(data.pricingOptions) ? data.pricingOptions : [],
+            
+            // Políticas
+            cancellationPolicy: data.cancellationPolicy || '',
+            marketValidation: data.marketValidation || '',
+            additionalComments: data.additionalComments || '',
+            
+            // Información Adicional
+            additionalInfo: data.additionalInfo && typeof data.additionalInfo === 'object' ? data.additionalInfo : null,
+          }))
+          
+          toast.success('Solicitud cargada para continuar editando')
+        } else {
+          toast.error('Error al cargar la solicitud: ' + (result.error || 'No encontrada'))
+          router.push('/booking-requests')
+        }
+      } catch (error) {
+        console.error('Error loading request for edit:', error)
+        toast.error('Error al cargar la solicitud')
+        router.push('/booking-requests')
+      } finally {
+        setLoadingEdit(false)
+      }
+    }
+    
+    loadExistingRequest()
+  }, [editIdFromUrl, router])
 
   // Pre-fill form from query parameters (from CRM opportunity, NewRequestModal, or Replicate)
   useEffect(() => {
@@ -442,6 +547,18 @@ export default function EnhancedBookingForm({ requestId, initialFormData }: Enha
         )
       }
     })
+  }
+
+  // Show loading state when loading existing request for editing
+  if (loadingEdit) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-100 py-12 px-4 sm:px-6 lg:px-8 font-sans flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin h-10 w-10 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">Cargando solicitud...</p>
+        </div>
+      </div>
+    )
   }
 
   return (

@@ -15,6 +15,7 @@ import StoreIcon from '@mui/icons-material/Store'
 import EditIcon from '@mui/icons-material/Edit'
 import SearchIcon from '@mui/icons-material/Search'
 import AddIcon from '@mui/icons-material/Add'
+import DescriptionIcon from '@mui/icons-material/Description'
 import { Button, Input } from '@/components/ui'
 
 // Lazy load heavy modal components
@@ -143,6 +144,61 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
     setIsOpportunityModalOpen(true)
   }
 
+  const handleCreateRequest = () => {
+    // Build query parameters with business data (matching OpportunityFormModal behavior)
+    const params = new URLSearchParams()
+    
+    // Flag to trigger pre-fill logic in EnhancedBookingForm
+    params.set('fromOpportunity', 'business')
+    
+    // Basic business info
+    params.set('businessName', business.name)
+    params.set('businessEmail', business.contactEmail)
+    params.set('contactName', business.contactName || '')
+    params.set('contactPhone', business.contactPhone || '')
+    
+    // Category info
+    if (business.category) {
+      params.set('categoryId', business.category.id)
+      params.set('parentCategory', business.category.parentCategory)
+      if (business.category.subCategory1) params.set('subCategory1', business.category.subCategory1)
+      if (business.category.subCategory2) params.set('subCategory2', business.category.subCategory2)
+    }
+    
+    // Legal/Tax info
+    if (business.razonSocial) params.set('legalName', business.razonSocial)
+    if (business.ruc) params.set('ruc', business.ruc)
+    
+    // Location info
+    if (business.province) params.set('province', business.province)
+    if (business.district) params.set('district', business.district)
+    if (business.corregimiento) params.set('corregimiento', business.corregimiento)
+    if (business.address) params.set('address', business.address)
+    if (business.neighborhood) params.set('neighborhood', business.neighborhood)
+    
+    // Bank/Payment info
+    if (business.bank) params.set('bank', business.bank)
+    if (business.beneficiaryName) params.set('bankAccountName', business.beneficiaryName)
+    if (business.accountNumber) params.set('accountNumber', business.accountNumber)
+    if (business.accountType) params.set('accountType', business.accountType)
+    if (business.paymentPlan) params.set('paymentPlan', business.paymentPlan)
+    
+    // Additional info
+    if (business.description) params.set('description', business.description)
+    if (business.website) params.set('website', business.website)
+    if (business.instagram) params.set('instagram', business.instagram)
+    
+    // Payment contact emails
+    if (business.emailPaymentContacts) {
+      const paymentEmails = business.emailPaymentContacts.split(/[;,\s]+/).filter(Boolean)
+      if (paymentEmails.length > 0) {
+        params.set('paymentEmails', JSON.stringify(paymentEmails))
+      }
+    }
+    
+    router.push(`/booking-requests/new?${params.toString()}`)
+  }
+
   const handleViewRequest = (request: BookingRequest) => {
     setSelectedRequestId(request.id)
     setRequestViewModalOpen(true)
@@ -250,6 +306,14 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
             className="shadow-sm bg-blue-600 hover:bg-blue-700 text-white border-transparent"
           >
             New Opportunity
+          </Button>
+          <Button
+            onClick={handleCreateRequest}
+            size="sm"
+            leftIcon={<DescriptionIcon fontSize="small" />}
+            className="shadow-sm bg-green-600 hover:bg-green-700 text-white border-transparent"
+          >
+            New Request
           </Button>
           <Button
             onClick={() => setIsEditModalOpen(true)}
