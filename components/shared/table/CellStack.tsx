@@ -17,7 +17,7 @@ export default function CellStack({ primary, secondary, tertiary, align = 'left'
     <div className={`flex flex-col ${alignClass}`}>
       <div className={`text-[13px] text-gray-900 ${textAlign} leading-tight break-all`}>{primary}</div>
       {secondary && <div className={`text-[11px] text-gray-500 ${textAlign} leading-tight mt-0.5 break-all`}>{secondary}</div>}
-      {tertiary && <div className={`text-[11px] text-gray-400 ${textAlign} leading-tight mt-0.5 break-all`}>{tertiary}</div>}
+      {tertiary && <div className={`text-[11px] text-gray-500 ${textAlign} leading-tight mt-0.5 break-all`}>{tertiary}</div>}
     </div>
   )
 }

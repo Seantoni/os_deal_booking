@@ -152,7 +152,7 @@ export default function RequestsSection({
       <div className="p-2">
         {filteredRequests.length === 0 ? (
           <div className="text-center py-4">
-            <DescriptionIcon className="text-gray-300 mx-auto mb-1.5" style={{ fontSize: 32 }} />
+            <DescriptionIcon className="text-gray-400 mx-auto mb-1.5" style={{ fontSize: 32 }} />
             <p className="text-xs text-gray-500 mb-2">
               {requests.length === 0 
                 ? 'No requests yet'

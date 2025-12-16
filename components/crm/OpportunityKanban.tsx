@@ -213,7 +213,7 @@ export default function OpportunityKanban({ opportunities, onUpdate, onCreateReq
                               </h4>
                             </div>
                           </div>
-                          <DragIndicatorIcon className="text-gray-300 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontSize: 16 }} />
+                          <DragIndicatorIcon className="text-gray-400 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontSize: 16 }} />
                         </div>
 
                         {/* Date */}
@@ -228,7 +228,7 @@ export default function OpportunityKanban({ opportunities, onUpdate, onCreateReq
                           </span>
                           {opportunity.closeDate && (
                             <>
-                              <span className="text-gray-300">•</span>
+                              <span className="text-gray-400">•</span>
                               <span>
                                 {new Date(opportunity.closeDate).toLocaleDateString('en-US', {
                                   month: 'short',
@@ -266,7 +266,7 @@ export default function OpportunityKanban({ opportunities, onUpdate, onCreateReq
                   
                   {/* Empty State */}
                   {stageOpportunities.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-8 text-gray-300">
+                    <div className="flex flex-col items-center justify-center py-8 text-gray-400">
                       <AssignmentIcon style={{ fontSize: 32, opacity: 0.3 }} />
                       <p className="text-[10px] font-medium mt-1.5">Drop opportunities here</p>
                     </div>

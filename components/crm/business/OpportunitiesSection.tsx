@@ -178,7 +178,7 @@ export default function OpportunitiesSection({
       <div className="p-2">
         {filteredOpportunities.length === 0 ? (
           <div className="text-center py-4">
-            <HandshakeIcon className="text-gray-300 mx-auto mb-1.5" style={{ fontSize: 32 }} />
+            <HandshakeIcon className="text-gray-400 mx-auto mb-1.5" style={{ fontSize: 32 }} />
             <p className="text-xs text-gray-500 mb-2">
               {opportunities.length === 0 
                 ? 'No opportunities yet'

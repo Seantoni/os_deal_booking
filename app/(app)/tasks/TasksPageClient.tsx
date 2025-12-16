@@ -357,9 +357,9 @@ export default function TasksPageClient() {
           </div>
         ) : sortedTasks.length === 0 ? (
           <div className="bg-white rounded-lg p-8 text-center border border-gray-200">
-            <AssignmentIcon className="text-gray-300 mx-auto mb-3" style={{ fontSize: 48 }} />
+            <AssignmentIcon className="text-gray-400 mx-auto mb-3" style={{ fontSize: 48 }} />
             <p className="text-gray-500 font-medium">No hay tareas</p>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-sm text-gray-500 mt-1">
               {activeFilter !== 'all'
                 ? 'No hay tareas que coincidan con el filtro seleccionado'
                 : 'Las tareas aparecerán aquí cuando se creen en las oportunidades'}
@@ -410,7 +410,7 @@ export default function TasksPageClient() {
                       className={`transition-colors ${
                         task.completed
                           ? 'text-green-500 hover:text-green-600'
-                          : 'text-gray-300 hover:text-gray-400'
+                          : 'text-gray-400 hover:text-gray-500'
                       }`}
                       title={task.completed ? 'Marcar como pendiente' : 'Marcar como completada'}
                     >

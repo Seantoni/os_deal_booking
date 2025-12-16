@@ -50,7 +50,7 @@ export default function LinkedBusinessSection({ business, onEdit }: LinkedBusine
                 </div>
                 {business.contactPhone && (
                   <>
-                    <span className="text-gray-300">•</span>
+                    <span className="text-gray-400">•</span>
                     <div className="flex items-center gap-1 min-w-0">
                       <PhoneIcon style={{ fontSize: 12 }} />
                       <span className="truncate">{business.contactPhone}</span>

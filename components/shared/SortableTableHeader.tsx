@@ -102,7 +102,7 @@ interface EmptyTableStateProps {
 export function EmptyTableState({ icon, title, description }: EmptyTableStateProps) {
   return (
     <div className="h-64 flex flex-col items-center justify-center text-gray-500 bg-white rounded-lg border border-gray-200 shadow-sm">
-      {icon && <div className="w-12 h-12 text-gray-300 mb-3">{icon}</div>}
+      {icon && <div className="w-12 h-12 text-gray-400 mb-3">{icon}</div>}
       <p className="text-sm font-medium text-gray-900">{title}</p>
       <p className="text-xs mt-1">{description}</p>
     </div>

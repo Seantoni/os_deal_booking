@@ -665,7 +665,7 @@ export default function OpportunityFormModal({
               <div className="p-6">
                 {!opportunity ? (
                   <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-                    <EventIcon className="text-gray-300 mx-auto mb-3" style={{ fontSize: 48 }} />
+                    <EventIcon className="text-gray-400 mx-auto mb-3" style={{ fontSize: 48 }} />
                     <p className="text-sm text-gray-500 mb-2">Save the opportunity first to add tasks</p>
                     <p className="text-xs text-gray-400">Create the opportunity, then come back to add activities</p>
                   </div>

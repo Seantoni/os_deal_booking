@@ -40,7 +40,7 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider localization={esES}>
-    <html lang="es">
+    <html lang="es" style={{ colorScheme: 'light' }}>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

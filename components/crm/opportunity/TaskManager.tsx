@@ -46,7 +46,7 @@ export default function TaskManager({
   if (tasks.length === 0) {
     return (
       <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-        <EventIcon className="text-gray-300 mx-auto mb-3" style={{ fontSize: 48 }} />
+        <EventIcon className="text-gray-400 mx-auto mb-3" style={{ fontSize: 48 }} />
         <p className="text-sm text-gray-500 mb-2">No hay tareas aún</p>
         <Button
           type="button"

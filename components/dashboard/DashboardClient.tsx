@@ -133,7 +133,7 @@ export default function DashboardClient() {
                 className="border-0 bg-transparent focus:ring-0 shadow-none text-sm"
             />
             </div>
-            <span className="text-gray-300">-</span>
+            <span className="text-gray-400">-</span>
             <div className="w-32">
               <Input
               type="date"
