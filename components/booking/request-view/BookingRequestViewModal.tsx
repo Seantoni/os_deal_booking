@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { getBookingRequest, getFieldComments, addFieldComment, updateFieldComment, deleteFieldComment } from '@/app/actions/booking'
+import { getBookingRequest, getFieldComments, addFieldComment, updateFieldComment, deleteFieldComment, cancelBookingRequest } from '@/app/actions/booking'
 import { 
   parseFieldComments, 
   getCommentsForField, 
@@ -34,6 +34,7 @@ import EventIcon from '@mui/icons-material/Event'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import EditNoteIcon from '@mui/icons-material/EditNote'
+import BlockIcon from '@mui/icons-material/Block'
 
 // Helper to get field value from requestData using dynamic key access
 function getFieldValue(data: BookingRequestViewData | null, key: string): unknown {
@@ -180,6 +181,7 @@ export default function BookingRequestViewModal({
   const [editCommentText, setEditCommentText] = useState('')
   const [showSidebar, setShowSidebar] = useState(true)
   const [savingComment, setSavingComment] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('')
@@ -449,6 +451,42 @@ export default function BookingRequestViewModal({
     router.push(`/booking-requests/new?editId=${requestId}`)
   }
 
+  // Cancel request
+  async function handleCancel() {
+    if (!requestId || !requestData) return
+
+    // Check permissions: only creator or admin can cancel
+    const isCreator = requestData.userId === userId
+    if (!isCreator && !isAdmin) {
+      toast.error('No tienes permiso para cancelar esta solicitud')
+      return
+    }
+
+    // Check if request can be cancelled (only draft or pending)
+    if (requestData.status !== 'draft' && requestData.status !== 'pending') {
+      toast.error('Solo se pueden cancelar solicitudes en estado borrador o pendiente')
+      return
+    }
+
+    // Confirm cancellation
+    if (!window.confirm(`¿Estás seguro de que deseas cancelar la solicitud "${requestData.name}"? Esta acción no se puede deshacer.`)) {
+      return
+    }
+
+    setCancelling(true)
+    
+    const result = await cancelBookingRequest(requestId)
+    
+    if (result.success) {
+      toast.success('Solicitud cancelada exitosamente')
+      onClose()
+    } else {
+      toast.error(result.error || 'Error al cancelar la solicitud')
+    }
+    
+    setCancelling(false)
+  }
+
   // Replicate request - navigate to form with pre-filled data
   function handleReplicate() {
     if (!requestData) return
@@ -593,6 +631,19 @@ export default function BookingRequestViewModal({
                 >
                   <EditNoteIcon style={{ fontSize: 18 }} />
                   <span>Editar</span>
+                </button>
+              )}
+              {/* Cancel Button - Only for draft/pending, creator or admin */}
+              {(requestData?.status === 'draft' || requestData?.status === 'pending') && 
+               (requestData?.userId === userId || isAdmin) && (
+                <button
+                  onClick={handleCancel}
+                  disabled={loading || cancelling}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Cancelar esta solicitud"
+                >
+                  <BlockIcon style={{ fontSize: 16 }} />
+                  <span>{cancelling ? 'Cancelando...' : 'Cancelar'}</span>
                 </button>
               )}
               {/* Replicate Button */}

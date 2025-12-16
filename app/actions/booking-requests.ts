@@ -1201,3 +1201,74 @@ export async function rejectBookingRequestWithReason(token: string, rejectionRea
   }
 }
 
+/**
+ * Cancel a booking request
+ * Only the creator or admin can cancel
+ * Only 'draft' and 'pending' statuses can be cancelled
+ */
+export async function cancelBookingRequest(requestId: string) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    // Fetch the booking request
+    const bookingRequest = await prisma.bookingRequest.findUnique({
+      where: { id: requestId },
+    })
+
+    if (!bookingRequest) {
+      return { success: false, error: 'Solicitud no encontrada' }
+    }
+
+    // Check permissions: only creator or admin can cancel
+    const role = await getUserRole()
+    const isCreator = bookingRequest.userId === userId
+    const isAdmin = role === 'admin'
+
+    if (!isCreator && !isAdmin) {
+      return { success: false, error: 'No tienes permiso para cancelar esta solicitud' }
+    }
+
+    // Check if status allows cancellation (only draft or pending)
+    if (bookingRequest.status !== 'draft' && bookingRequest.status !== 'pending') {
+      return { 
+        success: false, 
+        error: 'Solo se pueden cancelar solicitudes en estado borrador o pendiente' 
+      }
+    }
+
+    // Get user info for processedBy
+    const user = await currentUser()
+    const cancelledBy = user?.emailAddresses?.[0]?.emailAddress || userId
+
+    // Update status to cancelled
+    const updatedRequest = await prisma.bookingRequest.update({
+      where: { id: requestId },
+      data: { 
+        status: 'cancelled',
+        processedAt: new Date(),
+        processedBy: cancelledBy,
+      },
+    })
+
+    // Log activity
+    await logActivity({
+      action: 'CANCEL',
+      entityType: 'BookingRequest',
+      entityId: updatedRequest.id,
+      entityName: updatedRequest.name,
+      details: {
+        statusChange: { from: bookingRequest.status, to: 'cancelled' },
+      },
+    })
+
+    invalidateEntity('booking-requests')
+    return { success: true, data: updatedRequest }
+  } catch (error) {
+    return handleServerActionError(error, 'cancelBookingRequest')
+  }
+}
+

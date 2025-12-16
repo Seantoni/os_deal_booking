@@ -38,7 +38,7 @@ import {
   type ColumnConfig,
 } from '@/components/shared'
 import { Button } from '@/components/ui'
-import { RowActionsMenu, EntityTable, CellStack } from '@/components/shared/table'
+import { EntityTable, CellStack } from '@/components/shared/table'
 
 // Table columns configuration
 const COLUMNS: ColumnConfig[] = [
@@ -101,7 +101,6 @@ export default function BusinessesPageClient() {
   // Modal state
   const [businessModalOpen, setBusinessModalOpen] = useState(false)
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null)
-  const [menuOpen, setMenuOpen] = useState<string | null>(null)
   const [opportunityModalOpen, setOpportunityModalOpen] = useState(false)
   const [selectedBusinessForOpportunity, setSelectedBusinessForOpportunity] = useState<Business | null>(null)
   
@@ -304,7 +303,6 @@ export default function BusinessesPageClient() {
   function handleEditBusiness(business: Business) {
     setSelectedBusiness(business)
     setBusinessModalOpen(true)
-    setMenuOpen(null)
   }
 
   async function handleDeleteBusiness(businessId: string) {
@@ -320,7 +318,6 @@ export default function BusinessesPageClient() {
 
     // Optimistic update
     setBusinesses(prev => prev.filter(b => b.id !== businessId))
-    setMenuOpen(null)
     
     const result = await deleteBusiness(businessId)
     if (!result.success) {
@@ -334,7 +331,6 @@ export default function BusinessesPageClient() {
   function handleCreateOpportunity(business: Business) {
     setSelectedBusinessForOpportunity(business)
     setOpportunityModalOpen(true)
-    setMenuOpen(null)
   }
 
   function handleCreateRequest(business: Business) {
@@ -389,7 +385,6 @@ export default function BusinessesPageClient() {
       }
     }
     
-    setMenuOpen(null)
     router.push(`/booking-requests/new?${params.toString()}`)
   }
 
@@ -543,23 +538,6 @@ export default function BusinessesPageClient() {
                       >
                         <OpenInNewIcon style={{ fontSize: 18 }} />
                       </button>
-                      <RowActionsMenu
-                        isOpen={menuOpen === business.id}
-                        onOpenChange={(open) => setMenuOpen(open ? business.id : null)}
-                        items={[
-                          {
-                            label: isAdmin ? 'Edit' : 'View',
-                            onClick: () => handleEditBusiness(business),
-                          },
-                          isAdmin
-                            ? {
-                                label: 'Delete',
-                                tone: 'danger',
-                                onClick: () => handleDeleteBusiness(business.id),
-                              }
-                            : null,
-                        ].filter(Boolean) as any}
-                      />
                     </div>
                   </td>
                 </tr>

@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/error?message=Request not found`))
     }
 
-    // Check if already processed (approved, booked, or rejected)
+    // Check if already processed (approved, booked, rejected, or cancelled)
     if (existingRequest.status === 'approved' || existingRequest.status === 'booked') {
       const baseUrl = getBaseUrl(request)
       return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/already-processed?status=approved&id=${existingRequest.id}`))
@@ -72,6 +72,12 @@ export async function GET(request: NextRequest) {
     if (existingRequest.status === 'rejected') {
       const baseUrl = getBaseUrl(request)
       return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/already-processed?status=rejected&id=${existingRequest.id}`))
+    }
+
+    // Check if cancelled
+    if (existingRequest.status === 'cancelled') {
+      const baseUrl = getBaseUrl(request)
+      return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/cancelled?id=${existingRequest.id}`))
     }
 
     // Update booking request status to approved

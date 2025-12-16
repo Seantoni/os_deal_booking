@@ -22,7 +22,7 @@ import {
   type FilterTab,
   type ColumnConfig,
 } from '@/components/shared'
-import { RowActionsMenu, EntityTable, StatusPill } from '@/components/shared/table'
+import { EntityTable, StatusPill } from '@/components/shared/table'
 import { Button } from '@/components/ui'
 
 // Lazy load heavy modal components
@@ -121,7 +121,6 @@ export default function OpportunitiesPageClient() {
   // Modal state
   const [opportunityModalOpen, setOpportunityModalOpen] = useState(false)
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null)
-  const [menuOpen, setMenuOpen] = useState<string | null>(null)
   
   // New request modal state
   const [showNewRequestModal, setShowNewRequestModal] = useState(false)
@@ -233,7 +232,6 @@ export default function OpportunitiesPageClient() {
   function handleEditOpportunity(opportunity: Opportunity) {
     setSelectedOpportunity(opportunity)
     setOpportunityModalOpen(true)
-    setMenuOpen(null)
   }
 
 
@@ -250,7 +248,6 @@ export default function OpportunitiesPageClient() {
 
     // Optimistic update
     setOpportunities(prev => prev.filter(o => o.id !== opportunityId))
-    setMenuOpen(null)
     
     const result = await deleteOpportunity(opportunityId)
     if (!result.success) {
@@ -438,23 +435,7 @@ export default function OpportunitiesPageClient() {
                     )}
                   </td>
                   <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
-                    <RowActionsMenu
-                      isOpen={menuOpen === opportunity.id}
-                      onOpenChange={(open) => setMenuOpen(open ? opportunity.id : null)}
-                      items={[
-                        {
-                          label: 'Edit',
-                          onClick: () => handleEditOpportunity(opportunity),
-                        },
-                        isAdmin
-                          ? {
-                              label: 'Delete',
-                              tone: 'danger',
-                              onClick: () => handleDeleteOpportunity(opportunity.id),
-                            }
-                          : null,
-                      ].filter(Boolean) as any}
-                    />
+                    {/* Actions removed - row click opens edit modal */}
                   </td>
                 </tr>
               ))}

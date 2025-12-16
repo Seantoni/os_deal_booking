@@ -21,7 +21,7 @@ import {
   type ColumnConfig,
 } from '@/components/shared'
 import { Button } from '@/components/ui'
-import { RowActionsMenu, EntityTable, CellStack, StatusPill } from '@/components/shared/table'
+import { EntityTable, CellStack, StatusPill } from '@/components/shared/table'
 
 // Lazy load the modal
 const LeadFormModal = dynamic(() => import('@/components/crm/lead/LeadFormModal'), {
@@ -86,7 +86,6 @@ export default function LeadsPageClient() {
   // Modal state
   const [leadModalOpen, setLeadModalOpen] = useState(false)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
-  const [menuOpen, setMenuOpen] = useState<string | null>(null)
   const [visibleCount, setVisibleCount] = useState(50)
   
   const confirmDialog = useConfirmDialog()
@@ -184,7 +183,6 @@ export default function LeadsPageClient() {
   function handleEditLead(lead: Lead) {
     setSelectedLead(lead)
     setLeadModalOpen(true)
-    setMenuOpen(null)
   }
 
   async function handleDeleteLead(leadId: string) {
@@ -200,7 +198,6 @@ export default function LeadsPageClient() {
 
     // Optimistic update
     setLeads(prev => prev.filter(l => l.id !== leadId))
-    setMenuOpen(null)
     
     const result = await deleteLead(leadId)
     if (!result.success) {
@@ -326,23 +323,7 @@ export default function LeadsPageClient() {
                     {lead.source || <span className="text-gray-400">-</span>}
                   </td>
                   <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
-                    <RowActionsMenu
-                      isOpen={menuOpen === lead.id}
-                      onOpenChange={(open) => setMenuOpen(open ? lead.id : null)}
-                      items={[
-                        {
-                          label: 'Edit',
-                          onClick: () => handleEditLead(lead),
-                        },
-                        isAdmin && !lead.businessId
-                          ? {
-                              label: 'Delete',
-                              tone: 'danger',
-                              onClick: () => handleDeleteLead(lead.id),
-                            }
-                          : null,
-                      ].filter(Boolean) as any}
-                    />
+                    {/* Actions removed - row click opens edit modal */}
                   </td>
                 </tr>
               ))}

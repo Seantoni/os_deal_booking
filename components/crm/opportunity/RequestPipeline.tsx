@@ -10,7 +10,10 @@ interface RequestPipelineProps {
 }
 
 export default function RequestPipeline({ bookingRequest, onViewRequest }: RequestPipelineProps) {
-  const statuses = ['draft', 'pending', 'approved', 'booked', 'rejected']
+  // Include cancelled in the pipeline if the request is cancelled
+  const statuses = bookingRequest.status === 'cancelled' 
+    ? ['draft', 'pending', 'cancelled']
+    : ['draft', 'pending', 'approved', 'booked', 'rejected']
   
   return (
     <div className="bg-white border-b border-gray-200 px-4 py-3">
@@ -36,7 +39,7 @@ export default function RequestPipeline({ bookingRequest, onViewRequest }: Reque
           let borderClass = colors.border
           
           if (isActive) {
-            borderClass = s === 'pending' ? 'border-yellow-300' : s === 'approved' ? 'border-blue-300' : s === 'booked' ? 'border-emerald-300' : s === 'rejected' ? 'border-red-300' : 'border-gray-300'
+            borderClass = s === 'pending' ? 'border-yellow-300' : s === 'approved' ? 'border-blue-300' : s === 'booked' ? 'border-emerald-300' : s === 'rejected' ? 'border-red-300' : s === 'cancelled' ? 'border-orange-300' : 'border-gray-300'
           } else if (!isPast) {
             bgClass = 'bg-gray-50'
             textClass = 'text-gray-400'

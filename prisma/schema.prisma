@@ -58,7 +58,7 @@ model BookingRequest {
   additionalEmails Json? // Additional recipient emails (stored as JSON array)
   startDate       DateTime
   endDate         DateTime
-  status          String    @default("draft") // draft, pending, approved, booked, rejected
+  status          String    @default("draft") // draft, pending, approved, booked, rejected, cancelled
   eventId         String? // Link to created event if sent
   opportunityId   String? // Link to opportunity if created from one
   dealId          String?   @unique // Link to deal (if booked and deal was created)

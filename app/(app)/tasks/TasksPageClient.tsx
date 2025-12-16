@@ -14,8 +14,6 @@ import AssignmentIcon from '@mui/icons-material/Assignment'
 import GroupsIcon from '@mui/icons-material/Groups'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
-import EditIcon from '@mui/icons-material/Edit'
-import DeleteIcon from '@mui/icons-material/Delete'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PhoneIcon from '@mui/icons-material/Phone'
 import EmailIcon from '@mui/icons-material/Email'
@@ -26,7 +24,7 @@ import {
   type FilterTab,
   type ColumnConfig
 } from '@/components/shared'
-import { EntityTable, CellStack, RowActionsMenu } from '@/components/shared/table'
+import { EntityTable, CellStack } from '@/components/shared/table'
 import { sortEntities, type SortDirection } from '@/hooks/useEntityPage'
 
 // Lazy load modals
@@ -389,36 +387,17 @@ export default function TasksPageClient() {
             {sortedTasks.map((task) => {
               const overdue = isOverdue(task)
               const today = isDueToday(task)
-              
-              // Actions menu items
-              const actionItems = [
-                {
-                  label: 'Ver Oportunidad',
-                  icon: <OpenInNewIcon fontSize="small" />,
-                  onClick: () => task.opportunityId && handleViewOpportunity(task.opportunityId),
-                },
-                {
-                  label: 'Editar',
-                  icon: <EditIcon fontSize="small" />,
-                  onClick: () => handleEditTask(task),
-                },
-                ...(isAdmin ? [{
-                  label: 'Eliminar',
-                  icon: <DeleteIcon fontSize="small" />,
-                  variant: 'danger' as const,
-                  onClick: () => handleDeleteTask(task),
-                }] : []),
-              ]
 
               return (
                 <tr 
                   key={task.id} 
-                  className={`group transition-colors border-b last:border-0 hover:bg-slate-50 ${
+                  onClick={() => handleEditTask(task)}
+                  className={`group transition-colors border-b last:border-0 hover:bg-slate-50 cursor-pointer ${
                     task.completed ? 'opacity-60 bg-slate-50/50' : ''
                   }`}
                 >
                   {/* Status */}
-                  <td className="px-4 py-3 align-middle text-center w-10">
+                  <td className="px-4 py-3 align-middle text-center w-10" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => handleToggleComplete(task)}
                       className={`transition-colors ${
@@ -533,8 +512,18 @@ export default function TasksPageClient() {
                   </td>
 
                   {/* Actions */}
-                  <td className="px-4 py-3 align-middle text-right">
-                    <RowActionsMenu items={actionItems} />
+                  <td className="px-4 py-3 align-middle text-right" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-1">
+                      {task.opportunityId && (
+                        <button
+                          onClick={() => handleViewOpportunity(task.opportunityId)}
+                          className="p-1.5 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Ver Oportunidad"
+                        >
+                          <OpenInNewIcon style={{ fontSize: 18 }} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               )

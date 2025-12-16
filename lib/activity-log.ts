@@ -17,6 +17,7 @@ export type ActivityAction =
   | 'STATUS_CHANGE'
   | 'APPROVE'
   | 'REJECT'
+  | 'CANCEL'
   | 'SEND'
   | 'RESEND'
   | 'ASSIGN'

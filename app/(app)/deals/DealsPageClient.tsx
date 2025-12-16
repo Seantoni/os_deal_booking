@@ -17,7 +17,7 @@ import {
 } from '@/components/shared'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
-import { RowActionsMenu, EntityTable, StatusPill } from '@/components/shared/table'
+import { EntityTable, StatusPill } from '@/components/shared/table'
 import { Button } from '@/components/ui'
 
 // Lazy load heavy modal components
@@ -104,7 +104,6 @@ export default function DealsPageClient() {
   const [dealModalOpen, setDealModalOpen] = useState(false)
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [menuOpen, setMenuOpen] = useState<string | null>(null)
   const [visibleCount, setVisibleCount] = useState(50)
   const confirmDialog = useConfirmDialog()
 
@@ -323,24 +322,7 @@ export default function DealsPageClient() {
                   className="px-4 py-2 text-right"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <RowActionsMenu
-                    isOpen={menuOpen === deal.id}
-                    onOpenChange={(open) => setMenuOpen(open ? deal.id : null)}
-                    items={[
-                      {
-                        label: isAdmin ? 'Edit' : 'View',
-                        onClick: () => handleEditDeal(deal),
-                      },
-                      isAdmin
-                        ? {
-                            label: 'Delete',
-                            tone: 'danger',
-                            onClick: () => handleDelete(deal.id),
-                            disabled: deletingId === deal.id,
-                          }
-                        : null,
-                    ].filter(Boolean) as any}
-                  />
+                  {/* Actions removed - row click opens edit modal */}
                 </td>
               </tr>
             ))}

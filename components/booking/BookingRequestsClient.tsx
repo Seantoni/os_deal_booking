@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import dynamic from 'next/dynamic'
-import { deleteBookingRequest, resendBookingRequest, bulkDeleteBookingRequests, bulkUpdateBookingRequestStatus, refreshBookingRequests } from '@/app/actions/booking'
+import { deleteBookingRequest, resendBookingRequest, bulkDeleteBookingRequests, bulkUpdateBookingRequestStatus, refreshBookingRequests, cancelBookingRequest } from '@/app/actions/booking'
 import type { BookingRequest } from '@/types'
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
@@ -12,6 +12,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import EditIcon from '@mui/icons-material/Edit'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import SendIcon from '@mui/icons-material/Send'
+import BlockIcon from '@mui/icons-material/Block'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import CheckBoxIcon from '@mui/icons-material/CheckBox'
@@ -23,6 +24,7 @@ import toast from 'react-hot-toast'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useUserRole } from '@/hooks/useUserRole'
+import { useUser } from '@clerk/nextjs'
 import { Button, Input } from '@/components/ui'
 import { FilterTabs } from '@/components/shared'
 
@@ -40,10 +42,13 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
   const router = useRouter()
   const searchParams = useSearchParams()
   const { role: userRole } = useUserRole()
+  const { user } = useUser()
+  const currentUserId = user?.id || null
   const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>(initialBookingRequests)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [resendingId, setResendingId] = useState<string | null>(null)
-  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'pending' | 'approved' | 'booked' | 'rejected'>('all')
+  const [cancellingId, setCancellingId] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'pending' | 'approved' | 'booked' | 'rejected' | 'cancelled'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [sortColumn, setSortColumn] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
@@ -124,6 +129,48 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     refreshData()
   }
 
+  const handleCancel = async (request: BookingRequest) => {
+    // Check if user can cancel: must be creator or admin
+    const isCreator = request.userId === currentUserId
+    if (!isCreator && !isAdmin) {
+      toast.error('No tienes permiso para cancelar esta solicitud')
+      return
+    }
+
+    // Check if request can be cancelled (only draft or pending)
+    if (request.status !== 'draft' && request.status !== 'pending') {
+      toast.error('Solo se pueden cancelar solicitudes en estado borrador o pendiente')
+      return
+    }
+
+    const confirmed = await confirmDialog.confirm({
+      title: 'Cancelar Solicitud',
+      message: `¿Estás seguro de que deseas cancelar la solicitud "${request.name}"? Esta acción no se puede deshacer.`,
+      confirmText: 'Cancelar Solicitud',
+      cancelText: 'Volver',
+      confirmVariant: 'danger',
+    })
+
+    if (!confirmed) return
+
+    setCancellingId(request.id)
+    
+    const result = await cancelBookingRequest(request.id)
+    
+    if (result.success) {
+      // Update local state
+      setBookingRequests(prev => prev.map(r => 
+        r.id === request.id ? { ...r, status: 'cancelled' as const } : r
+      ))
+      toast.success('Solicitud cancelada exitosamente')
+    } else {
+      toast.error(result.error || 'Error al cancelar la solicitud')
+    }
+    
+    setCancellingId(null)
+    refreshData()
+  }
+
   const handleResendWithEmail = async (emails: string[]) => {
     if (!resendRequest) return
 
@@ -190,6 +237,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
       approved: 'bg-blue-50 text-blue-700',
       booked: 'bg-green-50 text-green-700',
       rejected: 'bg-red-50 text-red-700',
+      cancelled: 'bg-orange-50 text-orange-700',
     }
 
     return (
@@ -231,6 +279,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     approved: bookingRequests.filter(r => r.status === 'approved').length,
     booked: bookingRequests.filter(r => r.status === 'booked').length,
     rejected: bookingRequests.filter(r => r.status === 'rejected').length,
+    cancelled: bookingRequests.filter(r => r.status === 'cancelled').length,
   }), [bookingRequests])
 
   // Handle column sort
@@ -481,6 +530,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
               { id: 'approved', label: 'Approved', count: statusCounts.approved },
               { id: 'booked', label: 'Booked', count: statusCounts.booked },
               { id: 'rejected', label: 'Rejected', count: statusCounts.rejected },
+              { id: 'cancelled', label: 'Cancelled', count: statusCounts.cancelled },
             ]}
             activeId={statusFilter}
             onChange={(id) => setStatusFilter(id as any)}
@@ -809,6 +859,23 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                           >
                             <VisibilityIcon fontSize="small" />
                           </Button>
+                          {/* Cancel button - visible to creator or admin, only for draft/pending */}
+                          {(request.status === 'draft' || request.status === 'pending') && 
+                           (request.userId === currentUserId || isAdmin) && (
+                            <Button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleCancel(request)
+                              }}
+                              variant="ghost"
+                              size="sm"
+                              className="p-1.5 hover:text-orange-600 hover:bg-orange-50"
+                              loading={cancellingId === request.id}
+                              title="Cancelar solicitud"
+                            >
+                              <BlockIcon fontSize="small" />
+                            </Button>
+                          )}
                     {request.status === 'draft' && (
                       <Button
                               onClick={(e) => {

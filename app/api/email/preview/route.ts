@@ -12,10 +12,11 @@ import { renderBookingConfirmationEmail } from '@/lib/email/templates/booking-co
 import { renderBookingRequestEmail } from '@/lib/email/templates/booking-request'
 import { renderRejectionEmail } from '@/lib/email/templates/rejection'
 import { renderTaskReminderEmail } from '@/lib/email/templates/task-reminder'
+import { renderCancelledEmail } from '@/lib/email/templates/cancelled'
 import { getAppBaseUrl } from '@/lib/config/env'
 import { logger } from '@/lib/logger'
 
-type EmailTemplateType = 'booking-confirmation' | 'booking-request' | 'rejection' | 'task-reminder'
+type EmailTemplateType = 'booking-confirmation' | 'booking-request' | 'rejection' | 'task-reminder' | 'cancelled'
 
 export async function POST(req: Request) {
   try {
@@ -137,6 +138,14 @@ export async function POST(req: Request) {
             },
           ],
           appBaseUrl,
+        })
+        break
+
+      case 'cancelled':
+        html = renderCancelledEmail({
+          requestName: 'Ejemplo de Solicitud de Booking',
+          merchant: 'Restaurante Ejemplo',
+          cancelledBy: 'admin@ofertasimple.com',
         })
         break
 
