@@ -637,7 +637,9 @@ export async function refreshBookingRequests(): Promise<{
 
 /**
  * Get booking requests by business ID
- * Fetches all requests linked to a business through opportunities
+ * Fetches all requests linked to a business through:
+ * 1. Opportunities (opportunityId → opportunity.businessId)
+ * 2. Merchant name matching (for requests created directly without an opportunity)
  */
 export async function getRequestsByBusiness(businessId: string) {
   const authResult = await requireAuth()
@@ -646,27 +648,43 @@ export async function getRequestsByBusiness(businessId: string) {
   }
 
   try {
+    // Get business name for merchant matching
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: { name: true },
+    })
+
+    if (!business) {
+      return { success: false, error: 'Business not found' }
+    }
+
     // Get all opportunities for this business
     const opportunities = await prisma.opportunity.findMany({
       where: { businessId },
       select: { id: true },
     })
 
-    if (opportunities.length === 0) {
-      return { success: true, data: [] }
-    }
-
     const opportunityIds = opportunities.map(o => o.id)
 
-    // Get all booking requests linked to these opportunities
+    // Get all booking requests linked via opportunity OR matching by merchant name
     const requests = await prisma.bookingRequest.findMany({
       where: {
-        opportunityId: { in: opportunityIds },
+        OR: [
+          // Requests linked through opportunities
+          ...(opportunityIds.length > 0 ? [{ opportunityId: { in: opportunityIds } }] : []),
+          // Requests matching by merchant name (case-insensitive)
+          { merchant: { equals: business.name, mode: 'insensitive' as const } },
+        ],
       },
       orderBy: { createdAt: 'desc' },
     })
 
-    return { success: true, data: requests }
+    // Deduplicate (in case a request matches both criteria)
+    const uniqueRequests = Array.from(
+      new Map(requests.map(r => [r.id, r])).values()
+    )
+
+    return { success: true, data: uniqueRequests }
   } catch (error) {
     return handleServerActionError(error, 'getRequestsByBusiness')
   }
