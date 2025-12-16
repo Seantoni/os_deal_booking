@@ -10,9 +10,13 @@ export interface TaskWithOpportunity extends Task {
   opportunity: {
     id: string
     stage: string
+    name: string | null
     business: {
       id: string
       name: string
+      contactName: string
+      contactPhone: string
+      contactEmail: string
     }
   }
 }
@@ -57,10 +61,14 @@ export async function getUserTasks(): Promise<{
           select: {
             id: true,
             stage: true,
+            name: true,
             business: {
               select: {
                 id: true,
                 name: true,
+                contactName: true,
+                contactPhone: true,
+                contactEmail: true,
               },
             },
           },

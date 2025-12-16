@@ -17,8 +17,17 @@ import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
+import PhoneIcon from '@mui/icons-material/Phone'
+import EmailIcon from '@mui/icons-material/Email'
+import PersonIcon from '@mui/icons-material/Person'
 import { formatShortDate, formatRelativeTime } from '@/lib/utils/date-format'
-import { EntityPageHeader, type FilterTab } from '@/components/shared'
+import {
+  EntityPageHeader,
+  type FilterTab,
+  type ColumnConfig
+} from '@/components/shared'
+import { EntityTable, CellStack, RowActionsMenu } from '@/components/shared/table'
+import { sortEntities, type SortDirection } from '@/hooks/useEntityPage'
 
 // Lazy load modals
 const TaskModal = dynamic(() => import('@/components/crm/opportunity/TaskModal'), {
@@ -50,6 +59,20 @@ const STAGE_COLORS: Record<string, string> = {
   lost: 'bg-red-100 text-red-800',
 }
 
+// Table columns
+const COLUMNS: ColumnConfig[] = [
+  { key: 'status', label: '', width: 'w-10', align: 'center' },
+  { key: 'title', label: 'Tarea', sortable: true },
+  { key: 'category', label: 'Tipo', sortable: true, width: 'w-24', align: 'center' },
+  { key: 'date', label: 'Vencimiento', sortable: true, width: 'w-32' },
+  { key: 'business', label: 'Negocio', sortable: true },
+  { key: 'stage', label: 'Etapa', sortable: true, width: 'w-32' },
+  { key: 'contactName', label: 'Contacto', width: 'w-32' },
+  { key: 'contactEmail', label: 'Email', width: 'w-48' },
+  { key: 'contactPhone', label: 'Teléfono', width: 'w-32' },
+  { key: 'actions', label: '', width: 'w-16', align: 'right' },
+]
+
 type FilterType = 'all' | 'pending' | 'completed' | 'overdue' | 'meetings' | 'todos'
 
 export default function TasksPageClient() {
@@ -67,6 +90,10 @@ export default function TasksPageClient() {
   const [opportunityModalOpen, setOpportunityModalOpen] = useState(false)
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null)
   const [loadingOpportunity, setLoadingOpportunity] = useState(false)
+
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState<string | null>('date')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   // Load tasks
   const loadTasks = useCallback(async () => {
@@ -88,6 +115,16 @@ export default function TasksPageClient() {
   useEffect(() => {
     loadTasks()
   }, [loadTasks])
+
+  // Handle sort
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortColumn(column)
+      setSortDirection('asc')
+    }
+  }
 
   // Filter tasks
   const filteredTasks = useMemo(() => {
@@ -127,6 +164,20 @@ export default function TasksPageClient() {
 
     return filtered
   }, [tasks, activeFilter, searchQuery])
+
+  // Sort tasks
+  const sortedTasks = useMemo(() => {
+    return sortEntities(filteredTasks, sortColumn, sortDirection, (task, column) => {
+      switch (column) {
+        case 'title': return task.title
+        case 'date': return new Date(task.date).getTime()
+        case 'category': return task.category
+        case 'business': return task.opportunity?.business?.name || ''
+        case 'status': return task.completed ? 1 : 0
+        default: return null
+      }
+    })
+  }, [filteredTasks, sortColumn, sortDirection])
 
   // Count for filters
   const counts = useMemo(() => {
@@ -272,18 +323,18 @@ export default function TasksPageClient() {
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header with Search and Filters */}
       <EntityPageHeader
-        entityType="opportunities" // Tasks are related to opportunities, using this for type safety
+        entityType="opportunities"
         searchPlaceholder="Buscar tareas..."
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         filterTabs={filterTabs}
         activeFilter={activeFilter}
         onFilterChange={(id) => setActiveFilter(id as FilterType)}
-        savedFilters={[]} // Tasks don't have saved filters
+        savedFilters={[]}
         activeFilterId={null}
-        onFilterSelect={() => {}} // No-op since no saved filters
-        onAdvancedFiltersChange={() => {}} // No-op since no advanced filters for tasks
-        onSavedFiltersChange={() => {}} // No-op since no saved filters
+        onFilterSelect={() => {}}
+        onAdvancedFiltersChange={() => {}}
+        onSavedFiltersChange={() => {}}
         isAdmin={isAdmin}
       />
 
@@ -304,8 +355,8 @@ export default function TasksPageClient() {
               </div>
             ))}
           </div>
-        ) : filteredTasks.length === 0 ? (
-          <div className="bg-white rounded-lg p-8 text-center">
+        ) : sortedTasks.length === 0 ? (
+          <div className="bg-white rounded-lg p-8 text-center border border-gray-200">
             <AssignmentIcon className="text-gray-300 mx-auto mb-3" style={{ fontSize: 48 }} />
             <p className="text-gray-500 font-medium">No hay tareas</p>
             <p className="text-sm text-gray-400 mt-1">
@@ -315,124 +366,166 @@ export default function TasksPageClient() {
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {filteredTasks.map((task) => {
+          <EntityTable
+            columns={COLUMNS}
+            sortColumn={sortColumn}
+            sortDirection={sortDirection}
+            onSort={handleSort}
+          >
+            {sortedTasks.map((task) => {
               const overdue = isOverdue(task)
               const today = isDueToday(task)
+              
+              // Actions menu items
+              const actionItems = [
+                {
+                  label: 'Ver Oportunidad',
+                  icon: <OpenInNewIcon fontSize="small" />,
+                  onClick: () => task.opportunityId && handleViewOpportunity(task.opportunityId),
+                },
+                {
+                  label: 'Editar',
+                  icon: <EditIcon fontSize="small" />,
+                  onClick: () => handleEditTask(task),
+                },
+                ...(isAdmin ? [{
+                  label: 'Eliminar',
+                  icon: <DeleteIcon fontSize="small" />,
+                  variant: 'danger' as const,
+                  onClick: () => handleDeleteTask(task),
+                }] : []),
+              ]
 
               return (
-                <div
-                  key={task.id}
-                  className={`bg-white rounded-lg border transition-all hover:shadow-sm ${
-                    task.completed
-                      ? 'border-gray-100 opacity-60'
-                      : overdue
-                      ? 'border-red-200 bg-red-50/30'
-                      : today
-                      ? 'border-orange-200 bg-orange-50/30'
-                      : 'border-gray-200'
+                <tr 
+                  key={task.id} 
+                  className={`group transition-colors border-b last:border-0 hover:bg-slate-50 ${
+                    task.completed ? 'opacity-60 bg-slate-50/50' : ''
                   }`}
                 >
-                  <div className="p-4">
-                    <div className="flex items-start gap-3">
-                      {/* Complete toggle */}
-                      <button
-                        onClick={() => handleToggleComplete(task)}
-                        className={`mt-0.5 flex-shrink-0 transition-colors ${
-                          task.completed
-                            ? 'text-green-500 hover:text-green-600'
-                            : 'text-gray-300 hover:text-gray-400'
-                        }`}
-                        title={task.completed ? 'Marcar como pendiente' : 'Marcar como completada'}
-                      >
-                        {task.completed ? (
-                          <CheckCircleIcon fontSize="small" />
-                        ) : (
-                          <RadioButtonUncheckedIcon fontSize="small" />
-                        )}
-                      </button>
+                  {/* Status */}
+                  <td className="px-4 py-3 align-middle text-center w-10">
+                    <button
+                      onClick={() => handleToggleComplete(task)}
+                      className={`transition-colors ${
+                        task.completed
+                          ? 'text-green-500 hover:text-green-600'
+                          : 'text-gray-300 hover:text-gray-400'
+                      }`}
+                      title={task.completed ? 'Marcar como pendiente' : 'Marcar como completada'}
+                    >
+                      {task.completed ? (
+                        <CheckCircleIcon fontSize="small" />
+                      ) : (
+                        <RadioButtonUncheckedIcon fontSize="small" />
+                      )}
+                    </button>
+                  </td>
 
-                      {/* Task info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {/* Category icon */}
-                          {task.category === 'meeting' ? (
-                            <GroupsIcon fontSize="small" className="text-blue-500" />
-                          ) : (
-                            <AssignmentIcon fontSize="small" className="text-orange-500" />
-                          )}
-
-                          {/* Title */}
-                          <span className={`font-medium text-sm ${
-                            task.completed ? 'line-through text-gray-400' : 'text-gray-900'
-                          }`}>
-                            {task.title}
-                          </span>
-
-                          {/* Due date badge */}
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${
-                            task.completed
-                              ? 'bg-gray-100 text-gray-500'
-                              : overdue
-                              ? 'bg-red-100 text-red-700 font-medium'
-                              : today
-                              ? 'bg-orange-100 text-orange-700 font-medium'
-                              : 'bg-gray-100 text-gray-600'
-                          }`}>
-                            {overdue ? 'Vencida: ' : today ? 'Hoy: ' : ''}
-                            {formatShortDate(task.date)}
-                          </span>
-                        </div>
-
-                        {/* Business and opportunity info */}
-                        <div className="mt-1.5 flex items-center gap-2 flex-wrap text-xs text-gray-500">
-                          <span className="font-medium text-gray-700">
-                            {task.opportunity?.business?.name || 'Sin negocio'}
-                          </span>
-                          <span>•</span>
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                            STAGE_COLORS[task.opportunity?.stage || ''] || 'bg-gray-100 text-gray-600'
-                          }`}>
-                            {STAGE_LABELS[task.opportunity?.stage || ''] || task.opportunity?.stage}
-                          </span>
-                          <span>•</span>
-                          <span>{formatRelativeTime(task.createdAt)}</span>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <button
-                          onClick={() => handleViewOpportunity(task.opportunityId)}
-                          disabled={loadingOpportunity}
-                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Ver oportunidad"
-                        >
-                          <OpenInNewIcon fontSize="small" />
-                        </button>
-                        <button
-                          onClick={() => handleEditTask(task)}
-                          className="p-1.5 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
-                          title="Editar tarea"
-                        >
-                          <EditIcon fontSize="small" />
-                        </button>
-                        {isAdmin && (
-                          <button
-                            onClick={() => handleDeleteTask(task)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                            title="Eliminar tarea"
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </button>
-                        )}
-                      </div>
+                  {/* Title */}
+                  <td className="px-4 py-3 align-middle">
+                    <div className="flex items-center gap-2">
+                      <span className={`font-medium whitespace-nowrap ${task.completed ? 'line-through text-gray-500' : 'text-slate-900'}`}>
+                        {task.title}
+                      </span>
+                      {task.notes && (
+                        <span className="text-slate-400 text-xs truncate max-w-[200px]" title={task.notes}>
+                          - {task.notes}
+                        </span>
+                      )}
                     </div>
-                  </div>
-                </div>
+                  </td>
+
+                  {/* Category */}
+                  <td className="px-4 py-3 align-middle text-center">
+                    <div className="flex justify-center">
+                      {task.category === 'meeting' ? (
+                        <div className="text-blue-600" title="Reunión">
+                          <GroupsIcon fontSize="small" />
+                        </div>
+                      ) : (
+                        <div className="text-orange-600" title="To-do">
+                          <AssignmentIcon fontSize="small" />
+                        </div>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* Date */}
+                  <td className="px-4 py-3 align-middle">
+                    <span className={`text-sm whitespace-nowrap ${
+                      overdue 
+                        ? 'text-red-600 font-medium' 
+                        : today 
+                        ? 'text-orange-600 font-medium' 
+                        : 'text-slate-700'
+                    }`}>
+                      {formatShortDate(task.date)}
+                    </span>
+                  </td>
+
+                  {/* Business */}
+                  <td className="px-4 py-3 align-middle">
+                    <span className="text-sm text-slate-900 truncate block max-w-[180px]" title={task.opportunity?.business?.name || ''}>
+                      {task.opportunity?.business?.name || '-'}
+                    </span>
+                  </td>
+
+                  {/* Stage */}
+                  <td className="px-4 py-3 align-middle">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
+                      STAGE_COLORS[task.opportunity?.stage || ''] || 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {STAGE_LABELS[task.opportunity?.stage || ''] || task.opportunity?.stage || '-'}
+                    </span>
+                  </td>
+
+                  {/* Contact Name */}
+                  <td className="px-4 py-3 align-middle">
+                    <span className="text-sm text-slate-600 truncate block max-w-[120px]" title={task.opportunity?.business?.contactName || ''}>
+                      {task.opportunity?.business?.contactName || '-'}
+                    </span>
+                  </td>
+
+                  {/* Contact Email */}
+                  <td className="px-4 py-3 align-middle">
+                    {task.opportunity?.business?.contactEmail ? (
+                      <a 
+                        href={`mailto:${task.opportunity.business.contactEmail}`}
+                        className="text-sm text-blue-600 hover:underline truncate block max-w-[180px]"
+                        onClick={(e) => e.stopPropagation()}
+                        title={task.opportunity.business.contactEmail}
+                      >
+                        {task.opportunity.business.contactEmail}
+                      </a>
+                    ) : (
+                      <span className="text-sm text-slate-400">-</span>
+                    )}
+                  </td>
+
+                  {/* Contact Phone */}
+                  <td className="px-4 py-3 align-middle">
+                    {task.opportunity?.business?.contactPhone ? (
+                      <a 
+                        href={`tel:${task.opportunity.business.contactPhone}`}
+                        className="text-sm text-blue-600 hover:underline whitespace-nowrap"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {task.opportunity.business.contactPhone}
+                      </a>
+                    ) : (
+                      <span className="text-sm text-slate-400">-</span>
+                    )}
+                  </td>
+
+                  {/* Actions */}
+                  <td className="px-4 py-3 align-middle text-right">
+                    <RowActionsMenu items={actionItems} />
+                  </td>
+                </tr>
               )
             })}
-          </div>
+          </EntityTable>
         )}
       </div>
 
@@ -460,7 +553,6 @@ export default function TasksPageClient() {
           }}
           opportunity={selectedOpportunity}
           onSuccess={(updatedOpportunity) => {
-            // Reload tasks when opportunity is updated (tasks might have changed)
             loadTasks()
           }}
         />
@@ -480,4 +572,3 @@ export default function TasksPageClient() {
     </div>
   )
 }
-
