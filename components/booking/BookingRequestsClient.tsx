@@ -734,12 +734,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                         </span>
                       </td>
                       <td className="px-4 py-[5px]">
-                        <div className="flex flex-col">
-                          <span className="font-medium text-gray-900 truncate block">{request.name}</span>
-                      {request.merchant && (
-                            <span className="text-xs text-gray-500 truncate block mt-0.5">{request.merchant}</span>
-                      )}
-                    </div>
+                        <span className="font-medium text-gray-900 truncate block text-sm">{request.name}</span>
                       </td>
                       <td className="px-4 py-[5px] text-gray-600">
                         <span className="truncate block max-w-[180px]">{request.businessEmail}</span>

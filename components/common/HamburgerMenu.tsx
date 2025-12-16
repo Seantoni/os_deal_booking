@@ -27,20 +27,25 @@ type SidebarItem = {
 }
 
 // Define sidebar configurations for each role
+// Organized by workflow: Daily Ops -> Sales Funnel -> Fulfillment -> Database
 const adminSidebarConfig = {
   mainItems: [
+    // 1. Daily Overview & Actions
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
-    { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
     { name: 'Tasks', href: '/tasks', Icon: AssignmentIcon },
-    { name: 'Calendar', href: '/events', Icon: CalendarMonthIcon },
-    { name: 'Reservations', href: '/reservations', Icon: ListAltIcon },
+    { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
     { name: 'Requests', href: '/booking-requests', Icon: RequestPageIcon },
+    
+    // 2. Sales Funnel (Inflow -> Active -> Closing)
     { name: 'Leads', href: '/leads', Icon: PersonAddIcon },
-    { name: 'Businesses', href: '/businesses', Icon: BusinessIcon },
     { name: 'Opportunities', href: '/opportunities', Icon: TrendingUpIcon },
     { name: 'Deals', href: '/deals', Icon: HandshakeIcon },
+        
+    // 4. Database / CRM
+    { name: 'Businesses', href: '/businesses', Icon: BusinessIcon },
   ],
   bottomItems: [
+    { name: 'Calendar', href: '/events', Icon: CalendarMonthIcon },
     { name: 'Activity', href: '/activity-log', Icon: HistoryIcon },
     { name: 'Settings', href: '/settings', Icon: SettingsIcon },
   ],
@@ -48,17 +53,24 @@ const adminSidebarConfig = {
 
 const salesSidebarConfig = {
   mainItems: [
+    // 1. Daily Overview & Actions
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
-    { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
     { name: 'Tasks', href: '/tasks', Icon: AssignmentIcon },
-    { name: 'Calendar', href: '/events', Icon: CalendarMonthIcon },
-    { name: 'Reservations', href: '/reservations', Icon: ListAltIcon },
+    { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
     { name: 'Requests', href: '/booking-requests', Icon: RequestPageIcon },
-    { name: 'Businesses', href: '/businesses', Icon: BusinessIcon },
+    
+    // 2. Sales Funnel
+    // Note: Leads might be restricted for sales, but if they have access:
+    // { name: 'Leads', href: '/leads', Icon: PersonAddIcon }, 
     { name: 'Opportunities', href: '/opportunities', Icon: TrendingUpIcon },
     { name: 'Deals', href: '/deals', Icon: HandshakeIcon },
+    
+    // 4. Database
+    { name: 'Businesses', href: '/businesses', Icon: BusinessIcon },
   ],
-  bottomItems: [], // No settings for sales
+  bottomItems: [
+    { name: 'Calendar', href: '/events', Icon: CalendarMonthIcon },
+  ],
 }
 
 const editorSidebarConfig = {

@@ -440,7 +440,12 @@ export default function BookingRequestViewModal({
     params.set('replicate', 'true')
     
     // Step 1: Configuración
-    if (requestData.name) params.set('businessName', String(requestData.name))
+    // Extract business name from formatted request name (format: "Business Name | Date | #Number")
+    // Only use the part before the first "|" to avoid duplicate formatting
+    if (requestData.name) {
+      const businessName = requestData.name.split(' | ')[0].trim()
+      params.set('businessName', businessName)
+    }
     if (requestData.businessEmail) params.set('partnerEmail', String(requestData.businessEmail))
     if (requestData.additionalEmails) {
       const emails = Array.isArray(requestData.additionalEmails) 
