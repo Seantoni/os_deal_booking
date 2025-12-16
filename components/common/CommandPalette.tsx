@@ -7,7 +7,7 @@ import SearchIcon from '@mui/icons-material/Search'
 import BusinessIcon from '@mui/icons-material/Business'
 import EventIcon from '@mui/icons-material/Event'
 import RequestQuoteIcon from '@mui/icons-material/RequestQuote'
-import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import HandshakeIcon from '@mui/icons-material/Handshake'
 import DescriptionIcon from '@mui/icons-material/Description'
 import CloseIcon from '@mui/icons-material/Close'
 import { globalSearch, type SearchResult } from '@/app/actions/search'
@@ -123,7 +123,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       case 'business':
         return <BusinessIcon className="w-5 h-5" />
       case 'opportunity':
-        return <TrendingUpIcon className="w-5 h-5" />
+        return <HandshakeIcon className="w-5 h-5" />
       case 'booking-request':
         return <RequestQuoteIcon className="w-5 h-5" />
       case 'deal':
@@ -190,7 +190,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                     Businesses
                   </span>
                   <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
-                    <TrendingUpIcon className="w-3 h-3" />
+                    <HandshakeIcon className="w-3 h-3" />
                     Opportunities
                   </span>
                   <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">

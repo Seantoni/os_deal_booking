@@ -9,15 +9,15 @@ import { useSidebar } from './SidebarContext'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import ListAltIcon from '@mui/icons-material/ListAlt'
-import RequestPageIcon from '@mui/icons-material/RequestPage'
+import DescriptionIcon from '@mui/icons-material/Description'
 import SettingsIcon from '@mui/icons-material/Settings'
 import BusinessIcon from '@mui/icons-material/Business'
-import TrendingUpIcon from '@mui/icons-material/TrendingUp'
-import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import HandshakeIcon from '@mui/icons-material/Handshake'
+import AccountTreeIcon from '@mui/icons-material/AccountTree'
+import AssignmentIcon from '@mui/icons-material/Assignment'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import HistoryIcon from '@mui/icons-material/History'
-import AssignmentIcon from '@mui/icons-material/Assignment'
 
 // Sidebar item type
 type SidebarItem = {
@@ -32,14 +32,14 @@ const adminSidebarConfig = {
   mainItems: [
     // 1. Daily Overview & Actions
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
-    { name: 'Tasks', href: '/tasks', Icon: AssignmentIcon },
+    { name: 'Tasks', href: '/tasks', Icon: CheckCircleIcon },
     { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
-    { name: 'Requests', href: '/booking-requests', Icon: RequestPageIcon },
+    { name: 'Requests', href: '/booking-requests', Icon: DescriptionIcon },
     
     // 2. Sales Funnel (Inflow -> Active -> Closing)
     { name: 'Leads', href: '/leads', Icon: PersonAddIcon },
-    { name: 'Opportunities', href: '/opportunities', Icon: TrendingUpIcon },
-    { name: 'Deals', href: '/deals', Icon: HandshakeIcon },
+    { name: 'Deals', href: '/deals', Icon: AssignmentIcon },
+    { name: 'Opportunities', href: '/opportunities', Icon: HandshakeIcon },
         
     // 4. Database / CRM
     { name: 'Businesses', href: '/businesses', Icon: BusinessIcon },
@@ -55,15 +55,15 @@ const salesSidebarConfig = {
   mainItems: [
     // 1. Daily Overview & Actions
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
-    { name: 'Tasks', href: '/tasks', Icon: AssignmentIcon },
+    { name: 'Tasks', href: '/tasks', Icon: CheckCircleIcon },
     { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
-    { name: 'Requests', href: '/booking-requests', Icon: RequestPageIcon },
+    { name: 'Requests', href: '/booking-requests', Icon: DescriptionIcon },
     
     // 2. Sales Funnel
     // Note: Leads might be restricted for sales, but if they have access:
     // { name: 'Leads', href: '/leads', Icon: PersonAddIcon }, 
-    { name: 'Opportunities', href: '/opportunities', Icon: TrendingUpIcon },
-    { name: 'Deals', href: '/deals', Icon: HandshakeIcon },
+    { name: 'Deals', href: '/deals', Icon: AssignmentIcon },
+    { name: 'Opportunities', href: '/opportunities', Icon: HandshakeIcon },
     
     // 4. Database
     { name: 'Businesses', href: '/businesses', Icon: BusinessIcon },
@@ -75,7 +75,7 @@ const salesSidebarConfig = {
 
 const editorSidebarConfig = {
   mainItems: [
-    { name: 'Deals', href: '/deals', Icon: HandshakeIcon },
+    { name: 'Deals', href: '/deals', Icon: AssignmentIcon },
   ],
   bottomItems: [], // No settings for editor
 }

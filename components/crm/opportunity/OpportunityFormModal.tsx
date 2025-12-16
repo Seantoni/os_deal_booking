@@ -7,7 +7,7 @@ import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
 import type { Opportunity, OpportunityStage, Task, Business } from '@/types'
 import CloseIcon from '@mui/icons-material/Close'
-import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import HandshakeIcon from '@mui/icons-material/Handshake'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import EventIcon from '@mui/icons-material/Event'
 import { Button } from '@/components/ui'
@@ -524,7 +524,7 @@ export default function OpportunityFormModal({
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-orange-100 rounded-lg border border-orange-200">
-                  <TrendingUpIcon className="text-orange-600" fontSize="medium" />
+                  <HandshakeIcon className="text-orange-600" fontSize="medium" />
                 </div>
                 <div>
                   <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Opportunity</p>

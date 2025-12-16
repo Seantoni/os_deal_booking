@@ -4,15 +4,24 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { getBusinesses, deleteBusiness, getOpportunities } from '@/app/actions/crm'
+import { getBookingRequests } from '@/app/actions/booking-requests'
+import type { BookingRequest } from '@/types'
 import { syncBusinessesFromApi } from '@/app/actions/crm/sync-business-metrics'
 import type { Business, Opportunity } from '@/types'
 import AddIcon from '@mui/icons-material/Add'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
+import HandshakeIcon from '@mui/icons-material/Handshake'
+import DescriptionIcon from '@mui/icons-material/Description'
 
-// Lazy load heavy modal component
+// Lazy load heavy modal components
 const BusinessFormModal = dynamic(() => import('@/components/crm/business/BusinessFormModal'), {
   loading: () => <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"><div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div></div>,
+  ssr: false,
+})
+
+const OpportunityFormModal = dynamic(() => import('@/components/crm/opportunity/OpportunityFormModal'), {
+  loading: () => null,
   ssr: false,
 })
 import toast from 'react-hot-toast'
@@ -40,7 +49,8 @@ const COLUMNS: ColumnConfig[] = [
   { key: 'category', label: 'Category', sortable: true },
   { key: 'netRev360', label: 'Net Rev (360d)', sortable: true, align: 'right' },
   { key: 'reps', label: 'Reps' },
-  { key: 'opportunity', label: 'Opp.', align: 'center' },
+  { key: 'openOpps', label: 'Open Opps', sortable: true, align: 'center', width: 'w-20' },
+  { key: 'pendingReqs', label: 'Pending Reqs', sortable: true, align: 'center', width: 'w-24' },
   { key: 'actions', label: '', width: 'w-20' },
 ]
 
@@ -80,8 +90,9 @@ export default function BusinessesPageClient() {
     defaultSortDirection: 'asc',
   })
 
-  // Additional state for opportunities (to determine which businesses have open opportunities)
+  // Additional state for opportunities and requests
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
+  const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>([])
   const [opportunityFilter, setOpportunityFilter] = useState<'all' | 'with-open' | 'without-open'>('all')
   const [revenueMap, setRevenueMap] = useState<Record<string, number>>({})
   const [syncingRevenue, setSyncingRevenue] = useState(false)
@@ -91,22 +102,30 @@ export default function BusinessesPageClient() {
   const [businessModalOpen, setBusinessModalOpen] = useState(false)
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null)
   const [menuOpen, setMenuOpen] = useState<string | null>(null)
+  const [opportunityModalOpen, setOpportunityModalOpen] = useState(false)
+  const [selectedBusinessForOpportunity, setSelectedBusinessForOpportunity] = useState<Business | null>(null)
   
   const confirmDialog = useConfirmDialog()
 
-  // Load opportunities alongside businesses
+  // Load opportunities and booking requests alongside businesses
   useEffect(() => {
-    async function loadOpportunities() {
+    async function loadOpportunitiesAndRequests() {
       try {
-        const result = await getOpportunities()
-        if (result.success && result.data) {
-          setOpportunities(result.data)
+        const [oppsResult, reqsResult] = await Promise.all([
+          getOpportunities(),
+          getBookingRequests(),
+        ])
+        if (oppsResult.success && oppsResult.data) {
+          setOpportunities(oppsResult.data)
+        }
+        if (reqsResult.success && reqsResult.data) {
+          setBookingRequests(reqsResult.data)
         }
       } catch (error) {
-        logger.error('Failed to load opportunities:', error)
+        logger.error('Failed to load opportunities/requests:', error)
       }
     }
-    loadOpportunities()
+    loadOpportunitiesAndRequests()
   }, [])
 
   // ---- Daily revenue sync (Panama time, once per day after 8am) ----
@@ -176,17 +195,39 @@ export default function BusinessesPageClient() {
     }
   }, [getPanamaNow, loadData, shouldSyncRevenueToday, syncingRevenue])
 
-  // Map of business IDs to whether they have open opportunities
-  const businessHasOpenOpportunity = useMemo(() => {
-    const map = new Map<string, boolean>()
+  // Map of business IDs to count of open opportunities
+  const businessOpenOpportunityCount = useMemo(() => {
+    const map = new Map<string, number>()
     opportunities.forEach(opp => {
       const isOpen = opp.stage !== 'won' && opp.stage !== 'lost'
       if (opp.businessId && isOpen) {
-        map.set(opp.businessId, true)
+        map.set(opp.businessId, (map.get(opp.businessId) || 0) + 1)
       }
     })
     return map
   }, [opportunities])
+
+  // Map of business names to count of pending requests
+  const businessPendingRequestCount = useMemo(() => {
+    const map = new Map<string, number>()
+    bookingRequests.forEach(req => {
+      if (req.status === 'pending' && req.merchant) {
+        // Match by merchant name (case-insensitive)
+        const merchantLower = req.merchant.toLowerCase()
+        map.set(merchantLower, (map.get(merchantLower) || 0) + 1)
+      }
+    })
+    return map
+  }, [bookingRequests])
+
+  // Helper to check if business has open opportunity (for filter tabs)
+  const businessHasOpenOpportunity = useMemo(() => {
+    const map = new Map<string, boolean>()
+    businessOpenOpportunityCount.forEach((count, businessId) => {
+      if (count > 0) map.set(businessId, true)
+    })
+    return map
+  }, [businessOpenOpportunityCount])
 
   // Static filter tabs (shown immediately)
   const staticFilterTabs: FilterTab[] = useMemo(() => [
@@ -223,10 +264,14 @@ export default function BusinessesPageClient() {
         if (business.sourceType !== 'api') return null
         const metricRev = (business as any)?.metrics?.net_rev_360_days as number | undefined
         return revenueMap[business.id] ?? metricRev ?? null
+      case 'openOpps':
+        return businessOpenOpportunityCount.get(business.id) || 0
+      case 'pendingReqs':
+        return businessPendingRequestCount.get(business.name.toLowerCase()) || 0
       default:
         return null
     }
-  }, [revenueMap])
+  }, [revenueMap, businessOpenOpportunityCount, businessPendingRequestCount])
 
   // Filter and sort businesses
   const filteredBusinesses = useMemo(() => {
@@ -284,6 +329,68 @@ export default function BusinessesPageClient() {
     } else {
       toast.success('Business deleted successfully')
     }
+  }
+
+  function handleCreateOpportunity(business: Business) {
+    setSelectedBusinessForOpportunity(business)
+    setOpportunityModalOpen(true)
+    setMenuOpen(null)
+  }
+
+  function handleCreateRequest(business: Business) {
+    // Build query parameters with business data (matching OpportunityFormModal behavior)
+    const params = new URLSearchParams()
+    
+    // Flag to trigger pre-fill logic in EnhancedBookingForm
+    params.set('fromOpportunity', 'business')
+    
+    // Basic business info
+    params.set('businessName', business.name)
+    params.set('businessEmail', business.contactEmail)
+    params.set('contactName', business.contactName || '')
+    params.set('contactPhone', business.contactPhone || '')
+    
+    // Category info
+    if (business.category) {
+      params.set('categoryId', business.category.id)
+      params.set('parentCategory', business.category.parentCategory)
+      if (business.category.subCategory1) params.set('subCategory1', business.category.subCategory1)
+      if (business.category.subCategory2) params.set('subCategory2', business.category.subCategory2)
+    }
+    
+    // Legal/Tax info
+    if (business.razonSocial) params.set('legalName', business.razonSocial)
+    if (business.ruc) params.set('ruc', business.ruc)
+    
+    // Location info
+    if (business.province) params.set('province', business.province)
+    if (business.district) params.set('district', business.district)
+    if (business.corregimiento) params.set('corregimiento', business.corregimiento)
+    if (business.address) params.set('address', business.address)
+    if (business.neighborhood) params.set('neighborhood', business.neighborhood)
+    
+    // Bank/Payment info
+    if (business.bank) params.set('bank', business.bank)
+    if (business.beneficiaryName) params.set('bankAccountName', business.beneficiaryName)
+    if (business.accountNumber) params.set('accountNumber', business.accountNumber)
+    if (business.accountType) params.set('accountType', business.accountType)
+    if (business.paymentPlan) params.set('paymentPlan', business.paymentPlan)
+    
+    // Additional info
+    if (business.description) params.set('description', business.description)
+    if (business.website) params.set('website', business.website)
+    if (business.instagram) params.set('instagram', business.instagram)
+    
+    // Payment contact emails
+    if (business.emailPaymentContacts) {
+      const paymentEmails = business.emailPaymentContacts.split(/[;,\s]+/).filter(Boolean)
+      if (paymentEmails.length > 0) {
+        params.set('paymentEmails', JSON.stringify(paymentEmails))
+      }
+    }
+    
+    setMenuOpen(null)
+    router.push(`/booking-requests/new?${params.toString()}`)
   }
 
   // Right side content for header
@@ -390,16 +497,45 @@ export default function BusinessesPageClient() {
                     )}
                   </td>
                   <td className="px-4 py-[5px] text-center">
-                    {businessHasOpenOpportunity.get(business.id) ? (
-                      <span className="inline-flex px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">
-                        Open
-                      </span>
-                    ) : (
-                      <span className="text-gray-400 text-xs">-</span>
-                    )}
+                    {(() => {
+                      const count = businessOpenOpportunityCount.get(business.id) || 0
+                      return count > 0 ? (
+                        <span className="inline-flex px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">
+                          {count}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">-</span>
+                      )
+                    })()}
+                  </td>
+                  <td className="px-4 py-[5px] text-center">
+                    {(() => {
+                      const count = businessPendingRequestCount.get(business.name.toLowerCase()) || 0
+                      return count > 0 ? (
+                        <span className="inline-flex px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded text-xs font-medium">
+                          {count}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">-</span>
+                      )
+                    })()}
                   </td>
                   <td className="px-4 py-[5px] text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => handleCreateOpportunity(business)}
+                        className="p-1.5 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
+                        title="Create Opportunity"
+                      >
+                        <HandshakeIcon style={{ fontSize: 18 }} />
+                      </button>
+                      <button
+                        onClick={() => handleCreateRequest(business)}
+                        className="p-1.5 rounded hover:bg-green-50 text-gray-400 hover:text-green-600 transition-colors"
+                        title="Create Request"
+                      >
+                        <DescriptionIcon style={{ fontSize: 18 }} />
+                      </button>
                       <button
                         onClick={() => router.push(`/businesses/${business.id}`)}
                         className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600 transition-colors"
@@ -464,6 +600,33 @@ export default function BusinessesPageClient() {
         preloadedCategories={categories}
         preloadedUsers={users}
       />
+
+      {/* Opportunity Modal */}
+      {opportunityModalOpen && selectedBusinessForOpportunity && (
+        <OpportunityFormModal
+          isOpen={opportunityModalOpen}
+          onClose={() => {
+            setOpportunityModalOpen(false)
+            setSelectedBusinessForOpportunity(null)
+          }}
+          opportunity={null}
+          initialBusinessId={selectedBusinessForOpportunity.id}
+          onSuccess={(newOpportunity) => {
+            toast.success('Opportunity created successfully')
+            setOpportunityModalOpen(false)
+            setSelectedBusinessForOpportunity(null)
+            // Reload opportunities to update the "Open" badge
+            getOpportunities().then(result => {
+              if (result.success && result.data) {
+                setOpportunities(result.data)
+              }
+            })
+          }}
+          preloadedBusinesses={businesses}
+          preloadedCategories={categories}
+          preloadedUsers={users}
+        />
+      )}
 
       {/* Confirm Dialog */}
       <ConfirmDialog

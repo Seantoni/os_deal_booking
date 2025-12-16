@@ -6,17 +6,17 @@ import { usePathname } from 'next/navigation'
 import { useSidebar } from './SidebarContext'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
-import RequestPageIcon from '@mui/icons-material/RequestPage'
-import HandshakeIcon from '@mui/icons-material/Handshake'
+import DescriptionIcon from '@mui/icons-material/Description'
+import AssignmentIcon from '@mui/icons-material/Assignment'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import ListAltIcon from '@mui/icons-material/ListAlt'
 import BusinessIcon from '@mui/icons-material/Business'
-import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import HandshakeIcon from '@mui/icons-material/Handshake'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import SettingsIcon from '@mui/icons-material/Settings'
 import CloseIcon from '@mui/icons-material/Close'
 import MenuIcon from '@mui/icons-material/Menu'
-import AssignmentIcon from '@mui/icons-material/Assignment'
 
 type NavItem = {
   name: string
@@ -28,38 +28,38 @@ type NavItem = {
 const adminPrimaryNav: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
   { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
-  { name: 'Requests', href: '/booking-requests', Icon: RequestPageIcon },
-  { name: 'Deals', href: '/deals', Icon: HandshakeIcon },
+  { name: 'Requests', href: '/booking-requests', Icon: DescriptionIcon },
+  { name: 'Deals', href: '/deals', Icon: AssignmentIcon },
 ]
 
 const salesPrimaryNav: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
   { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
-  { name: 'Requests', href: '/booking-requests', Icon: RequestPageIcon },
-  { name: 'Deals', href: '/deals', Icon: HandshakeIcon },
+  { name: 'Requests', href: '/booking-requests', Icon: DescriptionIcon },
+  { name: 'Deals', href: '/deals', Icon: AssignmentIcon },
 ]
 
 const editorPrimaryNav: NavItem[] = [
-  { name: 'Deals', href: '/deals', Icon: HandshakeIcon },
+  { name: 'Deals', href: '/deals', Icon: AssignmentIcon },
 ]
 
 // Secondary nav items (shown in "More" menu)
 const adminSecondaryNav: NavItem[] = [
-  { name: 'Tasks', href: '/tasks', Icon: AssignmentIcon },
+  { name: 'Tasks', href: '/tasks', Icon: CheckCircleIcon },
   { name: 'Calendar', href: '/events', Icon: CalendarMonthIcon },
   { name: 'Reservations', href: '/reservations', Icon: ListAltIcon },
   { name: 'Leads', href: '/leads', Icon: PersonAddIcon },
   { name: 'Businesses', href: '/businesses', Icon: BusinessIcon },
-  { name: 'Opportunities', href: '/opportunities', Icon: TrendingUpIcon },
+  { name: 'Opportunities', href: '/opportunities', Icon: HandshakeIcon },
   { name: 'Settings', href: '/settings', Icon: SettingsIcon },
 ]
 
 const salesSecondaryNav: NavItem[] = [
-  { name: 'Tasks', href: '/tasks', Icon: AssignmentIcon },
+  { name: 'Tasks', href: '/tasks', Icon: CheckCircleIcon },
   { name: 'Calendar', href: '/events', Icon: CalendarMonthIcon },
   { name: 'Reservations', href: '/reservations', Icon: ListAltIcon },
   { name: 'Businesses', href: '/businesses', Icon: BusinessIcon },
-  { name: 'Opportunities', href: '/opportunities', Icon: TrendingUpIcon },
+  { name: 'Opportunities', href: '/opportunities', Icon: HandshakeIcon },
 ]
 
 const editorSecondaryNav: NavItem[] = []

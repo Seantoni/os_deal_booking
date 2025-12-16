@@ -8,8 +8,8 @@ import SearchIcon from '@mui/icons-material/Search'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import PersonIcon from '@mui/icons-material/Person'
 import BusinessIcon from '@mui/icons-material/Business'
-import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import HandshakeIcon from '@mui/icons-material/Handshake'
+import AssignmentIcon from '@mui/icons-material/Assignment'
 import ContactsIcon from '@mui/icons-material/Contacts'
 import EventNoteIcon from '@mui/icons-material/EventNote'
 import SettingsIcon from '@mui/icons-material/Settings'
@@ -107,9 +107,9 @@ function getEntityIcon(entityType: string) {
     case 'Business':
       return <BusinessIcon className="w-4 h-4 text-blue-600" />
     case 'Opportunity':
-      return <TrendingUpIcon className="w-4 h-4 text-purple-600" />
+      return <HandshakeIcon className="w-4 h-4 text-purple-600" />
     case 'Deal':
-      return <HandshakeIcon className="w-4 h-4 text-green-600" />
+      return <AssignmentIcon className="w-4 h-4 text-green-600" />
     case 'Lead':
       return <ContactsIcon className="w-4 h-4 text-orange-600" />
     case 'BookingRequest':

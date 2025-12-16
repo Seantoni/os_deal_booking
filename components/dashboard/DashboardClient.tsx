@@ -5,8 +5,8 @@ import { getDashboardStats } from '@/app/actions/dashboard'
 import { getAllUsers } from '@/app/actions/crm'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import FilterListIcon from '@mui/icons-material/FilterList'
-import TrendingUpIcon from '@mui/icons-material/TrendingUp'
-import RequestPageIcon from '@mui/icons-material/RequestPage'
+import HandshakeIcon from '@mui/icons-material/Handshake'
+import DescriptionIcon from '@mui/icons-material/Description'
 import GroupIcon from '@mui/icons-material/Group'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import { Select } from '@/components/ui/Select'
@@ -159,7 +159,7 @@ export default function DashboardClient() {
           <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
             <div className="flex items-center justify-between mb-4">
               <div className="p-2 bg-green-50 rounded-lg">
-                <TrendingUpIcon className="text-green-600" fontSize="small" />
+                <HandshakeIcon className="text-green-600" fontSize="small" />
               </div>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Won Deals</span>
             </div>
@@ -209,7 +209,7 @@ export default function DashboardClient() {
           <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
             <div className="flex items-center justify-between mb-4">
               <div className="p-2 bg-purple-50 rounded-lg">
-                <RequestPageIcon className="text-purple-600" fontSize="small" />
+                <DescriptionIcon className="text-purple-600" fontSize="small" />
               </div>
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Requests</span>
             </div>
@@ -242,7 +242,7 @@ export default function DashboardClient() {
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white">
               <div className="flex items-center gap-3">
                 <div className="p-1.5 bg-yellow-50 rounded-md">
-                  <TrendingUpIcon className="text-yellow-600" fontSize="small" />
+                  <HandshakeIcon className="text-yellow-600" fontSize="small" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-gray-900">Leaderboard</h3>

@@ -17,7 +17,7 @@ import SystemTab from './components/SystemTab'
 import EntityFieldsTab from './components/EntityFieldsTab'
 import RequestFormFieldsTab from './components/RequestFormFieldsTab'
 import toast from 'react-hot-toast'
-import RequestPageIcon from '@mui/icons-material/RequestPage'
+import DescriptionIcon from '@mui/icons-material/Description'
 import BuildIcon from '@mui/icons-material/Build'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
@@ -353,7 +353,7 @@ export default function SettingsPageClient() {
                       : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                   }`}
                 >
-                  <RequestPageIcon style={{ fontSize: 16 }} />
+                  <DescriptionIcon style={{ fontSize: 16 }} />
                   <span>Request Form</span>
                 </button>
               </div>

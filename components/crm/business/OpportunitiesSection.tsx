@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import HandshakeIcon from '@mui/icons-material/Handshake'
 import AddIcon from '@mui/icons-material/Add'
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
@@ -106,7 +106,7 @@ export default function OpportunitiesSection({
       <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
-            <TrendingUpIcon className="text-orange-600" style={{ fontSize: 16 }} />
+            <HandshakeIcon className="text-orange-600" style={{ fontSize: 16 }} />
             <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Opportunities</h3>
             {filteredOpportunities.length > 0 && (
               <span className="px-1.5 py-0.5 bg-gray-200 text-gray-600 text-[10px] font-semibold rounded">
@@ -178,7 +178,7 @@ export default function OpportunitiesSection({
       <div className="p-2">
         {filteredOpportunities.length === 0 ? (
           <div className="text-center py-4">
-            <TrendingUpIcon className="text-gray-300 mx-auto mb-1.5" style={{ fontSize: 32 }} />
+            <HandshakeIcon className="text-gray-300 mx-auto mb-1.5" style={{ fontSize: 32 }} />
             <p className="text-xs text-gray-500 mb-2">
               {opportunities.length === 0 
                 ? 'No opportunities yet'
