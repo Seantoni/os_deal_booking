@@ -267,7 +267,8 @@ export default function EnhancedBookingForm({ requestId, initialFormData }: Enha
         parentCategory: parentCategory || prev.parentCategory,
         subCategory1: subCategory1 || prev.subCategory1,
         subCategory2: subCategory2 || prev.subCategory2,
-        opportunityId: fromOpportunity,
+        // Only set opportunityId if it's a real opportunity ID (not the "business" flag)
+        opportunityId: fromOpportunity !== 'business' ? fromOpportunity : '',
           legalName: legalName || prev.legalName,
           rucDv: ruc || prev.rucDv,
           province: province || prev.province,
