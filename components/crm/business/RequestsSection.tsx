@@ -6,11 +6,13 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import AddIcon from '@mui/icons-material/Add'
 import type { BookingRequest } from '@/types'
 
 interface RequestsSectionProps {
   requests: BookingRequest[]
   onViewRequest: (request: BookingRequest) => void
+  onCreateRequest?: () => void
   businessName?: string
 }
 
@@ -21,6 +23,7 @@ type FilterType = 'all' | 'active' | 'booked' | 'rejected'
 export default function RequestsSection({
   requests,
   onViewRequest,
+  onCreateRequest,
   businessName,
 }: RequestsSectionProps) {
   const [currentPage, setCurrentPage] = useState(1)
@@ -96,6 +99,16 @@ export default function RequestsSection({
               </span>
             )}
           </div>
+          {onCreateRequest && (
+            <button
+              type="button"
+              onClick={onCreateRequest}
+              className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-white bg-purple-600 hover:bg-purple-700 rounded transition-colors"
+            >
+              <AddIcon style={{ fontSize: 14 }} />
+              <span>New Request</span>
+            </button>
+          )}
         </div>
         
         {/* Quick Filters */}

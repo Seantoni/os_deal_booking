@@ -145,75 +145,89 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
           console.log('[EnhancedBookingForm] Loading existing request for editing:', data.id)
           
           // Map request data to form data
-          setFormData(prev => ({
-            ...prev,
-            // Configuración
-            businessName: data.name || data.merchant || '',
-            partnerEmail: data.businessEmail || '',
-            additionalEmails: Array.isArray(data.additionalEmails) ? data.additionalEmails : [],
-            category: data.category || '',
-            parentCategory: data.parentCategory || '',
-            subCategory1: data.subCategory1 || '',
-            subCategory2: data.subCategory2 || '',
-            subCategory3: data.subCategory3 || '',
-            startDate: data.startDate ? new Date(data.startDate).toISOString().split('T')[0] : '',
-            endDate: data.endDate ? new Date(data.endDate).toISOString().split('T')[0] : '',
-            campaignDuration: data.campaignDuration || '',
-            opportunityId: data.opportunityId || '',
+          setFormData(prev => {
+            const updatedData = {
+              ...prev,
+              // Configuración
+              businessName: data.name || data.merchant || '',
+              partnerEmail: data.businessEmail || '',
+              additionalEmails: Array.isArray(data.additionalEmails) ? data.additionalEmails : [],
+              category: data.category || '',
+              parentCategory: data.parentCategory || '',
+              subCategory1: data.subCategory1 || '',
+              subCategory2: data.subCategory2 || '',
+              subCategory3: data.subCategory3 || '',
+              startDate: data.startDate ? new Date(data.startDate).toISOString().split('T')[0] : '',
+              endDate: data.endDate ? new Date(data.endDate).toISOString().split('T')[0] : '',
+              campaignDuration: data.campaignDuration || '',
+              opportunityId: data.opportunityId || '',
+              
+              // Operatividad
+              redemptionMode: data.redemptionMode || '',
+              isRecurring: data.isRecurring || '',
+              recurringOfferLink: data.recurringOfferLink || '',
+              paymentType: data.paymentType || '',
+              paymentInstructions: data.paymentInstructions || '',
+              
+              // Directorio
+              redemptionContactName: data.redemptionContactName || '',
+              redemptionContactEmail: data.redemptionContactEmail || '',
+              redemptionContactPhone: data.redemptionContactPhone || '',
+              
+              // Fiscales
+              legalName: data.legalName || '',
+              rucDv: data.rucDv || '',
+              bankAccountName: data.bankAccountName || '',
+              bank: data.bank || '',
+              accountNumber: data.accountNumber || '',
+              accountType: data.accountType || '',
+              addressAndHours: data.addressAndHours || '',
+              province: data.province || '',
+              district: data.district || '',
+              corregimiento: data.corregimiento || '',
+              
+              // Negocio
+              includesTaxes: data.includesTaxes || '',
+              validOnHolidays: data.validOnHolidays || '',
+              hasExclusivity: data.hasExclusivity || '',
+              blackoutDates: data.blackoutDates || '',
+              exclusivityCondition: data.exclusivityCondition || '',
+              giftVouchers: data.giftVouchers || '',
+              hasOtherBranches: data.hasOtherBranches || '',
+              vouchersPerPerson: data.vouchersPerPerson || '',
+              commission: data.commission || '',
+              
+              // Descripción
+              redemptionMethods: Array.isArray(data.redemptionMethods) ? data.redemptionMethods : [],
+              contactDetails: data.contactDetails || '',
+              socialMedia: data.socialMedia || '',
+              businessReview: data.businessReview || '',
+              offerDetails: data.offerDetails || '',
+              
+              // Estructura (Pricing)
+              pricingOptions: Array.isArray(data.pricingOptions) ? data.pricingOptions : [],
+              
+              // Políticas
+              cancellationPolicy: data.cancellationPolicy || '',
+              marketValidation: data.marketValidation || '',
+              additionalComments: data.additionalComments || '',
+            }
             
-            // Operatividad
-            redemptionMode: data.redemptionMode || '',
-            isRecurring: data.isRecurring || '',
-            recurringOfferLink: data.recurringOfferLink || '',
-            paymentType: data.paymentType || '',
-            paymentInstructions: data.paymentInstructions || '',
+            // Información Adicional - Unpack template-specific fields from additionalInfo JSON
+            if (data.additionalInfo && typeof data.additionalInfo === 'object') {
+              const additionalInfo = data.additionalInfo as { templateName?: string; fields?: Record<string, string> }
+              if (additionalInfo.fields && typeof additionalInfo.fields === 'object') {
+                Object.entries(additionalInfo.fields).forEach(([fieldKey, value]) => {
+                  if (value !== undefined && value !== null && value !== '') {
+                    (updatedData as any)[fieldKey] = value
+                  }
+                })
+                console.log('[EnhancedBookingForm] Unpacked additionalInfo fields for editing:', Object.keys(additionalInfo.fields))
+              }
+            }
             
-            // Directorio
-            redemptionContactName: data.redemptionContactName || '',
-            redemptionContactEmail: data.redemptionContactEmail || '',
-            redemptionContactPhone: data.redemptionContactPhone || '',
-            
-            // Fiscales
-            legalName: data.legalName || '',
-            rucDv: data.rucDv || '',
-            bankAccountName: data.bankAccountName || '',
-            bank: data.bank || '',
-            accountNumber: data.accountNumber || '',
-            accountType: data.accountType || '',
-            addressAndHours: data.addressAndHours || '',
-            province: data.province || '',
-            district: data.district || '',
-            corregimiento: data.corregimiento || '',
-            
-            // Negocio
-            includesTaxes: data.includesTaxes || '',
-            validOnHolidays: data.validOnHolidays || '',
-            hasExclusivity: data.hasExclusivity || '',
-            blackoutDates: data.blackoutDates || '',
-            exclusivityCondition: data.exclusivityCondition || '',
-            giftVouchers: data.giftVouchers || '',
-            hasOtherBranches: data.hasOtherBranches || '',
-            vouchersPerPerson: data.vouchersPerPerson || '',
-            commission: data.commission || '',
-            
-            // Descripción
-            redemptionMethods: Array.isArray(data.redemptionMethods) ? data.redemptionMethods : [],
-            contactDetails: data.contactDetails || '',
-            socialMedia: data.socialMedia || '',
-            businessReview: data.businessReview || '',
-            offerDetails: data.offerDetails || '',
-            
-            // Estructura (Pricing)
-            pricingOptions: Array.isArray(data.pricingOptions) ? data.pricingOptions : [],
-            
-            // Políticas
-            cancellationPolicy: data.cancellationPolicy || '',
-            marketValidation: data.marketValidation || '',
-            additionalComments: data.additionalComments || '',
-            
-            // Información Adicional
-            additionalInfo: data.additionalInfo && typeof data.additionalInfo === 'object' ? data.additionalInfo : null,
-          }))
+            return updatedData
+          })
           
           toast.success('Solicitud cargada para continuar editando')
         } else {
@@ -378,9 +392,24 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         const additionalCommentsParam = searchParams.get('additionalComments')
         if (additionalCommentsParam) newData.additionalComments = additionalCommentsParam
         
-        // Note: additionalInfo (Step 9) contains template-specific fields
-        // These are handled separately in InformacionAdicionalStep
-        // The additionalInfo JSON is passed but needs special handling
+        // Step 9: Información Adicional - Unpack template-specific fields from additionalInfo JSON
+        const additionalInfoParam = searchParams.get('additionalInfo')
+        if (additionalInfoParam) {
+          try {
+            const additionalInfo = JSON.parse(additionalInfoParam)
+            if (additionalInfo && additionalInfo.fields && typeof additionalInfo.fields === 'object') {
+              // Unpack all template-specific fields back into formData
+              Object.entries(additionalInfo.fields).forEach(([fieldKey, value]) => {
+                if (value !== undefined && value !== null && value !== '') {
+                  (newData as any)[fieldKey] = value
+                }
+              })
+              console.log('[EnhancedBookingForm] Unpacked additionalInfo fields:', Object.keys(additionalInfo.fields))
+            }
+          } catch (e) {
+            console.warn('[EnhancedBookingForm] Failed to parse additionalInfo:', e)
+          }
+        }
         
         return newData
       })
