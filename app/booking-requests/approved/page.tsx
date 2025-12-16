@@ -9,29 +9,21 @@ export default function ApprovedBookingRequestsPage({
     <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 font-sans">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden">
         {/* Brand Header */}
-        <div className="bg-white border-b border-gray-100 p-6 text-center">
-          <h2 className="text-xl font-extrabold text-[#e84c0f] tracking-tight">
-            OfertaSimple
-          </h2>
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mt-1">
-            OS Deals Booking
-          </p>
+        <div style={{ backgroundColor: '#e84c0f', padding: '20px', borderRadius: '8px 8px 0 0', margin: '-1px -1px 0 -1px' }}>
+          <img src="https://oferta-uploads-prod.s3.us-east-1.amazonaws.com/pictures/others/OfertaSimple%20Assets/Asset%2075.png?_t=1743086513" alt="OfertaSimple Logo" width="120" style={{ display: 'block', margin: '0 auto', border: '0', height: 'auto', outline: 'none', textDecoration: 'none' }} />
+          <h1 className="text-2xl font-bold text-white mt-3 mb-1">¡Solicitud Aprobada!</h1>
+          <p className="text-sm text-orange-100">OS Deals Booking - OfertaSimple</p>
         </div>
 
         <div className="p-8 text-center">
           {/* Success Icon */}
           <div className="mb-6 animate-in zoom-in duration-300">
-            <div className="mx-auto w-20 h-20 bg-green-50 rounded-full flex items-center justify-center ring-8 ring-green-50/50">
-              <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center shadow-lg">
+              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
               </svg>
             </div>
           </div>
-
-          {/* Title */}
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            ¡Solicitud Aprobada!
-          </h1>
           
           <p className="text-gray-500 mb-8 leading-relaxed">
             La solicitud de booking ha sido confirmada exitosamente. El proceso continuará automáticamente.

@@ -34,13 +34,24 @@ export default async function AlreadyProcessedPage({
         ? 'bg-gradient-to-br from-red-50 to-rose-50'
         : 'bg-gradient-to-br from-gray-50 to-slate-50'
     }`}>
-      <div className={`max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center border-2 ${
+      <div className={`max-w-md w-full bg-white rounded-xl shadow-lg overflow-hidden border-2 ${
         isApproved 
           ? 'border-blue-200' 
           : isRejected 
           ? 'border-red-200'
           : 'border-gray-200'
       }`}>
+        {/* Header with Logo */}
+        <div style={{ 
+          backgroundColor: isApproved ? '#2563eb' : isRejected ? '#dc2626' : '#6b7280', 
+          padding: '20px', 
+          borderRadius: '8px 8px 0 0' 
+        }}>
+          <img src="https://oferta-uploads-prod.s3.us-east-1.amazonaws.com/pictures/others/OfertaSimple%20Assets/Asset%2075.png?_t=1743086513" alt="OfertaSimple Logo" width="120" style={{ display: 'block', margin: '0 auto', border: '0', height: 'auto', outline: 'none', textDecoration: 'none' }} />
+          <p className="text-sm text-white mt-2">OS Deals Booking - OfertaSimple</p>
+        </div>
+        
+        <div className="p-8 text-center">
         {/* Icon */}
         <div className="mb-6">
           <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center shadow-lg ${
@@ -137,9 +148,10 @@ export default async function AlreadyProcessedPage({
             ID de solicitud: {params.id}
           </p>
         )}
+        </div>
 
         {/* Footer */}
-        <div className="mt-8 pt-6 border-t border-gray-200">
+        <div className="mt-8 pt-6 border-t border-gray-200 px-8 pb-8">
           <p className="text-xs text-gray-500">
             OS Deals Booking - OfertaSimple
           </p>
