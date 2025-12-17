@@ -58,9 +58,8 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         const result = await saveBookingRequestDraft(submittedFormData, requestId)
         if (result.success) {
           toast.success(requestId ? 'Borrador actualizado exitosamente' : 'Borrador guardado exitosamente')
-          if (requestId) {
-            router.push('/booking-requests')
-          }
+          // Always redirect to booking requests page after saving
+          router.push('/booking-requests')
           return { success: true, error: null }
         } else {
           toast.error('Error al guardar borrador: ' + result.error)
