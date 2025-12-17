@@ -76,6 +76,14 @@ export const ENV = {
    * When not set in development, we fall back to http://localhost:3000.
    */
   NEXT_PUBLIC_APP_URL: getEnv('NEXT_PUBLIC_APP_URL'),
+
+  /**
+   * AWS S3 Configuration (optional - only needed for image uploads)
+   */
+  AWS_ACCESS_KEY_ID: getEnv('AWS_ACCESS_KEY_ID'),
+  AWS_SECRET_ACCESS_KEY: getEnv('AWS_SECRET_ACCESS_KEY'),
+  AWS_REGION: getEnv('AWS_REGION', { defaultValue: 'us-east-1' }),
+  AWS_S3_BUCKET: getEnv('AWS_S3_BUCKET'),
 }
 
 /**
