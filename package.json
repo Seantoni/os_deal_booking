@@ -26,6 +26,7 @@
     "@mui/material": "^7.3.5",
     "@prisma/client": "^6.19.0",
     "@thednp/dommatrix": "^2.0.12",
+    "browser-image-compression": "^2.0.2",
     "dotenv": "^17.2.3",
     "next": "^16.0.10",
     "openai": "^6.9.1",

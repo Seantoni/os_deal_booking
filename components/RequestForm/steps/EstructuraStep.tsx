@@ -9,9 +9,12 @@ import ImageIcon from '@mui/icons-material/Image'
 import CloseIcon from '@mui/icons-material/Close'
 import CollectionsIcon from '@mui/icons-material/Collections'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
+import ImageSearchIcon from '@mui/icons-material/ImageSearch'
 import type { BookingFormData } from '../types'
 import { Input, Textarea, Button } from '@/components/ui'
 import toast from 'react-hot-toast'
+import { compressImage, compressImages } from '@/lib/utils/image-compression'
+import ImageSearchModal from '../components/ImageSearchModal'
 
 interface EstructuraStepProps {
   formData: BookingFormData
@@ -44,24 +47,31 @@ export default function EstructuraStep({
       return
     }
 
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024
+    // Validate file size (max 10MB before compression)
+    const maxSize = 10 * 1024 * 1024
     if (file.size > maxSize) {
-      toast.error('La imagen no puede superar los 5MB')
+      toast.error('La imagen no puede superar los 10MB')
       return
     }
 
     setUploadingIndex(index)
 
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('folder', 'deal-images')
-      formData.append('isPublic', 'true')
+      // Compress image before upload (target: 500KB, max 1920px)
+      const compressedFile = await compressImage(file, {
+        maxSizeMB: 0.5,
+        maxWidthOrHeight: 1920,
+        initialQuality: 0.8,
+      })
+
+      const uploadFormData = new FormData()
+      uploadFormData.append('file', compressedFile)
+      uploadFormData.append('folder', 'deal-images')
+      uploadFormData.append('isPublic', 'true')
 
       const response = await fetch('/api/upload/image', {
         method: 'POST',
-        body: formData,
+        body: uploadFormData,
       })
 
       const data = await response.json()
@@ -91,12 +101,83 @@ export default function EstructuraStep({
   // Gallery image handlers
   const [galleryUploading, setGalleryUploading] = useState(false)
   const galleryInputRef = useRef<HTMLInputElement>(null)
+  const [showImageSearch, setShowImageSearch] = useState(false)
 
   const dealImages = Array.isArray(formData.dealImages) ? formData.dealImages : []
 
+  // Handle images selected from search
+  const handleSearchImages = async (urls: string[]) => {
+    if (urls.length === 0) return
+
+    setGalleryUploading(true)
+    toast.loading('Descargando y optimizando imágenes...', { id: 'search-upload' })
+
+    try {
+      const uploadedUrls: string[] = []
+
+      for (const url of urls) {
+        try {
+          // Fetch the image from the URL
+          const response = await fetch(url)
+          if (!response.ok) continue
+
+          const blob = await response.blob()
+          const file = new File([blob], `search-image-${Date.now()}.jpg`, { type: blob.type || 'image/jpeg' })
+
+          // Compress the image
+          const compressedFile = await compressImage(file, {
+            maxSizeMB: 0.5,
+            maxWidthOrHeight: 1920,
+            initialQuality: 0.8,
+          })
+
+          // Upload to S3
+          const uploadFormData = new FormData()
+          uploadFormData.append('file', compressedFile)
+          uploadFormData.append('folder', 'deal-images')
+          uploadFormData.append('isPublic', 'true')
+
+          const uploadResponse = await fetch('/api/upload/image', {
+            method: 'POST',
+            body: uploadFormData,
+          })
+
+          const data = await uploadResponse.json()
+          if (uploadResponse.ok) {
+            uploadedUrls.push(data.url)
+          }
+        } catch (err) {
+          console.error('Error processing search image:', url, err)
+        }
+      }
+
+      if (uploadedUrls.length > 0) {
+        // Add new images with order
+        const currentMaxOrder = dealImages.length > 0 
+          ? Math.max(...dealImages.map(img => img.order)) 
+          : -1
+        
+        const newImages = uploadedUrls.map((url, idx) => ({
+          url,
+          order: currentMaxOrder + 1 + idx
+        }))
+
+        updateFormData('dealImages', [...dealImages, ...newImages])
+        toast.success(`${uploadedUrls.length} imagen(es) agregada(s)`, { id: 'search-upload' })
+      } else {
+        toast.error('No se pudieron descargar las imágenes', { id: 'search-upload' })
+      }
+    } catch (error) {
+      console.error('Search images upload error:', error)
+      toast.error('Error al procesar las imágenes', { id: 'search-upload' })
+    } finally {
+      setGalleryUploading(false)
+    }
+  }
+
   const handleGalleryUpload = async (files: FileList) => {
     const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-    const maxSize = 5 * 1024 * 1024
+    const maxSize = 10 * 1024 * 1024 // 10MB before compression
 
     const validFiles = Array.from(files).filter(file => {
       if (!validTypes.includes(file.type)) {
@@ -104,7 +185,7 @@ export default function EstructuraStep({
         return false
       }
       if (file.size > maxSize) {
-        toast.error(`${file.name}: Excede 5MB`)
+        toast.error(`${file.name}: Excede 10MB`)
         return false
       }
       return true
@@ -115,7 +196,14 @@ export default function EstructuraStep({
     setGalleryUploading(true)
 
     try {
-      const uploadPromises = validFiles.map(async (file) => {
+      // Compress all images before upload (target: 500KB, max 1920px)
+      const compressedFiles = await compressImages(validFiles, {
+        maxSizeMB: 0.5,
+        maxWidthOrHeight: 1920,
+        initialQuality: 0.8,
+      })
+
+      const uploadPromises = compressedFiles.map(async (file) => {
         const uploadFormData = new FormData()
         uploadFormData.append('file', file)
         uploadFormData.append('folder', 'deal-images')
@@ -486,14 +574,26 @@ export default function EstructuraStep({
 
       {/* Deal Images Gallery Section */}
       <div className="mt-10 pt-8 border-t border-gray-200">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-purple-100 rounded-lg">
-            <CollectionsIcon className="text-purple-600" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <CollectionsIcon className="text-purple-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Galería de Imágenes</h3>
+              <p className="text-sm text-gray-500">Agrega imágenes generales de la oferta (opcional)</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">Galería de Imágenes</h3>
-            <p className="text-sm text-gray-500">Agrega imágenes generales de la oferta (opcional)</p>
-          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setShowImageSearch(true)}
+            leftIcon={<ImageSearchIcon style={{ fontSize: 18 }} />}
+            className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 hover:text-white border-0"
+          >
+            Buscar en Internet
+          </Button>
         </div>
 
         {/* Gallery Grid */}
@@ -586,6 +686,15 @@ export default function EstructuraStep({
           </p>
         )}
       </div>
+
+      {/* Image Search Modal */}
+      <ImageSearchModal
+        isOpen={showImageSearch}
+        onClose={() => setShowImageSearch(false)}
+        onSelectImages={handleSearchImages}
+        businessName={formData.businessName}
+        maxSelections={10}
+      />
     </div>
   )
 }

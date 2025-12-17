@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['@mui/icons-material', '@mui/material'],
   },
-  // Allow S3 images
+  // Allow S3 images and Google search thumbnails
   images: {
     remotePatterns: [
       {
@@ -19,6 +19,22 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: '*.s3.amazonaws.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'encrypted-tbn0.gstatic.com', // Google image thumbnails
+      },
+      {
+        protocol: 'https',
+        hostname: 'encrypted-tbn1.gstatic.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'encrypted-tbn2.gstatic.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'encrypted-tbn3.gstatic.com',
       },
     ],
   },

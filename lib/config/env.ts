@@ -84,6 +84,14 @@ export const ENV = {
   AWS_SECRET_ACCESS_KEY: getEnv('AWS_SECRET_ACCESS_KEY'),
   AWS_REGION: getEnv('AWS_REGION', { defaultValue: 'us-east-1' }),
   AWS_S3_BUCKET: getEnv('AWS_S3_BUCKET'),
+
+  /**
+   * Google Custom Search API (optional - for AI image search)
+   * Get API key from: https://console.cloud.google.com/apis/credentials
+   * Create Search Engine at: https://programmablesearchengine.google.com/
+   */
+  GOOGLE_SEARCH_API_KEY: getEnv('GOOGLE_SEARCH_API_KEY'),
+  GOOGLE_SEARCH_ENGINE_ID: getEnv('GOOGLE_SEARCH_ENGINE_ID'),
 }
 
 /**
