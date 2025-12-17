@@ -80,12 +80,14 @@ export async function uploadFileToS3(
     const detectedContentType = contentType || (file instanceof File ? file.type : 'application/octet-stream')
 
     // Upload to S3
+    // Note: ACLs are disabled on newer S3 buckets by default
+    // Use bucket policies for public access instead
     const command = new PutObjectCommand({
       Bucket: S3_BUCKET,
       Key: s3Key,
       Body: fileBuffer,
       ContentType: detectedContentType,
-      ...(makePublic && { ACL: 'public-read' }),
+      // ACL removed - use bucket policy for public access if needed
     })
 
     await s3Client.send(command)
