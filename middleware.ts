@@ -7,18 +7,19 @@ const ACCESS_COOKIE_NAME = 'os_access_verified'
 const ACCESS_CACHE_SECONDS = 300
 
 const isPublicRoute = createRouteMatcher([
+  // Auth routes
   '/sign-in(.*)',
   '/sign-up(.*)',
+  // API routes for external approval/rejection
   '/api/booking-requests/approve(.*)',
   '/api/booking-requests/reject(.*)',
-  '/booking-requests/approved(.*)',
-  '/booking-requests/rejected(.*)',
   '/api/health/(.*)',
   '/api/access/check(.*)', // Allow access check API route
-  '/booking-requests/error(.*)',
-  '/booking-requests/already-processed(.*)',
+  // Public booking request pages (new organized routes)
+  '/booking-request/(.*)', // All public booking request pages (status, form, etc.)
+  // Public pages
   '/no-access(.*)', // Allow access to no-access page
-  '/public/booking-request(.*)', // Public booking request form (no auth required)
+  '/t-c(.*)', // Terms & conditions
 ])
 
 export default clerkMiddleware(async (auth, request) => {
@@ -113,4 +114,3 @@ export const config = {
     '/(api|trpc)(.*)',
   ],
 }
-

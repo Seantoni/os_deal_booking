@@ -60,7 +60,7 @@ export async function generateAndSendPublicLink(recipientEmails: string | string
 
     // Build public URL
     const baseUrl = getAppBaseUrl()
-    const publicUrl = `${baseUrl}/public/booking-request/${token}`
+    const publicUrl = `${baseUrl}/booking-request/${token}`
 
     // Send email with link to all recipients
     try {

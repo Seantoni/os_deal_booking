@@ -86,7 +86,7 @@ export default function PublicBookingForm({ token }: PublicBookingFormProps) {
 
       if (result.success && result.data) {
         // Redirect to confirmation page
-        router.push(`/public/booking-request/confirmation?token=${token}&requestId=${result.data.bookingRequestId}`)
+        router.push(`/booking-request/confirmation?token=${token}&requestId=${result.data.bookingRequestId}`)
       } else {
         setSubmitError(result.error || 'Failed to submit booking request')
         setSubmitting(false)

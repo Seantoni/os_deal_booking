@@ -1,6 +1,5 @@
 import { currentUser } from '@clerk/nextjs/server'
 import { SignOutButton } from '@clerk/nextjs'
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
 export default async function NoAccessPage() {
@@ -70,4 +69,3 @@ export default async function NoAccessPage() {
     </div>
   )
 }
-

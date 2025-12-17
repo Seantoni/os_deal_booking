@@ -14,11 +14,11 @@ export default async function PublicBookingRequestPage({ params }: PublicBooking
 
   if (!validation.valid || !validation.publicLink) {
     // Redirect to error page or show error message
-    redirect(`/public/booking-request/error?reason=${encodeURIComponent(validation.error || 'invalid_link')}`)
+    redirect(`/booking-request/form-error?reason=${encodeURIComponent(validation.error || 'invalid_link')}`)
   }
 
   if (validation.publicLink.isUsed) {
-    redirect(`/public/booking-request/error?reason=${encodeURIComponent('link_already_used')}`)
+    redirect(`/booking-request/form-error?reason=${encodeURIComponent('link_already_used')}`)
   }
 
   return (

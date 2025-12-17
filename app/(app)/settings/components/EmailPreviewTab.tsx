@@ -98,13 +98,12 @@ export default function EmailPreviewTab({ isAdmin }: EmailPreviewTabProps) {
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Seleccionar Plantilla de Email
         </label>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           {[
             { id: 'booking-confirmation' as const, label: 'Confirmación de Booking' },
             { id: 'booking-request' as const, label: 'Solicitud de Booking' },
             { id: 'rejection' as const, label: 'Rechazo' },
             { id: 'task-reminder' as const, label: 'Recordatorio de Tareas' },
-            { id: 'cancelled' as const, label: 'Cancelación' },
           ].map((template) => (
             <button
               key={template.id}

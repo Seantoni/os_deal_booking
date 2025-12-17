@@ -31,7 +31,7 @@ export default function RejectedBookingRequestForm({ token }: RejectedBookingReq
       
       if (result.success) {
         // Redirect to success page
-        router.push('/booking-requests/rejected?success=true')
+        router.push('/booking-request/rejected?success=true')
       } else {
         setError(result.error || 'Error al rechazar la solicitud')
       }

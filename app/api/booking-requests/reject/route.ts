@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   if (!token) {
     logger.error('Missing token in reject route')
     const baseUrl = getBaseUrl(request)
-    return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/error?message=Missing token`))
+    return NextResponse.redirect(new URL(`${baseUrl}/booking-request/error?message=Missing token`))
   }
 
   // Verify token
@@ -41,13 +41,13 @@ export async function GET(request: NextRequest) {
     const baseUrl = getBaseUrl(request)
     const errorMsg = encodeURIComponent(verification.error || 'Invalid token')
     logger.error('Token verification failed:', verification.error)
-    return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/error?message=${errorMsg}`))
+    return NextResponse.redirect(new URL(`${baseUrl}/booking-request/error?message=${errorMsg}`))
   }
 
   if (!verification.requestId) {
     const baseUrl = getBaseUrl(request)
     logger.error('No requestId in verified token')
-    return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/error?message=Invalid token: missing request ID`))
+    return NextResponse.redirect(new URL(`${baseUrl}/booking-request/error?message=Invalid token: missing request ID`))
   }
 
   try {
@@ -60,34 +60,33 @@ export async function GET(request: NextRequest) {
     if (!existingRequest) {
       logger.error('Booking request not found:', verification.requestId)
       const baseUrl = getBaseUrl(request)
-      return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/error?message=Request not found`))
+      return NextResponse.redirect(new URL(`${baseUrl}/booking-request/error?message=Request not found`))
     }
 
     // Check if already processed (approved, booked, rejected, or cancelled)
     if (existingRequest.status === 'approved' || existingRequest.status === 'booked') {
       const baseUrl = getBaseUrl(request)
-      return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/already-processed?status=approved&id=${existingRequest.id}`))
+      return NextResponse.redirect(new URL(`${baseUrl}/booking-request/already-processed?status=approved&id=${existingRequest.id}`))
     }
     
     if (existingRequest.status === 'rejected') {
       const baseUrl = getBaseUrl(request)
-      return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/already-processed?status=rejected&id=${existingRequest.id}`))
+      return NextResponse.redirect(new URL(`${baseUrl}/booking-request/already-processed?status=rejected&id=${existingRequest.id}`))
     }
 
     // Check if cancelled
     if (existingRequest.status === 'cancelled') {
       const baseUrl = getBaseUrl(request)
-      return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/cancelled?id=${existingRequest.id}`))
+      return NextResponse.redirect(new URL(`${baseUrl}/booking-request/cancelled?id=${existingRequest.id}`))
     }
 
     // Redirect to form page to collect rejection reason
     const baseUrl = getBaseUrl(request)
-    return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/rejected?token=${token}`))
+    return NextResponse.redirect(new URL(`${baseUrl}/booking-request/rejected?token=${token}`))
   } catch (error) {
     logger.error('Error in reject route:', error)
     const baseUrl = getBaseUrl(request)
     const errorMsg = error instanceof Error ? encodeURIComponent(error.message) : 'Failed to process request'
-    return NextResponse.redirect(new URL(`${baseUrl}/booking-requests/error?message=${errorMsg}`))
+    return NextResponse.redirect(new URL(`${baseUrl}/booking-request/error?message=${errorMsg}`))
   }
 }
-
