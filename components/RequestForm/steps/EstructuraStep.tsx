@@ -10,11 +10,15 @@ import CloseIcon from '@mui/icons-material/Close'
 import CollectionsIcon from '@mui/icons-material/Collections'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import ImageSearchIcon from '@mui/icons-material/ImageSearch'
+import ArrowBackIcon from '@mui/icons-material/ArrowBack'
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
+import ZoomInIcon from '@mui/icons-material/ZoomIn'
 import type { BookingFormData } from '../types'
 import { Input, Textarea, Button } from '@/components/ui'
 import toast from 'react-hot-toast'
 import { compressImage, compressImages } from '@/lib/utils/image-compression'
 import ImageSearchModal from '../components/ImageSearchModal'
+import ImageLightbox from '@/components/common/ImageLightbox'
 
 interface EstructuraStepProps {
   formData: BookingFormData
@@ -103,7 +107,49 @@ export default function EstructuraStep({
   const galleryInputRef = useRef<HTMLInputElement>(null)
   const [showImageSearch, setShowImageSearch] = useState(false)
 
+  // Lightbox state
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxImages, setLightboxImages] = useState<string[]>([])
+  const [lightboxInitialIndex, setLightboxInitialIndex] = useState(0)
+
   const dealImages = Array.isArray(formData.dealImages) ? formData.dealImages : []
+
+  // Open lightbox with images
+  const openLightbox = (images: string[], initialIndex: number = 0) => {
+    setLightboxImages(images)
+    setLightboxInitialIndex(initialIndex)
+    setLightboxOpen(true)
+  }
+
+  // Move gallery image left (decrease order)
+  const moveGalleryImageLeft = (imageUrl: string) => {
+    const currentIdx = dealImages.findIndex(img => img.url === imageUrl)
+    if (currentIdx <= 0) return
+    
+    const newImages = [...dealImages]
+    // Swap with previous image
+    const temp = newImages[currentIdx]
+    newImages[currentIdx] = newImages[currentIdx - 1]
+    newImages[currentIdx - 1] = temp
+    // Update order values
+    const reorderedImages = newImages.map((img, idx) => ({ ...img, order: idx }))
+    updateFormData('dealImages', reorderedImages)
+  }
+
+  // Move gallery image right (increase order)
+  const moveGalleryImageRight = (imageUrl: string) => {
+    const currentIdx = dealImages.findIndex(img => img.url === imageUrl)
+    if (currentIdx < 0 || currentIdx >= dealImages.length - 1) return
+    
+    const newImages = [...dealImages]
+    // Swap with next image
+    const temp = newImages[currentIdx]
+    newImages[currentIdx] = newImages[currentIdx + 1]
+    newImages[currentIdx + 1] = temp
+    // Update order values
+    const reorderedImages = newImages.map((img, idx) => ({ ...img, order: idx }))
+    updateFormData('dealImages', reorderedImages)
+  }
 
   // Handle images selected from search
   const handleSearchImages = async (urls: string[]) => {
@@ -403,7 +449,11 @@ export default function EstructuraStep({
                   
                   {option.imageUrl ? (
                     <div className="relative group w-fit">
-                      <div className="relative w-40 h-28 rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+                      <button
+                        type="button"
+                        onClick={() => openLightbox([option.imageUrl!], 0)}
+                        className="relative w-40 h-28 rounded-lg overflow-hidden border border-gray-200 shadow-sm cursor-zoom-in hover:shadow-md transition-shadow"
+                      >
                         <Image
                           src={option.imageUrl}
                           alt={`Imagen opción ${index + 1}`}
@@ -411,11 +461,14 @@ export default function EstructuraStep({
                           className="object-cover"
                           sizes="160px"
                         />
-                      </div>
+                        <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center">
+                          <ZoomInIcon className="text-white opacity-0 group-hover:opacity-100 drop-shadow-lg" style={{ fontSize: 24 }} />
+                        </div>
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleRemoveImage(index)}
-                        className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full shadow-md hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                        className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full shadow-md hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100 z-10"
                         title="Eliminar imagen"
                       >
                         <CloseIcon style={{ fontSize: 14 }} />
@@ -601,20 +654,41 @@ export default function EstructuraStep({
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-4">
             {dealImages
               .sort((a, b) => a.order - b.order)
-              .map((image, idx) => (
+              .map((image, idx, sortedArr) => (
                 <div 
                   key={image.url} 
                   className="relative group aspect-square rounded-xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-all"
                 >
-                  <Image
-                    src={image.url}
-                    alt={`Imagen ${idx + 1}`}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 20vw"
-                  />
+                  {/* Clickable image */}
+                  <button
+                    type="button"
+                    onClick={() => openLightbox(sortedArr.map(img => img.url), idx)}
+                    className="absolute inset-0 cursor-zoom-in"
+                  >
+                    <Image
+                      src={image.url}
+                      alt={`Imagen ${idx + 1}`}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 20vw"
+                    />
+                  </button>
+                  
                   {/* Overlay with actions */}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors pointer-events-none" />
+                  
+                  {/* Action buttons */}
+                  <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {/* View button */}
+                    <button
+                      type="button"
+                      onClick={() => openLightbox(sortedArr.map(img => img.url), idx)}
+                      className="p-2 bg-white text-gray-700 rounded-full shadow-lg hover:bg-gray-100 transition-colors"
+                      title="Ver imagen"
+                    >
+                      <ZoomInIcon style={{ fontSize: 18 }} />
+                    </button>
+                    {/* Delete button */}
                     <button
                       type="button"
                       onClick={() => handleRemoveGalleryImage(image.url)}
@@ -624,13 +698,40 @@ export default function EstructuraStep({
                       <CloseIcon style={{ fontSize: 16 }} />
                     </button>
                   </div>
+                  
                   {/* Order badge */}
                   <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 text-white text-xs rounded-full">
                     {idx + 1}
                   </div>
-                  {/* Drag handle (visual only for now) */}
-                  <div className="absolute bottom-2 right-2 p-1 bg-white/80 rounded cursor-move opacity-0 group-hover:opacity-100 transition-opacity">
-                    <DragIndicatorIcon style={{ fontSize: 14 }} className="text-gray-600" />
+                  
+                  {/* Reorder buttons */}
+                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={() => moveGalleryImageLeft(image.url)}
+                      disabled={idx === 0}
+                      className={`p-1.5 rounded-full shadow-lg transition-colors ${
+                        idx === 0 
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                          : 'bg-white text-gray-700 hover:bg-gray-100'
+                      }`}
+                      title="Mover a la izquierda"
+                    >
+                      <ArrowBackIcon style={{ fontSize: 14 }} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveGalleryImageRight(image.url)}
+                      disabled={idx === sortedArr.length - 1}
+                      className={`p-1.5 rounded-full shadow-lg transition-colors ${
+                        idx === sortedArr.length - 1 
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                          : 'bg-white text-gray-700 hover:bg-gray-100'
+                      }`}
+                      title="Mover a la derecha"
+                    >
+                      <ArrowForwardIcon style={{ fontSize: 14 }} />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -694,6 +795,14 @@ export default function EstructuraStep({
         onSelectImages={handleSearchImages}
         businessName={formData.businessName}
         maxSelections={10}
+      />
+
+      {/* Image Lightbox */}
+      <ImageLightbox
+        images={lightboxImages}
+        initialIndex={lightboxInitialIndex}
+        isOpen={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
       />
     </div>
   )

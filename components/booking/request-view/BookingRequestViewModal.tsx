@@ -36,6 +36,9 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import EditNoteIcon from '@mui/icons-material/EditNote'
 import BlockIcon from '@mui/icons-material/Block'
+import ZoomInIcon from '@mui/icons-material/ZoomIn'
+import VisibilityIcon from '@mui/icons-material/Visibility'
+import ImageLightbox from '@/components/common/ImageLightbox'
 
 // Helper to get field value from requestData using dynamic key access
 function getFieldValue(data: BookingRequestViewData | null, key: string): unknown {
@@ -187,6 +190,17 @@ export default function BookingRequestViewModal({
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('')
+
+  // Lightbox state
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxImages, setLightboxImages] = useState<string[]>([])
+  const [lightboxInitialIndex, setLightboxInitialIndex] = useState(0)
+
+  const openLightbox = (images: string[], initialIndex: number = 0) => {
+    setLightboxImages(images)
+    setLightboxInitialIndex(initialIndex)
+    setLightboxOpen(true)
+  }
 
   // Load request data and comments
   const loadData = useCallback(async () => {
@@ -664,6 +678,20 @@ export default function BookingRequestViewModal({
                 <ContentCopyIcon style={{ fontSize: 16 }} />
                 <span>Replicar</span>
               </button>
+              {/* View Deal Draft Button */}
+              <button
+                onClick={() => {
+                  if (requestId) {
+                    window.open(`/dealdraft/${requestId}`, '_blank')
+                  }
+                }}
+                disabled={loading || !requestData}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Ver vista previa del deal"
+              >
+                <VisibilityIcon style={{ fontSize: 16 }} />
+                <span>Deal Draft</span>
+              </button>
               <button
                 onClick={() => setShowSidebar(!showSidebar)}
                 className={`p-2 rounded-lg transition-all ${
@@ -880,6 +908,10 @@ export default function BookingRequestViewModal({
 
                                 // Special rendering for pricing options with images
                                 if (field.type === 'pricing' && Array.isArray(rawValue) && rawValue.length > 0) {
+                                  const pricingImages = (rawValue as Array<{ imageUrl?: string }>)
+                                    .filter(opt => opt.imageUrl)
+                                    .map(opt => opt.imageUrl!)
+                                  
                                   return (
                                     <div key={field.key} className="md:col-span-2">
                                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{field.label}</p>
@@ -887,7 +919,11 @@ export default function BookingRequestViewModal({
                                         {(rawValue as Array<{ title?: string; description?: string; price?: string; realValue?: string; quantity?: string; imageUrl?: string }>).map((opt, idx) => (
                                           <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow">
                                             {opt.imageUrl && (
-                                              <div className="relative w-full h-32 rounded-lg overflow-hidden mb-3">
+                                              <button
+                                                type="button"
+                                                onClick={() => openLightbox(pricingImages, pricingImages.indexOf(opt.imageUrl!))}
+                                                className="relative w-full h-32 rounded-lg overflow-hidden mb-3 cursor-zoom-in group"
+                                              >
                                                 <Image
                                                   src={opt.imageUrl}
                                                   alt={opt.title || `Opción ${idx + 1}`}
@@ -895,7 +931,10 @@ export default function BookingRequestViewModal({
                                                   className="object-cover"
                                                   sizes="(max-width: 640px) 100vw, 33vw"
                                                 />
-                                              </div>
+                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                  <ZoomInIcon className="text-white opacity-0 group-hover:opacity-100 drop-shadow-lg" style={{ fontSize: 28 }} />
+                                                </div>
+                                              </button>
                                             )}
                                             <p className="font-semibold text-slate-800 text-sm mb-1">{opt.title || `Opción ${idx + 1}`}</p>
                                             {opt.description && (
@@ -919,26 +958,36 @@ export default function BookingRequestViewModal({
 
                                 // Special rendering for gallery images
                                 if (field.type === 'gallery' && Array.isArray(rawValue) && rawValue.length > 0) {
+                                  const sortedImages = (rawValue as Array<{ url: string; order: number }>)
+                                    .sort((a, b) => a.order - b.order)
+                                  const galleryUrls = sortedImages.map(img => img.url)
+                                  
                                   return (
                                     <div key={field.key} className="md:col-span-2">
                                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{field.label}</p>
                                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                                        {(rawValue as Array<{ url: string; order: number }>)
-                                          .sort((a, b) => a.order - b.order)
-                                          .map((img, idx) => (
-                                            <div key={img.url} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                                              <Image
-                                                src={img.url}
-                                                alt={`Imagen ${idx + 1}`}
-                                                fill
-                                                className="object-cover"
-                                                sizes="(max-width: 640px) 50vw, 20vw"
-                                              />
-                                              <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-black/60 text-white text-[10px] font-medium rounded">
-                                                {idx + 1}
-                                              </div>
+                                        {sortedImages.map((img, idx) => (
+                                          <button
+                                            key={img.url}
+                                            type="button"
+                                            onClick={() => openLightbox(galleryUrls, idx)}
+                                            className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition-shadow cursor-zoom-in group"
+                                          >
+                                            <Image
+                                              src={img.url}
+                                              alt={`Imagen ${idx + 1}`}
+                                              fill
+                                              className="object-cover"
+                                              sizes="(max-width: 640px) 50vw, 20vw"
+                                            />
+                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                              <ZoomInIcon className="text-white opacity-0 group-hover:opacity-100 drop-shadow-lg" style={{ fontSize: 24 }} />
                                             </div>
-                                          ))}
+                                            <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-black/60 text-white text-[10px] font-medium rounded">
+                                              {idx + 1}
+                                            </div>
+                                          </button>
+                                        ))}
                                       </div>
                                     </div>
                                   )
@@ -1108,6 +1157,14 @@ export default function BookingRequestViewModal({
           </div>
         </div>
       </div>
+
+      {/* Image Lightbox */}
+      <ImageLightbox
+        images={lightboxImages}
+        initialIndex={lightboxInitialIndex}
+        isOpen={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+      />
     </>
   )
 }
