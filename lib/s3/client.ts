@@ -12,11 +12,24 @@ import { ENV } from '@/lib/config/env'
  * Check if S3 is configured
  */
 export function isS3Configured(): boolean {
-  return !!(
+  const configured = !!(
     ENV.AWS_ACCESS_KEY_ID &&
     ENV.AWS_SECRET_ACCESS_KEY &&
     ENV.AWS_S3_BUCKET
   )
+  
+  // Debug logging (only in development)
+  if (process.env.NODE_ENV === 'development' && !configured) {
+    console.log('[S3 Config Check]', {
+      hasAccessKey: !!ENV.AWS_ACCESS_KEY_ID,
+      hasSecretKey: !!ENV.AWS_SECRET_ACCESS_KEY,
+      hasBucket: !!ENV.AWS_S3_BUCKET,
+      bucket: ENV.AWS_S3_BUCKET,
+      region: ENV.AWS_REGION,
+    })
+  }
+  
+  return configured
 }
 
 /**
