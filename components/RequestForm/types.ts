@@ -64,6 +64,7 @@ export type BookingFormData = {
     price: string
     realValue: string
     quantity: string
+    imageUrl?: string // S3 URL for the option image
   }>
   
   // Políticas: Políticas Generales
@@ -578,4 +579,5 @@ export type PricingOption = {
   price: string
   realValue: string
   quantity: string
+  imageUrl?: string // S3 URL for the option image
 }

@@ -1,10 +1,15 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import Image from 'next/image'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import InfoIcon from '@mui/icons-material/Info'
+import CloudUploadIcon from '@mui/icons-material/CloudUpload'
+import ImageIcon from '@mui/icons-material/Image'
+import CloseIcon from '@mui/icons-material/Close'
 import type { BookingFormData } from '../types'
 import { Input, Textarea, Button } from '@/components/ui'
+import toast from 'react-hot-toast'
 
 interface EstructuraStepProps {
   formData: BookingFormData
@@ -25,6 +30,60 @@ export default function EstructuraStep({
   isFieldRequired = () => false
 }: EstructuraStepProps) {
   const [aiLoadingIndex, setAiLoadingIndex] = useState<number | null>(null)
+  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null)
+  const fileInputRefs = useRef<(HTMLInputElement | null)[]>([])
+
+  const handleImageUpload = async (index: number, file: File) => {
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    if (!validTypes.includes(file.type)) {
+      toast.error('Por favor, selecciona una imagen válida (JPG, PNG, GIF, WEBP)')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024
+    if (file.size > maxSize) {
+      toast.error('La imagen no puede superar los 5MB')
+      return
+    }
+
+    setUploadingIndex(index)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('folder', 'deal-images')
+      formData.append('isPublic', 'true')
+
+      const response = await fetch('/api/upload/image', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        updatePricingOption(index, 'imageUrl', data.url)
+        toast.success('Imagen cargada exitosamente')
+      } else {
+        toast.error(data.message || 'Error al cargar la imagen')
+      }
+    } catch (error) {
+      console.error('Image upload error:', error)
+      toast.error('Error al cargar la imagen')
+    } finally {
+      setUploadingIndex(null)
+    }
+  }
+
+  const handleRemoveImage = (index: number) => {
+    updatePricingOption(index, 'imageUrl', '')
+    // Reset file input
+    if (fileInputRefs.current[index]) {
+      fileInputRefs.current[index]!.value = ''
+    }
+  }
 
   const handleGenerateTitleWithAI = async (index: number) => {
     const option = formData.pricingOptions[index]
@@ -148,6 +207,70 @@ export default function EstructuraStep({
                     rows={2}
                     placeholder="Detalles incluidos en esta opción..."
                   />
+                </div>
+
+                {/* Image Upload Section */}
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                    <ImageIcon style={{ fontSize: 14 }} />
+                    <span>Imagen de la Opción</span>
+                    <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
+                  </label>
+                  
+                  {option.imageUrl ? (
+                    <div className="relative group w-fit">
+                      <div className="relative w-40 h-28 rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+                        <Image
+                          src={option.imageUrl}
+                          alt={`Imagen opción ${index + 1}`}
+                          fill
+                          className="object-cover"
+                          sizes="160px"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(index)}
+                        className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full shadow-md hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                        title="Eliminar imagen"
+                      >
+                        <CloseIcon style={{ fontSize: 14 }} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <input
+                        ref={(el) => { fileInputRefs.current[index] = el }}
+                        type="file"
+                        accept="image/jpeg,image/png,image/gif,image/webp"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) handleImageUpload(index, file)
+                        }}
+                        className="hidden"
+                        id={`image-upload-${index}`}
+                      />
+                      <label
+                        htmlFor={`image-upload-${index}`}
+                        className={`flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-all duration-200 ${
+                          uploadingIndex === index ? 'opacity-60 pointer-events-none' : ''
+                        }`}
+                      >
+                        {uploadingIndex === index ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                            <span className="text-sm text-gray-500">Cargando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CloudUploadIcon className="text-gray-400" style={{ fontSize: 20 }} />
+                            <span className="text-sm text-gray-500">Subir imagen</span>
+                          </>
+                        )}
+                      </label>
+                      <p className="text-[10px] text-gray-400 mt-1">JPG, PNG, GIF, WEBP · Máx. 5MB</p>
+                    </div>
+                  )}
                 </div>
               </div>
 

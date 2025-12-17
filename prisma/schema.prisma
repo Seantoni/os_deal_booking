@@ -115,7 +115,7 @@ model BookingRequest {
   offerDetails      String? // Detalle del Contenido (Temario o Sinopsis/Descripción)
 
   // Step 7: Estructura de la Oferta (Opciones de Compra)
-  pricingOptions Json? // Array of { title, description, price, realValue, quantity }
+  pricingOptions Json? // Array of { title, description, price, realValue, quantity, imageUrl? }
 
   // Step 8: Políticas Generales
   cancellationPolicy String? // Políticas de cancelación
