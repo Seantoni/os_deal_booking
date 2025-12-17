@@ -20,6 +20,7 @@ import { FieldWithComments } from './FieldWithComments'
 import toast from 'react-hot-toast'
 
 // Icons
+import Image from 'next/image'
 import CloseIcon from '@mui/icons-material/Close'
 import DescriptionIcon from '@mui/icons-material/Description'
 import CommentIcon from '@mui/icons-material/Comment'
@@ -130,6 +131,7 @@ const BASE_SECTIONS: SectionDefinition[] = [
     title: 'Opciones de Precio',
     fields: [
       { key: 'pricingOptions', label: 'Opciones de Precio', type: 'pricing' },
+      { key: 'dealImages', label: 'Galería de Imágenes', type: 'gallery' },
     ],
   },
   {
@@ -566,12 +568,18 @@ export default function BookingRequestViewModal({
     if (requestData.businessReview) params.set('businessReview', String(requestData.businessReview))
     if (requestData.offerDetails) params.set('offerDetails', String(requestData.offerDetails))
     
-    // Step 7: Estructura (Pricing Options)
+    // Step 7: Estructura (Pricing Options + Deal Images)
     if (requestData.pricingOptions) {
       const pricing = Array.isArray(requestData.pricingOptions) 
         ? requestData.pricingOptions 
         : []
       if (pricing.length > 0) params.set('pricingOptions', JSON.stringify(pricing))
+    }
+    if (requestData.dealImages) {
+      const images = Array.isArray(requestData.dealImages) 
+        ? requestData.dealImages 
+        : []
+      if (images.length > 0) params.set('dealImages', JSON.stringify(images))
     }
     
     // Step 8: Políticas
@@ -869,6 +877,77 @@ export default function BookingRequestViewModal({
                                   field.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
                                   field.key.toLowerCase().includes(searchQuery.toLowerCase())
                                 )
+
+                                // Special rendering for pricing options with images
+                                if (field.type === 'pricing' && Array.isArray(rawValue) && rawValue.length > 0) {
+                                  return (
+                                    <div key={field.key} className="md:col-span-2">
+                                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{field.label}</p>
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {(rawValue as Array<{ title?: string; description?: string; price?: string; realValue?: string; quantity?: string; imageUrl?: string }>).map((opt, idx) => (
+                                          <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow">
+                                            {opt.imageUrl && (
+                                              <div className="relative w-full h-32 rounded-lg overflow-hidden mb-3">
+                                                <Image
+                                                  src={opt.imageUrl}
+                                                  alt={opt.title || `Opción ${idx + 1}`}
+                                                  fill
+                                                  className="object-cover"
+                                                  sizes="(max-width: 640px) 100vw, 33vw"
+                                                />
+                                              </div>
+                                            )}
+                                            <p className="font-semibold text-slate-800 text-sm mb-1">{opt.title || `Opción ${idx + 1}`}</p>
+                                            {opt.description && (
+                                              <p className="text-xs text-slate-500 mb-2 line-clamp-2">{opt.description}</p>
+                                            )}
+                                            <div className="flex items-center gap-3">
+                                              <span className="text-lg font-bold text-blue-600">${opt.price || '0'}</span>
+                                              {opt.realValue && parseFloat(opt.realValue) > 0 && (
+                                                <span className="text-sm text-slate-400 line-through">${opt.realValue}</span>
+                                              )}
+                                            </div>
+                                            {opt.quantity && opt.quantity !== 'Ilimitado' && (
+                                              <p className="text-xs text-slate-500 mt-1">Cantidad: {opt.quantity}</p>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )
+                                }
+
+                                // Special rendering for gallery images
+                                if (field.type === 'gallery' && Array.isArray(rawValue) && rawValue.length > 0) {
+                                  return (
+                                    <div key={field.key} className="md:col-span-2">
+                                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{field.label}</p>
+                                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                                        {(rawValue as Array<{ url: string; order: number }>)
+                                          .sort((a, b) => a.order - b.order)
+                                          .map((img, idx) => (
+                                            <div key={img.url} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                                              <Image
+                                                src={img.url}
+                                                alt={`Imagen ${idx + 1}`}
+                                                fill
+                                                className="object-cover"
+                                                sizes="(max-width: 640px) 50vw, 20vw"
+                                              />
+                                              <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-black/60 text-white text-[10px] font-medium rounded">
+                                                {idx + 1}
+                                              </div>
+                                            </div>
+                                          ))}
+                                      </div>
+                                    </div>
+                                  )
+                                }
+
+                                // Skip empty gallery/pricing fields
+                                if ((field.type === 'gallery' || field.type === 'pricing') && (!rawValue || (Array.isArray(rawValue) && rawValue.length === 0))) {
+                                  return null
+                                }
 
                                 return (
                                   <FieldWithComments

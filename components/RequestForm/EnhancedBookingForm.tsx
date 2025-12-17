@@ -377,11 +377,17 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         const offerDetailsParam = searchParams.get('offerDetails')
         if (offerDetailsParam) newData.offerDetails = offerDetailsParam
         
-        // Step 7: Estructura (Pricing Options)
+        // Step 7: Estructura (Pricing Options + Deal Images)
         const pricingOptionsParam = searchParams.get('pricingOptions')
         if (pricingOptionsParam) {
           try {
             newData.pricingOptions = JSON.parse(pricingOptionsParam)
+          } catch (e) { /* ignore parse error */ }
+        }
+        const dealImagesParam = searchParams.get('dealImages')
+        if (dealImagesParam) {
+          try {
+            newData.dealImages = JSON.parse(dealImagesParam)
           } catch (e) { /* ignore parse error */ }
         }
         

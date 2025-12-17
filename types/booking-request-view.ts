@@ -106,6 +106,7 @@ export interface BookingRequestViewData {
 
   // Step 7: Estructura de la Oferta
   pricingOptions: PricingOption[] | null
+  dealImages: Array<{ url: string; order: number }> | null
 
   // Step 8: Políticas Generales
   cancellationPolicy: string | null
@@ -124,7 +125,7 @@ export interface BookingRequestViewData {
 }
 
 // Field type enum
-export type FieldType = 'date' | 'json' | 'pricing' | 'description'
+export type FieldType = 'date' | 'json' | 'pricing' | 'description' | 'gallery'
 
 // Field definition for sections
 export interface FieldDefinition {
