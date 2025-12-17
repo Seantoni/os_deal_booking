@@ -67,6 +67,12 @@ export type BookingFormData = {
     imageUrl?: string // S3 URL for the option image
   }>
   
+  // Deal Images Gallery (general images for the deal)
+  dealImages: Array<{
+    url: string
+    order: number
+  }>
+  
   // Políticas: Políticas Generales
   cancellationPolicy: string
   marketValidation: string

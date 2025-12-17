@@ -262,6 +262,7 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
         offerDetails: fields.offerDetails,
         // Estructura: Estructura de la Oferta
         pricingOptions: fields.pricingOptions,
+        dealImages: fields.dealImages,
         // Políticas: Políticas Generales
         cancellationPolicy: fields.cancellationPolicy,
         marketValidation: fields.marketValidation,

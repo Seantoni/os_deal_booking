@@ -100,6 +100,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
 
   // Estructura: Estructura de la Oferta
   pricingOptions: any | null
+  dealImages: any | null
 
   // Políticas: Políticas Generales
   cancellationPolicy: string | null
@@ -176,6 +177,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
 
     // Estructura: Estructura de la Oferta
     pricingOptions: parseFormDataJsonField(formData, 'pricingOptions'),
+    dealImages: parseFormDataJsonField(formData, 'dealImages'),
 
     // Políticas: Políticas Generales
     cancellationPolicy: getFormDataString(formData, 'cancellationPolicy'),

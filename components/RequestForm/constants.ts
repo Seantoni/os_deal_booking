@@ -118,6 +118,9 @@ export const INITIAL_FORM_DATA: BookingFormData = {
     quantity: 'Ilimitado'
   }],
   
+  // Deal Images Gallery
+  dealImages: [],
+  
   // Políticas: Políticas y Revisión
   cancellationPolicy: '',
   marketValidation: 'Sí',

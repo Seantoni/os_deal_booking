@@ -206,6 +206,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
               
               // Estructura (Pricing)
               pricingOptions: Array.isArray(data.pricingOptions) ? data.pricingOptions : [],
+              dealImages: Array.isArray(data.dealImages) ? data.dealImages : [],
               
               // Políticas
               cancellationPolicy: data.cancellationPolicy || '',

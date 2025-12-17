@@ -187,6 +187,7 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
   
   // Estructura: Estructura de la Oferta
   fd.append('pricingOptions', JSON.stringify(formData.pricingOptions || []))
+  fd.append('dealImages', JSON.stringify(formData.dealImages || []))
   
   // Políticas: Políticas Generales
   fd.append('cancellationPolicy', formData.cancellationPolicy || '')

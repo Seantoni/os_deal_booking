@@ -116,6 +116,7 @@ model BookingRequest {
 
   // Step 7: Estructura de la Oferta (Opciones de Compra)
   pricingOptions Json? // Array of { title, description, price, realValue, quantity, imageUrl? }
+  dealImages    Json? // Array of { url, order } - General gallery images for the deal
 
   // Step 8: Políticas Generales
   cancellationPolicy String? // Políticas de cancelación

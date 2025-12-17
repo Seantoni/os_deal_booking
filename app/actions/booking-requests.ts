@@ -135,6 +135,7 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
       offerDetails: fields.offerDetails,
       // Estructura: Estructura de la Oferta
       pricingOptions: fields.pricingOptions,
+      dealImages: fields.dealImages,
       // Políticas: Políticas Generales
       cancellationPolicy: fields.cancellationPolicy,
       marketValidation: fields.marketValidation,
@@ -257,9 +258,11 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
     // Parse JSON fields
     const redemptionMethodsStr = formData.get('redemptionMethods') as string
     const pricingOptionsStr = formData.get('pricingOptions') as string
+    const dealImagesStr = formData.get('dealImages') as string
     const additionalInfoStr = formData.get('additionalInfo') as string
     let redemptionMethods = null
     let pricingOptions = null
+    let dealImages = null
     let additionalInfo = null
     
     try {
@@ -268,6 +271,9 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       }
       if (pricingOptionsStr) {
         pricingOptions = JSON.parse(pricingOptionsStr)
+      }
+      if (dealImagesStr) {
+        dealImages = JSON.parse(dealImagesStr)
       }
       if (additionalInfoStr) {
         additionalInfo = JSON.parse(additionalInfoStr)
@@ -341,6 +347,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       offerDetails: (formData.get('offerDetails') as string) || null,
       // Estructura: Estructura de la Oferta
       pricingOptions,
+      dealImages,
       // Políticas: Políticas Generales
       cancellationPolicy: (formData.get('cancellationPolicy') as string) || null,
       marketValidation: (formData.get('marketValidation') as string) || null,

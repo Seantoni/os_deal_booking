@@ -9,6 +9,19 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['@mui/icons-material', '@mui/material'],
   },
+  // Allow S3 images
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '*.s3.*.amazonaws.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.s3.amazonaws.com',
+      },
+    ],
+  },
 };
 
 export default withBundleAnalyzer(nextConfig);

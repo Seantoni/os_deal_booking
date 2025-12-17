@@ -7,6 +7,8 @@ import InfoIcon from '@mui/icons-material/Info'
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import ImageIcon from '@mui/icons-material/Image'
 import CloseIcon from '@mui/icons-material/Close'
+import CollectionsIcon from '@mui/icons-material/Collections'
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import type { BookingFormData } from '../types'
 import { Input, Textarea, Button } from '@/components/ui'
 import toast from 'react-hot-toast'
@@ -24,6 +26,7 @@ interface EstructuraStepProps {
 export default function EstructuraStep({ 
   formData, 
   errors, 
+  updateFormData,
   addPricingOption, 
   removePricingOption, 
   updatePricingOption,
@@ -83,6 +86,99 @@ export default function EstructuraStep({
     if (fileInputRefs.current[index]) {
       fileInputRefs.current[index]!.value = ''
     }
+  }
+
+  // Gallery image handlers
+  const [galleryUploading, setGalleryUploading] = useState(false)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
+
+  const dealImages = Array.isArray(formData.dealImages) ? formData.dealImages : []
+
+  const handleGalleryUpload = async (files: FileList) => {
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    const maxSize = 5 * 1024 * 1024
+
+    const validFiles = Array.from(files).filter(file => {
+      if (!validTypes.includes(file.type)) {
+        toast.error(`${file.name}: Formato no válido`)
+        return false
+      }
+      if (file.size > maxSize) {
+        toast.error(`${file.name}: Excede 5MB`)
+        return false
+      }
+      return true
+    })
+
+    if (validFiles.length === 0) return
+
+    setGalleryUploading(true)
+
+    try {
+      const uploadPromises = validFiles.map(async (file) => {
+        const uploadFormData = new FormData()
+        uploadFormData.append('file', file)
+        uploadFormData.append('folder', 'deal-images')
+        uploadFormData.append('isPublic', 'true')
+
+        const response = await fetch('/api/upload/image', {
+          method: 'POST',
+          body: uploadFormData,
+        })
+
+        const data = await response.json()
+        if (response.ok) {
+          return data.url
+        } else {
+          throw new Error(data.message || 'Error uploading')
+        }
+      })
+
+      const uploadedUrls = await Promise.all(uploadPromises)
+      
+      // Add new images with order
+      const currentMaxOrder = dealImages.length > 0 
+        ? Math.max(...dealImages.map(img => img.order)) 
+        : -1
+      
+      const newImages = uploadedUrls.map((url, idx) => ({
+        url,
+        order: currentMaxOrder + 1 + idx
+      }))
+
+      updateFormData('dealImages', [...dealImages, ...newImages])
+      toast.success(`${uploadedUrls.length} imagen(es) cargada(s)`)
+    } catch (error) {
+      console.error('Gallery upload error:', error)
+      toast.error('Error al cargar algunas imágenes')
+    } finally {
+      setGalleryUploading(false)
+      if (galleryInputRef.current) {
+        galleryInputRef.current.value = ''
+      }
+    }
+  }
+
+  const handleRemoveGalleryImage = (imageUrl: string) => {
+    const updatedImages = dealImages.filter(img => img.url !== imageUrl)
+    // Reorder remaining images
+    const reorderedImages = updatedImages.map((img, idx) => ({
+      ...img,
+      order: idx
+    }))
+    updateFormData('dealImages', reorderedImages)
+  }
+
+  const handleReorderGalleryImages = (fromIndex: number, toIndex: number) => {
+    const reordered = [...dealImages]
+    const [removed] = reordered.splice(fromIndex, 1)
+    reordered.splice(toIndex, 0, removed)
+    // Update order values
+    const updatedImages = reordered.map((img, idx) => ({
+      ...img,
+      order: idx
+    }))
+    updateFormData('dealImages', updatedImages)
   }
 
   const handleGenerateTitleWithAI = async (index: number) => {
@@ -385,6 +481,109 @@ export default function EstructuraStep({
           <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
             <span className="font-bold">!</span> {errors.pricingOptions}
           </div>
+        )}
+      </div>
+
+      {/* Deal Images Gallery Section */}
+      <div className="mt-10 pt-8 border-t border-gray-200">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-purple-100 rounded-lg">
+            <CollectionsIcon className="text-purple-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Galería de Imágenes</h3>
+            <p className="text-sm text-gray-500">Agrega imágenes generales de la oferta (opcional)</p>
+          </div>
+        </div>
+
+        {/* Gallery Grid */}
+        {dealImages.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-4">
+            {dealImages
+              .sort((a, b) => a.order - b.order)
+              .map((image, idx) => (
+                <div 
+                  key={image.url} 
+                  className="relative group aspect-square rounded-xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-all"
+                >
+                  <Image
+                    src={image.url}
+                    alt={`Imagen ${idx + 1}`}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 20vw"
+                  />
+                  {/* Overlay with actions */}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveGalleryImage(image.url)}
+                      className="p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors"
+                      title="Eliminar imagen"
+                    >
+                      <CloseIcon style={{ fontSize: 16 }} />
+                    </button>
+                  </div>
+                  {/* Order badge */}
+                  <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 text-white text-xs rounded-full">
+                    {idx + 1}
+                  </div>
+                  {/* Drag handle (visual only for now) */}
+                  <div className="absolute bottom-2 right-2 p-1 bg-white/80 rounded cursor-move opacity-0 group-hover:opacity-100 transition-opacity">
+                    <DragIndicatorIcon style={{ fontSize: 14 }} className="text-gray-600" />
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
+
+        {/* Upload Area */}
+        <div className="relative">
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            multiple
+            onChange={(e) => {
+              const files = e.target.files
+              if (files && files.length > 0) handleGalleryUpload(files)
+            }}
+            className="hidden"
+            id="gallery-upload"
+          />
+          <label
+            htmlFor="gallery-upload"
+            className={`flex flex-col items-center gap-3 px-6 py-8 border-2 border-dashed border-gray-300 rounded-2xl cursor-pointer hover:border-purple-400 hover:bg-purple-50/50 transition-all duration-200 ${
+              galleryUploading ? 'opacity-60 pointer-events-none' : ''
+            }`}
+          >
+            {galleryUploading ? (
+              <>
+                <div className="w-8 h-8 border-3 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                <span className="text-sm text-gray-500">Cargando imágenes...</span>
+              </>
+            ) : (
+              <>
+                <div className="p-3 bg-purple-100 rounded-full">
+                  <CloudUploadIcon className="text-purple-500" style={{ fontSize: 28 }} />
+                </div>
+                <div className="text-center">
+                  <span className="text-sm font-medium text-gray-700">
+                    Arrastra imágenes aquí o haz clic para seleccionar
+                  </span>
+                  <p className="text-xs text-gray-400 mt-1">
+                    JPG, PNG, GIF, WEBP · Máx. 5MB cada una · Puedes seleccionar múltiples
+                  </p>
+                </div>
+              </>
+            )}
+          </label>
+        </div>
+
+        {dealImages.length > 0 && (
+          <p className="text-xs text-gray-400 mt-2 text-center">
+            {dealImages.length} imagen{dealImages.length !== 1 ? 'es' : ''} en la galería
+          </p>
         )}
       </div>
     </div>
