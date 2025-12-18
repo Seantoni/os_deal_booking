@@ -142,7 +142,6 @@ export type BookingFormData = {
   restaurantPrivateEvents: string
   restaurantPrivateEventMinPeople: string
   restaurantAlcoholSubstitution: string
-  restaurantValidHolidays: string
   
   // ============================================================
   // TEMPLATE: HOTEL (HOTELES)

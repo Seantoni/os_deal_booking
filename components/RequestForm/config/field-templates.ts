@@ -170,7 +170,6 @@ export const RESTAURANTE_TEMPLATE: FieldTemplate = {
     { name: 'restaurantPrivateEvents', type: 'select', label: '¿Aplica para eventos privados?', options: COMMON_OPTIONS.YES_NO },
     { name: 'restaurantPrivateEventMinPeople', type: 'text', label: '¿A partir de cuántas personas se considera evento privado?', placeholder: 'Ej: 15 personas', showWhen: { field: 'restaurantPrivateEvents', value: 'Sí' } },
     { name: 'restaurantAlcoholSubstitution', type: 'textarea', label: 'En caso que incluya bebida alcohólica, ¿se puede cambiar por otra bebida no alcohólica? ¿Cuál?', placeholder: 'Ej: Sí, por jugo o soda...', fullWidth: true, rows: 2 },
-    { name: 'restaurantValidHolidays', type: 'textarea', label: '¿Válido en feriados? De coincidir el periodo, ¿válido en San Valentín?', placeholder: 'Ej: Válido excepto San Valentín...', fullWidth: true, rows: 2 },
   ],
 }
 

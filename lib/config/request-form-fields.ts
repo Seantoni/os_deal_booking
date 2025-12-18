@@ -158,7 +158,6 @@ export const REQUEST_FORM_STEPS: RequestFormStep[] = [
       { key: 'restaurantPrivateEvents', label: 'Eventos Privados', type: 'select', categorySpecific: true, template: 'RESTAURANTE' },
       { key: 'restaurantPrivateEventMinPeople', label: 'Mín Personas Evento', type: 'number', categorySpecific: true, template: 'RESTAURANTE' },
       { key: 'restaurantAlcoholSubstitution', label: 'Sustitución Alcohol', type: 'text', categorySpecific: true, template: 'RESTAURANTE' },
-      { key: 'restaurantValidHolidays', label: 'Válido Feriados', type: 'select', categorySpecific: true, template: 'RESTAURANTE' },
       
       // HOTEL Template
       { key: 'hotelCheckIn', label: 'Hora Check-In', type: 'text', categorySpecific: true, template: 'HOTEL' },

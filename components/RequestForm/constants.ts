@@ -186,7 +186,6 @@ export const INITIAL_FORM_DATA: BookingFormData = {
   restaurantPrivateEvents: '',
   restaurantPrivateEventMinPeople: '',
   restaurantAlcoholSubstitution: '',
-  restaurantValidHolidays: '',
   
   // HOTEL TEMPLATE
   hotelCheckIn: '',
