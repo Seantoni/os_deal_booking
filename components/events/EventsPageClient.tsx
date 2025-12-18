@@ -210,15 +210,27 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
     } else if (action === 'delete') {
       // Remove event
       setEvents(prev => prev.filter(e => e.id !== event.id))
-    } else if (action === 'book' || action === 'reject') {
-      // Update event status
+    } else if (action === 'book') {
+      // Update event status for booked events
       setEvents(prev => prev.map(e => e.id === event.id ? event : e))
       
-      // Also update the linked booking request status to remove it from PendingRequestsSidebar
+      // Update the linked booking request status
       if (event.bookingRequestId) {
         setBookingRequests(prev => prev.map(r => 
           r.id === event.bookingRequestId 
-            ? { ...r, status: action === 'book' ? 'booked' : 'rejected' } 
+            ? { ...r, status: 'booked' } 
+            : r
+        ))
+      }
+    } else if (action === 'reject') {
+      // Remove event from calendar when rejected
+      setEvents(prev => prev.filter(e => e.id !== event.id))
+      
+      // Update the linked booking request status
+      if (event.bookingRequestId) {
+        setBookingRequests(prev => prev.map(r => 
+          r.id === event.bookingRequestId 
+            ? { ...r, status: 'rejected' } 
             : r
         ))
       }
