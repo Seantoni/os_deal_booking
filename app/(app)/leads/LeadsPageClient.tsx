@@ -21,7 +21,7 @@ import {
   type ColumnConfig,
 } from '@/components/shared'
 import { Button } from '@/components/ui'
-import { EntityTable, CellStack, StatusPill } from '@/components/shared/table'
+import { EntityTable, CellStack, StatusPill, TableRow, TableCell } from '@/components/shared/table'
 
 // Lazy load the modal
 const LeadFormModal = dynamic(() => import('@/components/crm/lead/LeadFormModal'), {
@@ -263,13 +263,13 @@ export default function LeadsPageClient() {
               sortDirection={sortDirection}
               onSort={handleSort}
             >
-              {visibleLeads.map((lead) => (
-                <tr
+              {visibleLeads.map((lead, index) => (
+                <TableRow
                   key={lead.id}
+                  index={index}
                   onClick={() => handleEditLead(lead)}
-                  className="group hover:bg-gray-50 transition-colors cursor-pointer"
                 >
-                  <td className="px-4 py-[5px]">
+                  <TableCell>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={(e) => {
@@ -284,17 +284,17 @@ export default function LeadsPageClient() {
                         <BusinessIcon fontSize="small" className="text-green-600" titleAccess="Converted to Business" />
                       )}
                     </div>
-                  </td>
-                  <td className="px-4 py-2 text-[13px] text-gray-600">
+                  </TableCell>
+                  <TableCell className="text-[13px] text-gray-600">
                     {lead.contactName || <span className="text-gray-400">-</span>}
-                  </td>
-                  <td className="px-4 py-[5px]">
-                    <span className="text-[13px] text-gray-500 break-all">{lead.contactEmail || <span className="text-gray-400">-</span>}</span>
-                  </td>
-                  <td className="px-4 py-[5px]">
-                    <span className="text-[13px] text-gray-500 whitespace-nowrap">{lead.contactPhone || <span className="text-gray-400">-</span>}</span>
-                  </td>
-                  <td className="px-4 py-[5px]">
+                  </TableCell>
+                  <TableCell className="text-[13px] text-gray-500 break-all">
+                    {lead.contactEmail || <span className="text-gray-400">-</span>}
+                  </TableCell>
+                  <TableCell className="text-[13px] text-gray-500 whitespace-nowrap">
+                    {lead.contactPhone || <span className="text-gray-400">-</span>}
+                  </TableCell>
+                  <TableCell>
                     {lead.category ? (
                       <span className="text-xs text-gray-600">
                         {lead.category.parentCategory}
@@ -303,11 +303,11 @@ export default function LeadsPageClient() {
                     ) : (
                       <span className="text-gray-400 text-xs">-</span>
                     )}
-                  </td>
-                  <td className="px-4 py-2 text-[13px] text-gray-600">
+                  </TableCell>
+                  <TableCell className="text-[13px] text-gray-600">
                     {lead.responsible?.name || lead.responsible?.email || <span className="text-gray-400 italic">Unassigned</span>}
-                  </td>
-                  <td className="px-4 py-[5px]">
+                  </TableCell>
+                  <TableCell>
                     <StatusPill
                       label={LEAD_STAGE_LABELS[lead.stage] || lead.stage}
                       tone={
@@ -318,14 +318,14 @@ export default function LeadsPageClient() {
                             : 'info'
                       }
                     />
-                  </td>
-                  <td className="px-4 py-2 text-[13px] text-gray-600">
+                  </TableCell>
+                  <TableCell className="text-[13px] text-gray-600">
                     {lead.source || <span className="text-gray-400">-</span>}
-                  </td>
-                  <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                  </TableCell>
+                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                     {/* Actions removed - row click opens edit modal */}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
             </EntityTable>
             {visibleCount < filteredLeads.length && (

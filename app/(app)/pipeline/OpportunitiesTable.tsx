@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { Opportunity, BookingRequest } from '@/types'
-import { EntityTable, RowActionsMenu, StatusPill } from '@/components/shared/table'
+import { EntityTable, RowActionsMenu, StatusPill, TableRow, TableCell } from '@/components/shared/table'
 import { type ColumnConfig } from '@/components/shared'
 
 // Lazy load heavy modal component
@@ -72,21 +72,21 @@ export default function OpportunitiesTable({ data, searchQuery }: OpportunitiesT
       sortDirection={'asc'}
       onSort={() => {}}
     >
-      {filteredData.map((item) => (
-        <tr key={item.opportunity?.id} className="group hover:bg-gray-50 transition-colors">
-          <td className="px-4 py-[5px] font-medium text-gray-900 text-[13px]">
+      {filteredData.map((item, index) => (
+        <TableRow key={item.opportunity?.id} index={index}>
+          <TableCell className="font-medium text-gray-900 text-[13px]">
             {item.opportunity?.business?.name}
-          </td>
-          <td className="px-4 py-[5px] text-gray-600 text-[13px]">
+          </TableCell>
+          <TableCell className="text-gray-600 text-[13px]">
             {new Date(item.opportunity?.createdAt || '').toLocaleDateString()}
-          </td>
-          <td className="px-4 py-[5px]">
+          </TableCell>
+          <TableCell>
             <StatusPill
               label={stageLabels[item.opportunity?.stage || ''] || item.opportunity?.stage || '-'}
               tone={getTone(item.opportunity?.stage)}
             />
-          </td>
-          <td className="px-4 py-[5px] text-right">
+          </TableCell>
+          <TableCell align="right">
             <RowActionsMenu
               isOpen={menuOpen === item.opportunity?.id}
               onOpenChange={(open) => setMenuOpen(open ? item.opportunity?.id || null : null)}
@@ -100,8 +100,8 @@ export default function OpportunitiesTable({ data, searchQuery }: OpportunitiesT
                 },
               ]}
             />
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       ))}
     </EntityTable>
 

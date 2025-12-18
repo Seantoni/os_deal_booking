@@ -1279,3 +1279,143 @@ export async function cancelBookingRequest(requestId: string) {
   }
 }
 
+/**
+ * Admin approve a booking request directly
+ * Only admins can use this action
+ * Only 'pending' status requests can be approved
+ */
+export async function adminApproveBookingRequest(requestId: string) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    // Check if user is admin
+    const userRole = await getUserRole()
+    if (userRole !== 'admin') {
+      return { success: false, error: 'Solo los administradores pueden aprobar solicitudes directamente' }
+    }
+
+    // Get current user details
+    const clerkUser = await currentUser()
+    const approverName = clerkUser?.fullName || clerkUser?.firstName || 'Admin'
+    const approverEmail = clerkUser?.emailAddresses?.[0]?.emailAddress || 'admin@ofertasimple.com'
+
+    // Fetch the booking request
+    const bookingRequest = await prisma.bookingRequest.findUnique({
+      where: { id: requestId },
+    })
+
+    if (!bookingRequest) {
+      return { success: false, error: 'Solicitud no encontrada' }
+    }
+
+    // Check if request can be approved (only pending)
+    if (bookingRequest.status !== 'pending') {
+      return { 
+        success: false, 
+        error: `Solo se pueden aprobar solicitudes en estado pendiente. Estado actual: ${bookingRequest.status}` 
+      }
+    }
+
+    // Update the booking request status to approved
+    const updatedRequest = await prisma.bookingRequest.update({
+      where: { id: requestId },
+      data: {
+        status: 'approved',
+        processedAt: new Date(),
+        processedBy: `Admin: ${approverEmail}`,
+      },
+    })
+
+    // Also update linked event if exists
+    if (bookingRequest.eventId) {
+      await prisma.event.update({
+        where: { id: bookingRequest.eventId },
+        data: { status: 'approved' },
+      })
+    }
+
+    // Log activity
+    await logActivity({
+      action: 'APPROVE',
+      entityType: 'BookingRequest',
+      entityId: updatedRequest.id,
+      entityName: updatedRequest.name,
+      details: {
+        statusChange: { from: bookingRequest.status, to: 'approved' },
+        metadata: {
+          approvedBy: approverEmail,
+          approvalMethod: 'admin_direct',
+        },
+      },
+    })
+
+    // Send notification emails
+    const { renderAdminApprovalEmail } = await import('@/lib/email/templates/admin-approval')
+    
+    // Format dates for email
+    const formatDate = (date: Date) => {
+      return new Intl.DateTimeFormat('es-PA', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }).format(date)
+    }
+
+    const emailData = {
+      requestName: bookingRequest.name,
+      businessName: bookingRequest.name.split(' | ')[0].trim(),
+      businessEmail: bookingRequest.businessEmail,
+      merchant: bookingRequest.merchant || undefined,
+      category: bookingRequest.parentCategory || bookingRequest.category || undefined,
+      startDate: formatDate(new Date(bookingRequest.startDate)),
+      endDate: formatDate(new Date(bookingRequest.endDate)),
+      approvedByName: approverName,
+      approvedByEmail: approverEmail,
+    }
+
+    // Send to business
+    try {
+      await resend.emails.send({
+        from: EMAIL_CONFIG.from,
+        to: bookingRequest.businessEmail,
+        subject: `✓ Solicitud Aprobada - ${emailData.businessName} - OfertaSimple`,
+        html: renderAdminApprovalEmail({ ...emailData, recipientType: 'business' }),
+      })
+      logger.info('Admin approval email sent to business:', bookingRequest.businessEmail)
+    } catch (emailError) {
+      logger.error('Failed to send admin approval email to business:', emailError)
+    }
+
+    // Try to send to creator if we can get their email from Clerk
+    if (bookingRequest.userId) {
+      try {
+        const { clerkClient } = await import('@clerk/nextjs/server')
+        const client = await clerkClient()
+        const creatorUser = await client.users.getUser(bookingRequest.userId)
+        const creatorEmail = creatorUser?.emailAddresses?.[0]?.emailAddress
+        
+        if (creatorEmail && creatorEmail !== bookingRequest.businessEmail) {
+          await resend.emails.send({
+            from: EMAIL_CONFIG.from,
+            to: creatorEmail,
+            subject: `✓ Solicitud Aprobada - ${emailData.businessName} - OfertaSimple`,
+            html: renderAdminApprovalEmail({ ...emailData, recipientType: 'creator' }),
+          })
+          logger.info('Admin approval email sent to creator:', creatorEmail)
+        }
+      } catch (emailError) {
+        logger.warn('Could not send admin approval email to creator:', emailError)
+      }
+    }
+
+    invalidateEntity('booking-requests')
+    return { success: true, data: updatedRequest }
+  } catch (error) {
+    return handleServerActionError(error, 'adminApproveBookingRequest')
+  }
+}
+

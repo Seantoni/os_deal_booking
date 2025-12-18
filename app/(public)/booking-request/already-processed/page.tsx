@@ -79,9 +79,25 @@ export default async function AlreadyProcessedPage({
               Esta solicitud de booking ya ha sido <span className="font-semibold text-blue-700">aprobada</span>.
             </p>
             {processedByEmail && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-                <p className="text-sm text-blue-800">
-                  <strong>Aprobada por:</strong> <span className="font-mono text-blue-900">{processedByEmail}</span>
+              <div className={`rounded-lg p-3 text-center ${
+                processedByEmail.startsWith('Admin:') 
+                  ? 'bg-green-50 border border-green-200' 
+                  : 'bg-blue-50 border border-blue-200'
+              }`}>
+                <p className={`text-sm ${processedByEmail.startsWith('Admin:') ? 'text-green-800' : 'text-blue-800'}`}>
+                  {processedByEmail.startsWith('Admin:') ? (
+                    <>
+                      <strong>Aprobada internamente por Administrador de OfertaSimple</strong>
+                      <br />
+                      <span className={`font-mono ${processedByEmail.startsWith('Admin:') ? 'text-green-900' : 'text-blue-900'}`}>
+                        {processedByEmail.replace('Admin: ', '')}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <strong>Aprobada por:</strong> <span className="font-mono text-blue-900">{processedByEmail}</span>
+                    </>
+                  )}
                 </p>
               </div>
             )}

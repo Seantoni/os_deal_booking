@@ -17,7 +17,7 @@ import {
 } from '@/components/shared'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
-import { EntityTable, StatusPill } from '@/components/shared/table'
+import { EntityTable, StatusPill, TableRow, TableCell } from '@/components/shared/table'
 import { Button } from '@/components/ui'
 
 // Lazy load heavy modal components
@@ -269,18 +269,18 @@ export default function DealsPageClient() {
             sortDirection={sortDirection}
             onSort={handleSort}
           >
-            {visibleDeals.map((deal) => (
-              <tr
+            {visibleDeals.map((deal, index) => (
+              <TableRow
                 key={deal.id}
-                className="hover:bg-gray-50 transition-colors cursor-pointer"
+                index={index}
                 onClick={() => handleEditDeal(deal)}
               >
-                <td className="px-4 py-[5px]">
+                <TableCell>
                   <span className="text-[13px] font-medium text-gray-900">
                     {deal.bookingRequest.name}
                   </span>
-                </td>
-                <td className="px-4 py-[5px] text-[13px] text-gray-600">
+                </TableCell>
+                <TableCell className="text-[13px] text-gray-600">
                   {new Date(deal.bookingRequest.startDate).toLocaleDateString('en-US', {
                     month: 'short',
                     day: 'numeric'
@@ -288,25 +288,25 @@ export default function DealsPageClient() {
                     month: 'short',
                     day: 'numeric'
                   })}
-                </td>
-                <td className="px-4 py-[5px] text-[13px] text-gray-600">
+                </TableCell>
+                <TableCell className="text-[13px] text-gray-600">
                   {deal.opportunityResponsible?.name || deal.opportunityResponsible?.email || <span className="text-gray-400">-</span>}
-                </td>
-                <td className="px-4 py-[5px] text-[13px] text-gray-600">
+                </TableCell>
+                <TableCell className="text-[13px] text-gray-600">
                   {deal.responsible?.name || deal.responsible?.email || <span className="text-gray-400 italic">Unassigned</span>}
-                </td>
-                <td className="px-4 py-[5px] text-[13px] text-gray-600">
+                </TableCell>
+                <TableCell className="text-[13px] text-gray-600">
                   {deal.ereResponsible?.name || deal.ereResponsible?.email || <span className="text-gray-400 italic">Unassigned</span>}
-                </td>
-                <td className="px-4 py-[5px] text-[13px] text-gray-600">
+                </TableCell>
+                <TableCell className="text-[13px] text-gray-600">
                   {deal.bookingRequest.processedAt 
                     ? new Date(deal.bookingRequest.processedAt).toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric'
                       })
                     : '-'}
-                </td>
-                <td className="px-4 py-[5px]">
+                </TableCell>
+                <TableCell>
                   <StatusPill
                     label={STATUS_LABELS[deal.status || 'pendiente_por_asignar']}
                     tone={
@@ -317,14 +317,14 @@ export default function DealsPageClient() {
                           : 'neutral'
                     }
                   />
-                </td>
-                <td
-                  className="px-4 py-2 text-right"
+                </TableCell>
+                <TableCell
+                  align="right"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {/* Actions removed - row click opens edit modal */}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
           </EntityTable>
           {visibleCount < filteredDeals.length && (

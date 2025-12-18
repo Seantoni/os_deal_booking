@@ -38,7 +38,10 @@ import EditNoteIcon from '@mui/icons-material/EditNote'
 import BlockIcon from '@mui/icons-material/Block'
 import ZoomInIcon from '@mui/icons-material/ZoomIn'
 import VisibilityIcon from '@mui/icons-material/Visibility'
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import ImageLightbox from '@/components/common/ImageLightbox'
+import ConfirmDialog from '@/components/common/ConfirmDialog'
+import { adminApproveBookingRequest } from '@/app/actions/booking-requests'
 
 // Helper to get field value from requestData using dynamic key access
 function getFieldValue(data: BookingRequestViewData | null, key: string): unknown {
@@ -184,9 +187,12 @@ export default function BookingRequestViewModal({
   const [newCommentText, setNewCommentText] = useState('')
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [editCommentText, setEditCommentText] = useState('')
-  const [showSidebar, setShowSidebar] = useState(true)
+  const [showSidebar, setShowSidebar] = useState(false)
   const [savingComment, setSavingComment] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [approving, setApproving] = useState(false)
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false)
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('')
@@ -467,8 +473,8 @@ export default function BookingRequestViewModal({
     router.push(`/booking-requests/new?editId=${requestId}`)
   }
 
-  // Cancel request
-  async function handleCancel() {
+  // Cancel request - show confirmation dialog
+  function handleCancelClick() {
     if (!requestId || !requestData) return
 
     // Check permissions: only creator or admin can cancel
@@ -484,10 +490,13 @@ export default function BookingRequestViewModal({
       return
     }
 
-    // Confirm cancellation
-    if (!window.confirm(`¿Estás seguro de que deseas cancelar la solicitud "${requestData.name}"? Esta acción no se puede deshacer.`)) {
-      return
-    }
+    // Show confirmation dialog
+    setShowCancelConfirm(true)
+  }
+
+  // Execute cancel after confirmation
+  async function handleCancelConfirm() {
+    if (!requestId) return
 
     setCancelling(true)
     
@@ -495,12 +504,44 @@ export default function BookingRequestViewModal({
     
     if (result.success) {
       toast.success('Solicitud cancelada exitosamente')
+      setShowCancelConfirm(false)
       onClose()
     } else {
       toast.error(result.error || 'Error al cancelar la solicitud')
     }
     
     setCancelling(false)
+  }
+
+  // Admin approve request
+  async function handleAdminApprove() {
+    if (!requestId || !requestData) return
+
+    // Check permissions: only admin can approve
+    if (!isAdmin) {
+      toast.error('Solo los administradores pueden aprobar solicitudes')
+      return
+    }
+
+    // Check if request can be approved (only pending)
+    if (requestData.status !== 'pending') {
+      toast.error('Solo se pueden aprobar solicitudes en estado pendiente')
+      return
+    }
+
+    setApproving(true)
+    
+    const result = await adminApproveBookingRequest(requestId)
+    
+    if (result.success) {
+      toast.success('Solicitud aprobada exitosamente. Se enviaron notificaciones por correo.')
+      setShowApproveConfirm(false)
+      onClose()
+    } else {
+      toast.error(result.error || 'Error al aprobar la solicitud')
+    }
+    
+    setApproving(false)
   }
 
   // Replicate request - navigate to form with pre-filled data
@@ -642,41 +683,51 @@ export default function BookingRequestViewModal({
                 </h2>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              {/* Admin Approve Button - Only for pending status, admin only */}
+              {requestData?.status === 'pending' && isAdmin && (
+                <button
+                  onClick={() => setShowApproveConfirm(true)}
+                  disabled={loading || approving}
+                  className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 border border-transparent hover:border-green-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Aprobar solicitud"
+                >
+                  <CheckCircleOutlineIcon style={{ fontSize: 20 }} />
+                </button>
+              )}
               {/* Continue Editing Button - Only for drafts */}
               {requestData?.status === 'draft' && (
                 <button
                   onClick={handleContinueEditing}
                   disabled={loading}
-                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Continuar editando esta solicitud"
+                  className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 border border-transparent hover:border-blue-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Editar borrador"
                 >
-                  <EditNoteIcon style={{ fontSize: 18 }} />
-                  <span>Editar</span>
+                  <EditNoteIcon style={{ fontSize: 20 }} />
                 </button>
               )}
               {/* Cancel Button - Only for draft/pending, creator or admin */}
               {(requestData?.status === 'draft' || requestData?.status === 'pending') && 
                (requestData?.userId === userId || isAdmin) && (
                 <button
-                  onClick={handleCancel}
+                  onClick={handleCancelClick}
                   disabled={loading || cancelling}
-                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Cancelar esta solicitud"
+                  className="p-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 border border-transparent hover:border-orange-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={cancelling ? 'Cancelando...' : 'Cancelar solicitud'}
                 >
-                  <BlockIcon style={{ fontSize: 16 }} />
-                  <span>{cancelling ? 'Cancelando...' : 'Cancelar'}</span>
+                  <BlockIcon style={{ fontSize: 20 }} />
                 </button>
               )}
+              {/* Divider */}
+              <div className="w-px h-6 bg-slate-200 mx-1" />
               {/* Replicate Button */}
               <button
                 onClick={handleReplicate}
                 disabled={loading || !requestData}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Replicar esta solicitud"
+                className="p-2 text-slate-500 hover:text-green-600 hover:bg-green-50 border border-transparent hover:border-green-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Replicar"
               >
-                <ContentCopyIcon style={{ fontSize: 16 }} />
-                <span>Replicar</span>
+                <ContentCopyIcon style={{ fontSize: 20 }} />
               </button>
               {/* View Deal Draft Button */}
               <button
@@ -686,12 +737,12 @@ export default function BookingRequestViewModal({
                   }
                 }}
                 disabled={loading || !requestData}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Ver vista previa del deal"
+                className="p-2 text-slate-500 hover:text-purple-600 hover:bg-purple-50 border border-transparent hover:border-purple-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Ver Deal Draft"
               >
-                <VisibilityIcon style={{ fontSize: 16 }} />
-                <span>Deal Draft</span>
+                <VisibilityIcon style={{ fontSize: 20 }} />
               </button>
+              {/* Comments Toggle */}
               <button
                 onClick={() => setShowSidebar(!showSidebar)}
                 className={`p-2 rounded-lg transition-all ${
@@ -699,18 +750,20 @@ export default function BookingRequestViewModal({
                     ? 'bg-blue-50 text-blue-600 border border-blue-100' 
                     : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-200'
                 }`}
-                title={showSidebar ? 'Ocultar panel de comentarios' : 'Mostrar panel de comentarios'}
+                title={showSidebar ? 'Ocultar comentarios' : 'Ver comentarios'}
               >
-                <CommentIcon fontSize="small" />
+                <CommentIcon style={{ fontSize: 20 }} />
                 {comments.length > 0 && (
-                  <span className="ml-1.5 text-xs font-bold">{comments.length}</span>
+                  <span className="ml-1 text-xs font-bold">{comments.length}</span>
                 )}
               </button>
+              {/* Close Button */}
               <button
                 onClick={onClose}
                 className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+                title="Cerrar"
               >
-                <CloseIcon fontSize="medium" />
+                <CloseIcon style={{ fontSize: 20 }} />
               </button>
             </div>
           </div>
@@ -1164,6 +1217,69 @@ export default function BookingRequestViewModal({
         initialIndex={lightboxInitialIndex}
         isOpen={lightboxOpen}
         onClose={() => setLightboxOpen(false)}
+      />
+
+      {/* Admin Approval Confirmation Modal */}
+      <ConfirmDialog
+        isOpen={showApproveConfirm}
+        title="¿Aprobar esta solicitud?"
+        message={
+          <div className="space-y-3">
+            <p className="text-gray-600">
+              Estás a punto de aprobar la solicitud:
+            </p>
+            <p className="text-gray-900 font-semibold px-4 py-2 bg-gray-50 rounded-lg">
+              {requestData?.name}
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-800 font-medium">Al aprobar:</p>
+              <ul className="mt-1 text-sm text-blue-700 list-disc list-inside space-y-0.5">
+                <li>El estado cambiará a &quot;Aprobado&quot;</li>
+                <li>Se enviará notificación al negocio</li>
+                <li>Se enviará notificación al creador</li>
+                <li>La solicitud quedará lista para programar</li>
+              </ul>
+            </div>
+          </div>
+        }
+        confirmText="Sí, Aprobar"
+        cancelText="No, Volver"
+        confirmVariant="success"
+        onConfirm={handleAdminApprove}
+        onCancel={() => setShowApproveConfirm(false)}
+        loading={approving}
+        loadingText="Aprobando..."
+        zIndex={60}
+      />
+
+      {/* Cancel Request Confirmation Modal */}
+      <ConfirmDialog
+        isOpen={showCancelConfirm}
+        title="¿Cancelar esta solicitud?"
+        message={
+          <div className="space-y-3">
+            <p className="text-gray-600">
+              Estás a punto de cancelar la solicitud:
+            </p>
+            <p className="text-gray-900 font-semibold px-4 py-2 bg-gray-50 rounded-lg">
+              {requestData?.name}
+            </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-sm text-amber-800 font-medium">⚠️ Esta acción no se puede deshacer</p>
+              <p className="mt-1 text-sm text-amber-700">
+                La solicitud será marcada como cancelada y no podrá ser procesada.
+              </p>
+            </div>
+          </div>
+        }
+        confirmText="Sí, Cancelar"
+        cancelText="No, Volver"
+        confirmVariant="danger"
+        onConfirm={handleCancelConfirm}
+        onCancel={() => setShowCancelConfirm(false)}
+        loading={cancelling}
+        loadingText="Cancelando..."
+        zIndex={60}
       />
     </>
   )

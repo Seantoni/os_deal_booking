@@ -22,7 +22,7 @@ import {
   type FilterTab,
   type ColumnConfig,
 } from '@/components/shared'
-import { EntityTable, StatusPill } from '@/components/shared/table'
+import { EntityTable, StatusPill, TableRow, TableCell } from '@/components/shared/table'
 import { Button } from '@/components/ui'
 
 // Lazy load heavy modal components
@@ -386,18 +386,18 @@ export default function OpportunitiesPageClient() {
               sortDirection={sortDirection}
               onSort={handleSort}
             >
-              {visibleOpportunities.map((opportunity) => (
-                <tr
+              {visibleOpportunities.map((opportunity, index) => (
+                <TableRow
                   key={opportunity.id}
+                  index={index}
                   onClick={() => handleEditOpportunity(opportunity)}
-                  className="group hover:bg-gray-50 transition-colors cursor-pointer"
                 >
-                  <td className="px-4 py-[5px]">
+                  <TableCell>
                     <span className="font-medium text-gray-900 text-[13px]">
                       {opportunity.business?.name || 'Unknown Business'}
                     </span>
-                  </td>
-                  <td className="px-4 py-[5px]">
+                  </TableCell>
+                  <TableCell>
                     <StatusPill
                       label={STAGE_LABELS[opportunity.stage] || opportunity.stage}
                       tone={
@@ -408,14 +408,14 @@ export default function OpportunitiesPageClient() {
                             : 'info'
                       }
                     />
-                  </td>
-                  <td className="px-4 py-2 text-[13px] text-gray-600">
+                  </TableCell>
+                  <TableCell className="text-[13px] text-gray-600">
                     {new Date(opportunity.startDate).toLocaleDateString('en-US', {
                       month: 'short',
                       day: 'numeric',
                     })}
-                  </td>
-                  <td className="px-4 py-2 text-[13px] text-gray-600">
+                  </TableCell>
+                  <TableCell className="text-[13px] text-gray-600">
                     {opportunity.closeDate ? (
                       new Date(opportunity.closeDate).toLocaleDateString('en-US', {
                         month: 'short',
@@ -424,8 +424,8 @@ export default function OpportunitiesPageClient() {
                     ) : (
                       <span className="text-gray-400">-</span>
                     )}
-                  </td>
-                  <td className="px-4 py-[5px]">
+                  </TableCell>
+                  <TableCell>
                     {opportunity.notes ? (
                       <div className="text-[13px] text-gray-500 max-w-[240px] truncate" title={opportunity.notes}>
                         {opportunity.notes}
@@ -433,11 +433,11 @@ export default function OpportunitiesPageClient() {
                     ) : (
                       <span className="text-gray-400 text-[13px]">-</span>
                     )}
-                  </td>
-                  <td className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                  </TableCell>
+                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                     {/* Actions removed - row click opens edit modal */}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
             </EntityTable>
             {visibleCount < filteredOpportunities.length && (

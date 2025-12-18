@@ -38,7 +38,7 @@ import {
   type ColumnConfig,
 } from '@/components/shared'
 import { Button } from '@/components/ui'
-import { EntityTable, CellStack } from '@/components/shared/table'
+import { EntityTable, CellStack, TableRow, TableCell } from '@/components/shared/table'
 
 // Table columns configuration
 const COLUMNS: ColumnConfig[] = [
@@ -441,27 +441,27 @@ export default function BusinessesPageClient() {
               sortDirection={sortDirection}
               onSort={handleSort}
             >
-              {visibleBusinesses.map((business) => (
-                <tr
+              {visibleBusinesses.map((business, index) => (
+                <TableRow
                   key={business.id}
+                  index={index}
                   onClick={() => handleEditBusiness(business)}
-                  className="group hover:bg-gray-50 transition-colors cursor-pointer"
                 >
-                  <td className="px-4 py-[5px]">
+                  <TableCell>
                     <span className="font-medium text-gray-900 text-[13px]">
                       {business.name}
                     </span>
-                  </td>
-                  <td className="px-4 py-[5px] text-[13px] text-gray-600">
+                  </TableCell>
+                  <TableCell className="text-[13px] text-gray-600">
                     {business.contactName || <span className="text-gray-400">-</span>}
-                  </td>
-                  <td className="px-4 py-[5px]">
-                    <span className="text-[13px] text-gray-500 break-all">{business.contactEmail || <span className="text-gray-400">-</span>}</span>
-                  </td>
-                  <td className="px-4 py-[5px]">
-                    <span className="text-[13px] text-gray-500 whitespace-nowrap">{business.contactPhone || <span className="text-gray-400">-</span>}</span>
-                  </td>
-                  <td className="px-4 py-[5px]">
+                  </TableCell>
+                  <TableCell className="text-[13px] text-gray-500 break-all">
+                    {business.contactEmail || <span className="text-gray-400">-</span>}
+                  </TableCell>
+                  <TableCell className="text-[13px] text-gray-500 whitespace-nowrap">
+                    {business.contactPhone || <span className="text-gray-400">-</span>}
+                  </TableCell>
+                  <TableCell>
                     {business.category ? (
                       <span className="text-xs text-gray-600">
                         {business.category.parentCategory}
@@ -470,8 +470,8 @@ export default function BusinessesPageClient() {
                     ) : (
                       <span className="text-gray-400 text-xs">-</span>
                     )}
-                  </td>
-                  <td className="px-4 py-[5px] text-right">
+                  </TableCell>
+                  <TableCell align="right">
                     {business.sourceType === 'api' && (revenueMap[business.id] !== undefined || (business as any)?.metrics?.net_rev_360_days !== undefined) ? (
                       <span className="text-xs font-semibold text-gray-900">
                         {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(
@@ -481,8 +481,8 @@ export default function BusinessesPageClient() {
                     ) : (
                       <span className="text-gray-400 text-xs">-</span>
                     )}
-                  </td>
-                  <td className="px-4 py-[5px]">
+                  </TableCell>
+                  <TableCell>
                     {business.salesReps && business.salesReps.length > 0 ? (
                       <span className="text-xs text-gray-600">
                         {business.salesReps.map(rep => rep.salesRep?.name?.split(' ')[0] || '?').join(', ')}
@@ -490,8 +490,8 @@ export default function BusinessesPageClient() {
                     ) : (
                       <span className="text-gray-400 text-xs">-</span>
                     )}
-                  </td>
-                  <td className="px-4 py-[5px] text-center">
+                  </TableCell>
+                  <TableCell align="center">
                     {(() => {
                       const count = businessOpenOpportunityCount.get(business.id) || 0
                       return count > 0 ? (
@@ -502,8 +502,8 @@ export default function BusinessesPageClient() {
                         <span className="text-gray-400 text-xs">-</span>
                       )
                     })()}
-                  </td>
-                  <td className="px-4 py-[5px] text-center">
+                  </TableCell>
+                  <TableCell align="center">
                     {(() => {
                       const count = businessPendingRequestCount.get(business.name.toLowerCase()) || 0
                       return count > 0 ? (
@@ -514,8 +514,8 @@ export default function BusinessesPageClient() {
                         <span className="text-gray-400 text-xs">-</span>
                       )
                     })()}
-                  </td>
-                  <td className="px-4 py-[5px] text-right" onClick={(e) => e.stopPropagation()}>
+                  </TableCell>
+                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
                       <button
                         onClick={() => handleCreateOpportunity(business)}
@@ -539,8 +539,8 @@ export default function BusinessesPageClient() {
                         <OpenInNewIcon style={{ fontSize: 18 }} />
                       </button>
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
             </EntityTable>
             {visibleCount < filteredBusinesses.length && (

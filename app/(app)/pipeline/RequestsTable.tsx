@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { BookingRequest } from '@/types'
 import { BookingRequestViewModal } from '@/components/booking/request-view'
-import { EntityTable, RowActionsMenu, StatusPill } from '@/components/shared/table'
+import { EntityTable, RowActionsMenu, StatusPill, TableRow, TableCell } from '@/components/shared/table'
 import { type ColumnConfig } from '@/components/shared'
 
 type PipelineItem = {
@@ -55,21 +55,21 @@ export default function RequestsTable({ data, searchQuery }: RequestsTableProps)
       sortDirection={'asc'}
       onSort={() => {}}
     >
-      {filteredData.map((item) => (
-        <tr key={item.bookingRequest?.id} className="group hover:bg-gray-50 transition-colors">
-          <td className="px-4 py-[5px] font-medium text-gray-900 text-[13px]">
+      {filteredData.map((item, index) => (
+        <TableRow key={item.bookingRequest?.id} index={index}>
+          <TableCell className="font-medium text-gray-900 text-[13px]">
             {item.bookingRequest?.name}
-          </td>
-          <td className="px-4 py-[5px] text-gray-600 text-[13px]">
+          </TableCell>
+          <TableCell className="text-gray-600 text-[13px]">
             {new Date(item.bookingRequest?.createdAt || '').toLocaleDateString()}
-          </td>
-          <td className="px-4 py-[5px]">
+          </TableCell>
+          <TableCell>
             <StatusPill
               label={item.bookingRequest?.status || '-'}
               tone={statusTone(item.bookingRequest?.status)}
             />
-          </td>
-          <td className="px-4 py-[5px] text-right">
+          </TableCell>
+          <TableCell align="right">
             <RowActionsMenu
               items={[
                 {
@@ -81,8 +81,8 @@ export default function RequestsTable({ data, searchQuery }: RequestsTableProps)
                 },
               ]}
             />
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       ))}
     </EntityTable>
 

@@ -7,7 +7,7 @@ interface ConfirmDialogOptions {
   message: string
   confirmText?: string
   cancelText?: string
-  confirmVariant?: 'danger' | 'primary'
+  confirmVariant?: 'danger' | 'primary' | 'success'
 }
 
 export function useConfirmDialog() {

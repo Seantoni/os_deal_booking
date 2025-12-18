@@ -1,7 +1,7 @@
 'use client'
 
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
-import { EntityTable, StatusPill } from '@/components/shared/table'
+import { EntityTable, StatusPill, TableRow, TableCell } from '@/components/shared/table'
 import { type ColumnConfig } from '@/components/shared'
 
 type PreBookedEventItem = {
@@ -42,23 +42,23 @@ export default function PreBookedTable({ data, searchQuery }: PreBookedTableProp
       sortDirection={'asc'}
       onSort={() => {}}
     >
-      {filteredData.map((item) => (
-        <tr key={item.event.id} className="group hover:bg-gray-50 transition-colors">
-          <td className="px-4 py-[5px] font-medium text-gray-900 text-[13px]">
+      {filteredData.map((item, index) => (
+        <TableRow key={item.event.id} index={index}>
+          <TableCell className="font-medium text-gray-900 text-[13px]">
             {item.event.name}
-          </td>
-          <td className="px-4 py-[5px] text-gray-600 text-[13px]">
+          </TableCell>
+          <TableCell className="text-gray-600 text-[13px]">
             <div className="flex items-center gap-2">
               <CalendarTodayIcon className="text-gray-400" style={{ fontSize: 16 }} />
               <span className="text-[13px]">
                 {new Date(item.event.startDate).toLocaleDateString()} — {new Date(item.event.endDate).toLocaleDateString()}
               </span>
             </div>
-          </td>
-          <td className="px-4 py-[5px]">
+          </TableCell>
+          <TableCell>
             <StatusPill label="Pre-Booked" tone="info" />
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       ))}
     </EntityTable>
   )

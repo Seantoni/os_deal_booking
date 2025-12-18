@@ -27,6 +27,7 @@ import { useUserRole } from '@/hooks/useUserRole'
 import { useUser } from '@clerk/nextjs'
 import { Button, Input } from '@/components/ui'
 import { FilterTabs } from '@/components/shared'
+import { TableRow, TableCell } from '@/components/shared/table'
 
 // Lazy load heavy modal component
 const BookingRequestViewModal = dynamic(() => import('@/components/booking/request-view/BookingRequestViewModal'), {
@@ -224,7 +225,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
       }
       
       return (
-        <span className={`px-2 py-0.5 rounded text-xs font-medium ${pendingColor}`}>
+        <span className={`px-2 py-0.5 rounded text-[13px] font-medium ${pendingColor}`}>
           {status.charAt(0).toUpperCase() + status.slice(1)}
         </span>
       )
@@ -241,7 +242,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     }
 
     return (
-      <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColors[status as keyof typeof statusColors] || statusColors.draft}`}>
+      <span className={`px-2 py-0.5 rounded text-[13px] font-medium ${statusColors[status as keyof typeof statusColors] || statusColors.draft}`}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     )
@@ -269,6 +270,17 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
   const formatDate = (date: Date | null): string => {
     if (!date) return '—'
     return formatDateShort(date)
+  }
+
+  // Format date for Dates column: "Dec 15, 25"
+  const formatDateShortYear = (date: Date | null): string => {
+    if (!date) return ''
+    const d = typeof date === 'string' ? new Date(date) : date
+    return d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: '2-digit'
+    })
   }
 
   // Calculate status counts
@@ -316,10 +328,6 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
         case 'email':
           aValue = a.businessEmail.toLowerCase()
           bValue = b.businessEmail.toLowerCase()
-          break
-        case 'category':
-          aValue = (a.parentCategory || a.category || '').toLowerCase()
-          bValue = (b.parentCategory || b.category || '').toLowerCase()
           break
         case 'startDate':
           aValue = new Date(a.startDate).getTime()
@@ -637,7 +645,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                         )}
                       </div>
                     </th>
-                    <th className="px-4 py-[5px] font-medium">
+                    <th className="px-4 py-3 font-medium">
                       <span>Source</span>
                     </th>
                     <th 
@@ -658,17 +666,6 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       <div className="flex items-center gap-1">
                         <span>Email</span>
                         {sortColumn === 'email' && (
-                          sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                        )}
-                      </div>
-                    </th>
-                    <th 
-                      className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
-                      onClick={() => handleSort('category')}
-                    >
-                      <div className="flex items-center gap-1">
-                        <span>Category</span>
-                        {sortColumn === 'category' && (
                           sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
                         )}
                       </div>
@@ -728,19 +725,24 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                         )}
                       </div>
                     </th>
-                    <th className="px-4 py-[5px] font-medium">Rejection Reason</th>
-                    <th className="px-4 py-[5px] font-medium text-right">Actions</th>
+                    <th className="px-4 py-3 font-medium">Rejection Reason</th>
+                    <th className="px-4 py-3 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                {visibleRequests.map((request) => {
+                {visibleRequests.map((request, index) => {
                   const sentDate = getSentDate(request)
                   const daysSinceCreated = daysSince(request.createdAt)
                   const daysSinceSent = sentDate ? daysSince(sentDate) : null
                   const daysSinceProcessed = request.processedAt ? daysSince(request.processedAt) : null
                   
-                  // Determine row background color for pending requests
-                  let rowBgColor = 'hover:bg-gray-50'
+                  // Determine row background color for pending requests or alternating stripes
+                  // Even rows: white
+                  // Odd rows: light blue/slate for better contrast
+                  // Logic moved to TableRow component, but we handle pending override here
+                  let rowBgColor = ''
+                  
+                  // Pending status gets priority coloring
                   if (request.status === 'pending' && daysSinceSent !== null) {
                     if (daysSinceSent <= 2) {
                       rowBgColor = 'bg-green-50/30 hover:bg-green-50/50'
@@ -752,12 +754,13 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                   }
                   
                   return (
-                    <tr
+                    <TableRow
                       key={request.id}
-                      className={`${rowBgColor} transition-colors group`}
+                      index={index}
+                      className={rowBgColor}
                     >
                       {isAdmin && (
-                        <td className="px-4 py-[5px]">
+                        <TableCell>
                           <button
                             onClick={() => handleSelectOne(request.id)}
                             className="flex items-center justify-center w-5 h-5 rounded border border-gray-300 hover:bg-gray-100 transition-colors"
@@ -769,83 +772,57 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                               <CheckBoxOutlineBlankIcon className="w-4 h-4 text-gray-400" />
                             )}
                           </button>
-                        </td>
+                        </TableCell>
                       )}
-                      <td className="px-4 py-[5px]">
+                      <TableCell>
                         {getStatusBadge(request.status, request.status === 'pending' ? daysSinceSent : null)}
-                      </td>
-                      <td className="px-4 py-[5px]">
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                      </TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-0.5 rounded text-[13px] font-medium ${
                           request.sourceType === 'public_link' 
                             ? 'bg-purple-50 text-purple-700' 
                             : 'bg-gray-50 text-gray-700'
                         }`}>
                           {request.sourceType === 'public_link' ? 'Public Link' : 'Internal'}
                         </span>
-                      </td>
-                      <td className="px-4 py-[5px]">
+                      </TableCell>
+                      <TableCell>
                         <span className="font-medium text-gray-900 truncate block text-[13px]">{request.name}</span>
-                      </td>
-                      <td className="px-4 py-[5px] text-gray-600">
-                        <span className="truncate block max-w-[180px]">{request.businessEmail}</span>
-                      </td>
-                      <td className="px-4 py-[5px]">
-                        {request.parentCategory ? (
-                          <div className="flex flex-col gap-0.5">
-                            <span className="inline-flex items-center px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded font-medium w-fit">
-                              {request.parentCategory}
-                            </span>
-                            {(request.subCategory1 || request.subCategory2) && (
-                              <span className="text-[10px] text-gray-500 ml-1 truncate max-w-[150px]">
-                                {[request.subCategory1, request.subCategory2].filter(Boolean).join(' › ')}
-                              </span>
-                            )}
-                          </div>
-                        ) : request.category ? (
-                          <span className="inline-flex items-center px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded font-medium w-fit">
-                            {request.category}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400 text-xs">-</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-[5px] text-gray-600">
-                        <div className="flex flex-col gap-0.5 whitespace-nowrap">
-                          <span>{formatDate(request.startDate)}</span>
-                          <span className="text-xs text-gray-500">to {formatDate(request.endDate)}</span>
-                      </div>
-                      </td>
-                      <td className="px-4 py-[5px] text-gray-600">
-                        <span className="whitespace-nowrap">{formatDate(request.createdAt)}</span>
-                      </td>
-                      <td className="px-4 py-[5px]">
-                        <span className="font-medium text-gray-900">
+                      </TableCell>
+                      <TableCell className="text-gray-600">
+                        <span className="truncate block max-w-[180px] text-[13px]">{request.businessEmail}</span>
+                      </TableCell>
+                      <TableCell className="text-gray-600">
+                        <span className="whitespace-nowrap text-[13px]">
+                          {formatDateShortYear(request.startDate)} - {formatDateShortYear(request.endDate)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-gray-600">
+                        <span className="whitespace-nowrap text-[13px]">{formatDate(request.createdAt)}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-medium text-gray-900 text-[13px]">
                           {daysSinceCreated !== null ? `${daysSinceCreated}` : '—'}
                         </span>
-                      </td>
-                      <td className="px-4 py-[5px] text-gray-600">
-                        <span className="whitespace-nowrap">{formatDate(sentDate)}</span>
-                      </td>
-                      <td className="px-4 py-[5px]">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-gray-600 whitespace-nowrap">{formatDate(request.processedAt)}</span>
-                          {request.processedBy && (
-                            <span className="text-xs text-gray-500 truncate max-w-[120px]">{request.processedBy}</span>
-                    )}
-                  </div>
-                      </td>
-                      <td className="px-4 py-[5px]">
+                      </TableCell>
+                      <TableCell className="text-gray-600">
+                        <span className="whitespace-nowrap text-[13px]">{formatDate(sentDate)}</span>
+                      </TableCell>
+                      <TableCell className="text-gray-600">
+                        <span className="whitespace-nowrap text-[13px]">{formatDate(request.processedAt)}</span>
+                      </TableCell>
+                      <TableCell>
                         {request.status === 'rejected' && request.rejectionReason ? (
                           <div className="max-w-[200px]">
-                            <p className="text-sm text-red-700 line-clamp-2" title={request.rejectionReason}>
+                            <p className="text-[13px] text-red-700 line-clamp-2" title={request.rejectionReason}>
                               {request.rejectionReason}
                             </p>
                           </div>
                         ) : (
-                          <span className="text-gray-400 text-xs">—</span>
+                          <span className="text-gray-400 text-[13px]">—</span>
                         )}
-                      </td>
-                      <td className="px-4 py-[5px] text-right relative">
+                      </TableCell>
+                      <TableCell align="right" className="relative">
                         <div className="flex items-center justify-end gap-1">
                           <Button
                             onClick={(e) => {
@@ -921,8 +898,8 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       </Button>
                     )}
                   </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   )
                 })}
                 </tbody>

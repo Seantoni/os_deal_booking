@@ -9,6 +9,7 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import EditIcon from '@mui/icons-material/Edit'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
+import { TableRow, TableCell } from '@/components/shared/table'
 
 // Lazy load heavy modal components
 const OpportunityFormModal = dynamic(() => import('@/components/crm/opportunity/OpportunityFormModal'), {
@@ -294,16 +295,15 @@ export default function UnifiedPipelineTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {filteredRows.map((row) => (
-              <tr key={row.id} className="group hover:bg-gray-50 transition-colors">
-                <td className="px-4 py-[5px]">
+            {filteredRows.map((row, index) => (
+              <TableRow key={row.id} index={index}>
+                <TableCell>
                   <div className="font-medium text-gray-900">{row.title}</div>
-                  <div className="text-xs text-gray-500">{new Date(row.createdAt).toLocaleDateString()}</div>
-                </td>
-                <td className="px-4 py-[5px]">
+                </TableCell>
+                <TableCell>
                   <Steps row={row} />
-                </td>
-                <td className="px-4 py-[5px]">
+                </TableCell>
+                <TableCell>
                   <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium 
                     ${row.currentStage === 'Opportunity' ? 'bg-blue-100 text-blue-800' : ''}
                     ${row.currentStage === 'Request' ? 'bg-yellow-100 text-yellow-800' : ''}
@@ -312,11 +312,11 @@ export default function UnifiedPipelineTable({
                   `}>
                     {row.currentStage}
                   </span>
-                </td>
-                <td className="px-4 py-3 text-gray-600 font-medium text-xs">
+                </TableCell>
+                <TableCell className="text-gray-600 font-medium text-xs">
                   {row.statusLabel}
-                </td>
-                <td className="px-4 py-[5px]">
+                </TableCell>
+                <TableCell>
                   {(() => {
                     const days = calculateDaysInPhase(row.phaseStartDate)
                     let colorClass = 'text-gray-600'
@@ -330,8 +330,8 @@ export default function UnifiedPipelineTable({
                       </span>
                     )
                   })()}
-                </td>
-                <td className="px-4 py-3 text-gray-600">
+                </TableCell>
+                <TableCell className="text-gray-600">
                   {row.reservedStartDate && (
                     <div className="flex items-center gap-2">
                       <CalendarTodayIcon className="text-gray-400" style={{ fontSize: 14 }} />
@@ -340,8 +340,8 @@ export default function UnifiedPipelineTable({
                       </span>
                     </div>
                   )}
-                </td>
-                <td className="px-4 py-3 text-right relative">
+                </TableCell>
+                <TableCell align="right" className="relative">
                   <button
                     onClick={() => setMenuOpen(menuOpen === row.id ? null : row.id)}
                     className="p-1.5 text-gray-400 hover:text-gray-600 rounded hover:bg-gray-100"
@@ -378,8 +378,8 @@ export default function UnifiedPipelineTable({
                       )}
                     </div>
                   )}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
           </tbody>
         </table>

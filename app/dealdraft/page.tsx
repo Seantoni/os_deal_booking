@@ -18,7 +18,7 @@ export default function DealDraftIndexPage() {
           <ArrowBackIcon fontSize="small" />
           Ir a Solicitudes
         </Link>
-      </div>
+        </div>
     </div>
   )
 }
