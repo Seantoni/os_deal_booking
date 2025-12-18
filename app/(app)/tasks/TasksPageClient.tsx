@@ -24,7 +24,7 @@ import {
   type FilterTab,
   type ColumnConfig
 } from '@/components/shared'
-import { EntityTable, CellStack } from '@/components/shared/table'
+import { EntityTable, CellStack, TableRow, TableCell } from '@/components/shared/table'
 import { sortEntities, type SortDirection } from '@/hooks/useEntityPage'
 
 // Lazy load modals
@@ -384,20 +384,19 @@ export default function TasksPageClient() {
             sortDirection={sortDirection}
             onSort={handleSort}
           >
-            {sortedTasks.map((task) => {
+            {sortedTasks.map((task, index) => {
               const overdue = isOverdue(task)
               const today = isDueToday(task)
 
               return (
-                <tr 
+                <TableRow 
                   key={task.id} 
+                  index={index}
                   onClick={() => handleEditTask(task)}
-                  className={`group transition-colors border-b last:border-0 hover:bg-slate-50 cursor-pointer ${
-                    task.completed ? 'opacity-60 bg-slate-50/50' : ''
-                  }`}
+                  className={task.completed ? 'opacity-60' : ''}
                 >
                   {/* Status */}
-                  <td className="px-4 py-3 align-middle text-center w-10" onClick={(e) => e.stopPropagation()}>
+                  <TableCell align="center" className="w-10" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => handleToggleComplete(task)}
                       className={`transition-colors ${
@@ -413,12 +412,12 @@ export default function TasksPageClient() {
                         <RadioButtonUncheckedIcon fontSize="small" />
                       )}
                     </button>
-                  </td>
+                  </TableCell>
 
                   {/* Title */}
-                  <td className="px-4 py-3 align-middle">
+                  <TableCell>
                     <div className="flex items-center gap-2">
-                      <span className={`font-medium whitespace-nowrap ${task.completed ? 'line-through text-gray-500' : 'text-slate-900'}`}>
+                      <span className={`font-medium whitespace-nowrap text-[13px] ${task.completed ? 'line-through text-gray-500' : 'text-slate-900'}`}>
                         {task.title}
                       </span>
                       {task.notes && (
@@ -427,10 +426,10 @@ export default function TasksPageClient() {
                         </span>
                       )}
                     </div>
-                  </td>
+                  </TableCell>
 
                   {/* Category */}
-                  <td className="px-4 py-3 align-middle text-center">
+                  <TableCell align="center">
                     <div className="flex justify-center">
                       {task.category === 'meeting' ? (
                         <div className="text-blue-600" title="Reunión">
@@ -442,11 +441,11 @@ export default function TasksPageClient() {
                         </div>
                       )}
                     </div>
-                  </td>
+                  </TableCell>
 
                   {/* Date */}
-                  <td className="px-4 py-3 align-middle">
-                    <span className={`text-sm whitespace-nowrap ${
+                  <TableCell>
+                    <span className={`text-[13px] whitespace-nowrap ${
                       overdue 
                         ? 'text-red-600 font-medium' 
                         : today 
@@ -455,64 +454,64 @@ export default function TasksPageClient() {
                     }`}>
                       {formatShortDate(task.date)}
                     </span>
-                  </td>
+                  </TableCell>
 
                   {/* Business */}
-                  <td className="px-4 py-3 align-middle">
-                    <span className="text-sm text-slate-900 truncate block max-w-[180px]" title={task.opportunity?.business?.name || ''}>
+                  <TableCell>
+                    <span className="text-[13px] text-slate-900 truncate block max-w-[180px]" title={task.opportunity?.business?.name || ''}>
                       {task.opportunity?.business?.name || '-'}
                     </span>
-                  </td>
+                  </TableCell>
 
                   {/* Stage */}
-                  <td className="px-4 py-3 align-middle">
+                  <TableCell>
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
                       STAGE_COLORS[task.opportunity?.stage || ''] || 'bg-gray-100 text-gray-600'
                     }`}>
                       {STAGE_LABELS[task.opportunity?.stage || ''] || task.opportunity?.stage || '-'}
                     </span>
-                  </td>
+                  </TableCell>
 
                   {/* Contact Name */}
-                  <td className="px-4 py-3 align-middle">
-                    <span className="text-sm text-slate-600 truncate block max-w-[120px]" title={task.opportunity?.business?.contactName || ''}>
+                  <TableCell>
+                    <span className="text-[13px] text-slate-600 truncate block max-w-[120px]" title={task.opportunity?.business?.contactName || ''}>
                       {task.opportunity?.business?.contactName || '-'}
                     </span>
-                  </td>
+                  </TableCell>
 
                   {/* Contact Email */}
-                  <td className="px-4 py-3 align-middle">
+                  <TableCell>
                     {task.opportunity?.business?.contactEmail ? (
                       <a 
                         href={`mailto:${task.opportunity.business.contactEmail}`}
-                        className="text-sm text-blue-600 hover:underline truncate block max-w-[180px]"
+                        className="text-[13px] text-blue-600 hover:underline truncate block max-w-[180px]"
                         onClick={(e) => e.stopPropagation()}
                         title={task.opportunity.business.contactEmail}
                       >
                         {task.opportunity.business.contactEmail}
                       </a>
                     ) : (
-                      <span className="text-sm text-slate-400">-</span>
+                      <span className="text-[13px] text-slate-400">-</span>
                     )}
-                  </td>
+                  </TableCell>
 
                   {/* Contact Phone */}
-                  <td className="px-4 py-3 align-middle">
+                  <TableCell>
                     {task.opportunity?.business?.contactPhone ? (
                       <a 
                         href={`tel:${task.opportunity.business.contactPhone}`}
-                        className="text-sm text-blue-600 hover:underline whitespace-nowrap"
+                        className="text-[13px] text-blue-600 hover:underline whitespace-nowrap"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {task.opportunity.business.contactPhone}
                       </a>
                     ) : (
-                      <span className="text-sm text-slate-400">-</span>
+                      <span className="text-[13px] text-slate-400">-</span>
                     )}
-                  </td>
+                  </TableCell>
 
                   {/* Actions */}
-                  <td className="px-4 py-3 align-middle text-right" onClick={(e) => e.stopPropagation()}>
+                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
                       {task.opportunityId && (
                         <button
@@ -524,8 +523,8 @@ export default function TasksPageClient() {
                         </button>
                       )}
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )
             })}
           </EntityTable>

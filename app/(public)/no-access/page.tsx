@@ -1,6 +1,7 @@
 import { currentUser } from '@clerk/nextjs/server'
 import { SignOutButton } from '@clerk/nextjs'
 import Link from 'next/link'
+import { PublicPageHeader } from '@/components/shared/public-pages/PublicPageHeader'
 
 export default async function NoAccessPage() {
   const user = await currentUser()
@@ -8,7 +9,11 @@ export default async function NoAccessPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-xl p-8 text-center">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-xl overflow-hidden text-center">
+        {/* Header with Logo */}
+        <PublicPageHeader />
+
+        <div className="p-8">
         {/* Icon */}
         <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-yellow-100 mb-6">
           <svg
@@ -65,6 +70,7 @@ export default async function NoAccessPage() {
         <p className="text-xs text-gray-500 mt-6">
           OS Deals Booking - OfertaSimple
         </p>
+        </div>
       </div>
     </div>
   )

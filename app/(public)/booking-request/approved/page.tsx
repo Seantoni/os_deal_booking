@@ -1,3 +1,5 @@
+import { PublicPageHeader } from '@/components/shared/public-pages/PublicPageHeader'
+
 // This route is public; no auth required for viewing the approved page
 export default function ApprovedBookingRequestsPage({
   searchParams,
@@ -9,13 +11,12 @@ export default function ApprovedBookingRequestsPage({
     <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 font-sans">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden">
         {/* Brand Header */}
-        <div style={{ backgroundColor: '#e84c0f', padding: '20px', borderRadius: '8px 8px 0 0', margin: '-1px -1px 0 -1px' }}>
-          <img src="https://oferta-uploads-prod.s3.us-east-1.amazonaws.com/pictures/others/OfertaSimple%20Assets/Asset%2075.png?_t=1743086513" alt="OfertaSimple Logo" width="120" style={{ display: 'block', margin: '0 auto', border: '0', height: 'auto', outline: 'none', textDecoration: 'none' }} />
-          <h1 className="text-2xl font-bold text-white mt-3 mb-1">¡Solicitud Aprobada!</h1>
-          <p className="text-sm text-orange-100">OS Deals Booking - OfertaSimple</p>
+        <PublicPageHeader />
+        <div className="bg-white pt-6 pb-2 px-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-1 text-center">¡Solicitud Aprobada!</h1>
         </div>
 
-        <div className="p-8 text-center">
+        <div className="p-8 text-center pt-2">
           {/* Success Icon */}
           <div className="mb-6 animate-in zoom-in duration-300">
             <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center shadow-lg">
@@ -26,7 +27,11 @@ export default function ApprovedBookingRequestsPage({
           </div>
           
           <p className="text-gray-500 mb-8 leading-relaxed">
-            La solicitud de booking ha sido confirmada exitosamente. El proceso continuará automáticamente.
+            La solicitud de booking ha sido aprobada exitosamente y ahora se encuentra en estado <strong>Pendiente de Agendar</strong>.
+          </p>
+
+          <p className="text-gray-500 mb-8 leading-relaxed">
+            Recibirás una notificación una vez que el booking haya sido agendado.
           </p>
 
           {/* Approver Info Card */}
@@ -59,4 +64,3 @@ export default function ApprovedBookingRequestsPage({
     </div>
   )
 }
-

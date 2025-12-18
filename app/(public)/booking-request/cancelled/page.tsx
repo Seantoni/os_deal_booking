@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
+import { PublicPageHeader } from '@/components/shared/public-pages/PublicPageHeader'
 
 // Public route: no auth required for cancelled notification
 export default async function CancelledPage({
@@ -33,19 +34,7 @@ export default async function CancelledPage({
     <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-orange-50 to-amber-50">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg overflow-hidden border-2 border-orange-200">
         {/* Header with Logo */}
-        <div style={{ 
-          backgroundColor: '#ea580c', 
-          padding: '20px', 
-          borderRadius: '8px 8px 0 0' 
-        }}>
-          <img 
-            src="https://oferta-uploads-prod.s3.us-east-1.amazonaws.com/pictures/others/OfertaSimple%20Assets/Asset%2075.png?_t=1743086513" 
-            alt="OfertaSimple Logo" 
-            width="120" 
-            style={{ display: 'block', margin: '0 auto', border: '0', height: 'auto', outline: 'none', textDecoration: 'none' }} 
-          />
-          <p className="text-sm text-white text-center mt-2">OS Deals Booking - OfertaSimple</p>
-        </div>
+        <PublicPageHeader />
         
         <div className="p-8 text-center">
           {/* Icon */}

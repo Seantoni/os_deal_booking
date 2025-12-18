@@ -53,8 +53,8 @@ export function renderBookingConfirmationEmail(data: BookingConfirmationEmailPro
           
           <!-- Header -->
           <tr>
-            <td align="center" style="background-color: #ffffff; padding: 20px 30px; border-bottom: 3px solid #e84c0f;">
-              <img src="https://oferta-uploads-prod.s3.us-east-1.amazonaws.com/pictures/others/OfertaSimple%20Assets/Asset%2075.png?_t=1743086513" alt="OfertaSimple" width="180" style="display: block; border: 0; max-width: 180px; width: 180px;" />
+            <td align="center" style="background-color: #e84c0f; padding: 20px 30px; border-bottom: 3px solid #c2410c;">
+              <img src="https://oferta-uploads-prod.s3.us-east-1.amazonaws.com/pictures/others/OfertaSimple%20Assets/OFS_Marca_Blanco_02.png?_t=1754077435" alt="OfertaSimple" width="180" style="display: block; border: 0; max-width: 180px; width: 180px;" />
             </td>
           </tr>
 

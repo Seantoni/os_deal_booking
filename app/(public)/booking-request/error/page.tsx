@@ -1,3 +1,5 @@
+import { PublicPageHeader } from '@/components/shared/public-pages/PublicPageHeader'
+
 // Public route: no auth required for error pages
 export default async function BookingRequestsErrorPage({
   searchParams,
@@ -8,7 +10,11 @@ export default async function BookingRequestsErrorPage({
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center border-2 border-gray-200">
+      <div className="max-w-md w-full bg-white rounded-xl shadow-lg overflow-hidden border-2 border-gray-200">
+        {/* Header with Logo */}
+        <PublicPageHeader />
+
+        <div className="p-8 text-center">
         {/* Error Icon */}
         <div className="mb-6">
           <div className="mx-auto w-16 h-16 bg-gradient-to-br from-gray-500 to-gray-600 rounded-full flex items-center justify-center shadow-lg">
@@ -39,6 +45,7 @@ export default async function BookingRequestsErrorPage({
           <p className="text-xs text-gray-500">
             OS Deals Booking - OfertaSimple
           </p>
+        </div>
         </div>
       </div>
     </div>

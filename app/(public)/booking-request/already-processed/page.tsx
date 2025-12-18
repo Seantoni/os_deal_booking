@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import { PublicPageHeader } from '@/components/shared/public-pages/PublicPageHeader'
 
 // Public route: no auth required for already-processed notification
 export default async function AlreadyProcessedPage({
@@ -42,14 +43,7 @@ export default async function AlreadyProcessedPage({
           : 'border-gray-200'
       }`}>
         {/* Header with Logo */}
-        <div style={{ 
-          backgroundColor: isApproved ? '#2563eb' : isRejected ? '#dc2626' : '#6b7280', 
-          padding: '20px', 
-          borderRadius: '8px 8px 0 0' 
-        }}>
-          <img src="https://oferta-uploads-prod.s3.us-east-1.amazonaws.com/pictures/others/OfertaSimple%20Assets/Asset%2075.png?_t=1743086513" alt="OfertaSimple Logo" width="120" style={{ display: 'block', margin: '0 auto', border: '0', height: 'auto', outline: 'none', textDecoration: 'none' }} />
-          <p className="text-sm text-white mt-2">OS Deals Booking - OfertaSimple</p>
-        </div>
+        <PublicPageHeader />
         
         <div className="p-8 text-center">
         {/* Icon */}

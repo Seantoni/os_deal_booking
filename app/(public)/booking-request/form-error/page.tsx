@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { PublicPageHeader } from '@/components/shared/public-pages/PublicPageHeader'
 
 interface PublicBookingRequestErrorPageProps {
   searchParams: Promise<{ reason?: string }>
@@ -31,7 +32,11 @@ export default async function PublicBookingRequestErrorPage({ searchParams }: Pu
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-xl p-8 text-center">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-xl overflow-hidden text-center">
+        {/* Header with Logo */}
+        <PublicPageHeader />
+
+        <div className="p-8">
         <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
           <svg
             className="w-8 h-8 text-red-600"
@@ -52,6 +57,7 @@ export default async function PublicBookingRequestErrorPage({ searchParams }: Pu
         <p className="text-sm text-gray-500">
           Please contact the person who sent you this link for assistance.
         </p>
+        </div>
       </div>
     </div>
   )
