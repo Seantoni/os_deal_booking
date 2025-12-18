@@ -98,6 +98,7 @@ export async function generateDealDraft(dealId: string) {
 
     try {
       // Prepare input for AI
+      // Include pre-filled content from ContenidoStep if available
       const input: DealDraftInput = {
         name: deal.bookingRequest.name,
         businessEmail: deal.bookingRequest.businessEmail,
@@ -107,10 +108,14 @@ export async function generateDealDraft(dealId: string) {
         parentCategory: deal.bookingRequest.parentCategory,
         subCategory1: deal.bookingRequest.subCategory1,
         subCategory2: deal.bookingRequest.subCategory2,
-        businessReview: deal.bookingRequest.businessReview,
         offerDetails: deal.bookingRequest.offerDetails,
         addressAndHours: deal.bookingRequest.addressAndHours,
         socialMedia: deal.bookingRequest.socialMedia,
+        // Pre-filled AI content from ContenidoStep (if user filled these in the form)
+        whatWeLike: deal.bookingRequest.whatWeLike,
+        aboutCompany: deal.bookingRequest.aboutCompany,
+        aboutOffer: deal.bookingRequest.aboutOffer,
+        goodToKnow: deal.bookingRequest.goodToKnow,
         pricingOptions: deal.bookingRequest.pricingOptions as JsonArray | null,
         redemptionMode: deal.bookingRequest.redemptionMode,
         includesTaxes: deal.bookingRequest.includesTaxes,
@@ -190,6 +195,7 @@ export async function regenerateDraftSection(
     }
 
     // Prepare input for AI
+    // Include pre-filled content from ContenidoStep if available
     const input: DealDraftInput = {
       name: deal.bookingRequest.name,
       businessEmail: deal.bookingRequest.businessEmail,
@@ -199,10 +205,14 @@ export async function regenerateDraftSection(
       parentCategory: deal.bookingRequest.parentCategory,
       subCategory1: deal.bookingRequest.subCategory1,
       subCategory2: deal.bookingRequest.subCategory2,
-      businessReview: deal.bookingRequest.businessReview,
       offerDetails: deal.bookingRequest.offerDetails,
       addressAndHours: deal.bookingRequest.addressAndHours,
       socialMedia: deal.bookingRequest.socialMedia,
+      // Pre-filled AI content from ContenidoStep
+      whatWeLike: deal.bookingRequest.whatWeLike,
+      aboutCompany: deal.bookingRequest.aboutCompany,
+      aboutOffer: deal.bookingRequest.aboutOffer,
+      goodToKnow: deal.bookingRequest.goodToKnow,
       pricingOptions: deal.bookingRequest.pricingOptions as JsonArray | null,
       redemptionMode: deal.bookingRequest.redemptionMode,
       includesTaxes: deal.bookingRequest.includesTaxes,

@@ -131,7 +131,6 @@ const BASE_SECTIONS: SectionDefinition[] = [
       { key: 'redemptionMethods', label: 'Métodos de Canje', type: 'json' },
       { key: 'contactDetails', label: 'Detalles de Contacto' },
       { key: 'socialMedia', label: 'Redes Sociales' },
-      { key: 'businessReview', label: 'Reseña del Negocio' },
       { key: 'offerDetails', label: 'Detalles de la Oferta' },
     ],
   },
@@ -623,8 +622,13 @@ export default function BookingRequestViewModal({
     }
     if (requestData.contactDetails) params.set('contactDetails', String(requestData.contactDetails))
     if (requestData.socialMedia) params.set('socialMedia', String(requestData.socialMedia))
-    if (requestData.businessReview) params.set('businessReview', String(requestData.businessReview))
     if (requestData.offerDetails) params.set('offerDetails', String(requestData.offerDetails))
+    
+    // Contenido: AI-Generated Content Fields
+    if (requestData.whatWeLike) params.set('whatWeLike', String(requestData.whatWeLike))
+    if (requestData.aboutCompany) params.set('aboutCompany', String(requestData.aboutCompany))
+    if (requestData.aboutOffer) params.set('aboutOffer', String(requestData.aboutOffer))
+    if (requestData.goodToKnow) params.set('goodToKnow', String(requestData.goodToKnow))
     
     // Step 7: Estructura (Pricing Options + Deal Images)
     if (requestData.pricingOptions) {

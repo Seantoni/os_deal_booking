@@ -131,8 +131,12 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
       redemptionMethods: fields.redemptionMethods,
       contactDetails: fields.contactDetails,
       socialMedia: fields.socialMedia,
-      businessReview: fields.businessReview,
       offerDetails: fields.offerDetails,
+      // Contenido: AI-Generated Content Fields
+      whatWeLike: fields.whatWeLike,
+      aboutCompany: fields.aboutCompany,
+      aboutOffer: fields.aboutOffer,
+      goodToKnow: fields.goodToKnow,
       // Estructura: Estructura de la Oferta
       pricingOptions: fields.pricingOptions,
       dealImages: fields.dealImages,

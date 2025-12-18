@@ -17,10 +17,11 @@ import OperatividadStep from './steps/OperatividadStep'
 import DirectorioStep from './steps/DirectorioStep'
 import FiscalesStep from './steps/FiscalesStep'
 import NegocioStep from './steps/NegocioStep'
-import DescripcionStep from './steps/DescripcionStep'
 import EstructuraStep from './steps/EstructuraStep'
-import PoliticasStep from './steps/PoliticasStep'
 import InformacionAdicionalStep from './steps/InformacionAdicionalStep'
+import ContenidoStep from './steps/ContenidoStep'
+import ValidacionStep from './steps/ValidacionStep'
+import ConfirmDialog from '@/components/common/ConfirmDialog'
 import toast from 'react-hot-toast'
 
 // Action state types for React 19 useActionState
@@ -43,6 +44,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([])
   const [requiredFields, setRequiredFields] = useState<RequestFormFieldsConfig>({})
   const [loadingEdit, setLoadingEdit] = useState(false)
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   
   // Get editId from URL (for continuing to edit a draft)
   const editIdFromUrl = searchParams.get('editId')
@@ -200,8 +202,13 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
               redemptionMethods: Array.isArray(data.redemptionMethods) ? data.redemptionMethods : [],
               contactDetails: data.contactDetails || '',
               socialMedia: data.socialMedia || '',
-              businessReview: data.businessReview || '',
               offerDetails: data.offerDetails || '',
+              
+              // Contenido (AI-Generated)
+              whatWeLike: data.whatWeLike || '',
+              aboutCompany: data.aboutCompany || '',
+              aboutOffer: data.aboutOffer || '',
+              goodToKnow: data.goodToKnow || '',
               
               // Estructura (Pricing)
               pricingOptions: Array.isArray(data.pricingOptions) ? data.pricingOptions : [],
@@ -371,10 +378,18 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         if (contactDetailsParam) newData.contactDetails = contactDetailsParam
         const socialMediaParam = searchParams.get('socialMedia')
         if (socialMediaParam) newData.socialMedia = socialMediaParam
-        const businessReviewParam = searchParams.get('businessReview')
-        if (businessReviewParam) newData.businessReview = businessReviewParam
         const offerDetailsParam = searchParams.get('offerDetails')
         if (offerDetailsParam) newData.offerDetails = offerDetailsParam
+        
+        // Contenido (AI-Generated)
+        const whatWeLikeParam = searchParams.get('whatWeLike')
+        if (whatWeLikeParam) newData.whatWeLike = whatWeLikeParam
+        const aboutCompanyParam = searchParams.get('aboutCompany')
+        if (aboutCompanyParam) newData.aboutCompany = aboutCompanyParam
+        const aboutOfferParam = searchParams.get('aboutOffer')
+        if (aboutOfferParam) newData.aboutOffer = aboutOfferParam
+        const goodToKnowParam = searchParams.get('goodToKnow')
+        if (goodToKnowParam) newData.goodToKnow = goodToKnowParam
         
         // Step 7: Estructura (Pricing Options + Deal Images)
         const pricingOptionsParam = searchParams.get('pricingOptions')
@@ -570,13 +585,20 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     })
   }
 
-  // React 19: Handler that triggers the submit action with validation
+  // React 19: Handler that shows confirmation dialog before submit
   const handleSubmit = () => {
     if (!formData.businessName || !formData.partnerEmail || !formData.startDate || !formData.endDate) {
       toast.error('Por favor complete todos los campos requeridos')
       return
     }
     
+    // Show confirmation dialog
+    setShowConfirmDialog(true)
+  }
+
+  // Actually execute the submit after confirmation
+  const handleConfirmedSubmit = () => {
+    setShowConfirmDialog(false)
     startTransition(() => {
       const formDataToSend = buildFormDataForSubmit(formData)
       submitAction(formDataToSend)
@@ -726,15 +748,6 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
                 />
               )}
 
-              {currentStepKey === 'descripcion' && (
-                <DescripcionStep 
-                  formData={formData}
-                  errors={errors}
-                  updateFormData={updateFormData}
-                  isFieldRequired={isFieldRequired}
-                />
-              )}
-
               {currentStepKey === 'estructura' && (
                 <EstructuraStep 
                   formData={formData}
@@ -747,21 +760,30 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
                 />
               )}
 
-              {currentStepKey === 'politicas' && (
-                <PoliticasStep
-                  formData={formData}
-                  errors={errors}
-                  updateFormData={updateFormData}
-                  updatePricingOption={updatePricingOption}
-                  isFieldRequired={isFieldRequired}
-                />
-              )}
-
               {currentStepKey === 'informacion-adicional' && (
                 <InformacionAdicionalStep 
                   formData={formData}
                   errors={errors}
                   updateFormData={updateFormData}
+                  isFieldRequired={isFieldRequired}
+                />
+              )}
+
+              {currentStepKey === 'contenido' && (
+                <ContenidoStep
+                  formData={formData}
+                  errors={errors}
+                  updateFormData={updateFormData}
+                  isFieldRequired={isFieldRequired}
+                />
+              )}
+
+              {currentStepKey === 'validacion' && (
+                <ValidacionStep
+                  formData={formData}
+                  errors={errors}
+                  updateFormData={updateFormData}
+                  updatePricingOption={updatePricingOption}
                   isFieldRequired={isFieldRequired}
                 />
               )}
@@ -787,6 +809,20 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
           </div>
         </div>
       </div>
+
+      {/* Submit Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showConfirmDialog}
+        title="Confirmar Envío"
+        message="¿Estás seguro de enviar esta solicitud? Se enviará un correo de aprobación al aliado y no podrás editar esta solicitud una vez enviada."
+        confirmText="Enviar Solicitud"
+        cancelText="Cancelar"
+        confirmVariant="primary"
+        onConfirm={handleConfirmedSubmit}
+        onCancel={() => setShowConfirmDialog(false)}
+        loading={isSubmitPending}
+        loadingText="Enviando..."
+      />
     </div>
   )
 }

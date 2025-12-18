@@ -114,6 +114,12 @@ model BookingRequest {
   businessReview    String? // Reseña del Negocio (Máx 1,000 caracteres)
   offerDetails      String? // Detalle del Contenido (Temario o Sinopsis/Descripción)
 
+  // AI-Generated Content Fields (from ContenidoStep)
+  whatWeLike    String? @db.Text // Lo que nos gusta - AI generated content
+  aboutCompany  String? @db.Text // La empresa - AI generated content
+  aboutOffer    String? @db.Text // Acerca de esta oferta - AI generated content
+  goodToKnow    String? @db.Text // Lo que conviene saber - AI generated content
+
   // Step 7: Estructura de la Oferta (Opciones de Compra)
   pricingOptions Json? // Array of { title, description, price, realValue, quantity, imageUrl? }
   dealImages    Json? // Array of { url, order } - General gallery images for the deal

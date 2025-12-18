@@ -39,7 +39,11 @@ interface DealData {
     salePrice: number
     discount: number
   }[]
-  highlights: string[]
+  // AI-generated content from ContenidoStep
+  whatWeLike: string      // Lo que nos gusta
+  aboutCompany: string    // La empresa  
+  aboutOffer: string      // Acerca de esta oferta
+  goodToKnow: string      // Lo que conviene saber
 }
 
 const nunito = Nunito({
@@ -59,6 +63,7 @@ export default function DealDraftPage() {
     highlights: true,
     business: false,
     about: false,
+    goodToKnow: false,
   })
 
   useEffect(() => {
@@ -112,19 +117,17 @@ export default function DealDraftPage() {
           const firstOption = pricingOptions[0]
           const subtitle = firstOption?.title || firstOption?.description || ''
           
-          // Static highlights for now
-          const highlights = [
-            'Disfruta de una experiencia única',
-            'Excelente atención y servicio',
-            'Ambiente acogedor',
-            'Perfecta opción para compartir',
-          ]
-          
           // Clean business name (remove date and ID if present)
           let businessName = data.name || 'Sin nombre'
           if (businessName.includes('|')) {
             businessName = businessName.split('|')[0].trim()
           }
+
+          // Get AI-generated content from ContenidoStep
+          const whatWeLike = (data as any).whatWeLike || ''
+          const aboutCompany = (data as any).aboutCompany || ''
+          const aboutOffer = (data as any).aboutOffer || ''
+          const goodToKnow = (data as any).goodToKnow || ''
 
           setDealData({
             businessName: businessName,
@@ -137,7 +140,10 @@ export default function DealDraftPage() {
               salePrice: 0,
               discount: 0,
             }],
-            highlights: highlights,
+            whatWeLike,
+            aboutCompany,
+            aboutOffer,
+            goodToKnow,
           })
           
           setSelectedOption(1)
@@ -338,7 +344,7 @@ export default function DealDraftPage() {
 
             {/* Accordion Sections */}
             <div className="space-y-4">
-              {/* Highlights */}
+              {/* Lo Que Nos Gusta */}
               <div>
                 <button
                   onClick={() => toggleSection('highlights')}
@@ -354,19 +360,18 @@ export default function DealDraftPage() {
                 
                 {expandedSections.highlights && (
                   <div className="mt-4 px-4">
-                    <div className="grid md:grid-cols-2 gap-x-8 gap-y-2">
-                      {dealData.highlights.map((highlight, index) => (
-                        <div key={index} className="flex items-start gap-2">
-                          <span className="text-gray-400 mt-2 text-[5px]">•</span>
-                          <p className="text-gray-600 text-[13px]">{highlight}</p>
-                        </div>
-                      ))}
-                    </div>
+                    {dealData.whatWeLike ? (
+                      <div className="prose prose-sm max-w-none text-gray-600 text-[13px] whitespace-pre-wrap leading-relaxed">
+                        {dealData.whatWeLike}
+                      </div>
+                    ) : (
+                      <p className="text-gray-400 text-[13px] italic">Sin contenido generado</p>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* Company */}
+              {/* La Empresa */}
               <div>
                 <button
                   onClick={() => toggleSection('business')}
@@ -379,10 +384,20 @@ export default function DealDraftPage() {
                     <span className="text-black font-normal" style={{ fontSize: '24px' }}>La Empresa</span>
                   </div>
                 </button>
-                {expandedSections.business && <div className="p-4 h-24"></div>}
+                {expandedSections.business && (
+                  <div className="mt-4 px-4">
+                    {dealData.aboutCompany ? (
+                      <div className="prose prose-sm max-w-none text-gray-600 text-[13px] whitespace-pre-wrap leading-relaxed">
+                        {dealData.aboutCompany}
+                      </div>
+                    ) : (
+                      <p className="text-gray-400 text-[13px] italic">Sin contenido generado</p>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* About */}
+              {/* Acerca De Esta Oferta */}
               <div>
                 <button
                   onClick={() => toggleSection('about')}
@@ -395,7 +410,43 @@ export default function DealDraftPage() {
                     <span className="text-black font-normal" style={{ fontSize: '24px' }}>Acerca De Esta Oferta</span>
                   </div>
                 </button>
-                {expandedSections.about && <div className="p-4 h-24"></div>}
+                {expandedSections.about && (
+                  <div className="mt-4 px-4">
+                    {dealData.aboutOffer ? (
+                      <div className="prose prose-sm max-w-none text-gray-600 text-[13px] whitespace-pre-wrap leading-relaxed">
+                        {dealData.aboutOffer}
+                      </div>
+                    ) : (
+                      <p className="text-gray-400 text-[13px] italic">Sin contenido generado</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Lo Que Conviene Saber */}
+              <div>
+                <button
+                  onClick={() => toggleSection('goodToKnow')}
+                  className="flex items-center w-full text-left"
+                >
+                  <div className="flex items-center px-6 py-2 bg-[#e5e7eb] rounded-r-full hover:bg-gray-300 transition-colors" style={{ minWidth: '320px' }}>
+                    <span className="text-2xl font-light text-black mr-4 leading-none pb-1">
+                      {expandedSections.goodToKnow ? '−' : '+'}
+                    </span>
+                    <span className="text-black font-normal" style={{ fontSize: '24px' }}>Lo Que Conviene Saber</span>
+                  </div>
+                </button>
+                {expandedSections.goodToKnow && (
+                  <div className="mt-4 px-4">
+                    {dealData.goodToKnow ? (
+                      <div className="prose prose-sm max-w-none text-gray-600 text-[13px] whitespace-pre-wrap leading-relaxed">
+                        {dealData.goodToKnow}
+                      </div>
+                    ) : (
+                      <p className="text-gray-400 text-[13px] italic">Sin contenido generado</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

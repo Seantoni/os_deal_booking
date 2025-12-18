@@ -760,11 +760,15 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       key={request.id}
                       index={index}
                       className={rowBgColor}
+                      onClick={() => setViewRequestId(request.id)}
                     >
                       {isAdmin && (
                         <TableCell>
                           <button
-                            onClick={() => handleSelectOne(request.id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleSelectOne(request.id)
+                            }}
                             className="flex items-center justify-center w-5 h-5 rounded border border-gray-300 hover:bg-gray-100 transition-colors"
                             title={selectedIds.has(request.id) ? 'Deselect' : 'Select'}
                           >

@@ -145,13 +145,6 @@ export default function BookingRequestSection({ deal, onViewRequest }: BookingRe
           )}
         </div>
         
-        {request.businessReview && (
-            <div className="pt-3 border-t border-gray-100">
-            <span className="text-gray-500 text-xs">Reseña del Negocio</span>
-            <p className="text-sm text-gray-700 mt-1 line-clamp-2">{request.businessReview}</p>
-          </div>
-        )}
-        
         {request.offerDetails && (
             <div className="pt-3 border-t border-gray-100">
             <span className="text-gray-500 text-xs">Detalle de la Oferta</span>

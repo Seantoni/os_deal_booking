@@ -2,11 +2,12 @@
 // This file is safe to import in client components (no server-only dependencies)
 
 // Types for the draft sections
+// Field names match ContenidoStep for consistency
 export interface DealDraftContent {
-  loQueNosGusta: string
-  laEmpresa: string
-  acercaDeEstaOferta: string
-  loQueConvieneSaber: string
+  whatWeLike: string      // Lo que nos gusta
+  aboutCompany: string    // La empresa
+  aboutOffer: string      // Acerca de esta oferta
+  goodToKnow: string      // Lo que conviene saber
   priceOptions: string
   businessName: string
   dealTitle: string
@@ -28,10 +29,15 @@ export interface DealDraftInput {
   subCategory2?: string | null
   
   // Business details
-  businessReview?: string | null
   offerDetails?: string | null
   addressAndHours?: string | null
   socialMedia?: string | null
+  
+  // Pre-filled AI content from ContenidoStep (if available)
+  whatWeLike?: string | null
+  aboutCompany?: string | null
+  aboutOffer?: string | null
+  goodToKnow?: string | null
   
   // Pricing
   pricingOptions?: any[] | null
@@ -56,10 +62,10 @@ export interface DealDraftInput {
 
 // Section labels for display
 export const SECTION_LABELS: Record<keyof DealDraftContent, string> = {
-  loQueNosGusta: 'LO QUE NOS GUSTA',
-  laEmpresa: 'LA EMPRESA',
-  acercaDeEstaOferta: 'ACERCA DE ESTA OFERTA',
-  loQueConvieneSaber: 'LO QUE CONVIENE SABER',
+  whatWeLike: 'LO QUE NOS GUSTA',
+  aboutCompany: 'LA EMPRESA',
+  aboutOffer: 'ACERCA DE ESTA OFERTA',
+  goodToKnow: 'LO QUE CONVIENE SABER',
   priceOptions: 'PRICE OPTIONS',
   businessName: 'BUSINESS NAME',
   dealTitle: 'DEAL TITLE',
@@ -69,10 +75,10 @@ export const SECTION_LABELS: Record<keyof DealDraftContent, string> = {
 export const SECTION_ORDER: (keyof DealDraftContent)[] = [
   'dealTitle',
   'businessName',
-  'loQueNosGusta',
-  'laEmpresa',
-  'acercaDeEstaOferta',
-  'loQueConvieneSaber',
+  'whatWeLike',
+  'aboutCompany',
+  'aboutOffer',
+  'goodToKnow',
   'priceOptions',
 ]
 

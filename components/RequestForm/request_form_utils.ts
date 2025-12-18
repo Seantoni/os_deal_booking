@@ -78,9 +78,7 @@ export const validateStep = (
       break
     case 6:
       // Descripción: Descripción y Canales
-      if (formData.businessReview && formData.businessReview.length > 1000) {
-        newErrors.businessReview = 'Máximo 1,000 caracteres'
-      }
+      // No strict validation, all fields are optional
       break
     case 7:
       // Estructura: Estructura de Oferta
@@ -182,8 +180,13 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
   fd.append('redemptionMethods', JSON.stringify(formData.redemptionMethods || []))
   fd.append('contactDetails', formData.contactDetails || '')
   fd.append('socialMedia', formData.socialMedia || '')
-  fd.append('businessReview', formData.businessReview || '')
   fd.append('offerDetails', formData.offerDetails || '')
+  
+  // Contenido: AI-Generated Content Fields
+  fd.append('whatWeLike', formData.whatWeLike || '')
+  fd.append('aboutCompany', formData.aboutCompany || '')
+  fd.append('aboutOffer', formData.aboutOffer || '')
+  fd.append('goodToKnow', formData.goodToKnow || '')
   
   // Estructura: Estructura de la Oferta
   fd.append('pricingOptions', JSON.stringify(formData.pricingOptions || []))

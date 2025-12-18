@@ -95,8 +95,13 @@ export function extractBookingRequestFromFormData(formData: FormData): {
   redemptionMethods: any | null
   contactDetails: string | null
   socialMedia: string | null
-  businessReview: string | null
   offerDetails: string | null
+
+  // Contenido: AI-Generated Content Fields
+  whatWeLike: string | null
+  aboutCompany: string | null
+  aboutOffer: string | null
+  goodToKnow: string | null
 
   // Estructura: Estructura de la Oferta
   pricingOptions: any | null
@@ -172,8 +177,13 @@ export function extractBookingRequestFromFormData(formData: FormData): {
     redemptionMethods: parseFormDataJsonField(formData, 'redemptionMethods'),
     contactDetails: getFormDataString(formData, 'contactDetails'),
     socialMedia: getFormDataString(formData, 'socialMedia'),
-    businessReview: getFormDataString(formData, 'businessReview'),
     offerDetails: getFormDataString(formData, 'offerDetails'),
+
+    // Contenido: AI-Generated Content Fields
+    whatWeLike: getFormDataString(formData, 'whatWeLike'),
+    aboutCompany: getFormDataString(formData, 'aboutCompany'),
+    aboutOffer: getFormDataString(formData, 'aboutOffer'),
+    goodToKnow: getFormDataString(formData, 'goodToKnow'),
 
     // Estructura: Estructura de la Oferta
     pricingOptions: parseFormDataJsonField(formData, 'pricingOptions'),

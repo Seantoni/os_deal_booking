@@ -24,10 +24,10 @@ export const STEPS: StepConfig[] = [
   { id: 3, key: 'directorio', title: 'Directorio', icon: PeopleIcon },
   { id: 4, key: 'fiscales', title: 'Fiscales', icon: AccountBalanceIcon },
   { id: 5, key: 'negocio', title: 'Negocio', icon: GavelIcon },
-  { id: 6, key: 'descripcion', title: 'Descripción', icon: StoreIcon },
-  { id: 7, key: 'estructura', title: 'Estructura', icon: AttachMoneyIcon },
-  { id: 8, key: 'informacion-adicional', title: 'Información Adicional', icon: InfoIcon },
-  { id: 9, key: 'politicas', title: 'Políticas', icon: VerifiedIcon },
+  { id: 6, key: 'estructura', title: 'Estructura', icon: AttachMoneyIcon },
+  { id: 7, key: 'informacion-adicional', title: 'Información Adicional', icon: InfoIcon },
+  { id: 8, key: 'contenido', title: 'Contenido', icon: StoreIcon },
+  { id: 9, key: 'validacion', title: 'Validación', icon: VerifiedIcon },
 ]
 
 // Helper functions to work with step keys
@@ -108,6 +108,12 @@ export const INITIAL_FORM_DATA: BookingFormData = {
   socialMedia: '',
   businessReview: '',
   offerDetails: '',
+  
+  // AI-Generated Content Fields
+  whatWeLike: '',
+  aboutCompany: '',
+  aboutOffer: '',
+  goodToKnow: '',
   
   // Estructura: Estructura de Oferta
   pricingOptions: [{

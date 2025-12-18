@@ -430,18 +430,6 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
                 </div>
               )}
 
-              {/* Business Review */}
-              {request.businessReview && (
-                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                    <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Reseña del Negocio</h3>
-                  </div>
-                  <div className="p-4">
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{request.businessReview}</p>
-                  </div>
-                </div>
-              )}
-
               {/* Offer Details */}
               {request.offerDetails && (
                 <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">

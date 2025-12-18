@@ -57,6 +57,12 @@ export type BookingFormData = {
   businessReview: string
   offerDetails: string
   
+  // AI-Generated Content Fields (for deal page display)
+  whatWeLike: string      // Lo que nos gusta
+  aboutCompany: string    // La empresa
+  aboutOffer: string      // Acerca de esta oferta
+  goodToKnow: string      // Lo que conviene saber
+  
   // Estructura: Estructura de la Oferta
   pricingOptions: Array<{
     title: string

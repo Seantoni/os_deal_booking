@@ -1,4 +1,6 @@
-import { useState } from 'react'
+'use client'
+
+import { useState, useEffect, useCallback, useRef } from 'react'
 import VerifiedIcon from '@mui/icons-material/Verified'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
@@ -7,8 +9,9 @@ import WarningIcon from '@mui/icons-material/Warning'
 import LightbulbIcon from '@mui/icons-material/Lightbulb'
 import InfoIcon from '@mui/icons-material/Info'
 import BuildIcon from '@mui/icons-material/Build'
+import RefreshIcon from '@mui/icons-material/Refresh'
 import type { BookingFormData, PricingOption } from '../types'
-import { Dropdown, Textarea, Button } from '@/components/ui'
+import { Button } from '@/components/ui'
 
 interface AIRecommendation {
   id: string
@@ -29,7 +32,7 @@ interface AIReviewResult {
   review?: string // For legacy text responses
 }
 
-interface PoliticasStepProps {
+interface ValidacionStepProps {
   formData: BookingFormData
   errors: Record<string, string>
   updateFormData: (field: keyof BookingFormData, value: any) => void
@@ -37,12 +40,14 @@ interface PoliticasStepProps {
   isFieldRequired?: (fieldKey: string) => boolean
 }
 
-export default function PoliticasStep({ formData, errors, updateFormData, updatePricingOption, isFieldRequired = () => false }: PoliticasStepProps) {
+export default function ValidacionStep({ formData, errors, updateFormData, updatePricingOption, isFieldRequired = () => false }: ValidacionStepProps) {
   const [aiReviewLoading, setAiReviewLoading] = useState(false)
   const [aiReviewResult, setAiReviewResult] = useState<AIReviewResult | null>(null)
   const [aiReviewError, setAiReviewError] = useState<string | null>(null)
   const [aiSkipped, setAiSkipped] = useState<string | null>(null)
   const [appliedFixes, setAppliedFixes] = useState<Set<string>>(new Set())
+  const [hasAutoReviewed, setHasAutoReviewed] = useState(false)
+  const sectionRef = useRef<HTMLDivElement>(null)
 
   // Check if category is restaurant-related for showing AI review
   const parentCategory = (formData.parentCategory || '').toLowerCase()
@@ -55,7 +60,7 @@ export default function PoliticasStep({ formData, errors, updateFormData, update
     parentCategory.includes('comida') ||
     parentCategory.includes('food')
 
-  const handleAiReview = async () => {
+  const handleAiReview = useCallback(async () => {
     setAiReviewLoading(true)
     setAiReviewError(null)
     setAiSkipped(null)
@@ -84,7 +89,15 @@ export default function PoliticasStep({ formData, errors, updateFormData, update
     } finally {
       setAiReviewLoading(false)
     }
-  }
+  }, [formData])
+
+  // Auto-trigger AI review on focus/mount for restaurant categories
+  useEffect(() => {
+    if (isRestaurantCategory && !hasAutoReviewed && !aiReviewResult && !aiReviewLoading && !aiSkipped) {
+      setHasAutoReviewed(true)
+      handleAiReview()
+    }
+  }, [isRestaurantCategory, hasAutoReviewed, aiReviewResult, aiReviewLoading, aiSkipped, handleAiReview])
 
   const handleApplyFix = (recommendation: AIRecommendation) => {
     if (!recommendation.canAutoFix || !recommendation.suggestedValue || !recommendation.field) return
@@ -162,83 +175,65 @@ export default function PoliticasStep({ formData, errors, updateFormData, update
     return String(value)
   }
 
+  // Calculate summary stats
+  const hasPricingOptions = formData.pricingOptions && formData.pricingOptions.length > 0
+  const hasRequiredFields = formData.businessName && formData.partnerEmail && formData.startDate && formData.endDate
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-8" ref={sectionRef}>
       <div className="border-b border-gray-100 pb-4 mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Políticas Generales y Revisión Final</h2>
-        <p className="text-sm text-gray-500 mt-1">Confirme todos los detalles antes de enviar.</p>
+        <h2 className="text-2xl font-bold text-gray-900">Validación Final</h2>
+        <p className="text-sm text-gray-500 mt-1">Revisa y confirma todos los detalles antes de enviar.</p>
       </div>
-      
-      <div className="space-y-6">
-        <div className="group">
-          <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
-            <span>Políticas de Cancelación</span>
-            {isFieldRequired('cancellationPolicy') ? (
-              <span className="text-red-500">*</span>
-            ) : (
-              <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
-            )}
-          </label>
-          <Textarea
-            value={formData.cancellationPolicy}
-            onChange={(e) => updateFormData('cancellationPolicy', e.target.value)}
-            rows={3}
-            placeholder="Políticas de reservación y cancelación..."
-            error={errors.cancellationPolicy}
-          />
-        </div>
 
-        <div className="group">
-          <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
-            <span>Validación de Mercado</span>
-            {isFieldRequired('marketValidation') ? (
-              <span className="text-red-500">*</span>
-            ) : (
-              <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
-            )}
-          </label>
-          <Dropdown
-            fullWidth
-            items={[
-              { value: 'Sí', label: 'Sí (El paquete se ofrece regularmente por el Aliado)' },
-              { value: 'No', label: 'No' },
-            ]}
-            selectedLabel={
-              (
-                [
-                  { value: 'Sí', label: 'Sí (El paquete se ofrece regularmente por el Aliado)' },
-                  { value: 'No', label: 'No' },
-                ].find(o => o.value === formData.marketValidation)?.label
-              ) || 'Seleccionar...'
-            }
-            placeholder="Seleccionar..."
-            onSelect={(value) => updateFormData('marketValidation', value)}
-          />
-          {errors.marketValidation && <p className="text-red-500 text-xs mt-1.5 ml-1">{errors.marketValidation}</p>}
-        </div>
-
-        <div className="group">
-          <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
-            <span>Comentarios Finales</span>
-            {isFieldRequired('additionalComments') ? (
-              <span className="text-red-500">*</span>
-            ) : (
-              <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
-            )}
-          </label>
-          <Textarea
-            value={formData.additionalComments}
-            onChange={(e) => updateFormData('additionalComments', e.target.value)}
-            rows={4}
-            placeholder="Comentarios adicionales del asesor comercial..."
-            error={errors.additionalComments}
-          />
+      {/* Quick Summary */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+        <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <CheckCircleIcon className="text-green-500" style={{ fontSize: 20 }} />
+          Resumen de la Solicitud
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <p className="text-gray-500">Negocio</p>
+            <p className="font-medium text-gray-900">{formData.businessName || '—'}</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Email</p>
+            <p className="font-medium text-gray-900">{formData.partnerEmail || '—'}</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Categoría</p>
+            <p className="font-medium text-gray-900">
+              {formData.parentCategory || '—'}
+              {formData.subCategory1 && ` / ${formData.subCategory1}`}
+            </p>
+          </div>
+          <div>
+            <p className="text-gray-500">Vigencia</p>
+            <p className="font-medium text-gray-900">
+              {formData.startDate && formData.endDate 
+                ? `${formData.startDate} - ${formData.endDate}`
+                : '—'}
+            </p>
+          </div>
+          <div>
+            <p className="text-gray-500">Opciones de Precio</p>
+            <p className="font-medium text-gray-900">
+              {hasPricingOptions ? `${formData.pricingOptions.length} opción(es)` : '—'}
+            </p>
+          </div>
+          <div>
+            <p className="text-gray-500">Estado</p>
+            <p className={`font-medium ${hasRequiredFields ? 'text-green-600' : 'text-amber-600'}`}>
+              {hasRequiredFields ? 'Listo para enviar' : 'Campos pendientes'}
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* AI Contract Review Section - Only for Restaurant Categories */}
+      {/* AI Contract Review Section */}
       {isRestaurantCategory && (
-        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-2xl p-6 mt-8 shadow-sm">
+        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div className="flex items-start gap-3">
               <div className="p-2 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full text-white mt-0.5">
@@ -247,7 +242,7 @@ export default function PoliticasStep({ formData, errors, updateFormData, update
               <div>
                 <h3 className="font-bold text-purple-900 mb-1">Revisión AI del Contrato</h3>
                 <p className="text-sm text-purple-700 leading-relaxed">
-                  Utiliza inteligencia artificial para verificar que tu oferta cumpla con los criterios de éxito.
+                  Inteligencia artificial verifica que tu oferta cumpla con los criterios de éxito.
                 </p>
               </div>
             </div>
@@ -259,8 +254,12 @@ export default function PoliticasStep({ formData, errors, updateFormData, update
               onClick={handleAiReview}
               className="whitespace-nowrap bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 hover:text-white focus-visible:ring-purple-500 shadow-sm hover:shadow-md flex items-center gap-2"
             >
-              <AutoFixHighIcon style={{ fontSize: 16 }} />
-              {aiReviewLoading ? 'Revisando...' : 'Revisar con AI'}
+              {aiReviewLoading ? (
+                <RefreshIcon fontSize="small" className="animate-spin" />
+              ) : (
+                <RefreshIcon fontSize="small" />
+              )}
+              {aiReviewLoading ? 'Revisando...' : 'Revisar de Nuevo'}
             </Button>
           </div>
 
@@ -279,6 +278,15 @@ export default function PoliticasStep({ formData, errors, updateFormData, update
               <div className="flex items-center gap-2 text-gray-600">
                 <InfoIcon fontSize="small" />
                 <span className="text-sm">{aiSkipped}</span>
+              </div>
+            </div>
+          )}
+
+          {aiReviewLoading && !aiReviewResult && (
+            <div className="mt-4 p-6 bg-white/50 border border-purple-100 rounded-xl text-center">
+              <div className="inline-flex items-center gap-3 text-purple-700">
+                <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                <span className="font-medium">Analizando solicitud con IA...</span>
               </div>
             </div>
           )}
@@ -412,7 +420,7 @@ export default function PoliticasStep({ formData, errors, updateFormData, update
 
       {/* Non-restaurant info message */}
       {!isRestaurantCategory && formData.parentCategory && (
-        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 mt-8">
+        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
           <div className="flex items-center gap-2 text-gray-500">
             <InfoIcon fontSize="small" />
             <span className="text-sm">La revisión AI está disponible actualmente solo para categorías de restaurantes.</span>
@@ -420,7 +428,8 @@ export default function PoliticasStep({ formData, errors, updateFormData, update
         </div>
       )}
 
-      <div className="bg-blue-50 border border-blue-100 rounded-2xl p-6 mt-6 shadow-sm">
+      {/* Confirmation Box */}
+      <div className="bg-blue-50 border border-blue-100 rounded-2xl p-6 shadow-sm">
         <div className="flex items-start gap-4">
           <div className="p-2 bg-blue-100 rounded-full text-blue-600 mt-1">
             <VerifiedIcon fontSize="small" />
@@ -431,11 +440,17 @@ export default function PoliticasStep({ formData, errors, updateFormData, update
               Revise toda la información antes de enviar. Una vez enviada, se creará la solicitud de booking 
               y se enviará un correo de aprobación al aliado.
             </p>
+            {!hasRequiredFields && (
+              <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800 flex items-center gap-2">
+                  <WarningIcon fontSize="small" />
+                  <span>Faltan campos requeridos. Por favor complete el negocio, email, y fechas.</span>
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
-
-      {/* Summary removed per request */}
     </div>
   )
 }

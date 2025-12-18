@@ -101,8 +101,13 @@ export interface BookingRequestViewData {
   redemptionMethods: string[] | null
   contactDetails: string | null
   socialMedia: string | null
-  businessReview: string | null
   offerDetails: string | null
+
+  // Contenido: AI-Generated Content Fields
+  whatWeLike: string | null
+  aboutCompany: string | null
+  aboutOffer: string | null
+  goodToKnow: string | null
 
   // Step 7: Estructura de la Oferta
   pricingOptions: PricingOption[] | null

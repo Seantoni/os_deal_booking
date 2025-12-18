@@ -68,7 +68,6 @@ Available form fields for auto-fix:
 - holidaysApply (Sí/No)
 - weekendsApply (Sí/No)
 - offerDetails (text)
-- businessReview (text)
 - tipIncluded (Sí/No/Opcional)
 - exclusivityCondition (text)
 
@@ -214,7 +213,6 @@ function buildContractSummary(formData: any): string {
 
   // Description & Content
   sections.push(`## Descripción y Contenido
-- Reseña del Negocio: ${formData.businessReview || 'No especificada'}
 - Detalles de la Oferta: ${formData.offerDetails || 'No especificados'}
 - Redes Sociales: ${formData.socialMedia || 'No especificadas'}`)
 
