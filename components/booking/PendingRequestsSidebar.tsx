@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { getCategoryColors } from '@/lib/categories'
-import { formatDateForPanama } from '@/lib/date/timezone'
+import { formatDateForPanama, PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import { buildCategoryDisplayString } from '@/types'
 import PublicIcon from '@mui/icons-material/Public'
 import LockIcon from '@mui/icons-material/Lock'
@@ -40,7 +40,7 @@ export default function PendingRequestsSidebar({ requests, filteredCategory, onR
 
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleDateString('es-PA', {
-      timeZone: 'America/Panama',
+      timeZone: PANAMA_TIMEZONE,
       month: 'short',
       day: 'numeric'
     })

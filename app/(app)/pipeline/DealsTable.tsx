@@ -3,6 +3,7 @@
 import { Deal, BookingRequest, Opportunity } from '@/types'
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
 import { EntityTable, StatusPill, TableRow, TableCell } from '@/components/shared/table'
+import { formatShortDate } from '@/lib/date'
 import { type ColumnConfig } from '@/components/shared'
 
 type DealItem = {
@@ -64,7 +65,7 @@ export default function DealsTable({ data, searchQuery }: DealsTableProps) {
             <div className="flex items-center gap-2">
               <CalendarTodayIcon className="text-gray-400" style={{ fontSize: 16 }} />
               <span className="text-[13px]">
-                {new Date(item.bookingRequest.startDate).toLocaleDateString()} — {new Date(item.bookingRequest.endDate).toLocaleDateString()}
+                {formatShortDate(item.bookingRequest.startDate)} — {formatShortDate(item.bookingRequest.endDate)}
               </span>
             </div>
           </TableCell>

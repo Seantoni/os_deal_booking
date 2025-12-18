@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -179,6 +180,7 @@ function TaskItem({
                 </span>
                 <span className="text-xs text-gray-500">
                   {new Date(task.date).toLocaleDateString('es-ES', {
+                    timeZone: PANAMA_TIMEZONE,
                     weekday: 'short',
                     month: 'short',
                     day: 'numeric',

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import { getBusinesses, deleteBusiness, getOpportunities } from '@/app/actions/crm'
 import { getBookingRequests } from '@/app/actions/booking-requests'
 import type { BookingRequest } from '@/types'
@@ -132,7 +133,7 @@ export default function BusinessesPageClient() {
 
   const getPanamaNow = useCallback(() => {
     // Convert to Panama timezone using Intl
-    return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Panama' }))
+    return new Date(new Date().toLocaleString('en-US', { timeZone: PANAMA_TIMEZONE }))
   }, [])
 
   const shouldSyncRevenueToday = useCallback(() => {

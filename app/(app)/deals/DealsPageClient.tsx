@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import dynamic from 'next/dynamic'
+import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import { getDeals, deleteDeal } from '@/app/actions/deals'
 import type { Deal } from '@/types'
 import FilterListIcon from '@mui/icons-material/FilterList'
@@ -282,9 +283,11 @@ export default function DealsPageClient() {
                 </TableCell>
                 <TableCell className="text-[13px] text-gray-600">
                   {new Date(deal.bookingRequest.startDate).toLocaleDateString('en-US', {
+                    timeZone: PANAMA_TIMEZONE,
                     month: 'short',
                     day: 'numeric'
                   })} — {new Date(deal.bookingRequest.endDate).toLocaleDateString('en-US', {
+                    timeZone: PANAMA_TIMEZONE,
                     month: 'short',
                     day: 'numeric'
                   })}
@@ -301,6 +304,7 @@ export default function DealsPageClient() {
                 <TableCell className="text-[13px] text-gray-600">
                   {deal.bookingRequest.processedAt 
                     ? new Date(deal.bookingRequest.processedAt).toLocaleDateString('en-US', {
+                        timeZone: PANAMA_TIMEZONE,
                         month: 'short',
                         day: 'numeric'
                       })

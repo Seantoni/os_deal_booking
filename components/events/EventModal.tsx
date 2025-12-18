@@ -8,7 +8,7 @@ import BusinessSelect, { type BusinessWithStatus } from '@/components/shared/Bus
 import { getMaxDuration, getDaysDifference, getCategoryOptions, getCategoryColors, SEVEN_DAY_CATEGORIES } from '@/lib/categories'
 import type { CategoryOption } from '@/lib/categories'
 import { checkUniquenesViolation, check30DayMerchantRule, getDailyLimitStatus, getEventsOnDate, calculateNextAvailableDate } from '@/lib/event-validation'
-import { formatDateForPanama } from '@/lib/date/timezone'
+import { formatDateForPanama, PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import type { Event, UserRole, EventModalPrefillData } from '@/types'
 import { hasCategoryData } from '@/types'
 import { getSettings, getBusinessException } from '@/lib/settings'
@@ -409,7 +409,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       const status = getDailyLimitStatus(count, userSettings.minDailyLaunches, userSettings.maxDailyLaunches)
       
       if (status === 'over') {
-        const dateStr = launchDate.toLocaleDateString('es-PA', { timeZone: 'America/Panama', month: 'short', day: 'numeric' })
+        const dateStr = launchDate.toLocaleDateString('es-PA', { timeZone: PANAMA_TIMEZONE, month: 'short', day: 'numeric' })
         newDailyLimitWarnings.push(`${dateStr}: ${count} ofertas (máx ${userSettings.maxDailyLaunches})`)
       }
     }

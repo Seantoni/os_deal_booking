@@ -16,9 +16,20 @@ export {
 
 // Formatting functions
 export {
+  // Display formatting
+  formatRequestNameDate,
+  formatShortDate,
+  formatDateShort,      // @deprecated - use formatShortDate
+  formatFullDate,
+  formatISODate,
+  formatDateTime,
   formatDateForDisplay,
-  formatDateShort,
+  formatDateRange,
+  // Relative time
+  formatRelativeTime,
+  // Date calculations
+  daysSince,
+  daysUntil,
+  calculateDaysUntil,   // @deprecated - use daysUntil
   calculateDaysDifference,
-  calculateDaysUntil,
 } from './formatting'
-

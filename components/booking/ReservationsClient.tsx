@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useCallback } from 'react'
+import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import { deleteEvent, refreshCalendarData } from '@/app/actions/events'
 import { getCategoryColors } from '@/lib/categories'
 import type { Event } from '@/types'
@@ -129,7 +130,7 @@ export default function ReservationsClient({ events: initialEvents, usersMap = {
       month: 'short', 
       day: 'numeric', 
       year: 'numeric',
-      timeZone: 'America/Panama'
+      timeZone: PANAMA_TIMEZONE
     })
   }
 

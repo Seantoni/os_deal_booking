@@ -15,6 +15,7 @@ import { USER_ROLE_OPTIONS } from '@/lib/constants'
 import toast from 'react-hot-toast'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import { formatShortDate } from '@/lib/date'
 
 // Types inferred from Prisma responses
 type AllowedEmail = Awaited<ReturnType<typeof getAllowedEmails>>[0]
@@ -596,7 +597,7 @@ export default function AccessManagementTab() {
                             )}
                             {email.invitedAt && (
                               <span className="text-xs text-gray-500">
-                                Sent: {new Date(email.invitedAt).toLocaleDateString()}
+                                Sent: {formatShortDate(email.invitedAt)}
                               </span>
                             )}
                           </div>
@@ -605,7 +606,7 @@ export default function AccessManagementTab() {
                         )}
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-600">
-                        {new Date(email.createdAt).toLocaleDateString()}
+                        {formatShortDate(email.createdAt)}
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-600">{email.notes || '-'}</td>
                       <td className="py-3 px-4 text-sm text-right">
@@ -740,7 +741,7 @@ export default function AccessManagementTab() {
                       )}
                     </td>
                     <td className="py-3 px-6 text-sm text-gray-600">
-                      {new Date(user.createdAt).toLocaleDateString()}
+                      {formatShortDate(user.createdAt)}
                     </td>
                     <td className="py-3 px-6 text-sm text-right">
                       {editingUserId === user.clerkId ? (

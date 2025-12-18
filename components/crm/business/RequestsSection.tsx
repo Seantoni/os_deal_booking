@@ -8,6 +8,7 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import AddIcon from '@mui/icons-material/Add'
 import type { BookingRequest } from '@/types'
+import { PANAMA_TIMEZONE, getDateComponentsInPanama } from '@/lib/date/timezone'
 
 interface RequestsSectionProps {
   requests: BookingRequest[]
@@ -53,9 +54,8 @@ export default function RequestsSection({
     
     // Fallback to date-based name
     const date = new Date(req.createdAt)
-    const month = date.toLocaleDateString('en-US', { month: 'short' })
-    const day = date.getDate()
-    const year = date.getFullYear()
+    const month = date.toLocaleDateString('en-US', { timeZone: PANAMA_TIMEZONE, month: 'short' })
+    const { day, year } = getDateComponentsInPanama(date)
     return businessName ? `${businessName} - ${month}-${day}-${year}` : `Request ${month}-${day}-${year}`
   }
 
@@ -194,6 +194,7 @@ export default function RequestsSection({
                         <CalendarTodayIcon style={{ fontSize: 11 }} />
                         <span className="whitespace-nowrap">
                           {new Date(req.startDate).toLocaleDateString('en-US', {
+                            timeZone: PANAMA_TIMEZONE,
                             month: 'short',
                             day: 'numeric',
                           })}

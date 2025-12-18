@@ -1,6 +1,7 @@
 'use client'
 
 import type { Deal } from '@/types'
+import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import { useState } from 'react'
 import PublicIcon from '@mui/icons-material/Public'
 import LockIcon from '@mui/icons-material/Lock'
@@ -78,9 +79,11 @@ export default function BookingRequestSection({ deal, onViewRequest }: BookingRe
             <span className="text-gray-500 text-xs">Fechas de Campaña</span>
             <p className="text-gray-900">
               {new Date(request.startDate).toLocaleDateString('es-PA', {
+                timeZone: PANAMA_TIMEZONE,
                 month: 'short',
                 day: 'numeric',
               })} — {new Date(request.endDate).toLocaleDateString('es-PA', {
+                timeZone: PANAMA_TIMEZONE,
                 month: 'short',
                 day: 'numeric',
               })}

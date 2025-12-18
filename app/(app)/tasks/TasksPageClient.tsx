@@ -18,7 +18,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PhoneIcon from '@mui/icons-material/Phone'
 import EmailIcon from '@mui/icons-material/Email'
 import PersonIcon from '@mui/icons-material/Person'
-import { formatShortDate, formatRelativeTime } from '@/lib/utils/date-format'
+import { formatShortDate, formatRelativeTime } from '@/lib/date'
 import {
   EntityPageHeader,
   type FilterTab,

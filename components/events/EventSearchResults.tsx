@@ -1,7 +1,7 @@
 'use client'
 
 import { getCategoryColors } from '@/lib/categories'
-import { formatDateForPanama } from '@/lib/date/timezone'
+import { formatDateForPanama, PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import type { Event } from '@/types'
 
 interface EventSearchResultsProps {
@@ -35,7 +35,7 @@ export default function EventSearchResults({ events, searchQuery, onEventClick, 
     
     try {
       const formatted = dateObj.toLocaleDateString('es-PA', {
-        timeZone: 'America/Panama',
+        timeZone: PANAMA_TIMEZONE,
         weekday: 'short',
         month: 'short',
         day: 'numeric',

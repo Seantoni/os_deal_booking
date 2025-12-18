@@ -8,6 +8,7 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import type { Opportunity } from '@/types'
+import { PANAMA_TIMEZONE, getDateComponentsInPanama } from '@/lib/date/timezone'
 
 interface OpportunitiesSectionProps {
   opportunities: Opportunity[]
@@ -56,9 +57,8 @@ export default function OpportunitiesSection({
     
     // Fallback: Generate default format: Business Name - Date of creation (Jan-1-2025 format)
     const date = new Date(opp.createdAt)
-    const month = date.toLocaleDateString('en-US', { month: 'short' })
-    const day = date.getDate()
-    const year = date.getFullYear()
+    const month = date.toLocaleDateString('en-US', { timeZone: PANAMA_TIMEZONE, month: 'short' })
+    const { day, year } = getDateComponentsInPanama(date)
     const creationDate = `${month}-${day}-${year}` // Format: Jan-1-2025
     const defaultName = businessName ? `${businessName} - ${creationDate}` : creationDate
     
@@ -217,6 +217,7 @@ export default function OpportunitiesSection({
                         <CalendarTodayIcon style={{ fontSize: 11 }} />
                         <span className="whitespace-nowrap">
                           {new Date(opp.startDate).toLocaleDateString('en-US', {
+                            timeZone: PANAMA_TIMEZONE,
                             month: 'short',
                             day: 'numeric',
                           })}

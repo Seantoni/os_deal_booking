@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import { getOpportunities, deleteOpportunity } from '@/app/actions/crm'
 import type { Opportunity } from '@/types'
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban'
@@ -411,6 +412,7 @@ export default function OpportunitiesPageClient() {
                   </TableCell>
                   <TableCell className="text-[13px] text-gray-600">
                     {new Date(opportunity.startDate).toLocaleDateString('en-US', {
+                      timeZone: PANAMA_TIMEZONE,
                       month: 'short',
                       day: 'numeric',
                     })}
@@ -418,6 +420,7 @@ export default function OpportunitiesPageClient() {
                   <TableCell className="text-[13px] text-gray-600">
                     {opportunity.closeDate ? (
                       new Date(opportunity.closeDate).toLocaleDateString('en-US', {
+                        timeZone: PANAMA_TIMEZONE,
                         month: 'short',
                         day: 'numeric',
                       })

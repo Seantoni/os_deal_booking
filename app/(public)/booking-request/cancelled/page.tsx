@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 
 // Public route: no auth required for cancelled notification
 export default async function CancelledPage({
@@ -80,6 +81,7 @@ export default async function CancelledPage({
                 <p className="text-sm text-gray-700">
                   <strong>Fecha de cancelación:</strong>{' '}
                   {new Date(cancelledAt).toLocaleDateString('es-ES', {
+                    timeZone: PANAMA_TIMEZONE,
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',

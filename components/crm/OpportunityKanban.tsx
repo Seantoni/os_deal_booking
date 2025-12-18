@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import { updateOpportunity } from '@/app/actions/crm'
 import type { Opportunity, OpportunityStage } from '@/types'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
@@ -221,6 +222,7 @@ export default function OpportunityKanban({ opportunities, onUpdate, onCreateReq
                           <CalendarTodayIcon style={{ fontSize: 14 }} />
                           <span>
                             {new Date(opportunity.startDate).toLocaleDateString('en-US', {
+                              timeZone: PANAMA_TIMEZONE,
                               month: 'short',
                               day: 'numeric',
                               year: 'numeric',
@@ -231,6 +233,7 @@ export default function OpportunityKanban({ opportunities, onUpdate, onCreateReq
                               <span className="text-gray-400">•</span>
                               <span>
                                 {new Date(opportunity.closeDate).toLocaleDateString('en-US', {
+                                  timeZone: PANAMA_TIMEZONE,
                                   month: 'short',
                                   day: 'numeric',
                                 })}

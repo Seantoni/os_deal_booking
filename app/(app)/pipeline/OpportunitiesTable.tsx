@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { Opportunity, BookingRequest } from '@/types'
 import { EntityTable, RowActionsMenu, StatusPill, TableRow, TableCell } from '@/components/shared/table'
+import { formatShortDate } from '@/lib/date'
 import { type ColumnConfig } from '@/components/shared'
 
 // Lazy load heavy modal component
@@ -78,7 +79,7 @@ export default function OpportunitiesTable({ data, searchQuery }: OpportunitiesT
             {item.opportunity?.business?.name}
           </TableCell>
           <TableCell className="text-gray-600 text-[13px]">
-            {new Date(item.opportunity?.createdAt || '').toLocaleDateString()}
+            {formatShortDate(item.opportunity?.createdAt || null)}
           </TableCell>
           <TableCell>
             <StatusPill

@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { formatRequestNameDate } from './date-format'
+import { formatRequestNameDate } from '@/lib/date'
 
 /**
  * Extract business name from a formatted request name

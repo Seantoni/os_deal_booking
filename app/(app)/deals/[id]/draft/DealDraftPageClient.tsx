@@ -6,6 +6,7 @@ import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { generateDealDraft, regenerateDraftSection, refreshDealDraft } from '@/app/actions/dealDraft'
 import { DealDraftContent, SECTION_LABELS, SECTION_ORDER } from '@/lib/ai/dealDraftTypes'
+import { formatShortDate } from '@/lib/date'
 
 // Icons
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
@@ -284,7 +285,7 @@ export default function DealDraftPageClient({ deal: initialDeal }: DealDraftPage
             <div>
               <p className="text-gray-500">Period</p>
               <p className="font-medium text-gray-900">
-                {new Date(deal.bookingRequest.startDate).toLocaleDateString('es-ES')} - {new Date(deal.bookingRequest.endDate).toLocaleDateString('es-ES')}
+                {formatShortDate(deal.bookingRequest.startDate)} - {formatShortDate(deal.bookingRequest.endDate)}
               </p>
             </div>
           </div>

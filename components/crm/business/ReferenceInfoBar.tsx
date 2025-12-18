@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline'
 import type { Business } from '@/types'
+import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 
 interface ReferenceInfoBarProps {
   business?: Business | null
@@ -134,7 +135,7 @@ export default function ReferenceInfoBar({
           <div className="flex items-center gap-1.5">
             <CalendarTodayIcon className="text-gray-400" style={{ fontSize: 14 }} />
             <span className="font-medium text-gray-500">Created:</span>
-            <span>{new Date(business.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+            <span>{new Date(business.createdAt).toLocaleDateString('en-US', { timeZone: PANAMA_TIMEZONE, month: 'short', day: 'numeric', year: 'numeric' })}</span>
           </div>
         ) : (
           <div className="flex items-center gap-1.5">

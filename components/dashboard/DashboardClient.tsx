@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react'
 import { getDashboardStats } from '@/app/actions/dashboard'
 import { getAllUsers } from '@/app/actions/crm'
+import { PANAMA_TIMEZONE } from '@/lib/date'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import HandshakeIcon from '@mui/icons-material/Handshake'
 import DescriptionIcon from '@mui/icons-material/Description'
 import GroupIcon from '@mui/icons-material/Group'
 import RefreshIcon from '@mui/icons-material/Refresh'
+import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import { Select } from '@/components/ui/Select'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -23,6 +25,28 @@ export default function DashboardClient() {
     startDate: '',
     endDate: '',
   })
+  const [panamaTime, setPanamaTime] = useState<string>('')
+
+  // Update Panama time every second
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date()
+      setPanamaTime(now.toLocaleString('es-PA', {
+        timeZone: PANAMA_TIMEZONE,
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      }))
+    }
+    updateTime()
+    const interval = setInterval(updateTime, 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   useEffect(() => {
     loadData()
@@ -105,6 +129,17 @@ export default function DashboardClient() {
     <div className="min-h-full">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
         
+        {/* Panama Timezone Display - For Validation */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+            <AccessTimeIcon className="text-blue-600" fontSize="small" />
+            <div className="text-sm">
+              <span className="font-medium text-blue-700">Panamá: </span>
+              <span className="text-blue-900 font-mono">{panamaTime || 'Loading...'}</span>
+            </div>
+          </div>
+        </div>
+
         {/* Filters Row - Moved Title to AppHeader */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-end gap-4">
           <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">

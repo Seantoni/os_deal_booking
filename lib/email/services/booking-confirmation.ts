@@ -1,5 +1,6 @@
 import { resend, EMAIL_CONFIG } from '../config'
 import { renderBookingConfirmationEmail } from '../templates/booking-confirmation'
+import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 
 /**
  * Send booking confirmation email to business and requester
@@ -24,7 +25,7 @@ export async function sendBookingConfirmationEmail(
     // Format dates for email
     const formatDateForEmail = (date: Date) => {
       return new Date(date).toLocaleDateString('es-PA', {
-        timeZone: 'America/Panama',
+        timeZone: PANAMA_TIMEZONE,
         weekday: 'long',
         year: 'numeric',
         month: 'long',

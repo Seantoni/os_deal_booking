@@ -1,5 +1,6 @@
 import { getOpenAIClient } from '@/lib/openai'
 import type { DealDraftContent, DealDraftInput } from './dealDraftTypes'
+import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 
 // System prompt for the AI
 const SYSTEM_PROMPT = `Eres un agente experto en generar ofertas de descuentos para negocios. Tu trabajo es crear contenido promocional atractivo, persuasivo y profesional en español.
@@ -167,8 +168,8 @@ function formatBusinessInfo(input: DealDraftInput): string {
   // Dates
   const startDate = typeof input.startDate === 'string' ? new Date(input.startDate) : input.startDate
   const endDate = typeof input.endDate === 'string' ? new Date(input.endDate) : input.endDate
-  lines.push(`Fecha de inicio: ${startDate.toLocaleDateString('es-ES')}`)
-  lines.push(`Fecha de fin: ${endDate.toLocaleDateString('es-ES')}`)
+  lines.push(`Fecha de inicio: ${startDate.toLocaleDateString('es-ES', { timeZone: PANAMA_TIMEZONE })}`)
+  lines.push(`Fecha de fin: ${endDate.toLocaleDateString('es-ES', { timeZone: PANAMA_TIMEZONE })}`)
   
   // Business details
   if (input.businessReview) {

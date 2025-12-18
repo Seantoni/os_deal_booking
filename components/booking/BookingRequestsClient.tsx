@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import dynamic from 'next/dynamic'
+import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import { deleteBookingRequest, resendBookingRequest, bulkDeleteBookingRequests, bulkUpdateBookingRequestStatus, refreshBookingRequests, cancelBookingRequest } from '@/app/actions/booking'
 import type { BookingRequest } from '@/types'
 import AddIcon from '@mui/icons-material/Add'
@@ -277,6 +278,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     if (!date) return ''
     const d = typeof date === 'string' ? new Date(date) : date
     return d.toLocaleDateString('en-US', {
+      timeZone: PANAMA_TIMEZONE,
       month: 'short',
       day: 'numeric',
       year: '2-digit'

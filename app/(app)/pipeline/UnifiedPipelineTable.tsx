@@ -10,6 +10,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import EditIcon from '@mui/icons-material/Edit'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { TableRow, TableCell } from '@/components/shared/table'
+import { formatShortDate } from '@/lib/date'
 
 // Lazy load heavy modal components
 const OpportunityFormModal = dynamic(() => import('@/components/crm/opportunity/OpportunityFormModal'), {
@@ -325,7 +326,7 @@ export default function UnifiedPipelineTable({
                     else if (days > 3) colorClass = 'text-yellow-600'
                     
                     return (
-                      <span className={`text-sm ${colorClass}`} title={`Since ${row.phaseStartDate.toLocaleDateString()}`}>
+                      <span className={`text-sm ${colorClass}`} title={`Since ${formatShortDate(row.phaseStartDate)}`}>
                         {days === 0 ? 'Today' : days === 1 ? '1 day' : `${days} days`}
                       </span>
                     )
@@ -336,7 +337,7 @@ export default function UnifiedPipelineTable({
                     <div className="flex items-center gap-2">
                       <CalendarTodayIcon className="text-gray-400" style={{ fontSize: 14 }} />
                       <span className="text-xs">
-                        {new Date(row.reservedStartDate).toLocaleDateString()}
+                        {formatShortDate(row.reservedStartDate)}
                       </span>
                     </div>
                   )}

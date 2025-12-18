@@ -6,6 +6,7 @@ import EventIcon from '@mui/icons-material/Event'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import FlagIcon from '@mui/icons-material/Flag'
 import type { Opportunity } from '@/types'
+import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 
 interface ReferenceInfoBarProps {
   opportunity?: Opportunity | null
@@ -22,7 +23,7 @@ interface ReferenceInfoBarProps {
 function formatDate(date: string | Date | null | undefined): string {
   if (!date) return '—'
   const d = typeof date === 'string' ? new Date(date) : date
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return d.toLocaleDateString('en-US', { timeZone: PANAMA_TIMEZONE, month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 export default function ReferenceInfoBar({

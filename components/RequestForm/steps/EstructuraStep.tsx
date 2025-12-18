@@ -8,8 +8,6 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import ImageIcon from '@mui/icons-material/Image'
 import CloseIcon from '@mui/icons-material/Close'
 import CollectionsIcon from '@mui/icons-material/Collections'
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
-import ImageSearchIcon from '@mui/icons-material/ImageSearch'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import ZoomInIcon from '@mui/icons-material/ZoomIn'
@@ -17,7 +15,6 @@ import type { BookingFormData } from '../types'
 import { Input, Textarea, Button } from '@/components/ui'
 import toast from 'react-hot-toast'
 import { compressImage, compressImages } from '@/lib/utils/image-compression'
-import ImageSearchModal from '../components/ImageSearchModal'
 import ImageLightbox from '@/components/common/ImageLightbox'
 
 interface EstructuraStepProps {
@@ -105,7 +102,6 @@ export default function EstructuraStep({
   // Gallery image handlers
   const [galleryUploading, setGalleryUploading] = useState(false)
   const galleryInputRef = useRef<HTMLInputElement>(null)
-  const [showImageSearch, setShowImageSearch] = useState(false)
 
   // Lightbox state
   const [lightboxOpen, setLightboxOpen] = useState(false)
@@ -149,76 +145,6 @@ export default function EstructuraStep({
     // Update order values
     const reorderedImages = newImages.map((img, idx) => ({ ...img, order: idx }))
     updateFormData('dealImages', reorderedImages)
-  }
-
-  // Handle images selected from search
-  const handleSearchImages = async (urls: string[]) => {
-    if (urls.length === 0) return
-
-    setGalleryUploading(true)
-    toast.loading('Descargando y optimizando imágenes...', { id: 'search-upload' })
-
-    try {
-      const uploadedUrls: string[] = []
-
-      for (const url of urls) {
-        try {
-          // Fetch the image from the URL
-          const response = await fetch(url)
-          if (!response.ok) continue
-
-          const blob = await response.blob()
-          const file = new File([blob], `search-image-${Date.now()}.jpg`, { type: blob.type || 'image/jpeg' })
-
-          // Compress the image
-          const compressedFile = await compressImage(file, {
-            maxSizeMB: 0.5,
-            maxWidthOrHeight: 1920,
-            initialQuality: 0.8,
-          })
-
-          // Upload to S3
-          const uploadFormData = new FormData()
-          uploadFormData.append('file', compressedFile)
-          uploadFormData.append('folder', 'deal-images')
-          uploadFormData.append('isPublic', 'true')
-
-          const uploadResponse = await fetch('/api/upload/image', {
-            method: 'POST',
-            body: uploadFormData,
-          })
-
-          const data = await uploadResponse.json()
-          if (uploadResponse.ok) {
-            uploadedUrls.push(data.url)
-          }
-        } catch (err) {
-          console.error('Error processing search image:', url, err)
-        }
-      }
-
-      if (uploadedUrls.length > 0) {
-        // Add new images with order
-        const currentMaxOrder = dealImages.length > 0 
-          ? Math.max(...dealImages.map(img => img.order)) 
-          : -1
-        
-        const newImages = uploadedUrls.map((url, idx) => ({
-          url,
-          order: currentMaxOrder + 1 + idx
-        }))
-
-        updateFormData('dealImages', [...dealImages, ...newImages])
-        toast.success(`${uploadedUrls.length} imagen(es) agregada(s)`, { id: 'search-upload' })
-      } else {
-        toast.error('No se pudieron descargar las imágenes', { id: 'search-upload' })
-      }
-    } catch (error) {
-      console.error('Search images upload error:', error)
-      toast.error('Error al procesar las imágenes', { id: 'search-upload' })
-    } finally {
-      setGalleryUploading(false)
-    }
   }
 
   const handleGalleryUpload = async (files: FileList) => {
@@ -301,18 +227,6 @@ export default function EstructuraStep({
       order: idx
     }))
     updateFormData('dealImages', reorderedImages)
-  }
-
-  const handleReorderGalleryImages = (fromIndex: number, toIndex: number) => {
-    const reordered = [...dealImages]
-    const [removed] = reordered.splice(fromIndex, 1)
-    reordered.splice(toIndex, 0, removed)
-    // Update order values
-    const updatedImages = reordered.map((img, idx) => ({
-      ...img,
-      order: idx
-    }))
-    updateFormData('dealImages', updatedImages)
   }
 
   const handleGenerateTitleWithAI = async (index: number) => {
@@ -627,7 +541,7 @@ export default function EstructuraStep({
 
       {/* Deal Images Gallery Section */}
       <div className="mt-10 pt-8 border-t border-gray-200">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-purple-100 rounded-lg">
               <CollectionsIcon className="text-purple-600" />
@@ -637,16 +551,6 @@ export default function EstructuraStep({
               <p className="text-sm text-gray-500">Agrega imágenes generales de la oferta (opcional)</p>
             </div>
           </div>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => setShowImageSearch(true)}
-            leftIcon={<ImageSearchIcon style={{ fontSize: 18 }} />}
-            className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 hover:text-white border-0"
-          >
-            Buscar en Internet
-          </Button>
         </div>
 
         {/* Gallery Grid */}
@@ -787,15 +691,6 @@ export default function EstructuraStep({
           </p>
         )}
       </div>
-
-      {/* Image Search Modal */}
-      <ImageSearchModal
-        isOpen={showImageSearch}
-        onClose={() => setShowImageSearch(false)}
-        onSelectImages={handleSearchImages}
-        businessName={formData.businessName}
-        maxSelections={10}
-      />
 
       {/* Image Lightbox */}
       <ImageLightbox

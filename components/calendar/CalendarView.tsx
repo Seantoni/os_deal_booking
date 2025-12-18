@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { getDaysDifference, getCategoryColors } from '@/lib/categories'
 import { getEventsOnDate, getDailyLimitStatus } from '@/lib/event-validation'
 import { getSettings } from '@/lib/settings'
-import { formatDateForPanama } from '@/lib/date/timezone'
+import { formatDateForPanama, PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import EventSearchResults from '@/components/events/EventSearchResults'
 import PublicIcon from '@mui/icons-material/Public'
 import LockIcon from '@mui/icons-material/Lock'
@@ -168,11 +168,11 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
 
   const getHeaderTitle = () => {
     if (calendarView === 'day') {
-      return currentDate.toLocaleDateString('en-US', { timeZone: 'America/Panama', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+      return currentDate.toLocaleDateString('en-US', { timeZone: PANAMA_TIMEZONE, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
     } else if (calendarView === 'week') {
       const weekStart = new Date(year, month, day - new Date(year, month, day).getDay())
       const weekEnd = new Date(year, month, day + (6 - new Date(year, month, day).getDay()))
-      return `${weekStart.toLocaleDateString('en-US', { timeZone: 'America/Panama', month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { timeZone: 'America/Panama', month: 'short', day: 'numeric', year: 'numeric' })}`
+      return `${weekStart.toLocaleDateString('en-US', { timeZone: PANAMA_TIMEZONE, month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { timeZone: PANAMA_TIMEZONE, month: 'short', day: 'numeric', year: 'numeric' })}`
     } else {
       return `${monthNames[month]} ${year}`
     }
@@ -787,7 +787,7 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
                       className={`h-full px-1.5 sm:px-2 py-0.5 ${colors.indicator} text-white text-[10px] sm:text-[11px] rounded-md ${readOnly ? 'cursor-pointer' : 'cursor-move'} transition-all truncate flex items-center gap-0.5 sm:gap-1 font-semibold shadow-sm hover:shadow-md event-spanning ${
                         isNotBooked ? 'ring-2 ring-yellow-400 pending opacity-70' : ''
                       }`}
-                      title={`${event.name}${event.category ? ` - ${event.category}` : ''}${isPending ? ' [PENDING]' : event.status === 'approved' ? ' [APPROVED - Ready to Book]' : isPreBooked ? ' [PRE-BOOKED]' : ''}${showSourceBadge ? ` [${isPublicLink ? 'PUBLIC LINK' : 'INTERNAL'}]` : ''}\nStart: ${new Date(event.startDate).toLocaleDateString('en-US', { timeZone: 'America/Panama' })}\nEnd: ${new Date(event.endDate).toLocaleDateString('en-US', { timeZone: 'America/Panama' })}`}
+                      title={`${event.name}${event.category ? ` - ${event.category}` : ''}${isPending ? ' [PENDING]' : event.status === 'approved' ? ' [APPROVED - Ready to Book]' : isPreBooked ? ' [PRE-BOOKED]' : ''}${showSourceBadge ? ` [${isPublicLink ? 'PUBLIC LINK' : 'INTERNAL'}]` : ''}\nStart: ${new Date(event.startDate).toLocaleDateString('en-US', { timeZone: PANAMA_TIMEZONE })}\nEnd: ${new Date(event.endDate).toLocaleDateString('en-US', { timeZone: PANAMA_TIMEZONE })}`}
                     >
                       {isPending && (
                         <svg className="w-3 h-3 flex-shrink-0 animate-pulse" fill="currentColor" viewBox="0 0 20 20">

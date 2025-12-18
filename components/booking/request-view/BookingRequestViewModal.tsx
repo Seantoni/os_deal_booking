@@ -42,6 +42,8 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import ImageLightbox from '@/components/common/ImageLightbox'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { adminApproveBookingRequest } from '@/app/actions/booking-requests'
+import { formatShortDate } from '@/lib/date'
+import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 
 // Helper to get field value from requestData using dynamic key access
 function getFieldValue(data: BookingRequestViewData | null, key: string): unknown {
@@ -369,6 +371,7 @@ export default function BookingRequestViewModal({
     if (type === 'date' && (value instanceof Date || typeof value === 'string')) {
       const date = value instanceof Date ? value : new Date(value)
       return date.toLocaleDateString('es-ES', {
+        timeZone: PANAMA_TIMEZONE,
         year: 'numeric',
         month: 'long',
         day: 'numeric',
@@ -807,7 +810,7 @@ export default function BookingRequestViewModal({
                       <span>
                         <span className="font-semibold text-slate-700">{status === 'booked' ? 'Reservado:' : 'Aprobado:'}</span>{' '}
                         {processedAt.toLocaleDateString('es-ES', { 
-                          month: 'short', day: 'numeric', year: 'numeric' 
+                          timeZone: PANAMA_TIMEZONE, month: 'short', day: 'numeric', year: 'numeric' 
                         })}
                         {processedByName && (
                           <span className="text-slate-500"> por {processedByName}</span>
@@ -823,11 +826,11 @@ export default function BookingRequestViewModal({
                       <span>
                         <span className="font-semibold text-slate-700">Campaña:</span>{' '}
                         {startDate && startDate.toLocaleDateString('es-ES', { 
-                          month: 'short', day: 'numeric' 
+                          timeZone: PANAMA_TIMEZONE, month: 'short', day: 'numeric' 
                         })}
                         {startDate && endDate && ' → '}
                         {endDate && endDate.toLocaleDateString('es-ES', { 
-                          month: 'short', day: 'numeric', year: 'numeric' 
+                          timeZone: PANAMA_TIMEZONE, month: 'short', day: 'numeric', year: 'numeric' 
                         })}
                       </span>
                     </div>
@@ -839,7 +842,7 @@ export default function BookingRequestViewModal({
                       <HistoryIcon style={{ fontSize: 16 }} />
                       <span>
                         Creado {createdAt.toLocaleDateString('es-ES', { 
-                          month: 'short', day: 'numeric', year: 'numeric' 
+                          timeZone: PANAMA_TIMEZONE, month: 'short', day: 'numeric', year: 'numeric' 
                         })}
                         {createdByName && (
                           <span> por {createdByName}</span>
@@ -1115,7 +1118,7 @@ export default function BookingRequestViewModal({
                               <div className="flex items-center gap-1.5 text-xs text-slate-500">
                                 <span className="font-semibold text-slate-900">{comment.authorName || comment.authorEmail?.split('@')[0] || 'Desconocido'}</span>
                                 <span className="w-0.5 h-0.5 bg-slate-300 rounded-full"></span>
-                                <span>{new Date(comment.createdAt).toLocaleDateString()}</span>
+                                <span>{formatShortDate(comment.createdAt)}</span>
                                 {comment.updatedAt && (
                                   <>
                                     <span className="w-0.5 h-0.5 bg-slate-300 rounded-full"></span>

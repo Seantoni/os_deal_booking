@@ -6,6 +6,8 @@
  * Optimized for cross-client compatibility (Outlook, Gmail, etc.)
  */
 
+import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
+
 // Stage labels for display
 const STAGE_LABELS: Record<string, string> = {
   iniciacion: 'Iniciación',
@@ -57,6 +59,7 @@ function escapeHtml(text: string | undefined | null): string {
  */
 function formatDate(date: Date): string {
   return new Date(date).toLocaleDateString('es-PA', {
+    timeZone: PANAMA_TIMEZONE,
     weekday: 'long',
     month: 'long',
     day: 'numeric',
@@ -69,6 +72,7 @@ function formatDate(date: Date): string {
  */
 function formatDateShort(date: Date): string {
   return new Date(date).toLocaleDateString('es-PA', {
+    timeZone: PANAMA_TIMEZONE,
     month: 'short',
     day: 'numeric',
   })

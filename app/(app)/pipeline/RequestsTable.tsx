@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { BookingRequest } from '@/types'
 import { BookingRequestViewModal } from '@/components/booking/request-view'
 import { EntityTable, RowActionsMenu, StatusPill, TableRow, TableCell } from '@/components/shared/table'
+import { formatShortDate } from '@/lib/date'
 import { type ColumnConfig } from '@/components/shared'
 
 type PipelineItem = {
@@ -61,7 +62,7 @@ export default function RequestsTable({ data, searchQuery }: RequestsTableProps)
             {item.bookingRequest?.name}
           </TableCell>
           <TableCell className="text-gray-600 text-[13px]">
-            {new Date(item.bookingRequest?.createdAt || '').toLocaleDateString()}
+            {formatShortDate(item.bookingRequest?.createdAt || null)}
           </TableCell>
           <TableCell>
             <StatusPill

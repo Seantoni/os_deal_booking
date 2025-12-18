@@ -4,6 +4,7 @@ import { getAppBaseUrl } from '@/lib/config/env'
 import { generateApprovalToken } from '@/lib/tokens'
 import { buildCategoryDisplayString } from '@/lib/utils/category-display'
 import { currentUser } from '@clerk/nextjs/server'
+import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 
 /**
  * Resend booking request email to the same business email
@@ -42,7 +43,7 @@ export async function resendBookingRequestEmail(bookingRequest: {
     // Format dates for email in Panama timezone
     const formatDateForEmail = (date: Date) => {
       return new Date(date).toLocaleDateString('es-PA', {
-        timeZone: 'America/Panama', // Panama EST (UTC-5)
+        timeZone: PANAMA_TIMEZONE, // Panama EST (UTC-5)
         weekday: 'long',
         year: 'numeric',
         month: 'long',

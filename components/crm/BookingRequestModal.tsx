@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { getBookingRequest } from '@/app/actions/booking-requests'
+import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import CloseIcon from '@mui/icons-material/Close'
 import DescriptionIcon from '@mui/icons-material/Description'
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
@@ -172,10 +173,12 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
                       <p className="text-xs font-medium text-gray-600">Fechas de Campaña</p>
                       <p className="text-sm text-gray-900 mt-0.5">
                         {new Date(request.startDate).toLocaleDateString('es-PA', {
+                          timeZone: PANAMA_TIMEZONE,
                           month: 'short',
                           day: 'numeric',
                           year: 'numeric',
                         })} — {new Date(request.endDate).toLocaleDateString('es-PA', {
+                          timeZone: PANAMA_TIMEZONE,
                           month: 'short',
                           day: 'numeric',
                           year: 'numeric',

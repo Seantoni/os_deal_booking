@@ -2,6 +2,7 @@
 
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
 import { EntityTable, StatusPill, TableRow, TableCell } from '@/components/shared/table'
+import { formatShortDate } from '@/lib/date'
 import { type ColumnConfig } from '@/components/shared'
 
 type PreBookedEventItem = {
@@ -51,7 +52,7 @@ export default function PreBookedTable({ data, searchQuery }: PreBookedTableProp
             <div className="flex items-center gap-2">
               <CalendarTodayIcon className="text-gray-400" style={{ fontSize: 16 }} />
               <span className="text-[13px]">
-                {new Date(item.event.startDate).toLocaleDateString()} — {new Date(item.event.endDate).toLocaleDateString()}
+                {formatShortDate(item.event.startDate)} — {formatShortDate(item.event.endDate)}
               </span>
             </div>
           </TableCell>
