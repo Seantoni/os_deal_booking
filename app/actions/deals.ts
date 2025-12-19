@@ -297,13 +297,12 @@ export async function createDeal(bookingRequestId: string, responsibleId?: strin
       return { success: false, error: 'Deal already exists for this booking request' }
     }
 
-    // Create deal with pending draft status
+    // Create deal
     const deal = await prisma.deal.create({
       data: {
         bookingRequestId,
         responsibleId: responsibleId || null,
         status: 'pendiente_por_asignar', // Default status
-        draftStatus: 'pending', // Draft will be generated
       },
       include: {
         bookingRequest: {
@@ -331,39 +330,12 @@ export async function createDeal(bookingRequestId: string, responsibleId?: strin
       entityName: deal.bookingRequest.name || undefined,
     })
 
-    // Trigger draft generation in the background (non-blocking)
-    // We use a dynamic import to avoid circular dependencies
-    triggerDraftGeneration(deal.id).catch(err => {
-      logger.error('Failed to trigger draft generation:', err)
-    })
-
     // Revalidate cache
     invalidateEntity('deals')
 
     return { success: true, data: deal }
   } catch (error) {
     return handleServerActionError(error, 'createDeal')
-  }
-}
-
-/**
- * Trigger draft generation for a deal (non-blocking)
- */
-async function triggerDraftGeneration(dealId: string) {
-  try {
-    // Import the draft generation function dynamically to avoid circular deps
-    const { generateDealDraft } = await import('./dealDraft')
-    await generateDealDraft(dealId)
-  } catch (error) {
-    logger.error('Error generating draft:', error)
-    // Update deal to show failed status
-    await prisma.deal.update({
-      where: { id: dealId },
-      data: {
-        draftStatus: 'failed',
-        draftError: error instanceof Error ? error.message : 'Unknown error',
-      },
-    })
   }
 }
 

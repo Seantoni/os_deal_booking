@@ -163,11 +163,6 @@ model Deal {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  // AI-generated draft content
-  draftContent Json? // JSON object containing all draft sections
-  draftStatus  String @default("pending") // pending, generating, completed, failed
-  draftError   String? // Error message if generation failed
-
   // Relations
   bookingRequest BookingRequest @relation("DealBookingRequest", fields: [bookingRequestId], references: [id], onDelete: Cascade)
   opportunity    Opportunity?   @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
@@ -177,7 +172,6 @@ model Deal {
   @@index([responsibleId])
   @@index([ereResponsibleId])
   @@index([status])
-  @@index([draftStatus])
   @@map("deals")
 }
 

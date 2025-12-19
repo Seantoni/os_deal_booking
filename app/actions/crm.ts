@@ -6,7 +6,6 @@
  * - Opportunities
  * - Deals
  * - Leads
- * - Deal drafts
  *
  * Preferred import for CRM actions:
  *   import { getBusinesses, getOpportunities } from '@/app/actions/crm'
@@ -23,6 +22,3 @@ export * from './deals'
 
 // Leads
 export * from './leads'
-
-// Deal draft (AI-assisted deal content)
-export * from './dealDraft'

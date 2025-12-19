@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useMemo, useTransition } from 'react'
-import Link from 'next/link'
 import { updateDealResponsible, updateDealStatus } from '@/app/actions/deals'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
@@ -9,8 +8,6 @@ import type { Deal } from '@/types'
 import CloseIcon from '@mui/icons-material/Close'
 import DescriptionIcon from '@mui/icons-material/Description'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
-import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import { Button } from '@/components/ui'
 import { BookingRequestViewModal } from '@/components/booking/request-view'
 import { useDealForm } from './useDealForm'
@@ -239,38 +236,6 @@ export default function DealFormModal({
                   deal={deal}
                   onViewRequest={() => setBookingRequestModalOpen(true)}
                 />
-              )}
-
-              {/* AI Draft Section */}
-              {deal && (
-                <div className="bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-lg overflow-hidden">
-                  <div className="px-4 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg">
-                        <AutoAwesomeIcon className="text-white" style={{ fontSize: 18 }} />
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-900">AI-Generated Draft</h3>
-                        <p className="text-xs text-gray-500">
-                          {(deal as any).draftStatus === 'completed' 
-                            ? 'Draft ready to view' 
-                            : (deal as any).draftStatus === 'generating'
-                            ? 'Generating...'
-                            : (deal as any).draftStatus === 'failed'
-                            ? 'Generation failed'
-                            : 'Generate promotional content'}
-                        </p>
-                      </div>
-                    </div>
-                    <Link
-                      href={`/deals/${deal.id}/draft`}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-violet-700 bg-white border border-violet-300 rounded-lg hover:bg-violet-50 transition-colors"
-                    >
-                      <OpenInNewIcon style={{ fontSize: 14 }} />
-                      View Draft
-                    </Link>
-                  </div>
-                </div>
               )}
 
               {/* Dynamic Custom Fields Sections */}
