@@ -393,7 +393,7 @@ export default function MarketingCampaignModal({
 
                         <div className="flex items-center justify-between mt-1.5">
                           <span className="text-[10px] text-gray-400">
-                            15-30 sec script
+                            20-40 sec narrative script
                           </span>
                           {scriptDirty && canEdit && (
                             <Button

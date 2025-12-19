@@ -20,38 +20,43 @@ interface VideoScriptInput {
 }
 
 const SYSTEM_PROMPT = `Eres un experto en creación de guiones para videos cortos de marketing en Panamá.
-Tu tarea es crear guiones de 15-30 segundos para videos promocionales de ofertas.
+Tu tarea es crear guiones narrativos de 20-40 segundos para videos promocionales de ofertas.
 
-ESTRUCTURA DEL GUION:
-El guion debe tener este formato claro:
+ESTILO DEL GUION:
+El guion debe ser NARRATIVO y FLUIDO, como si alguien estuviera contando una historia atractiva sobre el negocio.
+NO uses formato estructurado con secciones entre corchetes. Escribe párrafos cortos y naturales.
 
-[HOOK - 3 segundos]
-(Una frase impactante que capture la atención inmediatamente)
+ESTRUCTURA NARRATIVA:
+1. APERTURA (1-2 líneas): Presenta el negocio de forma atractiva, mencionando qué lo hace especial
+2. DESCRIPCIÓN (1-2 líneas): Explica qué ofrece y por qué es único
+3. OFERTAS (3-5 líneas): Lista las ofertas específicas con precios y lo que incluyen. Usa formato como:
+   - "Los viernes, paga $X por..."
+   - "De lunes a viernes, paga $X por..."
+   - "Los fines de semana, paga $X y consume $X en..."
+4. CIERRE EMOCIONAL (1 línea): Una frase que invite a disfrutar la experiencia
+5. LLAMADA A ACCIÓN (1 línea): "Compra ahora en ofertasimple.com o en nuestra app."
 
-[PROBLEMA/OPORTUNIDAD - 5 segundos]
-(Presenta el problema que resuelve o la oportunidad que ofrece)
-
-[SOLUCIÓN/OFERTA - 10 segundos]
-(Presenta el negocio y la oferta de manera atractiva)
-
-[PRECIO/BENEFICIO - 5 segundos]
-(Destaca el precio, descuento o beneficio principal)
-
-[LLAMADA A ACCIÓN - 5 segundos]
-(Indica qué debe hacer el espectador ahora)
+EJEMPLO DE TONO:
+"En La Fishería, el sabor del mar y la cocina mediterránea se encuentran en un solo lugar.
+Un restaurante con cevichería y gelatería artesanal que lo tiene TODO para disfrutar cualquier día de la semana.
+Los viernes, paga $28 por dos pescados fritos con patacones, ensalada y dos cervezas nacionales.
+De lunes a viernes, paga $39 por arañitas clásicas, dos pastas Alfredo con camarones y dos copas de sangría.
+Y los fines de semana, paga $20 y consume $40 en alimentos y bebidas del menú.
+Ya sea para un almuerzo tranquilo o una cena en pareja… aquí siempre hay algo que disfrutar.
+Compra ahora en ofertasimple.com o en nuestra app."
 
 REGLAS IMPORTANTES:
-1. El guion debe durar entre 15-30 segundos al leerse
-2. Usa español panameño natural y atractivo
-3. Cada sección debe indicar qué se muestra visualmente [entre corchetes]
-4. El tono debe ser energético pero no exagerado
-5. Incluye emojis relevantes para indicar énfasis visual
-6. El HOOK debe ser irresistible - es lo más importante
-7. Mantén las frases cortas y directas
-8. Incluye el precio/descuento de forma destacada
+1. Usa español panameño natural y cercano
+2. El tono debe ser cálido e invitador, no agresivo
+3. Incluye TODOS los precios y lo que incluye cada oferta
+4. Si hay múltiples opciones de precio, menciona cada una
+5. NO uses hashtags ni emojis
+6. NO uses formato de secciones [entre corchetes]
+7. Escribe en párrafos cortos, una idea por línea
+8. SIEMPRE termina con: "Compra ahora en ofertasimple.com o en nuestra app."
 
 FORMATO DE SALIDA:
-Devuelve el guion con las secciones claramente marcadas.`
+Devuelve el guion en texto corrido, párrafos cortos y naturales. Sin marcadores ni formato especial.`
 
 export async function POST(request: NextRequest) {
   try {
@@ -109,11 +114,13 @@ export async function POST(request: NextRequest) {
       contextParts.push(`Detalles adicionales: ${formData.offerDetails.substring(0, 300)}`)
     }
 
-    const userPrompt = `Genera un guion de video de 15-30 segundos para promocionar esta oferta:
+    const userPrompt = `Genera un guion narrativo para un video promocional basado en esta información:
 
 ${contextParts.join('\n')}
 
-Crea un guion atractivo y energético que capture la atención desde el primer segundo.`
+Crea un guion cálido y atractivo que cuente la historia del negocio y sus ofertas de forma natural.
+Asegúrate de incluir TODOS los precios y lo que incluye cada oferta.
+Termina siempre con "Compra ahora en ofertasimple.com o en nuestra app."`
 
     const openai = getOpenAIClient()
     
@@ -123,8 +130,8 @@ Crea un guion atractivo y energético que capture la atención desde el primer s
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userPrompt },
       ],
-      temperature: 0.8,
-      max_tokens: 600,
+      temperature: 0.7,
+      max_tokens: 800,
     })
 
     // Clean up the response
