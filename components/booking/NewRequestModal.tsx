@@ -36,7 +36,6 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
     
     // Add existing query params (e.g., from opportunity)
     if (queryParams && Object.keys(queryParams).length > 0) {
-      console.log('[NewRequestModal] Query params received:', queryParams)
       Object.entries(queryParams).forEach(([key, value]) => {
         params.append(key, value)
       })
@@ -55,7 +54,6 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
     
     if (params.toString()) {
       url = `${url}?${params.toString()}`
-      console.log('[NewRequestModal] Navigating to:', url)
     }
     router.push(url)
     onClose()

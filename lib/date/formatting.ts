@@ -75,18 +75,6 @@ export function formatFullDate(date: Date | string | null): string {
 }
 
 /**
- * Format date as ISO: "2025-12-15"
- * Uses Panama timezone (not UTC)
- */
-export function formatISODate(date: Date | string | null): string {
-  if (!date) return ''
-  const d = typeof date === 'string' ? new Date(date) : date
-  if (isNaN(d.getTime())) return ''
-  
-  return formatDateForPanama(d)
-}
-
-/**
  * Format date with time: "Dec 15, 2025 at 3:30 PM"
  * Uses Panama timezone
  */

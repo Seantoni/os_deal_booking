@@ -92,7 +92,6 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
           }
         }
         
-        console.log('Navigating to:', finalUrl, 'from result.url:', result.url)
         router.push(finalUrl)
         onClose()
       }
@@ -231,7 +230,6 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                         }
                       }
                       
-                      console.log('Navigating to:', finalUrl, 'from result.url:', result.url)
                       router.push(finalUrl)
                       onClose()
                     }}

@@ -741,6 +741,11 @@ export async function getBookingRequest(requestId: string) {
     const role = await getUserRole()
     const bookingRequest = await prisma.bookingRequest.findUnique({
       where: { id: requestId },
+      include: {
+        marketingCampaign: {
+          select: { id: true },
+        },
+      },
     })
 
     if (!bookingRequest) {
@@ -776,6 +781,7 @@ export async function getBookingRequest(requestId: string) {
         ...bookingRequest,
         processedByUser,
         createdByUser,
+        marketingCampaignId: bookingRequest.marketingCampaign?.id || null,
       }
     }
   } catch (error) {

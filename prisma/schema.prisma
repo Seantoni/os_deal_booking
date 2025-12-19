@@ -141,6 +141,7 @@ model BookingRequest {
   // Relations
   dealFromBookingRequest Deal?              @relation("DealBookingRequest") // Back reference to Deal (relation is owned by Deal.bookingRequestId)
   publicLink             PublicRequestLink? @relation(fields: [publicLinkToken], references: [token], onDelete: SetNull)
+  marketingCampaign      MarketingCampaign? // One marketing campaign per booked request
 
   @@index([userId])
   @@index([status])
@@ -180,7 +181,7 @@ model UserProfile {
   clerkId   String   @unique // Clerk user ID
   email     String?
   name      String?
-  role      String   @default("sales") // "admin", "sales", "editor", or "ere"
+  role      String   @default("sales") // "admin", "sales", "editor", "ere", or "marketing"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -585,4 +586,69 @@ model ActivityLog {
   @@index([action])
   @@index([createdAt])
   @@map("activity_logs")
+}
+
+// ============================================================================
+// Marketing Campaigns
+// ============================================================================
+
+model MarketingCampaign {
+  id               String   @id @default(cuid())
+  bookingRequestId String   @unique // One marketing campaign per booked request
+  
+  // Global toggle
+  doMarketing Boolean @default(true) // true = do marketing, false = skip
+  skipReason  String? // Reason if doMarketing = false (optional)
+  
+  // AI Generated Content
+  generatedCopy String? @db.Text // AI-generated marketing copy for social media
+  videoScript   String? @db.Text // AI-generated video script (15-30 seconds)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String? // Clerk user ID who created it
+  
+  // Relations
+  bookingRequest BookingRequest @relation(fields: [bookingRequestId], references: [id], onDelete: Cascade)
+  options        MarketingOption[]
+  
+  @@index([bookingRequestId])
+  @@index([doMarketing])
+  @@map("marketing_campaigns")
+}
+
+model MarketingOption {
+  id         String @id @default(cuid())
+  campaignId String
+  
+  // Option identity
+  platform   String // "instagram" | "tiktok" | "ofertasimple"
+  optionType String // "story" | "reel" | "post" | "video" | "ad" | "banner" | "email_banner" | "push_notification"
+  
+  // Status
+  isPlanned   Boolean @default(false) // Was this option selected/planned?
+  isCompleted Boolean @default(false) // Has it been done?
+  
+  // Details
+  dueDate        DateTime? // Default: startDate + 1 day, editable
+  completedAt    DateTime?
+  completedBy    String?   // Clerk user ID who marked it complete
+  notes          String?   @db.Text // Notes for this specific option
+  notesUpdatedBy String?   // Clerk user ID who last updated notes
+  notesUpdatedAt DateTime? // When notes were last updated
+  mediaUrls      Json?     // Array of attachment URLs (S3)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  campaign MarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  @@unique([campaignId, platform, optionType])
+  @@index([campaignId])
+  @@index([platform])
+  @@index([isPlanned])
+  @@index([isCompleted])
+  @@map("marketing_options")
 }

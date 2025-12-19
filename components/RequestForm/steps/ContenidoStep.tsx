@@ -19,25 +19,25 @@ const AI_FIELDS = {
     label: 'Lo que nos gusta',
     placeholder: 'Se generará automáticamente con IA...',
     rows: 5,
-    maxLength: 1500,
+    maxLength: 800,
   },
   aboutCompany: {
     label: 'La empresa',
     placeholder: 'Se generará automáticamente con IA...',
     rows: 5,
-    maxLength: 1500,
+    maxLength: 600,
   },
   aboutOffer: {
     label: 'Acerca de esta oferta',
     placeholder: 'Se generará automáticamente con IA...',
     rows: 6,
-    maxLength: 2000,
+    maxLength: 1200,
   },
   goodToKnow: {
     label: 'Lo que conviene saber',
     placeholder: 'Se generará automáticamente con IA...',
     rows: 8,
-    maxLength: 2500,
+    maxLength: 1500,
   },
 } as const
 

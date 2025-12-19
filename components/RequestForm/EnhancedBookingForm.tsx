@@ -109,14 +109,6 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         const response = await fetch('/api/settings?t=' + Date.now())
         if (response.ok) {
           const result = await response.json()
-          console.log('[EnhancedBookingForm] Settings loaded:', {
-            success: result.success,
-            hasRequestFormFields: !!result.data?.requestFormFields,
-            // Show actual required values
-            businessName_required: result.data?.requestFormFields?.businessName?.required,
-            partnerEmail_required: result.data?.requestFormFields?.partnerEmail?.required,
-            category_required: result.data?.requestFormFields?.category?.required,
-          })
           if (result.success && result.data?.requestFormFields) {
             setRequiredFields(result.data.requestFormFields)
           }
@@ -143,7 +135,6 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         const result = await getBookingRequest(editIdFromUrl)
         if (result.success && result.data) {
           const data = result.data
-          console.log('[EnhancedBookingForm] Loading existing request for editing:', data.id)
           
           // Map request data to form data
           setFormData(prev => {
@@ -229,7 +220,6 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
                     (updatedData as any)[fieldKey] = value
                   }
                 })
-                console.log('[EnhancedBookingForm] Unpacked additionalInfo fields for editing:', Object.keys(additionalInfo.fields))
               }
             }
             
@@ -276,7 +266,6 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     
     // Handle replication - pre-fill ALL fields from query parameters
     if (isReplicate) {
-      console.log('[EnhancedBookingForm] Pre-filling from replicated request')
       
       setFormData(prev => {
         const newData = { ...prev }
@@ -425,7 +414,6 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
                   (newData as any)[fieldKey] = value
                 }
               })
-              console.log('[EnhancedBookingForm] Unpacked additionalInfo fields:', Object.keys(additionalInfo.fields))
             }
           } catch (e) {
             console.warn('[EnhancedBookingForm] Failed to parse additionalInfo:', e)
@@ -447,14 +435,6 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
       const subCategory1 = searchParams.get('subCategory1')
       const subCategory2 = searchParams.get('subCategory2')
 
-      console.log('[EnhancedBookingForm] Pre-filling from opportunity:', {
-        fromOpportunity,
-        businessName,
-        businessEmail,
-        parentCategory,
-        subCategory1,
-        subCategory2,
-      })
 
       // Build category value for compatibility with CategorySelect
       const categoryValue = parentCategory 
@@ -500,9 +480,6 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
       })
     } else if (partnerEmail) {
       // Pre-fill from NewRequestModal (primary email only)
-      console.log('[EnhancedBookingForm] Pre-filling email from NewRequestModal:', {
-        partnerEmail,
-      })
       
       setFormData(prev => {
         return {

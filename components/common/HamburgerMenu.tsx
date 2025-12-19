@@ -18,6 +18,7 @@ import AssignmentIcon from '@mui/icons-material/Assignment'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import HistoryIcon from '@mui/icons-material/History'
+import CampaignIcon from '@mui/icons-material/Campaign'
 
 // Sidebar item type
 type SidebarItem = {
@@ -39,6 +40,7 @@ const adminSidebarConfig = {
     // 2. Sales Funnel (Inflow -> Active -> Closing)
     { name: 'Leads', href: '/leads', Icon: PersonAddIcon },
     { name: 'Deals', href: '/deals', Icon: AssignmentIcon },
+    { name: 'Marketing', href: '/marketing', Icon: CampaignIcon },
     { name: 'Opportunities', href: '/opportunities', Icon: HandshakeIcon },
         
     // 4. Database / CRM
@@ -80,6 +82,13 @@ const editorSidebarConfig = {
   bottomItems: [], // No settings for editor
 }
 
+const marketingSidebarConfig = {
+  mainItems: [
+    { name: 'Marketing', href: '/marketing', Icon: CampaignIcon },
+  ],
+  bottomItems: [], // No additional items for marketing role
+}
+
 export default function HamburgerMenu() {
   const pathname = usePathname()
   const { isOpen, setIsOpen, isCalendarPage, role, loading } = useSidebar()
@@ -111,6 +120,8 @@ export default function HamburgerMenu() {
         return editorSidebarConfig
       case 'sales':
         return salesSidebarConfig
+      case 'marketing':
+        return marketingSidebarConfig
       default:
         // If role doesn't match any known role, return empty config
         return {

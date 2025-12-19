@@ -244,11 +244,9 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
         
         // Fallback for legacy or if exact match fail
         if (!match && eventToEdit.category) {
-            console.log('[EventModal] Trying legacy category match:', eventToEdit.category)
             match = options.find(opt => opt.label === eventToEdit.category || opt.value === eventToEdit.category);
         }
         
-        console.log('[EventModal] Final category match:', match?.label || 'NO MATCH')
         setField('categoryOption', match || null)
 
       } else if (linkedBookingRequest && !eventToEdit) {

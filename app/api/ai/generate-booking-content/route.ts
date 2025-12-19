@@ -77,6 +77,14 @@ REGLAS DE FORMATO:
 5. Evita errores de ortografía
 6. Mantén cada sección breve (2-5 oraciones por párrafo)
 
+LÍMITES DE CARACTERES POR SECCIÓN (RESPETAR ESTRICTAMENTE):
+- LO QUE NOS GUSTA (whatWeLike): Máximo 800 caracteres
+- LA EMPRESA (aboutCompany): Máximo 600 caracteres
+- ACERCA DE ESTA OFERTA (aboutOffer): Máximo 1200 caracteres
+- LO QUE CONVIENE SABER (goodToKnow): Máximo 1500 caracteres
+
+IMPORTANTE: NO excedas estos límites. Si necesitas incluir información importante, prioriza la más relevante y mantén el contenido conciso.
+
 MANEJO DE RESTRICCIONES:
 - "Válido en feriados: No" → Mencionar: "No válido en días feriados"
 - "Válido en feriados: Sí" → Puedes mencionar como beneficio: "Válido incluso en feriados"
@@ -112,10 +120,10 @@ SECCIONES REQUERIDAS:
 
 // Section-specific prompts
 const SECTION_PROMPTS: Record<keyof BookingContentOutput, string> = {
-  whatWeLike: `Genera la sección "LO QUE NOS GUSTA" con 4-6 puntos destacando los beneficios y atractivos de esta oferta. Usa viñetas con asterisco (*). No incluyas el encabezado de la sección.`,
-  aboutCompany: `Genera la sección "LA EMPRESA" con nombre, ubicación, horario y redes sociales del negocio. Formato estructurado y claro. No incluyas el encabezado de la sección.`,
-  aboutOffer: `Genera la sección "ACERCA DE ESTA OFERTA" con descripción del negocio, explicación detallada de la oferta y llamada a acción. No incluyas el encabezado de la sección.`,
-  goodToKnow: `Genera la sección "LO QUE CONVIENE SABER" con información general, restricciones, reservaciones, método de canje y periodo de validez. Usa sub-secciones claras. No incluyas el encabezado de la sección.`,
+  whatWeLike: `Genera la sección "LO QUE NOS GUSTA" con 4-6 puntos destacando los beneficios y atractivos de esta oferta. Usa viñetas con asterisco (*). Máximo 800 caracteres. No incluyas el encabezado de la sección.`,
+  aboutCompany: `Genera la sección "LA EMPRESA" con nombre, ubicación, horario y redes sociales del negocio. Formato estructurado y claro. Máximo 600 caracteres. No incluyas el encabezado de la sección.`,
+  aboutOffer: `Genera la sección "ACERCA DE ESTA OFERTA" con descripción del negocio, explicación detallada de la oferta y llamada a acción. Máximo 1200 caracteres. No incluyas el encabezado de la sección.`,
+  goodToKnow: `Genera la sección "LO QUE CONVIENE SABER" con información general, restricciones, reservaciones, método de canje y periodo de validez. Usa sub-secciones claras. Máximo 1500 caracteres. No incluyas el encabezado de la sección.`,
 }
 
 // Helper to format business info for the prompt
@@ -308,13 +316,16 @@ ${businessInfo}
 
 Responde en formato JSON con las siguientes claves (sin incluir los encabezados de sección en el contenido):
 {
-  "whatWeLike": "contenido de la sección LO QUE NOS GUSTA...",
-  "aboutCompany": "contenido de la sección LA EMPRESA...",
-  "aboutOffer": "contenido de la sección ACERCA DE ESTA OFERTA...",
-  "goodToKnow": "contenido de la sección LO QUE CONVIENE SABER..."
+  "whatWeLike": "contenido de la sección LO QUE NOS GUSTA (máximo 800 caracteres)...",
+  "aboutCompany": "contenido de la sección LA EMPRESA (máximo 600 caracteres)...",
+  "aboutOffer": "contenido de la sección ACERCA DE ESTA OFERTA (máximo 1200 caracteres)...",
+  "goodToKnow": "contenido de la sección LO QUE CONVIENE SABER (máximo 1500 caracteres)..."
 }
 
-IMPORTANTE: Responde SOLO con el JSON, sin texto adicional ni bloques de código.`
+IMPORTANTE: 
+- Responde SOLO con el JSON, sin texto adicional ni bloques de código.
+- NO excedas los límites de caracteres indicados para cada sección.
+- Si necesitas incluir información importante, prioriza la más relevante y mantén el contenido conciso.`
       },
     ],
     temperature: 0.7,

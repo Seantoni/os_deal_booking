@@ -1,6 +1,7 @@
 import { resend, EMAIL_CONFIG } from '../config'
 import { renderBookingConfirmationEmail } from '../templates/booking-confirmation'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
+import { logger } from '@/lib/logger'
 
 /**
  * Send booking confirmation email to business and requester
@@ -66,7 +67,7 @@ export async function sendBookingConfirmationEmail(
       html: emailHtml,
     })
 
-    console.log(`✓ Booking confirmation email sent to ${businessEmail}`)
+    logger.info(`Booking confirmation email sent to ${businessEmail}`)
   } catch (error) {
     console.error('Error sending booking confirmation email:', error)
     throw error

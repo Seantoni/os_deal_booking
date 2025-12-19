@@ -39,8 +39,10 @@ import BlockIcon from '@mui/icons-material/Block'
 import ZoomInIcon from '@mui/icons-material/ZoomIn'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
+import CampaignIcon from '@mui/icons-material/Campaign'
 import ImageLightbox from '@/components/common/ImageLightbox'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import MarketingCampaignModal from '@/components/marketing/MarketingCampaignModal'
 import { adminApproveBookingRequest } from '@/app/actions/booking-requests'
 import { formatShortDate } from '@/lib/date'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
@@ -194,6 +196,7 @@ export default function BookingRequestViewModal({
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [approving, setApproving] = useState(false)
   const [showApproveConfirm, setShowApproveConfirm] = useState(false)
+  const [showMarketingModal, setShowMarketingModal] = useState(false)
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('')
@@ -749,6 +752,17 @@ export default function BookingRequestViewModal({
               >
                 <VisibilityIcon style={{ fontSize: 20 }} />
               </button>
+              {/* Marketing Campaign Button - Only for booked requests */}
+              {requestData?.status === 'booked' && (requestData as any).marketingCampaignId && (
+                <button
+                  onClick={() => setShowMarketingModal(true)}
+                  disabled={loading}
+                  className="p-2 text-slate-500 hover:text-orange-600 hover:bg-orange-50 border border-transparent hover:border-orange-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Ver Campaña de Marketing"
+                >
+                  <CampaignIcon style={{ fontSize: 20 }} />
+                </button>
+              )}
               {/* Comments Toggle */}
               <button
                 onClick={() => setShowSidebar(!showSidebar)}
@@ -1288,6 +1302,18 @@ export default function BookingRequestViewModal({
         loadingText="Cancelando..."
         zIndex={60}
       />
+
+      {/* Marketing Campaign Modal */}
+      {(requestData as any)?.marketingCampaignId && (
+        <MarketingCampaignModal
+          isOpen={showMarketingModal}
+          onClose={() => setShowMarketingModal(false)}
+          campaignId={(requestData as any).marketingCampaignId}
+          onSuccess={() => {
+            // Optionally refresh data
+          }}
+        />
+      )}
     </>
   )
 }

@@ -38,18 +38,15 @@ export async function compressImage(
   // Skip compression for small files (already under target size)
   const targetSizeBytes = (mergedOptions.maxSizeMB || 0.5) * 1024 * 1024
   if (file.size <= targetSizeBytes) {
-    console.log(`[ImageCompression] File already small (${formatFileSize(file.size)}), skipping compression`)
     return file
   }
 
   // Skip compression for non-image files
   if (!file.type.startsWith('image/')) {
-    console.log(`[ImageCompression] Not an image file, skipping compression`)
     return file
   }
 
   const originalSize = file.size
-  console.log(`[ImageCompression] Starting compression: ${file.name} (${formatFileSize(originalSize)})`)
 
   try {
     const compressedFile = await imageCompression(file, {
@@ -60,13 +57,6 @@ export async function compressImage(
       // Preserve file name but change extension if format changes
       fileType: file.type as any,
     })
-
-    const newSize = compressedFile.size
-    const savings = ((originalSize - newSize) / originalSize * 100).toFixed(1)
-    
-    console.log(
-      `[ImageCompression] Compressed: ${formatFileSize(originalSize)} → ${formatFileSize(newSize)} (${savings}% reduction)`
-    )
 
     // Return as File with original name (browser-image-compression returns Blob)
     return new File([compressedFile], file.name, {

@@ -248,6 +248,7 @@ export function useUserRole() {
     loading, 
     isAdmin: role === 'admin', 
     isSales: role === 'sales',
-    isEditor: role === 'editor' || role === 'ere'
+    isEditor: role === 'editor' || role === 'ere',
+    isMarketing: role === 'marketing',
   }
 }

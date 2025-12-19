@@ -8,8 +8,7 @@ import { getAllBookedEvents } from '@/app/actions/events'
 import { getSettings } from '@/lib/settings'
 import { ONE_DAY_MS } from '@/lib/constants'
 import type { BookingFormData } from '../types'
-import { Input, Alert } from '@/components/ui'
-import WarningAmberIcon from '@mui/icons-material/WarningAmber'
+import { Input } from '@/components/ui'
 
 interface ConfiguracionStepProps {
   formData: BookingFormData
@@ -23,7 +22,6 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
   const [daysUntilLaunch, setDaysUntilLaunch] = useState<number | null>(null)
   const [calculatingDate, setCalculatingDate] = useState(false)
   const [selectedBusiness, setSelectedBusiness] = useState<BusinessWithStatus | null>(null)
-  const [businessWarning, setBusinessWarning] = useState<string | null>(null)
   
   const formatDate = (dateString: string): string => {
     if (!dateString) return ''
@@ -38,16 +36,8 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
   useEffect(() => {
     if (isPublicForm) return // Skip date calculation for public forms
     
-    console.log('[ConfiguracionStep] Date calculation effect triggered:', {
-      parentCategory: formData.parentCategory,
-      subCategory1: formData.subCategory1,
-      category: formData.category,
-      calculatingDate,
-    })
-    
     const calculateDate = async () => {
       if (formData.parentCategory && !calculatingDate) {
-        console.log('[ConfiguracionStep] Starting date calculation for category:', formData.parentCategory)
         setCalculatingDate(true)
         try {
           // Fetch ALL booked events (regardless of user) and settings
@@ -87,7 +77,6 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
           if (result.success && result.date) {
             // Format date as YYYY-MM-DD for the input
             const dateString = result.date.toISOString().split('T')[0]
-            console.log('[ConfiguracionStep] Calculated start date:', dateString)
             updateFormData('startDate', dateString)
             if (result.daysUntilLaunch !== undefined) {
               setDaysUntilLaunch(result.daysUntilLaunch)
@@ -100,11 +89,8 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
               const endDate = new Date(startDate)
               endDate.setDate(endDate.getDate() + duration - 1)
               const endDateString = endDate.toISOString().split('T')[0]
-              console.log('[ConfiguracionStep] Calculated end date:', endDateString, 'duration:', duration)
               updateFormData('endDate', endDateString)
             }
-          } else {
-            console.warn('[ConfiguracionStep] Date calculation failed:', result)
           }
         } catch (error) {
           console.error('[ConfiguracionStep] Error calculating next available date:', error)
@@ -168,13 +154,6 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
   }
   
   const totalDays = calculateTotalDays()
-
-  // Debug: Check what isFieldRequired returns
-  console.log('[ConfiguracionStep] isFieldRequired check:', {
-    businessName: isFieldRequired('businessName'),
-    partnerEmail: isFieldRequired('partnerEmail'),
-    category: isFieldRequired('category'),
-  })
 
   return (
     <div className="space-y-8">
@@ -240,23 +219,6 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
                 if (business.website) updateFormData('contactDetails', business.website)
                 if (business.description) updateFormData('businessReview', business.description)
                 if (business.razonSocial || businessName) updateFormData('approverBusinessName', business.razonSocial || businessName)
-                
-                // Set warning if has active bookings
-                if (business.hasFutureBooking || business.hasActiveRequest) {
-                  setBusinessWarning(
-                    `${business.name} has ${
-                      business.hasFutureBooking && business.hasActiveRequest
-                        ? 'future booked events and pending requests'
-                        : business.hasFutureBooking
-                          ? 'future booked events'
-                          : 'pending/approved requests'
-                    }. Please verify before submitting.`
-                  )
-                } else {
-                  setBusinessWarning(null)
-                }
-              } else {
-                setBusinessWarning(null)
               }
             }}
             label="Nombre del Negocio"
@@ -264,11 +226,6 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
             error={errors.businessName}
             placeholder="Buscar y seleccionar negocio"
           />
-          {businessWarning && (
-            <Alert variant="warning" icon={<WarningAmberIcon fontSize="small" />} className="mt-2">
-              {businessWarning}
-            </Alert>
-          )}
         </div>
 
         <MultiEmailInput

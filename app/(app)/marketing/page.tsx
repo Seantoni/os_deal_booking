@@ -1,0 +1,23 @@
+import { redirect } from 'next/navigation'
+import { auth } from '@clerk/nextjs/server'
+import { requirePageAccess } from '@/lib/auth/page-access'
+import MarketingPageClient from './MarketingPageClient'
+import AppLayout from '@/components/common/AppLayout'
+
+export default async function MarketingPage() {
+  const { userId } = await auth()
+  
+  if (!userId) {
+    redirect('/sign-in')
+  }
+
+  // Check role-based access
+  await requirePageAccess('/marketing')
+
+  return (
+    <AppLayout title="Marketing Campaigns">
+      <MarketingPageClient />
+    </AppLayout>
+  )
+}
+

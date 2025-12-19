@@ -1,5 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
+import { logger } from '@/lib/logger'
 
 // Cookie name for caching access check result
 const ACCESS_COOKIE_NAME = 'os_access_verified'
@@ -26,9 +27,7 @@ export default clerkMiddleware(async (auth, request) => {
   const isPublic = isPublicRoute(request)
 
   // Logging only in development
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[middleware] path:', request.nextUrl.pathname, 'public:', isPublic)
-  }
+  logger.debug('[middleware] path:', request.nextUrl.pathname, 'public:', isPublic)
 
   if (!isPublic) {
     const session = await auth()
@@ -48,9 +47,7 @@ export default clerkMiddleware(async (auth, request) => {
       
       // Validate: same user and not expired (5 min cache)
       if (cachedUserId === userId && !isNaN(cacheTime) && (now - cacheTime) < ACCESS_CACHE_SECONDS * 1000) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[middleware] Access granted from cache for userId:', userId)
-        }
+        logger.debug('[middleware] Access granted from cache for userId:', userId)
         return NextResponse.next()
       }
       }
@@ -66,7 +63,7 @@ export default clerkMiddleware(async (auth, request) => {
         })
 
         if (!checkResponse.ok) {
-          console.error('[middleware] Access check API failed:', checkResponse.status)
+          logger.error('[middleware] Access check API failed:', checkResponse.status)
           const url = new URL('/no-access', request.url)
           return NextResponse.redirect(url)
         }
@@ -75,7 +72,7 @@ export default clerkMiddleware(async (auth, request) => {
 
         if (!hasAccess) {
           // Log access denial in all environments (security monitoring)
-          console.warn('[middleware] Access denied for email:', email, error ? `Error: ${error}` : '')
+          logger.warn('[middleware] Access denied for email:', email, error ? `Error: ${error}` : '')
         // Clear any stale access cookie
         const response = NextResponse.redirect(new URL('/no-access', request.url))
         response.cookies.delete(ACCESS_COOKIE_NAME)
@@ -92,13 +89,11 @@ export default clerkMiddleware(async (auth, request) => {
         path: '/',
       })
 
-        if (process.env.NODE_ENV === 'development') {
-        console.log('[middleware] Access granted and cached for email:', email)
-        }
+      logger.debug('[middleware] Access granted and cached for email:', email)
 
       return response
       } catch (fetchError) {
-        console.error('[middleware] Error calling access check API:', fetchError)
+        logger.error('[middleware] Error calling access check API:', fetchError)
         // On error, deny access for security
       const url = new URL('/no-access', request.url)
       return NextResponse.redirect(url)

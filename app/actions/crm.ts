@@ -6,6 +6,7 @@
  * - Opportunities
  * - Deals
  * - Leads
+ * - Marketing
  *
  * Preferred import for CRM actions:
  *   import { getBusinesses, getOpportunities } from '@/app/actions/crm'
@@ -22,3 +23,6 @@ export * from './deals'
 
 // Leads
 export * from './leads'
+
+// Marketing
+export * from './marketing'

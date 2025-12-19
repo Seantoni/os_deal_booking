@@ -109,6 +109,11 @@ export const CACHE_ENTITIES = {
     paths: ['/tasks'],
     cascadeInvalidates: ['opportunities'],
   },
+  'marketing-campaigns': {
+    tags: ['marketing-campaigns'],
+    paths: ['/marketing'],
+    cascadeInvalidates: [],
+  },
 } as const
 
 export type CacheEntity = keyof typeof CACHE_ENTITIES

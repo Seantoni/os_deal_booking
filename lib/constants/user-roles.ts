@@ -8,6 +8,7 @@ export const USER_ROLES = {
   SALES: 'sales',
   EDITOR: 'editor',
   ERE: 'ere',
+  MARKETING: 'marketing',
 } as const
 
 export type UserRole = typeof USER_ROLES[keyof typeof USER_ROLES]
@@ -20,6 +21,7 @@ export const USER_ROLE_VALUES: UserRole[] = [
   USER_ROLES.SALES,
   USER_ROLES.EDITOR,
   USER_ROLES.ERE,
+  USER_ROLES.MARKETING,
 ]
 
 /**
@@ -30,6 +32,7 @@ export const USER_ROLE_LABELS: Record<UserRole, string> = {
   [USER_ROLES.SALES]: 'Sales',
   [USER_ROLES.EDITOR]: 'Editor',
   [USER_ROLES.ERE]: 'ERE',
+  [USER_ROLES.MARKETING]: 'Marketing',
 }
 
 /**

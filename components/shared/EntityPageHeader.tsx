@@ -14,8 +14,8 @@ export interface FilterTab {
 }
 
 interface EntityPageHeaderProps {
-  /** Entity type for the advanced filter builder */
-  entityType: 'deals' | 'opportunities' | 'businesses' | 'leads'
+  /** Entity type for the advanced filter builder (optional - no advanced filters if not provided) */
+  entityType?: 'deals' | 'opportunities' | 'businesses' | 'leads' | 'marketing'
   
   /** Search configuration */
   searchPlaceholder: string
@@ -27,14 +27,14 @@ interface EntityPageHeaderProps {
   activeFilter: string
   onFilterChange: (filterId: string) => void
   
-  /** Saved filters configuration */
-  savedFilters: SavedFilter[]
-  activeFilterId: string | null
-  onFilterSelect: (filter: SavedFilter | null) => void
+  /** Saved filters configuration (optional) */
+  savedFilters?: SavedFilter[]
+  activeFilterId?: string | null
+  onFilterSelect?: (filter: SavedFilter | null) => void
   
-  /** Advanced filters */
-  onAdvancedFiltersChange: (rules: FilterRule[]) => void
-  onSavedFiltersChange: () => void
+  /** Advanced filters (optional) */
+  onAdvancedFiltersChange?: (rules: FilterRule[]) => void
+  onSavedFiltersChange?: () => void
   
   /** Whether user is admin (shows advanced filter builder) */
   isAdmin: boolean
@@ -95,7 +95,9 @@ export function EntityPageHeader({
   rightContent,
   beforeFilters,
 }: EntityPageHeaderProps) {
-  const activeFilterObject = savedFilters.find(f => f.id === activeFilterId) || null
+  const activeFilterObject = savedFilters?.find(f => f.id === activeFilterId) || null
+  const showAdvancedFilters = isAdmin && entityType && onAdvancedFiltersChange && onSavedFiltersChange
+  const showSavedFilters = savedFilters && savedFilters.length > 0 && onFilterSelect
 
   return (
     <div className="bg-white border-b border-gray-200 px-4 py-2">
@@ -133,14 +135,14 @@ export function EntityPageHeader({
           />
 
           {/* Divider & Saved Filters */}
-          {savedFilters.length > 0 && (
+          {showSavedFilters && (
             <>
               <div className="h-5 w-px bg-gray-300 mx-1 flex-shrink-0"></div>
               <div className="flex-shrink-0">
                 <SavedFiltersBar
-                  savedFilters={savedFilters}
-                  activeFilterId={activeFilterId}
-                  onFilterSelect={onFilterSelect}
+                  savedFilters={savedFilters!}
+                  activeFilterId={activeFilterId || null}
+                  onFilterSelect={onFilterSelect!}
                   isAdmin={isAdmin}
                 />
               </div>
@@ -149,12 +151,12 @@ export function EntityPageHeader({
         </div>
 
         {/* Advanced Filter Builder */}
-        {isAdmin && (
+        {showAdvancedFilters && entityType !== 'marketing' && (
           <AdvancedFilterBuilder
-            entityType={entityType}
-            savedFilters={savedFilters}
-            onFiltersChange={onAdvancedFiltersChange}
-            onSavedFiltersChange={onSavedFiltersChange}
+            entityType={entityType as 'deals' | 'opportunities' | 'businesses' | 'leads'}
+            savedFilters={savedFilters || []}
+            onFiltersChange={onAdvancedFiltersChange!}
+            onSavedFiltersChange={onSavedFiltersChange!}
             activeFilter={activeFilterObject}
           />
         )}

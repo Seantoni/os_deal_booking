@@ -16,7 +16,7 @@ Deal Type & Structure
 - Is the deal not free? Avoid free deals unless part of a larger paid strategy.
 
 Redemption & Terms
-- Is the validity period at least 2 weeks?
+- Is the validity period (from campaignDuration) at least 2 months (60 days)? Check the "Período de Validez para Canje" in the summary.
 - Are redemption days and hours clearly stated? (e.g. not valid weekends, holidays, or peak hours).
 - Are participating locations clearly listed?
 - Is there a limit per user (e.g. max 2 vouchers)?
@@ -172,11 +172,37 @@ function buildContractSummary(formData: any): string {
 - Categoría: ${formData.parentCategory || ''} > ${formData.subCategory1 || ''} > ${formData.subCategory2 || ''} > ${formData.category || ''}
 - Email: ${formData.partnerEmail || 'No especificado'}`)
 
+  // Calculate validity days from campaignDuration
+  let validityDays = 0
+  let validityDaysText = 'No calculable'
+  
+  if (formData.campaignDuration) {
+    const campaignMonths = parseFloat(formData.campaignDuration) || 0
+    // Approximate: 1 month = 30 days
+    validityDays = Math.round(campaignMonths * 30)
+    validityDaysText = `${validityDays} días (${campaignMonths} ${campaignMonths === 1 ? 'mes' : 'meses'})`
+  }
+  
+  // Calculate days between start and end date (publication period)
+  let publicationDays = 0
+  if (formData.startDate && formData.endDate) {
+    try {
+      const start = new Date(formData.startDate + 'T00:00:00')
+      const end = new Date(formData.endDate + 'T00:00:00')
+      const diffTime = Math.abs(end.getTime() - start.getTime())
+      publicationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1 // +1 to include both start and end days
+    } catch (e) {
+      // Ignore date calculation errors
+    }
+  }
+
   // Dates & Duration
   sections.push(`## Fechas y Duración
 - Fecha de Inicio: ${formData.startDate || 'No especificada'}
 - Fecha Final: ${formData.endDate || 'No especificada'}
-- Duración de Campaña: ${formData.campaignDuration || 'No especificada'} meses`)
+- Duración de Campaña: ${formData.campaignDuration || 'No especificada'} meses
+- Período de Publicación (días activos en el sitio): ${publicationDays > 0 ? `${publicationDays} días` : 'No calculable'}
+- Período de Validez para Canje: ${validityDaysText}`)
 
   // Pricing Options
   const pricingOptions = Array.isArray(formData.pricingOptions) ? formData.pricingOptions : []

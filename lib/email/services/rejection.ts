@@ -1,6 +1,7 @@
 import { resend, EMAIL_CONFIG } from '../config'
 import { renderRejectionEmail } from '../templates/rejection'
 import { prisma } from '@/lib/prisma'
+import { logger } from '@/lib/logger'
 
 /**
  * Send rejection email to business and requester
@@ -61,7 +62,7 @@ export async function sendRejectionEmail(
       html: emailHtml,
     })
 
-    console.log(`✓ Rejection email sent to ${bookingRequest.businessEmail}${requesterEmail ? ` (CC: ${requesterEmail})` : ''}`)
+    logger.info(`Rejection email sent to ${bookingRequest.businessEmail}${requesterEmail ? ` (CC: ${requesterEmail})` : ''}`)
   } catch (error) {
     console.error('Error sending rejection email:', error)
     throw error

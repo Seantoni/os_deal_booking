@@ -13,14 +13,9 @@ export function useFormConfiguration(entityType: FormEntityType) {
     setLoading(true)
     try {
       const result = await getFormConfiguration(entityType)
-      console.log('[useFormConfiguration] Loaded config for', entityType, ':', result)
       if (result.success && result.data) {
         setSections(result.data.sections)
         setInitialized(result.data.initialized)
-        console.log('[useFormConfiguration] Initialized:', result.data.initialized, 'Sections:', result.data.sections.length)
-        if (result.data.sections.length > 0) {
-          console.log('[useFormConfiguration] Fields:', result.data.sections.flatMap(s => s.fields.map(f => ({ key: f.fieldKey, width: f.width, visible: f.isVisible }))))
-        }
       }
     } catch (error) {
       console.error('Failed to load form configuration:', error)
@@ -45,9 +40,7 @@ export function useFormConfiguration(entityType: FormEntityType) {
   // Get field width (defaults to 'full' if not configured)
   function getFieldWidth(fieldKey: string): 'full' | 'half' {
     const config = getFieldConfig(fieldKey)
-    const width = config?.width || 'full'
-    console.log(`[useFormConfiguration] getFieldWidth('${fieldKey}') = '${width}'`, config ? 'from config' : 'default')
-    return width
+    return config?.width || 'full'
   }
 
   // Check if field is visible

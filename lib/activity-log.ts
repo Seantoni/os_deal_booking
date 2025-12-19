@@ -40,6 +40,8 @@ export type EntityType =
   | 'Category'
   | 'CustomField'
   | 'Task'
+  | 'MarketingCampaign'
+  | 'MarketingOption'
 
 /**
  * Details object for logging additional context
@@ -58,6 +60,12 @@ export interface ActivityDetails {
   }
   /** Any additional metadata */
   metadata?: Record<string, any>
+  /** Generic changes object for update operations */
+  changes?: Record<string, any>
+  /** Bulk update indicator with count */
+  bulkUpdate?: boolean
+  /** Number of items affected in bulk operation */
+  optionsUpdated?: number
 }
 
 /**

@@ -21,7 +21,6 @@ export {
   formatShortDate,
   formatDateShort,      // @deprecated - use formatShortDate
   formatFullDate,
-  formatISODate,
   formatDateTime,
   formatDateForDisplay,
   formatDateRange,

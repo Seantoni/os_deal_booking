@@ -80,6 +80,17 @@ export async function createEvent(formData: FormData) {
         processedAt: new Date(),
       },
     })
+    
+    // Automatically create a marketing campaign for the booked request
+    try {
+      const { createMarketingCampaign } = await import('./marketing')
+      await createMarketingCampaign(bookingRequestId)
+      logger.info('Marketing campaign created for booking request:', bookingRequestId)
+    } catch (marketingError) {
+      // Log error but don't fail the booking process
+      logger.error('Failed to create marketing campaign:', marketingError)
+    }
+    
     invalidateEntity('booking-requests')
   }
 
@@ -479,6 +490,16 @@ export async function bookEvent(eventId: string) {
           logger.error('Failed to create deal automatically:', dealError)
         }
 
+        // Automatically create a marketing campaign for the booked request
+        try {
+          const { createMarketingCampaign } = await import('./marketing')
+          await createMarketingCampaign(bookingRequest.id)
+          logger.info('Marketing campaign created for booking request:', bookingRequest.id)
+        } catch (marketingError) {
+          // Log error but don't fail the booking process
+          logger.error('Failed to create marketing campaign:', marketingError)
+        }
+
         // Send booking confirmation email
         const { sendBookingConfirmationEmail } = await import('@/lib/email/services/booking-confirmation')
         const { currentUser } = await import('@clerk/nextjs/server')
@@ -493,7 +514,7 @@ export async function bookEvent(eventId: string) {
       }
     }
 
-    invalidateEntities(['events', 'booking-requests', 'deals'])
+    invalidateEntities(['events', 'booking-requests', 'deals', 'marketing-campaigns'])
 
     // Log activity
     await logActivity({

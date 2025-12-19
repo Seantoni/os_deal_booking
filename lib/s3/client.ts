@@ -7,6 +7,7 @@
 
 import { S3Client } from '@aws-sdk/client-s3'
 import { ENV } from '@/lib/config/env'
+import { logger } from '@/lib/logger'
 
 /**
  * Check if S3 is configured
@@ -18,9 +19,9 @@ export function isS3Configured(): boolean {
     ENV.AWS_S3_BUCKET
   )
   
-  // Debug logging (only in development)
-  if (process.env.NODE_ENV === 'development' && !configured) {
-    console.log('[S3 Config Check]', {
+  // Debug logging (only when not configured)
+  if (!configured) {
+    logger.debug('[S3] Not configured', {
       hasAccessKey: !!ENV.AWS_ACCESS_KEY_ID,
       hasSecretKey: !!ENV.AWS_SECRET_ACCESS_KEY,
       hasBucket: !!ENV.AWS_S3_BUCKET,
