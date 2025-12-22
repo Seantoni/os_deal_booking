@@ -16,6 +16,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import { Button } from '@/components/ui'
 import toast from 'react-hot-toast'
 import DealDetailModal from './DealDetailModal'
+import { formatCompactDateTime } from '@/lib/date'
 
 type SortField = 'totalSold' | 'salesToday' | 'salesThisWeek' | 'salesThisMonth' | 'discountPercent' | 'offerPrice' | 'firstSeenAt' | 'lastScannedAt'
 
@@ -173,14 +174,30 @@ export default function MarketIntelligenceClient() {
                 setScanProgress(data)
               } else if (eventLine.includes('complete')) {
                 setScanProgress(null)
-                toast.success(
-                  `Scan complete! Found ${data.totalDealsFound} deals (${data.newDeals} new, ${data.updatedDeals} updated)`,
-                  { duration: 5000 }
-                )
+                
+                // Check if there were errors
+                if (data.errors && data.errors.length > 0) {
+                  console.error('Scan errors:', data.errors)
+                  toast.error(
+                    `Scan had errors: ${data.errors[0]}${data.errors.length > 1 ? ` (+${data.errors.length - 1} more)` : ''}`,
+                    { duration: 10000 }
+                  )
+                } else if (data.totalDealsFound === 0) {
+                  toast.error(
+                    'Scan found 0 deals - there may be a connectivity issue. Check console for details.',
+                    { duration: 8000 }
+                  )
+                } else {
+                  toast.success(
+                    `Scan complete! Found ${data.totalDealsFound} deals (${data.newDeals} new, ${data.updatedDeals} updated)`,
+                    { duration: 5000 }
+                  )
+                }
                 loadDeals()
                 loadStats()
               } else if (eventLine.includes('error')) {
                 setScanProgress(null)
+                console.error('Scan error event:', data)
                 toast.error(data.message || 'Scan failed')
               }
             } catch (e) {
@@ -197,16 +214,7 @@ export default function MarketIntelligenceClient() {
     }
   }
   
-  const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString('es-PA', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }
-  
-  const formatCurrency = (value: number) => {
+const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -455,7 +463,7 @@ export default function MarketIntelligenceClient() {
           {/* Last scan info */}
           {stats?.lastScanAt && (
             <div className="text-[10px] text-gray-500 ml-auto">
-              Last scan: {formatDate(stats.lastScanAt)}
+              Last scan: {formatCompactDateTime(stats.lastScanAt)}
             </div>
           )}
         </div>
@@ -603,10 +611,10 @@ export default function MarketIntelligenceClient() {
                       </span>
                     </td>
                     <td className="px-3 py-2 text-[10px] text-gray-500">
-                      {formatDate(deal.firstSeenAt)}
+                      {formatCompactDateTime(deal.firstSeenAt)}
                     </td>
                     <td className="px-3 py-2 text-[10px] text-gray-500">
-                      {formatDate(deal.lastScannedAt)}
+                      {formatCompactDateTime(deal.lastScannedAt)}
                     </td>
                     <td className="px-3 py-2 text-center">
                       <a

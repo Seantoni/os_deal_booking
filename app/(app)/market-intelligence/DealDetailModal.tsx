@@ -8,6 +8,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import StorefrontIcon from '@mui/icons-material/Storefront'
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
 import RefreshIcon from '@mui/icons-material/Refresh'
+import { formatCompactDateTime, formatShortDate } from '@/lib/date'
 
 interface DealDetailModalProps {
   dealId: string
@@ -36,14 +37,7 @@ export default function DealDetailModal({ dealId, onClose }: DealDetailModalProp
     loadDeal()
   }, [dealId])
   
-  const formatDate = (date: Date | string, includeTime = true) => {
-    const options: Intl.DateTimeFormatOptions = includeTime 
-      ? { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }
-      : { month: 'short', day: 'numeric', year: 'numeric' }
-    return new Date(date).toLocaleDateString('es-PA', options)
-  }
-  
-  const formatCurrency = (value: number) => {
+const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -208,11 +202,11 @@ export default function DealDetailModal({ dealId, onClose }: DealDetailModalProp
                 <div className="flex items-center gap-6 text-sm text-gray-500">
                   <div className="flex items-center gap-1">
                     <CalendarTodayIcon style={{ fontSize: 16 }} />
-                    First seen: {formatDate(deal.firstSeenAt, false)}
+                    First seen: {formatShortDate(deal.firstSeenAt)}
                   </div>
                   <div className="flex items-center gap-1">
                     <RefreshIcon style={{ fontSize: 16 }} />
-                    Last updated: {formatDate(deal.lastScannedAt)}
+                    Last updated: {formatCompactDateTime(deal.lastScannedAt)}
                   </div>
                 </div>
                 
@@ -250,7 +244,7 @@ export default function DealDetailModal({ dealId, onClose }: DealDetailModalProp
                                   {snapshot.salesSinceLast > 0 && (
                                     <p className="text-green-400">+{snapshot.salesSinceLast} since last</p>
                                   )}
-                                  <p className="text-gray-400">{formatDate(snapshot.scannedAt)}</p>
+                                  <p className="text-gray-400">{formatCompactDateTime(snapshot.scannedAt)}</p>
                                 </div>
                               </div>
                             </div>
@@ -260,8 +254,8 @@ export default function DealDetailModal({ dealId, onClose }: DealDetailModalProp
                       
                       {/* X-axis labels */}
                       <div className="flex justify-between mt-2 text-xs text-gray-400">
-                        <span>{formatDate(snapshots[0].scannedAt, false)}</span>
-                        <span>{formatDate(snapshots[snapshots.length - 1].scannedAt, false)}</span>
+                        <span>{formatShortDate(snapshots[0].scannedAt)}</span>
+                        <span>{formatShortDate(snapshots[snapshots.length - 1].scannedAt)}</span>
                       </div>
                     </div>
                     

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { getActivityLogs, getActivityLogUsers } from '@/app/actions/activity-log'
+import { formatDateTime } from '@/lib/date'
 import { Input, Button, Select } from '@/components/ui'
 import { EntityTable, EmptyTableState, type ColumnConfig } from '@/components/shared'
 import SearchIcon from '@mui/icons-material/Search'
@@ -149,16 +150,6 @@ function getActionColor(action: string) {
     default:
       return 'bg-gray-100 text-gray-800'
   }
-}
-
-function formatDate(date: Date) {
-  return new Date(date).toLocaleString('es-PA', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 export default function ActivityLogClient() {
@@ -476,7 +467,7 @@ export default function ActivityLogClient() {
                     {/* Date */}
                     <td className="px-4 py-[5px] text-right">
                       <span className="text-[13px] text-gray-500 whitespace-nowrap">
-                        {formatDate(log.createdAt)}
+                        {formatDateTime(log.createdAt)}
                       </span>
                     </td>
                   </tr>

@@ -23,6 +23,7 @@ interface MarketingOption {
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import EventIcon from '@mui/icons-material/Event'
+import { formatISODateOnly } from '@/lib/date'
 import NoteAddIcon from '@mui/icons-material/NoteAdd'
 import AttachFileIcon from '@mui/icons-material/AttachFile'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -186,13 +187,7 @@ export default function MarketingOptionCard({
     await onRemoveAttachment(option.id, url)
   }
 
-  const formatDate = (date: Date | string | null) => {
-    if (!date) return ''
-    const d = new Date(date)
-    return d.toISOString().split('T')[0]
-  }
-
-  const isOverdue = option.dueDate && new Date(option.dueDate) < new Date() && !option.isCompleted
+const isOverdue = option.dueDate && new Date(option.dueDate) < new Date() && !option.isCompleted
 
   // Determine if this card can receive a drop
   const canReceiveDrop = draggingImage && option.isPlanned && canEdit
@@ -272,7 +267,7 @@ export default function MarketingOptionCard({
             <label className="text-xs text-gray-600 min-w-[60px]">Due Date:</label>
             <input
               type="date"
-              value={formatDate(option.dueDate)}
+              value={formatISODateOnly(option.dueDate)}
               onChange={handleDueDateChange}
               disabled={!canEdit}
               className={`px-1.5 py-0.5 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 ${

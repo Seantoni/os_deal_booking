@@ -38,7 +38,7 @@ export function formatRequestNameDate(date: Date = new Date()): string {
  * Format date as short display: "Dec 15, 2025"
  * Uses Panama timezone
  */
-export function formatShortDate(date: Date | string | null): string {
+export function formatShortDate(date: Date | string | null | undefined): string {
   if (!date) return '—'
   const d = typeof date === 'string' ? new Date(date) : date
   if (isNaN(d.getTime())) return '—'
@@ -92,6 +92,144 @@ export function formatDateTime(date: Date | string | null): string {
     minute: '2-digit',
     hour12: true,
   }).replace(',', ' at')
+}
+
+/**
+ * Format date with time compactly: "Dec 15, 10:30"
+ * No year, for tables and compact displays
+ * Uses Panama timezone
+ */
+export function formatCompactDateTime(date: Date | string | null): string {
+  if (!date) return '—'
+  const d = typeof date === 'string' ? new Date(date) : date
+  if (isNaN(d.getTime())) return '—'
+  
+  return d.toLocaleString('es-PA', {
+    timeZone: PANAMA_TIMEZONE,
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+/**
+ * Format date without year: "Dec 15"
+ * Uses Panama timezone
+ */
+export function formatShortDateNoYear(date: Date | string | null): string {
+  if (!date) return '—'
+  const d = typeof date === 'string' ? new Date(date) : date
+  if (isNaN(d.getTime())) return '—'
+  
+  return d.toLocaleDateString('en-US', {
+    timeZone: PANAMA_TIMEZONE,
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+/**
+ * Format date for HTML input fields: "YYYY-MM-DD"
+ * Uses local timezone (not Panama) for input fields
+ */
+export function formatDateForInput(date: Date | string | null): string {
+  if (!date) return ''
+  const d = typeof date === 'string' ? new Date(date) : date
+  if (isNaN(d.getTime())) return ''
+  
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/**
+ * Format date for ISO date input: "YYYY-MM-DD"
+ * Extracts only the date part from ISO string
+ */
+export function formatISODateOnly(date: Date | string | null): string {
+  if (!date) return ''
+  const d = typeof date === 'string' ? new Date(date) : date
+  if (isNaN(d.getTime())) return ''
+  
+  return d.toISOString().split('T')[0]
+}
+
+/**
+ * Format full date with weekday: "Monday, December 15, 2025"
+ * Uses Panama timezone
+ */
+export function formatFullDateWithWeekday(date: Date | string | null): string {
+  if (!date) return '—'
+  const d = typeof date === 'string' ? new Date(date) : date
+  if (isNaN(d.getTime())) return '—'
+  
+  return d.toLocaleDateString('en-US', {
+    timeZone: PANAMA_TIMEZONE,
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+/**
+ * Format date in Spanish with weekday: "lunes, 15 de diciembre de 2025"
+ * Uses Panama timezone
+ */
+export function formatSpanishFullDate(date: Date | string | null): string {
+  if (!date) return '—'
+  const d = typeof date === 'string' ? new Date(date) : date
+  if (isNaN(d.getTime())) return '—'
+  
+  return d.toLocaleDateString('es-PA', {
+    timeZone: PANAMA_TIMEZONE,
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+/**
+ * Format date with short weekday and date: "Mon, Dec 15"
+ * Uses Panama timezone
+ */
+export function formatShortDateWithWeekday(date: Date | string | null): string {
+  if (!date) return '—'
+  const d = typeof date === 'string' ? new Date(date) : date
+  if (isNaN(d.getTime())) return '—'
+  
+  return d.toLocaleDateString('es-PA', {
+    timeZone: PANAMA_TIMEZONE,
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+/**
+ * Format date using UTC to avoid timezone shifts for date-only values: "Mon, Dec 15, 2025"
+ * Use this when the date stored is a date-only value without time component
+ */
+export function formatDateUTC(date: Date | string | null): string {
+  if (!date) return '—'
+  const d = typeof date === 'string' ? new Date(date) : date
+  if (isNaN(d.getTime())) return '—'
+  
+  const year = d.getUTCFullYear()
+  const month = d.getUTCMonth()
+  const day = d.getUTCDate()
+  
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  
+  // Create local date to get correct day of week
+  const localDate = new Date(year, month, day)
+  const dayOfWeek = dayNames[localDate.getDay()]
+  
+  return `${dayOfWeek}, ${monthNames[month]} ${day}, ${year}`
 }
 
 /**

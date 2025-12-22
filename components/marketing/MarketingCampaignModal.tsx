@@ -23,6 +23,7 @@ import { Button, Textarea } from '@/components/ui'
 import { useMarketingCampaign } from './useMarketingCampaign'
 import MarketingOptionCard from './MarketingOptionCard'
 import FormModalSkeleton from '@/components/common/FormModalSkeleton'
+import { formatShortDate } from '@/lib/date'
 import ImageLightbox from '@/components/common/ImageLightbox'
 import { useUserRole } from '@/hooks/useUserRole'
 import toast from 'react-hot-toast'
@@ -148,16 +149,7 @@ export default function MarketingCampaignModal({
     }))
   }
 
-  const formatDate = (date: Date | string | null) => {
-    if (!date) return 'N/A'
-    return new Date(date).toLocaleDateString('es-PA', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  }
-
-  const handleSaveCopy = async () => {
+const handleSaveCopy = async () => {
     await updateGeneratedCopy(copyInput || null)
     setCopyDirty(false)
   }
@@ -510,7 +502,7 @@ export default function MarketingCampaignModal({
                           <div className="min-w-0">
                             <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Start Date</p>
                             <p className="text-xs font-semibold text-gray-900">
-                              {formatDate(campaign.bookingRequest.startDate)}
+                              {formatShortDate(campaign.bookingRequest.startDate)}
                             </p>
                           </div>
                         </div>

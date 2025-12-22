@@ -6,7 +6,7 @@
  * Optimized for cross-client compatibility (Outlook, Gmail, etc.)
  */
 
-import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
+import { formatSpanishFullDate, formatShortDateNoYear } from '@/lib/date'
 
 // Stage labels for display
 const STAGE_LABELS: Record<string, string> = {
@@ -52,30 +52,6 @@ function escapeHtml(text: string | undefined | null): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;')
-}
-
-/**
- * Format date for display
- */
-function formatDate(date: Date): string {
-  return new Date(date).toLocaleDateString('es-PA', {
-    timeZone: PANAMA_TIMEZONE,
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
-/**
- * Format date short
- */
-function formatDateShort(date: Date): string {
-  return new Date(date).toLocaleDateString('es-PA', {
-    timeZone: PANAMA_TIMEZONE,
-    month: 'short',
-    day: 'numeric',
-  })
 }
 
 /**
@@ -130,7 +106,7 @@ function renderTaskRow(task: TaskForEmail, isOverdue: boolean, appBaseUrl: strin
                 <span style="color: #e5e7eb; margin: 0 4px;">|</span>
                 <span style="white-space: nowrap;">📊 ${escapeHtml(stageLabel)}</span>
                 <span style="color: #e5e7eb; margin: 0 4px;">|</span>
-                <span style="white-space: nowrap;">🕒 ${formatDateShort(task.date)}</span>
+                <span style="white-space: nowrap;">🕒 ${formatShortDateNoYear(task.date)}</span>
               </div>
             </td>
           </tr>
@@ -161,7 +137,7 @@ function renderTaskRow(task: TaskForEmail, isOverdue: boolean, appBaseUrl: strin
  */
 export function renderTaskReminderEmail(props: TaskReminderEmailProps): string {
   const { userName, dueTodayTasks, overdueTasks, appBaseUrl } = props
-  const todayFormatted = formatDate(new Date())
+  const todayFormatted = formatSpanishFullDate(new Date())
   const totalTasks = dueTodayTasks.length + overdueTasks.length
   const tasksUrl = `${appBaseUrl}/tasks`
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { getCategoryColors } from '@/lib/categories'
+import { formatFullDateWithWeekday } from '@/lib/date'
 import type { Event } from '@/types'
 
 interface DayEventsModalProps {
@@ -14,20 +15,7 @@ interface DayEventsModalProps {
 export default function DayEventsModal({ isOpen, onClose, date, events, onEventClick }: DayEventsModalProps) {
   if (!isOpen || !date) return null
 
-  const formatDate = (date: Date) => {
-    // Use local date methods directly (date is already local from calendar)
-    const year = date.getFullYear()
-    const month = date.getMonth()
-    const day = date.getDate()
-    
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-    const dayOfWeek = dayNames[date.getDay()]
-    
-    return `${dayOfWeek}, ${monthNames[month]} ${day}, ${year}`
-  }
-
-  return (
+return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex min-h-screen items-center justify-center p-4">
         {/* Backdrop */}
@@ -41,7 +29,7 @@ export default function DayEventsModal({ isOpen, onClose, date, events, onEventC
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <h2 className="text-xl font-semibold text-gray-900">
-              {formatDate(date)}
+              {formatFullDateWithWeekday(date)}
             </h2>
             <button
               onClick={onClose}

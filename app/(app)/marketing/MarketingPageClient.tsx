@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import dynamic from 'next/dynamic'
-import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
+import { formatShortDateNoYear } from '@/lib/date'
 import { getMarketingCampaigns } from '@/app/actions/marketing'
 import CampaignIcon from '@mui/icons-material/Campaign'
 import VisibilityIcon from '@mui/icons-material/Visibility'
@@ -264,16 +264,7 @@ export default function MarketingPageClient() {
     loadCampaigns()
   }
 
-  const formatDate = (date: Date | string | null) => {
-    if (!date) return '-'
-    return new Date(date).toLocaleDateString('en-US', {
-      timeZone: PANAMA_TIMEZONE,
-      month: 'short',
-      day: 'numeric',
-    })
-  }
-
-  return (
+return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
       <EntityPageHeader
@@ -343,12 +334,12 @@ export default function MarketingPageClient() {
 
                   {/* Booked Date */}
                   <TableCell className="text-[13px] text-gray-600">
-                    {formatDate(campaign.bookingRequest.processedAt)}
+                    {formatShortDateNoYear(campaign.bookingRequest.processedAt)}
                   </TableCell>
 
                   {/* Run At Date */}
                   <TableCell className="text-[13px] text-gray-600">
-                    {formatDate(campaign.bookingRequest.startDate)}
+                    {formatShortDateNoYear(campaign.bookingRequest.startDate)}
                   </TableCell>
 
                   {/* Instagram */}

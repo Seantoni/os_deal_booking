@@ -18,7 +18,7 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import CheckBoxIcon from '@mui/icons-material/CheckBox'
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank'
-import { formatDateShort } from '@/lib/date'
+import { formatShortDate } from '@/lib/date'
 import NewRequestModal from './NewRequestModal'
 import ResendRequestModal from './ResendRequestModal'
 import toast from 'react-hot-toast'
@@ -267,13 +267,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     return request.createdAt
   }
 
-  // Format date for display
-  const formatDate = (date: Date | null): string => {
-    if (!date) return '—'
-    return formatDateShort(date)
-  }
-
-  // Format date for Dates column: "Dec 15, 25"
+// Format date for Dates column: "Dec 15, 25"
   const formatDateShortYear = (date: Date | null): string => {
     if (!date) return ''
     const d = typeof date === 'string' ? new Date(date) : date
@@ -804,7 +798,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                         </span>
                       </TableCell>
                       <TableCell className="text-gray-600">
-                        <span className="whitespace-nowrap text-[13px]">{formatDate(request.createdAt)}</span>
+                        <span className="whitespace-nowrap text-[13px]">{formatShortDate(request.createdAt)}</span>
                       </TableCell>
                       <TableCell>
                         <span className="font-medium text-gray-900 text-[13px]">
@@ -812,10 +806,10 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                         </span>
                       </TableCell>
                       <TableCell className="text-gray-600">
-                        <span className="whitespace-nowrap text-[13px]">{formatDate(sentDate)}</span>
+                        <span className="whitespace-nowrap text-[13px]">{formatShortDate(sentDate)}</span>
                       </TableCell>
                       <TableCell className="text-gray-600">
-                        <span className="whitespace-nowrap text-[13px]">{formatDate(request.processedAt)}</span>
+                        <span className="whitespace-nowrap text-[13px]">{formatShortDate(request.processedAt)}</span>
                       </TableCell>
                       <TableCell>
                         {request.status === 'rejected' && request.rejectionReason ? (

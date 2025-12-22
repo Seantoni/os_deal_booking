@@ -6,7 +6,7 @@ import EventIcon from '@mui/icons-material/Event'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import FlagIcon from '@mui/icons-material/Flag'
 import type { Opportunity } from '@/types'
-import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
+import { formatShortDate } from '@/lib/date'
 
 interface ReferenceInfoBarProps {
   opportunity?: Opportunity | null
@@ -18,12 +18,6 @@ interface ReferenceInfoBarProps {
   startDate?: string | null
   closeDate?: string | null
   nextActivityDate?: string | null
-}
-
-function formatDate(date: string | Date | null | undefined): string {
-  if (!date) return '—'
-  const d = typeof date === 'string' ? new Date(date) : date
-  return d.toLocaleDateString('en-US', { timeZone: PANAMA_TIMEZONE, month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 export default function ReferenceInfoBar({
@@ -49,7 +43,7 @@ export default function ReferenceInfoBar({
           <div className="flex items-center gap-1.5">
             <CalendarTodayIcon className="text-gray-400" style={{ fontSize: 14 }} />
             <span className="font-medium text-gray-500">Created:</span>
-            <span>{formatDate(opportunity.createdAt)}</span>
+            <span>{formatShortDate(opportunity.createdAt)}</span>
           </div>
         ) : (
           <div className="flex items-center gap-1.5">
@@ -63,21 +57,21 @@ export default function ReferenceInfoBar({
         <div className="flex items-center gap-1.5">
           <PlayArrowIcon className="text-green-500" style={{ fontSize: 14 }} />
           <span className="font-medium text-gray-500">Start:</span>
-          <span className={displayStartDate ? '' : 'text-gray-400'}>{formatDate(displayStartDate)}</span>
+          <span className={displayStartDate ? '' : 'text-gray-400'}>{formatShortDate(displayStartDate)}</span>
         </div>
         
         {/* Close Date */}
         <div className="flex items-center gap-1.5">
           <FlagIcon className="text-blue-500" style={{ fontSize: 14 }} />
           <span className="font-medium text-gray-500">Close:</span>
-          <span className={displayCloseDate ? '' : 'text-gray-400'}>{formatDate(displayCloseDate)}</span>
+          <span className={displayCloseDate ? '' : 'text-gray-400'}>{formatShortDate(displayCloseDate)}</span>
         </div>
         
         {/* Next Activity Date */}
         <div className="flex items-center gap-1.5">
           <EventIcon className="text-orange-500" style={{ fontSize: 14 }} />
           <span className="font-medium text-gray-500">Next Activity:</span>
-          <span className={displayNextActivityDate ? '' : 'text-gray-400'}>{formatDate(displayNextActivityDate)}</span>
+          <span className={displayNextActivityDate ? '' : 'text-gray-400'}>{formatShortDate(displayNextActivityDate)}</span>
         </div>
         
         {/* Responsible - Editable */}

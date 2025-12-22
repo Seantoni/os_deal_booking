@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useCallback } from 'react'
-import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
+import { formatShortDate } from '@/lib/date'
 import { deleteEvent, refreshCalendarData } from '@/app/actions/events'
 import { getCategoryColors } from '@/lib/categories'
 import type { Event } from '@/types'
@@ -124,17 +124,7 @@ export default function ReservationsClient({ events: initialEvents, usersMap = {
     }
   }
 
-  const formatDate = (date: Date) => {
-    const d = new Date(date)
-    return d.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric',
-      timeZone: PANAMA_TIMEZONE
-    })
-  }
-
-  return (
+return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header with Actions */}
       <div className="bg-white border-b border-gray-200 px-4 py-3">
@@ -268,10 +258,10 @@ export default function ReservationsClient({ events: initialEvents, usersMap = {
                         {usersMap[event.userId]?.name || usersMap[event.userId]?.email || '-'}
                       </td>
                       <td className="px-4 py-[5px] text-gray-600 whitespace-nowrap">
-                        {formatDate(start)}
+                        {formatShortDate(start)}
                       </td>
                       <td className="px-4 py-[5px] text-gray-600 whitespace-nowrap">
-                        {formatDate(end)}
+                        {formatShortDate(end)}
                       </td>
                       <td className="px-4 py-[5px] text-right text-gray-600">
                         {days} {days === 1 ? 'day' : 'days'}

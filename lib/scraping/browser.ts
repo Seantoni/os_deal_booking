@@ -94,29 +94,48 @@ function getBrowserArgs(): string[] {
 export async function getBrowser(): Promise<Browser> {
   // Check if we have a valid cached browser
   if (browserInstance && browserInstance.connected) {
+    console.log(`[Browser] Reusing existing browser instance`)
     return browserInstance
   }
   
-  console.log(`[Browser] Launching browser (serverless: ${isServerless()})`)
+  const serverless = isServerless()
+  console.log(`[Browser] Launching browser (serverless: ${serverless})`)
+  console.log(`[Browser] Environment: VERCEL=${process.env.VERCEL}, AWS_LAMBDA=${process.env.AWS_LAMBDA_FUNCTION_NAME}`)
   
-  const executablePath = await getExecutablePath()
-  console.log(`[Browser] Using executable: ${executablePath}`)
+  let executablePath: string
+  try {
+    executablePath = await getExecutablePath()
+    console.log(`[Browser] Using executable: ${executablePath}`)
+  } catch (pathError) {
+    console.error(`[Browser] Failed to get executable path:`, pathError)
+    throw new Error(`Browser executable path error: ${pathError instanceof Error ? pathError.message : 'Unknown'}`)
+  }
   
-  const browser = await puppeteer.launch({
-    executablePath,
-    args: getBrowserArgs(),
-    headless: true, // Always use headless mode
-    defaultViewport: { width: 1280, height: 800 },
-  })
+  const args = getBrowserArgs()
+  console.log(`[Browser] Launch args: ${args.length} arguments`)
   
-  browserInstance = browser
-  
-  // Clean up on close
-  browser.on('disconnected', () => {
-    browserInstance = null
-  })
-  
-  return browser
+  try {
+    const browser = await puppeteer.launch({
+      executablePath,
+      args,
+      headless: true, // Always use headless mode
+      defaultViewport: { width: 1280, height: 800 },
+    })
+    
+    console.log(`[Browser] Browser launched successfully`)
+    browserInstance = browser
+    
+    // Clean up on close
+    browser.on('disconnected', () => {
+      console.log(`[Browser] Browser disconnected`)
+      browserInstance = null
+    })
+    
+    return browser
+  } catch (launchError) {
+    console.error(`[Browser] Failed to launch browser:`, launchError)
+    throw new Error(`Browser launch error: ${launchError instanceof Error ? launchError.message : 'Unknown'}`)
+  }
 }
 
 /**

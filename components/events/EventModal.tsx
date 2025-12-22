@@ -188,12 +188,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
     }
   }, [linkedBookingRequest, eventToEdit])
 
-  // Format date for date input (full day only) - use Panama timezone for consistency
-  const formatDate = (date: Date) => {
-    return formatDateForPanama(date)
-  }
-
-  // Pre-fill form when editing or creating with date or PDF data
+// Pre-fill form when editing or creating with date or PDF data
   useEffect(() => {
     if (isOpen) {
       if (eventToEdit) {
@@ -204,8 +199,8 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
           name: eventToEdit.name,
           description: descriptionToUse,
           merchant: linkedBookingRequest?.merchant || eventToEdit.merchant || '',
-          startDate: formatDate(new Date(eventToEdit.startDate)),
-          endDate: formatDate(new Date(eventToEdit.endDate)),
+          startDate: formatDateForPanama(new Date(eventToEdit.startDate)),
+          endDate: formatDateForPanama(new Date(eventToEdit.endDate)),
         })
 
         // Find matching category option - prefer booking request category data
@@ -292,17 +287,17 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
         
         // Set dates if available from booking request
         if (linkedBookingRequest.startDate) {
-          setField('startDate', formatDate(new Date(linkedBookingRequest.startDate)))
+          setField('startDate', formatDateForPanama(new Date(linkedBookingRequest.startDate)))
         }
         if (linkedBookingRequest.endDate) {
-          setField('endDate', formatDate(new Date(linkedBookingRequest.endDate)))
+          setField('endDate', formatDateForPanama(new Date(linkedBookingRequest.endDate)))
         } else if (selectedDate) {
           // Fallback to selected date if no end date
           const start = new Date(selectedDate)
           const end = selectedEndDate ? new Date(selectedEndDate) : new Date(selectedDate)
           setFormData({
-            startDate: formatDate(start),
-            endDate: formatDate(end),
+            startDate: formatDateForPanama(start),
+            endDate: formatDateForPanama(end),
           })
         }
       } else if (selectedDate) {
@@ -311,8 +306,8 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
         const end = selectedEndDate ? new Date(selectedEndDate) : new Date(selectedDate)
         
         setFormData({
-          startDate: formatDate(start),
-          endDate: formatDate(end),
+          startDate: formatDateForPanama(start),
+          endDate: formatDateForPanama(end),
         })
       }
     } else {

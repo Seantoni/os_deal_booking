@@ -6,6 +6,7 @@ import { getMaxDuration } from '@/lib/categories'
 import { calculateNextAvailableDate } from '@/lib/event-validation'
 import { getAllBookedEvents } from '@/app/actions/events'
 import { getSettings } from '@/lib/settings'
+import { formatDateForDisplay } from '@/lib/date'
 import { ONE_DAY_MS } from '@/lib/constants'
 import type { BookingFormData } from '../types'
 import { Input } from '@/components/ui'
@@ -23,11 +24,11 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
   const [calculatingDate, setCalculatingDate] = useState(false)
   const [selectedBusiness, setSelectedBusiness] = useState<BusinessWithStatus | null>(null)
   
+  // Format date string (YYYY-MM-DD) for display
+  // Uses T00:00:00 suffix to create local date without timezone shifting
   const formatDate = (dateString: string): string => {
     if (!dateString) return ''
     const date = new Date(dateString + 'T00:00:00')
-    // Use centralized date formatting utility
-    const { formatDateForDisplay } = require('@/lib/date/formatting')
     return formatDateForDisplay(date, 'es-PA')
   }
 

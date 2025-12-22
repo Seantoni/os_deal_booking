@@ -18,7 +18,7 @@ import { isValidEmail, validateDateRange, validateRequiredFields } from '@/lib/u
 import { buildCategoryDisplayString } from '@/lib/utils/category-display'
 import { logger } from '@/lib/logger'
 import { getAppBaseUrl } from '@/lib/config/env'
-import { parseDateInPanamaTime, parseEndDateInPanamaTime, PANAMA_TIMEZONE } from '@/lib/date/timezone'
+import { parseDateInPanamaTime, parseEndDateInPanamaTime, PANAMA_TIMEZONE, formatDateForDisplay } from '@/lib/date'
 import { buildCategoryKey } from '@/lib/category-utils'
 import { logActivity } from '@/lib/activity-log'
 import { generateRequestName, countBusinessRequests } from '@/lib/utils/request-naming'
@@ -1366,24 +1366,14 @@ export async function adminApproveBookingRequest(requestId: string) {
     // Send notification emails
     const { renderAdminApprovalEmail } = await import('@/lib/email/templates/admin-approval')
     
-    // Format dates for email (using Panama timezone)
-    const formatDate = (date: Date) => {
-      return new Intl.DateTimeFormat('es-PA', {
-        timeZone: PANAMA_TIMEZONE,
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      }).format(date)
-    }
-
     const emailData = {
       requestName: bookingRequest.name,
       businessName: bookingRequest.name.split(' | ')[0].trim(),
       businessEmail: bookingRequest.businessEmail,
       merchant: bookingRequest.merchant || undefined,
       category: bookingRequest.parentCategory || bookingRequest.category || undefined,
-      startDate: formatDate(new Date(bookingRequest.startDate)),
-      endDate: formatDate(new Date(bookingRequest.endDate)),
+      startDate: formatDateForDisplay(new Date(bookingRequest.startDate), 'es-PA'),
+      endDate: formatDateForDisplay(new Date(bookingRequest.endDate), 'es-PA'),
       approvedByName: approverName,
       approvedByEmail: approverEmail,
     }

@@ -22,6 +22,14 @@ export {
   formatDateShort,      // @deprecated - use formatShortDate
   formatFullDate,
   formatDateTime,
+  formatCompactDateTime,
+  formatShortDateNoYear,
+  formatDateForInput,
+  formatISODateOnly,
+  formatFullDateWithWeekday,
+  formatSpanishFullDate,
+  formatShortDateWithWeekday,
+  formatDateUTC,
   formatDateForDisplay,
   formatDateRange,
   // Relative time

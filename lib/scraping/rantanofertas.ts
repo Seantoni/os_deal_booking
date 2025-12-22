@@ -66,13 +66,32 @@ async function fetchProductsFromAPI(
     console.log(`[RantanOfertas] Fetching: ${url}`)
     
     try {
-      const response = await fetch(url)
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json',
+        },
+      })
+      
+      console.log(`[RantanOfertas] Response status: ${response.status}`)
+      
       if (!response.ok) {
-        console.error(`[RantanOfertas] API error: ${response.status}`)
+        const errorText = await response.text().catch(() => 'Unknown error')
+        console.error(`[RantanOfertas] API error: ${response.status} - ${errorText.substring(0, 200)}`)
         break
       }
       
-      const data: ShopifyProductsResponse = await response.json()
+      const text = await response.text()
+      console.log(`[RantanOfertas] Response length: ${text.length} bytes`)
+      
+      let data: ShopifyProductsResponse
+      try {
+        data = JSON.parse(text)
+      } catch (parseError) {
+        console.error(`[RantanOfertas] JSON parse error:`, parseError)
+        console.log(`[RantanOfertas] Response preview: ${text.substring(0, 500)}`)
+        break
+      }
       
       if (data.products.length === 0) {
         hasMore = false

@@ -5,6 +5,7 @@ import { getCategoryOptions } from '@/lib/categories'
 import { calculateNextAvailableDate } from '@/lib/event-validation'
 import { getAllBookedEvents } from '@/app/actions/events'
 import { getSettings } from '@/lib/settings'
+import { formatShortDate } from '@/lib/date'
 import { buildCategoryKey } from '@/lib/category-utils'
 import type { CategoryOption } from '@/types'
 
@@ -122,13 +123,7 @@ export default function CategoryAvailabilityList({ onCategorySelect }: CategoryA
     }
   }, [searchQuery, availabilities])
 
-  // Use centralized date formatting utility
-  const formatDate = (date: Date) => {
-    const { formatDateShort } = require('@/lib/date/formatting')
-    return formatDateShort(date)
-  }
-
-  if (loading) {
+if (loading) {
     return (
       <div className="w-80 bg-white rounded-xl shadow-md border border-gray-200 p-4">
         <h3 className="text-sm font-semibold text-gray-700 mb-3">Disponibilidad por Categoría</h3>
@@ -186,7 +181,7 @@ export default function CategoryAvailabilityList({ onCategorySelect }: CategoryA
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-gray-600">Fecha:</span>
                     <span className="font-medium text-gray-900">
-                      {formatDate(item.nextAvailableDate)}
+                      {formatShortDate(item.nextAvailableDate)}
                     </span>
                   </div>
                 </div>

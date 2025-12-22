@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import CategorySelect from '@/components/shared/CategorySelect'
 import { getCategoryOptions, type CategoryOption } from '@/lib/categories'
+import { formatDateForInput } from '@/lib/date'
 import { Input } from '@/components/ui'
 import { saveBookingRequestDraft, sendBookingRequest } from '@/app/actions/booking'
 import type { BookingRequest } from '@/types'
@@ -35,16 +36,8 @@ export default function BookingRequestForm({ requestToEdit }: BookingRequestForm
       setBusinessEmail(requestToEdit.businessEmail)
       
       // Format dates for input fields (YYYY-MM-DD)
-      const formatDate = (date: Date) => {
-        const d = new Date(date)
-        const year = d.getFullYear()
-        const month = String(d.getMonth() + 1).padStart(2, '0')
-        const day = String(d.getDate()).padStart(2, '0')
-        return `${year}-${month}-${day}`
-      }
-      
-      setStartDate(formatDate(requestToEdit.startDate))
-      setEndDate(formatDate(requestToEdit.endDate))
+      setStartDate(formatDateForInput(requestToEdit.startDate))
+      setEndDate(formatDateForInput(requestToEdit.endDate))
       
       // Set category
       if (requestToEdit.parentCategory) {

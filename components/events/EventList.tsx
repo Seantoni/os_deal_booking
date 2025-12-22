@@ -3,6 +3,7 @@
 import { deleteEvent, refreshCalendarData } from '@/app/actions/events'
 import { useState, useCallback, useEffect } from 'react'
 import { getCategoryColors } from '@/lib/categories'
+import { formatDateUTC } from '@/lib/date'
 import type { Event } from '@/types'
 import toast from 'react-hot-toast'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
@@ -58,23 +59,7 @@ export default function EventList({ events: initialEvents }: EventListProps) {
     }
   }
 
-  function formatDate(date: Date) {
-    // Use UTC methods to avoid timezone shifts for date-only values
-    const d = new Date(date)
-    const year = d.getUTCFullYear()
-    const month = d.getUTCMonth()
-    const day = d.getUTCDate()
-    
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-    
-    const localDate = new Date(year, month, day)
-    const dayOfWeek = dayNames[localDate.getDay()]
-    
-    return `${dayOfWeek}, ${monthNames[month]} ${day}, ${year}`
-  }
-
-  if (events.length === 0) {
+if (events.length === 0) {
     return (
       <div className="bg-gray-50 rounded-lg p-8 border border-gray-200 text-center">
         <p className="text-gray-500">No events yet. Create your first event!</p>
@@ -110,11 +95,11 @@ export default function EventList({ events: initialEvents }: EventListProps) {
               <div className="mt-3 space-y-1 text-sm text-gray-500">
                 <div className="flex items-center gap-2">
                   <span className="font-medium">Start:</span>
-                  <span>{formatDate(event.startDate)}</span>
+                  <span>{formatDateUTC(event.startDate)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-medium">End:</span>
-                  <span>{formatDate(event.endDate)}</span>
+                  <span>{formatDateUTC(event.endDate)}</span>
                 </div>
               </div>
             </div>

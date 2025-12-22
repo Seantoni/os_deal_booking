@@ -1,7 +1,7 @@
 'use client'
 
 import { getCategoryColors } from '@/lib/categories'
-import { formatDateForPanama, PANAMA_TIMEZONE } from '@/lib/date/timezone'
+import { formatShortDateWithWeekday } from '@/lib/date'
 import type { Event } from '@/types'
 
 interface EventSearchResultsProps {
@@ -25,28 +25,6 @@ export default function EventSearchResults({ events, searchQuery, onEventClick, 
       event.subCategory2?.toLowerCase().includes(query)
     )
   })
-
-  const formatDate = (date: Date | null | undefined) => {
-    if (!date) return '-'
-    
-    // Check if date is valid
-    const dateObj = new Date(date)
-    if (isNaN(dateObj.getTime())) return '-'
-    
-    try {
-      const formatted = dateObj.toLocaleDateString('es-PA', {
-        timeZone: PANAMA_TIMEZONE,
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      })
-      return formatted
-    } catch (error) {
-      console.error('Error formatting date:', error, date)
-      return '-'
-    }
-  }
 
   const getCategoryDisplay = (event: Event) => {
     if (event.parentCategory) {
@@ -131,10 +109,10 @@ export default function EventSearchResults({ events, searchQuery, onEventClick, 
                         <span className="text-sm text-gray-600">{getCategoryDisplay(event)}</span>
                       </td>
                       <td className="px-4 py-[5px] whitespace-nowrap">
-                        <span className="text-sm text-gray-900 font-medium">{formatDate(event.startDate)}</span>
+                        <span className="text-sm text-gray-900 font-medium">{formatShortDateWithWeekday(event.startDate)}</span>
                     </td>
                       <td className="px-4 py-[5px] whitespace-nowrap">
-                        <span className="text-sm text-gray-900">{formatDate(event.endDate)}</span>
+                        <span className="text-sm text-gray-900">{formatShortDateWithWeekday(event.endDate)}</span>
                     </td>
                       <td className="px-4 py-[5px] whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
