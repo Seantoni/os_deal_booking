@@ -159,7 +159,8 @@ export async function GET(request: Request) {
     const internalSecret = url.searchParams.get('secret')
     
     // Check for cron secret or internal call
-    const cronSecret = request.headers.get('x-cron-secret')
+    // Vercel sends the secret in Authorization: Bearer <secret> format
+    const authHeader = request.headers.get('authorization')
     const expectedSecret = process.env.CRON_SECRET
     
     // Validate access
@@ -169,8 +170,8 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Invalid internal secret' }, { status: 401 })
       }
     } else if (expectedSecret) {
-      // External calls with CRON_SECRET set must provide it
-      if (cronSecret !== expectedSecret) {
+      // External calls (from Vercel Cron) must provide Bearer token
+      if (authHeader !== `Bearer ${expectedSecret}`) {
         return NextResponse.json({ error: 'Invalid cron secret' }, { status: 401 })
       }
     } else {
