@@ -44,17 +44,6 @@ function getFirebaseAdmin() {
     
     // Replace escaped newlines with actual newlines
     privateKey = privateKey.replace(/\\n/g, '\n')
-    
-    // Log key format for debugging (first/last chars only)
-    const keyPreview = privateKey.length > 50 
-      ? `${privateKey.substring(0, 30)}...${privateKey.substring(privateKey.length - 20)}`
-      : 'key too short'
-    logger.debug('Firebase private key format:', { 
-      length: privateKey.length,
-      startsWithBegin: privateKey.startsWith('-----BEGIN'),
-      endsWithEnd: privateKey.endsWith('-----\n') || privateKey.endsWith('-----'),
-      preview: keyPreview,
-    })
 
     // Initialize Firebase Admin with service account credentials
     const app = admin.initializeApp({
