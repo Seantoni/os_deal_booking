@@ -8,6 +8,12 @@
       "path": "/api/market-intelligence/scan",
       "schedule": "0 5 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "app/api/market-intelligence/scan/route.ts": {
+      "memory": 1024,
+      "maxDuration": 300
+    }
+  }
 }
 
