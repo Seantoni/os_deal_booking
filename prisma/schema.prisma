@@ -624,7 +624,7 @@ model MarketingOption {
   
   // Option identity
   platform   String // "instagram" | "tiktok" | "ofertasimple"
-  optionType String // "story" | "reel" | "post" | "video" | "ad" | "banner" | "email_banner" | "push_notification"
+  optionType String // "story" | "reel" | "post" | "video" | "ad" | "banner" | "email_banner"
   
   // Status
   isPlanned   Boolean @default(false) // Was this option selected/planned?
@@ -651,4 +651,69 @@ model MarketingOption {
   @@index([isPlanned])
   @@index([isCompleted])
   @@map("marketing_options")
+}
+
+// ============================================================================
+// Market Intelligence (Competitor Tracking)
+// ============================================================================
+
+model CompetitorDeal {
+  id          String   @id @default(cuid())
+  
+  // Source info
+  sourceUrl   String   @unique // Full URL to the deal page
+  sourceSite  String   // "rantanofertas" | "oferta24"
+  
+  // Deal info
+  merchantName  String
+  dealTitle     String
+  originalPrice Decimal  @db.Decimal(10, 2)
+  offerPrice    Decimal  @db.Decimal(10, 2)
+  discountPercent Int    // Calculated discount percentage
+  totalSold     Int      @default(0) // Current total sold count
+  imageUrl      String?  // Deal image URL
+  tag           String?  // Badge/tag text like "50+ vendido", "Trending"
+  
+  // Status
+  status        String   @default("active") // "active" | "expired" | "removed"
+  isTracking    Boolean  @default(true) // Whether to continue tracking this deal
+  
+  // Timestamps
+  firstSeenAt   DateTime @default(now()) // When we first discovered this deal
+  lastScannedAt DateTime @default(now()) // Last time we scanned this deal
+  expiresAt     DateTime? // If we can detect expiration date
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  snapshots CompetitorDealSnapshot[]
+  
+  @@index([sourceSite])
+  @@index([status])
+  @@index([isTracking])
+  @@index([merchantName])
+  @@index([firstSeenAt])
+  @@index([lastScannedAt])
+  @@map("competitor_deals")
+}
+
+model CompetitorDealSnapshot {
+  id        String   @id @default(cuid())
+  dealId    String
+  
+  // Snapshot data at time of scan
+  totalSold     Int
+  offerPrice    Decimal  @db.Decimal(10, 2)
+  originalPrice Decimal  @db.Decimal(10, 2)
+  
+  // When this snapshot was taken
+  scannedAt DateTime @default(now())
+  
+  // Relations
+  deal CompetitorDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  
+  @@index([dealId])
+  @@index([scannedAt])
+  @@map("competitor_deal_snapshots")
 }

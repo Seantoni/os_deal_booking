@@ -11,7 +11,7 @@ export type MarketingPlatform = (typeof MARKETING_PLATFORMS)[number]
 export const MARKETING_OPTION_TYPES = {
   instagram: ['story', 'reel', 'post'] as const,
   tiktok: ['video', 'story'] as const,
-  ofertasimple: ['ad', 'banner', 'email_banner', 'push_notification'] as const,
+  ofertasimple: ['ad', 'banner', 'email_banner'] as const,
 } as const
 
 export type MarketingOptionType = 
@@ -45,7 +45,6 @@ export const MARKETING_OPTIONS_CONFIG = {
       { type: 'ad', label: 'Ad' },
       { type: 'banner', label: 'Banner' },
       { type: 'email_banner', label: 'Email Banner' },
-      { type: 'push_notification', label: 'Push Notification' },
     ],
   },
 } as const

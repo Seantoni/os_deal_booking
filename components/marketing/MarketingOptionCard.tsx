@@ -29,10 +29,8 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
-import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive'
 import { Button, Textarea } from '@/components/ui'
 import ImageLightbox from '@/components/common/ImageLightbox'
-import SendPushNotificationModal from './SendPushNotificationModal'
 import toast from 'react-hot-toast'
 
 interface MarketingOptionCardProps {
@@ -59,12 +57,6 @@ interface MarketingOptionCardProps {
   onAddAttachment: (optionId: string, url: string) => Promise<void>
   onRemoveAttachment: (optionId: string, url: string) => Promise<void>
   onImageDrop?: (optionId: string, imageUrl: string) => Promise<void>
-  // Push notification specific props
-  bookingRequestId?: string
-  businessName?: string
-  generatedCopy?: string | null
-  availableImages?: string[]
-  onPushSent?: () => void
 }
 
 export default function MarketingOptionCard({
@@ -80,12 +72,6 @@ export default function MarketingOptionCard({
   onAddAttachment,
   onRemoveAttachment,
   onImageDrop,
-  // Push notification props
-  bookingRequestId,
-  businessName,
-  generatedCopy,
-  availableImages,
-  onPushSent,
 }: MarketingOptionCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [localNotes, setLocalNotes] = useState(option.notes || '')
@@ -94,11 +80,7 @@ export default function MarketingOptionCard({
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
   const [isDragOver, setIsDragOver] = useState(false)
-  const [pushModalOpen, setPushModalOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  // Check if this is a push notification option
-  const isPushNotificationOption = option.optionType === 'push_notification'
 
   const mediaUrls = (option.mediaUrls as string[]) || []
 
@@ -313,30 +295,6 @@ export default function MarketingOptionCard({
             </div>
           )}
 
-          {/* Push Notification Action (only for push_notification type) */}
-          {isPushNotificationOption && canEdit && bookingRequestId && (
-            <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-2.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <NotificationsActiveIcon className="text-purple-500" style={{ fontSize: 18 }} />
-                  <div>
-                    <p className="text-xs font-medium text-purple-800">Push Notification</p>
-                    <p className="text-[10px] text-purple-600">Send to all app users</p>
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => setPushModalOpen(true)}
-                  disabled={saving}
-                  className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-xs h-7 px-3"
-                >
-                  <NotificationsActiveIcon style={{ fontSize: 14 }} className="mr-1" />
-                  Send Push
-                </Button>
-              </div>
-            </div>
-          )}
-
           {/* Notes */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
@@ -460,23 +418,6 @@ export default function MarketingOptionCard({
         isOpen={lightboxOpen && mediaUrls.length > 0}
         onClose={() => setLightboxOpen(false)}
       />
-
-      {/* Push Notification Modal */}
-      {isPushNotificationOption && bookingRequestId && (
-        <SendPushNotificationModal
-          isOpen={pushModalOpen}
-          onClose={() => setPushModalOpen(false)}
-          optionId={option.id}
-          bookingRequestId={bookingRequestId}
-          businessName={businessName || 'Business'}
-          generatedCopy={generatedCopy}
-          availableImages={availableImages}
-          onSuccess={() => {
-            onPushSent?.()
-            // Refresh option state could be handled by parent
-          }}
-        />
-      )}
     </div>
   )
 }

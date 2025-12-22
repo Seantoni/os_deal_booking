@@ -17,6 +17,7 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import SettingsIcon from '@mui/icons-material/Settings'
 import CloseIcon from '@mui/icons-material/Close'
 import MenuIcon from '@mui/icons-material/Menu'
+import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 
 type NavItem = {
   name: string
@@ -51,6 +52,7 @@ const adminSecondaryNav: NavItem[] = [
   { name: 'Leads', href: '/leads', Icon: PersonAddIcon },
   { name: 'Businesses', href: '/businesses', Icon: BusinessIcon },
   { name: 'Opportunities', href: '/opportunities', Icon: HandshakeIcon },
+  { name: 'Intel', href: '/market-intelligence', Icon: TrendingUpIcon },
   { name: 'Settings', href: '/settings', Icon: SettingsIcon },
 ]
 

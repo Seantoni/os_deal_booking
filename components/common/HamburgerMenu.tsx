@@ -19,6 +19,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import HistoryIcon from '@mui/icons-material/History'
 import CampaignIcon from '@mui/icons-material/Campaign'
+import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 
 // Sidebar item type
 type SidebarItem = {
@@ -45,6 +46,9 @@ const adminSidebarConfig = {
         
     // 4. Database / CRM
     { name: 'Businesses', href: '/businesses', Icon: BusinessIcon },
+    
+    // 5. Market Intelligence (Admin only)
+    { name: 'Intel', href: '/market-intelligence', Icon: TrendingUpIcon },
   ],
   bottomItems: [
     { name: 'Calendar', href: '/events', Icon: CalendarMonthIcon },

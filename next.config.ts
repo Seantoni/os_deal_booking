@@ -9,6 +9,8 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['@mui/icons-material', '@mui/material'],
   },
+  // Exclude large packages from serverless bundle (required for Puppeteer on Vercel)
+  serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core'],
   // Allow S3 images
   images: {
     remotePatterns: [
