@@ -6,7 +6,6 @@
  */
 
 import puppeteer, { Browser } from 'puppeteer-core'
-import chromium from '@sparticuz/chromium'
 
 // Cache the browser instance for reuse within the same invocation
 let browserInstance: Browser | null = null
@@ -20,12 +19,17 @@ function isServerless(): boolean {
 
 /**
  * Get the executable path for Chromium
- * - On Vercel: Use @sparticuz/chromium
+ * - On Vercel: Use @sparticuz/chromium (loaded dynamically)
  * - Locally: Use system Chrome/Chromium
  */
 async function getExecutablePath(): Promise<string> {
   if (isServerless()) {
-    return await chromium.executablePath()
+    // Dynamic import to avoid bundling issues
+    const chromium = await import('@sparticuz/chromium')
+    console.log(`[Browser] Chromium module loaded, getting executable path...`)
+    const path = await chromium.default.executablePath()
+    console.log(`[Browser] Chromium executable path: ${path}`)
+    return path
   }
   
   // Local development - try common paths
@@ -50,21 +54,16 @@ async function getExecutablePath(): Promise<string> {
     }
   }
   
-  // If no Chrome found, try to use the path from chromium package
-  // This will work if chromium is installed
-  try {
-    return await chromium.executablePath()
-  } catch {
-    throw new Error(
-      'Chrome/Chromium not found. Please install Google Chrome or set PUPPETEER_EXECUTABLE_PATH'
-    )
-  }
+  // If no Chrome found locally, throw an error
+  throw new Error(
+    'Chrome/Chromium not found. Please install Google Chrome or set PUPPETEER_EXECUTABLE_PATH'
+  )
 }
 
 /**
  * Get browser launch arguments
  */
-function getBrowserArgs(): string[] {
+async function getBrowserArgs(): Promise<string[]> {
   const baseArgs = [
     '--no-sandbox',
     '--disable-setuid-sandbox',
@@ -77,8 +76,10 @@ function getBrowserArgs(): string[] {
   ]
   
   if (isServerless()) {
+    // Dynamic import for serverless
+    const chromium = await import('@sparticuz/chromium')
     // Use chromium's optimized args for serverless
-    return [...chromium.args, ...baseArgs]
+    return [...chromium.default.args, ...baseArgs]
   }
   
   return [
@@ -111,7 +112,7 @@ export async function getBrowser(): Promise<Browser> {
     throw new Error(`Browser executable path error: ${pathError instanceof Error ? pathError.message : 'Unknown'}`)
   }
   
-  const args = getBrowserArgs()
+  const args = await getBrowserArgs()
   console.log(`[Browser] Launch args: ${args.length} arguments`)
   
   try {
