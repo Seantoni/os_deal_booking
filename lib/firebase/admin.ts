@@ -13,6 +13,9 @@ import admin from 'firebase-admin'
 import { ENV } from '@/lib/config/env'
 import { logger } from '@/lib/logger'
 
+// Store initialization error for diagnostics
+let initializationError: string | null = null
+
 // Check if Firebase Admin is already initialized
 function getFirebaseAdmin() {
   if (admin.apps.length > 0) {
@@ -21,24 +24,53 @@ function getFirebaseAdmin() {
 
   // Validate required environment variables
   if (!ENV.FIREBASE_PROJECT_ID || !ENV.FIREBASE_CLIENT_EMAIL || !ENV.FIREBASE_PRIVATE_KEY) {
-    logger.warn('Firebase credentials not configured. Push notifications will be disabled.')
+    const missing = []
+    if (!ENV.FIREBASE_PROJECT_ID) missing.push('FIREBASE_PROJECT_ID')
+    if (!ENV.FIREBASE_CLIENT_EMAIL) missing.push('FIREBASE_CLIENT_EMAIL')
+    if (!ENV.FIREBASE_PRIVATE_KEY) missing.push('FIREBASE_PRIVATE_KEY')
+    initializationError = `Missing environment variables: ${missing.join(', ')}`
+    logger.warn('Firebase credentials not configured. Push notifications will be disabled.', { missing })
     return null
   }
 
   try {
+    // Process private key - handle different formats
+    let privateKey = ENV.FIREBASE_PRIVATE_KEY
+    
+    // If key is wrapped in quotes, remove them
+    if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+      privateKey = privateKey.slice(1, -1)
+    }
+    
+    // Replace escaped newlines with actual newlines
+    privateKey = privateKey.replace(/\\n/g, '\n')
+    
+    // Log key format for debugging (first/last chars only)
+    const keyPreview = privateKey.length > 50 
+      ? `${privateKey.substring(0, 30)}...${privateKey.substring(privateKey.length - 20)}`
+      : 'key too short'
+    logger.debug('Firebase private key format:', { 
+      length: privateKey.length,
+      startsWithBegin: privateKey.startsWith('-----BEGIN'),
+      endsWithEnd: privateKey.endsWith('-----\n') || privateKey.endsWith('-----'),
+      preview: keyPreview,
+    })
+
     // Initialize Firebase Admin with service account credentials
     const app = admin.initializeApp({
       credential: admin.credential.cert({
         projectId: ENV.FIREBASE_PROJECT_ID,
         clientEmail: ENV.FIREBASE_CLIENT_EMAIL,
-        // Private key comes with escaped newlines, need to replace them
-        privateKey: ENV.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        privateKey: privateKey,
       }),
     })
 
+    initializationError = null
     logger.info('Firebase Admin SDK initialized successfully')
     return app
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    initializationError = errorMessage
     logger.error('Failed to initialize Firebase Admin SDK:', error)
     return null
   }
@@ -46,6 +78,13 @@ function getFirebaseAdmin() {
 
 // Initialize once
 const firebaseAdmin = getFirebaseAdmin()
+
+/**
+ * Get the initialization error if any
+ */
+export function getFirebaseInitError(): string | null {
+  return initializationError
+}
 
 /**
  * Check if Firebase is properly configured and available
