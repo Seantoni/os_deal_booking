@@ -11,9 +11,13 @@ export default function SystemTab() {
   const [openaiStatus, setOpenaiStatus] = useState<'idle' | 'checking' | 'connected' | 'error'>('idle')
   const [openaiError, setOpenaiError] = useState<string | null>(null)
   const [openaiModel, setOpenaiModel] = useState<string | null>(null)
+  const [firebaseStatus, setFirebaseStatus] = useState<'idle' | 'checking' | 'connected' | 'error'>('idle')
+  const [firebaseError, setFirebaseError] = useState<string | null>(null)
+  const [firebaseProjectId, setFirebaseProjectId] = useState<string | null>(null)
 
   useEffect(() => {
     checkDatabaseStatus()
+    checkFirebaseStatus()
   }, [])
 
   async function checkDatabaseStatus() {
@@ -44,6 +48,28 @@ export default function SystemTab() {
     } catch (error) {
       setOpenaiStatus('error')
       setOpenaiError(error instanceof Error ? error.message : 'Unknown error')
+    }
+  }
+
+  async function checkFirebaseStatus() {
+    setFirebaseStatus('checking')
+    setFirebaseError(null)
+    try {
+      const response = await fetch('/api/health/firebase')
+      const data = await response.json()
+      if (data.connected) {
+        setFirebaseStatus('connected')
+        setFirebaseProjectId(data.details?.projectId || null)
+      } else if (data.configured === false) {
+        setFirebaseStatus('idle')
+        setFirebaseError('Not configured')
+      } else {
+        setFirebaseStatus('error')
+        setFirebaseError(data.error || 'Connection failed')
+      }
+    } catch (error) {
+      setFirebaseStatus('error')
+      setFirebaseError(error instanceof Error ? error.message : 'Unknown error')
     }
   }
 
@@ -154,6 +180,52 @@ export default function SystemTab() {
             <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-sm text-red-800"><strong>OpenAI Error:</strong> {openaiError}</p>
               <p className="text-xs text-red-600 mt-2">Make sure OPENAI_API_KEY is set in your .env file</p>
+            </div>
+          )}
+
+          {/* Firebase Cloud Messaging Status */}
+          <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-white rounded-lg border border-orange-200">
+            <div className="flex items-center gap-3">
+              <div className={`w-3 h-3 rounded-full ${
+                firebaseStatus === 'connected' ? 'bg-green-500 animate-pulse' : 
+                firebaseStatus === 'checking' ? 'bg-yellow-500 animate-pulse' : 
+                firebaseStatus === 'idle' ? 'bg-gray-400' :
+                'bg-red-500'
+              }`}></div>
+              <div>
+                <p className="font-semibold text-gray-900">Firebase Cloud Messaging</p>
+                <p className="text-xs text-gray-600">Push notifications service</p>
+                {firebaseProjectId && (
+                  <p className="text-xs text-orange-700 font-medium mt-1">Project: {firebaseProjectId}</p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className={`px-4 py-2 rounded-full text-sm font-bold ${
+                firebaseStatus === 'connected' ? 'bg-green-100 text-green-800' : 
+                firebaseStatus === 'checking' ? 'bg-yellow-100 text-yellow-800' : 
+                firebaseStatus === 'idle' ? 'bg-gray-100 text-gray-600' :
+                'bg-red-100 text-red-800'
+              }`}>
+                {firebaseStatus === 'connected' ? '✓ Connected' : 
+                 firebaseStatus === 'checking' ? '⟳ Checking...' : 
+                 firebaseStatus === 'idle' ? 'Not Configured' :
+                 '✗ Error'}
+              </span>
+              <button
+                onClick={checkFirebaseStatus}
+                disabled={firebaseStatus === 'checking'}
+                className="px-3 py-1 text-xs bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors disabled:bg-gray-400"
+              >
+                {firebaseStatus === 'idle' ? 'Test' : 'Recheck'}
+              </button>
+            </div>
+          </div>
+
+          {firebaseError && firebaseError !== 'Not configured' && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-800"><strong>Firebase Error:</strong> {firebaseError}</p>
+              <p className="text-xs text-red-600 mt-2">Make sure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY are set in your .env file</p>
             </div>
           )}
 

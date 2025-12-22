@@ -84,6 +84,14 @@ export const ENV = {
   AWS_SECRET_ACCESS_KEY: getEnv('AWS_SECRET_ACCESS_KEY'),
   AWS_REGION: getEnv('AWS_REGION', { defaultValue: 'us-east-1' }),
   AWS_S3_BUCKET: getEnv('AWS_S3_BUCKET'),
+
+  /**
+   * Firebase Configuration (optional - only needed for push notifications)
+   * FIREBASE_SERVICE_ACCOUNT should be a base64-encoded JSON string of the service account key
+   */
+  FIREBASE_PROJECT_ID: getEnv('FIREBASE_PROJECT_ID'),
+  FIREBASE_CLIENT_EMAIL: getEnv('FIREBASE_CLIENT_EMAIL'),
+  FIREBASE_PRIVATE_KEY: getEnv('FIREBASE_PRIVATE_KEY'),
 }
 
 /**

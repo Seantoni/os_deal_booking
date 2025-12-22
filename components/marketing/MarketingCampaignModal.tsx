@@ -102,6 +102,7 @@ export default function MarketingCampaignModal({
     generateAICopy,
     updateVideoScript,
     generateAIVideoScript,
+    refresh,
   } = useMarketingCampaign({
     campaignId,
     isOpen,
@@ -667,6 +668,12 @@ export default function MarketingCampaignModal({
                                         onAddAttachment={addAttachment}
                                         onRemoveAttachment={removeAttachment}
                                         onImageDrop={handleImageDropOnOption}
+                                        // Push notification props
+                                        bookingRequestId={campaign?.bookingRequestId}
+                                        businessName={campaign?.bookingRequest?.merchant || campaign?.bookingRequest?.name || 'Business'}
+                                        generatedCopy={campaign?.generatedCopy}
+                                        availableImages={requestImages.map(img => img.url)}
+                                        onPushSent={refresh}
                                       />
                                     )
                                   })}
