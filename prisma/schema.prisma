@@ -142,6 +142,7 @@ model BookingRequest {
   dealFromBookingRequest Deal?              @relation("DealBookingRequest") // Back reference to Deal (relation is owned by Deal.bookingRequestId)
   publicLink             PublicRequestLink? @relation(fields: [publicLinkToken], references: [token], onDelete: SetNull)
   marketingCampaign      MarketingCampaign? // One marketing campaign per booked request
+  externalApiRequests    ExternalApiRequest[] // API requests made for this booking
 
   @@index([userId])
   @@index([status])
@@ -716,4 +717,48 @@ model CompetitorDealSnapshot {
   @@index([dealId])
   @@index([scannedAt])
   @@map("competitor_deal_snapshots")
+}
+
+// ============================================================
+// EXTERNAL API TRACKING
+// ============================================================
+
+model ExternalApiRequest {
+  id        String   @id @default(cuid())
+  
+  // Request info
+  endpoint      String                // API endpoint URL
+  method        String   @default("POST") // HTTP method
+  requestBody   Json?                 // The payload sent
+  headers       Json?                 // Request headers (sanitized, no auth tokens)
+  
+  // Response info
+  statusCode    Int?                  // HTTP status code (200, 201, 400, 422, etc.)
+  responseBody  Json?                 // Response from API (parsed JSON or error)
+  responseRaw   String?               // Raw response if not JSON (e.g., HTML error pages)
+  
+  // Result tracking
+  success       Boolean  @default(false)
+  errorMessage  String?               // Human-readable error message
+  externalId    Int?                  // ID returned by external API on success (e.g., deal ID)
+  
+  // Context
+  bookingRequestId String?            // Link to booking request if applicable
+  userId           String?            // User who triggered the request
+  triggeredBy      String?            // "manual", "cron", "webhook", etc.
+  
+  // Timing
+  durationMs    Int?                  // Request duration in milliseconds
+  createdAt     DateTime @default(now())
+  
+  // Relations
+  bookingRequest BookingRequest? @relation(fields: [bookingRequestId], references: [id], onDelete: SetNull)
+  
+  @@index([endpoint])
+  @@index([statusCode])
+  @@index([success])
+  @@index([bookingRequestId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("external_api_requests")
 }

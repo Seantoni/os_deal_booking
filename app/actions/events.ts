@@ -91,6 +91,34 @@ export async function createEvent(formData: FormData) {
       logger.error('Failed to create marketing campaign:', marketingError)
     }
     
+    // Send deal to external OfertaSimple API
+    try {
+      const bookingRequestData = await prisma.bookingRequest.findUnique({
+        where: { id: bookingRequestId },
+        select: {
+          id: true,
+          merchant: true,
+          name: true,
+          businessEmail: true,
+          endDate: true,
+          campaignDuration: true,
+          pricingOptions: true,
+        },
+      })
+      
+      if (bookingRequestData) {
+        const { sendDealToExternalApi } = await import('@/lib/api/external-oferta')
+        await sendDealToExternalApi(bookingRequestData, {
+          userId,
+          triggeredBy: 'system',
+        })
+        logger.info('Deal sent to external API for booking request:', bookingRequestId)
+      }
+    } catch (apiError) {
+      // Log error but don't fail the booking process
+      logger.error('Failed to send deal to external API:', apiError)
+    }
+    
     invalidateEntity('booking-requests')
   }
 
@@ -498,6 +526,34 @@ export async function bookEvent(eventId: string) {
         } catch (marketingError) {
           // Log error but don't fail the booking process
           logger.error('Failed to create marketing campaign:', marketingError)
+        }
+
+        // Send deal to external OfertaSimple API
+        try {
+          const bookingRequestData = await prisma.bookingRequest.findUnique({
+            where: { id: bookingRequest.id },
+            select: {
+              id: true,
+              merchant: true,
+              name: true,
+              businessEmail: true,
+              endDate: true,
+              campaignDuration: true,
+              pricingOptions: true,
+            },
+          })
+          
+          if (bookingRequestData) {
+            const { sendDealToExternalApi } = await import('@/lib/api/external-oferta')
+            await sendDealToExternalApi(bookingRequestData, {
+              userId,
+              triggeredBy: 'system',
+            })
+            logger.info('Deal sent to external API for booking request:', bookingRequest.id)
+          }
+        } catch (apiError) {
+          // Log error but don't fail the booking process
+          logger.error('Failed to send deal to external API:', apiError)
         }
 
         // Send booking confirmation email

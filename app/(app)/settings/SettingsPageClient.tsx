@@ -26,6 +26,8 @@ import EmailPreviewTab from './components/EmailPreviewTab'
 import EmailIcon from '@mui/icons-material/Email'
 import PublicIcon from '@mui/icons-material/Public'
 import PublicPagesTab from './components/PublicPagesTab'
+import ApiLogsTab from './components/ApiLogsTab'
+import HistoryIcon from '@mui/icons-material/History'
 import './styles.css'
 
 const isDev = process.env.NODE_ENV === 'development'
@@ -35,7 +37,7 @@ export default function SettingsPageClient() {
   const [saved, setSaved] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState<{ created: number; updated: number; deactivated: number } | null>(null)
-  const [activeTab, setActiveTab] = useState<'general' | 'categories' | 'form-builder' | 'system' | 'access' | 'email-preview' | 'public-pages'>('general')
+  const [activeTab, setActiveTab] = useState<'general' | 'categories' | 'form-builder' | 'system' | 'access' | 'email-preview' | 'public-pages' | 'api-logs'>('general')
   const { isAdmin } = useUserRole()
   const [formBuilderSubTab, setFormBuilderSubTab] = useState<'entity-fields' | 'request-form'>('entity-fields')
   const confirmDialog = useConfirmDialog()
@@ -286,11 +288,24 @@ export default function SettingsPageClient() {
                 <span>Email Preview</span>
               </button>
             )}
+            {isAdmin && (
+              <button
+                onClick={() => handleTabChange('api-logs')}
+                className={`flex items-center gap-2 px-4 py-3 text-xs font-medium transition-colors border-b-2 -mb-px ${
+                  activeTab === 'api-logs'
+                    ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                <HistoryIcon fontSize="small" style={{ fontSize: 18 }} />
+                <span>API Logs</span>
+              </button>
+            )}
           </div>
         </div>
 
         {/* Save Bar - Sticky */}
-        {(activeTab !== 'system' && activeTab !== 'access' && activeTab !== 'public-pages' && (activeTab !== 'form-builder' || formBuilderSubTab === 'request-form')) && (
+        {(activeTab !== 'system' && activeTab !== 'access' && activeTab !== 'public-pages' && activeTab !== 'api-logs' && (activeTab !== 'form-builder' || formBuilderSubTab === 'request-form')) && (
           <div className="sticky top-2 z-10 bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               {saved ? (
@@ -405,6 +420,12 @@ export default function SettingsPageClient() {
           {activeTab === 'email-preview' && isAdmin && (
             <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
               <EmailPreviewTab isAdmin={isAdmin} />
+            </div>
+          )}
+
+          {activeTab === 'api-logs' && isAdmin && (
+            <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+              <ApiLogsTab />
             </div>
           )}
         </div>
