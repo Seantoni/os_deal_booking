@@ -558,8 +558,42 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       try {
         // Import the book function
         const { bookEvent } = await import('@/app/actions/events')
-        await bookEvent(eventToEdit.id)
+        const result = await bookEvent(eventToEdit.id)
         toast.success('Event booked successfully')
+
+        const externalApi = (result as any)?.externalApi as
+          | { success: true; externalId?: number; logId?: string }
+          | { success: false; error?: string; logId?: string }
+          | null
+
+        // Show external API result (success/failure) after booking
+        if (externalApi) {
+          const isOk = externalApi.success === true
+          const lines: string[] = []
+          lines.push(isOk ? 'Deal was sent to OfertaSimple successfully.' : 'Deal FAILED to send to OfertaSimple.')
+          if (externalApi.externalId) lines.push(`OfertaSimple Deal ID: ${externalApi.externalId}`)
+          if (!isOk && externalApi.error) lines.push(`Error: ${externalApi.error}`)
+          if (externalApi.logId) lines.push(`Log ID: ${externalApi.logId}`)
+          lines.push('Check Settings → API Logs for full request/response details.')
+
+          await confirmDialog.confirm({
+            title: isOk ? 'OfertaSimple: Success' : 'OfertaSimple: Failed',
+            message: lines.join('\n'),
+            confirmText: 'OK',
+            cancelText: 'Close',
+            confirmVariant: isOk ? 'success' : 'danger',
+          })
+        } else {
+          // No external API call was attempted (e.g. no booking request linked)
+          await confirmDialog.confirm({
+            title: 'OfertaSimple',
+            message: 'No external API call was made for this booking (no linked booking request or missing data).',
+            confirmText: 'OK',
+            cancelText: 'Close',
+            confirmVariant: 'primary',
+          })
+        }
+
         // onSuccess callback already called for optimistic update
         onClose()
       } catch (err) {

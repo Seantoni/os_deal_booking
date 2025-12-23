@@ -28,6 +28,25 @@ function parseQuantity(quantity: string | null | undefined): number | null {
 }
 
 /**
+ * Parse integer string to number or null
+ */
+function parseOptionalInt(value: string | null | undefined): number | null {
+  if (!value) return null
+  const parsed = parseInt(value, 10)
+  return isNaN(parsed) ? null : parsed
+}
+
+/**
+ * Convert days to seconds for API expiresIn field
+ * API expects seconds since voucher creation
+ */
+function daysToSeconds(days: string | null | undefined): number | null {
+  const parsed = parseOptionalInt(days)
+  if (parsed === null) return null
+  return parsed * 24 * 60 * 60 // days × 24 hours × 60 minutes × 60 seconds
+}
+
+/**
  * Extract URLs from social media string (format: "url1 | url2 | ...")
  */
 function extractUrls(socialMedia: string | null | undefined): string[] {
@@ -59,21 +78,41 @@ export function mapBookingFormToApi(
   // Extract offer name from first pricing option (the subtitle shown on deal page)
   const nameEs = firstPricingOption?.title || firstPricingOption?.description || formData.businessName || ''
   
+  // Extract summary/subtitle for summaryEs (use first pricing option title, or aboutOffer, or business name)
+  const summaryEs = firstPricingOption?.title || formData.aboutOffer || formData.businessName || ''
+  
+  // Extract email subject (use business name as default)
+  const emailSubject = formData.businessName || nameEs || ''
+  
   // Extract images from dealImages array
   const images = (formData.dealImages || [])
     .sort((a, b) => (a.order || 0) - (b.order || 0))
     .map(img => img.url)
     .filter(Boolean) as string[]
 
-  // Map pricing options
-  const priceOptions: ExternalOfertaPriceOption[] = (formData.pricingOptions || []).map(opt => ({
-    title: opt.title || '',
-    price: parseFloat(opt.price || '0') || 0,
-    value: opt.realValue ? parseFloat(opt.realValue) || null : null,
-    description: opt.description || null,
-    maximumQuantity: parseQuantity(opt.quantity),
-    // TODO: Add limitByUser, endAt, expiresIn when fields are added to form
-  }))
+  // Map pricing options - filter out invalid ones and ensure required fields
+  const priceOptions: ExternalOfertaPriceOption[] = (formData.pricingOptions || [])
+    .filter(opt => {
+      const title = opt.title || ''
+      const price = parseFloat(opt.price || '0') || 0
+      // Only include options with valid title and price
+      return title.trim() !== '' && price > 0
+    })
+    .map(opt => {
+      const title = (opt.title || '').trim()
+      const price = parseFloat(opt.price || '0') || 0
+      
+      return {
+        title,
+        price,
+        value: opt.realValue ? parseFloat(opt.realValue) || null : null,
+        description: opt.description?.trim() || null,
+        maximumQuantity: parseQuantity(opt.quantity),
+        limitByUser: parseOptionalInt(opt.limitByUser),
+        endAt: opt.endAt || null,
+        expiresIn: daysToSeconds(opt.expiresIn),
+      }
+    })
 
   // Extract websites from contactDetails or socialMedia
   const websites = extractUrls(formData.socialMedia || formData.contactDetails)
@@ -81,9 +120,9 @@ export function mapBookingFormToApi(
   return {
     // Required fields (will need to be provided or have defaults)
     nameEs,
-    slug: options.slug || '', // TODO: Auto-generate from nameEs
-    emailSubject: '', // TODO: Add emailSubject field to form
-    summaryEs: formData.aboutOffer || '', // "Acerca de esta oferta"
+    slug: options.slug || nameEs.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'deal',
+    emailSubject: emailSubject,
+    summaryEs: summaryEs,
     expiresOn: options.expiresOn || '', // TODO: Map from endDate
     categoryId: options.categoryId || 0, // TODO: Map from category
 
@@ -126,7 +165,7 @@ export function mapBookingFormToApi(
     howToUseEs: formData.offerDetails || null, // "Instrucciones de uso" - confirm mapping
     // banner1Line1: TODO - may need new field
 
-    // Pricing
+    // Pricing - only include if we have at least one valid option
     priceOptions: priceOptions.length > 0 ? priceOptions : null,
 
     // Boolean flags (with sensible defaults)

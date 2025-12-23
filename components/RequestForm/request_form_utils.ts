@@ -4,10 +4,24 @@ import { isValidEmail } from '@/lib/utils/validation'
 import { FIELD_TEMPLATES, getTemplateName } from './config'
 import { REQUEST_FORM_STEPS } from '@/lib/config/request-form-fields'
 
+// Map form step keys to REQUEST_FORM_STEPS keys (they differ slightly)
+const STEP_KEY_MAP: Record<string, string> = {
+  'configuracion': 'configuracion',
+  'operatividad': 'operatividad',
+  'directorio': 'directorio',
+  'fiscales': 'fiscales',
+  'negocio': 'negocio',
+  'estructura': 'estructura',
+  'informacion-adicional': 'informacion-adicional',
+  'contenido': 'descripcion', // Form uses 'contenido', config uses 'descripcion'
+  'validacion': 'politicas', // Form uses 'validacion', config uses 'politicas'
+}
+
 export const validateStep = (
   step: number,
   formData: BookingFormData,
-  requiredFields?: RequestFormFieldsConfig
+  requiredFields?: RequestFormFieldsConfig,
+  stepKey?: string
 ): Record<string, string> => {
   const newErrors: Record<string, string> = {}
   const isRequired = (fieldKey: string) => requiredFields?.[fieldKey]?.required === true
@@ -18,7 +32,11 @@ export const validateStep = (
     formData.category
   )
 
-  const stepDef = REQUEST_FORM_STEPS.find((s) => s.id === step)
+  // Find step definition by key (more reliable than by ID due to misalignment)
+  const mappedKey = stepKey ? STEP_KEY_MAP[stepKey] || stepKey : null
+  const stepDef = mappedKey 
+    ? REQUEST_FORM_STEPS.find((s) => s.key === mappedKey)
+    : REQUEST_FORM_STEPS.find((s) => s.id === step)
 
   const shouldValidateField = (fieldKey: string): boolean => {
     if (!stepDef) return false
@@ -88,6 +106,32 @@ export const validateStep = (
         pricingOptionsToValidate.forEach((option, index) => {
           const price = parseFloat(option.price) || 0
           const realValue = parseFloat(option.realValue) || 0
+          
+          // Check required fields for each pricing option
+          if (isRequired('pricingOptions.title') && isEmpty(option.title)) {
+            newErrors[`pricingOptions.${index}.title`] = 'Título requerido'
+          }
+          if (isRequired('pricingOptions.description') && isEmpty(option.description)) {
+            newErrors[`pricingOptions.${index}.description`] = 'Descripción requerida'
+          }
+          if (isRequired('pricingOptions.price') && isEmpty(option.price)) {
+            newErrors[`pricingOptions.${index}.price`] = 'Precio requerido'
+          }
+          if (isRequired('pricingOptions.realValue') && isEmpty(option.realValue)) {
+            newErrors[`pricingOptions.${index}.realValue`] = 'Valor real requerido'
+          }
+          if (isRequired('pricingOptions.quantity') && isEmpty(option.quantity)) {
+            newErrors[`pricingOptions.${index}.quantity`] = 'Cantidad requerida'
+          }
+          if (isRequired('pricingOptions.limitByUser') && isEmpty(option.limitByUser)) {
+            newErrors[`pricingOptions.${index}.limitByUser`] = 'Límite por usuario requerido'
+          }
+          if (isRequired('pricingOptions.endAt') && isEmpty(option.endAt)) {
+            newErrors[`pricingOptions.${index}.endAt`] = 'Fecha fin requerida'
+          }
+          if (isRequired('pricingOptions.expiresIn') && isEmpty(option.expiresIn)) {
+            newErrors[`pricingOptions.${index}.expiresIn`] = 'Vencimiento requerido'
+          }
           
           // If both values are provided and > 0, validate
           if (price > 0 && realValue > 0) {

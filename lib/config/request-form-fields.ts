@@ -124,6 +124,14 @@ export const REQUEST_FORM_STEPS: RequestFormStep[] = [
     description: 'Estructura de la oferta',
     fields: [
       { key: 'pricingOptions', label: 'Opciones de Precio', type: 'array' },
+      { key: 'pricingOptions.title', label: 'Título de Opción', type: 'text' },
+      { key: 'pricingOptions.description', label: 'Descripción de Opción', type: 'textarea' },
+      { key: 'pricingOptions.price', label: 'Precio (Cliente Paga)', type: 'number' },
+      { key: 'pricingOptions.realValue', label: 'Valor Real', type: 'number' },
+      { key: 'pricingOptions.quantity', label: 'Cantidad Disponible', type: 'text' },
+      { key: 'pricingOptions.limitByUser', label: 'Límite por Usuario', type: 'number' },
+      { key: 'pricingOptions.endAt', label: 'Fecha Fin de Opción', type: 'date' },
+      { key: 'pricingOptions.expiresIn', label: 'Vencimiento Voucher (Días)', type: 'number' },
     ],
   },
   {

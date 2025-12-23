@@ -516,7 +516,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
 
   const handleValidateStep = (stepKey: string): boolean => {
     const stepId = getStepIdByKey(stepKey) || 1
-    const newErrors = validateStep(stepId, formData, requiredFields)
+    const newErrors = validateStep(stepId, formData, requiredFields, stepKey)
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -587,7 +587,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
       ...prev,
       pricingOptions: [
         ...prev.pricingOptions,
-        { title: '', description: '', price: '', realValue: '', quantity: 'Ilimitado' }
+        { title: '', description: '', price: '', realValue: '', quantity: 'Ilimitado', limitByUser: '', endAt: '', expiresIn: '' }
       ]
     }))
   }

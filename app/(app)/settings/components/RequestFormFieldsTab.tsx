@@ -10,17 +10,20 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import SearchIcon from '@mui/icons-material/Search'
 import FilterListIcon from '@mui/icons-material/FilterList'
+import RefreshIcon from '@mui/icons-material/Refresh'
 
 interface RequestFormFieldsTabProps {
   settings: {
     requestFormFields?: RequestFormFieldsConfig
   }
   onUpdate: (requestFormFields: RequestFormFieldsConfig) => void
+  onRefresh?: () => void
+  isRefreshing?: boolean
 }
 
 const isDev = process.env.NODE_ENV === 'development'
 
-export default function RequestFormFieldsTab({ settings, onUpdate }: RequestFormFieldsTabProps) {
+export default function RequestFormFieldsTab({ settings, onUpdate, onRefresh, isRefreshing }: RequestFormFieldsTabProps) {
   const [expandedSteps, setExpandedSteps] = useState<Set<number>>(new Set([1])) // Start with first step expanded
   const [searchQuery, setSearchQuery] = useState('')
   const [templateFilter, setTemplateFilter] = useState<string>('all')
@@ -137,6 +140,19 @@ export default function RequestFormFieldsTab({ settings, onUpdate }: RequestForm
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {onRefresh && (
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="!gap-1"
+            >
+              <RefreshIcon style={{ fontSize: 16 }} className={isRefreshing ? 'animate-spin' : ''} />
+              {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            </Button>
+          )}
+          <div className="w-px h-4 bg-gray-200" />
           <Button
             variant="ghost"
             size="xs"

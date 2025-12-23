@@ -306,7 +306,7 @@ export default function EstructuraStep({
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
                       <span>Título de Opción</span>
-                      {isFieldRequired('pricingOptions') ? (
+                      {isFieldRequired('pricingOptions.title') ? (
                         <span className="text-red-500">*</span>
                       ) : (
                         <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
@@ -331,8 +331,12 @@ export default function EstructuraStep({
                     onChange={(e) => updatePricingOption(index, 'title', e.target.value)}
                     placeholder='Ej: "Paga $7 por menú completo en Restaurante. Valor $15"'
                     size="sm"
+                    className={errors[`pricingOptions.${index}.title`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
                   />
-                  {!option.description?.trim() && (
+                  {errors[`pricingOptions.${index}.title`] && (
+                    <p className="text-xs text-red-600 font-medium mt-1">{errors[`pricingOptions.${index}.title`]}</p>
+                  )}
+                  {!option.description?.trim() && !errors[`pricingOptions.${index}.title`] && (
                     <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
                       <InfoIcon style={{ fontSize: 12 }} />
                       <span>Completa la descripción para generar el título con AI</span>
@@ -343,14 +347,22 @@ export default function EstructuraStep({
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
                     <span>Descripción (Detalles incluidos)</span>
-                    <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
+                    {isFieldRequired('pricingOptions.description') ? (
+                      <span className="text-red-500">*</span>
+                    ) : (
+                      <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
+                    )}
                   </label>
                   <Textarea
                     value={option.description}
                     onChange={(e) => updatePricingOption(index, 'description', e.target.value)}
                     rows={2}
                     placeholder="Detalles incluidos en esta opción..."
+                    className={errors[`pricingOptions.${index}.description`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
                   />
+                  {errors[`pricingOptions.${index}.description`] && (
+                    <p className="text-xs text-red-600 font-medium mt-1">{errors[`pricingOptions.${index}.description`]}</p>
+                  )}
                 </div>
 
                 {/* Image Upload Section */}
@@ -429,7 +441,7 @@ export default function EstructuraStep({
                 <div>
                   <label className="block text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
                     <span>Precio (Cliente Paga)</span>
-                    {isFieldRequired('pricingOptions') ? (
+                    {isFieldRequired('pricingOptions.price') ? (
                       <span className="text-red-500">*</span>
                     ) : (
                       <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
@@ -458,7 +470,11 @@ export default function EstructuraStep({
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
                     <span>Valor Real</span>
-                    <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
+                    {isFieldRequired('pricingOptions.realValue') ? (
+                      <span className="text-red-500">*</span>
+                    ) : (
+                      <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
+                    )}
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
@@ -506,14 +522,91 @@ export default function EstructuraStep({
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
                     <span>Cantidad</span>
-                    <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
+                    {isFieldRequired('pricingOptions.quantity') ? (
+                      <span className="text-red-500">*</span>
+                    ) : (
+                      <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
+                    )}
                   </label>
                   <Input
                     value={option.quantity}
                     onChange={(e) => updatePricingOption(index, 'quantity', e.target.value)}
                     placeholder="Ilimitado"
                     size="sm"
+                    className={errors[`pricingOptions.${index}.quantity`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
                   />
+                  {errors[`pricingOptions.${index}.quantity`] && (
+                    <p className="text-xs text-red-600 font-medium mt-1">{errors[`pricingOptions.${index}.quantity`]}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                    <span>Límite por usuario</span>
+                    {isFieldRequired('pricingOptions.limitByUser') ? (
+                      <span className="text-red-500">*</span>
+                    ) : (
+                      <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
+                    )}
+                  </label>
+                  <Input
+                    type="number"
+                    value={option.limitByUser || ''}
+                    onChange={(e) => updatePricingOption(index, 'limitByUser', e.target.value)}
+                    placeholder="Sin límite"
+                    min="1"
+                    size="sm"
+                    className={errors[`pricingOptions.${index}.limitByUser`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
+                  />
+                  {errors[`pricingOptions.${index}.limitByUser`] && (
+                    <p className="text-xs text-red-600 font-medium mt-1">{errors[`pricingOptions.${index}.limitByUser`]}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                    <span>Fecha fin de opción</span>
+                    {isFieldRequired('pricingOptions.endAt') ? (
+                      <span className="text-red-500">*</span>
+                    ) : (
+                      <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
+                    )}
+                  </label>
+                  <Input
+                    type="date"
+                    value={option.endAt || ''}
+                    onChange={(e) => updatePricingOption(index, 'endAt', e.target.value)}
+                    size="sm"
+                    className={errors[`pricingOptions.${index}.endAt`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
+                  />
+                  {errors[`pricingOptions.${index}.endAt`] && (
+                    <p className="text-xs text-red-600 font-medium mt-1">{errors[`pricingOptions.${index}.endAt`]}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                    <span>Vencimiento voucher (días)</span>
+                    {isFieldRequired('pricingOptions.expiresIn') ? (
+                      <span className="text-red-500">*</span>
+                    ) : (
+                      <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
+                    )}
+                  </label>
+                  <Input
+                    type="number"
+                    value={option.expiresIn || ''}
+                    onChange={(e) => updatePricingOption(index, 'expiresIn', e.target.value)}
+                    placeholder="Ej: 90"
+                    min="1"
+                    size="sm"
+                    className={errors[`pricingOptions.${index}.expiresIn`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
+                  />
+                  {errors[`pricingOptions.${index}.expiresIn`] ? (
+                    <p className="text-xs text-red-600 font-medium mt-1">{errors[`pricingOptions.${index}.expiresIn`]}</p>
+                  ) : (
+                    <p className="text-[10px] text-gray-400 mt-1">Días desde compra hasta vencimiento</p>
+                  )}
                 </div>
               </div>
             </div>

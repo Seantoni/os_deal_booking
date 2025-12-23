@@ -56,34 +56,42 @@ export default function SettingsPageClient() {
     })
   }
 
-  useEffect(() => {
-    // Load settings from database
-    const loadSettings = async () => {
-      try {
-        const response = await fetch('/api/settings?t=' + Date.now()) // Cache bust
-        if (response.ok) {
-          const result = await response.json()
-          if (isDev) {
-          console.log('[SettingsPageClient] Loaded settings from DB:', {
-            success: result.success,
-            hasRequestFormFields: !!result.data?.requestFormFields,
-            requestFormFieldsCount: result.data?.requestFormFields ? Object.keys(result.data.requestFormFields).length : 0,
-          })
-          }
-          if (result.success && result.data) {
-            setSettings(result.data)
-            // Also sync to localStorage for backward compatibility
-            saveSettings(result.data)
-            return
-          }
+  const [isRefreshingFields, setIsRefreshingFields] = useState(false)
+
+  // Load settings from database
+  const loadSettings = async (showToast = false) => {
+    if (showToast) setIsRefreshingFields(true)
+    try {
+      const response = await fetch('/api/settings?t=' + Date.now()) // Cache bust
+      if (response.ok) {
+        const result = await response.json()
+        if (isDev) {
+        console.log('[SettingsPageClient] Loaded settings from DB:', {
+          success: result.success,
+          hasRequestFormFields: !!result.data?.requestFormFields,
+          requestFormFieldsCount: result.data?.requestFormFields ? Object.keys(result.data.requestFormFields).length : 0,
+        })
         }
-      } catch (error) {
-        if (isDev) console.error('[SettingsPageClient] Failed to load settings from DB:', error)
+        if (result.success && result.data) {
+          setSettings(result.data)
+          // Also sync to localStorage for backward compatibility
+          saveSettings(result.data)
+          if (showToast) toast.success('Settings refreshed')
+          return
+        }
       }
-      // Fallback to localStorage if DB fails
-      const localSettings = getSettings()
-      setSettings(localSettings)
+    } catch (error) {
+      if (isDev) console.error('[SettingsPageClient] Failed to load settings from DB:', error)
+      if (showToast) toast.error('Failed to refresh settings')
+    } finally {
+      if (showToast) setIsRefreshingFields(false)
     }
+    // Fallback to localStorage if DB fails
+    const localSettings = getSettings()
+    setSettings(localSettings)
+  }
+
+  useEffect(() => {
     loadSettings()
   }, [])
 
@@ -397,6 +405,8 @@ export default function SettingsPageClient() {
                     onUpdate={(requestFormFields) => {
                       setSettings(prev => ({ ...prev, requestFormFields }))
                     }}
+                    onRefresh={() => loadSettings(true)}
+                    isRefreshing={isRefreshingFields}
                   />
                 )}
               </div>

@@ -5,7 +5,10 @@
  */
 
 import { logApiCall } from './logger'
+import { mapBookingFormToApi } from './mapper'
 import type { ExternalOfertaDealRequest, ExternalOfertaDealResponse } from './types'
+import type { BookingFormData } from '@/components/RequestForm/types'
+import type { Prisma } from '@prisma/client'
 
 const EXTERNAL_API_URL = process.env.EXTERNAL_OFERTA_API_URL || 'https://ofertasimple.com/external/api/deals'
 const EXTERNAL_API_TOKEN = process.env.EXTERNAL_OFERTA_API_TOKEN
@@ -68,14 +71,24 @@ interface BookingRequestData {
   // Database uses 'merchant' for business name, 'name' as fallback
   merchant?: string | null
   name?: string | null
+  businessName?: string | null
   businessEmail: string
   endDate: Date | string
   campaignDuration?: string | null
-  pricingOptions?: Array<{ title?: string; description?: string }> | unknown | null
+  pricingOptions?: Prisma.JsonValue
   // Optional fields for future use
   aboutOffer?: string | null
   whatWeLike?: string | null
   goodToKnow?: string | null
+  businessReview?: string | null
+  offerDetails?: string | null
+  addressAndHours?: string | null
+  paymentInstructions?: string | null
+  giftVouchers?: string | null
+  dealImages?: Prisma.JsonValue
+  socialMedia?: string | null
+  contactDetails?: string | null
+  opportunityId?: string | null
 }
 
 interface SendDealResult {
@@ -83,6 +96,52 @@ interface SendDealResult {
   externalId?: number
   error?: string
   logId?: string
+}
+
+function safeStringify(value: unknown, maxLen: number = 1500): string {
+  try {
+    const s = JSON.stringify(value)
+    return s.length > maxLen ? s.slice(0, maxLen) + '…' : s
+  } catch {
+    return String(value)
+  }
+}
+
+function formatValidationError(responseData: unknown, responseText: string): string {
+  const data = (responseData ?? {}) as any
+
+  const candidates = [
+    data?.errors,
+    data?.error?.errors,
+    data?.validation,
+    data?.detail,
+    data?.details,
+    data?.data?.errors,
+    data?.message,
+    data?.error,
+  ]
+
+  const first = candidates.find((v) => v !== undefined && v !== null)
+
+  if (Array.isArray(first)) {
+    return `Validation failed: ${first.map(String).join(', ')}`
+  }
+
+  if (first && typeof first === 'object') {
+    const entries = Object.entries(first as Record<string, unknown>)
+    const formatted = entries
+      .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.map(String).join(', ') : String(v)}`)
+      .join('; ')
+    return `Validation failed: ${formatted || safeStringify(first)}`
+  }
+
+  if (typeof first === 'string' && first.trim() && first.trim().toLowerCase() !== 'validation failed') {
+    return `Validation failed: ${first}`
+  }
+
+  // Last resort: include a snippet of the raw body so we can see what the API returned.
+  const rawSnippet = responseText.length > 1000 ? responseText.slice(0, 1000) + '…' : responseText
+  return `Validation failed (raw): ${rawSnippet || safeStringify(data)}`
 }
 
 /**
@@ -103,7 +162,7 @@ export async function sendDealToExternalApi(
     return { success: false, error: 'API token not configured' }
   }
 
-  // Build the API payload
+  // Convert BookingRequestData to BookingFormData format for mapper
   const endDate = typeof bookingRequest.endDate === 'string' 
     ? new Date(bookingRequest.endDate) 
     : bookingRequest.endDate
@@ -111,32 +170,182 @@ export async function sendDealToExternalApi(
   const campaignMonths = parseCampaignDuration(bookingRequest.campaignDuration)
   
   // Get business name (merchant field in DB, fallback to name)
-  const businessName = bookingRequest.merchant || bookingRequest.name || 'Unknown Business'
+  const businessName = bookingRequest.merchant || bookingRequest.name || bookingRequest.businessName || 'Unknown Business'
   
-  // Get subtitle from first pricing option (pricingOptions is stored as JSON)
-  const pricingOptions = Array.isArray(bookingRequest.pricingOptions) 
-    ? bookingRequest.pricingOptions as Array<{ title?: string; description?: string }>
-    : []
-  const firstOption = pricingOptions[0]
-  const subtitle = firstOption?.title || firstOption?.description || businessName
-
-  const payload: ExternalOfertaDealRequest = {
-    // Required fields
-    nameEs: businessName,
+  // Convert pricing options to proper format (handle JSON parsing if needed)
+  let pricingOptions: Array<{
+    title?: string
+    description?: string
+    price?: string
+    realValue?: string
+    quantity?: string
+    limitByUser?: string
+    endAt?: string
+    expiresIn?: string
+    imageUrl?: string
+  }> = []
+  
+  if (bookingRequest.pricingOptions) {
+    if (typeof bookingRequest.pricingOptions === 'string') {
+      try {
+        pricingOptions = JSON.parse(bookingRequest.pricingOptions)
+      } catch {
+        pricingOptions = []
+      }
+    } else if (Array.isArray(bookingRequest.pricingOptions)) {
+      pricingOptions = bookingRequest.pricingOptions as any
+    }
+  }
+  
+  // Convert dealImages to proper format
+  let dealImages: Array<{ url: string; order: number }> = []
+  if (bookingRequest.dealImages) {
+    if (typeof bookingRequest.dealImages === 'string') {
+      try {
+        dealImages = JSON.parse(bookingRequest.dealImages)
+      } catch {
+        dealImages = []
+      }
+    } else if (Array.isArray(bookingRequest.dealImages)) {
+      dealImages = bookingRequest.dealImages as any
+    }
+  }
+  
+  // Build BookingFormData-like object for mapper
+  const formData: Partial<BookingFormData> = {
+    businessName,
+    partnerEmail: bookingRequest.businessEmail,
+    endDate: endDate.toISOString().split('T')[0],
+    campaignDuration: bookingRequest.campaignDuration || '3',
+    pricingOptions: pricingOptions as any,
+    aboutOffer: bookingRequest.aboutOffer || '',
+    whatWeLike: bookingRequest.whatWeLike || '',
+    goodToKnow: bookingRequest.goodToKnow || '',
+    businessReview: bookingRequest.businessReview || '',
+    offerDetails: bookingRequest.offerDetails || '',
+    addressAndHours: bookingRequest.addressAndHours || '',
+    paymentInstructions: bookingRequest.paymentInstructions || '',
+    giftVouchers: bookingRequest.giftVouchers || 'Sí',
+    dealImages: dealImages,
+    socialMedia: bookingRequest.socialMedia || '',
+    contactDetails: bookingRequest.contactDetails || '',
+    opportunityId: bookingRequest.opportunityId || '',
+  }
+  
+  // Use mapper to build the payload (includes all pricing options properly)
+  const payload = mapBookingFormToApi(formData as BookingFormData, {
     slug: generateSlug(businessName),
-    emailSubject: businessName,
-    summaryEs: subtitle, // Using subtitle (first pricing option title)
     expiresOn: calculateExpiresOn(endDate, campaignMonths),
     categoryId: 17, // Hardcoded for now
-    vendorName: businessName,
+  })
+  
+  // Validate payload before sending
+  const validationErrors: string[] = []
+  if (!payload.nameEs || payload.nameEs.trim() === '') {
+    validationErrors.push('nameEs is required')
+  }
+  if (!payload.slug || payload.slug.trim() === '') {
+    validationErrors.push('slug is required')
+  }
+  if (!payload.emailSubject || payload.emailSubject.trim() === '') {
+    validationErrors.push('emailSubject is required')
+  }
+  if (!payload.summaryEs || payload.summaryEs.trim() === '') {
+    validationErrors.push('summaryEs is required')
+  }
+  if (!payload.expiresOn) {
+    validationErrors.push('expiresOn is required')
+  }
+  if (!payload.categoryId || payload.categoryId === 0) {
+    validationErrors.push('categoryId is required')
+  }
+  if (!payload.vendorId && !payload.vendorName) {
+    validationErrors.push('vendorId or vendorName is required')
+  }
+  
+  // Validate price options if provided
+  if (payload.priceOptions && Array.isArray(payload.priceOptions)) {
+    if (payload.priceOptions.length === 0) {
+      // Remove empty array - send null instead
+      payload.priceOptions = null
+    } else {
+      payload.priceOptions.forEach((opt, index) => {
+        if (typeof opt.price !== 'number' || opt.price <= 0) {
+          validationErrors.push(`priceOptions[${index}].price must be a positive number (got: ${opt.price})`)
+        }
+      })
+    }
+  }
+  
+  if (validationErrors.length > 0) {
+    const errorMessage = `Payload validation failed: ${validationErrors.join(', ')}`
+    console.error('[External API]', errorMessage, { payload })
+    
+    // Log to database
+    const logId = await logApiCall({
+      endpoint: EXTERNAL_API_URL,
+      method: 'POST',
+      requestBody: payload,
+      bookingRequestId: bookingRequest.id,
+      userId: options?.userId,
+      triggeredBy: options?.triggeredBy || 'system',
+      durationMs: Date.now() - startTime,
+      response: {
+        statusCode: 0,
+        success: false,
+        errorMessage,
+      },
+    })
+    
+    return { success: false, error: errorMessage, logId }
+  }
+
+  /**
+   * OfertaSimple's live validator appears to reject `priceOptions[*][title]` as an unexpected field
+   * (even though our doc.json suggests it exists). To stay compatible, we strip `title` from each
+   * price option and (if needed) preserve it inside `description`.
+   */
+  const payloadToSend: ExternalOfertaDealRequest = {
+    ...payload,
+    priceOptions: Array.isArray(payload.priceOptions)
+      ? (payload.priceOptions as any[]).map((opt) => {
+          const { title, ...rest } = opt || {}
+          return {
+            ...rest,
+            description: rest.description ?? (title ? String(title) : null),
+          }
+        })
+      : payload.priceOptions,
   }
 
   console.log('[External API] Sending deal to external API:', {
     bookingRequestId: bookingRequest.id,
     businessName,
-    slug: payload.slug,
-    expiresOn: payload.expiresOn,
+    slug: payloadToSend.slug,
+    expiresOn: payloadToSend.expiresOn,
+    hasPriceOptions: !!payloadToSend.priceOptions,
+    priceOptionsCount: Array.isArray(payloadToSend.priceOptions) ? payloadToSend.priceOptions.length : 0,
   })
+  
+  // Log pricing options details
+  if (payloadToSend.priceOptions && Array.isArray(payloadToSend.priceOptions)) {
+    console.log('[External API] Price options being sent:', payloadToSend.priceOptions.map((opt: any) => ({
+      // title is intentionally stripped for compatibility
+      price: opt.price,
+      value: opt.value,
+      description: opt.description,
+      maximumQuantity: opt.maximumQuantity,
+      limitByUser: opt.limitByUser,
+      endAt: opt.endAt,
+      expiresIn: opt.expiresIn,
+    })))
+  } else {
+    console.warn('[External API] No price options in payload!', {
+      priceOptions: payloadToSend.priceOptions,
+      type: typeof payloadToSend.priceOptions,
+      isArray: Array.isArray(payloadToSend.priceOptions),
+    })
+  }
 
   try {
     const response = await fetch(EXTERNAL_API_URL, {
@@ -146,7 +355,7 @@ export async function sendDealToExternalApi(
         'Authorization': `Bearer ${EXTERNAL_API_TOKEN}`,
         'User-Agent': 'OfertaSimpleBooking/1.0', // Required to pass Cloudflare
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payloadToSend),
     })
 
     const durationMs = Date.now() - startTime
@@ -164,15 +373,41 @@ export async function sendDealToExternalApi(
 
     const success = response.ok && isJson && (responseData as any).status === 'success'
     const externalId = success ? (responseData as ExternalOfertaDealResponse).id : undefined
-    const errorMessage = !success
-      ? (responseData as any).error || (responseData as any).message || `HTTP ${response.status}`
-      : undefined
+    
+    // Enhanced error message extraction for validation errors
+    let errorMessage: string | undefined
+    if (!success) {
+      if (response.status === 422) {
+        errorMessage = formatValidationError(responseData, responseText)
+      } else {
+        errorMessage = (responseData as any).error || (responseData as any).message || `HTTP ${response.status}`
+      }
+    }
+    
+    // Log validation errors with full details
+    if (response.status === 422) {
+      console.error('[External API] Validation error details:', {
+        statusCode: response.status,
+        responseData,
+        payloadSummary: {
+          nameEs: payload.nameEs,
+          slug: payload.slug,
+          emailSubject: payload.emailSubject,
+          summaryEs: payload.summaryEs,
+          expiresOn: payload.expiresOn,
+          categoryId: payload.categoryId,
+          vendorName: payload.vendorName,
+          priceOptionsCount: Array.isArray(payload.priceOptions) ? payload.priceOptions.length : 0,
+          priceOptions: payload.priceOptions,
+        },
+      })
+    }
 
     // Log to database
     const logId = await logApiCall({
       endpoint: EXTERNAL_API_URL,
       method: 'POST',
-      requestBody: payload,
+      requestBody: payloadToSend,
       bookingRequestId: bookingRequest.id,
       userId: options?.userId,
       triggeredBy: options?.triggeredBy || 'system',
@@ -180,7 +415,8 @@ export async function sendDealToExternalApi(
       response: {
         statusCode: response.status,
         body: isJson ? responseData : undefined,
-        raw: !isJson ? responseText.substring(0, 1000) : undefined,
+        // Always store a raw snippet (even when JSON) so the UI can show it.
+        raw: responseText.substring(0, 4000),
         success,
         errorMessage,
         externalId,

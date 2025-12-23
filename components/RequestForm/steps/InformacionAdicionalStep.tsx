@@ -60,7 +60,7 @@ export default function InformacionAdicionalStep({ formData, errors, updateFormD
                 config={{
                   ...fieldConfig,
                   // Sync required/optional with settings
-                  required: isFieldRequired(fieldConfig.name as keyof BookingFormData),
+                  required: isFieldRequired(fieldConfig.name),
                 }}
                 formData={formData}
                 errors={errors}

@@ -109,6 +109,48 @@ export async function logApiCall(
     'User-Agent': 'OfertaSimpleBooking/1.0',
   }
   
+  // Enhanced logging for debugging
+  console.log('[External API Logger] Logging API call:', {
+    endpoint,
+    method,
+    bookingRequestId,
+    triggeredBy,
+    durationMs,
+    statusCode: response.statusCode,
+    success: response.success,
+    hasPriceOptions: !!(requestBody as any).priceOptions,
+    priceOptionsCount: Array.isArray((requestBody as any).priceOptions) 
+      ? (requestBody as any).priceOptions.length 
+      : 0,
+    priceOptionsDetails: Array.isArray((requestBody as any).priceOptions)
+      ? (requestBody as any).priceOptions.map((opt: any) => ({
+          title: opt.title,
+          price: opt.price,
+          value: opt.value,
+          maximumQuantity: opt.maximumQuantity,
+          limitByUser: opt.limitByUser,
+          endAt: opt.endAt,
+          expiresIn: opt.expiresIn,
+        }))
+      : null,
+  })
+  
+  // Log full request body structure for debugging
+  if (!response.success) {
+    console.error('[External API Logger] Request body structure:', {
+      nameEs: (requestBody as any).nameEs,
+      slug: (requestBody as any).slug,
+      emailSubject: (requestBody as any).emailSubject,
+      summaryEs: (requestBody as any).summaryEs,
+      expiresOn: (requestBody as any).expiresOn,
+      categoryId: (requestBody as any).categoryId,
+      vendorName: (requestBody as any).vendorName,
+      priceOptions: (requestBody as any).priceOptions,
+      priceOptionsType: typeof (requestBody as any).priceOptions,
+      priceOptionsIsArray: Array.isArray((requestBody as any).priceOptions),
+    })
+  }
+  
   const record = await prisma.externalApiRequest.create({
     data: {
       endpoint,
@@ -127,6 +169,8 @@ export async function logApiCall(
       durationMs,
     },
   })
+  
+  console.log('[External API Logger] Log entry created:', { logId: record.id })
   
   return record.id
 }

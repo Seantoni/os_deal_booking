@@ -71,6 +71,9 @@ export type BookingFormData = {
     realValue: string
     quantity: string
     imageUrl?: string // S3 URL for the option image
+    limitByUser?: string // Max quantity per user (API: limitByUser)
+    endAt?: string // End date for this option (API: endAt)
+    expiresIn?: string // Days until voucher expires (API: expiresIn, converted to seconds)
   }>
   
   // Deal Images Gallery (general images for the deal)

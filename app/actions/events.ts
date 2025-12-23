@@ -103,6 +103,18 @@ export async function createEvent(formData: FormData) {
           endDate: true,
           campaignDuration: true,
           pricingOptions: true,
+          aboutOffer: true,
+          whatWeLike: true,
+          goodToKnow: true,
+          businessReview: true,
+          offerDetails: true,
+          addressAndHours: true,
+          paymentInstructions: true,
+          giftVouchers: true,
+          dealImages: true,
+          socialMedia: true,
+          contactDetails: true,
+          opportunityId: true,
         },
       })
       
@@ -461,6 +473,11 @@ export async function bookEvent(eventId: string) {
   }
 
   try {
+    let externalApiResult:
+      | { success: true; externalId?: number; logId?: string }
+      | { success: false; error?: string; logId?: string }
+      | null = null
+
     // Get the event and its linked booking request
     const event = await prisma.event.findUnique({
       where: { id: eventId },
@@ -475,7 +492,7 @@ export async function bookEvent(eventId: string) {
     }
 
     // Update event status to booked
-    await prisma.event.update({
+    const updatedEvent = await prisma.event.update({
       where: { id: eventId },
       data: { status: 'booked' },
     })
@@ -540,20 +557,38 @@ export async function bookEvent(eventId: string) {
               endDate: true,
               campaignDuration: true,
               pricingOptions: true,
+              aboutOffer: true,
+              whatWeLike: true,
+              goodToKnow: true,
+              businessReview: true,
+              offerDetails: true,
+              addressAndHours: true,
+              paymentInstructions: true,
+              giftVouchers: true,
+              dealImages: true,
+              socialMedia: true,
+              contactDetails: true,
+              opportunityId: true,
             },
           })
           
           if (bookingRequestData) {
             const { sendDealToExternalApi } = await import('@/lib/api/external-oferta')
-            await sendDealToExternalApi(bookingRequestData, {
+            externalApiResult = await sendDealToExternalApi(bookingRequestData, {
               userId,
               triggeredBy: 'system',
             })
             logger.info('Deal sent to external API for booking request:', bookingRequest.id)
+          } else {
+            externalApiResult = { success: false, error: 'bookingRequestData not found' }
           }
         } catch (apiError) {
           // Log error but don't fail the booking process
           logger.error('Failed to send deal to external API:', apiError)
+          externalApiResult = {
+            success: false,
+            error: apiError instanceof Error ? apiError.message : 'Failed to send deal to external API',
+          }
         }
 
         // Send booking confirmation email
@@ -582,6 +617,11 @@ export async function bookEvent(eventId: string) {
         statusChange: { from: event.status, to: 'booked' }
       }
     })
+
+    return {
+      event: updatedEvent,
+      externalApi: externalApiResult,
+    }
 
     return { success: true, data: event }
   } catch (error) {
