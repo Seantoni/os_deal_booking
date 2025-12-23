@@ -8,6 +8,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import ErrorIcon from '@mui/icons-material/Error'
 import DescriptionIcon from '@mui/icons-material/Description'
 import toast from 'react-hot-toast'
+import ConfirmDialog from '@/components/common/ConfirmDialog'
 
 function ActionToastCard(props: {
   title: string
@@ -97,6 +98,8 @@ export default function ApiLogsTab() {
   const [total, setTotal] = useState(0)
   const [stats, setStats] = useState<{ total: number; successful: number; failed: number; successRate: string } | null>(null)
   const [resendingId, setResendingId] = useState<string | null>(null)
+  const [showResendConfirm, setShowResendConfirm] = useState(false)
+  const [pendingResendLogId, setPendingResendLogId] = useState<string | null>(null)
   const pageSize = 20
 
   const loadLogs = async () => {
@@ -122,9 +125,17 @@ export default function ApiLogsTab() {
     loadLogs()
   }, [page])
 
-  const handleResend = async (logId: string) => {
-    const confirmed = window.confirm('Resend this request to OfertaSimple? A new log entry will be created.')
-    if (!confirmed) return
+  const beginResend = (logId: string) => {
+    setPendingResendLogId(logId)
+    setShowResendConfirm(true)
+  }
+
+  const handleResendConfirmed = async () => {
+    const logId = pendingResendLogId
+    if (!logId) return
+
+    setShowResendConfirm(false)
+    setPendingResendLogId(null)
 
     setResendingId(logId)
     const toastId = toast.custom(
@@ -362,7 +373,7 @@ export default function ApiLogsTab() {
                           size="xs"
                           variant="secondary"
                           disabled={loading || resendingId === log.id}
-                          onClick={() => handleResend(log.id)}
+                          onClick={() => beginResend(log.id)}
                         >
                           {resendingId === log.id ? 'Resending…' : 'Resend'}
                         </Button>
@@ -405,6 +416,21 @@ export default function ApiLogsTab() {
           </div>
         )}
       </div>
+
+      {/* Resend confirmation dialog */}
+      <ConfirmDialog
+        isOpen={showResendConfirm}
+        title="Resend request to OfertaSimple?"
+        message="This will resend the exact logged payload to OfertaSimple and create a new log entry."
+        confirmText="Yes, resend"
+        cancelText="Cancel"
+        confirmVariant="primary"
+        onConfirm={handleResendConfirmed}
+        onCancel={() => {
+          setShowResendConfirm(false)
+          setPendingResendLogId(null)
+        }}
+      />
     </div>
   )
 }
