@@ -46,6 +46,7 @@ import MarketingCampaignModal from '@/components/marketing/MarketingCampaignModa
 import { adminApproveBookingRequest } from '@/app/actions/booking-requests'
 import { formatShortDate } from '@/lib/date'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
+import type { BookingFormData } from '@/components/RequestForm/types'
 
 // Helper to get field value from requestData using dynamic key access
 function getFieldValue(data: BookingRequestViewData | null, key: string): unknown {
@@ -197,6 +198,7 @@ export default function BookingRequestViewModal({
   const [approving, setApproving] = useState(false)
   const [showApproveConfirm, setShowApproveConfirm] = useState(false)
   const [showMarketingModal, setShowMarketingModal] = useState(false)
+  const [replicating, setReplicating] = useState(false)
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('')
@@ -553,113 +555,96 @@ export default function BookingRequestViewModal({
   function handleReplicate() {
     if (!requestData) return
 
-    // Build query parameters with all replicable fields
-    const params = new URLSearchParams()
-    
-    // Flag to indicate this is a replication
-    params.set('replicate', 'true')
-    
-    // Step 1: Configuración
-    // Extract business name from formatted request name (format: "Business Name | Date | #Number")
-    // Only use the part before the first "|" to avoid duplicate formatting
-    if (requestData.name) {
-      const businessName = requestData.name.split(' | ')[0].trim()
-      params.set('businessName', businessName)
-    }
-    if (requestData.businessEmail) params.set('partnerEmail', String(requestData.businessEmail))
-    if (requestData.additionalEmails) {
-      const emails = Array.isArray(requestData.additionalEmails) 
-        ? requestData.additionalEmails 
-        : []
-      if (emails.length > 0) params.set('additionalEmails', JSON.stringify(emails))
-    }
-    if (requestData.merchant) params.set('merchant', String(requestData.merchant))
-    if (requestData.category) params.set('category', String(requestData.category))
-    if (requestData.parentCategory) params.set('parentCategory', String(requestData.parentCategory))
-    if (requestData.subCategory1) params.set('subCategory1', String(requestData.subCategory1))
-    if (requestData.subCategory2) params.set('subCategory2', String(requestData.subCategory2))
-    if (requestData.subCategory3) params.set('subCategory3', String(requestData.subCategory3))
-    if (requestData.campaignDuration) params.set('campaignDuration', String(requestData.campaignDuration))
-    
-    // Step 2: Operatividad
-    if (requestData.redemptionMode) params.set('redemptionMode', String(requestData.redemptionMode))
-    if (requestData.isRecurring) params.set('isRecurring', String(requestData.isRecurring))
-    if (requestData.recurringOfferLink) params.set('recurringOfferLink', String(requestData.recurringOfferLink))
-    if (requestData.paymentType) params.set('paymentType', String(requestData.paymentType))
-    if (requestData.paymentInstructions) params.set('paymentInstructions', String(requestData.paymentInstructions))
-    
-    // Step 3: Directorio
-    if (requestData.redemptionContactName) params.set('redemptionContactName', String(requestData.redemptionContactName))
-    if (requestData.redemptionContactEmail) params.set('redemptionContactEmail', String(requestData.redemptionContactEmail))
-    if (requestData.redemptionContactPhone) params.set('redemptionContactPhone', String(requestData.redemptionContactPhone))
-    
-    // Step 4: Fiscales
-    if (requestData.legalName) params.set('legalName', String(requestData.legalName))
-    if (requestData.rucDv) params.set('rucDv', String(requestData.rucDv))
-    if (requestData.bankAccountName) params.set('bankAccountName', String(requestData.bankAccountName))
-    if (requestData.bank) params.set('bank', String(requestData.bank))
-    if (requestData.accountNumber) params.set('accountNumber', String(requestData.accountNumber))
-    if (requestData.accountType) params.set('accountType', String(requestData.accountType))
-    if (requestData.addressAndHours) params.set('addressAndHours', String(requestData.addressAndHours))
-    if (requestData.province) params.set('province', String(requestData.province))
-    if (requestData.district) params.set('district', String(requestData.district))
-    if (requestData.corregimiento) params.set('corregimiento', String(requestData.corregimiento))
-    
-    // Step 5: Negocio
-    if (requestData.includesTaxes) params.set('includesTaxes', String(requestData.includesTaxes))
-    if (requestData.validOnHolidays) params.set('validOnHolidays', String(requestData.validOnHolidays))
-    if (requestData.hasExclusivity) params.set('hasExclusivity', String(requestData.hasExclusivity))
-    if (requestData.blackoutDates) params.set('blackoutDates', String(requestData.blackoutDates))
-    if (requestData.exclusivityCondition) params.set('exclusivityCondition', String(requestData.exclusivityCondition))
-    if (requestData.giftVouchers) params.set('giftVouchers', String(requestData.giftVouchers))
-    if (requestData.hasOtherBranches) params.set('hasOtherBranches', String(requestData.hasOtherBranches))
-    if (requestData.vouchersPerPerson) params.set('vouchersPerPerson', String(requestData.vouchersPerPerson))
-    if (requestData.commission) params.set('commission', String(requestData.commission))
-    
-    // Step 6: Descripción
-    if (requestData.redemptionMethods) {
-      const methods = Array.isArray(requestData.redemptionMethods) 
-        ? requestData.redemptionMethods 
-        : []
-      if (methods.length > 0) params.set('redemptionMethods', JSON.stringify(methods))
-    }
-    if (requestData.contactDetails) params.set('contactDetails', String(requestData.contactDetails))
-    if (requestData.socialMedia) params.set('socialMedia', String(requestData.socialMedia))
-    if (requestData.offerDetails) params.set('offerDetails', String(requestData.offerDetails))
-    
-    // Contenido: AI-Generated Content Fields
-    if (requestData.whatWeLike) params.set('whatWeLike', String(requestData.whatWeLike))
-    if (requestData.aboutCompany) params.set('aboutCompany', String(requestData.aboutCompany))
-    if (requestData.aboutOffer) params.set('aboutOffer', String(requestData.aboutOffer))
-    if (requestData.goodToKnow) params.set('goodToKnow', String(requestData.goodToKnow))
-    
-    // Step 7: Estructura (Pricing Options + Deal Images)
-    if (requestData.pricingOptions) {
-      const pricing = Array.isArray(requestData.pricingOptions) 
-        ? requestData.pricingOptions 
-        : []
-      if (pricing.length > 0) params.set('pricingOptions', JSON.stringify(pricing))
-    }
-    if (requestData.dealImages) {
-      const images = Array.isArray(requestData.dealImages) 
-        ? requestData.dealImages 
-        : []
-      if (images.length > 0) params.set('dealImages', JSON.stringify(images))
-    }
-    
-    // Step 8: Políticas
-    if (requestData.cancellationPolicy) params.set('cancellationPolicy', String(requestData.cancellationPolicy))
-    if (requestData.marketValidation) params.set('marketValidation', String(requestData.marketValidation))
-    if (requestData.additionalComments) params.set('additionalComments', String(requestData.additionalComments))
-    
-    // Step 9: Información Adicional (template-specific fields)
-    if (requestData.additionalInfo && typeof requestData.additionalInfo === 'object') {
-      params.set('additionalInfo', JSON.stringify(requestData.additionalInfo))
-    }
+    // INP optimization: avoid building huge query strings in the click handler.
+    // Store replicate payload in sessionStorage and pass a small key in the URL.
+    setReplicating(true)
 
-    // Navigate to the booking request form with pre-filled data
-    onClose()
-    router.push(`/booking-requests/new?${params.toString()}`)
+    // Let the UI update (paint) before doing heavier work.
+    setTimeout(() => {
+      try {
+        const businessName = requestData.name ? String(requestData.name).split(' | ')[0].trim() : ''
+
+        const payload: Partial<BookingFormData> = {
+          businessName: businessName || '',
+          partnerEmail: requestData.businessEmail ? String(requestData.businessEmail) : '',
+          additionalEmails: Array.isArray(requestData.additionalEmails) ? (requestData.additionalEmails as string[]) : [],
+          category: requestData.category ? String(requestData.category) : '',
+          parentCategory: requestData.parentCategory ? String(requestData.parentCategory) : '',
+          subCategory1: requestData.subCategory1 ? String(requestData.subCategory1) : '',
+          subCategory2: requestData.subCategory2 ? String(requestData.subCategory2) : '',
+          subCategory3: requestData.subCategory3 ? String(requestData.subCategory3) : '',
+          campaignDuration: requestData.campaignDuration ? String(requestData.campaignDuration) : '',
+
+          redemptionMode: requestData.redemptionMode ? String(requestData.redemptionMode) : undefined,
+          isRecurring: requestData.isRecurring ? String(requestData.isRecurring) : undefined,
+          recurringOfferLink: requestData.recurringOfferLink ? String(requestData.recurringOfferLink) : undefined,
+          paymentType: requestData.paymentType ? String(requestData.paymentType) : undefined,
+          paymentInstructions: requestData.paymentInstructions ? String(requestData.paymentInstructions) : undefined,
+
+          redemptionContactName: requestData.redemptionContactName ? String(requestData.redemptionContactName) : undefined,
+          redemptionContactEmail: requestData.redemptionContactEmail ? String(requestData.redemptionContactEmail) : undefined,
+          redemptionContactPhone: requestData.redemptionContactPhone ? String(requestData.redemptionContactPhone) : undefined,
+
+          legalName: requestData.legalName ? String(requestData.legalName) : undefined,
+          rucDv: requestData.rucDv ? String(requestData.rucDv) : undefined,
+          bankAccountName: requestData.bankAccountName ? String(requestData.bankAccountName) : undefined,
+          bank: requestData.bank ? String(requestData.bank) : undefined,
+          accountNumber: requestData.accountNumber ? String(requestData.accountNumber) : undefined,
+          accountType: requestData.accountType ? String(requestData.accountType) : undefined,
+          addressAndHours: requestData.addressAndHours ? String(requestData.addressAndHours) : undefined,
+          province: requestData.province ? String(requestData.province) : undefined,
+          district: requestData.district ? String(requestData.district) : undefined,
+          corregimiento: requestData.corregimiento ? String(requestData.corregimiento) : undefined,
+
+          includesTaxes: requestData.includesTaxes ? String(requestData.includesTaxes) : undefined,
+          validOnHolidays: requestData.validOnHolidays ? String(requestData.validOnHolidays) : undefined,
+          hasExclusivity: requestData.hasExclusivity ? String(requestData.hasExclusivity) : undefined,
+          blackoutDates: requestData.blackoutDates ? String(requestData.blackoutDates) : undefined,
+          exclusivityCondition: requestData.exclusivityCondition ? String(requestData.exclusivityCondition) : undefined,
+          giftVouchers: requestData.giftVouchers ? String(requestData.giftVouchers) : undefined,
+          hasOtherBranches: requestData.hasOtherBranches ? String(requestData.hasOtherBranches) : undefined,
+          vouchersPerPerson: requestData.vouchersPerPerson ? String(requestData.vouchersPerPerson) : undefined,
+          commission: requestData.commission ? String(requestData.commission) : undefined,
+
+          redemptionMethods: Array.isArray(requestData.redemptionMethods) ? (requestData.redemptionMethods as any) : undefined,
+          contactDetails: requestData.contactDetails ? String(requestData.contactDetails) : undefined,
+          socialMedia: requestData.socialMedia ? String(requestData.socialMedia) : undefined,
+          offerDetails: requestData.offerDetails ? String(requestData.offerDetails) : undefined,
+
+          whatWeLike: requestData.whatWeLike ? String(requestData.whatWeLike) : undefined,
+          aboutCompany: requestData.aboutCompany ? String(requestData.aboutCompany) : undefined,
+          aboutOffer: requestData.aboutOffer ? String(requestData.aboutOffer) : undefined,
+          goodToKnow: requestData.goodToKnow ? String(requestData.goodToKnow) : undefined,
+
+          pricingOptions: Array.isArray(requestData.pricingOptions) ? (requestData.pricingOptions as any) : undefined,
+          dealImages: Array.isArray(requestData.dealImages) ? (requestData.dealImages as any) : undefined,
+
+          cancellationPolicy: requestData.cancellationPolicy ? String(requestData.cancellationPolicy) : undefined,
+          marketValidation: requestData.marketValidation ? String(requestData.marketValidation) : undefined,
+          additionalComments: requestData.additionalComments ? String(requestData.additionalComments) : undefined,
+        }
+
+        // Keep additionalInfo in query string? It's often large; keep in sessionStorage too via payload? (we don't have a field for it in BookingFormData)
+        // We store it separately and let EnhancedBookingForm legacy parser handle if needed later.
+        const additionalInfo = requestData.additionalInfo && typeof requestData.additionalInfo === 'object'
+          ? requestData.additionalInfo
+          : null
+
+        const replicateKey = `${Date.now()}_${Math.random().toString(16).slice(2)}`
+        sessionStorage.setItem(`replicate:${replicateKey}`, JSON.stringify(payload))
+        if (additionalInfo) {
+          sessionStorage.setItem(`replicate:${replicateKey}:additionalInfo`, JSON.stringify(additionalInfo))
+        }
+
+        onClose()
+        router.push(`/booking-requests/new?replicateKey=${encodeURIComponent(replicateKey)}`)
+      } catch (e) {
+        console.error('Failed to replicate request', e)
+        toast.error('No se pudo replicar la solicitud')
+      } finally {
+        setReplicating(false)
+      }
+    }, 0)
   }
 
   if (!isOpen) return null
@@ -733,7 +718,7 @@ export default function BookingRequestViewModal({
               {/* Replicate Button */}
               <button
                 onClick={handleReplicate}
-                disabled={loading || !requestData}
+                disabled={loading || !requestData || replicating}
                 className="p-2 text-slate-500 hover:text-green-600 hover:bg-green-50 border border-transparent hover:border-green-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Replicar"
               >

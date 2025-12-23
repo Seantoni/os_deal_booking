@@ -246,6 +246,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   // Pre-fill form from query parameters (from CRM opportunity, NewRequestModal, or Replicate)
   useEffect(() => {
     const isReplicate = searchParams.get('replicate') === 'true'
+    const replicateKey = searchParams.get('replicateKey')
     const fromOpportunity = searchParams.get('fromOpportunity')
     const partnerEmail = searchParams.get('partnerEmail')
     const legalName = searchParams.get('legalName')
@@ -264,7 +265,24 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     const website = searchParams.get('website')
     const instagram = searchParams.get('instagram')
     
-    // Handle replication - pre-fill ALL fields from query parameters
+    // Handle replication (fast path) - load payload from sessionStorage to avoid huge URLs
+    if (replicateKey) {
+      try {
+        const raw = sessionStorage.getItem(`replicate:${replicateKey}`)
+        if (!raw) throw new Error('Missing replicate payload')
+        const payload = JSON.parse(raw) as Partial<BookingFormData>
+        setFormData(prev => ({ ...prev, ...payload }))
+        // One-time use
+        sessionStorage.removeItem(`replicate:${replicateKey}`)
+        toast.success('Solicitud replicada (desde memoria)')
+      } catch (e) {
+        console.error('Failed to load replicate payload', e)
+        toast.error('No se pudo replicar la solicitud (payload inválido)')
+      }
+      return
+    }
+
+    // Handle replication (legacy) - pre-fill ALL fields from query parameters
     if (isReplicate) {
       
       setFormData(prev => {

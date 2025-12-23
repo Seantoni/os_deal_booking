@@ -9,6 +9,45 @@ import ErrorIcon from '@mui/icons-material/Error'
 import DescriptionIcon from '@mui/icons-material/Description'
 import toast from 'react-hot-toast'
 
+function ActionToastCard(props: {
+  title: string
+  message?: string
+  variant: 'loading' | 'success' | 'error'
+  onDismiss?: () => void
+}) {
+  const { title, message, variant, onDismiss } = props
+
+  const icon =
+    variant === 'loading' ? (
+      <span className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin mt-0.5" />
+    ) : variant === 'success' ? (
+      <CheckCircleIcon style={{ fontSize: 18 }} className="text-green-600 mt-0.5" />
+    ) : (
+      <ErrorIcon style={{ fontSize: 18 }} className="text-red-600 mt-0.5" />
+    )
+
+  return (
+    <div className="w-[360px] max-w-[90vw] bg-white border border-gray-200 shadow-lg rounded-xl px-4 py-3">
+      <div className="flex items-start gap-3">
+        <div className="flex-shrink-0">{icon}</div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-slate-900">{title}</div>
+          {message && (
+            <div className="text-xs text-slate-600 mt-0.5 whitespace-pre-wrap break-words">
+              {message}
+            </div>
+          )}
+        </div>
+        {onDismiss && (
+          <Button size="xs" variant="secondary" onClick={onDismiss}>
+            Hide
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 interface ApiLog {
   id: string
   endpoint: string
@@ -88,6 +127,17 @@ export default function ApiLogsTab() {
     if (!confirmed) return
 
     setResendingId(logId)
+    const toastId = toast.custom(
+      (t) => (
+        <ActionToastCard
+          title="Resending request to OfertaSimple…"
+          message={`Log ID: ${logId}\nThis may take a few seconds.`}
+          variant="loading"
+          onDismiss={() => toast.dismiss(t.id)}
+        />
+      ),
+      { duration: Infinity }
+    )
     try {
       const resp = await fetch('/api/external-oferta/resend', {
         method: 'POST',
@@ -99,14 +149,44 @@ export default function ApiLogsTab() {
 
       const result = json.data as { success: boolean; externalId?: number; logId?: string; error?: string }
       if (result.success) {
-        toast.success(`Resent successfully${result.externalId ? ` (Deal #${result.externalId})` : ''}`)
+        toast.custom(
+          (t) => (
+            <ActionToastCard
+              title="Resent successfully"
+              message={`${result.externalId ? `Deal #${result.externalId}\n` : ''}${result.logId ? `Log ID: ${result.logId}` : ''}`}
+              variant="success"
+              onDismiss={() => toast.dismiss(t.id)}
+            />
+          ),
+          { id: toastId, duration: 6000 }
+        )
       } else {
-        toast.error(result.error || 'Resend failed')
+        toast.custom(
+          (t) => (
+            <ActionToastCard
+              title="Resend failed"
+              message={`${result.error || 'Unknown error'}${result.logId ? `\nLog ID: ${result.logId}` : ''}`}
+              variant="error"
+              onDismiss={() => toast.dismiss(t.id)}
+            />
+          ),
+          { id: toastId, duration: 8000 }
+        )
       }
 
       await loadLogs()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Resend failed')
+      toast.custom(
+        (t) => (
+          <ActionToastCard
+            title="Resend failed"
+            message={e instanceof Error ? e.message : 'Resend failed'}
+            variant="error"
+            onDismiss={() => toast.dismiss(t.id)}
+          />
+        ),
+        { id: toastId, duration: 8000 }
+      )
     } finally {
       setResendingId(null)
     }
