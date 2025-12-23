@@ -7,6 +7,7 @@ import RefreshIcon from '@mui/icons-material/Refresh'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import ErrorIcon from '@mui/icons-material/Error'
 import DescriptionIcon from '@mui/icons-material/Description'
+import toast from 'react-hot-toast'
 
 interface ApiLog {
   id: string
@@ -56,6 +57,7 @@ export default function ApiLogsTab() {
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const [stats, setStats] = useState<{ total: number; successful: number; failed: number; successRate: string } | null>(null)
+  const [resendingId, setResendingId] = useState<string | null>(null)
   const pageSize = 20
 
   const loadLogs = async () => {
@@ -80,6 +82,35 @@ export default function ApiLogsTab() {
   useEffect(() => {
     loadLogs()
   }, [page])
+
+  const handleResend = async (logId: string) => {
+    const confirmed = window.confirm('Resend this request to OfertaSimple? A new log entry will be created.')
+    if (!confirmed) return
+
+    setResendingId(logId)
+    try {
+      const resp = await fetch('/api/external-oferta/resend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ logId }),
+      })
+      const json = await resp.json()
+      if (!json?.success) throw new Error(json?.error || 'Resend failed')
+
+      const result = json.data as { success: boolean; externalId?: number; logId?: string; error?: string }
+      if (result.success) {
+        toast.success(`Resent successfully${result.externalId ? ` (Deal #${result.externalId})` : ''}`)
+      } else {
+        toast.error(result.error || 'Resend failed')
+      }
+
+      await loadLogs()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Resend failed')
+    } finally {
+      setResendingId(null)
+    }
+  }
 
   const getStatusBadge = (log: ApiLog) => {
     if (log.success) {
@@ -183,19 +214,22 @@ export default function ApiLogsTab() {
                 <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
                   Error
                 </th>
+                <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={11} className="px-6 py-12 text-center text-gray-500">
                     <RefreshIcon className="animate-spin mx-auto mb-2" style={{ fontSize: 24 }} />
                     <p>Loading logs...</p>
                   </td>
                 </tr>
               ) : logs.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={11} className="px-6 py-12 text-center text-gray-500">
                     <DescriptionIcon className="mx-auto mb-2 text-gray-400" style={{ fontSize: 48 }} />
                     <p className="font-medium">No API logs found</p>
                     <p className="text-xs mt-1">API requests will appear here once made</p>
@@ -241,6 +275,18 @@ export default function ApiLogsTab() {
                     </td>
                     <td className="px-3 py-2 text-[10px] text-red-600 max-w-xs truncate" title={log.errorMessage || undefined}>
                       {log.errorMessage || '-'}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      {!log.success && (
+                        <Button
+                          size="xs"
+                          variant="secondary"
+                          disabled={loading || resendingId === log.id}
+                          onClick={() => handleResend(log.id)}
+                        >
+                          {resendingId === log.id ? 'Resending…' : 'Resend'}
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))

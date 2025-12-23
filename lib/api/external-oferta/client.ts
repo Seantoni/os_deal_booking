@@ -144,6 +144,148 @@ function formatValidationError(responseData: unknown, responseText: string): str
   return `Validation failed (raw): ${rawSnippet || safeStringify(data)}`
 }
 
+function normalizePayloadForExternalApi(payload: ExternalOfertaDealRequest): ExternalOfertaDealRequest {
+  // OfertaSimple live validator rejects `priceOptions[*][title]` as unexpected.
+  // Strip it and preserve it into description if needed.
+  return {
+    ...payload,
+    priceOptions: Array.isArray(payload.priceOptions)
+      ? (payload.priceOptions as any[]).map((opt) => {
+          const { title, ...rest } = opt || {}
+          return {
+            ...rest,
+            description: rest.description ?? (title ? String(title) : null),
+          }
+        })
+      : payload.priceOptions,
+  }
+}
+
+export async function sendExternalDealPayload(
+  payload: ExternalOfertaDealRequest,
+  options?: {
+    endpoint?: string
+    bookingRequestId?: string
+    userId?: string
+    triggeredBy?: 'manual' | 'cron' | 'webhook' | 'system'
+    resendOfLogId?: string
+  }
+): Promise<SendDealResult & { responseStatusCode?: number; responseRaw?: string }> {
+  const startTime = Date.now()
+  const endpoint = options?.endpoint || EXTERNAL_API_URL
+
+  if (!EXTERNAL_API_TOKEN) {
+    const error = 'API token not configured'
+    const logId = await logApiCall({
+      endpoint,
+      method: 'POST',
+      requestBody: payload,
+      bookingRequestId: options?.bookingRequestId,
+      userId: options?.userId,
+      triggeredBy: options?.triggeredBy || 'system',
+      durationMs: Date.now() - startTime,
+      response: {
+        statusCode: 0,
+        success: false,
+        errorMessage: error,
+      },
+    })
+    return { success: false, error, logId }
+  }
+
+  const payloadToSend = normalizePayloadForExternalApi(payload)
+  if (options?.resendOfLogId) {
+    console.log('[External API] Resending request:', { resendOfLogId: options.resendOfLogId })
+  }
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${EXTERNAL_API_TOKEN}`,
+        'User-Agent': 'OfertaSimpleBooking/1.0',
+      },
+      body: JSON.stringify(payloadToSend),
+    })
+
+    const durationMs = Date.now() - startTime
+    const responseText = await response.text()
+
+    let responseData: ExternalOfertaDealResponse | Record<string, unknown>
+    let isJson = false
+    try {
+      responseData = JSON.parse(responseText)
+      isJson = true
+    } catch {
+      responseData = { raw: responseText.substring(0, 500) }
+    }
+
+    const success = response.ok && isJson && (responseData as any).status === 'success'
+    const externalId = success ? (responseData as ExternalOfertaDealResponse).id : undefined
+
+    let errorMessage: string | undefined
+    if (!success) {
+      if (response.status === 422) {
+        errorMessage = formatValidationError(responseData, responseText)
+      } else {
+        errorMessage = (responseData as any).error || (responseData as any).message || `HTTP ${response.status}`
+      }
+      if (options?.resendOfLogId) {
+        errorMessage = `[resendOf:${options.resendOfLogId}] ${errorMessage || 'Request failed'}`
+      }
+    }
+
+    const logId = await logApiCall({
+      endpoint,
+      method: 'POST',
+      requestBody: payloadToSend,
+      bookingRequestId: options?.bookingRequestId,
+      userId: options?.userId,
+      triggeredBy: options?.triggeredBy || 'system',
+      durationMs,
+      response: {
+        statusCode: response.status,
+        body: isJson ? (responseData as any) : undefined,
+        raw: responseText.substring(0, 4000),
+        success,
+        errorMessage,
+        externalId,
+      },
+    })
+
+    return {
+      success,
+      externalId,
+      error: success ? undefined : errorMessage,
+      logId,
+      responseStatusCode: response.status,
+      responseRaw: responseText.substring(0, 4000),
+    }
+  } catch (error) {
+    const durationMs = Date.now() - startTime
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const finalError = options?.resendOfLogId ? `[resendOf:${options.resendOfLogId}] ${errorMessage}` : errorMessage
+
+    const logId = await logApiCall({
+      endpoint,
+      method: 'POST',
+      requestBody: payloadToSend,
+      bookingRequestId: options?.bookingRequestId,
+      userId: options?.userId,
+      triggeredBy: options?.triggeredBy || 'system',
+      durationMs,
+      response: {
+        statusCode: 0,
+        success: false,
+        errorMessage: finalError,
+      },
+    })
+
+    return { success: false, error: finalError, logId }
+  }
+}
+
 /**
  * Send a booked deal to the external OfertaSimple API
  */
@@ -300,23 +442,7 @@ export async function sendDealToExternalApi(
     return { success: false, error: errorMessage, logId }
   }
 
-  /**
-   * OfertaSimple's live validator appears to reject `priceOptions[*][title]` as an unexpected field
-   * (even though our doc.json suggests it exists). To stay compatible, we strip `title` from each
-   * price option and (if needed) preserve it inside `description`.
-   */
-  const payloadToSend: ExternalOfertaDealRequest = {
-    ...payload,
-    priceOptions: Array.isArray(payload.priceOptions)
-      ? (payload.priceOptions as any[]).map((opt) => {
-          const { title, ...rest } = opt || {}
-          return {
-            ...rest,
-            description: rest.description ?? (title ? String(title) : null),
-          }
-        })
-      : payload.priceOptions,
-  }
+  const payloadToSend = normalizePayloadForExternalApi(payload)
 
   console.log('[External API] Sending deal to external API:', {
     bookingRequestId: bookingRequest.id,
@@ -348,62 +474,21 @@ export async function sendDealToExternalApi(
   }
 
   try {
-    const response = await fetch(EXTERNAL_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${EXTERNAL_API_TOKEN}`,
-        'User-Agent': 'OfertaSimpleBooking/1.0', // Required to pass Cloudflare
-      },
-      body: JSON.stringify(payloadToSend),
+    const result = await sendExternalDealPayload(payloadToSend, {
+      endpoint: EXTERNAL_API_URL,
+      bookingRequestId: bookingRequest.id,
+      userId: options?.userId,
+      triggeredBy: options?.triggeredBy || 'system',
     })
-
-    const durationMs = Date.now() - startTime
-    const responseText = await response.text()
-
-    let responseData: ExternalOfertaDealResponse | Record<string, unknown>
-    let isJson = false
-    
-    try {
-      responseData = JSON.parse(responseText)
-      isJson = true
-    } catch {
-      responseData = { raw: responseText.substring(0, 500) }
+    if (result.success) {
+      console.log('[External API] Deal created successfully:', { externalId: result.externalId, logId: result.logId })
+    } else {
+      console.error('[External API] Failed to create deal:', { errorMessage: result.error, logId: result.logId })
     }
-
-    const success = response.ok && isJson && (responseData as any).status === 'success'
-    const externalId = success ? (responseData as ExternalOfertaDealResponse).id : undefined
-    
-    // Enhanced error message extraction for validation errors
-    let errorMessage: string | undefined
-    if (!success) {
-      if (response.status === 422) {
-        errorMessage = formatValidationError(responseData, responseText)
-      } else {
-        errorMessage = (responseData as any).error || (responseData as any).message || `HTTP ${response.status}`
-      }
-    }
-    
-    // Log validation errors with full details
-    if (response.status === 422) {
-      console.error('[External API] Validation error details:', {
-        statusCode: response.status,
-        responseData,
-        payloadSummary: {
-          nameEs: payload.nameEs,
-          slug: payload.slug,
-          emailSubject: payload.emailSubject,
-          summaryEs: payload.summaryEs,
-          expiresOn: payload.expiresOn,
-          categoryId: payload.categoryId,
-          vendorName: payload.vendorName,
-          priceOptionsCount: Array.isArray(payload.priceOptions) ? payload.priceOptions.length : 0,
-          priceOptions: payload.priceOptions,
-        },
-      })
-    }
-
-    // Log to database
+    return result
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.error('[External API] Request failed:', error)
     const logId = await logApiCall({
       endpoint: EXTERNAL_API_URL,
       method: 'POST',
@@ -411,47 +496,9 @@ export async function sendDealToExternalApi(
       bookingRequestId: bookingRequest.id,
       userId: options?.userId,
       triggeredBy: options?.triggeredBy || 'system',
-      durationMs,
-      response: {
-        statusCode: response.status,
-        body: isJson ? responseData : undefined,
-        // Always store a raw snippet (even when JSON) so the UI can show it.
-        raw: responseText.substring(0, 4000),
-        success,
-        errorMessage,
-        externalId,
-      },
+      durationMs: Date.now() - startTime,
+      response: { statusCode: 0, success: false, errorMessage },
     })
-
-    if (success) {
-      console.log('[External API] Deal created successfully:', { externalId, logId })
-      return { success: true, externalId, logId }
-    } else {
-      console.error('[External API] Failed to create deal:', { errorMessage, logId })
-      return { success: false, error: errorMessage, logId }
-    }
-  } catch (error) {
-    const durationMs = Date.now() - startTime
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    
-    console.error('[External API] Request failed:', error)
-
-    // Log error to database
-    const logId = await logApiCall({
-      endpoint: EXTERNAL_API_URL,
-      method: 'POST',
-      requestBody: payload,
-      bookingRequestId: bookingRequest.id,
-      userId: options?.userId,
-      triggeredBy: options?.triggeredBy || 'system',
-      durationMs,
-      response: {
-        statusCode: 0,
-        success: false,
-        errorMessage,
-      },
-    })
-
     return { success: false, error: errorMessage, logId }
   }
 }
