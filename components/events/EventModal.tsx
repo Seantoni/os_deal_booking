@@ -571,8 +571,10 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
           const isOk = externalApi.success === true
           const lines: string[] = []
           lines.push(isOk ? 'Deal was sent to OfertaSimple successfully.' : 'Deal FAILED to send to OfertaSimple.')
-          if (externalApi.externalId) lines.push(`OfertaSimple Deal ID: ${externalApi.externalId}`)
-          if (!isOk && externalApi.error) lines.push(`Error: ${externalApi.error}`)
+          if (externalApi.success && externalApi.externalId) {
+            lines.push(`OfertaSimple Deal ID: ${externalApi.externalId}`)
+          }
+          if (!externalApi.success && externalApi.error) lines.push(`Error: ${externalApi.error}`)
           if (externalApi.logId) lines.push(`Log ID: ${externalApi.logId}`)
           lines.push('Check Settings → API Logs for full request/response details.')
 
