@@ -39,13 +39,13 @@ Descripción: ${description}`
       return NextResponse.json({ error: 'No se pudo generar el resumen.' }, { status: 500 })
     }
 
-    // Build the title with the format: Paga $X por [summary] en [businessName]. Valor $Y
-    let title = `Paga $${price || '0'} por ${summary}`
+    // Build the title with the format: $X por [summary] en [businessName]. (Valor $Y)
+    let title = `$${price || '0'} por ${summary}`
     if (businessName) {
       title += ` en ${businessName}`
     }
     if (realValue) {
-      title += `. Valor $${realValue}`
+      title += `. (Valor $${realValue})`
     }
 
     return NextResponse.json({ title, summary })
