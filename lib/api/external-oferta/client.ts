@@ -142,6 +142,7 @@ interface BookingRequestData {
   startDate?: Date | string
   endDate: Date | string
   campaignDuration?: string | null
+  offerMargin?: string | null // Comisión OfertaSimple (percentage)
   pricingOptions?: Prisma.JsonValue
   // Optional fields for future use
   shortTitle?: string | null
@@ -452,6 +453,7 @@ export async function sendDealToExternalApi(
     partnerEmail: bookingRequest.businessEmail,
     endDate: endDate.toISOString().split('T')[0],
     campaignDuration: bookingRequest.campaignDuration || '3',
+    offerMargin: bookingRequest.offerMargin || '', // Comisión OfertaSimple (maps to oufferMargin in API)
     pricingOptions: pricingOptions as any,
     shortTitle: bookingRequest.shortTitle || '',
     aboutOffer: bookingRequest.aboutOffer || '',
@@ -576,6 +578,7 @@ export async function sendDealToExternalApi(
       giftLimitPerUser: opt.giftLimitPerUser,
       endAt: opt.endAt,
       expiresIn: opt.expiresIn,
+      oufferMargin: opt.oufferMargin,
     })))
   } else {
     console.warn('[External API] No price options in payload!', {
