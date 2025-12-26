@@ -349,6 +349,11 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       socialMedia: (formData.get('socialMedia') as string) || null,
       businessReview: (formData.get('businessReview') as string) || null,
       offerDetails: (formData.get('offerDetails') as string) || null,
+      // Contenido: AI-Generated Content Fields (used for OfertaSimple mapping)
+      whatWeLike: (formData.get('whatWeLike') as string) || null,
+      aboutCompany: (formData.get('aboutCompany') as string) || null,
+      aboutOffer: (formData.get('aboutOffer') as string) || null,
+      goodToKnow: (formData.get('goodToKnow') as string) || null,
       // Estructura: Estructura de la Oferta
       pricingOptions,
       dealImages,
