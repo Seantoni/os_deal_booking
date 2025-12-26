@@ -64,6 +64,7 @@ export type BookingFormData = {
   goodToKnow: string      // Lo que conviene saber
   
   // Estructura: Estructura de la Oferta
+  offerMargin: string     // Comisión OfertaSimple (percentage, applied to all options)
   pricingOptions: Array<{
     title: string
     description: string

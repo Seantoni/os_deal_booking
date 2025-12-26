@@ -128,6 +128,7 @@ export interface ExternalOfertaPriceOption {
   endAt?: string | null // End date/time for this option (ISO string)
   expiresIn?: number | null // Expiration seconds after voucher creation
   description?: string | null
+  oufferMargin?: number | null // Offer margin percentage (note: API typo is intentional)
 }
 
 export interface ExternalOfertaDealResponse {

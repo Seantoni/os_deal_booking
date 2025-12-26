@@ -102,6 +102,9 @@ export function mapBookingFormToApi(
   const allImagesSet = new Set([...galleryImages, ...pricingOptionImages])
   const images = Array.from(allImagesSet)
 
+  // Parse offer margin (applies to all options)
+  const offerMargin = parseOptionalInt(formData.offerMargin)
+
   // Map pricing options - filter out invalid ones and ensure required fields
   const priceOptions: ExternalOfertaPriceOption[] = (formData.pricingOptions || [])
     .filter(opt => {
@@ -124,6 +127,7 @@ export function mapBookingFormToApi(
         giftLimitPerUser: parseOptionalInt(opt.maxGiftsPerUser),
         endAt: opt.endAt || null,
         expiresIn: daysToSeconds(opt.expiresIn),
+        oufferMargin: offerMargin, // Apply same margin to all options (API typo is intentional)
       }
     })
 

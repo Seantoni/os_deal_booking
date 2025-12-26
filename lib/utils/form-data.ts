@@ -104,6 +104,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
   goodToKnow: string | null
 
   // Estructura: Estructura de la Oferta
+  offerMargin: string | null
   pricingOptions: any | null
   dealImages: any | null
 
@@ -186,6 +187,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
     goodToKnow: getFormDataString(formData, 'goodToKnow'),
 
     // Estructura: Estructura de la Oferta
+    offerMargin: getFormDataString(formData, 'offerMargin'),
     pricingOptions: parseFormDataJsonField(formData, 'pricingOptions'),
     dealImages: parseFormDataJsonField(formData, 'dealImages'),
 

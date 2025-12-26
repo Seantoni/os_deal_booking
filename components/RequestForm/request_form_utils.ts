@@ -236,6 +236,7 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
   fd.append('goodToKnow', formData.goodToKnow || '')
   
   // Estructura: Estructura de la Oferta
+  fd.append('offerMargin', formData.offerMargin || '')
   fd.append('pricingOptions', JSON.stringify(formData.pricingOptions || []))
   fd.append('dealImages', JSON.stringify(formData.dealImages || []))
   

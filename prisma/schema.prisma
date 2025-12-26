@@ -121,6 +121,7 @@ model BookingRequest {
   goodToKnow    String? @db.Text // Lo que conviene saber - AI generated content
 
   // Step 7: Estructura de la Oferta (Opciones de Compra)
+  offerMargin   String? // Comisión OfertaSimple (percentage, applied to all options)
   pricingOptions Json? // Array of { title, description, price, realValue, quantity, imageUrl? }
   dealImages    Json? // Array of { url, order } - General gallery images for the deal
 

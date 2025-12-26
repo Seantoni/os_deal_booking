@@ -264,6 +264,18 @@ export default function EstructuraStep({
     ? formData.pricingOptions 
     : []
 
+  // Calculate margin breakdown for each option
+  const marginPercent = parseFloat(formData.offerMargin || '0') || 0
+  const optionsWithCalculation = pricingOptions.map((opt, idx) => {
+    const price = parseFloat(opt.price || '0') || 0
+    if (price > 0 && marginPercent > 0) {
+      const osShare = (price * marginPercent) / 100
+      const partnerShare = price - osShare
+      return { idx, price, osShare, partnerShare, title: opt.title || `Opción ${idx + 1}` }
+    }
+    return null
+  }).filter(Boolean) as { idx: number; price: number; osShare: number; partnerShare: number; title: string }[]
+
   return (
     <div className="space-y-8">
       <div className="border-b border-gray-100 pb-4 mb-6 flex justify-between items-end">
@@ -278,6 +290,70 @@ export default function EstructuraStep({
           <AddIcon fontSize="small" />
           Agregar Opción
         </button>
+      </div>
+
+      {/* Offer Margin Section */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="w-full md:w-auto md:min-w-[200px]">
+            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+              <span>Comisión OfertaSimple</span>
+              {isFieldRequired('offerMargin') ? (
+                <span className="text-red-500">*</span>
+              ) : (
+                <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
+              )}
+            </label>
+            <div className="relative">
+              <Input
+                type="number"
+                value={formData.offerMargin || ''}
+                onChange={(e) => updateFormData('offerMargin', e.target.value)}
+                placeholder="10"
+                min="0"
+                max="100"
+                step="1"
+                className={`pr-8 font-medium text-gray-900 ${
+                  errors.offerMargin ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''
+                }`}
+                size="sm"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs font-medium">%</span>
+            </div>
+            {errors.offerMargin && (
+              <p className="text-xs text-red-600 font-medium mt-1">{errors.offerMargin}</p>
+            )}
+          </div>
+
+          {/* Calculation Preview */}
+          {optionsWithCalculation.length > 0 && (
+            <div className="flex-1 border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {optionsWithCalculation.map((calc) => (
+                  <div key={calc.idx} className="bg-gray-50 rounded-lg p-2.5 border border-gray-100 text-xs">
+                    <div className="font-medium text-gray-700 mb-1.5 truncate" title={calc.title}>
+                      {calc.title.length > 30 ? calc.title.substring(0, 30) + '...' : calc.title}
+                    </div>
+                    <div className="flex justify-between items-baseline mb-1">
+                      <span className="text-gray-500">Precio Venta:</span>
+                      <span className="font-semibold text-gray-900">${calc.price.toFixed(2)}</span>
+                    </div>
+                    <div className="space-y-0.5 pt-1.5 border-t border-gray-200 border-dashed">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-amber-600 font-medium">Comisión:</span>
+                        <span className="text-amber-700 font-bold">${calc.osShare.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-green-600 font-medium">Recibe:</span>
+                        <span className="text-green-700 font-bold">${calc.partnerShare.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="space-y-6">

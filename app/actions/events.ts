@@ -103,6 +103,7 @@ export async function createEvent(formData: FormData) {
           startDate: true,
           endDate: true,
           campaignDuration: true,
+          offerMargin: true,
           pricingOptions: true,
           shortTitle: true,
           aboutOffer: true,

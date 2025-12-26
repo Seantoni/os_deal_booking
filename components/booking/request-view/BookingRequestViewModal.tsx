@@ -148,6 +148,7 @@ const BASE_SECTIONS: SectionDefinition[] = [
   {
     title: 'Opciones de Precio',
     fields: [
+      { key: 'offerMargin', label: 'Comisión OfertaSimple (%)' },
       { key: 'pricingOptions', label: 'Opciones de Precio', type: 'pricing' },
       { key: 'dealImages', label: 'Galería de Imágenes', type: 'gallery' },
     ],
@@ -624,6 +625,7 @@ export default function BookingRequestViewModal({
           aboutOffer: requestData.aboutOffer ? String(requestData.aboutOffer) : undefined,
           goodToKnow: requestData.goodToKnow ? String(requestData.goodToKnow) : undefined,
 
+          offerMargin: requestData.offerMargin ? String(requestData.offerMargin) : undefined,
           pricingOptions: Array.isArray(requestData.pricingOptions) ? (requestData.pricingOptions as any) : undefined,
           dealImages: Array.isArray(requestData.dealImages) ? (requestData.dealImages as any) : undefined,
 

@@ -116,6 +116,7 @@ export const INITIAL_FORM_DATA: BookingFormData = {
   goodToKnow: '',
   
   // Estructura: Estructura de Oferta
+  offerMargin: '',
   pricingOptions: [{
     title: '',
     description: '',

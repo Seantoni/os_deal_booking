@@ -138,6 +138,7 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
       aboutOffer: fields.aboutOffer,
       goodToKnow: fields.goodToKnow,
       // Estructura: Estructura de la Oferta
+      offerMargin: fields.offerMargin,
       pricingOptions: fields.pricingOptions,
       dealImages: fields.dealImages,
       // Políticas: Políticas Generales
@@ -355,6 +356,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       aboutOffer: (formData.get('aboutOffer') as string) || null,
       goodToKnow: (formData.get('goodToKnow') as string) || null,
       // Estructura: Estructura de la Oferta
+      offerMargin: (formData.get('offerMargin') as string) || null,
       pricingOptions,
       dealImages,
       // Políticas: Políticas Generales

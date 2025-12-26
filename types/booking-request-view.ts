@@ -110,6 +110,7 @@ export interface BookingRequestViewData {
   goodToKnow: string | null
 
   // Step 7: Estructura de la Oferta
+  offerMargin: string | null
   pricingOptions: PricingOption[] | null
   dealImages: Array<{ url: string; order: number }> | null
 
