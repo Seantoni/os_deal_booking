@@ -95,9 +95,9 @@ export function extractBookingRequestFromFormData(formData: FormData): {
   redemptionMethods: any | null
   contactDetails: string | null
   socialMedia: string | null
-  offerDetails: string | null
 
   // Contenido: AI-Generated Content Fields
+  shortTitle: string | null
   whatWeLike: string | null
   aboutCompany: string | null
   aboutOffer: string | null
@@ -177,9 +177,9 @@ export function extractBookingRequestFromFormData(formData: FormData): {
     redemptionMethods: parseFormDataJsonField(formData, 'redemptionMethods'),
     contactDetails: getFormDataString(formData, 'contactDetails'),
     socialMedia: getFormDataString(formData, 'socialMedia'),
-    offerDetails: getFormDataString(formData, 'offerDetails'),
 
     // Contenido: AI-Generated Content Fields
+    shortTitle: getFormDataString(formData, 'shortTitle'),
     whatWeLike: getFormDataString(formData, 'whatWeLike'),
     aboutCompany: getFormDataString(formData, 'aboutCompany'),
     aboutOffer: getFormDataString(formData, 'aboutOffer'),

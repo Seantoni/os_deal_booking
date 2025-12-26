@@ -55,9 +55,9 @@ export type BookingFormData = {
   contactDetails: string
   socialMedia: string
   businessReview: string
-  offerDetails: string
   
   // AI-Generated Content Fields (for deal page display)
+  shortTitle: string      // Título corto (e.g. "$14 por Rodizio todo incluido")
   whatWeLike: string      // Lo que nos gusta
   aboutCompany: string    // La empresa
   aboutOffer: string      // Acerca de esta oferta
@@ -72,6 +72,7 @@ export type BookingFormData = {
     quantity: string
     imageUrl?: string // S3 URL for the option image
     limitByUser?: string // Max quantity per user (API: limitByUser)
+    maxGiftsPerUser?: string // Max gifts per user (internal tracking)
     endAt?: string // End date for this option (API: endAt)
     expiresIn?: string // Days until voucher expires (API: expiresIn, converted to seconds)
   }>

@@ -86,11 +86,20 @@ export function mapBookingFormToApi(
   // Extract email subject (use business name as default)
   const emailSubject = formData.businessName || nameEs || ''
   
-  // Extract images from dealImages array
-  const images = (formData.dealImages || [])
+  // Extract images from dealImages array (sorted by order)
+  const galleryImages = (formData.dealImages || [])
     .sort((a, b) => (a.order || 0) - (b.order || 0))
     .map(img => img.url)
     .filter(Boolean) as string[]
+
+  // Extract images from pricing options
+  const pricingOptionImages = (formData.pricingOptions || [])
+    .map(opt => opt.imageUrl)
+    .filter(Boolean) as string[]
+
+  // Combine all images (gallery first, then pricing options), removing duplicates
+  const allImagesSet = new Set([...galleryImages, ...pricingOptionImages])
+  const images = Array.from(allImagesSet)
 
   // Map pricing options - filter out invalid ones and ensure required fields
   const priceOptions: ExternalOfertaPriceOption[] = (formData.pricingOptions || [])
@@ -122,6 +131,7 @@ export function mapBookingFormToApi(
   return {
     // Required fields (will need to be provided or have defaults)
     nameEs,
+    shortTitle: formData.shortTitle || null, // "Título" - AI generated (e.g. "$14 por Rodizio todo incluido")
     slug: options.slug || nameEs.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'deal',
     emailSubject: emailSubject,
     summaryEs: summaryEs,
@@ -164,7 +174,7 @@ export function mapBookingFormToApi(
     // url: TODO - may need new field
 
     // Instructions/Details
-    howToUseEs: formData.offerDetails || null, // "Instrucciones de uso" - confirm mapping
+    howToUseEs: null,
     // banner1Line1: TODO - may need new field
 
     // Pricing - only include if we have at least one valid option

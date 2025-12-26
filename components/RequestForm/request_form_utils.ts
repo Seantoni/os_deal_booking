@@ -124,7 +124,10 @@ export const validateStep = (
             newErrors[`pricingOptions.${index}.quantity`] = 'Cantidad requerida'
           }
           if (isRequired('pricingOptions.limitByUser') && isEmpty(option.limitByUser)) {
-            newErrors[`pricingOptions.${index}.limitByUser`] = 'Límite por usuario requerido'
+            newErrors[`pricingOptions.${index}.limitByUser`] = 'Max Usuario requerido'
+          }
+          if (isRequired('pricingOptions.maxGiftsPerUser') && isEmpty(option.maxGiftsPerUser)) {
+            newErrors[`pricingOptions.${index}.maxGiftsPerUser`] = 'Max Regalo requerido'
           }
           if (isRequired('pricingOptions.endAt') && isEmpty(option.endAt)) {
             newErrors[`pricingOptions.${index}.endAt`] = 'Fecha fin requerida'
@@ -224,9 +227,9 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
   fd.append('redemptionMethods', JSON.stringify(formData.redemptionMethods || []))
   fd.append('contactDetails', formData.contactDetails || '')
   fd.append('socialMedia', formData.socialMedia || '')
-  fd.append('offerDetails', formData.offerDetails || '')
   
   // Contenido: AI-Generated Content Fields
+  fd.append('shortTitle', formData.shortTitle || '')
   fd.append('whatWeLike', formData.whatWeLike || '')
   fd.append('aboutCompany', formData.aboutCompany || '')
   fd.append('aboutOffer', formData.aboutOffer || '')

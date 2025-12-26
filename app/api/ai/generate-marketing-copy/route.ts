@@ -9,7 +9,6 @@ interface MarketingCopyInput {
   aboutCompany?: string | null
   aboutOffer?: string | null
   goodToKnow?: string | null
-  offerDetails?: string | null
   socialMedia?: string | null
   pricingOptions?: Array<{
     title?: string
@@ -83,9 +82,6 @@ export async function POST(request: NextRequest) {
       contextParts.push(`Acerca de la oferta: ${formData.aboutOffer.substring(0, 300)}`)
     }
     
-    if (formData.offerDetails) {
-      contextParts.push(`Detalles adicionales: ${formData.offerDetails.substring(0, 200)}`)
-    }
 
     const userPrompt = `Genera un copy atractivo para redes sociales basado en esta información:
 

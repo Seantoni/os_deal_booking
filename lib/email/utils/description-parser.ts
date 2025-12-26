@@ -11,7 +11,6 @@ export interface ParsedDescription {
   redemptionContact?: { name?: string; email?: string; phone?: string }
   fiscalData?: { legalName?: string; rucDv?: string; bank?: string; accountNumber?: string }
   businessRules?: { includesTaxes?: string; validOnHolidays?: string; commission?: string }
-  offerDetails?: string
   businessReview?: string
   pricingOptions?: Array<{ title: string; description?: string; price?: string; realValue?: string; quantity?: string }>
   cancellationPolicy?: string
@@ -53,9 +52,6 @@ export function parseEnhancedDescription(description: string | undefined): Parse
       sections.businessRules = {}
     } else if (line.includes('Reseña del Negocio:')) {
       currentSection = 'businessReview'
-      currentContent = []
-    } else if (line.includes('Detalle del Contenido:')) {
-      currentSection = 'offerDetails'
       currentContent = []
     } else if (line.includes('Opciones de Precio:')) {
       currentSection = 'pricingOptions'
@@ -106,9 +102,6 @@ export function parseEnhancedDescription(description: string | undefined): Parse
       } else if (currentSection === 'businessReview') {
         currentContent.push(line)
         sections.businessReview = currentContent.join('\n')
-      } else if (currentSection === 'offerDetails') {
-        currentContent.push(line)
-        sections.offerDetails = currentContent.join('\n')
       } else if (currentSection === 'pricingOptions') {
         // Parse pricing options (numbered list format)
         if (line.match(/^\d+\./)) {

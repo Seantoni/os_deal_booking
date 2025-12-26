@@ -89,11 +89,11 @@ interface BookingRequestData {
   campaignDuration?: string | null
   pricingOptions?: Prisma.JsonValue
   // Optional fields for future use
+  shortTitle?: string | null
   aboutOffer?: string | null
   whatWeLike?: string | null
   goodToKnow?: string | null
   businessReview?: string | null
-  offerDetails?: string | null
   addressAndHours?: string | null
   paymentInstructions?: string | null
   giftVouchers?: string | null
@@ -393,11 +393,11 @@ export async function sendDealToExternalApi(
     endDate: endDate.toISOString().split('T')[0],
     campaignDuration: bookingRequest.campaignDuration || '3',
     pricingOptions: pricingOptions as any,
+    shortTitle: bookingRequest.shortTitle || '',
     aboutOffer: bookingRequest.aboutOffer || '',
     whatWeLike: bookingRequest.whatWeLike || '',
     goodToKnow: bookingRequest.goodToKnow || '',
     businessReview: bookingRequest.businessReview || '',
-    offerDetails: bookingRequest.offerDetails || '',
     addressAndHours: bookingRequest.addressAndHours || '',
     paymentInstructions: bookingRequest.paymentInstructions || '',
     giftVouchers: bookingRequest.giftVouchers || 'Sí',
@@ -489,6 +489,7 @@ export async function sendDealToExternalApi(
     endAt: payloadToSend.endAt,
     hasPriceOptions: !!payloadToSend.priceOptions,
     priceOptionsCount: Array.isArray(payloadToSend.priceOptions) ? payloadToSend.priceOptions.length : 0,
+    imagesCount: Array.isArray(payloadToSend.images) ? payloadToSend.images.length : 0,
   })
   
   // Log pricing options details

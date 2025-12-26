@@ -18,7 +18,6 @@ interface BookingContentInput {
   endDate?: string
   
   // Business details
-  offerDetails?: string
   addressAndHours?: string
   socialMedia?: string
   contactDetails?: string
@@ -54,6 +53,7 @@ interface BookingContentInput {
 }
 
 interface BookingContentOutput {
+  shortTitle: string
   whatWeLike: string
   aboutCompany: string
   aboutOffer: string
@@ -78,6 +78,7 @@ REGLAS DE FORMATO:
 6. Mantén cada sección breve (2-5 oraciones por párrafo)
 
 LÍMITES DE CARACTERES POR SECCIÓN (RESPETAR ESTRICTAMENTE):
+- TÍTULO (shortTitle): Máximo 100 caracteres - Formato: "$PRECIO por DESCRIPCIÓN" (ej: "$14 por Rodizio todo incluido"). NO incluir el nombre del negocio.
 - LO QUE NOS GUSTA (whatWeLike): Máximo 800 caracteres
 - LA EMPRESA (aboutCompany): Máximo 600 caracteres
 - ACERCA DE ESTA OFERTA (aboutOffer): Máximo 1200 caracteres
@@ -120,6 +121,7 @@ SECCIONES REQUERIDAS:
 
 // Section-specific prompts
 const SECTION_PROMPTS: Record<keyof BookingContentOutput, string> = {
+  shortTitle: `Genera un título corto y atractivo para la oferta usando el formato "$PRECIO por DESCRIPCIÓN". Usa el precio más bajo de las opciones de precio y una descripción breve de lo que incluye. NO incluyas el nombre del negocio. Ejemplo: "$14 por Rodizio todo incluido" o "$25 por Spa Day con masaje". Máximo 100 caracteres. Solo el título, sin comillas ni explicación.`,
   whatWeLike: `Genera la sección "LO QUE NOS GUSTA" con 4-6 puntos destacando los beneficios y atractivos de esta oferta. Usa viñetas con asterisco (*). Máximo 800 caracteres. No incluyas el encabezado de la sección.`,
   aboutCompany: `Genera la sección "LA EMPRESA" con nombre, ubicación, horario y redes sociales del negocio. Formato estructurado y claro. Máximo 600 caracteres. No incluyas el encabezado de la sección.`,
   aboutOffer: `Genera la sección "ACERCA DE ESTA OFERTA" con descripción del negocio, explicación detallada de la oferta y llamada a acción. Máximo 1200 caracteres. No incluyas el encabezado de la sección.`,
@@ -156,9 +158,6 @@ function formatBusinessInfo(input: BookingContentInput): string {
   }
   
   // Business details
-  if (input.offerDetails) {
-    lines.push(`Detalles de la oferta: ${input.offerDetails}`)
-  }
   if (input.addressAndHours) {
     lines.push(`Dirección y horario: ${input.addressAndHours}`)
   }
@@ -234,7 +233,7 @@ function formatBusinessInfo(input: BookingContentInput): string {
   // These are category-specific fields (e.g., restaurant menu type, spa services, etc.)
   const knownFields = new Set([
     'businessName', 'partnerEmail', 'parentCategory', 'subCategory1', 'subCategory2',
-    'startDate', 'endDate', 'offerDetails', 'addressAndHours', 'socialMedia', 'contactDetails',
+    'startDate', 'endDate', 'addressAndHours', 'socialMedia', 'contactDetails',
     'pricingOptions', 'redemptionMode', 'includesTaxes', 'validOnHolidays', 'blackoutDates',
     'vouchersPerPerson', 'giftVouchers', 'hasOtherBranches', 'cancellationPolicy',
     'redemptionContactName', 'redemptionContactEmail', 'redemptionContactPhone', 'redemptionMethods',
@@ -316,11 +315,14 @@ ${businessInfo}
 
 Responde en formato JSON con las siguientes claves (sin incluir los encabezados de sección en el contenido):
 {
+  "shortTitle": "título corto formato $PRECIO por DESCRIPCIÓN (máximo 100 caracteres, ej: $14 por Rodizio todo incluido)...",
   "whatWeLike": "contenido de la sección LO QUE NOS GUSTA (máximo 800 caracteres)...",
   "aboutCompany": "contenido de la sección LA EMPRESA (máximo 600 caracteres)...",
   "aboutOffer": "contenido de la sección ACERCA DE ESTA OFERTA (máximo 1200 caracteres)...",
   "goodToKnow": "contenido de la sección LO QUE CONVIENE SABER (máximo 1500 caracteres)..."
 }
+
+NOTA SOBRE shortTitle: Usa el PRECIO MÁS BAJO de las opciones de precio disponibles y crea un título atractivo como "$14 por Rodizio todo incluido" o "$25 por Spa Day completo". NO incluyas el nombre del negocio en el título.
 
 IMPORTANTE: 
 - Responde SOLO con el JSON, sin texto adicional ni bloques de código.
@@ -338,6 +340,7 @@ IMPORTANTE:
   try {
     const parsed = JSON.parse(content) as BookingContentOutput
     return {
+      shortTitle: parsed.shortTitle || '',
       whatWeLike: parsed.whatWeLike || '',
       aboutCompany: parsed.aboutCompany || '',
       aboutOffer: parsed.aboutOffer || '',

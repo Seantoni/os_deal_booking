@@ -98,7 +98,6 @@ export type BusinessRulesFields = {
 export type DescriptionFields = {
   description: string | null
   businessReview: string | null
-  offerDetails: string | null
   contactDetails: string | null
   socialMedia: string | null
   addressAndHours: string | null

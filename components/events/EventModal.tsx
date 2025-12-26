@@ -176,14 +176,12 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
   }, [isOpen, eventToEdit, bookingRequestId])
 
   // Update description when linkedBookingRequest is loaded (for creating from booking request)
-  // Note: BookingRequest no longer has description field - use businessReview or offerDetails if needed
+  // Note: BookingRequest no longer has description field - use businessReview if needed
   useEffect(() => {
     // Only update if we're creating (not editing) and have a booking request
     if (!eventToEdit && linkedBookingRequest) {
-      // Use offerDetails or businessReview as event description if available
-      const desc = (linkedBookingRequest as { offerDetails?: string; businessReview?: string })?.offerDetails 
-        || (linkedBookingRequest as { offerDetails?: string; businessReview?: string })?.businessReview 
-        || ''
+      // Use businessReview as event description if available
+      const desc = (linkedBookingRequest as { businessReview?: string })?.businessReview || ''
       if (desc) setField('description', desc)
     }
   }, [linkedBookingRequest, eventToEdit])
@@ -246,10 +244,8 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
 
       } else if (linkedBookingRequest && !eventToEdit) {
         // Creating from booking request - pre-fill with booking request data
-        // Use offerDetails or businessReview as fallback description
-        const desc = (linkedBookingRequest as { offerDetails?: string; businessReview?: string })?.offerDetails 
-          || (linkedBookingRequest as { offerDetails?: string; businessReview?: string })?.businessReview 
-          || ''
+        // Use businessReview as fallback description
+        const desc = (linkedBookingRequest as { businessReview?: string })?.businessReview || ''
         setFormData({
           name: linkedBookingRequest.name || '',
           description: desc,

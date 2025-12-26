@@ -67,7 +67,6 @@ Available form fields for auto-fix:
 - blackoutDates (text)
 - holidaysApply (Sí/No)
 - weekendsApply (Sí/No)
-- offerDetails (text)
 - tipIncluded (Sí/No/Opcional)
 - exclusivityCondition (text)
 
@@ -239,7 +238,6 @@ function buildContractSummary(formData: any): string {
 
   // Description & Content
   sections.push(`## Descripción y Contenido
-- Detalles de la Oferta: ${formData.offerDetails || 'No especificados'}
 - Redes Sociales: ${formData.socialMedia || 'No especificadas'}`)
 
   // Policies

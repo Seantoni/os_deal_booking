@@ -106,7 +106,6 @@ export default async function EditBookingRequestPage({ params }: EditBookingRequ
     contactDetails: br.contactDetails || '',
     socialMedia: br.socialMedia || '',
     businessReview: br.businessReview || '',
-    offerDetails: br.offerDetails || '',
     pricingOptions: (br.pricingOptions || []).map((opt: any) => ({
       title: opt?.title ?? '',
       description: opt?.description ?? '',

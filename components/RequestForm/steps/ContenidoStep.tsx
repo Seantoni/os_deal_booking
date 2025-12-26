@@ -15,6 +15,13 @@ interface ContenidoStepProps {
 
 // AI field configuration
 const AI_FIELDS = {
+  shortTitle: {
+    label: 'Título',
+    placeholder: 'Ej: $14 por Rodizio todo incluido',
+    rows: 1,
+    maxLength: 100,
+    isInput: true, // Use Input instead of Textarea
+  },
   whatWeLike: {
     label: 'Lo que nos gusta',
     placeholder: 'Se generará automáticamente con IA...',
@@ -72,7 +79,6 @@ export default function ContenidoStep({ formData, errors, updateFormData, isFiel
             startDate: formData.startDate,
             endDate: formData.endDate,
             // Description & content
-            offerDetails: formData.offerDetails,
             addressAndHours: formData.addressAndHours,
             socialMedia: formData.socialMedia,
             contactDetails: formData.contactDetails,
@@ -153,23 +159,6 @@ export default function ContenidoStep({ formData, errors, updateFormData, isFiel
           />
         </div>
 
-        <div className="group">
-          <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-            <span>Detalle del Contenido (Temario/Sinopsis)</span>
-            {isFieldRequired('offerDetails') ? (
-              <span className="text-red-500">*</span>
-            ) : (
-              <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
-            )}
-          </label>
-          <Textarea
-            value={formData.offerDetails}
-            onChange={(e) => updateFormData('offerDetails', e.target.value)}
-            rows={4}
-            placeholder="Temario o Sinopsis/Descripción completa de la oferta..."
-            error={errors.offerDetails}
-          />
-        </div>
       </div>
 
       {/* AI-Generated Content Section */}
@@ -207,22 +196,45 @@ export default function ContenidoStep({ formData, errors, updateFormData, isFiel
           const config = AI_FIELDS[fieldKey]
           const currentValue = formData[fieldKey] || ''
           
+          // For shortTitle, show the lowest price option info
+          const lowestPriceOption = fieldKey === 'shortTitle' && formData.pricingOptions?.length > 0
+            ? formData.pricingOptions
+                .filter(opt => opt.price && parseFloat(opt.price) > 0)
+                .sort((a, b) => parseFloat(a.price || '0') - parseFloat(b.price || '0'))[0]
+            : null
+          
           return (
             <div key={fieldKey} className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                 <span>{config.label}</span>
                 <span className="text-xs text-purple-500 font-normal">(IA)</span>
               </label>
-              <Textarea
-                value={currentValue}
-                onChange={(e) => updateFormData(fieldKey, e.target.value)}
-                rows={config.rows}
-                maxLength={config.maxLength}
-                placeholder={isGenerating ? 'Generando con IA...' : config.placeholder}
-                error={errors[fieldKey]}
-                disabled={isGenerating}
-                helperText={!isGenerating ? `${currentValue.length}/${config.maxLength} caracteres` : undefined}
-              />
+              {fieldKey === 'shortTitle' && lowestPriceOption && (
+                <p className="text-xs text-gray-500 mb-2">
+                  Basado en: <span className="font-medium text-blue-600">${lowestPriceOption.price}</span> - {lowestPriceOption.title || lowestPriceOption.description || 'Sin título'}
+                </p>
+              )}
+              {'isInput' in config && config.isInput ? (
+                <Input
+                  value={currentValue}
+                  onChange={(e) => updateFormData(fieldKey, e.target.value)}
+                  maxLength={config.maxLength}
+                  placeholder={isGenerating ? 'Generando con IA...' : config.placeholder}
+                  error={errors[fieldKey]}
+                  disabled={isGenerating}
+                />
+              ) : (
+                <Textarea
+                  value={currentValue}
+                  onChange={(e) => updateFormData(fieldKey, e.target.value)}
+                  rows={config.rows}
+                  maxLength={config.maxLength}
+                  placeholder={isGenerating ? 'Generando con IA...' : config.placeholder}
+                  error={errors[fieldKey]}
+                  disabled={isGenerating}
+                  helperText={!isGenerating ? `${currentValue.length}/${config.maxLength} caracteres` : undefined}
+                />
+              )}
             </div>
           )
         })}

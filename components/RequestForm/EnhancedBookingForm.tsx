@@ -193,9 +193,9 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
               redemptionMethods: Array.isArray(data.redemptionMethods) ? data.redemptionMethods : [],
               contactDetails: data.contactDetails || '',
               socialMedia: data.socialMedia || '',
-              offerDetails: data.offerDetails || '',
               
               // Contenido (AI-Generated)
+              shortTitle: data.shortTitle || '',
               whatWeLike: data.whatWeLike || '',
               aboutCompany: data.aboutCompany || '',
               aboutOffer: data.aboutOffer || '',
@@ -385,8 +385,6 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         if (contactDetailsParam) newData.contactDetails = contactDetailsParam
         const socialMediaParam = searchParams.get('socialMedia')
         if (socialMediaParam) newData.socialMedia = socialMediaParam
-        const offerDetailsParam = searchParams.get('offerDetails')
-        if (offerDetailsParam) newData.offerDetails = offerDetailsParam
         
         // Contenido (AI-Generated)
         const whatWeLikeParam = searchParams.get('whatWeLike')
@@ -605,7 +603,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
       ...prev,
       pricingOptions: [
         ...prev.pricingOptions,
-        { title: '', description: '', price: '', realValue: '', quantity: 'Ilimitado', limitByUser: '', endAt: '', expiresIn: '' }
+        { title: '', description: '', price: '', realValue: '', quantity: 'Ilimitado', limitByUser: '', maxGiftsPerUser: '', endAt: '', expiresIn: '' }
       ]
     }))
   }

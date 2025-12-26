@@ -71,7 +71,6 @@ interface MarketingCampaignWithRelations extends MarketingCampaign {
     status: string
     processedAt: Date | null
     userId: string
-    offerDetails: string | null
     whatWeLike: string | null
     aboutCompany: string | null
     aboutOffer: string | null
@@ -209,7 +208,6 @@ export function useMarketingCampaign({ campaignId, isOpen, onSuccess }: UseMarke
             whatWeLike: bookingRequest.whatWeLike,
             aboutCompany: bookingRequest.aboutCompany,
             aboutOffer: bookingRequest.aboutOffer,
-            offerDetails: bookingRequest.offerDetails,
             socialMedia: bookingRequest.socialMedia,
             pricingOptions: pricingOptions?.map(opt => ({
               title: opt.title,
@@ -282,7 +280,6 @@ export function useMarketingCampaign({ campaignId, isOpen, onSuccess }: UseMarke
             aboutCompany: bookingRequest.aboutCompany,
             aboutOffer: bookingRequest.aboutOffer,
             goodToKnow: bookingRequest.goodToKnow,
-            offerDetails: bookingRequest.offerDetails,
             socialMedia: bookingRequest.socialMedia,
             pricingOptions: pricingOptions?.map(opt => ({
               title: opt.title,

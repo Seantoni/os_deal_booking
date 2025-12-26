@@ -130,7 +130,6 @@ export async function getMarketingCampaign(campaignId: string) {
             processedAt: true,
             userId: true,
             // Additional fields for campaign planning
-            offerDetails: true,
             whatWeLike: true,
             aboutCompany: true,
             aboutOffer: true,

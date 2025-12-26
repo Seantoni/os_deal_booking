@@ -101,9 +101,9 @@ export interface BookingRequestViewData {
   redemptionMethods: string[] | null
   contactDetails: string | null
   socialMedia: string | null
-  offerDetails: string | null
 
   // Contenido: AI-Generated Content Fields
+  shortTitle: string | null
   whatWeLike: string | null
   aboutCompany: string | null
   aboutOffer: string | null

@@ -134,7 +134,15 @@ const BASE_SECTIONS: SectionDefinition[] = [
       { key: 'redemptionMethods', label: 'Métodos de Canje', type: 'json' },
       { key: 'contactDetails', label: 'Detalles de Contacto' },
       { key: 'socialMedia', label: 'Redes Sociales' },
-      { key: 'offerDetails', label: 'Detalles de la Oferta' },
+    ],
+  },
+  {
+    title: 'Contenido (IA)',
+    fields: [
+      { key: 'shortTitle', label: 'Título' },
+      { key: 'whatWeLike', label: 'Lo que nos gusta' },
+      { key: 'aboutOffer', label: 'Acerca de esta oferta' },
+      { key: 'goodToKnow', label: 'Lo que conviene saber' },
     ],
   },
   {
@@ -609,8 +617,8 @@ export default function BookingRequestViewModal({
           redemptionMethods: Array.isArray(requestData.redemptionMethods) ? (requestData.redemptionMethods as any) : undefined,
           contactDetails: requestData.contactDetails ? String(requestData.contactDetails) : undefined,
           socialMedia: requestData.socialMedia ? String(requestData.socialMedia) : undefined,
-          offerDetails: requestData.offerDetails ? String(requestData.offerDetails) : undefined,
 
+          shortTitle: requestData.shortTitle ? String(requestData.shortTitle) : undefined,
           whatWeLike: requestData.whatWeLike ? String(requestData.whatWeLike) : undefined,
           aboutCompany: requestData.aboutCompany ? String(requestData.aboutCompany) : undefined,
           aboutOffer: requestData.aboutOffer ? String(requestData.aboutOffer) : undefined,
@@ -975,7 +983,7 @@ export default function BookingRequestViewModal({
                                     <div key={field.key} className="md:col-span-2">
                                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{field.label}</p>
                                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {(rawValue as Array<{ title?: string; description?: string; price?: string; realValue?: string; quantity?: string; imageUrl?: string; limitByUser?: string; endAt?: string; expiresIn?: string }>).map((opt, idx) => (
+                                        {(rawValue as Array<{ title?: string; description?: string; price?: string; realValue?: string; quantity?: string; imageUrl?: string; limitByUser?: string; maxGiftsPerUser?: string; endAt?: string; expiresIn?: string }>).map((opt, idx) => (
                                           <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow">
                                             {opt.imageUrl && (
                                               <button
@@ -1011,7 +1019,10 @@ export default function BookingRequestViewModal({
                                                 <p className="text-xs text-slate-500">Cantidad: {opt.quantity}</p>
                                               )}
                                               {opt.limitByUser && (
-                                                <p className="text-xs text-slate-500">Límite por usuario: {opt.limitByUser}</p>
+                                                <p className="text-xs text-slate-500">Max Usuario: {opt.limitByUser}</p>
+                                              )}
+                                              {opt.maxGiftsPerUser && (
+                                                <p className="text-xs text-slate-500">Max Regalo: {opt.maxGiftsPerUser}</p>
                                               )}
                                               {opt.endAt && (
                                                 <p className="text-xs text-slate-500">Fecha fin: {new Date(opt.endAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}</p>

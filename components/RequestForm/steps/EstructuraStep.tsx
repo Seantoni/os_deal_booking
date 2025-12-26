@@ -540,27 +540,52 @@ export default function EstructuraStep({
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
-                    <span>Límite por usuario</span>
-                    {isFieldRequired('pricingOptions.limitByUser') ? (
-                      <span className="text-red-500">*</span>
-                    ) : (
-                      <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                      <span>Max Usuario</span>
+                      {isFieldRequired('pricingOptions.limitByUser') ? (
+                        <span className="text-red-500 ml-1">*</span>
+                      ) : (
+                        <span className="text-[10px] text-gray-400 font-normal ml-1">(Opcional)</span>
+                      )}
+                    </label>
+                    <Input
+                      type="number"
+                      value={option.limitByUser || ''}
+                      onChange={(e) => updatePricingOption(index, 'limitByUser', e.target.value)}
+                      placeholder="∞"
+                      min="1"
+                      size="sm"
+                      className={errors[`pricingOptions.${index}.limitByUser`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
+                    />
+                    {errors[`pricingOptions.${index}.limitByUser`] && (
+                      <p className="text-xs text-red-600 font-medium mt-1">{errors[`pricingOptions.${index}.limitByUser`]}</p>
                     )}
-                  </label>
-                  <Input
-                    type="number"
-                    value={option.limitByUser || ''}
-                    onChange={(e) => updatePricingOption(index, 'limitByUser', e.target.value)}
-                    placeholder="Sin límite"
-                    min="1"
-                    size="sm"
-                    className={errors[`pricingOptions.${index}.limitByUser`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
-                  />
-                  {errors[`pricingOptions.${index}.limitByUser`] && (
-                    <p className="text-xs text-red-600 font-medium mt-1">{errors[`pricingOptions.${index}.limitByUser`]}</p>
-                  )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                      <span>Max Regalo</span>
+                      {isFieldRequired('pricingOptions.maxGiftsPerUser') ? (
+                        <span className="text-red-500 ml-1">*</span>
+                      ) : (
+                        <span className="text-[10px] text-gray-400 font-normal ml-1">(Opcional)</span>
+                      )}
+                    </label>
+                    <Input
+                      type="number"
+                      value={option.maxGiftsPerUser || ''}
+                      onChange={(e) => updatePricingOption(index, 'maxGiftsPerUser', e.target.value)}
+                      placeholder="∞"
+                      min="1"
+                      size="sm"
+                      className={errors[`pricingOptions.${index}.maxGiftsPerUser`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
+                    />
+                    {errors[`pricingOptions.${index}.maxGiftsPerUser`] && (
+                      <p className="text-xs text-red-600 font-medium mt-1">{errors[`pricingOptions.${index}.maxGiftsPerUser`]}</p>
+                    )}
+                  </div>
                 </div>
 
                 <div>

@@ -258,7 +258,6 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
         redemptionMethods: fields.redemptionMethods,
         contactDetails: fields.contactDetails,
         socialMedia: fields.socialMedia,
-        offerDetails: fields.offerDetails,
         // Contenido: AI-Generated Content Fields
         whatWeLike: fields.whatWeLike,
         aboutCompany: fields.aboutCompany,

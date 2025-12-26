@@ -35,7 +35,6 @@ export type Deal = {
     commission: string | null
     paymentType: string | null
     businessReview: string | null
-    offerDetails: string | null
     campaignDuration: string | null
     redemptionMode: string | null
     addressAndHours: string | null

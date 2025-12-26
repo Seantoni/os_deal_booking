@@ -131,8 +131,8 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
       redemptionMethods: fields.redemptionMethods,
       contactDetails: fields.contactDetails,
       socialMedia: fields.socialMedia,
-      offerDetails: fields.offerDetails,
       // Contenido: AI-Generated Content Fields
+      shortTitle: fields.shortTitle,
       whatWeLike: fields.whatWeLike,
       aboutCompany: fields.aboutCompany,
       aboutOffer: fields.aboutOffer,
@@ -348,8 +348,8 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       contactDetails: (formData.get('contactDetails') as string) || null,
       socialMedia: (formData.get('socialMedia') as string) || null,
       businessReview: (formData.get('businessReview') as string) || null,
-      offerDetails: (formData.get('offerDetails') as string) || null,
       // Contenido: AI-Generated Content Fields (used for OfertaSimple mapping)
+      shortTitle: (formData.get('shortTitle') as string) || null,
       whatWeLike: (formData.get('whatWeLike') as string) || null,
       aboutCompany: (formData.get('aboutCompany') as string) || null,
       aboutOffer: (formData.get('aboutOffer') as string) || null,

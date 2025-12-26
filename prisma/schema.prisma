@@ -112,9 +112,9 @@ model BookingRequest {
   contactDetails    String? // Número, correo electrónico y/o app específico
   socialMedia       String? // Redes Sociales y Web
   businessReview    String? // Reseña del Negocio (Máx 1,000 caracteres)
-  offerDetails      String? // Detalle del Contenido (Temario o Sinopsis/Descripción)
 
   // AI-Generated Content Fields (from ContenidoStep)
+  shortTitle    String? // Título corto - AI generated (e.g. "$14 por Rodizio todo incluido")
   whatWeLike    String? @db.Text // Lo que nos gusta - AI generated content
   aboutCompany  String? @db.Text // La empresa - AI generated content
   aboutOffer    String? @db.Text // Acerca de esta oferta - AI generated content

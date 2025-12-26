@@ -273,7 +273,6 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
 
               ${renderSection('Reseña y Contenido', [
                 { key: 'businessReview', label: 'Reseña del Negocio' },
-                { key: 'offerDetails', label: 'Detalle de la Oferta' },
               ])}
 
               ${renderPricingOptions()}

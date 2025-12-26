@@ -114,7 +114,6 @@ export const REQUEST_FORM_STEPS: RequestFormStep[] = [
       { key: 'contactDetails', label: 'Detalles de Contacto', type: 'textarea' },
       { key: 'socialMedia', label: 'Redes Sociales', type: 'textarea' },
       { key: 'businessReview', label: 'Reseña del Negocio', type: 'textarea' },
-      { key: 'offerDetails', label: 'Detalles de la Oferta', type: 'textarea' },
     ],
   },
   {
@@ -129,7 +128,8 @@ export const REQUEST_FORM_STEPS: RequestFormStep[] = [
       { key: 'pricingOptions.price', label: 'Precio (Cliente Paga)', type: 'number' },
       { key: 'pricingOptions.realValue', label: 'Valor Real', type: 'number' },
       { key: 'pricingOptions.quantity', label: 'Cantidad Disponible', type: 'text' },
-      { key: 'pricingOptions.limitByUser', label: 'Límite por Usuario', type: 'number' },
+      { key: 'pricingOptions.limitByUser', label: 'Max Usuario', type: 'number' },
+      { key: 'pricingOptions.maxGiftsPerUser', label: 'Max Regalo', type: 'number' },
       { key: 'pricingOptions.endAt', label: 'Fecha Fin de Opción', type: 'date' },
       { key: 'pricingOptions.expiresIn', label: 'Vencimiento Voucher (Días)', type: 'number' },
     ],

@@ -107,9 +107,9 @@ export const INITIAL_FORM_DATA: BookingFormData = {
   contactDetails: '',
   socialMedia: '',
   businessReview: '',
-  offerDetails: '',
   
   // AI-Generated Content Fields
+  shortTitle: '',
   whatWeLike: '',
   aboutCompany: '',
   aboutOffer: '',
@@ -123,6 +123,7 @@ export const INITIAL_FORM_DATA: BookingFormData = {
     realValue: '',
     quantity: 'Ilimitado',
     limitByUser: '',
+    maxGiftsPerUser: '',
     endAt: '',
     expiresIn: ''
   }],
