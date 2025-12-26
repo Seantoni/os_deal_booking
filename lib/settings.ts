@@ -55,6 +55,30 @@ const getDefaultCategoryDurations = (): CategoryDurations => {
   return durations
 }
 
+// Default external API section mappings
+const DEFAULT_SECTION_MAPPINGS: Record<string, string> = {
+  // Direct matches
+  'HOTELES': 'Hoteles',
+  'RESTAURANTES': 'Restaurantes',
+  'SHOWS Y EVENTOS': 'Shows y Eventos',
+  'SERVICIOS': 'Servicios',
+  'BIENESTAR Y BELLEZA': 'Bienestar y Belleza',
+  'ACTIVIDADES': 'Actividades',
+  'CURSOS': 'Cursos',
+  'PRODUCTOS': 'Productos',
+  // Mapped categories
+  'SPA & DAY SPA': 'Bienestar y Belleza',
+  'GIMNASIOS & FITNESS': 'Servicios',
+  'MÉDICO ESTÉTICO': 'Bienestar y Belleza',
+  'DENTAL & ESTÉTICA DENTAL': 'Bienestar y Belleza',
+  'LABORATORIOS Y SALUD CLÍNICA': 'Servicios',
+  'TURISMO & TOURS': 'Actividades',
+  // MASCOTAS subcategory mappings
+  'MASCOTAS:Veterinaria': 'Servicios',
+  'MASCOTAS:Grooming': 'Servicios',
+  'MASCOTAS:Productos': 'Productos',
+}
+
 export const DEFAULT_SETTINGS: BookingSettings = {
   minDailyLaunches: 5,
   maxDailyLaunches: 13,
@@ -65,6 +89,7 @@ export const DEFAULT_SETTINGS: BookingSettings = {
   hiddenCategoryPaths: {},
   additionalInfoMappings: {},
   requestFormFields: getDefaultRequestFormFieldsConfig(),
+  externalApiSectionMappings: DEFAULT_SECTION_MAPPINGS,
 }
 
 // Local storage keys (deprecated - now using database)

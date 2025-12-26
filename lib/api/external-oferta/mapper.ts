@@ -73,6 +73,7 @@ export function mapBookingFormToApi(
     slug?: string // TODO: Auto-generate later
     runAt?: string | null // Start date/time (ISO string)
     endAt?: string | null // End date/time (ISO string)
+    section?: string | null // External API section (e.g., "Restaurantes", "Hoteles")
   } = {}
 ): ExternalOfertaDealRequest {
   const firstPricingOption = formData.pricingOptions?.[0]
@@ -197,8 +198,8 @@ export function mapBookingFormToApi(
     runAt: options.runAt ?? null,
     endAt: options.endAt ?? null,
     
-    // Skip for now (as per user request)
-    // slug, categoryId, vendorId, dates handled above
+    // External API section (mapped from category)
+    section: options.section || null,
   }
 }
 

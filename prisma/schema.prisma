@@ -272,6 +272,7 @@ model Settings {
   additionalInfoMappings Json? // Optional overrides for additional-info template mapping
   hiddenCategoryPaths Json? // Optional visibility flags for categories
   requestFormFields  Json? // Request form field configurations (required/optional)
+  externalApiSectionMappings Json? // External API section mappings for OfertaSimple
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   updatedBy          String? // Clerk user ID who last updated

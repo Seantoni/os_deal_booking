@@ -50,6 +50,61 @@ function formatOfertaSimpleBoundary(date: Date, boundary: 'start' | 'end'): stri
   return `${ymd}T${time}-05:00`
 }
 
+// Default external API section mappings (used if settings not available)
+const DEFAULT_SECTION_MAPPINGS: Record<string, string> = {
+  'HOTELES': 'Hoteles',
+  'RESTAURANTES': 'Restaurantes',
+  'SHOWS Y EVENTOS': 'Shows y Eventos',
+  'SERVICIOS': 'Servicios',
+  'BIENESTAR Y BELLEZA': 'Bienestar y Belleza',
+  'ACTIVIDADES': 'Actividades',
+  'CURSOS': 'Cursos',
+  'PRODUCTOS': 'Productos',
+  'SPA & DAY SPA': 'Bienestar y Belleza',
+  'GIMNASIOS & FITNESS': 'Servicios',
+  'MÉDICO ESTÉTICO': 'Bienestar y Belleza',
+  'DENTAL & ESTÉTICA DENTAL': 'Bienestar y Belleza',
+  'LABORATORIOS Y SALUD CLÍNICA': 'Servicios',
+  'TURISMO & TOURS': 'Actividades',
+  'MASCOTAS:Veterinaria': 'Servicios',
+  'MASCOTAS:Grooming': 'Servicios',
+  'MASCOTAS:Productos': 'Productos',
+}
+
+/**
+ * Resolve external API section from category path
+ * Checks specific path first, then parent categories
+ */
+function resolveSection(
+  parentCategory: string | null | undefined,
+  subCategory1: string | null | undefined,
+  subCategory2: string | null | undefined,
+  sectionMappings: Record<string, string> = DEFAULT_SECTION_MAPPINGS
+): string | null {
+  if (!parentCategory) return null
+  
+  // Build category paths from most specific to least
+  const paths: string[] = []
+  if (parentCategory && subCategory1 && subCategory2) {
+    paths.push(`${parentCategory}:${subCategory1}:${subCategory2}`)
+  }
+  if (parentCategory && subCategory1) {
+    paths.push(`${parentCategory}:${subCategory1}`)
+  }
+  if (parentCategory) {
+    paths.push(parentCategory)
+  }
+  
+  // Find first matching section
+  for (const path of paths) {
+    if (sectionMappings[path]) {
+      return sectionMappings[path]
+    }
+  }
+  
+  return null
+}
+
 /**
  * Parse campaign duration string to get months
  * Examples: "3 meses", "6 meses", "1 año" -> 3, 6, 12
@@ -101,6 +156,11 @@ interface BookingRequestData {
   socialMedia?: string | null
   contactDetails?: string | null
   opportunityId?: string | null
+  // Category fields for section mapping
+  parentCategory?: string | null
+  subCategory1?: string | null
+  subCategory2?: string | null
+  subCategory3?: string | null
 }
 
 interface SendDealResult {
@@ -405,7 +465,18 @@ export async function sendDealToExternalApi(
     socialMedia: bookingRequest.socialMedia || '',
     contactDetails: bookingRequest.contactDetails || '',
     opportunityId: bookingRequest.opportunityId || '',
+    // Category fields for section mapping
+    parentCategory: bookingRequest.parentCategory || '',
+    subCategory1: bookingRequest.subCategory1 || '',
+    subCategory2: bookingRequest.subCategory2 || '',
   }
+  
+  // Resolve section from category hierarchy
+  const section = resolveSection(
+    bookingRequest.parentCategory,
+    bookingRequest.subCategory1,
+    bookingRequest.subCategory2
+  )
   
   // Use mapper to build the payload (includes all pricing options properly)
   const payload = mapBookingFormToApi(formData as BookingFormData, {
@@ -415,6 +486,7 @@ export async function sendDealToExternalApi(
     // API requirement: day boundaries (00:00 and 23:59) in Panama time
     runAt: finalRunAt ? formatOfertaSimpleBoundary(finalRunAt, 'start') : null,
     endAt: finalEndAt ? formatOfertaSimpleBoundary(finalEndAt, 'end') : null,
+    section: section, // Mapped from category
   })
   
   // Validate payload before sending

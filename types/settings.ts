@@ -55,5 +55,11 @@ export type BookingSettings = {
    * Single source of truth for field requirements
    */
   requestFormFields?: RequestFormFieldsConfig
+  /**
+   * External API section mappings for OfertaSimple API.
+   * Key format: "MAIN", "MAIN:Sub", or "MAIN:Sub:Leaf".
+   * Value: section name (e.g., "Restaurantes", "Hoteles", "Servicios").
+   */
+  externalApiSectionMappings?: Record<string, string>
 }
 

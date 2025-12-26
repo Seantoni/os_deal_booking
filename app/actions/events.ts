@@ -115,6 +115,10 @@ export async function createEvent(formData: FormData) {
           dealImages: true,
           socialMedia: true,
           contactDetails: true,
+          parentCategory: true,
+          subCategory1: true,
+          subCategory2: true,
+          subCategory3: true,
           opportunityId: true,
         },
       })
@@ -570,6 +574,10 @@ export async function bookEvent(eventId: string) {
               dealImages: true,
               socialMedia: true,
               contactDetails: true,
+              parentCategory: true,
+              subCategory1: true,
+              subCategory2: true,
+              subCategory3: true,
               opportunityId: true,
             },
           })

@@ -63,6 +63,42 @@ const LEVEL_COLORS = [
 
 const LEVEL_LABELS = ['Main', 'Sub 1', 'Sub 2', 'Sub 3', 'Sub 4']
 
+// External API section options for OfertaSimple
+const EXTERNAL_API_SECTIONS = [
+  'Hoteles',
+  'Restaurantes',
+  'Shows y Eventos',
+  'Servicios',
+  'Bienestar y Belleza',
+  'Actividades',
+  'Cursos',
+  'Productos',
+] as const
+
+// Default external API section mappings
+const DEFAULT_SECTION_MAPPINGS: Record<string, string> = {
+  // Direct matches
+  'HOTELES': 'Hoteles',
+  'RESTAURANTES': 'Restaurantes',
+  'SHOWS Y EVENTOS': 'Shows y Eventos',
+  'SERVICIOS': 'Servicios',
+  'BIENESTAR Y BELLEZA': 'Bienestar y Belleza',
+  'ACTIVIDADES': 'Actividades',
+  'CURSOS': 'Cursos',
+  'PRODUCTOS': 'Productos',
+  // Mapped categories
+  'SPA & DAY SPA': 'Bienestar y Belleza',
+  'GIMNASIOS & FITNESS': 'Servicios',
+  'MÉDICO ESTÉTICO': 'Bienestar y Belleza',
+  'DENTAL & ESTÉTICA DENTAL': 'Bienestar y Belleza',
+  'LABORATORIOS Y SALUD CLÍNICA': 'Servicios',
+  'TURISMO & TOURS': 'Actividades',
+  // MASCOTAS subcategory mappings
+  'MASCOTAS:Veterinaria': 'Servicios',
+  'MASCOTAS:Grooming': 'Servicios',
+  'MASCOTAS:Productos': 'Productos',
+}
+
 export default function CategoriesTab({ settings, setSettings }: CategoriesTabProps) {
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set())
   const [newMainCategory, setNewMainCategory] = useState('')
@@ -71,9 +107,11 @@ export default function CategoriesTab({ settings, setSettings }: CategoriesTabPr
   const [editingValue, setEditingValue] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [expandedTemplateKey, setExpandedTemplateKey] = useState<string | null>(null)
+  const [sectionSearchTerm, setSectionSearchTerm] = useState('')
 
   const currentHierarchy = settings.customCategories || INITIAL_CATEGORY_HIERARCHY
   const hiddenCategoryPaths = settings.hiddenCategoryPaths || {}
+  const sectionMappings = settings.externalApiSectionMappings || {}
 
   // Build flattened paths for template mapping
   const flattenedPaths: { key: string; label: string }[] = []
@@ -106,6 +144,51 @@ export default function CategoriesTab({ settings, setSettings }: CategoriesTabPr
       additionalInfoMappings: { ...settings.additionalInfoMappings, [pathKey]: value }
     })
   }
+
+  // Get effective external API section mapping (check custom override, then defaults, then parents)
+  const getEffectiveSection = (pathKey: string): { section: string; source: 'custom' | 'default' | 'inherited' | 'none' } => {
+    // Check custom override first
+    if (sectionMappings[pathKey]) {
+      return { section: sectionMappings[pathKey], source: 'custom' }
+    }
+    // Check default mapping
+    if (DEFAULT_SECTION_MAPPINGS[pathKey]) {
+      return { section: DEFAULT_SECTION_MAPPINGS[pathKey], source: 'default' }
+    }
+    // Check parent paths (custom first, then defaults)
+    const parts = pathKey.split(':')
+    for (let i = parts.length - 1; i >= 1; i--) {
+      const parentKey = parts.slice(0, i).join(':')
+      if (sectionMappings[parentKey]) {
+        return { section: sectionMappings[parentKey], source: 'inherited' }
+      }
+      if (DEFAULT_SECTION_MAPPINGS[parentKey]) {
+        return { section: DEFAULT_SECTION_MAPPINGS[parentKey], source: 'inherited' }
+      }
+    }
+    return { section: '', source: 'none' }
+  }
+
+  const handleSectionChange = (pathKey: string, value: string) => {
+    const newMappings = { ...sectionMappings }
+    if (value) {
+      newMappings[pathKey] = value
+    } else {
+      delete newMappings[pathKey]
+    }
+    setSettings({
+      ...settings,
+      externalApiSectionMappings: newMappings
+    })
+  }
+
+  // Filter paths for section mapping search
+  const filteredSectionPaths = flattenedPaths.filter(({ key, label }) => {
+    const term = sectionSearchTerm.trim().toLowerCase()
+    if (!term) return true
+    const { section } = getEffectiveSection(key)
+    return label.toLowerCase().includes(term) || key.toLowerCase().includes(term) || section.toLowerCase().includes(term)
+  })
 
   const isHidden = (pathKey: string) => hiddenCategoryPaths[pathKey] === true
 
@@ -655,6 +738,103 @@ export default function CategoriesTab({ settings, setSettings }: CategoriesTabPr
               {filteredPaths.length === 0 && (
                 <tr>
                   <td colSpan={3} className="px-3 py-3 text-center text-gray-500 text-xs">
+                    No categories match your search.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* External API Section Mapping */}
+      <div className="mt-6 border border-green-100 rounded-lg p-3 bg-green-50">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h3 className="text-sm font-semibold text-green-900">External API Section Mapping</h3>
+            <p className="text-xs text-green-700">
+              Map categories to OfertaSimple API sections. If no match, section will be empty.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-medium">
+              {Object.keys(DEFAULT_SECTION_MAPPINGS).length} defaults
+            </span>
+            <span className="text-[10px] bg-green-200 text-green-800 px-2 py-0.5 rounded-full font-medium">
+              {Object.keys(sectionMappings).length} custom
+            </span>
+          </div>
+        </div>
+
+        <div className="mb-3 flex items-center gap-2">
+          <input
+            type="text"
+            value={sectionSearchTerm}
+            onChange={(e) => setSectionSearchTerm(e.target.value)}
+            placeholder="Search category or section..."
+            className="flex-1 px-3 py-1.5 text-xs border border-green-200 rounded focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+          />
+          {sectionSearchTerm && (
+            <button
+              onClick={() => setSectionSearchTerm('')}
+              className="text-[11px] px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        <div className="max-h-64 overflow-auto bg-white border border-green-100 rounded">
+          <table className="min-w-full text-xs">
+            <thead className="bg-green-50 text-green-900 sticky top-0">
+              <tr>
+                <th className="px-3 py-2 text-left font-semibold">Category Path</th>
+                <th className="px-3 py-2 text-left font-semibold w-48">API Section</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-green-50">
+              {filteredSectionPaths.map(({ key, label }) => {
+                const { section: effectiveSection, source } = getEffectiveSection(key)
+                const hasCustomOverride = sectionMappings[key]
+                const sourceLabel = source === 'custom' ? 'custom' : source === 'default' ? 'default' : source === 'inherited' ? 'inherited' : ''
+                const sourceBadgeColor = source === 'custom' ? 'bg-green-100 text-green-800' : source === 'default' ? 'bg-blue-100 text-blue-800' : source === 'inherited' ? 'bg-gray-100 text-gray-600' : ''
+                return (
+                  <tr key={key} className="hover:bg-green-50/50">
+                    <td className="px-3 py-2 text-gray-800">{label}</td>
+                    <td className="px-3 py-2">
+                      <select
+                        value={sectionMappings[key] || ''}
+                        onChange={(e) => handleSectionChange(key, e.target.value)}
+                        className={`w-full border rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-green-500 ${
+                          hasCustomOverride ? 'border-green-400 bg-green-50' : 'border-gray-300'
+                        }`}
+                      >
+                        <option value="">
+                          {effectiveSection 
+                            ? `${source === 'default' ? 'Default' : 'Inherited'}: ${effectiveSection}` 
+                            : 'Not mapped'}
+                        </option>
+                        {EXTERNAL_API_SECTIONS.map(sectionOpt => (
+                          <option key={sectionOpt} value={sectionOpt}>
+                            {sectionOpt}
+                          </option>
+                        ))}
+                      </select>
+                      {effectiveSection && (
+                        <p className="text-[10px] mt-1 flex items-center gap-1">
+                          <span className="text-gray-500">→ {effectiveSection}</span>
+                          <span className={`px-1.5 py-0.5 rounded-full text-[9px] ${sourceBadgeColor}`}>
+                            {sourceLabel}
+                          </span>
+                        </p>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+              {filteredSectionPaths.length === 0 && (
+                <tr>
+                  <td colSpan={2} className="px-3 py-3 text-center text-gray-500 text-xs">
                     No categories match your search.
                   </td>
                 </tr>

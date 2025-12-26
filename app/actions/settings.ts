@@ -38,6 +38,7 @@ export async function getSettingsFromDB(): Promise<ServerActionResponse<BookingS
       additionalInfoMappings: (settings as any).additionalInfoMappings || {},
       hiddenCategoryPaths: (settings as any).hiddenCategoryPaths || {},
       requestFormFields: mergedRequestFormFields,
+      externalApiSectionMappings: (settings as any).externalApiSectionMappings || {},
     }
 
     return { success: true, data: bookingSettings }
@@ -77,6 +78,7 @@ export async function saveSettingsToDB(
         additionalInfoMappings: settings.additionalInfoMappings || {},
         hiddenCategoryPaths: settings.hiddenCategoryPaths || {},
         requestFormFields: settings.requestFormFields || null,
+        externalApiSectionMappings: settings.externalApiSectionMappings || {},
         updatedBy: userId || authResult.userId,
         updatedAt: new Date(),
       } as any,
@@ -91,6 +93,7 @@ export async function saveSettingsToDB(
         additionalInfoMappings: settings.additionalInfoMappings || {},
         hiddenCategoryPaths: settings.hiddenCategoryPaths || {},
         requestFormFields: settings.requestFormFields || null,
+        externalApiSectionMappings: settings.externalApiSectionMappings || {},
         updatedBy: userId || authResult.userId,
       } as any,
     })
@@ -129,6 +132,7 @@ export async function resetSettingsToDefaults(): Promise<ServerActionResponse<vo
         additionalInfoMappings: DEFAULT_SETTINGS.additionalInfoMappings,
         hiddenCategoryPaths: DEFAULT_SETTINGS.hiddenCategoryPaths,
         requestFormFields: DEFAULT_SETTINGS.requestFormFields || null,
+        externalApiSectionMappings: DEFAULT_SETTINGS.externalApiSectionMappings || {},
         updatedBy: authResult.userId,
         updatedAt: new Date(),
       } as any,
@@ -143,6 +147,7 @@ export async function resetSettingsToDefaults(): Promise<ServerActionResponse<vo
         additionalInfoMappings: DEFAULT_SETTINGS.additionalInfoMappings,
         hiddenCategoryPaths: DEFAULT_SETTINGS.hiddenCategoryPaths,
         requestFormFields: DEFAULT_SETTINGS.requestFormFields || null,
+        externalApiSectionMappings: DEFAULT_SETTINGS.externalApiSectionMappings || {},
         updatedBy: authResult.userId,
       } as any,
     })
