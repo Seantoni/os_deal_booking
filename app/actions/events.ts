@@ -563,6 +563,7 @@ export async function bookEvent(eventId: string) {
               startDate: true,
               endDate: true,
               campaignDuration: true,
+              offerMargin: true,
               pricingOptions: true,
               shortTitle: true,
               aboutOffer: true,
