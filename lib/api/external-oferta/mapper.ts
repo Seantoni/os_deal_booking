@@ -20,11 +20,14 @@ function stringToBoolean(value: string | null | undefined, defaultValue: boolean
  * Handles "Ilimitado" → null
  */
 function parseQuantity(quantity: string | null | undefined): number | null {
+  console.log('[Mapper] parseQuantity input:', { quantity, type: typeof quantity })
   if (!quantity) return null
-  const lower = quantity.toLowerCase()
+  const lower = String(quantity).toLowerCase()
   if (lower === 'ilimitado' || lower === 'unlimited') return null
-  const parsed = parseInt(quantity, 10)
-  return isNaN(parsed) ? null : parsed
+  const parsed = parseInt(String(quantity), 10)
+  const result = isNaN(parsed) ? null : parsed
+  console.log('[Mapper] parseQuantity output:', result)
+  return result
 }
 
 /**

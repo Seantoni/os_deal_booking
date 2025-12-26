@@ -433,6 +433,14 @@ export async function sendDealToExternalApi(
     }
   }
   
+  // Debug: Log raw pricing options from DB to trace quantity field
+  console.log('[External API] Raw pricingOptions from DB:', pricingOptions.map((opt: any) => ({
+    title: opt.title,
+    price: opt.price,
+    quantity: opt.quantity,
+    quantityType: typeof opt.quantity,
+  })))
+  
   // Convert dealImages to proper format
   let dealImages: Array<{ url: string; order: number }> = []
   if (bookingRequest.dealImages) {
