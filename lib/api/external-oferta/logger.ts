@@ -129,6 +129,7 @@ export async function logApiCall(
           value: opt.value,
           maximumQuantity: opt.maximumQuantity,
           limitByUser: opt.limitByUser,
+          giftLimitPerUser: opt.giftLimitPerUser,
           endAt: opt.endAt,
           expiresIn: opt.expiresIn,
         }))

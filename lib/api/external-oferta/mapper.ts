@@ -120,6 +120,7 @@ export function mapBookingFormToApi(
         description: opt.description?.trim() || null,
         maximumQuantity: parseQuantity(opt.quantity),
         limitByUser: parseOptionalInt(opt.limitByUser),
+        giftLimitPerUser: parseOptionalInt(opt.maxGiftsPerUser),
         endAt: opt.endAt || null,
         expiresIn: daysToSeconds(opt.expiresIn),
       }
@@ -181,14 +182,13 @@ export function mapBookingFormToApi(
     priceOptions: priceOptions.length > 0 ? priceOptions : null,
 
     // Boolean flags (with sensible defaults)
-    couponEnabled: true, // Default to enabled
-    secretDeal: false, // Default to false
+    couponEnabled: false,
+    secretDeal: false,
     gift: stringToBoolean(formData.giftVouchers, true),
-    isActive: true, // Default to active
-    showDiscount: true, // Default to show discount
-    limitedQuantity: formData.pricingOptions?.some(opt => 
-      opt.quantity && opt.quantity.toLowerCase() !== 'ilimitado'
-    ) || false,
+    isActive: true,
+    showDiscount: true,
+    limitedQuantity: false,
+    qrCodes: false,
 
     // Internal tracking
     osSalesId: formData.opportunityId ? parseInt(formData.opportunityId, 10) || null : null,

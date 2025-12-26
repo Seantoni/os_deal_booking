@@ -124,6 +124,7 @@ export interface ExternalOfertaPriceOption {
   value?: number | null // Original value before discount (float)
   maximumQuantity?: number | null // Maximum total quantity
   limitByUser?: number | null // Maximum quantity per user
+  giftLimitPerUser?: number | null // Maximum gifts per user
   endAt?: string | null // End date/time for this option (ISO string)
   expiresIn?: number | null // Expiration seconds after voucher creation
   description?: string | null

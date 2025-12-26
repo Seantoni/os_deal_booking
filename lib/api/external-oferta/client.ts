@@ -501,6 +501,7 @@ export async function sendDealToExternalApi(
       description: opt.description,
       maximumQuantity: opt.maximumQuantity,
       limitByUser: opt.limitByUser,
+      giftLimitPerUser: opt.giftLimitPerUser,
       endAt: opt.endAt,
       expiresIn: opt.expiresIn,
     })))
