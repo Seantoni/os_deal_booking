@@ -9,6 +9,7 @@ import { mapBookingFormToApi } from './mapper'
 import type { ExternalOfertaDealRequest, ExternalOfertaDealResponse } from './types'
 import type { BookingFormData } from '@/components/RequestForm/types'
 import type { Prisma } from '@prisma/client'
+import { formatDateForPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
 
 const EXTERNAL_API_URL = process.env.EXTERNAL_OFERTA_API_URL || 'https://ofertasimple.com/external/api/deals'
 const EXTERNAL_API_TOKEN = process.env.EXTERNAL_OFERTA_API_TOKEN
@@ -34,9 +35,19 @@ function generateSlug(businessName: string): string {
  * Calculate expiration date based on end date and campaign duration
  */
 function calculateExpiresOn(endDate: Date, campaignDurationMonths: number): string {
-  const expiresDate = new Date(endDate)
-  expiresDate.setMonth(expiresDate.getMonth() + campaignDurationMonths)
-  return expiresDate.toISOString().split('T')[0] // YYYY-MM-DD
+  // Do the month math using Panama dates to avoid UTC shifts (off-by-one day)
+  const endYmd = formatDateForPanama(endDate) // YYYY-MM-DD in Panama
+  const expiresDate = parseDateInPanamaTime(endYmd) // midnight Panama in UTC
+  expiresDate.setUTCMonth(expiresDate.getUTCMonth() + campaignDurationMonths)
+  return formatDateForPanama(expiresDate)
+}
+
+function formatOfertaSimpleBoundary(date: Date, boundary: 'start' | 'end'): string {
+  // OfertaSimple expects a datetime string; we send day-boundaries in Panama time.
+  // Panama is UTC-5 year-round, so include a stable offset.
+  const ymd = formatDateForPanama(date) // YYYY-MM-DD in Panama
+  const time = boundary === 'start' ? '00:00:00' : '23:59:59'
+  return `${ymd}T${time}-05:00`
 }
 
 /**
@@ -73,6 +84,7 @@ interface BookingRequestData {
   name?: string | null
   businessName?: string | null
   businessEmail: string
+  startDate?: Date | string
   endDate: Date | string
   campaignDuration?: string | null
   pricingOptions?: Prisma.JsonValue
@@ -294,6 +306,9 @@ export async function sendDealToExternalApi(
   options?: {
     userId?: string
     triggeredBy?: 'manual' | 'cron' | 'webhook' | 'system'
+    /** Override the deal start/end dates sent to OfertaSimple (used when booking an event) */
+    runAt?: Date | string | null
+    endAt?: Date | string | null
   }
 ): Promise<SendDealResult> {
   const startTime = Date.now()
@@ -305,9 +320,27 @@ export async function sendDealToExternalApi(
   }
 
   // Convert BookingRequestData to BookingFormData format for mapper
-  const endDate = typeof bookingRequest.endDate === 'string' 
-    ? new Date(bookingRequest.endDate) 
-    : bookingRequest.endDate
+  const startDate =
+    bookingRequest.startDate
+      ? (typeof bookingRequest.startDate === 'string' ? new Date(bookingRequest.startDate) : bookingRequest.startDate)
+      : null
+
+  const endDate = typeof bookingRequest.endDate === 'string' ? new Date(bookingRequest.endDate) : bookingRequest.endDate
+
+  // When booking an event, we should use the final booked dates from the event
+  const finalRunAt =
+    options?.runAt === undefined
+      ? startDate
+      : options.runAt
+        ? (typeof options.runAt === 'string' ? new Date(options.runAt) : options.runAt)
+        : null
+
+  const finalEndAt =
+    options?.endAt === undefined
+      ? endDate
+      : options.endAt
+        ? (typeof options.endAt === 'string' ? new Date(options.endAt) : options.endAt)
+        : null
   
   const campaignMonths = parseCampaignDuration(bookingRequest.campaignDuration)
   
@@ -377,8 +410,11 @@ export async function sendDealToExternalApi(
   // Use mapper to build the payload (includes all pricing options properly)
   const payload = mapBookingFormToApi(formData as BookingFormData, {
     slug: generateSlug(businessName),
-    expiresOn: calculateExpiresOn(endDate, campaignMonths),
+    expiresOn: calculateExpiresOn(finalEndAt || endDate, campaignMonths),
     categoryId: 17, // Hardcoded for now
+    // API requirement: day boundaries (00:00 and 23:59) in Panama time
+    runAt: finalRunAt ? formatOfertaSimpleBoundary(finalRunAt, 'start') : null,
+    endAt: finalEndAt ? formatOfertaSimpleBoundary(finalEndAt, 'end') : null,
   })
   
   // Validate payload before sending
@@ -449,6 +485,8 @@ export async function sendDealToExternalApi(
     businessName,
     slug: payloadToSend.slug,
     expiresOn: payloadToSend.expiresOn,
+    runAt: payloadToSend.runAt,
+    endAt: payloadToSend.endAt,
     hasPriceOptions: !!payloadToSend.priceOptions,
     priceOptionsCount: Array.isArray(payloadToSend.priceOptions) ? payloadToSend.priceOptions.length : 0,
   })

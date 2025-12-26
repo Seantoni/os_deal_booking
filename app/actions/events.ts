@@ -100,6 +100,7 @@ export async function createEvent(formData: FormData) {
           merchant: true,
           name: true,
           businessEmail: true,
+          startDate: true,
           endDate: true,
           campaignDuration: true,
           pricingOptions: true,
@@ -554,6 +555,7 @@ export async function bookEvent(eventId: string) {
               merchant: true,
               name: true,
               businessEmail: true,
+              startDate: true,
               endDate: true,
               campaignDuration: true,
               pricingOptions: true,
@@ -577,6 +579,9 @@ export async function bookEvent(eventId: string) {
             externalApiResult = await sendDealToExternalApi(bookingRequestData, {
               userId,
               triggeredBy: 'system',
+              // OfertaSimple dates should match the final booked event dates
+              runAt: event.startDate,
+              endAt: event.endDate,
             })
             logger.info('Deal sent to external API for booking request:', bookingRequest.id)
           } else {

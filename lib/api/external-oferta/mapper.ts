@@ -71,6 +71,8 @@ export function mapBookingFormToApi(
     vendorId?: number // TODO: Add vendor mapping later
     expiresOn?: string // TODO: Add date mapping later
     slug?: string // TODO: Auto-generate later
+    runAt?: string | null // Start date/time (ISO string)
+    endAt?: string | null // End date/time (ISO string)
   } = {}
 ): ExternalOfertaDealRequest {
   const firstPricingOption = formData.pricingOptions?.[0]
@@ -78,8 +80,8 @@ export function mapBookingFormToApi(
   // Extract offer name from first pricing option (the subtitle shown on deal page)
   const nameEs = firstPricingOption?.title || firstPricingOption?.description || formData.businessName || ''
   
-  // Extract summary/subtitle for summaryEs (use first pricing option title, or aboutOffer, or business name)
-  const summaryEs = firstPricingOption?.title || formData.aboutOffer || formData.businessName || ''
+  // summaryEs (required by API): use "Acerca de esta oferta" first, then fall back
+  const summaryEs = formData.aboutOffer || firstPricingOption?.title || formData.businessName || ''
   
   // Extract email subject (use business name as default)
   const emailSubject = formData.businessName || nameEs || ''
@@ -182,8 +184,8 @@ export function mapBookingFormToApi(
     osSalesId: formData.opportunityId ? parseInt(formData.opportunityId, 10) || null : null,
     
     // Dates (TODO: Map from startDate/endDate)
-    // runAt: TODO
-    // endAt: TODO
+    runAt: options.runAt ?? null,
+    endAt: options.endAt ?? null,
     
     // Skip for now (as per user request)
     // slug, categoryId, vendorId, dates handled above
