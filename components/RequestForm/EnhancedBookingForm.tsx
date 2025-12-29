@@ -432,7 +432,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
               })
             }
           } catch (e) {
-            console.warn('[EnhancedBookingForm] Failed to parse additionalInfo:', e)
+            // Failed to parse additionalInfo
           }
         }
         

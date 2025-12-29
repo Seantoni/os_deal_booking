@@ -267,9 +267,6 @@ export async function sendExternalDealPayload(
   }
 
   const payloadToSend = normalizePayloadForExternalApi(payload)
-  if (options?.resendOfLogId) {
-    console.log('[External API] Resending request:', { resendOfLogId: options.resendOfLogId })
-  }
 
   try {
     const response = await fetch(endpoint, {
@@ -376,7 +373,6 @@ export async function sendDealToExternalApi(
   
   // Check if API is configured
   if (!EXTERNAL_API_TOKEN) {
-    console.warn('[External API] EXTERNAL_OFERTA_API_TOKEN not configured, skipping API call')
     return { success: false, error: 'API token not configured' }
   }
 
@@ -432,14 +428,6 @@ export async function sendDealToExternalApi(
       pricingOptions = bookingRequest.pricingOptions as any
     }
   }
-  
-  // Debug: Log raw pricing options from DB to trace quantity field
-  console.log('[External API] Raw pricingOptions from DB:', pricingOptions.map((opt: any) => ({
-    title: opt.title,
-    price: opt.price,
-    quantity: opt.quantity,
-    quantityType: typeof opt.quantity,
-  })))
   
   // Convert dealImages to proper format
   let dealImages: Array<{ url: string; order: number }> = []
@@ -562,40 +550,6 @@ export async function sendDealToExternalApi(
 
   const payloadToSend = normalizePayloadForExternalApi(payload)
 
-  console.log('[External API] Sending deal to external API:', {
-    bookingRequestId: bookingRequest.id,
-    businessName,
-    slug: payloadToSend.slug,
-    expiresOn: payloadToSend.expiresOn,
-    runAt: payloadToSend.runAt,
-    endAt: payloadToSend.endAt,
-    hasPriceOptions: !!payloadToSend.priceOptions,
-    priceOptionsCount: Array.isArray(payloadToSend.priceOptions) ? payloadToSend.priceOptions.length : 0,
-    imagesCount: Array.isArray(payloadToSend.images) ? payloadToSend.images.length : 0,
-  })
-  
-  // Log pricing options details
-  if (payloadToSend.priceOptions && Array.isArray(payloadToSend.priceOptions)) {
-    console.log('[External API] Price options being sent:', payloadToSend.priceOptions.map((opt: any) => ({
-      // title is intentionally stripped for compatibility
-      price: opt.price,
-      value: opt.value,
-      description: opt.description,
-      maximumQuantity: opt.maximumQuantity,
-      limitByUser: opt.limitByUser,
-      giftLimitPerUser: opt.giftLimitPerUser,
-      endAt: opt.endAt,
-      expiresIn: opt.expiresIn,
-      oufferMargin: opt.oufferMargin,
-    })))
-  } else {
-    console.warn('[External API] No price options in payload!', {
-      priceOptions: payloadToSend.priceOptions,
-      type: typeof payloadToSend.priceOptions,
-      isArray: Array.isArray(payloadToSend.priceOptions),
-    })
-  }
-
   try {
     const result = await sendExternalDealPayload(payloadToSend, {
       endpoint: EXTERNAL_API_URL,
@@ -603,11 +557,6 @@ export async function sendDealToExternalApi(
       userId: options?.userId,
       triggeredBy: options?.triggeredBy || 'system',
     })
-    if (result.success) {
-      console.log('[External API] Deal created successfully:', { externalId: result.externalId, logId: result.logId })
-    } else {
-      console.error('[External API] Failed to create deal:', { errorMessage: result.error, logId: result.logId })
-    }
     return result
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'

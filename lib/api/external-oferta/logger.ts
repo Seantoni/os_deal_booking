@@ -109,33 +109,6 @@ export async function logApiCall(
     'User-Agent': 'OfertaSimpleBooking/1.0',
   }
   
-  // Enhanced logging for debugging
-  console.log('[External API Logger] Logging API call:', {
-    endpoint,
-    method,
-    bookingRequestId,
-    triggeredBy,
-    durationMs,
-    statusCode: response.statusCode,
-    success: response.success,
-    hasPriceOptions: !!(requestBody as any).priceOptions,
-    priceOptionsCount: Array.isArray((requestBody as any).priceOptions) 
-      ? (requestBody as any).priceOptions.length 
-      : 0,
-    priceOptionsDetails: Array.isArray((requestBody as any).priceOptions)
-      ? (requestBody as any).priceOptions.map((opt: any) => ({
-          title: opt.title,
-          price: opt.price,
-          value: opt.value,
-          maximumQuantity: opt.maximumQuantity,
-          limitByUser: opt.limitByUser,
-          giftLimitPerUser: opt.giftLimitPerUser,
-          endAt: opt.endAt,
-          expiresIn: opt.expiresIn,
-        }))
-      : null,
-  })
-  
   // Log full request body structure for debugging
   if (!response.success) {
     console.error('[External API Logger] Request body structure:', {
@@ -170,8 +143,6 @@ export async function logApiCall(
       durationMs,
     },
   })
-  
-  console.log('[External API Logger] Log entry created:', { logId: record.id })
   
   return record.id
 }

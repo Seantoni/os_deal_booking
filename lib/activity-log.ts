@@ -109,7 +109,6 @@ export async function logActivity(params: LogActivityParams): Promise<void> {
     
     if (!userId) {
       // Skip logging if no user (shouldn't happen in authenticated routes)
-      console.warn('[ActivityLog] No userId found, skipping log')
       return
     }
 
@@ -173,7 +172,6 @@ export async function logActivities(activities: LogActivityParams[]): Promise<vo
     const { userId } = await auth()
     
     if (!userId) {
-      console.warn('[ActivityLog] No userId found, skipping batch log')
       return
     }
 
