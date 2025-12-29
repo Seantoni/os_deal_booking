@@ -11,6 +11,7 @@ import EditIcon from '@mui/icons-material/Edit'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { TableRow, TableCell } from '@/components/shared/table'
 import { formatShortDate } from '@/lib/date'
+import { translatePipelineStage } from '@/lib/utils/translations'
 
 // Lazy load heavy modal components
 const OpportunityFormModal = dynamic(() => import('@/components/crm/opportunity/OpportunityFormModal'), {
@@ -145,13 +146,13 @@ export default function UnifiedPipelineTable({
     if (item.opportunity?.id && processedIds.has(item.opportunity.id)) return
     if (item.bookingRequest?.id && processedIds.has(item.bookingRequest.id)) return
 
-    const title = item.opportunity?.business?.name || item.bookingRequest?.name || 'Unknown'
+    const title = item.opportunity?.business?.name || item.bookingRequest?.name || 'Desconocido'
     const hasRequest = !!item.bookingRequest
     const isBooked = item.bookingRequest?.status === 'booked'
     
     // Determine active stage
     let currentStage: UnifiedRow['currentStage'] = 'Opportunity'
-    let statusLabel = item.opportunity?.stage || 'Unknown'
+    let statusLabel = item.opportunity?.stage || 'Desconocido'
 
     if (hasRequest) {
       if (item.bookingRequest?.status === 'draft' || item.bookingRequest?.status === 'pending') {
@@ -159,10 +160,10 @@ export default function UnifiedPipelineTable({
         statusLabel = item.bookingRequest.status
       } else if (item.bookingRequest?.status === 'approved') {
         currentStage = 'Request' // Or 'Booking' intermediate
-        statusLabel = 'Approved'
+        statusLabel = 'Aprobado'
       } else if (item.bookingRequest?.status === 'booked') {
         currentStage = 'Event'
-        statusLabel = 'Booked'
+        statusLabel = 'Reservado'
       }
     }
 
@@ -213,7 +214,7 @@ export default function UnifiedPipelineTable({
       hasDeal: false,
       hasEvent: true,
       currentStage: 'Event',
-      statusLabel: 'Pre-Booked',
+      statusLabel: 'Pre-Reservado',
       event: item.event,
     })
   })
@@ -263,19 +264,19 @@ export default function UnifiedPipelineTable({
     return (
       <div className="flex items-center space-x-1">
         {/* Opportunity Step */}
-        <div className={`w-2 h-2 rounded-full ${row.hasOpportunity ? 'bg-blue-500' : 'bg-gray-200'}`} title="Opportunity" />
+        <div className={`w-2 h-2 rounded-full ${row.hasOpportunity ? 'bg-blue-500' : 'bg-gray-200'}`} title="Oportunidad" />
         <div className="w-4 h-0.5 bg-gray-200" />
         
         {/* Request Step */}
-        <div className={`w-2 h-2 rounded-full ${row.hasRequest ? 'bg-yellow-500' : 'bg-gray-200'}`} title="Booking Request" />
+        <div className={`w-2 h-2 rounded-full ${row.hasRequest ? 'bg-yellow-500' : 'bg-gray-200'}`} title="Solicitud de Booking" />
         <div className="w-4 h-0.5 bg-gray-200" />
 
         {/* Event Step */}
-        <div className={`w-2 h-2 rounded-full ${row.hasEvent ? 'bg-green-500' : 'bg-gray-200'}`} title="Event Scheduled" />
+        <div className={`w-2 h-2 rounded-full ${row.hasEvent ? 'bg-green-500' : 'bg-gray-200'}`} title="Evento Programado" />
         <div className="w-4 h-0.5 bg-gray-200" />
 
         {/* Deal Step */}
-        <div className={`w-2 h-2 rounded-full ${row.hasDeal ? 'bg-purple-500' : 'bg-gray-200'}`} title="Deal" />
+        <div className={`w-2 h-2 rounded-full ${row.hasDeal ? 'bg-purple-500' : 'bg-gray-200'}`} title="Oferta" />
       </div>
     )
   }
@@ -286,12 +287,12 @@ export default function UnifiedPipelineTable({
         <table className="w-full text-sm text-left">
           <thead className="bg-gray-50 border-b border-gray-200 font-medium text-gray-500">
             <tr>
-              <th className="px-4 py-[5px] font-medium">Entity / Name</th>
-              <th className="px-4 py-[5px] font-medium">Lifecycle</th>
-              <th className="px-4 py-[5px] font-medium">Current Phase</th>
-              <th className="px-4 py-[5px] font-medium">Status</th>
-              <th className="px-4 py-[5px] font-medium">Days in Phase</th>
-              <th className="px-4 py-[5px] font-medium">Reserved Date</th>
+              <th className="px-4 py-[5px] font-medium">Entidad / Nombre</th>
+              <th className="px-4 py-[5px] font-medium">Ciclo de Vida</th>
+              <th className="px-4 py-[5px] font-medium">Fase Actual</th>
+              <th className="px-4 py-[5px] font-medium">Estado</th>
+              <th className="px-4 py-[5px] font-medium">Días en Fase</th>
+              <th className="px-4 py-[5px] font-medium">Fecha Reservada</th>
               <th className="px-4 py-[5px] w-10"></th>
             </tr>
           </thead>
@@ -311,7 +312,7 @@ export default function UnifiedPipelineTable({
                     ${row.currentStage === 'Deal' ? 'bg-purple-100 text-purple-800' : ''}
                     ${row.currentStage === 'Event' ? 'bg-green-100 text-green-800' : ''}
                   `}>
-                    {row.currentStage}
+                    {translatePipelineStage(row.currentStage)}
                   </span>
                 </TableCell>
                 <TableCell className="text-gray-600 font-medium text-xs">
@@ -326,8 +327,8 @@ export default function UnifiedPipelineTable({
                     else if (days > 3) colorClass = 'text-yellow-600'
                     
                     return (
-                      <span className={`text-sm ${colorClass}`} title={`Since ${formatShortDate(row.phaseStartDate)}`}>
-                        {days === 0 ? 'Today' : days === 1 ? '1 day' : `${days} days`}
+                      <span className={`text-sm ${colorClass}`} title={`Desde ${formatShortDate(row.phaseStartDate)}`}>
+                        {days === 0 ? 'Hoy' : days === 1 ? '1 día' : `${days} días`}
                       </span>
                     )
                   })()}
@@ -362,7 +363,7 @@ export default function UnifiedPipelineTable({
                           }}
                           className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                         >
-                          <EditIcon fontSize="small" /> Edit Opportunity
+                          <EditIcon fontSize="small" /> Editar Oportunidad
                         </button>
                       )}
                       {row.bookingRequest && (
@@ -374,7 +375,7 @@ export default function UnifiedPipelineTable({
                           }}
                           className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                         >
-                          <VisibilityIcon fontSize="small" /> View Request
+                          <VisibilityIcon fontSize="small" /> Ver Solicitud
                         </button>
                       )}
                     </div>

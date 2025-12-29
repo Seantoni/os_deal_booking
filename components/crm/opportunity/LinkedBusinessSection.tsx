@@ -19,7 +19,7 @@ export default function LinkedBusinessSection({ business, onEdit }: LinkedBusine
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
             <BusinessIcon className="text-blue-600" style={{ fontSize: 16 }} />
-            <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Linked Business</h3>
+            <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Negocio Vinculado</h3>
           </div>
         </div>
       </div>
@@ -38,7 +38,7 @@ export default function LinkedBusinessSection({ business, onEdit }: LinkedBusine
                 </h4>
                 {business.tier && (
                   <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 rounded text-[10px] font-medium whitespace-nowrap">
-                    Tier {business.tier}
+                    Nivel {business.tier}
                   </span>
                 )}
               </div>

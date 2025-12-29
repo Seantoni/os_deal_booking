@@ -43,22 +43,32 @@ import { EntityTable, CellStack, TableRow, TableCell } from '@/components/shared
 
 // Table columns configuration
 const COLUMNS: ColumnConfig[] = [
-  { key: 'name', label: 'Business Name', sortable: true },
-  { key: 'contact', label: 'Contact', sortable: true },
-  { key: 'email', label: 'Email' },
-  { key: 'phone', label: 'Phone' },
-  { key: 'category', label: 'Category', sortable: true },
-  { key: 'netRev360', label: 'Net Rev (360d)', sortable: true, align: 'right' },
+  { key: 'name', label: 'Nombre del Negocio', sortable: true },
+  { key: 'contact', label: 'Contacto', sortable: true },
+  { key: 'email', label: 'Correo' },
+  { key: 'phone', label: 'Teléfono' },
+  { key: 'category', label: 'Categoría', sortable: true },
+  { key: 'netRev360', label: 'Ing. Neto (360d)', sortable: true, align: 'right' },
   { key: 'reps', label: 'Reps' },
-  { key: 'openOpps', label: 'Open Opps', sortable: true, align: 'center', width: 'w-20' },
-  { key: 'pendingReqs', label: 'Pending Reqs', sortable: true, align: 'center', width: 'w-24' },
+  { key: 'openOpps', label: 'Opps Abiertas', sortable: true, align: 'center', width: 'w-20' },
+  { key: 'pendingReqs', label: 'Solic. Pendientes', sortable: true, align: 'center', width: 'w-24' },
   { key: 'actions', label: '', width: 'w-20' },
 ]
 
 // Search fields for businesses
 const SEARCH_FIELDS = ['name', 'contactName', 'contactEmail', 'contactPhone']
 
-export default function BusinessesPageClient() {
+interface BusinessesPageClientProps {
+  initialBusinesses?: Business[]
+  initialOpportunities?: Opportunity[]
+  initialRequests?: BookingRequest[]
+}
+
+export default function BusinessesPageClient({
+  initialBusinesses,
+  initialOpportunities,
+  initialRequests,
+}: BusinessesPageClientProps = {}) {
   const router = useRouter()
   const { role: userRole } = useUserRole()
   const isAdmin = userRole === 'admin'
@@ -89,11 +99,12 @@ export default function BusinessesPageClient() {
     fetchFn: getBusinesses,
     searchFields: SEARCH_FIELDS,
     defaultSortDirection: 'asc',
+    initialData: initialBusinesses, // Server-prefetched data
   })
 
-  // Additional state for opportunities and requests
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([])
-  const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>([])
+  // Additional state for opportunities and requests (initialized from server)
+  const [opportunities, setOpportunities] = useState<Opportunity[]>(initialOpportunities || [])
+  const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>(initialRequests || [])
   const [opportunityFilter, setOpportunityFilter] = useState<'all' | 'with-open' | 'without-open'>('all')
   const [revenueMap, setRevenueMap] = useState<Record<string, number>>({})
   const [syncingRevenue, setSyncingRevenue] = useState(false)
@@ -108,7 +119,13 @@ export default function BusinessesPageClient() {
   const confirmDialog = useConfirmDialog()
 
   // Load opportunities and booking requests alongside businesses
+  // Skip if we have server-prefetched data
   useEffect(() => {
+    // If we have initial data from server, no need to fetch
+    if (initialOpportunities?.length || initialRequests?.length) {
+      return
+    }
+    
     async function loadOpportunitiesAndRequests() {
       try {
         const [oppsResult, reqsResult] = await Promise.all([
@@ -126,7 +143,7 @@ export default function BusinessesPageClient() {
       }
     }
     loadOpportunitiesAndRequests()
-  }, [])
+  }, [initialOpportunities, initialRequests])
 
   // ---- Daily revenue sync (Panama time, once per day after 8am) ----
   const hasSyncedRevenue = useRef(false)
@@ -423,15 +440,15 @@ export default function BusinessesPageClient() {
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         {loading ? (
-          <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200">Loading...</div>
+          <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200">Cargando...</div>
         ) : filteredBusinesses.length === 0 ? (
           <EmptyTableState
             icon={<FilterListIcon className="w-full h-full" />}
-            title="No businesses found"
+            title="No se encontraron negocios"
             description={
               searchQuery || opportunityFilter !== 'all' 
-                ? 'Try adjusting your search or filters' 
-                : 'Get started by creating a new business'
+                ? 'Intente ajustar su búsqueda o filtros' 
+                : 'Comience creando un nuevo negocio'
             }
           />
         ) : (

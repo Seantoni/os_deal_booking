@@ -49,7 +49,7 @@ export default function SavedFiltersBar({
       {/* Filter icon label */}
       <div className="flex items-center gap-1.5 text-xs text-gray-500">
         <FilterListIcon className="w-4 h-4" />
-        <span className="font-medium">Filters:</span>
+        <span className="font-medium">Filtros:</span>
       </div>
 
       {/* Quick filter chips */}
@@ -83,7 +83,7 @@ export default function SavedFiltersBar({
           >
             {dropdownFilters.some(f => f.id === activeFilterId)
               ? activeFilter?.name
-              : `+${dropdownFilters.length} more`}
+              : `+${dropdownFilters.length} más`}
             <ExpandMoreIcon className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
 
@@ -118,7 +118,7 @@ export default function SavedFiltersBar({
           className="px-2 py-1.5 text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
         >
           <CloseIcon className="w-3.5 h-3.5" />
-          Clear
+          Limpiar
         </button>
       )}
     </div>

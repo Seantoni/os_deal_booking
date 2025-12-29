@@ -109,7 +109,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
     setSelectedIndex(-1)
   }
 
-  const displayValue = currentOption ? currentOption.label : (placeholder || 'Select an option')
+  const displayValue = currentOption ? currentOption.label : (placeholder || 'Seleccionar una opción')
 
   // Dropdown content rendered via portal
   const dropdownContent = isOpen && typeof window !== 'undefined' ? createPortal(
@@ -157,7 +157,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           })
         ) : (
           <div className="px-3 py-4 text-center text-sm text-gray-500">
-            No options available
+            No hay opciones disponibles
           </div>
         )}
       </div>

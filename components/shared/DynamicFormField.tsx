@@ -99,7 +99,7 @@ function DynamicFormField({
           required={isRequired}
           disabled={fieldDisabled}
           helpText={helpText}
-          placeholder="Select a category"
+          placeholder="Seleccionar una categoría"
           size="sm"
         />
       )
@@ -119,7 +119,7 @@ function DynamicFormField({
           required={isRequired}
           size="sm"
           options={userSelectOptions}
-          placeholder="Select a user"
+          placeholder="Seleccionar un usuario"
           helperText={helpText}
         />
       )
@@ -154,7 +154,7 @@ function DynamicFormField({
               </div>
             </div>
             {helpText && <p className="text-xs text-gray-500">{helpText}</p>}
-            <p className="text-[10px] text-gray-400">Linked business cannot be changed</p>
+            <p className="text-[10px] text-gray-400">El negocio vinculado no puede ser cambiado</p>
           </div>
         )
       }
@@ -173,7 +173,7 @@ function DynamicFormField({
           required={isRequired}
           size="sm"
           options={businessSelectOptions}
-          placeholder="Select a business"
+          placeholder="Seleccionar un negocio"
           helperText={helpText}
         />
       )
@@ -190,7 +190,7 @@ function DynamicFormField({
           required={isRequired}
           size="sm"
           options={selectOptions}
-          placeholder="Select an option"
+          placeholder="Seleccionar una opción"
         />
       )
 

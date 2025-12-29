@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { useContext } from 'react'
-import { SidebarContext } from './SidebarContext'
+import { SidebarContext } from './AppClientProviders'
 
 function SafePageContent({ children }: { children: ReactNode }) {
   // Optional sidebar context; fallback to no margin if provider is missing

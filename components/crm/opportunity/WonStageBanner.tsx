@@ -30,8 +30,8 @@ export default function WonStageBanner({
               <AccountTreeIcon className="text-white" style={{ fontSize: 24 }} />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-blue-900">Request Created</h3>
-              <p className="text-xs text-blue-700 mt-0.5">View the Pipeline page to see more details on this and other pipelines</p>
+              <h3 className="text-sm font-bold text-blue-900">Solicitud Creada</h3>
+              <p className="text-xs text-blue-700 mt-0.5">Vea la página de Pipeline para ver más detalles sobre este y otros pipelines</p>
             </div>
           </div>
           <button
@@ -40,7 +40,7 @@ export default function WonStageBanner({
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
           >
             <AccountTreeIcon fontSize="small" />
-            View Pipeline
+            Ver Pipeline
           </button>
         </div>
       </div>
@@ -55,8 +55,8 @@ export default function WonStageBanner({
             <EmojiEventsIcon className="text-white" style={{ fontSize: 24 }} />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-emerald-900">Opportunity Won! 🎉</h3>
-            <p className="text-xs text-emerald-700 mt-0.5">Create a booking request to get started</p>
+            <h3 className="text-sm font-bold text-emerald-900">¡Oportunidad Ganada! 🎉</h3>
+            <p className="text-xs text-emerald-700 mt-0.5">Cree una solicitud de booking para comenzar</p>
           </div>
         </div>
         <button
@@ -65,7 +65,7 @@ export default function WonStageBanner({
           className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
         >
           <AddIcon fontSize="small" />
-          Create Booking Request
+          Crear Solicitud de Booking
         </button>
       </div>
     </div>

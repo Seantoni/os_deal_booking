@@ -34,7 +34,7 @@ export default function EventsHeaderActions({ userRole, onCreateEventClick }: Ev
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
         >
           <NoteAddIcon fontSize="small" />
-          <span>New Request</span>
+          <span>Nueva Solicitud</span>
         </button>
 
       {/* Admin-only buttons */}
@@ -46,7 +46,7 @@ export default function EventsHeaderActions({ userRole, onCreateEventClick }: Ev
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
           >
             <AddIcon fontSize="small" />
-            <span>Create</span>
+            <span>Crear</span>
           </button>
         </>
       )}

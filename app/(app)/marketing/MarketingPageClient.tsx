@@ -74,14 +74,14 @@ interface MarketingCampaignData {
 
 // Table columns configuration
 const COLUMNS: ColumnConfig[] = [
-  { key: 'businessName', label: 'Business Name', sortable: true },
-  { key: 'category', label: 'Category', sortable: true },
-  { key: 'bookedDate', label: 'Booked', sortable: true },
-  { key: 'runAt', label: 'Run At', sortable: true },
+  { key: 'businessName', label: 'Nombre del Negocio', sortable: true },
+  { key: 'category', label: 'Categoría', sortable: true },
+  { key: 'bookedDate', label: 'Reservado', sortable: true },
+  { key: 'runAt', label: 'Fecha de Lanzamiento', sortable: true },
   { key: 'instagram', label: 'Instagram', align: 'center' },
   { key: 'tiktok', label: 'TikTok', align: 'center' },
   { key: 'ofertasimple', label: 'OfertaSimple', align: 'center' },
-  { key: 'progress', label: 'Progress', align: 'center' },
+  { key: 'progress', label: 'Progreso', align: 'center' },
   { key: 'actions', label: '', align: 'right' },
 ]
 
@@ -282,20 +282,20 @@ return (
       <div className="flex-1 overflow-auto p-4">
         {loading ? (
           <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200">
-            Loading campaigns...
+            Cargando campañas...
           </div>
         ) : filteredCampaigns.length === 0 ? (
           <EmptyTableState
             icon={<CampaignIcon className="w-full h-full" />}
             title={
               searchQuery || statusFilter !== 'all'
-                ? 'No campaigns match your filters'
-                : 'No marketing campaigns yet'
+                ? 'No hay campañas que coincidan con sus filtros'
+                : 'Aún no hay campañas de marketing'
             }
             description={
               searchQuery || statusFilter !== 'all'
-                ? 'Try adjusting your search or filters'
-                : 'Marketing campaigns will appear here once booking requests are marked as booked'
+                ? 'Intente ajustar su búsqueda o filtros'
+                : 'Las campañas de marketing aparecerán aquí una vez que las solicitudes de booking sean marcadas como reservadas'
             }
           />
         ) : (

@@ -176,7 +176,7 @@ function TaskItem({
                     : 'bg-gray-100 text-gray-800'
                 }`}>
                   {isMeeting && <GroupsIcon style={{ fontSize: 12 }} />}
-                  {isMeeting ? 'Reunión' : 'To-do'}
+                  {isMeeting ? 'Reunión' : 'Tarea'}
                 </span>
                 <span className="text-xs text-gray-500">
                   {new Date(task.date).toLocaleDateString('es-ES', {

@@ -31,14 +31,14 @@ const LeadFormModal = dynamic(() => import('@/components/crm/lead/LeadFormModal'
 
 // Table columns configuration
 const COLUMNS: ColumnConfig[] = [
-  { key: 'name', label: 'Business Name', sortable: true },
-  { key: 'contact', label: 'Contact', sortable: true },
-  { key: 'email', label: 'Email' },
-  { key: 'phone', label: 'Phone' },
-  { key: 'category', label: 'Category', sortable: true },
-  { key: 'responsible', label: 'Responsible', sortable: true },
-  { key: 'stage', label: 'Stage', sortable: true },
-  { key: 'source', label: 'Source', sortable: true },
+  { key: 'name', label: 'Nombre del Negocio', sortable: true },
+  { key: 'contact', label: 'Contacto', sortable: true },
+  { key: 'email', label: 'Correo' },
+  { key: 'phone', label: 'Teléfono' },
+  { key: 'category', label: 'Categoría', sortable: true },
+  { key: 'responsible', label: 'Responsable', sortable: true },
+  { key: 'stage', label: 'Etapa', sortable: true },
+  { key: 'source', label: 'Origen', sortable: true },
   { key: 'actions', label: '', width: 'w-10' },
 ]
 
@@ -201,10 +201,10 @@ export default function LeadsPageClient() {
     
     const result = await deleteLead(leadId)
     if (!result.success) {
-      toast.error(result.error || 'Failed to delete lead')
+      toast.error(result.error || 'Error al eliminar el lead')
       loadData()
     } else {
-      toast.success('Lead deleted successfully')
+      toast.success('Lead eliminado exitosamente')
     }
   }
 
@@ -217,7 +217,7 @@ export default function LeadsPageClient() {
       leftIcon={<AddIcon style={{ fontSize: 16 }} />}
       className="bg-orange-600 hover:bg-orange-700 focus-visible:ring-orange-500 disabled:bg-orange-300"
     >
-      New Lead
+      Nuevo Lead
     </Button>
   )
 
@@ -226,7 +226,7 @@ export default function LeadsPageClient() {
       {/* Header with Search and Filters */}
       <EntityPageHeader
         entityType="leads"
-        searchPlaceholder="Search leads..."
+        searchPlaceholder="Buscar leads..."
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         filterTabs={filterTabs}
@@ -244,15 +244,15 @@ export default function LeadsPageClient() {
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         {loading ? (
-          <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200">Loading...</div>
+          <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200">Cargando...</div>
         ) : filteredLeads.length === 0 ? (
           <EmptyTableState
             icon={<FilterListIcon className="w-full h-full" />}
-            title="No leads found"
+            title="No se encontraron leads"
             description={
               searchQuery || stageFilter !== 'all' 
-                ? 'Try adjusting your search or filters' 
-                : 'Get started by creating a new lead'
+                ? 'Intente ajustar su búsqueda o filtros' 
+                : 'Comience creando un nuevo lead'
             }
           />
         ) : (

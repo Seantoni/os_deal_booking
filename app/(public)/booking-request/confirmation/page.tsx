@@ -39,34 +39,34 @@ export default async function PublicBookingRequestConfirmationPage({
           </svg>
         </div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Request Submitted Successfully!
+          ¡Solicitud Enviada Exitosamente!
         </h1>
         <p className="text-gray-600 mb-6">
-          Your booking request has been received and is under review. We will process it shortly.
+          Su solicitud de booking ha sido recibida y está en revisión. La procesaremos en breve.
         </p>
         
         {requestId && (
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <p className="text-xs font-semibold text-gray-700 mb-1">Request ID:</p>
+            <p className="text-xs font-semibold text-gray-700 mb-1">ID de Solicitud:</p>
             <p className="text-sm font-mono text-gray-900">{requestId}</p>
           </div>
         )}
 
         {publicLink?.bookingRequest && (
           <div className="bg-blue-50 rounded-lg p-4 mb-6 text-left">
-            <p className="text-sm font-semibold text-gray-900 mb-2">Request Details:</p>
+            <p className="text-sm font-semibold text-gray-900 mb-2">Detalles de la Solicitud:</p>
             <div className="space-y-1 text-sm text-gray-700">
-              <p><span className="font-medium">Name:</span> {publicLink.bookingRequest.name}</p>
+              <p><span className="font-medium">Nombre:</span> {publicLink.bookingRequest.name}</p>
               {publicLink.bookingRequest.merchant && (
                 <p><span className="font-medium">Merchant:</span> {publicLink.bookingRequest.merchant}</p>
               )}
-              <p><span className="font-medium">Status:</span> Approved</p>
+              <p><span className="font-medium">Estado:</span> Aprobado</p>
             </div>
           </div>
         )}
 
         <p className="text-sm text-gray-500">
-          You can close this page now. The request will be reviewed and processed by our team.
+          Puede cerrar esta página ahora. La solicitud será revisada y procesada por nuestro equipo.
         </p>
         </div>
       </div>

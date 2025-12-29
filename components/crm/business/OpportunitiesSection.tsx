@@ -44,8 +44,8 @@ export default function OpportunitiesSection({
     reunion: 'Reunión',
     propuesta_enviada: 'Propuesta Enviada',
     propuesta_aprobada: 'Propuesta Aprobada',
-    won: 'Won',
-    lost: 'Lost',
+    won: 'Ganada',
+    lost: 'Perdida',
   }
 
   // Get opportunity name/title
@@ -107,7 +107,7 @@ export default function OpportunitiesSection({
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
             <HandshakeIcon className="text-orange-600" style={{ fontSize: 16 }} />
-            <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Opportunities</h3>
+            <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Oportunidades</h3>
             {filteredOpportunities.length > 0 && (
               <span className="px-1.5 py-0.5 bg-gray-200 text-gray-600 text-[10px] font-semibold rounded">
                 {filteredOpportunities.length}
@@ -120,7 +120,7 @@ export default function OpportunitiesSection({
             className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-white bg-orange-600 rounded hover:bg-orange-700 transition-colors"
           >
             <AddIcon style={{ fontSize: 14 }} />
-            <span className="hidden sm:inline">New</span>
+            <span className="hidden sm:inline">Nuevo</span>
           </button>
         </div>
         
@@ -136,7 +136,7 @@ export default function OpportunitiesSection({
                   : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-300'
               }`}
             >
-              All ({opportunities.length})
+              Todos ({opportunities.length})
             </button>
             <button
               type="button"
@@ -147,7 +147,7 @@ export default function OpportunitiesSection({
                   : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-300'
               }`}
             >
-              Open ({opportunities.filter(o => o.stage !== 'won' && o.stage !== 'lost').length})
+              Abiertas ({opportunities.filter(o => o.stage !== 'won' && o.stage !== 'lost').length})
             </button>
             <button
               type="button"
@@ -158,7 +158,7 @@ export default function OpportunitiesSection({
                   : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-300'
               }`}
             >
-              Won ({opportunities.filter(o => o.stage === 'won').length})
+              Ganadas ({opportunities.filter(o => o.stage === 'won').length})
             </button>
             <button
               type="button"
@@ -169,7 +169,7 @@ export default function OpportunitiesSection({
                   : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-300'
               }`}
             >
-              Lost ({opportunities.filter(o => o.stage === 'lost').length})
+              Perdidas ({opportunities.filter(o => o.stage === 'lost').length})
             </button>
           </div>
         )}
@@ -181,8 +181,8 @@ export default function OpportunitiesSection({
             <HandshakeIcon className="text-gray-400 mx-auto mb-1.5" style={{ fontSize: 32 }} />
             <p className="text-xs text-gray-500 mb-2">
               {opportunities.length === 0 
-                ? 'No opportunities yet'
-                : `No ${filter === 'all' ? '' : filter} opportunities`}
+                ? 'Aún no hay oportunidades'
+                : `No hay oportunidades ${filter === 'all' ? '' : filter === 'open' ? 'abiertas' : filter === 'won' ? 'ganadas' : 'perdidas'}`}
             </p>
             {opportunities.length === 0 && (
               <button
@@ -191,7 +191,7 @@ export default function OpportunitiesSection({
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-orange-600 bg-orange-50 border border-orange-200 rounded hover:bg-orange-100 transition-colors"
               >
                 <AddIcon style={{ fontSize: 14 }} />
-                Create First
+                Crear Primera
               </button>
             )}
           </div>
@@ -239,10 +239,10 @@ export default function OpportunitiesSection({
                   className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-gray-600 hover:text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronLeftIcon style={{ fontSize: 14 }} />
-                  <span>Prev</span>
+                  <span>Anterior</span>
                 </button>
                 <span className="text-[10px] text-gray-500 font-medium">
-                  Page {currentPage} of {totalPages}
+                  Página {currentPage} de {totalPages}
                 </span>
                 <button
                   type="button"
@@ -250,7 +250,7 @@ export default function OpportunitiesSection({
                   disabled={currentPage === totalPages}
                   className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-gray-600 hover:text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  <span>Next</span>
+                  <span>Siguiente</span>
                   <ChevronRightIcon style={{ fontSize: 14 }} />
                 </button>
               </div>

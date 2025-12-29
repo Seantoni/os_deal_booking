@@ -59,9 +59,9 @@ export default function OpportunitiesTable({ data, searchQuery }: OpportunitiesT
   }, [])
 
   const columns: ColumnConfig[] = [
-    { key: 'business', label: 'Business Name' },
-    { key: 'created', label: 'Created Date' },
-    { key: 'stage', label: 'Stage' },
+    { key: 'business', label: 'Nombre del Negocio' },
+    { key: 'created', label: 'Fecha de Creación' },
+    { key: 'stage', label: 'Etapa' },
     { key: 'actions', label: '', align: 'right', width: 'w-10' },
   ]
 
@@ -93,7 +93,7 @@ export default function OpportunitiesTable({ data, searchQuery }: OpportunitiesT
               onOpenChange={(open) => setMenuOpen(open ? item.opportunity?.id || null : null)}
               items={[
                 {
-                  label: 'Edit',
+                  label: 'Editar',
                   onClick: () => {
                     setSelectedOpportunity(item.opportunity)
                     setOpportunityModalOpen(true)

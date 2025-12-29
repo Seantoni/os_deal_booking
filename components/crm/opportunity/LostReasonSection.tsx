@@ -14,7 +14,7 @@ export default function LostReasonSection({ lostReason, onEdit }: LostReasonSect
       <div className="bg-red-100 px-4 py-2 border-b border-red-200 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ErrorOutlineIcon className="text-red-600" fontSize="small" />
-          <h3 className="text-xs font-bold text-red-700 uppercase tracking-wide">Lost Reason</h3>
+          <h3 className="text-xs font-bold text-red-700 uppercase tracking-wide">Razón de Pérdida</h3>
         </div>
         <button
           type="button"
@@ -22,7 +22,7 @@ export default function LostReasonSection({ lostReason, onEdit }: LostReasonSect
           className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 transition-colors"
         >
           <EditIcon style={{ fontSize: 14 }} />
-          Edit
+          Editar
         </button>
       </div>
       <div className="p-3">

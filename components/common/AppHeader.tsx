@@ -3,7 +3,7 @@
 import { UserButton } from '@clerk/nextjs'
 import { ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSidebar } from './SidebarContext'
+import { useSidebar } from './AppClientProviders'
 import MenuIcon from '@mui/icons-material/Menu'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 

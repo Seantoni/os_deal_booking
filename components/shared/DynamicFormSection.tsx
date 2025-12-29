@@ -156,7 +156,7 @@ function DynamicFormSection({
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
           className="w-full bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between text-left"
-          aria-label={isExpanded ? 'Collapse section' : 'Expand section'}
+          aria-label={isExpanded ? 'Contraer sección' : 'Expandir sección'}
         >
           <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
             {section.name}

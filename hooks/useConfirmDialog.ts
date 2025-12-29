@@ -42,10 +42,10 @@ export function useConfirmDialog() {
   return {
     isOpen,
     options: {
-      title: options.title || 'Confirm Action',
+      title: options.title || 'Confirmar Acción',
       message: options.message,
-      confirmText: options.confirmText || 'Confirm',
-      cancelText: options.cancelText || 'Cancel',
+      confirmText: options.confirmText || 'Confirmar',
+      cancelText: options.cancelText || 'Cancelar',
       confirmVariant: options.confirmVariant || 'danger',
     },
     confirm,

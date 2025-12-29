@@ -13,7 +13,8 @@ import { BookingRequestViewModal } from '@/components/booking/request-view'
 import { useDealForm } from './useDealForm'
 import DealStatusPipeline from './DealStatusPipeline'
 import ResponsibleUserSection from './ResponsibleUserSection'
-import OpportunityResponsibleReference from './OpportunityResponsibleReference'
+import ReferenceInfoBar from '@/components/shared/ReferenceInfoBar'
+import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
 import BookingRequestSection from './BookingRequestSection'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
 import FormModalSkeleton from '@/components/common/FormModalSkeleton'
@@ -92,11 +93,11 @@ export default function DealFormModal({
         if (result.success) {
           onSuccess()
         } else {
-          setError(result.error || 'Failed to update deal status')
+          setError(result.error || 'Error al actualizar el estado de la oferta')
           setStatus(previousStatus)
         }
       } catch (err) {
-        setError('An error occurred while updating status')
+        setError('Ocurrió un error al actualizar el estado')
         setStatus(previousStatus)
       }
     })
@@ -111,7 +112,7 @@ export default function DealFormModal({
     }
     
     if (!deal) {
-      setError('Deal not found')
+      setError('Oferta no encontrada')
       return
     }
     
@@ -134,10 +135,10 @@ export default function DealFormModal({
           onSuccess()
           onClose()
         } else {
-          setError(responsibleResult.error || statusResult.error || 'Failed to update deal')
+          setError(responsibleResult.error || statusResult.error || 'Error al actualizar la oferta')
         }
       } catch (err) {
-        setError('An error occurred')
+        setError('Ocurrió un error')
       }
     })
   }
@@ -158,43 +159,26 @@ export default function DealFormModal({
 
   return (
     <>
-      {/* Light backdrop */}
-      <div
-        className="fixed inset-0 bg-gray-900/20 z-40 transition-opacity"
-        onClick={onClose}
-      ></div>
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      title={deal?.bookingRequest?.name || 'Detalles de la Oferta'}
+      subtitle="Oferta"
+      icon={<DescriptionIcon fontSize="medium" />}
+      iconColor="green"
+      footer={
+        <ModalFooter
+          onCancel={onClose}
+          cancelLabel={isAdmin ? 'Cancelar' : 'Cerrar'}
+          submitLabel="Guardar"
+          submitLoading={loading || loadingData || dynamicForm.loading}
+          submitDisabled={loading || loadingData || dynamicForm.loading || !isAdmin}
+          leftContent={isAdmin ? 'Asignar un usuario responsable para esta oferta' : isSales ? 'Modo solo lectura - Puede ver ofertas de sus oportunidades' : 'Modo solo lectura'}
+        />
+      }
+    >
 
-      {/* Modal Container */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-        {/* Modal Panel */}
-        <div className={`w-full max-w-4xl bg-white shadow-2xl rounded-2xl flex flex-col max-h-[90vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${
-          isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-        }`}>
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg border border-green-200">
-                <DescriptionIcon className="text-green-600" fontSize="medium" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Deal</p>
-                <h2 className="text-xl font-bold text-gray-900">
-                  {deal?.bookingRequest?.name || 'Deal Details'}
-                </h2>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-500 transition-colors"
-            >
-              <CloseIcon fontSize="medium" />
-            </button>
-          </div>
-        </div>
-
-        {/* Form Content */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto bg-gray-50">
+      <form id="modal-form" onSubmit={handleSubmit} className="bg-gray-50 h-full flex flex-col">
           {error && (
             <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
               <ErrorOutlineIcon className="text-red-600 flex-shrink-0 mt-0.5" fontSize="small" />
@@ -207,8 +191,13 @@ export default function DealFormModal({
           ) : (
             <div className="p-4 space-y-4">
               {/* Opportunity Responsible Reference */}
-              {deal && (
-                <OpportunityResponsibleReference deal={deal} />
+              {deal?.opportunityResponsible && (
+                <ReferenceInfoBar>
+                  <ReferenceInfoBar.UserDisplayItem
+                    label="Representante de Ventas"
+                    user={deal.opportunityResponsible}
+                  />
+                </ReferenceInfoBar>
               )}
 
               {/* Deal Status Pipeline */}
@@ -257,33 +246,8 @@ export default function DealFormModal({
             </div>
           )}
 
-          {/* Footer */}
-          <div className="border-t border-gray-200 bg-white px-6 py-4 flex justify-between items-center sticky bottom-0">
-            <div className="text-xs text-gray-500">
-              {isAdmin ? 'Assign a responsible user for this deal' : isSales ? 'View-only mode - You can view deals from your opportunities' : 'View-only mode'}
-            </div>
-            <div className="flex gap-3">
-              <Button
-                type="button"
-                onClick={onClose}
-                variant="secondary"
-              >
-                {isAdmin ? 'Cancel' : 'Close'}
-              </Button>
-              {isAdmin && (
-                <Button
-                  type="submit"
-                  disabled={loading || loadingData || dynamicForm.loading}
-                  loading={loading}
-                >
-                  Save
-                </Button>
-              )}
-            </div>
-          </div>
-        </form>
-        </div>
-      </div>
+      </form>
+    </ModalShell>
 
       {/* Booking Request Modal */}
       {deal && (

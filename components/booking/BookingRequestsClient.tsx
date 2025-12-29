@@ -29,6 +29,7 @@ import { useUser } from '@clerk/nextjs'
 import { Button, Input } from '@/components/ui'
 import { FilterTabs } from '@/components/shared'
 import { TableRow, TableCell } from '@/components/shared/table'
+import { translateStatus, translateLabel } from '@/lib/utils/translations'
 
 // Lazy load heavy modal component
 const BookingRequestViewModal = dynamic(() => import('@/components/booking/request-view/BookingRequestViewModal'), {
@@ -97,10 +98,10 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
 
   const handleDelete = async (id: string) => {
     const confirmed = await confirmDialog.confirm({
-      title: 'Delete Booking Request',
-      message: 'Are you sure you want to delete this booking request? This action cannot be undone.',
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
+      title: 'Eliminar Solicitud de Booking',
+      message: '¿Está seguro de que desea eliminar esta solicitud de booking? Esta acción no se puede deshacer.',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
       confirmVariant: 'danger',
     })
 
@@ -121,9 +122,9 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         ))
       }
-      toast.error(result.error || 'Failed to delete request')
+      toast.error(result.error || 'Error al eliminar la solicitud')
     } else {
-      toast.success('Booking request deleted successfully')
+      toast.success('Solicitud de booking eliminada exitosamente')
     }
     
     setDeletingId(null)
@@ -227,7 +228,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
       
       return (
         <span className={`px-2 py-0.5 rounded text-[13px] font-medium ${pendingColor}`}>
-          {status.charAt(0).toUpperCase() + status.slice(1)}
+          {translateStatus(status.charAt(0).toUpperCase() + status.slice(1))}
         </span>
       )
     }
@@ -244,7 +245,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
 
     return (
       <span className={`px-2 py-0.5 rounded text-[13px] font-medium ${statusColors[status as keyof typeof statusColors] || statusColors.draft}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+        {translateStatus(status.charAt(0).toUpperCase() + status.slice(1))}
       </span>
     )
   }
@@ -418,10 +419,10 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     if (selectedIds.size === 0) return
 
     const confirmed = await confirmDialog.confirm({
-      title: 'Delete Selected Requests',
-      message: `Are you sure you want to delete ${selectedIds.size} booking request${selectedIds.size > 1 ? 's' : ''}? This action cannot be undone.`,
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
+      title: 'Eliminar Solicitudes Seleccionadas',
+      message: `¿Está seguro de que desea eliminar ${selectedIds.size} solicitud${selectedIds.size > 1 ? 'es' : ''} de booking? Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
       confirmVariant: 'danger',
     })
 
@@ -437,11 +438,11 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     const result = await bulkDeleteBookingRequests(idsArray)
     
     if (result.success && 'deletedCount' in result) {
-      toast.success(`Successfully deleted ${result.deletedCount || idsArray.length} request${idsArray.length > 1 ? 's' : ''}`)
+      toast.success(`Se eliminaron exitosamente ${result.deletedCount || idsArray.length} solicitud${idsArray.length > 1 ? 'es' : ''}`)
       // Refresh data in background (fetches only booking requests, NOT user data)
       refreshData()
     } else {
-      toast.error('error' in result ? (result.error || 'Failed to delete requests') : 'Failed to delete requests')
+      toast.error('error' in result ? (result.error || 'Error al eliminar las solicitudes') : 'Error al eliminar las solicitudes')
       // Refresh data in background to restore correct state
       refreshData()
     }
@@ -453,10 +454,10 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     if (selectedIds.size === 0) return
 
     const confirmed = await confirmDialog.confirm({
-      title: `Update Status to ${status.charAt(0).toUpperCase() + status.slice(1)}`,
-      message: `Are you sure you want to update ${selectedIds.size} booking request${selectedIds.size > 1 ? 's' : ''} to "${status}"?`,
-      confirmText: 'Update',
-      cancelText: 'Cancel',
+      title: `Actualizar Estado a ${translateStatus(status.charAt(0).toUpperCase() + status.slice(1))}`,
+      message: `¿Está seguro de que desea actualizar ${selectedIds.size} solicitud${selectedIds.size > 1 ? 'es' : ''} de booking a "${translateStatus(status)}"?`,
+      confirmText: 'Actualizar',
+      cancelText: 'Cancelar',
       confirmVariant: 'primary',
     })
 
@@ -474,11 +475,11 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     const result = await bulkUpdateBookingRequestStatus(idsArray, status as any)
     
     if (result.success && 'updatedCount' in result) {
-      toast.success(`Successfully updated ${result.updatedCount || idsArray.length} request${idsArray.length > 1 ? 's' : ''}`)
+      toast.success(`Se actualizaron exitosamente ${result.updatedCount || idsArray.length} solicitud${idsArray.length > 1 ? 'es' : ''}`)
       // Refresh data in background (fetches only booking requests, NOT user data)
       refreshData()
     } else {
-      toast.error('error' in result ? (result.error || 'Failed to update requests') : 'Failed to update requests')
+      toast.error('error' in result ? (result.error || 'Error al actualizar las solicitudes') : 'Error al actualizar las solicitudes')
       // Refresh data in background to restore correct state
       refreshData()
     }
@@ -509,7 +510,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
             <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search requests..."
+              placeholder="Buscar solicitudes..."
               size="sm"
               leftIcon={<SearchIcon className="w-4 h-4" />}
               />
@@ -521,20 +522,20 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
               size="sm"
               leftIcon={<AddIcon fontSize="small" />}
             >
-              New Request
+              Nueva Solicitud
             </Button>
           </div>
 
           {/* Status Tabs */}
           <FilterTabs
             items={[
-              { id: 'all', label: 'All', count: statusCounts.all },
-              { id: 'draft', label: 'Draft', count: statusCounts.draft },
-              { id: 'pending', label: 'Pending', count: statusCounts.pending },
-              { id: 'approved', label: 'Approved', count: statusCounts.approved },
-              { id: 'booked', label: 'Booked', count: statusCounts.booked },
-              { id: 'rejected', label: 'Rejected', count: statusCounts.rejected },
-              { id: 'cancelled', label: 'Cancelled', count: statusCounts.cancelled },
+              { id: 'all', label: 'Todo', count: statusCounts.all },
+              { id: 'draft', label: 'Borrador', count: statusCounts.draft },
+              { id: 'pending', label: 'Pendiente', count: statusCounts.pending },
+              { id: 'approved', label: 'Aprobado', count: statusCounts.approved },
+              { id: 'booked', label: 'Reservado', count: statusCounts.booked },
+              { id: 'rejected', label: 'Rechazado', count: statusCounts.rejected },
+              { id: 'cancelled', label: 'Cancelado', count: statusCounts.cancelled },
             ]}
             activeId={statusFilter}
             onChange={(id) => setStatusFilter(id as any)}
@@ -548,7 +549,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-blue-900">
-                {selectedIds.size} request{selectedIds.size > 1 ? 's' : ''} selected
+                {selectedIds.size} solicitud{selectedIds.size > 1 ? 'es' : ''} seleccionada{selectedIds.size > 1 ? 's' : ''}
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -558,7 +559,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                 size="sm"
                 disabled={bulkActionLoading}
               >
-                Clear
+                Limpiar
               </Button>
               {isAdmin && (
                 <Button
@@ -567,7 +568,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                   size="sm"
                   loading={bulkActionLoading}
                 >
-                  Delete
+                  Eliminar
                 </Button>
               )}
               <select
@@ -581,12 +582,12 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                 className="px-3 py-1.5 text-sm border border-gray-300 rounded bg-white hover:bg-gray-50 transition-colors disabled:opacity-50"
                 defaultValue=""
               >
-                <option value="">Change Status...</option>
-                <option value="draft">Draft</option>
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="booked">Booked</option>
-                <option value="rejected">Rejected</option>
+                <option value="">Cambiar Estado...</option>
+                <option value="draft">Borrador</option>
+                <option value="pending">Pendiente</option>
+                <option value="approved">Aprobado</option>
+                <option value="booked">Reservado</option>
+                <option value="rejected">Rechazado</option>
               </select>
             </div>
           </div>
@@ -599,11 +600,11 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div className="h-64 flex flex-col items-center justify-center text-gray-500">
             <FilterListIcon className="w-12 h-12 text-gray-400 mb-3" />
-            <p className="text-sm font-medium text-gray-900">No requests found</p>
+            <p className="text-sm font-medium text-gray-900">No se encontraron solicitudes</p>
               <p className="text-xs mt-1">
                 {searchQuery || statusFilter !== 'all' 
-                  ? 'Try adjusting your search or filters' 
-                  : 'Get started by creating a new request'}
+                  ? 'Intente ajustar su búsqueda o filtros' 
+                  : 'Comience creando una nueva solicitud'}
               </p>
             </div>
           </div>
@@ -618,7 +619,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                         <button
                           onClick={handleSelectAll}
                           className="flex items-center justify-center w-5 h-5 rounded border border-gray-300 hover:bg-gray-100 transition-colors"
-                          title={allFilteredSelected ? 'Deselect all' : 'Select all'}
+                          title={allFilteredSelected ? 'Deseleccionar todo' : 'Seleccionar todo'}
                         >
                           {allFilteredSelected ? (
                             <CheckBoxIcon className="w-4 h-4 text-blue-600" />
@@ -635,21 +636,21 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       onClick={() => handleSort('status')}
                     >
                       <div className="flex items-center gap-1">
-                        <span>Status</span>
+                        <span>Estado</span>
                         {sortColumn === 'status' && (
                           sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
                         )}
                       </div>
                     </th>
                     <th className="px-4 py-3 font-medium">
-                      <span>Source</span>
+                      <span>Origen</span>
                     </th>
                     <th 
                       className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
                       onClick={() => handleSort('name')}
                     >
                       <div className="flex items-center gap-1">
-                        <span>Name</span>
+                        <span>Nombre</span>
                         {sortColumn === 'name' && (
                           sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
                         )}
@@ -660,7 +661,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       onClick={() => handleSort('email')}
                     >
                       <div className="flex items-center gap-1">
-                        <span>Email</span>
+                        <span>Correo</span>
                         {sortColumn === 'email' && (
                           sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
                         )}
@@ -671,7 +672,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       onClick={() => handleSort('startDate')}
                     >
                       <div className="flex items-center gap-1">
-                        <span>Dates</span>
+                        <span>Fechas</span>
                         {sortColumn === 'startDate' && (
                           sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
                         )}
@@ -682,7 +683,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       onClick={() => handleSort('createdAt')}
                     >
                       <div className="flex items-center gap-1">
-                        <span>Created</span>
+                        <span>Creado</span>
                         {sortColumn === 'createdAt' && (
                           sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
                         )}
@@ -693,7 +694,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       onClick={() => handleSort('days')}
                     >
                       <div className="flex items-center gap-1">
-                        <span>Days</span>
+                        <span>Días</span>
                         {sortColumn === 'days' && (
                           sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
                         )}
@@ -704,7 +705,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       onClick={() => handleSort('sent')}
                     >
                       <div className="flex items-center gap-1">
-                        <span>Sent</span>
+                        <span>Enviado</span>
                         {sortColumn === 'sent' && (
                           sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
                         )}
@@ -715,14 +716,14 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       onClick={() => handleSort('processed')}
                     >
                       <div className="flex items-center gap-1">
-                        <span>Processed</span>
+                        <span>Procesado</span>
                         {sortColumn === 'processed' && (
                           sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
                         )}
                       </div>
                     </th>
-                    <th className="px-4 py-3 font-medium">Rejection Reason</th>
-                    <th className="px-4 py-3 font-medium text-right">Actions</th>
+                    <th className="px-4 py-3 font-medium">Razón de Rechazo</th>
+                    <th className="px-4 py-3 font-medium text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -764,7 +765,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                               handleSelectOne(request.id)
                             }}
                             className="flex items-center justify-center w-5 h-5 rounded border border-gray-300 hover:bg-gray-100 transition-colors"
-                            title={selectedIds.has(request.id) ? 'Deselect' : 'Select'}
+                            title={selectedIds.has(request.id) ? 'Deseleccionar' : 'Seleccionar'}
                           >
                             {selectedIds.has(request.id) ? (
                               <CheckBoxIcon className="w-4 h-4 text-blue-600" />
@@ -783,7 +784,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                             ? 'bg-purple-50 text-purple-700' 
                             : 'bg-gray-50 text-gray-700'
                         }`}>
-                          {request.sourceType === 'public_link' ? 'Public Link' : 'Internal'}
+                          {request.sourceType === 'public_link' ? 'Enlace Público' : 'Interno'}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -832,7 +833,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                             variant="ghost"
                             size="sm"
                             className="p-1.5"
-                            title="View request"
+                            title="Ver solicitud"
                           >
                             <VisibilityIcon fontSize="small" />
                           </Button>
@@ -862,7 +863,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                               variant="ghost"
                               size="sm"
                               className="p-1.5"
-                        title="Edit request"
+                        title="Editar solicitud"
                       >
                         <EditIcon fontSize="small" />
                       </Button>
@@ -877,7 +878,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                               size="sm"
                               className="p-1.5 hover:text-green-600 hover:bg-green-50"
                               loading={resendingId === request.id}
-                              title="Resend email"
+                              title="Reenviar correo"
                             >
                               <SendIcon fontSize="small" />
                             </Button>
@@ -892,7 +893,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                         size="sm"
                         className="p-1.5 hover:text-red-600 hover:bg-red-50"
                         loading={deletingId === request.id}
-                        title="Delete request"
+                        title="Eliminar solicitud"
                       >
                         <DeleteIcon fontSize="small" />
                       </Button>
@@ -912,7 +913,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                     size="sm"
                     onClick={() => setVisibleCount((c) => c + 50)}
                   >
-                    Load More
+                    Cargar Más
                   </Button>
                 </div>
               )}

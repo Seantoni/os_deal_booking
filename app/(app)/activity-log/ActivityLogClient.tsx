@@ -45,32 +45,32 @@ interface User {
 }
 
 const COLUMNS: ColumnConfig[] = [
-  { key: 'user', label: 'User' },
-  { key: 'action', label: 'Action' },
-  { key: 'entity', label: 'Entity' },
-  { key: 'details', label: 'Details', className: 'hidden md:table-cell' },
-  { key: 'date', label: 'Date', align: 'right' },
+  { key: 'user', label: 'Usuario' },
+  { key: 'action', label: 'Acción' },
+  { key: 'entity', label: 'Entidad' },
+  { key: 'details', label: 'Detalles', className: 'hidden md:table-cell' },
+  { key: 'date', label: 'Fecha', align: 'right' },
 ]
 
 const ACTION_OPTIONS = [
-  { value: '', label: 'All Actions' },
-  { value: 'CREATE', label: 'Create' },
-  { value: 'UPDATE', label: 'Update' },
-  { value: 'DELETE', label: 'Delete' },
-  { value: 'VIEW', label: 'View' },
-  { value: 'STATUS_CHANGE', label: 'Status Change' },
-  { value: 'APPROVE', label: 'Approve' },
-  { value: 'REJECT', label: 'Reject' },
-  { value: 'SEND', label: 'Send' },
-  { value: 'RESEND', label: 'Resend' },
-  { value: 'LOGIN', label: 'Login' },
+  { value: '', label: 'Todas las Acciones' },
+  { value: 'CREATE', label: 'Crear' },
+  { value: 'UPDATE', label: 'Actualizar' },
+  { value: 'DELETE', label: 'Eliminar' },
+  { value: 'VIEW', label: 'Ver' },
+  { value: 'STATUS_CHANGE', label: 'Cambio de Estado' },
+  { value: 'APPROVE', label: 'Aprobar' },
+  { value: 'REJECT', label: 'Rechazar' },
+  { value: 'SEND', label: 'Enviar' },
+  { value: 'RESEND', label: 'Reenviar' },
+  { value: 'LOGIN', label: 'Iniciar Sesión' },
 ]
 
 const ENTITY_OPTIONS = [
-  { value: '', label: 'All Entities' },
-  { value: 'Business', label: 'Business' },
-  { value: 'Opportunity', label: 'Opportunity' },
-  { value: 'Deal', label: 'Deal' },
+  { value: '', label: 'Todas las Entidades' },
+  { value: 'Business', label: 'Negocio' },
+  { value: 'Opportunity', label: 'Oportunidad' },
+  { value: 'Deal', label: 'Oferta' },
   { value: 'Lead', label: 'Lead' },
   { value: 'BookingRequest', label: 'Booking Request' },
   { value: 'Event', label: 'Event' },
@@ -360,12 +360,12 @@ export default function ActivityLogClient() {
         {/* Activity List */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
           {loading && logs.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">Loading...</div>
+            <div className="p-8 text-center text-gray-500">Cargando...</div>
           ) : logs.length === 0 ? (
             <EmptyTableState
               icon={<FilterListIcon className="w-full h-full" />}
-              title="No activities found"
-              description="Try adjusting your search or filters"
+              title="No se encontraron actividades"
+              description="Intente ajustar su búsqueda o filtros"
             />
           ) : (
             <div className="overflow-x-auto">

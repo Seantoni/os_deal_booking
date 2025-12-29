@@ -97,8 +97,8 @@ export default function ReservationsClient({ events: initialEvents, usersMap = {
 
     const count = selectedIds.size
     const confirmed = await confirmDialog.confirm({
-      title: 'Delete Reservations',
-      message: `¿Estás seguro de que quieres eliminar ${count} reservación(es)? Esta acción no se puede deshacer.`,
+      title: 'Eliminar Reservaciones',
+      message: `¿Está seguro de que desea eliminar ${count} reservación${count > 1 ? 'es' : ''}? Esta acción no se puede deshacer.`,
       confirmText: 'Eliminar',
       cancelText: 'Cancelar',
       confirmVariant: 'danger',
@@ -113,11 +113,11 @@ export default function ReservationsClient({ events: initialEvents, usersMap = {
         Array.from(selectedIds).map(id => deleteEvent(id))
       )
       setSelectedIds(new Set())
-      toast.success(`Successfully deleted ${count} reservation${count > 1 ? 's' : ''}`)
+      toast.success(`Se eliminaron exitosamente ${count} reservación${count > 1 ? 'es' : ''}`)
       // Refresh data in background (fetches only events, NOT user data)
       refreshData()
     } catch (error) {
-      toast.error('Error deleting reservations')
+      toast.error('Error al eliminar las reservaciones')
       console.error(error)
     } finally {
       setDeleting(false)
@@ -134,13 +134,13 @@ return (
               <Input
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search reservations..."
+                placeholder="Buscar reservaciones..."
                 size="sm"
                 leftIcon={<SearchIcon className="w-4 h-4" />}
               />
             </div>
             <div className="text-xs text-gray-500 whitespace-nowrap">
-              {filteredEvents.length} {filteredEvents.length === 1 ? 'reservation' : 'reservations'}
+              {filteredEvents.length} {filteredEvents.length === 1 ? 'reservación' : 'reservaciones'}
             </div>
           </div>
 
@@ -158,7 +158,7 @@ return (
               ) : (
                 <DeleteIcon className="w-4 h-4" />
               )}
-              <span>Delete ({selectedIds.size})</span>
+              <span>Eliminar ({selectedIds.size})</span>
             </button>
           )}
         </div>
@@ -180,13 +180,13 @@ return (
                     />
                   </th>
                 )}
-                <th className="px-4 py-[5px]">Name</th>
-                <th className="px-4 py-[5px]">Category</th>
+                <th className="px-4 py-[5px]">Nombre</th>
+                <th className="px-4 py-[5px]">Categoría</th>
                 <th className="px-4 py-[5px]">Merchant</th>
-                <th className="px-4 py-[5px]">Created By</th>
-                <th className="px-4 py-[5px]">Start Date</th>
-                <th className="px-4 py-[5px]">End Date</th>
-                <th className="px-4 py-[5px] text-right">Duration</th>
+                <th className="px-4 py-[5px]">Creado Por</th>
+                <th className="px-4 py-[5px]">Fecha de Inicio</th>
+                <th className="px-4 py-[5px]">Fecha de Fin</th>
+                <th className="px-4 py-[5px] text-right">Duración</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -195,7 +195,7 @@ return (
                   <td colSpan={isAdmin ? 8 : 7} className="px-4 py-12 text-center text-gray-500">
                     <div className="flex flex-col items-center gap-2">
                       <FilterListIcon className="w-8 h-8 text-gray-400" />
-                      <p>{searchTerm ? 'No reservations found matching your search' : 'No reservations yet'}</p>
+                      <p>{searchTerm ? 'No se encontraron reservaciones que coincidan con su búsqueda' : 'Aún no hay reservaciones'}</p>
                     </div>
                   </td>
                 </tr>
@@ -264,7 +264,7 @@ return (
                         {formatShortDate(end)}
                       </td>
                       <td className="px-4 py-[5px] text-right text-gray-600">
-                        {days} {days === 1 ? 'day' : 'days'}
+                        {days} {days === 1 ? 'día' : 'días'}
                       </td>
                     </tr>
                   )
@@ -280,7 +280,7 @@ return (
               size="sm"
               onClick={() => setVisibleCount((c) => c + 50)}
             >
-              Load More
+              Cargar Más
             </Button>
           </div>
         )}

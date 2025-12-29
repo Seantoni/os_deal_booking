@@ -51,13 +51,13 @@ const STATUS_ORDER = ['pendiente_por_asignar', 'asignado', 'elaboracion', 'image
 
 // Table columns configuration
 const COLUMNS: ColumnConfig[] = [
-  { key: 'name', label: 'Business Name', sortable: true },
-  { key: 'dateRange', label: 'Date Range', sortable: true },
-  { key: 'opportunityResponsible', label: 'Opp. Responsible', sortable: true },
+  { key: 'name', label: 'Nombre del Negocio', sortable: true },
+  { key: 'dateRange', label: 'Rango de Fechas', sortable: true },
+  { key: 'opportunityResponsible', label: 'Resp. Opp.', sortable: true },
   { key: 'dealResponsible', label: 'Editor', sortable: true },
   { key: 'ereResponsible', label: 'ERE' },
-  { key: 'bookedDate', label: 'Booked', sortable: true },
-  { key: 'status', label: 'Status', sortable: true },
+  { key: 'bookedDate', label: 'Reservado', sortable: true },
+  { key: 'status', label: 'Estado', sortable: true },
   { key: 'actions', label: '', align: 'right' },
 ]
 
@@ -247,19 +247,19 @@ export default function DealsPageClient() {
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         {loading ? (
-          <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200">Loading...</div>
+          <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200">Cargando...</div>
         ) : filteredDeals.length === 0 ? (
           <EmptyTableState
             icon={<FilterListIcon className="w-full h-full" />}
             title={
               searchQuery || responsibleFilter !== 'all' 
-                ? 'No deals match your filters' 
-                : 'No deals yet'
+                ? 'No hay ofertas que coincidan con sus filtros' 
+                : 'Aún no hay ofertas'
             }
             description={
               searchQuery || responsibleFilter !== 'all'
-                ? 'Try adjusting your search or filters'
-                : 'Deals will appear here once booking requests are marked as booked'
+                ? 'Intente ajustar su búsqueda o filtros'
+                : 'Las ofertas aparecerán aquí una vez que las solicitudes de booking sean marcadas como reservadas'
             }
           />
         ) : (

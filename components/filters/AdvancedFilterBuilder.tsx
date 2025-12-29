@@ -146,13 +146,13 @@ export default function AdvancedFilterBuilder({
 
   const handleSaveFilter = async () => {
     if (!filterName.trim()) {
-      toast.error('Please enter a filter name')
+      toast.error('Por favor ingrese un nombre para el filtro')
       return
     }
 
     const validRules = rules.filter(r => r.field)
     if (validRules.length === 0) {
-      toast.error('Please add at least one filter rule')
+      toast.error('Por favor agregue al menos una regla de filtro')
       return
     }
 
@@ -166,36 +166,36 @@ export default function AdvancedFilterBuilder({
       }
 
       if (result.success) {
-        toast.success(editingFilter ? 'Filter updated!' : 'Filter saved!')
+        toast.success(editingFilter ? '¡Filtro actualizado!' : '¡Filtro guardado!')
         setFilterName('')
         setEditingFilter(null)
         onSavedFiltersChange()
       } else {
-        toast.error(result.error || 'Failed to save filter')
+        toast.error(result.error || 'Error al guardar el filtro')
       }
     } catch (error) {
-      toast.error('Failed to save filter')
+      toast.error('Error al guardar el filtro')
     } finally {
       setIsSaving(false)
     }
   }
 
   const handleDeleteFilter = async (filterId: string) => {
-    if (!confirm('Are you sure you want to delete this filter?')) return
+    if (!confirm('¿Está seguro de que desea eliminar este filtro?')) return
 
     try {
       const result = await deleteSavedFilter(filterId)
       if (result.success) {
-        toast.success('Filter deleted')
+        toast.success('Filtro eliminado')
         onSavedFiltersChange()
         if (editingFilter?.id === filterId) {
           handleClearFilters()
         }
       } else {
-        toast.error(result.error || 'Failed to delete filter')
+        toast.error(result.error || 'Error al eliminar el filtro')
       }
     } catch (error) {
-      toast.error('Failed to delete filter')
+      toast.error('Error al eliminar el filtro')
     }
   }
 
@@ -208,10 +208,10 @@ export default function AdvancedFilterBuilder({
       >
         <div className="flex items-center gap-2">
           <FilterListIcon className="w-4 h-4 text-gray-500" />
-          <span className="text-[14px] font-medium text-gray-700">Advanced Filters</span>
+          <span className="text-[14px] font-medium text-gray-700">Filtros Avanzados</span>
           {rules.filter(r => r.field).length > 0 && (
             <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
-              {rules.filter(r => r.field).length} rule{rules.filter(r => r.field).length !== 1 ? 's' : ''}
+              {rules.filter(r => r.field).length} regla{rules.filter(r => r.field).length !== 1 ? 's' : ''}
             </span>
           )}
         </div>
@@ -228,7 +228,7 @@ export default function AdvancedFilterBuilder({
           {/* Saved filters management */}
           {savedFilters.length > 0 && (
             <div className="py-3 border-b border-gray-100 mb-3">
-              <p className="text-xs font-medium text-gray-500 mb-2">Saved Filters:</p>
+              <p className="text-xs font-medium text-gray-500 mb-2">Filtros Guardados:</p>
               <div className="flex flex-wrap gap-2">
                 {savedFilters.map(filter => (
                   <div
@@ -243,14 +243,14 @@ export default function AdvancedFilterBuilder({
                     <button
                       onClick={() => handleEditFilter(filter)}
                       className="p-0.5 hover:bg-gray-200 rounded"
-                      title="Edit filter"
+                      title="Editar filtro"
                     >
                       <EditIcon className="w-3 h-3" />
                     </button>
                     <button
                       onClick={() => handleDeleteFilter(filter.id)}
                       className="p-0.5 hover:bg-red-100 hover:text-red-600 rounded"
-                      title="Delete filter"
+                      title="Eliminar filtro"
                     >
                       <DeleteIcon className="w-3 h-3" />
                     </button>
@@ -281,7 +281,7 @@ export default function AdvancedFilterBuilder({
                       <option value="OR">OR</option>
                     </select>
                   ) : (
-                    <div className="w-16 text-xs text-gray-500 text-center">Where</div>
+                    <div className="w-16 text-xs text-gray-500 text-center">Donde</div>
                   )}
 
                   {/* Field selector */}
@@ -290,7 +290,7 @@ export default function AdvancedFilterBuilder({
                     onChange={(e) => handleRuleChange(rule.id, 'field', e.target.value)}
                     className="min-w-[160px] px-3 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                   >
-                    <option value="">Select field...</option>
+                    <option value="">Seleccionar campo...</option>
                     {fields.map(field => (
                       <option key={field.key} value={field.key}>
                         {field.label}
@@ -328,7 +328,7 @@ export default function AdvancedFilterBuilder({
                     onClick={() => handleRemoveRule(rule.id)}
                     disabled={rules.length <= 1}
                     className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-                    title="Remove rule"
+                    title="Eliminar regla"
                   >
                     <DeleteIcon className="w-4 h-4" />
                   </button>
@@ -347,20 +347,20 @@ export default function AdvancedFilterBuilder({
                 leftIcon={<AddIcon className="w-4 h-4" />}
                 className="text-blue-600 hover:bg-blue-50"
               >
-                Add Rule
+                Agregar Regla
               </Button>
               <Button
                 onClick={handleApplyFilters}
                 size="sm"
               >
-                Apply Filters
+                Aplicar Filtros
               </Button>
               <Button
                 onClick={handleClearFilters}
                 variant="secondary"
                 size="sm"
               >
-                Clear
+                Limpiar
               </Button>
             </div>
 
@@ -370,7 +370,7 @@ export default function AdvancedFilterBuilder({
                 type="text"
                 value={filterName}
                 onChange={(e) => setFilterName(e.target.value)}
-                placeholder="Filter name..."
+                placeholder="Nombre del filtro..."
                 className="w-40 px-3 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <Button
@@ -381,7 +381,7 @@ export default function AdvancedFilterBuilder({
                 leftIcon={!isSaving ? <SaveIcon className="w-4 h-4" /> : undefined}
                 className="bg-green-600 hover:bg-green-700 focus-visible:ring-green-500 disabled:bg-gray-300"
               >
-                {editingFilter ? 'Update' : 'Save'}
+                {editingFilter ? 'Actualizar' : 'Guardar'}
               </Button>
             </div>
           </div>

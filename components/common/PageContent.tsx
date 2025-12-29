@@ -1,7 +1,7 @@
 'use client'
 
 import { ReactNode } from 'react'
-import { useSidebar } from './SidebarContext'
+import { useSidebar } from './AppClientProviders'
 
 interface PageContentProps {
   children: ReactNode

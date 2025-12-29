@@ -14,11 +14,11 @@ export default function DealStatusPipeline({ status, onStatusChange, isAdmin, sa
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
       <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
-        <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Deal Status Pipeline</h3>
+        <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Canal de Estado de Oferta</h3>
         {saving && (
           <div className="flex items-center gap-1.5 text-xs text-blue-600">
             <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <span>Saving...</span>
+            <span>Guardando...</span>
           </div>
         )}
       </div>

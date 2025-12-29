@@ -14,6 +14,7 @@ import BusinessIcon from '@mui/icons-material/Business'
 import { logger } from '@/lib/logger'
 import { Button, Select, Alert } from '@/components/ui'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
+import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
 import FormModalSkeleton from '@/components/common/FormModalSkeleton'
 
 interface LeadFormModalProps {
@@ -135,7 +136,7 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
     const contactEmail = allValues.contactEmail
     
     if (!name || !contactName || !contactPhone || !contactEmail) {
-      setError('Please fill in all required fields')
+      setError('Por favor complete todos los campos requeridos')
       return
     }
 
@@ -169,10 +170,10 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
           onSuccess(result.data as Lead)
           onClose()
         } else {
-          setError(result.error || 'Failed to save lead')
+          setError(result.error || 'Error al guardar el lead')
         }
       } catch (err) {
-        setError('An error occurred')
+        setError('Ocurrió un error')
       }
     })
   }
@@ -188,11 +189,11 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
     // If moving to 'asignado', validate required fields and responsible
     if (newStage === 'asignado' && lead.stage === 'por_asignar') {
       if (!allValues.name || !allValues.contactName || !allValues.contactPhone || !allValues.contactEmail) {
-        setError('Please fill in all required fields before converting')
+        setError('Por favor complete todos los campos requeridos antes de convertir')
         return
       }
       if (!responsibleId) {
-        setError('Please assign a responsible user before converting')
+        setError('Por favor asigne un usuario responsable antes de convertir')
         return
       }
     }
@@ -209,10 +210,10 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
           }
           setStage(newStage)
         } else {
-          setError(result.error || 'Failed to update stage')
+          setError(result.error || 'Error al actualizar la etapa')
         }
       } catch (err) {
-        setError('An error occurred')
+        setError('Ocurrió un error')
       }
     })
   }
@@ -241,44 +242,31 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
 
   return (
     <>
-      {/* Light backdrop */}
-      <div
-        className={`fixed inset-0 bg-gray-900/20 z-40 transition-opacity ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-        onClick={onClose}
-      ></div>
-
-      {/* Modal Container */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-        {/* Modal Panel */}
-        <div className={`w-full max-w-4xl bg-white shadow-2xl rounded-2xl flex flex-col max-h-[90vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${
-          isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-        }`}>
-          {/* Header */}
-          <div className="bg-white border-b border-gray-200 px-6 py-4">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-100 rounded-lg border border-orange-200">
-                  <PersonAddIcon className="text-orange-600" fontSize="medium" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Lead</p>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    {lead ? (lead.name || 'Edit Lead') : 'New Lead'}
-                  </h2>
-                </div>
-              </div>
-              <Button
-                onClick={onClose}
-                variant="ghost"
-                className="p-2"
-              >
-                <CloseIcon fontSize="medium" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Form Content */}
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto bg-gray-50">
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      title={lead ? (lead.name || 'Editar Lead') : 'Nuevo Lead'}
+      subtitle="Lead"
+      icon={<PersonAddIcon fontSize="medium" />}
+      iconColor="orange"
+      footer={
+        !isConverted ? (
+          <ModalFooter
+            onCancel={onClose}
+            submitLabel="Guardar"
+            submitLoading={loading || loadingData || dynamicForm.loading}
+            submitDisabled={loading || loadingData || dynamicForm.loading}
+            leftContent="* Campos requeridos"
+          />
+        ) : (
+          <ModalFooter
+            onCancel={onClose}
+            leftContent="* Campos requeridos"
+          />
+        )
+      }
+    >
+      <form id="modal-form" onSubmit={handleSubmit} className="bg-gray-50 h-full flex flex-col">
             {error && (
               <div className="mx-6 mt-4">
                 <Alert variant="error" icon={<ErrorOutlineIcon fontSize="small" />}>
@@ -296,7 +284,7 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
                   <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 flex items-center gap-4 flex-wrap">
                     {/* Stage Badge & Selector */}
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-gray-500">Stage:</span>
+                      <span className="text-xs font-medium text-gray-500">Etapa:</span>
                       {isConverted ? (
                         <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${LEAD_STAGE_COLORS[stage]}`}>
                           {LEAD_STAGE_LABELS[stage]}
@@ -321,18 +309,18 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
                     {lead?.businessId && (
                       <div className="flex items-center gap-2 text-sm">
                         <BusinessIcon fontSize="small" className="text-green-600" />
-                        <span className="text-gray-600">Converted to Business</span>
+                        <span className="text-gray-600">Convertido a Negocio</span>
                       </div>
                     )}
 
                     {/* Responsible Selector */}
                     <div className="flex items-center gap-2 ml-auto">
-                      <span className="text-xs font-medium text-gray-500">Responsible:</span>
+                      <span className="text-xs font-medium text-gray-500">Responsable:</span>
                       <Select
                         value={responsibleId || ''}
                         onChange={(e) => setResponsibleId(e.target.value || null)}
                         disabled={loading || isConverted}
-                        placeholder="Unassigned"
+                        placeholder="Sin asignar"
                         options={users.map((user) => ({
                           value: user.clerkId,
                           label: user.name || user.email || 'Unknown',
@@ -363,8 +351,8 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
                 {/* Fallback if form config not initialized */}
                 {!dynamicForm.initialized && (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-                    <p className="font-medium">Form configuration not initialized</p>
-                    <p className="text-xs mt-1">Go to Settings → Form Builder to initialize the lead form configuration.</p>
+                    <p className="font-medium">Configuración del formulario no inicializada</p>
+                    <p className="text-xs mt-1">Vaya a Configuración → Constructor de Formularios para inicializar la configuración del formulario de lead.</p>
                   </div>
                 )}
 
@@ -372,15 +360,15 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
                 {!isEditMode && isAdmin && (
                   <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                     <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                      <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Assignment</h3>
+                      <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Asignación</h3>
                     </div>
                     <div className="p-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Responsible</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Responsable</label>
                       <Select
                         value={responsibleId || ''}
                         onChange={(e) => setResponsibleId(e.target.value || null)}
                         disabled={loading}
-                        placeholder="Unassigned"
+                        placeholder="Sin asignar"
                         options={users.map((user) => ({
                           value: user.clerkId,
                           label: user.name || user.email || 'Unknown',
@@ -393,33 +381,8 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
               </div>
             )}
 
-            {/* Footer */}
-            <div className="border-t border-gray-200 bg-white px-6 py-4 flex justify-between items-center sticky bottom-0">
-              <div className="text-xs text-gray-500">
-                * Required fields
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  type="button"
-                  onClick={onClose}
-                  variant="secondary"
-                >
-                  Cancel
-                </Button>
-                {!isConverted && (
-                  <Button
-                    type="submit"
-                    disabled={loading || loadingData || dynamicForm.loading}
-                    loading={loading}
-                  >
-                    Save
-                  </Button>
-                )}
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
+      </form>
+    </ModalShell>
     </>
   )
 }

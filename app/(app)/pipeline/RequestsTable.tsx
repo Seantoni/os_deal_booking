@@ -42,9 +42,9 @@ export default function RequestsTable({ data, searchQuery }: RequestsTableProps)
   }
 
   const columns: ColumnConfig[] = [
-    { key: 'name', label: 'Name' },
-    { key: 'created', label: 'Created Date' },
-    { key: 'status', label: 'Status' },
+    { key: 'name', label: 'Nombre' },
+    { key: 'created', label: 'Fecha de Creación' },
+    { key: 'status', label: 'Estado' },
     { key: 'actions', label: '', align: 'right', width: 'w-12' },
   ]
 
@@ -74,7 +74,7 @@ export default function RequestsTable({ data, searchQuery }: RequestsTableProps)
             <RowActionsMenu
               items={[
                 {
-                  label: 'View',
+                  label: 'Ver',
                   onClick: () => {
                     setSelectedRequest(item.bookingRequest)
                     setRequestModalOpen(true)

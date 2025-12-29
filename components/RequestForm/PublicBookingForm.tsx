@@ -88,12 +88,12 @@ export default function PublicBookingForm({ token }: PublicBookingFormProps) {
         // Redirect to confirmation page
         router.push(`/booking-request/confirmation?token=${token}&requestId=${result.data.bookingRequestId}`)
       } else {
-        setSubmitError(result.error || 'Failed to submit booking request')
+        setSubmitError(result.error || 'Error al enviar la solicitud de booking')
         setSubmitting(false)
       }
     } catch (error) {
       console.error('Error submitting public booking request:', error)
-      setSubmitError('An unexpected error occurred. Please try again.')
+      setSubmitError('Ocurrió un error inesperado. Por favor intente nuevamente.')
       setSubmitting(false)
     }
   }
@@ -126,9 +126,9 @@ export default function PublicBookingForm({ token }: PublicBookingFormProps) {
     <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Complete Your Booking Request</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Complete su Solicitud de Booking</h1>
         <p className="text-sm text-gray-600">
-          Please fill out all required fields. Your request will be reviewed after submission.
+          Por favor complete todos los campos requeridos. Su solicitud será revisada después del envío.
         </p>
       </div>
 
@@ -186,11 +186,11 @@ export default function PublicBookingForm({ token }: PublicBookingFormProps) {
           disabled={currentStepIndex === 0 || submitting}
           className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
         >
-          Previous
+          Anterior
         </button>
 
         <div className="text-sm text-gray-500">
-          Step {currentStepIndex + 1} of {PUBLIC_STEPS.length}
+          Paso {currentStepIndex + 1} de {PUBLIC_STEPS.length}
         </div>
 
         {currentStepIndex < PUBLIC_STEPS.length - 1 ? (
@@ -199,7 +199,7 @@ export default function PublicBookingForm({ token }: PublicBookingFormProps) {
             onClick={handleNext}
             className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
           >
-            Next
+            Siguiente
           </button>
         ) : (
           <button
@@ -208,7 +208,7 @@ export default function PublicBookingForm({ token }: PublicBookingFormProps) {
             disabled={submitting}
             className="px-6 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
           >
-            {submitting ? 'Submitting...' : 'Submit Request'}
+            {submitting ? 'Enviando...' : 'Enviar Solicitud'}
           </button>
         )}
       </div>

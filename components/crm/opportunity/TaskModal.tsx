@@ -5,6 +5,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import GroupsIcon from '@mui/icons-material/Groups'
 import type { Task } from '@/types'
 import { Button, Input, Select, Textarea } from '@/components/ui'
+import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
 
 // Meeting data structure stored as JSON in notes
 export interface MeetingData {
@@ -162,40 +163,28 @@ export default function TaskModal({
     }
   }
 
-  if (!isOpen) return null
-
   const isMeeting = taskCategory === 'meeting'
   const showObjectionFields = isMeeting && reachedAgreement === 'no'
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div
-        className="fixed inset-0 bg-gray-900/30 z-[60]"
-        onClick={onClose}
-      ></div>
-      <div className={`relative bg-white rounded-lg shadow-xl w-full z-[61] ${isMeeting ? 'max-w-2xl' : 'max-w-md'}`}>
-        <div className="border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {isMeeting && (
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <GroupsIcon className="text-blue-600" fontSize="small" />
-                </div>
-              )}
-              <h3 className="text-lg font-bold text-gray-900">
-                {task ? (isMeeting ? 'Editar Reunión' : 'Editar Tarea') : (isMeeting ? 'Nueva Reunión' : 'Nueva Tarea')}
-              </h3>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-500"
-            >
-              <CloseIcon fontSize="small" />
-            </button>
-          </div>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      title={task ? (isMeeting ? 'Editar Reunión' : 'Editar Tarea') : (isMeeting ? 'Nueva Reunión' : 'Nueva Tarea')}
+      icon={isMeeting ? <GroupsIcon fontSize="small" /> : undefined}
+      iconColor={isMeeting ? 'blue' : 'orange'}
+      maxWidth={isMeeting ? '2xl' : 'md'}
+      footer={
+        <ModalFooter
+          onCancel={onClose}
+          submitLabel={task ? 'Actualizar' : 'Crear'}
+          submitLoading={loading}
+          submitDisabled={loading}
+          submitVariant={isMeeting ? 'primary' : 'primary'}
+        />
+      }
+    >
+      <form id="modal-form" onSubmit={handleSubmit} className="p-6 space-y-4">
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800">
               {error}
@@ -209,7 +198,7 @@ export default function TaskModal({
             onChange={(e) => setTaskCategory(e.target.value as 'meeting' | 'todo')}
             required
             options={[
-              { value: 'todo', label: 'To-do' },
+              { value: 'todo', label: 'Tarea' },
               { value: 'meeting', label: 'Reunión' },
             ]}
           />
@@ -348,26 +337,7 @@ export default function TaskModal({
             </>
           )}
 
-          {/* Footer */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-            <Button
-              type="button"
-              onClick={onClose}
-              variant="secondary"
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={loading}
-              loading={loading}
-              className={isMeeting ? 'bg-blue-600 hover:bg-blue-700' : 'bg-orange-600 hover:bg-orange-700'}
-            >
-              {task ? 'Actualizar' : 'Crear'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </ModalShell>
   )
 }

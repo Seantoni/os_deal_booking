@@ -1,5 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 
 // Cookie name for caching access check result
@@ -22,6 +23,14 @@ const isPublicRoute = createRouteMatcher([
   '/no-access(.*)', // Allow access to no-access page
   '/t-c(.*)', // Terms & conditions
 ])
+
+/**
+ * Normalize email for database lookup
+ * Converts to lowercase and trims whitespace
+ */
+function normalizeEmail(email: string): string {
+  return email.toLowerCase().trim()
+}
 
 export default clerkMiddleware(async (auth, request) => {
   const isPublic = isPublicRoute(request)
@@ -50,34 +59,47 @@ export default clerkMiddleware(async (auth, request) => {
         logger.debug('[middleware] Access granted from cache for userId:', userId)
         return NextResponse.next()
       }
+    }
+
+    // No valid cache - check access directly via database
+    // This avoids the API call overhead
+    try {
+      // Get user's email from session (Clerk provides this)
+      const sessionClaims = session.sessionClaims as { email?: string } | undefined
+      let userEmail = sessionClaims?.email
+      
+      // If email not in claims, we need to allow through and let the page handle it
+      // This is a fallback for when Clerk doesn't provide email in session
+      if (!userEmail) {
+        logger.debug('[middleware] No email in session claims, allowing through')
+        const response = NextResponse.next()
+        // Set a short cache to avoid repeated checks
+        response.cookies.set(ACCESS_COOKIE_NAME, `${userId}:${Date.now()}`, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 60, // Short 1-minute cache for this edge case
+          path: '/',
+        })
+        return response
       }
 
-    // No valid cache - need to check access via API
-    try {
-      const baseUrl = `${request.nextUrl.protocol}//${request.nextUrl.host}`
+      const normalizedEmail = normalizeEmail(userEmail)
       
-        const checkResponse = await fetch(`${baseUrl}/api/access/check`, {
-          headers: {
-            'Cookie': request.headers.get('cookie') || '',
-          },
-        })
-
-        if (!checkResponse.ok) {
-          logger.error('[middleware] Access check API failed:', checkResponse.status)
-          const url = new URL('/no-access', request.url)
-          return NextResponse.redirect(url)
-        }
-
-        const { hasAccess, email, error } = await checkResponse.json()
-
-        if (!hasAccess) {
-          // Log access denial in all environments (security monitoring)
-          logger.warn('[middleware] Access denied for email:', email, error ? `Error: ${error}` : '')
-        // Clear any stale access cookie
+      // Direct database check - fast single query
+      const allowedEmail = await prisma.allowedEmail.findUnique({
+        where: { email: normalizedEmail },
+        select: { isActive: true },
+      })
+      
+      const hasAccess = allowedEmail?.isActive === true
+      
+      if (!hasAccess) {
+        logger.warn('[middleware] Access denied for email:', normalizedEmail)
         const response = NextResponse.redirect(new URL('/no-access', request.url))
         response.cookies.delete(ACCESS_COOKIE_NAME)
         return response
-        }
+      }
 
       // Access granted - set cache cookie for subsequent requests
       const response = NextResponse.next()
@@ -89,12 +111,12 @@ export default clerkMiddleware(async (auth, request) => {
         path: '/',
       })
 
-      logger.debug('[middleware] Access granted and cached for email:', email)
+      logger.debug('[middleware] Access granted and cached for email:', normalizedEmail)
 
       return response
-      } catch (fetchError) {
-        logger.error('[middleware] Error calling access check API:', fetchError)
-        // On error, deny access for security
+    } catch (dbError) {
+      logger.error('[middleware] Database error during access check:', dbError)
+      // On database error, deny access for security
       const url = new URL('/no-access', request.url)
       return NextResponse.redirect(url)
     }

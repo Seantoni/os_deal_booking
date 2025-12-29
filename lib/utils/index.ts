@@ -10,6 +10,7 @@ export * from './form-data'
 export * from './category-display'
 export * from './validation'
 export * from './debounce'
+export * from './translations'
 // Note: Date functions are now in @/lib/date - import from there: import { formatShortDate, ... } from '@/lib/date'
 // Note: request-naming uses prisma, import directly: import { generateRequestName, countBusinessRequests } from '@/lib/utils/request-naming'
 

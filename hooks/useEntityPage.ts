@@ -25,6 +25,11 @@ export interface EntityPageConfig<T> {
    * Default: true
    */
   staleWhileRevalidate?: boolean
+  /**
+   * Initial data prefetched from the server.
+   * If provided, skips the initial client-side fetch.
+   */
+  initialData?: T[]
 }
 
 export interface EntityPageReturn<T> {
@@ -107,13 +112,15 @@ export function useEntityPage<T>({
   defaultSortDirection = 'desc',
   useUrlSearch = true,
   staleWhileRevalidate = true,
+  initialData,
 }: EntityPageConfig<T>): EntityPageReturn<T> {
   const router = useRouter()
   const searchParams = useSearchParams()
   
-  // Core state
-  const [data, setData] = useState<T[]>([])
-  const [isFirstLoad, setIsFirstLoad] = useState(true)
+  // Core state - initialize with server-prefetched data if available
+  const [data, setData] = useState<T[]>(initialData || [])
+  // Skip first load if we have initial data
+  const [isFirstLoad, setIsFirstLoad] = useState(!initialData || initialData.length === 0)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   

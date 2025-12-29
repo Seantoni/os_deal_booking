@@ -56,7 +56,7 @@ export default function RequestsSection({
     const date = new Date(req.createdAt)
     const month = date.toLocaleDateString('en-US', { timeZone: PANAMA_TIMEZONE, month: 'short' })
     const { day, year } = getDateComponentsInPanama(date)
-    return businessName ? `${businessName} - ${month}-${day}-${year}` : `Request ${month}-${day}-${year}`
+    return businessName ? `${businessName} - ${month}-${day}-${year}` : `Solicitud ${month}-${day}-${year}`
   }
 
   // Filter requests based on selected filter
@@ -92,7 +92,7 @@ export default function RequestsSection({
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
             <DescriptionIcon className="text-purple-600" style={{ fontSize: 16 }} />
-            <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Requests</h3>
+            <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Solicitudes</h3>
             {filteredRequests.length > 0 && (
               <span className="px-1.5 py-0.5 bg-gray-200 text-gray-600 text-[10px] font-semibold rounded">
                 {filteredRequests.length}
@@ -106,7 +106,7 @@ export default function RequestsSection({
               className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-white bg-purple-600 hover:bg-purple-700 rounded transition-colors"
             >
               <AddIcon style={{ fontSize: 14 }} />
-              <span>New Request</span>
+              <span>Nueva Solicitud</span>
             </button>
           )}
         </div>
@@ -123,7 +123,7 @@ export default function RequestsSection({
                   : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-300'
               }`}
             >
-              All ({requests.length})
+              Todos ({requests.length})
             </button>
             <button
               type="button"
@@ -134,7 +134,7 @@ export default function RequestsSection({
                   : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-300'
               }`}
             >
-              Active ({requests.filter(r => r.status !== 'booked' && r.status !== 'rejected').length})
+              Activas ({requests.filter(r => r.status !== 'booked' && r.status !== 'rejected').length})
             </button>
             <button
               type="button"
@@ -145,7 +145,7 @@ export default function RequestsSection({
                   : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-300'
               }`}
             >
-              Booked ({requests.filter(r => r.status === 'booked').length})
+              Reservadas ({requests.filter(r => r.status === 'booked').length})
             </button>
             <button
               type="button"
@@ -156,7 +156,7 @@ export default function RequestsSection({
                   : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-300'
               }`}
             >
-              Rejected ({requests.filter(r => r.status === 'rejected').length})
+              Rechazadas ({requests.filter(r => r.status === 'rejected').length})
             </button>
           </div>
         )}
@@ -168,8 +168,8 @@ export default function RequestsSection({
             <DescriptionIcon className="text-gray-400 mx-auto mb-1.5" style={{ fontSize: 32 }} />
             <p className="text-xs text-gray-500 mb-2">
               {requests.length === 0 
-                ? 'No requests yet'
-                : `No ${filter === 'all' ? '' : filter} requests`}
+                ? 'Aún no hay solicitudes'
+                : `No hay solicitudes ${filter === 'all' ? '' : filter === 'active' ? 'activas' : filter === 'booked' ? 'reservadas' : 'rechazadas'}`}
             </p>
           </div>
         ) : (
@@ -216,10 +216,10 @@ export default function RequestsSection({
                   className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-gray-600 hover:text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronLeftIcon style={{ fontSize: 14 }} />
-                  <span>Prev</span>
+                  <span>Anterior</span>
                 </button>
                 <span className="text-[10px] text-gray-500 font-medium">
-                  Page {currentPage} of {totalPages}
+                  Página {currentPage} de {totalPages}
                 </span>
                 <button
                   type="button"
@@ -227,7 +227,7 @@ export default function RequestsSection({
                   disabled={currentPage === totalPages}
                   className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-gray-600 hover:text-gray-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  <span>Next</span>
+                  <span>Siguiente</span>
                   <ChevronRightIcon style={{ fontSize: 14 }} />
                 </button>
               </div>

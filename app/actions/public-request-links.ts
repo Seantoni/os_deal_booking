@@ -37,7 +37,7 @@ export async function generateAndSendPublicLink(recipientEmails: string | string
     const uniqueEmails = [...new Set(validEmails)]
 
     if (uniqueEmails.length === 0) {
-      return { success: false, error: 'No valid email addresses provided' }
+      return { success: false, error: 'No se proporcionaron direcciones de correo electrónico válidas' }
     }
 
     // Get user information for email
@@ -69,7 +69,7 @@ export async function generateAndSendPublicLink(recipientEmails: string | string
         to: uniqueEmails, // All recipient emails
         cc: userEmail ? [userEmail] : [], // Copy to: logged-in user who created the link
         replyTo: userEmail || EMAIL_CONFIG.replyTo,
-        subject: 'Complete Your Booking Request - OS Deals',
+        subject: 'Complete su Solicitud de Booking - OS Deals',
         html: renderPublicLinkEmail({
           recipientEmail: uniqueEmails.join(', '),
           publicUrl,
@@ -84,7 +84,7 @@ export async function generateAndSendPublicLink(recipientEmails: string | string
       await prisma.publicRequestLink.delete({ where: { id: publicLink.id } })
       return {
         success: false,
-        error: 'Failed to send email. Please try again.',
+        error: 'Error al enviar el correo electrónico. Por favor intente nuevamente.',
       }
     }
 
@@ -113,17 +113,17 @@ export async function validatePublicLinkToken(token: string) {
     })
 
     if (!publicLink) {
-      return { valid: false, error: 'Invalid link' }
+      return { valid: false, error: 'Enlace inválido' }
     }
 
     if (publicLink.isUsed) {
-      return { valid: false, error: 'This link has already been used' }
+      return { valid: false, error: 'Este enlace ya ha sido utilizado' }
     }
 
     return { valid: true, publicLink }
   } catch (error) {
     logger.error('Error validating public link token:', error)
-    return { valid: false, error: 'Error validating link' }
+    return { valid: false, error: 'Error al validar el enlace' }
   }
 }
 
@@ -157,7 +157,7 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
     if (!validation.valid || !validation.publicLink) {
       return {
         success: false,
-        error: validation.error || 'Invalid or expired link',
+        error: validation.error || 'Enlace inválido o expirado',
       }
     }
 
@@ -171,13 +171,13 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
     if (missing.length > 0) {
       return {
         success: false,
-        error: `Missing required fields: ${missing.join(', ')}`,
+        error: `Campos requeridos faltantes: ${missing.join(', ')}`,
       }
     }
 
     // Validate email format
     if (!isValidEmail(fields.businessEmail!)) {
-      return { success: false, error: 'Invalid email format' }
+      return { success: false, error: 'Formato de correo electrónico inválido' }
     }
 
     // Parse dates in Panama timezone for consistency
@@ -321,7 +321,7 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
     logger.error('Error submitting public booking request:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to submit booking request',
+      error: error instanceof Error ? error.message : 'Error al enviar la solicitud de booking',
     }
   }
 }
@@ -344,32 +344,32 @@ function renderPublicLinkEmail({
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Complete Your Booking Request</title>
+  <title>Complete su Solicitud de Booking</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
   <div style="background-color: white; border-radius: 8px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-    <h1 style="color: #2563eb; margin-top: 0; font-size: 24px;">Complete Your Booking Request</h1>
+    <h1 style="color: #2563eb; margin-top: 0; font-size: 24px;">Complete su Solicitud de Booking</h1>
     
-    <p>Hello,</p>
+    <p>Hola,</p>
     
-    <p>${senderName} has invited you to complete a booking request form for OS Deals.</p>
+    <p>${senderName} le ha invitado a completar un formulario de solicitud de booking para OS Deals.</p>
     
-    <p>Click the button below to access the form and submit your booking request:</p>
+    <p>Haga clic en el botón a continuación para acceder al formulario y enviar su solicitud de booking:</p>
     
     <div style="text-align: center; margin: 30px 0;">
-      <a href="${publicUrl}" style="display: inline-block; background-color: #2563eb; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 600; font-size: 16px;">Access Booking Request Form</a>
+      <a href="${publicUrl}" style="display: inline-block; background-color: #2563eb; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 600; font-size: 16px;">Acceder al Formulario de Solicitud</a>
     </div>
     
-    <p style="color: #666; font-size: 14px;">Or copy and paste this link into your browser:</p>
+    <p style="color: #666; font-size: 14px;">O copie y pegue este enlace en su navegador:</p>
     <p style="color: #2563eb; font-size: 14px; word-break: break-all; background-color: #f0f0f0; padding: 10px; border-radius: 4px;">${publicUrl}</p>
     
-    <p style="color: #666; font-size: 14px; margin-top: 30px;">This link will allow you to submit a booking request without needing to log in.</p>
+    <p style="color: #666; font-size: 14px; margin-top: 30px;">Este enlace le permitirá enviar una solicitud de booking sin necesidad de iniciar sesión.</p>
     
-    <p style="color: #666; font-size: 14px;">If you didn't expect this email, please ignore it or contact our team.</p>
+    <p style="color: #666; font-size: 14px;">Si no esperaba este correo electrónico, por favor ignórelo o contacte a nuestro equipo.</p>
     
     <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 30px 0;">
     
-    <p style="color: #999; font-size: 12px; margin-bottom: 0;">This is an automated message from OS Deals Booking System.</p>
+    <p style="color: #999; font-size: 12px; margin-bottom: 0;">Este es un mensaje automatizado del Sistema de Booking de OS Deals.</p>
   </div>
 </body>
 </html>

@@ -31,9 +31,9 @@ export default function PreBookedTable({ data, searchQuery }: PreBookedTableProp
     : data
 
   const columns: ColumnConfig[] = [
-    { key: 'name', label: 'Event Name' },
-    { key: 'dates', label: 'Reserved Date' },
-    { key: 'status', label: 'Status' },
+    { key: 'name', label: 'Nombre del Evento' },
+    { key: 'dates', label: 'Fecha Reservada' },
+    { key: 'status', label: 'Estado' },
   ]
 
   return (
@@ -57,7 +57,7 @@ export default function PreBookedTable({ data, searchQuery }: PreBookedTableProp
             </div>
           </TableCell>
           <TableCell>
-            <StatusPill label="Pre-Booked" tone="info" />
+            <StatusPill label="Pre-Reservado" tone="info" />
           </TableCell>
         </TableRow>
       ))}

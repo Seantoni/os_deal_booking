@@ -27,7 +27,7 @@ function cn(...classes: Array<string | false | null | undefined>) {
 export function Dropdown({
   items,
   onSelect,
-  placeholder = 'Select...',
+  placeholder = 'Seleccionar...',
   selectedLabel,
   fullWidth = false,
   className,
@@ -115,7 +115,7 @@ export function Dropdown({
               </li>
             ))}
             {items.length === 0 && (
-              <li className="px-3 py-2 text-sm text-gray-500">No options</li>
+              <li className="px-3 py-2 text-sm text-gray-500">No hay opciones</li>
             )}
           </ul>
         </div>

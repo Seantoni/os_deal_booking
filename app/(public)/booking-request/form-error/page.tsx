@@ -12,18 +12,18 @@ export default async function PublicBookingRequestErrorPage({ searchParams }: Pu
     switch (reason) {
       case 'invalid_link':
         return {
-          title: 'Invalid Link',
-          message: 'The booking request link is invalid or has expired.',
+          title: 'Enlace Inválido',
+          message: 'El enlace de solicitud de booking es inválido o ha expirado.',
         }
       case 'link_already_used':
         return {
-          title: 'Link Already Used',
-          message: 'This booking request link has already been used. Each link can only be used once.',
+          title: 'Enlace Ya Utilizado',
+          message: 'Este enlace de solicitud de booking ya ha sido utilizado. Cada enlace solo puede usarse una vez.',
         }
       default:
         return {
           title: 'Error',
-          message: 'An error occurred while accessing the booking request form.',
+          message: 'Ocurrió un error al acceder al formulario de solicitud de booking.',
         }
     }
   }
@@ -55,7 +55,7 @@ export default async function PublicBookingRequestErrorPage({ searchParams }: Pu
         <h1 className="text-2xl font-bold text-gray-900 mb-2">{error.title}</h1>
         <p className="text-gray-600 mb-6">{error.message}</p>
         <p className="text-sm text-gray-500">
-          Please contact the person who sent you this link for assistance.
+          Por favor contacte a la persona que le envió este enlace para obtener asistencia.
         </p>
         </div>
       </div>

@@ -63,7 +63,7 @@ export default function RowActionsMenu({
           toggle()
         }}
         className={`p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors ${buttonClassName}`}
-        aria-label="Row actions"
+        aria-label="Acciones de fila"
       >
         <MoreVertIcon style={{ fontSize: 20 }} />
       </button>

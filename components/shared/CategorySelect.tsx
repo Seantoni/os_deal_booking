@@ -50,7 +50,7 @@ function CategorySelect({
   disabled = false,
   error,
   helpText,
-  placeholder = 'Select a category...',
+  placeholder = 'Seleccionar una categoría...',
   size = 'md',
 }: CategorySelectProps) {
   const [isOpen, setIsOpen] = useState(false)
@@ -182,7 +182,7 @@ function CategorySelect({
       <div className="p-2 border-b border-gray-200">
         <Input
           type="text"
-          placeholder="Type to search..."
+          placeholder="Escriba para buscar..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => {
@@ -238,7 +238,7 @@ function CategorySelect({
           })
         ) : (
           <div className="px-3 py-4 text-center text-sm text-gray-500">
-            No categories found
+            No se encontraron categorías
           </div>
         )}
       </div>

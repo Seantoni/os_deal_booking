@@ -54,18 +54,26 @@ const STAGE_COLORS: Record<string, string> = {
 
 // Table columns configuration
 const COLUMNS: ColumnConfig[] = [
-  { key: 'business', label: 'Business', sortable: true },
-  { key: 'stage', label: 'Stage', sortable: true },
-  { key: 'startDate', label: 'Start', sortable: true },
-  { key: 'closeDate', label: 'Close', sortable: true },
-  { key: 'notes', label: 'Notes', sortable: true },
+  { key: 'business', label: 'Negocio', sortable: true },
+  { key: 'stage', label: 'Etapa', sortable: true },
+  { key: 'startDate', label: 'Inicio', sortable: true },
+  { key: 'closeDate', label: 'Cierre', sortable: true },
+  { key: 'notes', label: 'Notas', sortable: true },
   { key: 'actions', label: '', align: 'right', width: 'w-28' },
 ]
 
 // Search fields for opportunities
 const SEARCH_FIELDS = ['business.name', 'notes', 'business.contactName', 'business.contactEmail']
 
-export default function OpportunitiesPageClient() {
+interface OpportunitiesPageClientProps {
+  initialOpportunities?: Opportunity[]
+  initialBusinesses?: any[]
+}
+
+export default function OpportunitiesPageClient({
+  initialOpportunities,
+  initialBusinesses,
+}: OpportunitiesPageClientProps = {}) {
   const searchParams = useSearchParams()
   const { role: userRole } = useUserRole()
   const isAdmin = userRole === 'admin'
@@ -95,6 +103,7 @@ export default function OpportunitiesPageClient() {
     entityType: 'opportunities',
     fetchFn: getOpportunities,
     searchFields: SEARCH_FIELDS,
+    initialData: initialOpportunities, // Server-prefetched data
   })
 
   // View mode state - persist in localStorage
@@ -238,10 +247,10 @@ export default function OpportunitiesPageClient() {
 
   async function handleDeleteOpportunity(opportunityId: string) {
     const confirmed = await confirmDialog.confirm({
-      title: 'Delete Opportunity',
-      message: 'Are you sure you want to delete this opportunity? This action cannot be undone.',
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
+      title: 'Eliminar Oportunidad',
+      message: '¿Está seguro de que desea eliminar esta oportunidad? Esta acción no se puede deshacer.',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
       confirmVariant: 'danger',
     })
 
@@ -252,10 +261,10 @@ export default function OpportunitiesPageClient() {
     
     const result = await deleteOpportunity(opportunityId)
     if (!result.success) {
-      toast.error(result.error || 'Failed to delete opportunity')
+      toast.error(result.error || 'Error al eliminar la oportunidad')
       loadData()
     } else {
-      toast.success('Opportunity deleted successfully')
+      toast.success('Oportunidad eliminada exitosamente')
     }
   }
 
@@ -341,7 +350,7 @@ export default function OpportunitiesPageClient() {
       {/* Header with Search and Filters */}
       <EntityPageHeader
         entityType="opportunities"
-        searchPlaceholder="Search opportunities..."
+        searchPlaceholder="Buscar oportunidades..."
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         filterTabs={filterTabs}
@@ -359,15 +368,15 @@ export default function OpportunitiesPageClient() {
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
         {loading ? (
-          <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200">Loading...</div>
+          <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200">Cargando...</div>
         ) : filteredOpportunities.length === 0 ? (
           <EmptyTableState
             icon={<FilterListIcon className="w-full h-full" />}
-            title="No opportunities found"
+            title="No se encontraron oportunidades"
             description={
               searchQuery || stageFilter !== 'all' 
-                ? 'Try adjusting your search or filters' 
-                : 'Get started by creating a new opportunity'
+                ? 'Intente ajustar su búsqueda o filtros' 
+                : 'Comience creando una nueva oportunidad'
             }
           />
         ) : viewMode === 'kanban' ? (

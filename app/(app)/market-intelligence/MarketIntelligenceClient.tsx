@@ -297,7 +297,7 @@ const formatCurrency = (value: number) => {
             ) : (
               <>
                 <PlayArrowIcon className="mr-1" style={{ fontSize: 16 }} />
-                Scan Now
+                Escanear Ahora
               </>
             )}
           </Button>
@@ -317,9 +317,9 @@ const formatCurrency = (value: number) => {
                   {getSiteLabel(scanProgress.site)}
                 </span>
                 <span className="text-xs font-medium text-gray-700">
-                  {scanProgress.phase === 'connecting' && '🔌 Connecting...'}
-                  {scanProgress.phase === 'loading_list' && '📋 Loading deals list...'}
-                  {scanProgress.phase === 'scanning_deal' && '🔍 Scanning deals...'}
+                  {scanProgress.phase === 'connecting' && '🔌 Conectando...'}
+                  {scanProgress.phase === 'loading_list' && '📋 Cargando lista de ofertas...'}
+                  {scanProgress.phase === 'scanning_deal' && '🔍 Escaneando ofertas...'}
                   {scanProgress.phase === 'saving' && '💾 Saving to database...'}
                   {scanProgress.phase === 'complete' && '✅ Complete!'}
                   {scanProgress.phase === 'error' && '❌ Error'}
@@ -476,32 +476,32 @@ const formatCurrency = (value: number) => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
-                  Source
+                  Origen
                 </th>
                 <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
-                  Tag
+                  Etiqueta
                 </th>
                 <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider min-w-[200px]">
-                  Deal
+                  Oferta
                 </th>
                 <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
-                  Price
+                  Precio
                 </th>
-                <SortHeader field="discountPercent" label="Discount" className="text-right" />
-                <SortHeader field="totalSold" label="Sold" className="text-right" />
+                <SortHeader field="discountPercent" label="Descuento" className="text-right" />
+                <SortHeader field="totalSold" label="Vendido" className="text-right" />
                 <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
-                  Days
+                  Días
                 </th>
                 <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
-                  /Day
+                  /Día
                 </th>
-                <SortHeader field="salesToday" label="Today" className="text-right" />
-                <SortHeader field="salesThisWeek" label="Week" className="text-right" />
-                <SortHeader field="salesThisMonth" label="Month" className="text-right" />
-                <SortHeader field="firstSeenAt" label="First Seen" />
-                <SortHeader field="lastScannedAt" label="Updated" />
+                <SortHeader field="salesToday" label="Hoy" className="text-right" />
+                <SortHeader field="salesThisWeek" label="Semana" className="text-right" />
+                <SortHeader field="salesThisMonth" label="Mes" className="text-right" />
+                <SortHeader field="firstSeenAt" label="Primera Vez" />
+                <SortHeader field="lastScannedAt" label="Actualizado" />
                 <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
-                  View
+                  Ver
                 </th>
               </tr>
             </thead>
@@ -510,18 +510,18 @@ const formatCurrency = (value: number) => {
                 <tr>
                   <td colSpan={14} className="px-6 py-12 text-center text-gray-500">
                     <RefreshIcon className="animate-spin mx-auto mb-2" style={{ fontSize: 24 }} />
-                    <p>Loading deals...</p>
+                    <p>Cargando ofertas...</p>
                   </td>
                 </tr>
               ) : deals.length === 0 ? (
                 <tr>
                   <td colSpan={14} className="px-6 py-12 text-center text-gray-500">
                     <StorefrontIcon className="mx-auto mb-2 text-gray-400" style={{ fontSize: 48 }} />
-                    <p className="font-medium">No deals found</p>
+                    <p className="font-medium">No se encontraron ofertas</p>
                     <p className="text-sm mt-1">
                       {search || sourceSite || status !== 'active' 
-                        ? 'Try adjusting your filters'
-                        : 'Click "Scan Now" to discover competitor deals'}
+                        ? 'Intente ajustar sus filtros'
+                        : 'Haga clic en "Escanear Ahora" para descubrir ofertas de competidores'}
                     </p>
                   </td>
                 </tr>

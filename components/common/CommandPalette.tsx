@@ -49,7 +49,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       } catch (error) {
         console.error('Search error:', error)
         setResults([])
-        toast.error('Failed to search')
+        toast.error('Error al buscar')
       } finally {
         setIsSearching(false)
       }
@@ -150,14 +150,14 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search businesses, opportunities, requests, deals, events..."
+              placeholder="Buscar negocios, oportunidades, solicitudes, ofertas, eventos..."
               className="flex-1 border-none outline-none text-base text-gray-900 placeholder:text-gray-400 bg-transparent"
               autoFocus
             />
             <button
               onClick={onClose}
               className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors flex-shrink-0"
-              title="Close (Esc)"
+              title="Cerrar (Esc)"
             >
               <CloseIcon className="w-5 h-5" />
             </button>
@@ -172,37 +172,37 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  <p className="text-sm">Searching...</p>
+                  <p className="text-sm">Buscando...</p>
                 </div>
               </div>
             ) : query.trim() && results.length === 0 ? (
               <div className="px-4 py-12 text-center text-gray-500">
-                <p className="text-sm">No results found</p>
-                <p className="text-xs mt-1">Try a different search term</p>
+                <p className="text-sm">No se encontraron resultados</p>
+                <p className="text-xs mt-1">Intente con un término de búsqueda diferente</p>
               </div>
             ) : !query.trim() ? (
               <div className="px-4 py-12 text-center text-gray-500">
-                <p className="text-sm">Start typing to search...</p>
+                <p className="text-sm">Comience a escribir para buscar...</p>
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
                   <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
                     <BusinessIcon className="w-3 h-3" />
-                    Businesses
+                    Negocios
                   </span>
                   <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
                     <HandshakeIcon className="w-3 h-3" />
-                    Opportunities
+                    Oportunidades
                   </span>
                   <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
                     <RequestQuoteIcon className="w-3 h-3" />
-                    Booking Requests
+                    Solicitudes
                   </span>
                   <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
                     <DescriptionIcon className="w-3 h-3" />
-                    Deals
+                    Ofertas
                   </span>
                   <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded text-xs text-gray-600">
                     <EventIcon className="w-3 h-3" />
-                    Events
+                    Eventos
                   </span>
                 </div>
               </div>
@@ -266,15 +266,15 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
               <span className="flex items-center gap-1">
                 <kbd className="px-1.5 py-0.5 bg-gray-100 rounded font-mono">↑</kbd>
                 <kbd className="px-1.5 py-0.5 bg-gray-100 rounded font-mono">↓</kbd>
-                Navigate
+                Navegar
               </span>
               <span className="flex items-center gap-1">
                 <kbd className="px-1.5 py-0.5 bg-gray-100 rounded font-mono">Enter</kbd>
-                Select
+                Seleccionar
               </span>
               <span className="flex items-center gap-1">
                 <kbd className="px-1.5 py-0.5 bg-gray-100 rounded font-mono">Esc</kbd>
-                Close
+                Cerrar
               </span>
             </div>
           </div>

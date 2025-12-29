@@ -44,9 +44,9 @@ export default function DealsTable({ data, searchQuery }: DealsTableProps) {
   }
 
   const columns: ColumnConfig[] = [
-    { key: 'name', label: 'Deal Name' },
-    { key: 'dates', label: 'Reserved Date' },
-    { key: 'status', label: 'Status' },
+    { key: 'name', label: 'Nombre de la Oferta' },
+    { key: 'dates', label: 'Fecha Reservada' },
+    { key: 'status', label: 'Estado' },
   ]
 
   return (

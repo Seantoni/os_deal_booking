@@ -85,7 +85,7 @@ export default function AccessManagementTab() {
       const emails = await getAllowedEmails()
       setAllowedEmails(emails)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load allowed emails')
+      setError(err instanceof Error ? err.message : 'Error al cargar los correos permitidos')
     } finally {
       setLoading(false)
     }
@@ -99,10 +99,10 @@ export default function AccessManagementTab() {
       if (result.success && result.data) {
         setUserProfiles(result.data)
       } else {
-        setError(result.error || 'Failed to load user profiles')
+        setError(result.error || 'Error al cargar los perfiles de usuario')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load user profiles')
+      setError(err instanceof Error ? err.message : 'Error al cargar los perfiles de usuario')
     } finally {
       setLoadingUsers(false)
     }
@@ -115,14 +115,14 @@ export default function AccessManagementTab() {
       const result = await updateUserRole(clerkId, editingRole)
       
       if (result.success) {
-        setSuccess('User role updated successfully')
+        setSuccess('Rol de usuario actualizado exitosamente')
         setEditingUserId(null)
         await loadUserProfiles()
       } else {
-        setError(result.error || 'Failed to update user role')
+        setError(result.error || 'Error al actualizar el rol de usuario')
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update user role')
+      setError(err instanceof Error ? err.message : 'Error al actualizar el rol de usuario')
     }
   }
 
@@ -138,7 +138,7 @@ export default function AccessManagementTab() {
 
   async function handleAddEmail() {
     if (!newEmail.trim()) {
-      setError('Please enter an email address')
+      setError('Por favor ingrese una dirección de correo')
       return
     }
 
@@ -148,14 +148,14 @@ export default function AccessManagementTab() {
       const result = await addAllowedEmail(newEmail.trim(), newEmailNotes.trim() || undefined)
       
       if (result.success) {
-        toast.success(`Email ${result.action === 'reactivated' ? 'reactivated' : 'added'} successfully`)
+        toast.success(`Correo ${result.action === 'reactivated' ? 'reactivado' : 'agregado'} exitosamente`)
         setNewEmail('')
         setNewEmailNotes('')
         setShowAddForm(false)
         await loadAllowedEmails()
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to add email'
+      const errorMessage = err instanceof Error ? err.message : 'Error al agregar el correo'
       setError(errorMessage)
       toast.error(errorMessage)
     }
@@ -163,8 +163,8 @@ export default function AccessManagementTab() {
 
   async function handleInviteUser() {
     if (!inviteEmail.trim()) {
-      setError('Please enter an email address')
-      toast.error('Please enter an email address')
+      setError('Por favor ingrese una dirección de correo')
+      toast.error('Por favor ingrese una dirección de correo')
       return
     }
 
@@ -175,7 +175,7 @@ export default function AccessManagementTab() {
       const result = await inviteUser(inviteEmail.trim(), inviteRole, inviteNotes.trim() || undefined)
       
       if (result.success) {
-        toast.success(`Invitation sent successfully to ${inviteEmail.trim()}`)
+        toast.success(`Invitación enviada exitosamente a ${inviteEmail.trim()}`)
         setInviteEmail('')
         setInviteRole('sales')
         setInviteNotes('')
@@ -183,7 +183,7 @@ export default function AccessManagementTab() {
         await loadAllowedEmails()
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to send invitation'
+      const errorMessage = err instanceof Error ? err.message : 'Error al enviar la invitación'
       setError(errorMessage)
       toast.error(errorMessage)
     } finally {
@@ -195,10 +195,10 @@ export default function AccessManagementTab() {
 
   async function handleRevokeAccess(email: string) {
     const confirmed = await confirmDialog.confirm({
-      title: 'Revoke Access',
-      message: `Are you sure you want to revoke access for ${email}? This action cannot be undone.`,
-      confirmText: 'Revoke',
-      cancelText: 'Cancel',
+      title: 'Revocar Acceso',
+      message: `¿Está seguro de que desea revocar el acceso para ${email}? Esta acción no se puede deshacer.`,
+      confirmText: 'Revocar',
+      cancelText: 'Cancelar',
       confirmVariant: 'danger',
     })
 
@@ -209,12 +209,12 @@ export default function AccessManagementTab() {
       setSuccess(null)
       const result = await revokeAccess(email)
       if (result.success) {
-        toast.success('Access revoked successfully')
-        setSuccess('Access revoked successfully')
+        toast.success('Acceso revocado exitosamente')
+        setSuccess('Acceso revocado exitosamente')
         await loadAllowedEmails()
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to revoke access'
+      const errorMessage = err instanceof Error ? err.message : 'Error al revocar el acceso'
       setError(errorMessage)
       toast.error(errorMessage)
       console.error('Error revoking access:', err)
@@ -227,12 +227,12 @@ export default function AccessManagementTab() {
       setSuccess(null)
       const result = await reactivateAccess(email)
       if (result.success) {
-        toast.success('Access reactivated successfully')
-        setSuccess('Access reactivated successfully')
+        toast.success('Acceso reactivado exitosamente')
+        setSuccess('Acceso reactivado exitosamente')
         await loadAllowedEmails()
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to reactivate access'
+      const errorMessage = err instanceof Error ? err.message : 'Error al reactivar el acceso'
       setError(errorMessage)
       toast.error(errorMessage)
       console.error('Error reactivating access:', err)
@@ -245,7 +245,7 @@ export default function AccessManagementTab() {
       const logs = await getAccessAuditLogs()
       setAuditLogs(logs)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load audit logs')
+      setError(err instanceof Error ? err.message : 'Error al cargar los registros de auditoría')
     } finally {
       setLoadingAuditLogs(false)
     }
@@ -326,7 +326,7 @@ export default function AccessManagementTab() {
             }}
             leftIcon={<AddIcon fontSize="small" />}
           >
-            Add Email
+            Agregar Correo
           </Button>
           <Button
             variant="primary"
@@ -337,7 +337,7 @@ export default function AccessManagementTab() {
             }}
             leftIcon={<MailIcon fontSize="small" />}
           >
-            Invite User
+            Invitar Usuario
           </Button>
         </div>
       </div>
@@ -349,25 +349,25 @@ export default function AccessManagementTab() {
       {/* Add Email Form */}
       {showAddForm && (
         <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Email to Allowlist</h3>
-          <p className="text-sm text-gray-600 mb-4">Add an email to the allowlist without sending an invitation.</p>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Agregar Correo a la Lista de Permitidos</h3>
+          <p className="text-sm text-gray-600 mb-4">Agregue un correo a la lista de permitidos sin enviar una invitación.</p>
           <div className="space-y-4">
             <Input
               type="email"
-              label="Email Address *"
+              label="Dirección de Correo *"
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
               placeholder="user@example.com"
             />
             <Textarea
-              label="Notes (Optional)"
+              label="Notas (Opcional)"
               value={newEmailNotes}
               onChange={(e) => setNewEmailNotes(e.target.value)}
-              placeholder="Optional notes about this access grant..."
+              placeholder="Notas opcionales sobre esta concesión de acceso..."
               rows={3}
             />
             <div className="flex gap-3">
-              <Button onClick={handleAddEmail}>Add Email</Button>
+              <Button onClick={handleAddEmail}>Agregar Correo</Button>
               <Button
                 variant="secondary"
                 onClick={() => {
@@ -376,7 +376,7 @@ export default function AccessManagementTab() {
                   setNewEmailNotes('')
                 }}
               >
-                Cancel
+                Cancelar
               </Button>
             </div>
           </div>
@@ -387,11 +387,11 @@ export default function AccessManagementTab() {
       {showInviteForm && (
         <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Invite User</h3>
-          <p className="text-sm text-gray-600 mb-4">Send an invitation email via Clerk. The user will receive a signup link and instructions.</p>
+          <p className="text-sm text-gray-600 mb-4">Envíe un correo de invitación a través de Clerk. El usuario recibirá un enlace de registro e instrucciones.</p>
           <div className="space-y-4">
             <Input
               type="email"
-              label="Email Address *"
+              label="Dirección de Correo *"
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
               placeholder="user@example.com"
@@ -406,18 +406,18 @@ export default function AccessManagementTab() {
                   label: option.label,
                 }))}
               />
-              <p className="text-xs text-gray-500 mt-1">This role will be assigned when the user accepts the invitation.</p>
+              <p className="text-xs text-gray-500 mt-1">Este rol se asignará cuando el usuario acepte la invitación.</p>
             </div>
             <Textarea
-              label="Notes (Optional)"
+              label="Notas (Opcional)"
               value={inviteNotes}
               onChange={(e) => setInviteNotes(e.target.value)}
-              placeholder="Optional notes about this invitation..."
+              placeholder="Notas opcionales sobre esta invitación..."
               rows={3}
             />
             <div className="flex gap-3">
               <Button onClick={handleInviteUser} disabled={inviting} loading={inviting}>
-                Send Invitation
+                Enviar Invitación
               </Button>
               <Button
                 variant="secondary"
@@ -429,7 +429,7 @@ export default function AccessManagementTab() {
                 }}
                 disabled={inviting}
               >
-                Cancel
+                Cancelar
               </Button>
             </div>
           </div>
@@ -447,7 +447,7 @@ export default function AccessManagementTab() {
                 setSearchQuery(e.target.value)
                 setCurrentPage(1) // Reset to first page on search
               }}
-              placeholder="Search by email..."
+              placeholder="Buscar por correo..."
               leftIcon={<SearchIcon className="text-gray-400" />}
               fullWidth={false}
             />
@@ -459,9 +459,9 @@ export default function AccessManagementTab() {
               setCurrentPage(1) // Reset to first page on filter change
             }}
             options={[
-              { value: 'all', label: 'All Status' },
-              { value: 'active', label: 'Active' },
-              { value: 'revoked', label: 'Revoked' },
+              { value: 'all', label: 'Todos los Estados' },
+              { value: 'active', label: 'Activo' },
+              { value: 'revoked', label: 'Revocado' },
             ]}
             fullWidth={false}
           />
@@ -479,7 +479,7 @@ export default function AccessManagementTab() {
             }`}
           >
             <HistoryIcon fontSize="small" />
-            <span>Audit Log</span>
+            <span>Registro de Auditoría</span>
           </button>
         </div>
       </div>
@@ -487,21 +487,21 @@ export default function AccessManagementTab() {
       {/* Audit Logs Section */}
       {showAuditLogs && (
         <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Audit Log</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Registro de Auditoría</h3>
           {loadingAuditLogs ? (
-            <div className="text-center py-8 text-gray-500">Loading audit logs...</div>
+            <div className="text-center py-8 text-gray-500">Cargando registros de auditoría...</div>
           ) : auditLogs.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">No audit logs found</div>
+            <div className="text-center py-8 text-gray-500">No se encontraron registros de auditoría</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Email</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Action</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Performed By</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Date</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Notes</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Correo</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Acción</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Realizado Por</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Fecha</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Notas</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -518,7 +518,7 @@ export default function AccessManagementTab() {
                               : 'bg-yellow-100 text-yellow-800'
                           }`}
                         >
-                          {log.action}
+                          {log.action === 'granted' ? 'Concedido' : log.action === 'revoked' ? 'Revocado' : log.action}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-600">{log.performedBy}</td>
@@ -538,12 +538,12 @@ export default function AccessManagementTab() {
       {/* Allowed Emails Table */}
       <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
         {loading ? (
-          <div className="text-center py-12 text-gray-500">Loading allowed emails...</div>
+          <div className="text-center py-12 text-gray-500">Cargando correos permitidos...</div>
         ) : paginatedEmails.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             {searchQuery || filterStatus !== 'all'
-              ? 'No emails match your search criteria'
-              : 'No allowed emails found. Click "Add Email" to get started.'}
+              ? 'No hay correos que coincidan con sus criterios de búsqueda'
+              : 'No se encontraron correos permitidos. Haga clic en "Agregar Correo" para comenzar.'}
           </div>
         ) : (
           <>
@@ -551,12 +551,12 @@ export default function AccessManagementTab() {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Email</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Access Status</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Invitation</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Created</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Notes</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Correo</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Estado de Acceso</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Invitación</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Creado</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Notas</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -567,12 +567,12 @@ export default function AccessManagementTab() {
                         {email.isActive ? (
                           <span className="flex items-center gap-1 text-green-700">
                             <CheckCircleIcon fontSize="small" />
-                            <span>Active</span>
+                            <span>Activo</span>
                           </span>
                         ) : (
                           <span className="flex items-center gap-1 text-red-700">
                             <CancelIcon fontSize="small" />
-                            <span>Revoked</span>
+                            <span>Revocado</span>
                           </span>
                         )}
                       </td>
@@ -590,19 +590,19 @@ export default function AccessManagementTab() {
                             >
                               {email.invitationStatus === 'pending' && <PendingIcon fontSize="small" />}
                               {email.invitationStatus === 'accepted' && <CheckCircleIcon fontSize="small" />}
-                              <span className="capitalize">{email.invitationStatus}</span>
+                              <span>{email.invitationStatus === 'pending' ? 'Pendiente' : email.invitationStatus === 'accepted' ? 'Aceptado' : email.invitationStatus}</span>
                             </span>
                             {email.invitedRole && (
-                              <span className="text-xs text-gray-500">Role: {email.invitedRole}</span>
+                              <span className="text-xs text-gray-500">Rol: {email.invitedRole}</span>
                             )}
                             {email.invitedAt && (
                               <span className="text-xs text-gray-500">
-                                Sent: {formatShortDate(email.invitedAt)}
+                                Enviado: {formatShortDate(email.invitedAt)}
                               </span>
                             )}
                           </div>
                         ) : (
-                          <span className="text-gray-400 text-xs">No invitation</span>
+                          <span className="text-gray-400 text-xs">Sin invitación</span>
                         )}
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-600">
@@ -615,7 +615,7 @@ export default function AccessManagementTab() {
                             <button
                               onClick={() => handleRevokeAccess(email.email)}
                               className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Revoke Access"
+                              title="Revocar Acceso"
                             >
                               <DeleteIcon fontSize="small" />
                             </button>
@@ -623,7 +623,7 @@ export default function AccessManagementTab() {
                             <button
                               onClick={() => handleReactivateAccess(email.email)}
                               className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                              title="Reactivate Access"
+                              title="Reactivar Acceso"
                             >
                               <RestoreIcon fontSize="small" />
                             </button>
@@ -640,9 +640,9 @@ export default function AccessManagementTab() {
             {totalPages > 1 && (
               <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex items-center justify-between">
                 <div className="text-sm text-gray-700">
-                  Showing {(currentPage - 1) * emailsPerPage + 1} to{' '}
-                  {Math.min(currentPage * emailsPerPage, filteredEmails.length)} of{' '}
-                  {filteredEmails.length} emails
+                  Mostrando {(currentPage - 1) * emailsPerPage + 1} a{' '}
+                  {Math.min(currentPage * emailsPerPage, filteredEmails.length)} de{' '}
+                  {filteredEmails.length} correos
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -651,7 +651,7 @@ export default function AccessManagementTab() {
                     onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                     disabled={currentPage === 1}
                   >
-                    Previous
+                    Anterior
                   </Button>
                   <Button
                     variant="secondary"
@@ -659,7 +659,7 @@ export default function AccessManagementTab() {
                     onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                     disabled={currentPage === totalPages}
                   >
-                    Next
+                    Siguiente
                   </Button>
                 </div>
               </div>
@@ -683,7 +683,7 @@ export default function AccessManagementTab() {
             type="text"
             value={userSearchQuery}
             onChange={(e) => setUserSearchQuery(e.target.value)}
-            placeholder="Search by name, email, or role..."
+            placeholder="Buscar por nombre, correo o rol..."
             leftIcon={<SearchIcon className="text-gray-400" />}
             fullWidth={false}
           />
@@ -691,23 +691,23 @@ export default function AccessManagementTab() {
 
         {/* Users Table */}
         {loadingUsers ? (
-          <div className="text-center py-12 text-gray-500">Loading user profiles...</div>
+          <div className="text-center py-12 text-gray-500">Cargando perfiles de usuario...</div>
         ) : filteredUsers.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             {userSearchQuery
-              ? 'No users match your search criteria'
-              : 'No user profiles found'}
+              ? 'No hay usuarios que coincidan con sus criterios de búsqueda'
+              : 'No se encontraron perfiles de usuario'}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="text-left py-3 px-6 text-sm font-semibold text-gray-700">Name</th>
-                  <th className="text-left py-3 px-6 text-sm font-semibold text-gray-700">Email</th>
-                  <th className="text-left py-3 px-6 text-sm font-semibold text-gray-700">Role</th>
-                  <th className="text-left py-3 px-6 text-sm font-semibold text-gray-700">Created</th>
-                  <th className="text-right py-3 px-6 text-sm font-semibold text-gray-700">Actions</th>
+                  <th className="text-left py-3 px-6 text-sm font-semibold text-gray-700">Nombre</th>
+                  <th className="text-left py-3 px-6 text-sm font-semibold text-gray-700">Correo</th>
+                  <th className="text-left py-3 px-6 text-sm font-semibold text-gray-700">Rol</th>
+                  <th className="text-left py-3 px-6 text-sm font-semibold text-gray-700">Creado</th>
+                  <th className="text-right py-3 px-6 text-sm font-semibold text-gray-700">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -749,14 +749,14 @@ export default function AccessManagementTab() {
                           <button
                             onClick={() => handleUpdateUserRole(user.clerkId)}
                             className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
-                            title="Save"
+                            title="Guardar"
                           >
                             <SaveIcon fontSize="small" />
                           </button>
                           <button
                             onClick={handleCancelEdit}
                             className="p-1.5 text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                            title="Cancel"
+                            title="Cancelar"
                           >
                             <CloseIcon fontSize="small" />
                           </button>
@@ -765,7 +765,7 @@ export default function AccessManagementTab() {
                         <button
                           onClick={() => handleStartEdit(user)}
                           className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                          title="Edit Role"
+                          title="Editar Rol"
                         >
                           <EditIcon fontSize="small" />
                         </button>

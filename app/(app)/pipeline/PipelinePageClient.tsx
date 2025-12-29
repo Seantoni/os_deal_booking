@@ -52,11 +52,11 @@ interface PipelinePageClientProps {
 
 // Tab data for cleaner rendering
 const TABS = [
-  { id: 0, label: 'All (Unified View)' },
-  { id: 1, label: 'Opportunities' },
-  { id: 2, label: 'Requests' },
-  { id: 3, label: 'Deals' },
-  { id: 4, label: 'Calendar Events' },
+  { id: 0, label: 'Todo (Vista Unificada)' },
+  { id: 1, label: 'Oportunidades' },
+  { id: 2, label: 'Solicitudes' },
+  { id: 3, label: 'Ofertas' },
+  { id: 4, label: 'Eventos del Calendario' },
 ] as const
 
 export default function PipelinePageClient({ initialData }: PipelinePageClientProps) {
@@ -111,7 +111,7 @@ export default function PipelinePageClient({ initialData }: PipelinePageClientPr
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search..."
+              placeholder="Buscar..."
               size="sm"
               leftIcon={<SearchIcon className="w-4 h-4" />}
             />
@@ -119,7 +119,7 @@ export default function PipelinePageClient({ initialData }: PipelinePageClientPr
 
           {/* Tabs - Pure Tailwind implementation */}
           <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs">
+            <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Pestañas">
               {TABS.map((tab) => (
                 <button
                   key={tab.id}
@@ -156,7 +156,7 @@ export default function PipelinePageClient({ initialData }: PipelinePageClientPr
                   size="sm"
                   onClick={() => setVisibleCount((c) => c + 50)}
                 >
-                  Load More
+                  Cargar Más
                 </Button>
               </div>
             )}
@@ -172,7 +172,7 @@ export default function PipelinePageClient({ initialData }: PipelinePageClientPr
                   size="sm"
                   onClick={() => setVisibleCount((c) => c + 50)}
                 >
-                  Load More
+                  Cargar Más
                 </Button>
               </div>
             )}
@@ -188,7 +188,7 @@ export default function PipelinePageClient({ initialData }: PipelinePageClientPr
                   size="sm"
                   onClick={() => setVisibleCount((c) => c + 50)}
                 >
-                  Load More
+                  Cargar Más
                 </Button>
               </div>
             )}
@@ -204,7 +204,7 @@ export default function PipelinePageClient({ initialData }: PipelinePageClientPr
                   size="sm"
                   onClick={() => setVisibleCount((c) => c + 50)}
                 >
-                  Load More
+                  Cargar Más
                 </Button>
               </div>
             )}
@@ -220,7 +220,7 @@ export default function PipelinePageClient({ initialData }: PipelinePageClientPr
                   size="sm"
                   onClick={() => setVisibleCount((c) => c + 50)}
                 >
-                  Load More
+                  Cargar Más
                 </Button>
               </div>
             )}

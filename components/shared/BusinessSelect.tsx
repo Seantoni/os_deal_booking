@@ -179,10 +179,10 @@ export default function BusinessSelect({
       }}
     >
       {loading ? (
-        <div className="px-4 py-3 text-sm text-gray-500">Loading businesses...</div>
+        <div className="px-4 py-3 text-sm text-gray-500">Cargando negocios...</div>
       ) : filteredBusinesses.length === 0 ? (
         <div className="px-4 py-3 text-sm text-gray-500">
-          {searchQuery ? 'No businesses found' : 'No businesses available'}
+          {searchQuery ? 'No se encontraron negocios' : 'No hay negocios disponibles'}
         </div>
       ) : (
         filteredBusinesses.map((business) => (

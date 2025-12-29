@@ -18,7 +18,7 @@ import { BookingRequestViewModal } from '@/components/booking/request-view'
 import NewRequestModal from '@/components/booking/NewRequestModal'
 import { useOpportunityForm } from './useOpportunityForm'
 import OpportunityPipeline from './OpportunityPipeline'
-import ReferenceInfoBar from './ReferenceInfoBar'
+import ReferenceInfoBar from '@/components/shared/ReferenceInfoBar'
 import WonStageBanner from './WonStageBanner'
 import LinkedBusinessSection from './LinkedBusinessSection'
 import TaskManager from './TaskManager'
@@ -26,6 +26,7 @@ import TaskModal from './TaskModal'
 import LostReasonModal from './LostReasonModal'
 import LostReasonSection from './LostReasonSection'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
+import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
 import FormModalSkeleton from '@/components/common/FormModalSkeleton'
 
 interface OpportunityFormModalProps {
@@ -238,11 +239,11 @@ export default function OpportunityFormModal({
         if (result.success && result.data) {
           onSuccess(result.data)
         } else {
-          setError(result.error || 'Failed to update stage')
+          setError(result.error || 'Error al actualizar la etapa')
           setStage(previousStage)
         }
       } catch (err) {
-        setError('An error occurred while updating stage')
+        setError('Ocurrió un error al actualizar la etapa')
         setStage(previousStage)
       }
     })
@@ -297,7 +298,7 @@ export default function OpportunityFormModal({
           onSuccess(result.data)
           onClose()
         } else {
-          setError(result.error || 'Failed to save opportunity')
+          setError(result.error || 'Error al guardar la oportunidad')
         }
       } catch (err) {
         setError('An error occurred')
@@ -313,7 +314,7 @@ export default function OpportunityFormModal({
     notes: string
   }) {
     if (!opportunity) {
-      setError('Please save the opportunity first before adding tasks')
+      setError('Por favor guarde la oportunidad primero antes de agregar tareas')
       return
     }
 
@@ -364,7 +365,7 @@ export default function OpportunityFormModal({
           } else {
             setTasks(prev => prev.filter(t => t.id !== newTask.id))
           }
-          setError(result.error || 'Failed to save task')
+          setError(result.error || 'Error al guardar la tarea')
         }
       } catch (err) {
         if (selectedTask) {
@@ -380,10 +381,10 @@ export default function OpportunityFormModal({
   // React 19: Task delete handler using useTransition
   async function handleDeleteTask(taskId: string) {
     const confirmed = await confirmDialog.confirm({
-      title: 'Delete Task',
-      message: 'Are you sure you want to delete this task? This action cannot be undone.',
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
+      title: 'Eliminar Tarea',
+      message: '¿Está seguro de que desea eliminar esta tarea? Esta acción no se puede deshacer.',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
       confirmVariant: 'danger',
     })
 
@@ -401,7 +402,7 @@ export default function OpportunityFormModal({
               new Date(a.date).getTime() - new Date(b.date).getTime()
             ))
           }
-          setError(result.error || 'Failed to delete task')
+          setError(result.error || 'Error al eliminar la tarea')
         }
       } catch (err) {
         if (taskToDelete) {
@@ -524,44 +525,30 @@ export default function OpportunityFormModal({
 
   return (
     <>
-      {/* Light backdrop */}
-      <div
-        className={`fixed inset-0 bg-gray-900/20 z-40 transition-opacity ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-        onClick={onClose}
-      ></div>
-
-      {/* Modal Container */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-        {/* Modal Panel */}
-        <div className={`w-full max-w-4xl bg-white shadow-2xl rounded-2xl flex flex-col max-h-[90vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${
-          isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-        }`}>
-          {/* Header */}
-          <div className="bg-white border-b border-gray-200 px-6 py-4">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-100 rounded-lg border border-orange-200">
-                  <HandshakeIcon className="text-orange-600" fontSize="medium" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Opportunity</p>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    {opportunity ? (opportunity.business?.name || 'Edit Opportunity') : 'New Opportunity'}
-                  </h2>
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={onClose}
-                className="text-gray-400 hover:text-gray-500 transition-colors"
-                aria-label="Close"
-              >
-                <CloseIcon fontSize="medium" />
-              </Button>
-            </div>
-          </div>
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      title={opportunity ? (opportunity.business?.name || 'Editar Oportunidad') : 'Nueva Oportunidad'}
+      subtitle="Oportunidad"
+      icon={<HandshakeIcon fontSize="medium" />}
+      iconColor="orange"
+      footer={
+        activeTab === 'details' ? (
+          <ModalFooter
+            onCancel={onClose}
+            submitLabel="Guardar"
+            submitLoading={loading || loadingData || dynamicForm.loading}
+            submitDisabled={loading || loadingData || dynamicForm.loading}
+            leftContent="* Campos requeridos"
+          />
+        ) : (
+          <ModalFooter
+            onCancel={onClose}
+            leftContent="* Campos requeridos"
+          />
+        )
+      }
+    >
 
           {/* Sales Path (Pipeline) */}
           {!loadingData && (
@@ -570,16 +557,32 @@ export default function OpportunityFormModal({
 
           {/* Reference Info Bar */}
           {!loadingData && (
-            <ReferenceInfoBar
-              opportunity={opportunity}
-              responsibleId={responsibleId}
-              onResponsibleChange={setResponsibleId}
-              users={users}
-              isAdmin={isAdmin}
-              startDate={dynamicForm.getValue('startDate')}
-              closeDate={dynamicForm.getValue('closeDate')}
-              nextActivityDate={dynamicForm.getValue('nextActivityDate')}
-            />
+            <ReferenceInfoBar variant="border-bottom">
+              <ReferenceInfoBar.CreatedDateItem entity={opportunity} />
+              <ReferenceInfoBar.DateItem
+                icon={<ReferenceInfoBar.Icons.PlayArrow className="text-green-500" style={{ fontSize: 14 }} />}
+                label="Inicio"
+                date={dynamicForm.getValue('startDate') || opportunity?.startDate}
+              />
+              <ReferenceInfoBar.DateItem
+                icon={<ReferenceInfoBar.Icons.Flag className="text-blue-500" style={{ fontSize: 14 }} />}
+                label="Cierre"
+                date={dynamicForm.getValue('closeDate') || opportunity?.closeDate}
+              />
+              <ReferenceInfoBar.DateItem
+                icon={<ReferenceInfoBar.Icons.Event className="text-orange-500" style={{ fontSize: 14 }} />}
+                label="Próxima Actividad"
+                date={dynamicForm.getValue('nextActivityDate') || opportunity?.nextActivityDate}
+              />
+              <ReferenceInfoBar.UserSelectItem
+                label="Responsable"
+                userId={responsibleId}
+                users={users}
+                isAdmin={isAdmin}
+                onChange={setResponsibleId}
+                placeholder="Seleccionar responsable..."
+              />
+            </ReferenceInfoBar>
           )}
 
           {/* WON Stage Banner */}
@@ -604,7 +607,7 @@ export default function OpportunityFormModal({
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                Details
+                Detalles
               </button>
               <button
                 type="button"
@@ -615,13 +618,12 @@ export default function OpportunityFormModal({
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                Activity
+                Actividad
               </button>
             </div>
           </div>
 
-          {/* Form Content */}
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto bg-gray-50">
+      <form id="modal-form" onSubmit={handleSubmit} className="bg-gray-50 h-full flex flex-col">
             {error && (
               <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
                 <ErrorOutlineIcon className="text-red-600 flex-shrink-0 mt-0.5" fontSize="small" />
@@ -653,8 +655,8 @@ export default function OpportunityFormModal({
                 {/* Fallback if form config not initialized */}
                 {!dynamicForm.initialized && (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-                    <p className="font-medium">Form configuration not initialized</p>
-                    <p className="text-xs mt-1">Go to Settings → Form Builder to initialize the opportunity form configuration.</p>
+                    <p className="font-medium">Configuración del formulario no inicializada</p>
+                    <p className="text-xs mt-1">Vaya a Configuración → Constructor de Formularios para inicializar la configuración del formulario de oportunidad.</p>
                   </div>
                 )}
 
@@ -683,8 +685,8 @@ export default function OpportunityFormModal({
                 {!opportunity ? (
                   <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
                     <EventIcon className="text-gray-400 mx-auto mb-3" style={{ fontSize: 48 }} />
-                    <p className="text-sm text-gray-500 mb-2">Save the opportunity first to add tasks</p>
-                    <p className="text-xs text-gray-400">Create the opportunity, then come back to add activities</p>
+                    <p className="text-sm text-gray-500 mb-2">Guarde la oportunidad primero para agregar tareas</p>
+                    <p className="text-xs text-gray-400">Cree la oportunidad, luego regrese para agregar actividades</p>
                   </div>
                 ) : (
                   <TaskManager
@@ -699,25 +701,8 @@ export default function OpportunityFormModal({
               </div>
             )}
 
-            {/* Footer */}
-            <div className="border-t border-gray-200 bg-white px-6 py-4 flex justify-between items-center sticky bottom-0">
-              <div className="text-xs text-gray-500">
-                * Required fields
-              </div>
-              <div className="flex gap-3">
-                <Button type="button" variant="secondary" onClick={onClose}>
-                  Cancel
-                </Button>
-                {activeTab === 'details' && (
-                  <Button type="submit" disabled={loading || loadingData || dynamicForm.loading} loading={loading}>
-                    Save
-                  </Button>
-                )}
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
+      </form>
+    </ModalShell>
 
       {/* Task Modal */}
       <TaskModal

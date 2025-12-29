@@ -32,9 +32,9 @@ export default function ResponsibleUserSection({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="w-full bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between text-left"
-        aria-label={open ? 'Collapse section' : 'Expand section'}
+        aria-label={open ? 'Contraer sección' : 'Expandir sección'}
       >
-        <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Deal Responsible Users</h3>
+        <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Usuarios Responsables de la Oferta</h3>
         {open ? <ExpandLessIcon fontSize="small" className="text-gray-500" /> : <ExpandMoreIcon fontSize="small" className="text-gray-500" />}
       </button>
       {open && (
@@ -55,7 +55,7 @@ export default function ResponsibleUserSection({
                   onChange={(e) => onResponsibleChange(e.target.value)}
                   className="w-full border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed transition-all duration-200 bg-white appearance-none hover:border-gray-300 text-xs pl-8 pr-3 py-1.5"
                 >
-                  <option value="">Select editor...</option>
+                  <option value="">Seleccionar editor...</option>
                   {editorUsers.map((user) => (
                     <option key={user.clerkId} value={user.clerkId}>
                       {user.name || user.email || user.clerkId}
@@ -83,7 +83,7 @@ export default function ResponsibleUserSection({
               <div className="block w-full pl-8 pr-3 py-1.5 text-sm text-gray-600">
                 {responsibleId && editorUsers.length > 0
                   ? (editorUsers.find(u => u.clerkId === responsibleId)?.name || editorUsers.find(u => u.clerkId === responsibleId)?.email || 'N/A')
-                  : 'Unassigned'}
+                  : 'Sin asignar'}
               </div>
             )}
           </div>
@@ -105,7 +105,7 @@ export default function ResponsibleUserSection({
                   onChange={(e) => onEreResponsibleChange(e.target.value)}
                   className="w-full border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed transition-all duration-200 bg-white appearance-none hover:border-gray-300 text-xs pl-8 pr-3 py-1.5"
                 >
-                  <option value="">Select ERE...</option>
+                  <option value="">Seleccionar ERE...</option>
                   {ereUsers.map((user) => (
                     <option key={user.clerkId} value={user.clerkId}>
                       {user.name || user.email || user.clerkId}
@@ -133,7 +133,7 @@ export default function ResponsibleUserSection({
               <div className="block w-full pl-8 pr-3 py-1.5 text-sm text-gray-600">
                 {ereResponsibleId && ereUsers.length > 0
                   ? (ereUsers.find(u => u.clerkId === ereResponsibleId)?.name || ereUsers.find(u => u.clerkId === ereResponsibleId)?.email || 'N/A')
-                  : 'Unassigned'}
+                  : 'Sin asignar'}
               </div>
             )}
           </div>

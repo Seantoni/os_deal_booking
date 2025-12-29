@@ -23,10 +23,11 @@ import LockOpenIcon from '@mui/icons-material/LockOpen'
 import OpportunityFormModal from '../opportunity/OpportunityFormModal'
 import BookingRequestViewModal from '@/components/booking/request-view/BookingRequestViewModal'
 import { useBusinessForm } from './useBusinessForm'
-import ReferenceInfoBar from './ReferenceInfoBar'
+import ReferenceInfoBar from '@/components/shared/ReferenceInfoBar'
 import OpportunitiesSection from './OpportunitiesSection'
 import RequestsSection from './RequestsSection'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
+import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
 import { Button, Alert } from '@/components/ui'
 import FormModalSkeleton from '@/components/common/FormModalSkeleton'
 
@@ -151,18 +152,18 @@ export default function BusinessFormModal({
         } else {
           const existing = result.existingBusiness as (Business & { owner?: { name: string | null; email: string | null } }) | undefined
           if (existing) {
-            const ownerInfo = existing.owner?.name || existing.owner?.email || 'Unknown'
-            const errorMsg = `Business already exists: "${existing.name}" (Owner: ${ownerInfo})`
+            const ownerInfo = existing.owner?.name || existing.owner?.email || 'Desconocido'
+            const errorMsg = `El negocio ya existe: "${existing.name}" (Propietario: ${ownerInfo})`
             setError(errorMsg)
             return { success: false, error: errorMsg }
           } else {
-            const errorMsg = result.error || 'Failed to save business'
+            const errorMsg = result.error || 'Error al guardar el negocio'
             setError(errorMsg)
             return { success: false, error: errorMsg }
           }
         }
       } catch (err) {
-        const errorMsg = 'An error occurred'
+        const errorMsg = 'Ocurrió un error'
         setError(errorMsg)
         return { success: false, error: errorMsg }
       }
@@ -177,7 +178,7 @@ export default function BusinessFormModal({
         const allValues = dynamicForm.getAllValues()
         
         if (!allValues.name || !allValues.contactName || !allValues.contactPhone || !allValues.contactEmail) {
-          const errorMsg = 'Please fill in all required fields'
+          const errorMsg = 'Por favor complete todos los campos requeridos'
           setError(errorMsg)
           return { success: false, error: errorMsg }
         }
@@ -187,12 +188,12 @@ export default function BusinessFormModal({
         if (!businessResult.success || !businessResult.data) {
           const existing = businessResult.existingBusiness as (Business & { owner?: { name: string | null; email: string | null } }) | undefined
           if (existing) {
-            const ownerInfo = existing.owner?.name || existing.owner?.email || 'Unknown'
-            const errorMsg = `Business already exists: "${existing.name}" (Owner: ${ownerInfo})`
+            const ownerInfo = existing.owner?.name || existing.owner?.email || 'Desconocido'
+            const errorMsg = `El negocio ya existe: "${existing.name}" (Propietario: ${ownerInfo})`
             setError(errorMsg)
             return { success: false, error: errorMsg }
           } else {
-            const errorMsg = businessResult.error || 'Failed to create business'
+            const errorMsg = businessResult.error || 'Error al crear el negocio'
             setError(errorMsg)
             return { success: false, error: errorMsg }
           }
@@ -217,12 +218,12 @@ export default function BusinessFormModal({
           router.push('/opportunities')
           return { success: true, error: null }
         } else {
-          const errorMsg = 'Business created but failed to create opportunity: ' + (opportunityResult.error || 'Unknown error')
+          const errorMsg = 'Negocio creado pero falló al crear la oportunidad: ' + (opportunityResult.error || 'Error desconocido')
           setError(errorMsg)
           return { success: false, error: errorMsg }
         }
       } catch (err) {
-        const errorMsg = 'An error occurred: ' + (err instanceof Error ? err.message : 'Unknown error')
+        const errorMsg = 'Ocurrió un error: ' + (err instanceof Error ? err.message : 'Error desconocido')
         setError(errorMsg)
         return { success: false, error: errorMsg }
       }
@@ -516,61 +517,52 @@ export default function BusinessFormModal({
     return addons
   }, [isEditMode, isAdmin, dynamicForm.initialized, dynamicForm.sections, unlockedFields, allFormValues, toggleFieldUnlock])
 
-  if (!isOpen) return null
-
   return (
     <>
-      {/* Light backdrop */}
-      <div
-        className={`fixed inset-0 bg-gray-900/20 z-40 transition-opacity ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-        onClick={onClose}
-      ></div>
-
-      {/* Modal Container */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-        {/* Modal Panel */}
-        <div className={`w-full max-w-4xl bg-white shadow-2xl rounded-2xl flex flex-col max-h-[90vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${
-          isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-        }`}>
-          {/* Header */}
-          <div className="bg-white border-b border-gray-200 px-6 py-4">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg border border-blue-200">
-                  <BusinessIcon className="text-blue-600" fontSize="medium" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Business</p>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    {business ? (business.name || 'Edit Business') : 'New Business'}
-                  </h2>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {business && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => router.push(`/businesses/${business.id}`)}
-                    leftIcon={<OpenInNewIcon fontSize="small" />}
-                  >
-                    Open page
-                  </Button>
-                )}
-                <Button
-                  onClick={onClose}
-                  variant="ghost"
-                  className="p-2"
-                >
-                  <CloseIcon fontSize="medium" />
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Form Content */}
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto bg-gray-50">
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      title={business ? (business.name || 'Editar Negocio') : 'Nuevo Negocio'}
+      subtitle="Negocio"
+      icon={<BusinessIcon fontSize="medium" />}
+      iconColor="blue"
+      headerActions={
+        business ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push(`/businesses/${business.id}`)}
+            leftIcon={<OpenInNewIcon fontSize="small" />}
+          >
+            Abrir página
+          </Button>
+        ) : undefined
+      }
+      footer={
+        <ModalFooter
+          onCancel={onClose}
+          submitLabel="Guardar"
+          submitLoading={loading || loadingData || dynamicForm.loading}
+          submitDisabled={loading || loadingData || dynamicForm.loading}
+          leftContent="* Campos requeridos"
+          additionalActions={
+            !business ? (
+              <Button
+                type="button"
+                onClick={handleCreateBusinessAndOpportunity}
+                disabled={loading || loadingData || dynamicForm.loading}
+                loading={loading}
+                className="bg-green-600 hover:bg-green-700 focus-visible:ring-green-500 disabled:bg-green-300"
+              >
+                Crear Negocio y Opp
+              </Button>
+            ) : undefined
+          }
+        />
+      }
+    >
+      <form id="modal-form" onSubmit={handleSubmit} className="bg-gray-50 h-full flex flex-col">
             {error && (
               <div className="mx-6 mt-4">
                 <Alert variant="error" icon={<ErrorOutlineIcon fontSize="small" />}>
@@ -584,15 +576,23 @@ export default function BusinessFormModal({
             ) : (
               <div className="p-4 space-y-4">
                 {/* Reference Info Bar (special section - not from form config) */}
-                <ReferenceInfoBar
-                  business={business}
-                  ownerId={ownerId}
-                  onOwnerChange={setOwnerId}
-                  salesTeam={salesTeam}
-                  onSalesTeamChange={setSalesTeam}
-                  users={users}
-                  isAdmin={isAdmin}
-                />
+                <ReferenceInfoBar>
+                  <ReferenceInfoBar.CreatedDateItem entity={business} />
+                  <ReferenceInfoBar.UserSelectItem
+                    label="Propietario"
+                    userId={ownerId}
+                    users={users}
+                    isAdmin={isAdmin}
+                    onChange={setOwnerId}
+                    placeholder="Seleccionar propietario..."
+                  />
+                  <ReferenceInfoBar.TeamSelectItem
+                    label="Equipo"
+                    team={salesTeam}
+                    onChange={setSalesTeam}
+                    placeholder="Seleccionar equipo..."
+                  />
+                </ReferenceInfoBar>
 
                 {/* Dynamic Sections from Form Config */}
                 {dynamicForm.initialized && dynamicForm.sections.map(section => (
@@ -614,8 +614,8 @@ export default function BusinessFormModal({
                 {/* Fallback if form config not initialized */}
                 {!dynamicForm.initialized && (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-                    <p className="font-medium">Form configuration not initialized</p>
-                    <p className="text-xs mt-1">Go to Settings → Form Builder to initialize the business form configuration.</p>
+                    <p className="font-medium">Configuración del formulario no inicializada</p>
+                    <p className="text-xs mt-1">Vaya a Configuración → Constructor de Formularios para inicializar la configuración del formulario de negocio.</p>
                   </div>
                 )}
 
@@ -640,69 +640,34 @@ export default function BusinessFormModal({
                 )}
               </div>
             )}
+      </form>
+    </ModalShell>
 
-            {/* Footer */}
-            <div className="border-t border-gray-200 bg-white px-6 py-4 flex justify-between items-center sticky bottom-0">
-              <div className="text-xs text-gray-500">
-                * Required fields
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  type="button"
-                  onClick={onClose}
-                  variant="secondary"
-                >
-                  Cancel
-                </Button>
-                {!business && (
-                  <Button
-                    type="button"
-                    onClick={handleCreateBusinessAndOpportunity}
-                    disabled={loading || loadingData || dynamicForm.loading}
-                    loading={loading}
-                    className="bg-green-600 hover:bg-green-700 focus-visible:ring-green-500 disabled:bg-green-300"
-                  >
-                    Create Business & Opp
-                  </Button>
-                )}
-                <Button
-                  type="submit"
-                  disabled={loading || loadingData || dynamicForm.loading}
-                  loading={loading}
-                >
-                  Save
-                </Button>
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
+    {/* Opportunity Modal */}
+    <OpportunityFormModal
+      isOpen={opportunityModalOpen}
+      onClose={() => {
+        setOpportunityModalOpen(false)
+        setSelectedOpportunity(null)
+      }}
+      opportunity={selectedOpportunity}
+      onSuccess={handleOpportunitySuccess}
+      initialBusinessId={business?.id}
+      preloadedBusinesses={business ? [business] : undefined}
+      preloadedCategories={categories}
+      preloadedUsers={users}
+    />
 
-      {/* Opportunity Modal */}
-      <OpportunityFormModal
-        isOpen={opportunityModalOpen}
-        onClose={() => {
-          setOpportunityModalOpen(false)
-          setSelectedOpportunity(null)
-        }}
-        opportunity={selectedOpportunity}
-        onSuccess={handleOpportunitySuccess}
-        initialBusinessId={business?.id}
-        preloadedBusinesses={business ? [business] : undefined}
-        preloadedCategories={categories}
-        preloadedUsers={users}
-      />
-
-      {/* Request View Modal */}
-      <BookingRequestViewModal
-        isOpen={requestViewModalOpen}
-        onClose={() => {
-          setRequestViewModalOpen(false)
-          setSelectedRequestId(null)
-        }}
-        requestId={selectedRequestId}
-        hideBackdrop={true}
-      />
-    </>
+    {/* Request View Modal */}
+    <BookingRequestViewModal
+      isOpen={requestViewModalOpen}
+      onClose={() => {
+        setRequestViewModalOpen(false)
+        setSelectedRequestId(null)
+      }}
+      requestId={selectedRequestId}
+      hideBackdrop={true}
+    />
+  </>
   )
 }

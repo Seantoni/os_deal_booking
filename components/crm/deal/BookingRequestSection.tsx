@@ -23,10 +23,10 @@ export default function BookingRequestSection({ deal, onViewRequest }: BookingRe
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="w-full bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center justify-between text-left"
-        aria-label={open ? 'Collapse section' : 'Expand section'}
+        aria-label={open ? 'Contraer sección' : 'Expandir sección'}
       >
         <div className="flex items-center gap-2">
-          <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Booking Request</h3>
+          <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Solicitud de Booking</h3>
           {request.sourceType && (
             <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${
               request.sourceType === 'public_link' 
@@ -65,7 +65,7 @@ export default function BookingRequestSection({ deal, onViewRequest }: BookingRe
           </div>
           {request.merchant && (
             <div>
-              <span className="text-gray-500 text-xs">Merchant</span>
+              <span className="text-gray-500 text-xs">Comerciante</span>
               <p className="text-gray-900">{request.merchant}</p>
             </div>
           )}

@@ -501,10 +501,10 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
     if (!eventToEdit) return
     
     const confirmed = await confirmDialog.confirm({
-      title: 'Delete Event',
-      message: 'Are you sure you want to delete this event? This action cannot be undone.',
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
+      title: 'Eliminar Evento',
+      message: '¿Está seguro de que desea eliminar este evento? Esta acción no se puede deshacer.',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
       confirmVariant: 'danger',
     })
 
@@ -518,12 +518,12 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
     startTransition(async () => {
       try {
         await deleteEvent(eventToEdit.id)
-        toast.success('Event deleted successfully')
+        toast.success('Evento eliminado exitosamente')
         // onSuccess callback already called for optimistic update
         onClose()
       } catch (err) {
         // Optimistic update already rolled back via onSuccess
-        const errorMsg = err instanceof Error ? err.message : 'Failed to delete event'
+        const errorMsg = err instanceof Error ? err.message : 'Error al eliminar el evento'
         setField('error', errorMsg)
         toast.error(errorMsg)
       }
@@ -535,10 +535,10 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
     if (!eventToEdit) return
     
     const confirmed = await confirmDialog.confirm({
-      title: 'Book Event',
-      message: 'Are you sure you want to book this event? It will be finalized.',
-      confirmText: 'Book',
-      cancelText: 'Cancel',
+      title: 'Reservar Evento',
+      message: '¿Está seguro de que desea reservar este evento? Se finalizará.',
+      confirmText: 'Reservar',
+      cancelText: 'Cancelar',
       confirmVariant: 'primary',
     })
 
@@ -555,7 +555,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
         // Import the book function
         const { bookEvent } = await import('@/app/actions/events')
         const result = await bookEvent(eventToEdit.id)
-        toast.success('Event booked successfully')
+        toast.success('Evento reservado exitosamente')
 
         const externalApi = (result as any)?.externalApi as
           | { success: true; externalId?: number; logId?: string }
@@ -596,7 +596,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
         onClose()
       } catch (err) {
         // Optimistic update already rolled back via onSuccess
-        const errorMsg = err instanceof Error ? err.message : 'Failed to book event'
+        const errorMsg = err instanceof Error ? err.message : 'Error al reservar el evento'
         setField('error', errorMsg)
         toast.error(errorMsg)
       }
@@ -658,7 +658,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <h2 className="text-2xl font-semibold text-gray-900">
-              {readOnly ? 'View Event' : (eventToEdit ? 'Edit Event' : 'Create New Event')}
+              {readOnly ? 'Ver Evento' : (eventToEdit ? 'Editar Evento' : 'Crear Nuevo Evento')}
             </h2>
             <Button
               onClick={onClose}
@@ -681,13 +681,13 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                   <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                    <span className="font-semibold text-indigo-800">Linked Booking Request</span>
+                    <span className="font-semibold text-indigo-800">Solicitud de Booking Vinculada</span>
                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                     linkedBookingRequest.sourceType === 'public_link' 
                       ? 'bg-purple-100 text-purple-800' 
                       : 'bg-gray-100 text-gray-800'
                   }`}>
-                      {linkedBookingRequest.sourceType === 'public_link' ? 'Public Link' : 'Internal'}
+                      {linkedBookingRequest.sourceType === 'public_link' ? 'Enlace Público' : 'Interno'}
                     </span>
                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                       linkedBookingRequest.status === 'approved' ? 'bg-green-100 text-green-800' :
@@ -705,27 +705,27 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                     size="sm"
                     leftIcon={<VisibilityIcon style={{ fontSize: 14 }} />}
                   >
-                    View Full Request
+                    Ver Solicitud Completa
                   </Button>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                   <div>
-                    <span className="text-gray-500">Business:</span>
+                    <span className="text-gray-500">Negocio:</span>
                     <span className="ml-2 text-gray-900 font-medium">{linkedBookingRequest.name}</span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Email:</span>
+                    <span className="text-gray-500">Correo:</span>
                     <span className="ml-2 text-gray-900 font-medium">{linkedBookingRequest.businessEmail}</span>
                   </div>
                   {linkedBookingRequest.merchant && (
                     <div>
-                      <span className="text-gray-500">Business:</span>
+                      <span className="text-gray-500">Comerciante:</span>
                       <span className="ml-2 text-gray-900 font-medium">{linkedBookingRequest.merchant}</span>
                     </div>
                   )}
                   {linkedBookingRequest.parentCategory && (
                     <div>
-                      <span className="text-gray-500">Category:</span>
+                      <span className="text-gray-500">Categoría:</span>
                       <span className="ml-2 text-gray-900 font-medium">{linkedBookingRequest.parentCategory}</span>
                     </div>
                   )}
@@ -782,21 +782,21 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                 id="name"
                 name="name"
               type="text"
-              label={`Event Name ${!readOnly ? '*' : ''}`}
+              label={`Nombre del Evento ${!readOnly ? '*' : ''}`}
               required={!readOnly}
                 value={name}
               onChange={(e) => !readOnly && setField('name', e.target.value)}
               readOnly={readOnly}
-                placeholder="Event Name"
+                placeholder="Nombre del evento"
               />
 
             <div>
               <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
-                Category {!readOnly && '*'}
+                Categoría {!readOnly && '*'}
               </label>
               {readOnly ? (
                 <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
-                  {categoryOption?.label || 'No category selected'}
+                  {categoryOption?.label || 'No hay categoría seleccionada'}
                 </div>
               ) : (
                 <>
@@ -813,7 +813,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                 id="merchant"
                 name="merchant"
                 type="text"
-                label="Business"
+                label="Negocio"
                 value={merchant}
                 readOnly={true}
               />
@@ -821,9 +821,9 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
               <BusinessSelect
                 value={merchant}
                 onChange={(businessName) => setField('merchant', businessName)}
-                label="Business"
+                label="Negocio"
                 required
-                error={!merchant ? 'Business is required' : undefined}
+                error={!merchant ? 'El negocio es requerido' : undefined}
               />
             )}
             {/* Hidden input for form submission */}
@@ -832,7 +832,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
             <Textarea
                 id="description"
                 name="description"
-              label={`Description ${!readOnly ? '*' : ''}`}
+              label={`Descripción ${!readOnly ? '*' : ''}`}
                 rows={3}
                 value={description}
               onChange={(e) => !readOnly && setField('description', e.target.value)}
@@ -846,7 +846,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                   id="startDate"
                   name="startDate"
                 type="date"
-                label={`Start Date ${!readOnly ? '*' : ''}`}
+                label={`Fecha de Inicio ${!readOnly ? '*' : ''}`}
                 required={!readOnly}
                   value={startDate}
                 onChange={(e) => !readOnly && setField('startDate', e.target.value)}
@@ -857,7 +857,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                   id="endDate"
                   name="endDate"
                 type="date"
-                label={`End Date ${!readOnly ? '*' : ''}`}
+                label={`Fecha de Fin ${!readOnly ? '*' : ''}`}
                 required={!readOnly}
                   value={endDate}
                 onChange={(e) => !readOnly && setField('endDate', e.target.value)}
@@ -870,12 +870,12 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
               <div className="bg-red-50 border border-red-200 rounded-md p-4">
                 <Textarea
                   id="rejectionReason"
-                  label="Rejection Reason *"
+                  label="Razón de Rechazo *"
                   rows={3}
                   value={rejectionReason}
                   onChange={(e) => setField('rejectionReason', e.target.value)}
                   className="border-red-300 focus:ring-red-500"
-                  placeholder="Explain why this booking is being rejected..."
+                  placeholder="Explique por qué se está rechazando esta reserva..."
                 />
               </div>
             )}
@@ -891,7 +891,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                     size="sm"
                     disabled={loading}
                   >
-                    Delete Event
+                    Eliminar Evento
                   </Button>
                 )}
               </div>
@@ -903,7 +903,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                   onClick={onClose}
                     className="bg-gray-600 hover:bg-gray-700 focus-visible:ring-gray-500 disabled:bg-gray-300"
                   >
-                    Close
+                    Cerrar
                   </Button>
                 ) : (
                   <>
@@ -912,7 +912,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                   onClick={onClose}
                   variant="secondary"
                 >
-                  Cancel
+                  Cancelar
                 </Button>
                 
                 {/* For pending/approved events: Show Book and Reject buttons (admin only) */}
@@ -926,7 +926,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                           variant="destructive"
                           disabled={loading}
                         >
-                          Reject
+                          Rechazar
                         </Button>
                         <Button
                           type="button"
@@ -935,7 +935,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                           loading={loading}
                           className="bg-green-600 hover:bg-green-700 focus-visible:ring-green-500 disabled:bg-green-300"
                         >
-                          Book Event
+                          Reservar Evento
                         </Button>
                       </>
                     ) : (
@@ -946,7 +946,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                         disabled={loading || !rejectionReason.trim()}
                         loading={loading}
                       >
-                        Confirm Rejection
+                        Confirmar Rechazo
                       </Button>
                     )}
                   </>
@@ -958,7 +958,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                   loading={loading}
                   title={hasEmptyRequiredFields() ? 'Completa los campos requeridos para continuar' : ''}
                 >
-                  {eventToEdit ? 'Save Changes' : 'Create Event'}
+                  {eventToEdit ? 'Guardar Cambios' : 'Crear Evento'}
                 </Button>
                     )}
                   </>

@@ -65,7 +65,7 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
     const validEmails = emails.filter(e => e && e.includes('@'))
     
     if (validEmails.length === 0) {
-      setError('Please enter at least one valid email address')
+      setError('Por favor ingrese al menos una dirección de correo válida')
       return
     }
 
@@ -82,11 +82,11 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
           setSentEmails(validEmails)
           setEmails(['']) // Clear email fields
         } else {
-          setError(result.error || 'Failed to generate link')
+          setError(result.error || 'Error al generar el enlace')
         }
       } catch (err) {
         console.error('Error generating link:', err)
-        setError('An unexpected error occurred')
+        setError('Ocurrió un error inesperado')
       }
     })
   }
@@ -114,10 +114,10 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
     if (generatedUrl) {
       try {
         await navigator.clipboard.writeText(generatedUrl)
-        toast.success('Link copied to clipboard!')
+        toast.success('¡Enlace copiado al portapapeles!')
       } catch (err) {
         console.error('Failed to copy link:', err)
-        toast.error('Failed to copy link')
+        toast.error('Error al copiar el enlace')
       }
     }
   }
@@ -136,7 +136,7 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
       <div className="bg-white rounded-lg shadow-2xl border border-gray-200 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900">New Booking Request</h2>
+          <h2 className="text-base font-semibold text-gray-900">Nueva Solicitud de Booking</h2>
           <button
             onClick={handleClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -150,7 +150,7 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
           {!success ? (
             <>
               <p className="text-xs text-gray-600 mb-3">
-                Choose how you want to create the booking request:
+                Elija cómo desea crear la solicitud de booking:
               </p>
 
               {/* Option 1: Internal Form */}
@@ -162,9 +162,9 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
                   <EditIcon className="text-blue-600" fontSize="small" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-0.5">Create Internal Form</h3>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-0.5">Crear Formulario Interno</h3>
                   <p className="text-xs text-gray-600">
-                    Fill out the booking request form yourself with all details.
+                    Complete el formulario de solicitud de booking usted mismo con todos los detalles.
                   </p>
                 </div>
               </button>
@@ -175,7 +175,7 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
                   <div className="w-full border-t border-gray-300"></div>
                 </div>
                 <div className="relative flex justify-center text-xs">
-                  <span className="px-2 bg-white text-gray-500">OR</span>
+                  <span className="px-2 bg-white text-gray-500">O</span>
                 </div>
               </div>
 
@@ -186,17 +186,17 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
                     <LinkIcon className="text-green-600" fontSize="small" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-0.5">Generate Public Link</h3>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-0.5">Generar Enlace Público</h3>
                     <p className="text-xs text-gray-600">
-                      Send a link to external users to fill out the form themselves.
+                      Envíe un enlace a usuarios externos para que completen el formulario ellos mismos.
                     </p>
                   </div>
                 </div>
 
                 {/* Email Inputs */}
                 <div className="pl-9 space-y-2">
-                  <label className="block text-xs font-semibold text-gray-700">
-                    Recipient Email{emails.length > 1 ? 's' : ''}
+                    <label className="block text-xs font-semibold text-gray-700">
+                    Correo{emails.length > 1 ? 's' : ''} del Destinatario{emails.length > 1 ? 's' : ''}
                   </label>
                   
                   {emails.map((email, index) => (
@@ -207,7 +207,7 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
                           type="email"
                           value={email}
                           onChange={(e) => updateEmail(index, e.target.value)}
-                          placeholder="business@example.com"
+                          placeholder="negocio@ejemplo.com"
                           className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed transition-all duration-200 bg-white hover:border-gray-300"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && hasValidEmail) {
@@ -221,7 +221,7 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
                           type="button"
                           onClick={addEmailField}
                           className="p-1.5 text-green-600 hover:bg-green-50 rounded-md transition-colors border border-green-200"
-                          title="Add another email"
+                          title="Agregar otro correo"
                         >
                           <AddIcon className="w-3.5 h-3.5" />
                         </button>
@@ -230,7 +230,7 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
                           type="button"
                           onClick={() => removeEmailField(index)}
                           className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
-                          title="Remove email"
+                          title="Eliminar correo"
                         >
                           <CloseIcon className="w-3.5 h-3.5" />
                         </button>
@@ -243,7 +243,7 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
                     disabled={isGenerating || !hasValidEmail}
                     className="w-full px-3 py-2 bg-green-600 text-white text-xs rounded-md hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
                   >
-                    {isGenerating ? 'Sending...' : `Send to ${emails.filter(e => e && e.includes('@')).length || 0} recipient${emails.filter(e => e && e.includes('@')).length !== 1 ? 's' : ''}`}
+                    {isGenerating ? 'Enviando...' : `Enviar a ${emails.filter(e => e && e.includes('@')).length || 0} destinatario${emails.filter(e => e && e.includes('@')).length !== 1 ? 's' : ''}`}
                   </button>
                   
                   {error && (
@@ -260,10 +260,10 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
               </div>
               <div>
                 <h3 className="text-base font-semibold text-gray-900 mb-1">
-                  Link Sent Successfully!
+                  ¡Enlace Enviado Exitosamente!
                 </h3>
                 <p className="text-xs text-gray-600">
-                  The public booking request link has been sent to:
+                  El enlace público de solicitud de booking ha sido enviado a:
                 </p>
                 <div className="mt-2 space-y-1">
                   {sentEmails.map((sentEmail, index) => (
@@ -274,7 +274,7 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
               
               {generatedUrl && (
                 <div className="bg-gray-50 rounded-lg p-3 space-y-1.5">
-                  <p className="text-xs font-semibold text-gray-700">Link URL:</p>
+                  <p className="text-xs font-semibold text-gray-700">URL del Enlace:</p>
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -286,7 +286,7 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
                       onClick={handleCopyLink}
                       className="px-2.5 py-1.5 bg-gray-600 text-white text-xs rounded-md hover:bg-gray-700 transition-colors font-medium"
                     >
-                      Copy
+                      Copiar
                     </button>
                   </div>
                 </div>
@@ -296,7 +296,7 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
                 onClick={handleClose}
                 className="w-full px-4 py-2 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 transition-colors font-medium"
               >
-                Done
+                Hecho
               </button>
             </div>
           )}

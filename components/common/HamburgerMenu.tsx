@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { UserButton } from '@clerk/nextjs'
-import { useSidebar } from './SidebarContext'
+import { useSidebar } from './AppClientProviders'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import DashboardIcon from '@mui/icons-material/Dashboard'
 import ListAltIcon from '@mui/icons-material/ListAlt'
@@ -34,26 +34,26 @@ const adminSidebarConfig = {
   mainItems: [
     // 1. Daily Overview & Actions
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
-    { name: 'Tasks', href: '/tasks', Icon: CheckCircleIcon },
+    { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
     { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
-    { name: 'Requests', href: '/booking-requests', Icon: DescriptionIcon },
+    { name: 'Solicitudes', href: '/booking-requests', Icon: DescriptionIcon },
     
     // 2. Sales Funnel (Inflow -> Active -> Closing)
     { name: 'Leads', href: '/leads', Icon: PersonAddIcon },
-    { name: 'Deals', href: '/deals', Icon: AssignmentIcon },
+    { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
     { name: 'Marketing', href: '/marketing', Icon: CampaignIcon },
-    { name: 'Opportunities', href: '/opportunities', Icon: HandshakeIcon },
+    { name: 'Oportunidades', href: '/opportunities', Icon: HandshakeIcon },
         
     // 4. Database / CRM
-    { name: 'Businesses', href: '/businesses', Icon: BusinessIcon },
+    { name: 'Negocios', href: '/businesses', Icon: BusinessIcon },
     
     // 5. Market Intelligence (Admin only)
-    { name: 'Intel', href: '/market-intelligence', Icon: TrendingUpIcon },
+    { name: 'Inteligencia', href: '/market-intelligence', Icon: TrendingUpIcon },
   ],
   bottomItems: [
-    { name: 'Calendar', href: '/events', Icon: CalendarMonthIcon },
-    { name: 'Activity', href: '/activity-log', Icon: HistoryIcon },
-    { name: 'Settings', href: '/settings', Icon: SettingsIcon },
+    { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
+    { name: 'Actividad', href: '/activity-log', Icon: HistoryIcon },
+    { name: 'Configuración', href: '/settings', Icon: SettingsIcon },
   ],
 }
 
@@ -61,27 +61,27 @@ const salesSidebarConfig = {
   mainItems: [
     // 1. Daily Overview & Actions
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
-    { name: 'Tasks', href: '/tasks', Icon: CheckCircleIcon },
+    { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
     { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
-    { name: 'Requests', href: '/booking-requests', Icon: DescriptionIcon },
+    { name: 'Solicitudes', href: '/booking-requests', Icon: DescriptionIcon },
     
     // 2. Sales Funnel
     // Note: Leads might be restricted for sales, but if they have access:
     // { name: 'Leads', href: '/leads', Icon: PersonAddIcon }, 
-    { name: 'Deals', href: '/deals', Icon: AssignmentIcon },
-    { name: 'Opportunities', href: '/opportunities', Icon: HandshakeIcon },
+    { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
+    { name: 'Oportunidades', href: '/opportunities', Icon: HandshakeIcon },
     
     // 4. Database
-    { name: 'Businesses', href: '/businesses', Icon: BusinessIcon },
+    { name: 'Negocios', href: '/businesses', Icon: BusinessIcon },
   ],
   bottomItems: [
-    { name: 'Calendar', href: '/events', Icon: CalendarMonthIcon },
+    { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
   ],
 }
 
 const editorSidebarConfig = {
   mainItems: [
-    { name: 'Deals', href: '/deals', Icon: AssignmentIcon },
+    { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
   ],
   bottomItems: [], // No settings for editor
 }
