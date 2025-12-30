@@ -29,6 +29,12 @@ import DynamicFormSection from '@/components/shared/DynamicFormSection'
 import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
 import FormModalSkeleton from '@/components/common/FormModalSkeleton'
 import OpportunityChatThread from './OpportunityChatThread'
+import {
+  OpportunityModalFullSkeleton,
+  OpportunityDetailsSkeleton,
+  OpportunityActivitySkeleton,
+  OpportunityChatSkeleton,
+} from './OpportunityModalSkeleton'
 
 interface OpportunityFormModalProps {
   isOpen: boolean
@@ -656,8 +662,17 @@ export default function OpportunityFormModal({
               </div>
             )}
 
+            {/* Loading state - show appropriate skeleton for each tab */}
             {(loadingData || dynamicForm.loading) ? (
-              <FormModalSkeleton sections={3} fieldsPerSection={3} />
+              activeTab === 'details' ? (
+                <OpportunityDetailsSkeleton />
+              ) : activeTab === 'activity' ? (
+                <OpportunityActivitySkeleton />
+              ) : activeTab === 'chat' ? (
+                <OpportunityChatSkeleton />
+              ) : (
+                <OpportunityModalFullSkeleton />
+              )
             ) : activeTab === 'details' ? (
               <div className="p-4 space-y-4">
                 {/* Dynamic Sections from Form Config */}

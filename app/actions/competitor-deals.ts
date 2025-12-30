@@ -8,6 +8,7 @@ import { getUserRole } from '@/lib/auth/roles'
 type WhereInput = {
   sourceSite?: string
   status?: string
+  firstSeenAt?: { gte?: Date; lt?: Date }
   OR?: Array<{
     merchantName?: { contains: string; mode: 'insensitive' }
     dealTitle?: { contains: string; mode: 'insensitive' }
@@ -60,6 +61,7 @@ interface GetDealsParams {
   search?: string
   sortBy?: string
   sortOrder?: 'asc' | 'desc'
+  newOnly?: boolean // Filter for deals first seen today
 }
 
 interface GetDealsResult {
@@ -106,6 +108,7 @@ export async function getCompetitorDeals(params: GetDealsParams = {}): Promise<G
     search,
     sortBy = 'totalSold',
     sortOrder = 'desc',
+    newOnly = false,
   } = params
   
   // Check if we're sorting by a computed field
@@ -127,6 +130,19 @@ export async function getCompetitorDeals(params: GetDealsParams = {}): Promise<G
       { merchantName: { contains: search, mode: 'insensitive' } },
       { dealTitle: { contains: search, mode: 'insensitive' } },
     ]
+  }
+  
+  // Filter for deals first seen today
+  if (newOnly) {
+    const now = new Date()
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const tomorrowStart = new Date(todayStart)
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1)
+    
+    where.firstSeenAt = {
+      gte: todayStart,
+      lt: tomorrowStart,
+    }
   }
   
   // Get total count
@@ -487,5 +503,155 @@ export async function getCompetitorDealStats(): Promise<{
     salesThisWeek,
     salesLast30Days,
   }
+}
+
+/**
+ * Get daily statistics for charts
+ * Returns deals launched per day and sales per day for the last N days
+ */
+export async function getCompetitorDealsDailyStats(days: number = 30, sourceSite?: string): Promise<{
+  launchesPerDay: Array<{ date: string; count: number }>
+  salesPerDay: Array<{ date: string; totalSold: number; dealsCount: number }>
+}> {
+  const isAdmin = await checkAdminAccess()
+  if (!isAdmin) {
+    return { launchesPerDay: [], salesPerDay: [] }
+  }
+
+  // Use local timezone dates
+  const now = new Date()
+  const endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+  const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days, 0, 0, 0, 0)
+
+  // Helper to get local date key (YYYY-MM-DD)
+  const getDateKey = (date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // Build where clause with optional source filter
+  const whereClause: { firstSeenAt: { gte: Date; lte: Date }; sourceSite?: string } = {
+    firstSeenAt: {
+      gte: startDate,
+      lte: endDate,
+    },
+  }
+  if (sourceSite) {
+    whereClause.sourceSite = sourceSite
+  }
+
+  // Get all deals launched in the period
+  const deals = await prisma.competitorDeal.findMany({
+    where: whereClause,
+    select: {
+      id: true,
+      firstSeenAt: true,
+      totalSold: true,
+    },
+    orderBy: {
+      firstSeenAt: 'asc',
+    },
+  })
+
+  // Group by day for launches (using local date)
+  const launchesMap = new Map<string, number>()
+  for (const deal of deals) {
+    const dateKey = getDateKey(deal.firstSeenAt)
+    launchesMap.set(dateKey, (launchesMap.get(dateKey) || 0) + 1)
+  }
+
+  // Get snapshots for sales calculation (filtered by source if specified)
+  const snapshots = await prisma.competitorDealSnapshot.findMany({
+    where: {
+      scannedAt: {
+        gte: startDate,
+        lte: endDate,
+      },
+      ...(sourceSite && {
+        deal: {
+          sourceSite: sourceSite,
+        },
+      }),
+    },
+    select: {
+      dealId: true,
+      scannedAt: true,
+      totalSold: true,
+    },
+    orderBy: {
+      scannedAt: 'asc',
+    },
+  })
+
+  // Group snapshots by deal and calculate daily sales
+  const dealSnapshots = new Map<string, SnapshotForCalc[]>()
+  for (const snapshot of snapshots) {
+    if (!dealSnapshots.has(snapshot.dealId)) {
+      dealSnapshots.set(snapshot.dealId, [])
+    }
+    dealSnapshots.get(snapshot.dealId)!.push({
+      totalSold: snapshot.totalSold,
+      scannedAt: snapshot.scannedAt,
+    })
+  }
+
+  // Calculate sales per day
+  const salesMap = new Map<string, { totalSold: number; dealsCount: Set<string> }>()
+  
+  // For each day, calculate the delta in sales
+  for (let i = 0; i <= days; i++) {
+    const date = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + i)
+    const dateKey = getDateKey(date)
+    const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0)
+    const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999)
+
+    let daySales = 0
+    const activeDeals = new Set<string>()
+
+    // For each deal, find snapshots before and after this day
+    for (const [dealId, dealSnaps] of dealSnapshots.entries()) {
+      const beforeDay = dealSnaps.filter(s => s.scannedAt < dayStart)
+      const afterDay = dealSnaps.filter(s => s.scannedAt <= dayEnd)
+      
+      const beforeSold = beforeDay.length > 0 ? beforeDay[beforeDay.length - 1].totalSold : 0
+      const afterSold = afterDay.length > 0 ? afterDay[afterDay.length - 1].totalSold : 0
+      
+      const delta = afterSold - beforeSold
+      if (delta > 0) {
+        daySales += delta
+        activeDeals.add(dealId)
+      }
+    }
+
+    salesMap.set(dateKey, {
+      totalSold: daySales,
+      dealsCount: activeDeals,
+    })
+  }
+
+  // Build arrays for all days in range
+  const launchesPerDay: Array<{ date: string; count: number }> = []
+  const salesPerDay: Array<{ date: string; totalSold: number; dealsCount: number }> = []
+
+  for (let i = 0; i <= days; i++) {
+    const date = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + i)
+    const dateKey = getDateKey(date)
+    
+    launchesPerDay.push({
+      date: dateKey,
+      count: launchesMap.get(dateKey) || 0,
+    })
+
+    const sales = salesMap.get(dateKey) || { totalSold: 0, dealsCount: new Set<string>() }
+    salesPerDay.push({
+      date: dateKey,
+      totalSold: sales.totalSold,
+      dealsCount: sales.dealsCount.size,
+    })
+  }
+
+  return { launchesPerDay, salesPerDay }
 }
 

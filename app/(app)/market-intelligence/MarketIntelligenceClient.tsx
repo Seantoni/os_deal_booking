@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { 
   getCompetitorDeals,
+  getCompetitorDealsDailyStats,
   CompetitorDealWithStats 
 } from '@/app/actions/competitor-deals'
 import RefreshIcon from '@mui/icons-material/Refresh'
@@ -41,12 +42,21 @@ export default function MarketIntelligenceClient() {
   const pageSize = 25
   
   // Filters
-  const [search, setSearch] = useState('')
-  const [searchTrigger, setSearchTrigger] = useState(0) // Incremented on search submit
+  const [search, setSearch] = useState('') // Input value
+  const [committedSearch, setCommittedSearch] = useState('') // Value used for API calls
   const [sourceSite, setSourceSite] = useState<string>('')
   const [status, setStatus] = useState<string>('active')
+  const [showNewOnly, setShowNewOnly] = useState(false) // Filter for deals seen today
   const [sortBy, setSortBy] = useState<SortField>('totalSold')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  
+  // Charts data
+  const [dailyStats, setDailyStats] = useState<{
+    launchesPerDay: Array<{ date: string; count: number }>
+    salesPerDay: Array<{ date: string; totalSold: number; dealsCount: number }>
+  } | null>(null)
+  const [loadingStats, setLoadingStats] = useState(false)
+  const [showCharts, setShowCharts] = useState(false)
   
   // Modal
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null)
@@ -59,10 +69,12 @@ export default function MarketIntelligenceClient() {
         pageSize,
         sourceSite: sourceSite || undefined,
         status: status || undefined,
-        search: search || undefined,
+        search: committedSearch || undefined,
         sortBy,
         sortOrder,
+        newOnly: showNewOnly,
       })
+      
       setDeals(result.deals)
       setTotalPages(result.totalPages)
       setTotal(result.total)
@@ -72,18 +84,38 @@ export default function MarketIntelligenceClient() {
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, sourceSite, status, search, sortBy, sortOrder])
+  }, [page, pageSize, sourceSite, status, committedSearch, sortBy, sortOrder, showNewOnly])
+  
+  const loadDailyStats = useCallback(async () => {
+    setLoadingStats(true)
+    try {
+      const stats = await getCompetitorDealsDailyStats(30, sourceSite || undefined)
+      setDailyStats(stats)
+    } catch (error) {
+      console.error('Failed to load daily stats:', error)
+      toast.error('Failed to load statistics')
+    } finally {
+      setLoadingStats(false)
+    }
+  }, [sourceSite])
   
   
   // Reload deals when filter/sort/page/search changes
   useEffect(() => {
     loadDeals()
-  }, [page, sourceSite, status, sortBy, sortOrder, searchTrigger])
+  }, [loadDeals])
+  
+  // Load daily stats when charts are shown or source filter changes
+  useEffect(() => {
+    if (showCharts) {
+      loadDailyStats()
+    }
+  }, [showCharts, loadDailyStats])
   
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     setPage(1)
-    setSearchTrigger(prev => prev + 1) // Trigger reload via useEffect
+    setCommittedSearch(search) // Commit the search value to trigger reload
   }
   
   const handleSort = (field: SortField) => {
@@ -369,8 +401,165 @@ const formatCurrency = (value: number) => {
             <option value="active">Active</option>
             <option value="expired">Expired</option>
           </select>
+          
+          {/* New filter */}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showNewOnly}
+              onChange={(e) => { setShowNewOnly(e.target.checked); setPage(1); }}
+              className="h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+            />
+            <span className="text-xs text-gray-700">New (Today)</span>
+          </label>
+          
+          {/* Charts toggle */}
+          <Button
+            onClick={() => {
+              setShowCharts(!showCharts)
+              if (!showCharts && !dailyStats) {
+                loadDailyStats()
+              }
+            }}
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 h-8 text-xs"
+          >
+            {showCharts ? 'Ocultar Gráficos' : 'Mostrar Gráficos'}
+          </Button>
         </div>
       </div>
+      
+      {/* Charts Section */}
+      {showCharts && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+          <h3 className="text-sm font-semibold text-gray-900 mb-4">
+            Estadísticas de los Últimos 30 Días
+            {sourceSite && (
+              <span className="ml-2 text-xs font-normal text-gray-500">
+                ({sourceSite === 'rantanofertas' ? 'RantanOfertas' : 'Oferta24'})
+              </span>
+            )}
+          </h3>
+          
+          {loadingStats ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshIcon className="animate-spin text-gray-400" style={{ fontSize: 24 }} />
+              <span className="ml-2 text-sm text-gray-500">Cargando estadísticas...</span>
+            </div>
+          ) : dailyStats && dailyStats.launchesPerDay.length > 0 ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Launches Per Day Chart */}
+              <div>
+                <h4 className="text-xs font-medium text-gray-700 mb-3">Ofertas Lanzadas por Día</h4>
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="h-44 flex items-end gap-[2px]">
+                    {dailyStats.launchesPerDay.map((day, index) => {
+                      const maxCount = Math.max(...dailyStats.launchesPerDay.map(d => d.count), 1)
+                      const heightPx = Math.max((day.count / maxCount) * 140, day.count > 0 ? 8 : 2) // 140px max for bars
+                      // Parse date as local timezone
+                      const dateParts = day.date.split('-')
+                      const date = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]))
+                      const today = new Date()
+                      const isToday = date.toDateString() === today.toDateString()
+                      
+                      return (
+                        <div key={day.date} className="flex-1 min-w-[4px] flex flex-col justify-end items-center group relative">
+                          {/* Value label on hover */}
+                          {day.count > 0 && (
+                            <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap z-10">
+                              {day.count}
+                            </div>
+                          )}
+                          <div 
+                            className={`w-full rounded-t transition-all cursor-pointer ${
+                              isToday 
+                                ? 'bg-gradient-to-t from-green-600 to-green-400' 
+                                : day.count > 0 
+                                  ? 'bg-gradient-to-t from-blue-500 to-blue-300'
+                                  : 'bg-gray-200'
+                            } hover:opacity-80`}
+                            style={{ height: `${heightPx}px` }}
+                            title={`${day.date}: ${day.count} ofertas`}
+                          />
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="flex justify-between mt-1 text-[7px] text-gray-500">
+                    {dailyStats.launchesPerDay.filter((_, i) => i % 7 === 0).map(day => {
+                      const dateParts = day.date.split('-')
+                      return (
+                        <span key={day.date}>
+                          {parseInt(dateParts[2])}/{parseInt(dateParts[1])}
+                        </span>
+                      )
+                    })}
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500 text-center">
+                    Total: {dailyStats.launchesPerDay.reduce((sum, d) => sum + d.count, 0)} ofertas en {dailyStats.launchesPerDay.length} días
+                  </div>
+                </div>
+              </div>
+              
+              {/* Sales Per Day Chart */}
+              <div>
+                <h4 className="text-xs font-medium text-gray-700 mb-3">Ventas por Día</h4>
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="h-44 flex items-end gap-[2px]">
+                    {dailyStats.salesPerDay.map((day, index) => {
+                      const maxSales = Math.max(...dailyStats.salesPerDay.map(d => d.totalSold), 1)
+                      const heightPx = Math.max((day.totalSold / maxSales) * 140, day.totalSold > 0 ? 8 : 2) // 140px max for bars
+                      // Parse date as local timezone
+                      const dateParts = day.date.split('-')
+                      const date = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]))
+                      const today = new Date()
+                      const isToday = date.toDateString() === today.toDateString()
+                      
+                      return (
+                        <div key={day.date} className="flex-1 min-w-[4px] flex flex-col justify-end items-center group relative">
+                          {/* Value label on hover */}
+                          {day.totalSold > 0 && (
+                            <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap z-10">
+                              {day.totalSold.toLocaleString()}
+                            </div>
+                          )}
+                          <div 
+                            className={`w-full rounded-t transition-all cursor-pointer ${
+                              isToday 
+                                ? 'bg-gradient-to-t from-orange-600 to-orange-400' 
+                                : day.totalSold > 0
+                                  ? 'bg-gradient-to-t from-purple-500 to-purple-300'
+                                  : 'bg-gray-200'
+                            } hover:opacity-80`}
+                            style={{ height: `${heightPx}px` }}
+                            title={`${day.date}: ${day.totalSold.toLocaleString()} ventas (${day.dealsCount} ofertas)`}
+                          />
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="flex justify-between mt-1 text-[7px] text-gray-500">
+                    {dailyStats.salesPerDay.filter((_, i) => i % 7 === 0).map(day => {
+                      const dateParts = day.date.split('-')
+                      return (
+                        <span key={day.date}>
+                          {parseInt(dateParts[2])}/{parseInt(dateParts[1])}
+                        </span>
+                      )
+                    })}
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500 text-center">
+                    Total: {dailyStats.salesPerDay.reduce((sum, d) => sum + d.totalSold, 0).toLocaleString()} ventas
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500 text-sm">
+              No hay datos disponibles
+            </div>
+          )}
+        </div>
+      )}
       
       {/* Data Table */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
