@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useUser } from '@clerk/nextjs'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -67,19 +67,42 @@ export default function ChatMessage({
   const authorInitial = (authorName[0] || '?').toUpperCase()
 
   // Parse content to highlight mentions
+  // Handles multi-word names like "@Jose Antonio Paez"
   const renderContent = (content: string) => {
-    // Simple regex to find @mentions
-    const parts = content.split(/(@\w+)/g)
-    return parts.map((part, index) => {
-      if (part.startsWith('@')) {
-        return (
-          <span key={index} className="text-blue-600 font-medium bg-blue-50 px-1 py-0.5 rounded text-[13px]">
-            {part}
-          </span>
-        )
+    // Regex to find @mentions - captures @ followed by words (including accented chars)
+    // Stops at punctuation, newlines, or when we hit another @
+    // Pattern: @Word or @Word Word (up to 3 words for full names)
+    const mentionRegex = /@[\p{L}\p{N}]+(?:\s+[\p{L}\p{N}]+){0,3}/gu
+    
+    const result: React.ReactNode[] = []
+    let lastIndex = 0
+    let match
+    
+    while ((match = mentionRegex.exec(content)) !== null) {
+      // Add text before the mention
+      if (match.index > lastIndex) {
+        result.push(content.slice(lastIndex, match.index))
       }
-      return part
-    })
+      
+      // Add the mention with styling
+      result.push(
+        <span 
+          key={match.index} 
+          className="text-blue-600 font-medium bg-blue-50 px-1 py-0.5 rounded text-[13px]"
+        >
+          {match[0]}
+        </span>
+      )
+      
+      lastIndex = match.index + match[0].length
+    }
+    
+    // Add remaining text after last mention
+    if (lastIndex < content.length) {
+      result.push(content.slice(lastIndex))
+    }
+    
+    return result.length > 0 ? result : content
   }
 
   const handleSaveEdit = async () => {
@@ -124,6 +147,7 @@ export default function ChatMessage({
   return (
     <div
       className="group relative flex gap-2 hover:bg-gray-50/50 -mx-1 px-1.5 py-0.5 rounded transition-colors"
+      onClick={(e) => e.stopPropagation()}
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => {
         setShowActions(false)
@@ -162,14 +186,24 @@ export default function ChatMessage({
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={handleSaveEdit}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  e.preventDefault()
+                  handleSaveEdit()
+                }}
                 disabled={saving || !editContent.trim()}
                 className="px-3 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed shadow-sm"
               >
                 Guardar Cambios
               </button>
               <button
-                onClick={handleCancelEdit}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  e.preventDefault()
+                  handleCancelEdit()
+                }}
                 className="px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
               >
                 Cancelar
@@ -219,8 +253,13 @@ export default function ChatMessage({
               <div className="mt-1 flex flex-wrap gap-1">
                 {reactionCounts.map(({ emoji, count, hasReacted }) => (
                   <button
+                    type="button"
                     key={emoji}
-                    onClick={() => !disabled && handleReaction(emoji)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      e.preventDefault()
+                      if (!disabled) handleReaction(emoji)
+                    }}
                     disabled={disabled}
                     className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium transition-all border ${
                       hasReacted
@@ -240,25 +279,50 @@ export default function ChatMessage({
 
       {/* Actions menu (on hover) */}
       {showActions && !isEditing && !disabled && (
-        <div className="absolute right-1 top-0 flex items-center bg-white border border-gray-200 rounded shadow-sm divide-x divide-gray-100 z-10">
+        <div 
+          className="absolute right-1 top-0 flex items-center bg-white border border-gray-200 rounded shadow-sm divide-x divide-gray-100 z-10"
+          role="toolbar"
+          aria-label="Acciones del comentario"
+          onClick={(e) => e.stopPropagation()}
+        >
           {/* Reaction picker toggle */}
           <div className="relative">
             <button
-              onClick={() => setShowReactionPicker(!showReactionPicker)}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                setShowReactionPicker(!showReactionPicker)
+              }}
               className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-l transition-colors"
               title="Agregar reacción"
+              aria-label="Agregar reacción"
+              aria-expanded={showReactionPicker}
+              aria-haspopup="true"
             >
               <MoreHorizIcon style={{ fontSize: 14 }} />
             </button>
 
             {/* Reaction picker dropdown */}
             {showReactionPicker && (
-              <div className="absolute right-0 top-full mt-0.5 flex gap-0.5 bg-white border border-gray-200 rounded shadow-xl p-1 z-20 w-max animate-in fade-in zoom-in-95 duration-100">
+              <div 
+                className="absolute right-0 top-full mt-0.5 flex gap-0.5 bg-white border border-gray-200 rounded shadow-xl p-1 z-20 w-max animate-in fade-in zoom-in-95 duration-100"
+                role="menu"
+                aria-label="Seleccionar reacción"
+                onClick={(e) => e.stopPropagation()}
+              >
                 {REACTION_EMOJIS.map((emoji) => (
                   <button
+                    type="button"
                     key={emoji}
-                    onClick={() => handleReaction(emoji)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      e.preventDefault()
+                      handleReaction(emoji)
+                    }}
                     className="p-1 hover:bg-gray-100 rounded transition-colors text-sm hover:scale-110 active:scale-95"
+                    role="menuitem"
+                    aria-label={`Reaccionar con ${emoji}`}
                   >
                     {emoji}
                   </button>
@@ -270,9 +334,15 @@ export default function ChatMessage({
           {/* Edit (owner only) */}
           {isOwner && (
             <button
-              onClick={() => setIsEditing(true)}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                setIsEditing(true)
+              }}
               className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
               title="Editar comentario"
+              aria-label="Editar comentario"
             >
               <EditIcon style={{ fontSize: 14 }} />
             </button>
@@ -281,9 +351,15 @@ export default function ChatMessage({
           {/* Delete (owner only) */}
           {isOwner && (
             <button
-              onClick={handleDelete}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                handleDelete()
+              }}
               className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-r transition-colors"
               title="Eliminar comentario"
+              aria-label="Eliminar comentario"
             >
               <DeleteIcon style={{ fontSize: 14 }} />
             </button>

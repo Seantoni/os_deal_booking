@@ -217,8 +217,17 @@ export default function MentionInput({
 
     setSubmitting(true)
     try {
-      const mentionIds = selectedMentions.map((m) => m.clerkId)
-      await onSubmit(trimmedValue, mentionIds, attachments)
+      // Filter mentions to only include those still present in the text
+      // This handles the case where user types @Name but then deletes it
+      const actualMentionIds = selectedMentions
+        .filter((mention) => {
+          const displayName = mention.name || mention.email?.split('@')[0] || ''
+          // Check if @displayName is still in the text
+          return trimmedValue.includes(`@${displayName}`)
+        })
+        .map((m) => m.clerkId)
+      
+      await onSubmit(trimmedValue, actualMentionIds, attachments)
       setValue('')
       setSelectedMentions([])
       setAttachments([])
@@ -246,7 +255,12 @@ export default function MentionInput({
                   </div>
                 )}
                 <button
-                  onClick={() => removeAttachment(index)}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    removeAttachment(index)
+                  }}
                   className="absolute -top-1.5 -right-1.5 p-0.5 bg-white text-gray-400 hover:text-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-all border shadow-sm hover:shadow-md"
                 >
                   <CloseIcon style={{ fontSize: 12 }} />
@@ -290,7 +304,12 @@ export default function MentionInput({
                   className="hidden"
                 />
                 <button
-                  onClick={() => fileInputRef.current?.click()}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    fileInputRef.current?.click()
+                  }}
                   disabled={disabled || uploading}
                   className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors disabled:cursor-not-allowed"
                   title="Adjuntar archivo"
@@ -307,17 +326,33 @@ export default function MentionInput({
 
           {/* Send button */}
           <button
-            onClick={handleSubmit}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              e.preventDefault()
+              handleSubmit()
+            }}
             disabled={disabled || submitting || (!value.trim() && (!showAttachments || attachments.length === 0))}
             className={`p-1.5 rounded-md transition-all flex items-center gap-1.5 px-3 ${
               !value.trim() && (!showAttachments || attachments.length === 0)
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : submitting
+                ? 'bg-blue-500 text-white cursor-wait'
                 : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
             }`}
-            title="Enviar comentario"
+            title={submitting ? 'Enviando...' : 'Enviar comentario'}
           >
-            <span className="text-xs font-medium">Comentar</span>
-            <SendIcon style={{ fontSize: 14 }} />
+            {submitting ? (
+              <>
+                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-xs font-medium">Enviando...</span>
+              </>
+            ) : (
+              <>
+                <span className="text-xs font-medium">Comentar</span>
+                <SendIcon style={{ fontSize: 14 }} />
+              </>
+            )}
           </button>
         </div>
       </div>

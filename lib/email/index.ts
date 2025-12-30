@@ -12,8 +12,12 @@ export { renderBookingRequestEmail } from './templates/booking-request'
 export { renderBookingConfirmationEmail } from './templates/booking-confirmation'
 export { renderRejectionEmail } from './templates/rejection'
 export { renderTaskReminderEmail } from './templates/task-reminder'
-export { renderMentionNotificationEmail } from './templates/mention-notification'
-export { renderOpportunityMentionNotificationEmail } from './templates/opportunity-mention-notification'
+export { 
+  renderMentionNotificationEmail,
+  renderMarketingMentionNotificationEmail,
+  renderOpportunityMentionNotificationEmail,
+  type MentionEntityType,
+} from './templates/mention-notification'
 
 // Re-export email services
 export { sendBookingConfirmationEmail } from './services/booking-confirmation'

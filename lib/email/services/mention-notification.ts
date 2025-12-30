@@ -20,7 +20,7 @@ interface SendMentionNotificationEmailParams {
 }
 
 /**
- * Send mention notification email to a user
+ * Send mention notification email to a user (for marketing comments)
  */
 export async function sendMentionNotificationEmail(
   params: SendMentionNotificationEmailParams
@@ -41,10 +41,11 @@ export async function sendMentionNotificationEmail(
       mentionedUserName,
       authorName,
       content,
+      entityType: 'marketing',
+      entityId: campaignId,
+      businessName,
       optionType,
       platform,
-      businessName,
-      campaignId,
     })
 
     const result = await resend.emails.send({

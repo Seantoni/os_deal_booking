@@ -5,7 +5,7 @@
  */
 
 import { resend, EMAIL_CONFIG } from '../config'
-import { renderOpportunityMentionNotificationEmail } from '../templates/opportunity-mention-notification'
+import { renderMentionNotificationEmail } from '../templates/mention-notification'
 import { logger } from '@/lib/logger'
 
 interface SendOpportunityMentionNotificationEmailParams {
@@ -33,11 +33,12 @@ export async function sendOpportunityMentionNotificationEmail(
   } = params
 
   try {
-    const html = renderOpportunityMentionNotificationEmail({
+    const html = renderMentionNotificationEmail({
       mentionedUserName,
       authorName,
       content,
-      opportunityId,
+      entityType: 'opportunity',
+      entityId: opportunityId,
       businessName,
     })
 

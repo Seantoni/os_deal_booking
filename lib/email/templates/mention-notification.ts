@@ -1,20 +1,25 @@
 /**
- * Mention Notification Email Template
+ * Unified Mention Notification Email Template
  * 
- * Notifies users when they are mentioned in a marketing option comment
+ * Notifies users when they are mentioned in comments (marketing or opportunity)
  * Uses OfertaSimple branding
  */
 
 import { getAppBaseUrl } from '@/lib/config/env'
 
+// Entity types supported
+export type MentionEntityType = 'marketing' | 'opportunity'
+
 interface MentionNotificationEmailProps {
   mentionedUserName: string
   authorName: string
   content: string
-  optionType: string
-  platform: string
+  entityType: MentionEntityType
+  entityId: string
   businessName: string
-  campaignId: string
+  // Marketing-specific (optional)
+  optionType?: string
+  platform?: string
 }
 
 /**
@@ -59,6 +64,41 @@ function getOptionTypeLabel(optionType: string): string {
 }
 
 /**
+ * Get configuration based on entity type
+ */
+function getEntityConfig(entityType: MentionEntityType) {
+  const configs = {
+    marketing: {
+      title: 'Te mencionaron en un comentario',
+      subtitle: 'te mencionó en la opción de marketing',
+      icon: '💬',
+      iconBg: '#fef3c7',
+      accentColor: '#f59e0b',
+      quoteBg: '#fffbeb',
+      quoteText: '#78350f',
+      quoteAuthor: '#92400e',
+      buttonText: 'Ver Comentario',
+      urlPath: '/marketing',
+      entityLabel: 'Negocio',
+    },
+    opportunity: {
+      title: 'Te mencionaron en una oportunidad',
+      subtitle: 'te mencionó en un comentario',
+      icon: '🤝',
+      iconBg: '#fed7aa',
+      accentColor: '#f97316',
+      quoteBg: '#fff7ed',
+      quoteText: '#9a3412',
+      quoteAuthor: '#c2410c',
+      buttonText: 'Ver Oportunidad',
+      urlPath: '/opportunities',
+      entityLabel: 'Oportunidad',
+    },
+  }
+  return configs[entityType]
+}
+
+/**
  * Render mention notification email HTML
  */
 export function renderMentionNotificationEmail(props: MentionNotificationEmailProps): string {
@@ -66,21 +106,41 @@ export function renderMentionNotificationEmail(props: MentionNotificationEmailPr
     mentionedUserName,
     authorName,
     content,
+    entityType,
+    entityId,
+    businessName,
     optionType,
     platform,
-    businessName,
-    campaignId,
   } = props
 
+  const config = getEntityConfig(entityType)
   const appBaseUrl = getAppBaseUrl()
-  const marketingUrl = `${appBaseUrl}/marketing`
-  const platformLabel = getPlatformLabel(platform)
-  const optionLabel = getOptionTypeLabel(optionType)
+  const entityUrl = `${appBaseUrl}${config.urlPath}`
 
   // Truncate content if too long
   const truncatedContent = content.length > 300 
     ? content.substring(0, 300) + '...' 
     : content
+
+  // Build marketing-specific context section
+  const marketingContext = entityType === 'marketing' && optionType && platform ? `
+    <tr>
+      <td>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td style="padding-right: 16px;">
+              <span style="font-size: 12px; color: #6b7280;">Plataforma:</span>
+              <span style="font-size: 12px; font-weight: 600; color: #374151; margin-left: 4px;">${escapeHtml(getPlatformLabel(platform))}</span>
+            </td>
+            <td>
+              <span style="font-size: 12px; color: #6b7280;">Opción:</span>
+              <span style="font-size: 12px; font-weight: 600; color: #374151; margin-left: 4px;">${escapeHtml(getOptionTypeLabel(optionType))}</span>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  ` : ''
 
   return `
 <!DOCTYPE html>
@@ -88,7 +148,7 @@ export function renderMentionNotificationEmail(props: MentionNotificationEmailPr
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Te mencionaron en un comentario</title>
+  <title>${config.title}</title>
   <!--[if mso]>
   <noscript>
     <xml>
@@ -121,8 +181,8 @@ export function renderMentionNotificationEmail(props: MentionNotificationEmailPr
             <td align="center" style="padding: 24px 24px 8px 24px;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td style="background-color: #fef3c7; border-radius: 50%; padding: 12px;">
-                    <span style="font-size: 24px;">💬</span>
+                  <td style="background-color: ${config.iconBg}; border-radius: 50%; padding: 12px;">
+                    <span style="font-size: 24px;">${config.icon}</span>
                   </td>
                 </tr>
               </table>
@@ -133,7 +193,7 @@ export function renderMentionNotificationEmail(props: MentionNotificationEmailPr
           <tr>
             <td style="padding: 8px 24px 4px 24px; text-align: center;">
               <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: #111827;">
-                Te mencionaron en un comentario
+                ${config.title}
               </h1>
             </td>
           </tr>
@@ -142,7 +202,7 @@ export function renderMentionNotificationEmail(props: MentionNotificationEmailPr
           <tr>
             <td style="padding: 0 24px 16px 24px; text-align: center;">
               <p style="margin: 0; font-size: 14px; color: #6b7280;">
-                ${escapeHtml(authorName)} te mencionó en la opción de marketing
+                ${escapeHtml(authorName)} ${config.subtitle}
               </p>
             </td>
           </tr>
@@ -156,30 +216,15 @@ export function renderMentionNotificationEmail(props: MentionNotificationEmailPr
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                       <tr>
                         <td style="padding-bottom: 8px;">
-                          <span style="font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">Negocio</span>
+                          <span style="font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px;">${config.entityLabel}</span>
                         </td>
                       </tr>
                       <tr>
-                        <td style="padding-bottom: 12px;">
+                        <td style="padding-bottom: ${marketingContext ? '12px' : '0'};">
                           <span style="font-size: 15px; font-weight: 600; color: #111827;">${escapeHtml(businessName)}</span>
                         </td>
                       </tr>
-                      <tr>
-                        <td>
-                          <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                            <tr>
-                              <td style="padding-right: 16px;">
-                                <span style="font-size: 12px; color: #6b7280;">Plataforma:</span>
-                                <span style="font-size: 12px; font-weight: 600; color: #374151; margin-left: 4px;">${escapeHtml(platformLabel)}</span>
-                              </td>
-                              <td>
-                                <span style="font-size: 12px; color: #6b7280;">Opción:</span>
-                                <span style="font-size: 12px; font-weight: 600; color: #374151; margin-left: 4px;">${escapeHtml(optionLabel)}</span>
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
+                      ${marketingContext}
                     </table>
                   </td>
                 </tr>
@@ -190,13 +235,13 @@ export function renderMentionNotificationEmail(props: MentionNotificationEmailPr
           <!-- Comment Content -->
           <tr>
             <td style="padding: 0 24px 24px 24px;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #fffbeb; border-radius: 8px; border-left: 4px solid #f59e0b;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: ${config.quoteBg}; border-radius: 8px; border-left: 4px solid ${config.accentColor};">
                 <tr>
                   <td style="padding: 12px 16px;">
-                    <p style="margin: 0; font-size: 14px; color: #78350f; font-style: italic; line-height: 1.5;">
+                    <p style="margin: 0; font-size: 14px; color: ${config.quoteText}; font-style: italic; line-height: 1.5;">
                       "${escapeHtml(truncatedContent)}"
                     </p>
-                    <p style="margin: 8px 0 0 0; font-size: 12px; color: #92400e;">
+                    <p style="margin: 8px 0 0 0; font-size: 12px; color: ${config.quoteAuthor};">
                       — ${escapeHtml(authorName)}
                     </p>
                   </td>
@@ -211,8 +256,8 @@ export function renderMentionNotificationEmail(props: MentionNotificationEmailPr
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td style="background-color: #f97316; border-radius: 8px;">
-                    <a href="${marketingUrl}" target="_blank" style="display: inline-block; padding: 12px 28px; font-size: 14px; font-weight: 600; color: #ffffff; text-decoration: none;">
-                      Ver Comentario
+                    <a href="${entityUrl}" target="_blank" style="display: inline-block; padding: 12px 28px; font-size: 14px; font-weight: 600; color: #ffffff; text-decoration: none;">
+                      ${config.buttonText}
                     </a>
                   </td>
                 </tr>
@@ -249,3 +294,34 @@ export function renderMentionNotificationEmail(props: MentionNotificationEmailPr
   `.trim()
 }
 
+// Legacy export for backward compatibility with marketing mentions
+export function renderMarketingMentionNotificationEmail(props: {
+  mentionedUserName: string
+  authorName: string
+  content: string
+  optionType: string
+  platform: string
+  businessName: string
+  campaignId: string
+}): string {
+  return renderMentionNotificationEmail({
+    ...props,
+    entityType: 'marketing',
+    entityId: props.campaignId,
+  })
+}
+
+// Legacy export for backward compatibility with opportunity mentions
+export function renderOpportunityMentionNotificationEmail(props: {
+  mentionedUserName: string
+  authorName: string
+  content: string
+  opportunityId: string
+  businessName: string
+}): string {
+  return renderMentionNotificationEmail({
+    ...props,
+    entityType: 'opportunity',
+    entityId: props.opportunityId,
+  })
+}
