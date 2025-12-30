@@ -81,6 +81,24 @@ export default function MarketingOptionCard({
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Toggle expanded state while preserving scroll position
+  const toggleExpanded = (event: React.MouseEvent | React.KeyboardEvent) => {
+    if (!option.isPlanned) return
+    
+    // Find the scroll container and save position
+    const scrollContainer = (event.target as HTMLElement).closest('.overflow-y-auto')
+    const scrollTop = scrollContainer?.scrollTop || 0
+    
+    setExpanded(prev => !prev)
+    
+    // Restore scroll position after state update
+    requestAnimationFrame(() => {
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollTop
+      }
+    })
+  }
+
   const mediaUrls = (option.mediaUrls as string[]) || []
 
   // Drag and drop handlers
@@ -234,11 +252,11 @@ const isOverdue = option.dueDate && new Date(option.dueDate) < new Date() && !op
       <div
         role="button"
         tabIndex={option.isPlanned ? 0 : -1}
-        onClick={() => option.isPlanned && setExpanded(!expanded)}
+        onClick={toggleExpanded}
         onKeyDown={(e) => {
           if (option.isPlanned && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault()
-            setExpanded(!expanded)
+            toggleExpanded(e)
           }
         }}
         className={`w-full px-2 py-1.5 flex items-center gap-2 transition-colors ${

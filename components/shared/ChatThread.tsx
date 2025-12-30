@@ -68,7 +68,7 @@ export default function ChatThread({
   const [comments, setComments] = useState<ChatComment[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const chatContainerRef = useRef<HTMLDivElement>(null)
 
   // Load comments
   const loadComments = useCallback(async (silent = false) => {
@@ -108,16 +108,12 @@ export default function ChatThread({
     return () => clearInterval(interval)
   }, [loadComments, pollingInterval])
 
-  // Scroll to bottom when new messages arrive
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
-  useEffect(() => {
-    if (comments.length > 0) {
-      scrollToBottom()
+  // Scroll to bottom of chat container only (not the whole page)
+  const scrollToBottom = useCallback(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
     }
-  }, [comments.length])
+  }, [])
 
   // Manual refresh
   const handleRefresh = async () => {
@@ -139,6 +135,8 @@ export default function ChatThread({
 
       if (result.success && result.data) {
         setComments((prev) => [...prev, result.data!])
+        // Scroll to bottom after adding new comment
+        setTimeout(scrollToBottom, 100)
       } else {
         toast.error(result.error || 'Error al enviar comentario')
       }
@@ -230,6 +228,7 @@ export default function ChatThread({
 
       {/* Messages list */}
       <div 
+        ref={chatContainerRef}
         className={`flex-1 overflow-y-auto pr-2 custom-scrollbar ${isCompact ? 'min-h-[100px] max-h-[400px] gap-2' : 'min-h-[200px] max-h-[400px]'}`}
         role="log"
         aria-label="Historial de comentarios"
@@ -255,7 +254,6 @@ export default function ChatThread({
                 disabled={!canEdit}
               />
             ))}
-            <div ref={messagesEndRef} />
           </div>
         )}
       </div>

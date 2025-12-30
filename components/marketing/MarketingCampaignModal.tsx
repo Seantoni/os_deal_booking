@@ -184,11 +184,22 @@ export default function MarketingCampaignModal({
     setScriptInput(campaign.videoScript)
   }
 
-  const togglePlatform = (platform: string) => {
+  const togglePlatform = (platform: string, event: React.MouseEvent) => {
+    // Prevent scroll position from jumping when expanding/collapsing
+    const scrollContainer = (event.target as HTMLElement).closest('.overflow-y-auto')
+    const scrollTop = scrollContainer?.scrollTop || 0
+    
     setExpandedPlatforms(prev => ({
       ...prev,
       [platform]: !prev[platform],
     }))
+    
+    // Restore scroll position after state update
+    requestAnimationFrame(() => {
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollTop
+      }
+    })
   }
 
 const handleSaveCopy = async () => {
@@ -260,7 +271,7 @@ const handleSaveCopy = async () => {
       {/* Modal Container */}
       <div className="fixed inset-0 z-50 flex items-center justify-center md:p-3 pointer-events-none">
         <div
-          className={`w-full ${hasMediaOrCopy ? 'max-w-5xl' : 'max-w-3xl'} bg-white shadow-2xl md:rounded-xl flex flex-col h-full md:h-auto md:max-h-[85vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${
+          className={`w-full ${hasMediaOrCopy ? 'max-w-5xl' : 'max-w-3xl'} bg-white shadow-2xl md:rounded-xl flex flex-col h-full md:h-[85vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${
             isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
           }`}
         >
@@ -331,7 +342,7 @@ const handleSaveCopy = async () => {
               <>
                 {/* Left Side Panel - Sticky Copy & Media */}
                 {hasMediaOrCopy && (
-                  <div className={`${mobileTab === 'resources' ? 'block' : 'hidden'} md:block w-full md:w-64 flex-shrink-0 border-r border-gray-200 bg-gray-50/50 overflow-y-auto custom-scrollbar h-full`}>
+                  <div className={`${mobileTab === 'resources' ? 'block' : 'hidden'} md:block w-full md:w-64 flex-shrink-0 border-r border-gray-200 bg-gray-50/50 overflow-y-auto custom-scrollbar`}>
                     <div className="p-2 space-y-2">
                       {/* AI Generated Copy Section */}
                       <div className="bg-white rounded-lg border border-gray-200 p-2">
@@ -536,7 +547,7 @@ const handleSaveCopy = async () => {
                 )}
 
                 {/* Right Main Content - Scrollable */}
-                <div className={`${mobileTab === 'details' ? 'block' : 'hidden'} md:block flex-1 overflow-y-auto bg-gray-50 h-full`}>
+                <div className={`${mobileTab === 'details' ? 'block' : 'hidden'} md:block flex-1 overflow-y-auto bg-gray-50`}>
                   <div className="p-3 space-y-3">
                     {/* Booking Request Info */}
                     <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
@@ -616,7 +627,7 @@ const handleSaveCopy = async () => {
                               {/* Platform Header */}
                               <button
                                 type="button"
-                                onClick={() => togglePlatform(platform)}
+                                onClick={(e) => togglePlatform(platform, e)}
                                 className="w-full px-3 py-2 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
                               >
                                 <div className="flex items-center gap-2">
