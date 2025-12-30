@@ -140,6 +140,7 @@ interface ModalFooterProps {
   submitVariant?: 'primary' | 'success' | 'danger'
   additionalActions?: ReactNode
   leftContent?: ReactNode
+  formId?: string // Custom form ID (default: 'modal-form')
 }
 
 export function ModalFooter({
@@ -151,6 +152,7 @@ export function ModalFooter({
   submitVariant = 'primary',
   additionalActions,
   leftContent,
+  formId = 'modal-form',
 }: ModalFooterProps) {
   const submitButtonClass = {
     primary: '',
@@ -171,7 +173,7 @@ export function ModalFooter({
         {submitLabel && (
           <Button
             type="submit"
-            form="modal-form"
+            form={formId}
             disabled={submitDisabled}
             loading={submitLoading}
             className={submitButtonClass}

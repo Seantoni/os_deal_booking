@@ -57,10 +57,11 @@ export default function LostReasonModal({
           submitLoading={loading}
           submitDisabled={loading || !reason.trim()}
           submitVariant="danger"
+          formId="lost-reason-form"
         />
       }
     >
-      <form id="modal-form" onSubmit={handleSubmit} className="p-6">
+      <form id="lost-reason-form" onSubmit={handleSubmit} className="p-6">
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
               <ErrorOutlineIcon className="text-red-600 flex-shrink-0 mt-0.5" fontSize="small" />

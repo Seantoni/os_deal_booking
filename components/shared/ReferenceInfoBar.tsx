@@ -9,6 +9,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import FlagIcon from '@mui/icons-material/Flag'
 import { formatShortDate } from '@/lib/date'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
+import UserSelect from './UserSelect'
 
 // Mini portal-based select for compact inline use
 function InlineSelect({
@@ -202,30 +203,33 @@ function UserSelectItem({
   onChange: (id: string) => void
   placeholder: string
 }) {
+  // Convert users to the format expected by UserSelect
   const userOptions = users.map(u => ({
-    value: u.clerkId,
-    label: u.name || u.email || u.clerkId,
+    clerkId: u.clerkId,
+    name: u.name || null,
+    email: u.email || null,
   }))
 
-  const displayUser = userId && users.length > 0
-    ? (users.find(u => u.clerkId === userId)?.name || users.find(u => u.clerkId === userId)?.email || 'N/A')
-    : 'N/A'
+  const handleChange = (newUserId: string | null) => {
+    onChange(newUserId || '')
+  }
 
   return (
     <Item 
       icon={<PersonOutlineIcon className="text-gray-400" style={{ fontSize: 14 }} />}
       label={label}
     >
-      {isAdmin ? (
-        <InlineSelect
-          value={userId || ''}
-          onChange={onChange}
-          options={userOptions}
-          placeholder={placeholder}
-        />
-      ) : (
-        <span>{displayUser}</span>
-      )}
+      <UserSelect
+        value={userId}
+        onChange={handleChange}
+        users={userOptions}
+        canEdit={isAdmin}
+        placeholder={placeholder}
+        showIcon={false}
+        showLabel={false}
+        size="sm"
+        variant="inline"
+      />
     </Item>
   )
 }

@@ -638,6 +638,7 @@ model MarketingOption {
   dueDate        DateTime? // Default: startDate + 1 day, editable
   completedAt    DateTime?
   completedBy    String?   // Clerk user ID who marked it complete
+  responsibleId  String?   // Clerk user ID assigned as responsible for this option
   notes          String?   @db.Text // Notes for this specific option
   notesUpdatedBy String?   // Clerk user ID who last updated notes
   notesUpdatedAt DateTime? // When notes were last updated
@@ -653,6 +654,7 @@ model MarketingOption {
   @@unique([campaignId, platform, optionType])
   @@index([campaignId])
   @@index([platform])
+  @@index([responsibleId])
   @@index([isPlanned])
   @@index([isCompleted])
   @@map("marketing_options")

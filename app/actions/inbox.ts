@@ -316,7 +316,7 @@ export async function getInboxItems(): Promise<{
         entityId: campaign.id,
         entityName: businessName,
         entityType: 'marketing',
-        linkUrl: `/marketing?open=${campaign.id}`,
+        linkUrl: `/marketing?open=${campaign.id}&option=${comment.optionId}`,
       })
     }
 

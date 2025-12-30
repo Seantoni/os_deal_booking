@@ -181,10 +181,11 @@ export default function TaskModal({
           submitLoading={loading}
           submitDisabled={loading}
           submitVariant={isMeeting ? 'primary' : 'primary'}
+          formId="task-modal-form"
         />
       }
     >
-      <form id="modal-form" onSubmit={handleSubmit} className="p-6 space-y-4">
+      <form id="task-modal-form" onSubmit={handleSubmit} className="p-6 space-y-4">
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800">
               {error}

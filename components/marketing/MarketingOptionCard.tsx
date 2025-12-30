@@ -12,6 +12,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
 import ImageLightbox from '@/components/common/ImageLightbox'
 import OptionChatThread from './OptionChatThread'
+import UserSelect, { type UserOption } from '@/components/shared/UserSelect'
 import toast from 'react-hot-toast'
 
 // Define type inline to avoid Prisma client regeneration issues
@@ -25,6 +26,7 @@ interface MarketingOption {
   dueDate: Date | null
   completedAt: Date | null
   completedBy: string | null
+  responsibleId: string | null
   mediaUrls: unknown
   createdAt: Date
   updatedAt: Date
@@ -37,14 +39,21 @@ interface MarketingOptionCardProps {
       name: string | null
       email: string | null
     } | null
+    responsibleUser?: {
+      clerkId: string
+      name: string | null
+      email: string | null
+    } | null
   }
   optionLabel: string
   canEdit: boolean
   saving: boolean
   draggingImage?: string | null // URL of image being dragged from gallery
+  users?: UserOption[] // Users for responsible dropdown
   onTogglePlanned: (optionId: string, isPlanned: boolean) => Promise<void>
   onToggleCompleted: (optionId: string, isCompleted: boolean) => Promise<void>
   onUpdateDueDate: (optionId: string, dueDate: Date | null) => Promise<void>
+  onUpdateResponsible?: (optionId: string, responsibleId: string | null, responsibleUser?: UserOption | null) => Promise<void>
   onAddAttachment: (optionId: string, url: string) => Promise<void>
   onRemoveAttachment: (optionId: string, url: string) => Promise<void>
   onImageDrop?: (optionId: string, imageUrl: string) => Promise<void>
@@ -56,9 +65,11 @@ export default function MarketingOptionCard({
   canEdit,
   saving,
   draggingImage,
+  users = [],
   onTogglePlanned,
   onToggleCompleted,
   onUpdateDueDate,
+  onUpdateResponsible,
   onAddAttachment,
   onRemoveAttachment,
   onImageDrop,
@@ -119,6 +130,11 @@ export default function MarketingOptionCard({
     const value = e.target.value
     const newDate = value ? new Date(value) : null
     await onUpdateDueDate(option.id, newDate)
+  }
+
+  const handleResponsibleChange = async (userId: string | null, user: UserOption | null) => {
+    if (!canEdit || !onUpdateResponsible) return
+    await onUpdateResponsible(option.id, userId, user)
   }
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -280,41 +296,83 @@ const isOverdue = option.dueDate && new Date(option.dueDate) < new Date() && !op
 
       {/* Expanded details (only if planned and expanded) */}
       {option.isPlanned && expanded && (
-        <div className="bg-white rounded-b-lg">
-          {/* Properties Bar - Like ClickUp's top bar */}
-          <div className="flex flex-wrap items-center gap-3 px-3 py-2 border-b border-gray-100 bg-gray-50/30">
-            {/* Due Date */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 text-gray-500">
-                <EventIcon style={{ fontSize: 16 }} />
-                <span className="text-xs font-medium uppercase tracking-wide">Fecha Límite</span>
+        <div className="bg-white rounded-b-lg divide-y divide-gray-100">
+          
+          {/* Main Content Area */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 divide-y lg:divide-y-0 lg:divide-x divide-gray-100 bg-gray-50/30">
+            
+            {/* Left Column: Properties */}
+            <div className="p-4 space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="p-1 bg-blue-50 text-blue-600 rounded">
+                  <EventIcon style={{ fontSize: 16 }} />
+                </div>
+                <span className="text-sm font-semibold text-gray-900">Detalles</span>
               </div>
-              <input
-                type="date"
-                value={formatISODateOnly(option.dueDate)}
-                onChange={handleDueDateChange}
-                disabled={!canEdit}
-                className={`px-2 py-1 text-xs border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white ${
-                  isOverdue ? 'border-red-300 text-red-600 font-medium' : 'border-gray-200 text-gray-700'
-                } disabled:bg-gray-50 disabled:cursor-not-allowed transition-colors hover:border-gray-300`}
-              />
-              {daysLeft !== null && option.dueDate && !option.isCompleted && (
-                <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border ${getDaysLeftStyle()}`}>
-                  {getDaysLeftText()}
-                </span>
-              )}
+
+              <div className="space-y-3">
+                {/* Due Date Row */}
+                <div className="flex items-center justify-between group">
+                  <span className="text-xs text-gray-500 font-medium">Fecha Límite</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={formatISODateOnly(option.dueDate)}
+                      onChange={handleDueDateChange}
+                      disabled={!canEdit}
+                      className={`px-2 py-1 text-xs border rounded transition-colors focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white ${
+                        isOverdue ? 'border-red-300 text-red-600 font-medium' : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                      } disabled:bg-gray-50 disabled:cursor-not-allowed`}
+                    />
+                    {daysLeft !== null && option.dueDate && !option.isCompleted && (
+                      <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border flex-shrink-0 ${getDaysLeftStyle()}`}>
+                        {getDaysLeftText()}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Responsible Row */}
+                <div className="flex items-center justify-between group">
+                  <span className="text-xs text-gray-500 font-medium">Responsable</span>
+                  <div className="w-[180px] flex justify-end">
+                    <UserSelect
+                      value={option.responsibleId}
+                      onChange={handleResponsibleChange}
+                      users={users}
+                      canEdit={canEdit && users.length > 0}
+                      showIcon={false}
+                      showLabel={false}
+                      placeholder="Sin asignar"
+                      size="sm"
+                      variant="compact"
+                    />
+                  </div>
+                </div>
+
+                {/* Completed By Info (if completed) */}
+                {option.isCompleted && option.completedByUser && (
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                    <span className="text-xs text-gray-500 font-medium">Estado</span>
+                    <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-100 flex items-center gap-1">
+                      <CheckCircleIcon style={{ fontSize: 12 }} />
+                      Completado por {option.completedByUser.name || option.completedByUser.email?.split('@')[0]}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Attachments Section */}
-            <div className="flex items-center gap-2 border-l border-gray-200 pl-3">
-              <div className="flex items-center gap-1.5 text-gray-500">
-                <AttachFileIcon style={{ fontSize: 16 }} />
-                <span className="text-xs font-medium uppercase tracking-wide">Adjuntos</span>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                 {/* Upload button */}
-                 {canEdit && (
+            {/* Right Column: Attachments */}
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-1 bg-purple-50 text-purple-600 rounded">
+                    <AttachFileIcon style={{ fontSize: 16 }} />
+                  </div>
+                  <span className="text-sm font-semibold text-gray-900">Adjuntos ({mediaUrls.length})</span>
+                </div>
+                {canEdit && (
                   <div>
                     <input
                       ref={fileInputRef}
@@ -326,58 +384,62 @@ const isOverdue = option.dueDate && new Date(option.dueDate) < new Date() && !op
                     <button
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploading}
-                      className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors flex items-center gap-1"
+                      className="px-2 py-1 text-xs font-medium text-blue-600 bg-white border border-blue-200 hover:bg-blue-50 rounded transition-colors flex items-center gap-1 shadow-sm"
                     >
                       <AddPhotoAlternateIcon style={{ fontSize: 14 }} />
-                      {uploading ? '...' : 'Agregar'}
+                      {uploading ? 'Subiendo...' : 'Agregar'}
                     </button>
                   </div>
                 )}
-
-                {/* Gallery Preview (Mini) */}
-                {mediaUrls.length > 0 && (
-                  <div className="flex items-center gap-1">
-                    {mediaUrls.map((url, index) => (
-                      <div key={url} className="relative group w-6 h-6">
-                        <img
-                          src={url}
-                          alt={`Attachment ${index + 1}`}
-                          className="w-full h-full object-cover rounded-md border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => {
-                            setLightboxIndex(index)
-                            setLightboxOpen(true)
-                          }}
-                        />
-                        {canEdit && (
-                          <button
-                            onClick={() => handleRemoveAttachment(url)}
-                            className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-10"
-                            title="Eliminar adjunto"
-                          >
-                            <DeleteIcon style={{ fontSize: 8 }} />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    <span className="text-xs text-gray-400 ml-1">({mediaUrls.length})</span>
-                  </div>
-                )}
               </div>
+
+              {/* Gallery Grid */}
+              {mediaUrls.length > 0 ? (
+                <div className="grid grid-cols-4 gap-2">
+                  {mediaUrls.map((url, index) => (
+                    <div key={url} className="relative group aspect-square">
+                      <img
+                        src={url}
+                        alt={`Attachment ${index + 1}`}
+                        className="w-full h-full object-cover rounded-md border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => {
+                          setLightboxIndex(index)
+                          setLightboxOpen(true)
+                        }}
+                      />
+                      {canEdit && (
+                        <button
+                          onClick={() => handleRemoveAttachment(url)}
+                          className="absolute -top-1.5 -right-1.5 p-1 bg-white text-red-500 rounded-full border border-gray-200 opacity-0 group-hover:opacity-100 transition-all shadow-sm hover:bg-red-50 z-10 scale-90"
+                          title="Eliminar adjunto"
+                        >
+                          <DeleteIcon style={{ fontSize: 12 }} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div 
+                  className={`border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center text-center transition-colors ${
+                    isDragOver ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white/50'
+                  }`}
+                >
+                  <p className="text-xs text-gray-400">
+                    No hay adjuntos
+                  </p>
+                  {canEdit && (
+                    <p className="text-[10px] text-gray-300 mt-1">
+                      Arrastra imágenes aquí
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
-
-            {/* Completed By Info */}
-            {option.isCompleted && option.completedByUser && (
-              <div className="flex items-center gap-2 border-l border-gray-200 pl-3 ml-auto">
-                <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-100 flex items-center gap-1">
-                  <CheckCircleIcon style={{ fontSize: 12 }} />
-                  Completado por {option.completedByUser.name || option.completedByUser.email?.split('@')[0]}
-                </span>
-              </div>
-            )}
           </div>
 
           {/* Activity / Chat Section */}
-          <div className="p-3">
+          <div className="p-3 bg-white">
             <OptionChatThread optionId={option.id} canEdit={canEdit} />
           </div>
         </div>

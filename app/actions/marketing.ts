@@ -153,10 +153,11 @@ export async function getMarketingCampaign(campaignId: string) {
       return { success: false, error: 'Marketing campaign not found' }
     }
 
-    // Get user info for completedBy and notesUpdatedBy fields
+    // Get user info for completedBy, notesUpdatedBy, and responsibleId fields
     const userIds = [
       ...campaign.options.map(o => o.completedBy),
       ...campaign.options.map(o => o.notesUpdatedBy),
+      ...campaign.options.map(o => o.responsibleId),
     ].filter(Boolean) as string[]
 
     const uniqueUserIds = [...new Set(userIds)]
@@ -175,6 +176,7 @@ export async function getMarketingCampaign(campaignId: string) {
       ...option,
       completedByUser: option.completedBy ? userMap.get(option.completedBy) || null : null,
       notesUpdatedByUser: option.notesUpdatedBy ? userMap.get(option.notesUpdatedBy) || null : null,
+      responsibleUser: option.responsibleId ? userMap.get(option.responsibleId) || null : null,
     }))
 
     return {
@@ -389,7 +391,7 @@ export async function updateMarketingCampaign(
 }
 
 /**
- * Update a marketing option (plan/unplan, complete/uncomplete, due date, notes)
+ * Update a marketing option (plan/unplan, complete/uncomplete, due date, notes, responsible)
  */
 export async function updateMarketingOption(
   optionId: string,
@@ -399,6 +401,7 @@ export async function updateMarketingOption(
     dueDate?: Date | null
     notes?: string | null
     mediaUrls?: string[] | null
+    responsibleId?: string | null
   }
 ) {
   const authResult = await requireAuth()
@@ -444,6 +447,10 @@ export async function updateMarketingOption(
     
     if (data.mediaUrls !== undefined) {
       updateData.mediaUrls = data.mediaUrls
+    }
+    
+    if (data.responsibleId !== undefined) {
+      updateData.responsibleId = data.responsibleId
     }
 
     const updated = await prisma.marketingOption.update({
@@ -713,6 +720,41 @@ export async function deleteMarketingCampaign(campaignId: string) {
     return { success: true }
   } catch (error) {
     return handleServerActionError(error, 'deleteMarketingCampaign')
+  }
+}
+
+/**
+ * Get all users for marketing option responsible selection
+ */
+export async function getUsersForMarketing() {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    // Access control: admin and marketing can view
+    const role = await getUserRole()
+    if (role !== 'admin' && role !== 'marketing') {
+      return { success: false, error: 'Unauthorized: Admin or Marketing access required' }
+    }
+
+    const users = await prisma.userProfile.findMany({
+      select: {
+        id: true,
+        clerkId: true,
+        name: true,
+        email: true,
+        role: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    })
+
+    return { success: true, data: users }
+  } catch (error) {
+    return handleServerActionError(error, 'getUsersForMarketing')
   }
 }
 

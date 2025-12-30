@@ -22,6 +22,7 @@ interface MarketingOption {
   dueDate: Date | null
   completedAt: Date | null
   completedBy: string | null
+  responsibleId: string | null
   notes: string | null
   notesUpdatedBy: string | null
   notesUpdatedAt: Date | null
@@ -86,6 +87,11 @@ interface MarketingCampaignWithRelations extends MarketingCampaign {
       email: string | null
     } | null
     notesUpdatedByUser?: {
+      clerkId: string
+      name: string | null
+      email: string | null
+    } | null
+    responsibleUser?: {
       clerkId: string
       name: string | null
       email: string | null
@@ -407,6 +413,34 @@ export function useMarketingCampaign({ campaignId, isOpen, onSuccess }: UseMarke
     }
   }, [campaign, onSuccess])
 
+  // Update option responsible
+  const updateOptionResponsible = useCallback(async (optionId: string, responsibleId: string | null, responsibleUser?: { clerkId: string; name: string | null; email: string | null } | null) => {
+    if (!campaign) return
+    
+    // Optimistic update
+    setCampaign(prev => {
+      if (!prev) return null
+      return {
+        ...prev,
+        options: prev.options.map(opt =>
+          opt.id === optionId ? { ...opt, responsibleId, responsibleUser } : opt
+        ),
+      }
+    })
+    
+    try {
+      const result = await updateMarketingOption(optionId, { responsibleId })
+      if (!result.success) {
+        // Revert optimistic update by reloading
+        loadCampaign()
+        toast.error(result.error || 'Failed to update responsible')
+      }
+    } catch (err) {
+      loadCampaign()
+      toast.error('An error occurred')
+    }
+  }, [campaign, loadCampaign])
+
   // Update option notes
   const updateOptionNotes = useCallback(async (optionId: string, notes: string | null) => {
     if (!campaign) return
@@ -564,6 +598,7 @@ export function useMarketingCampaign({ campaignId, isOpen, onSuccess }: UseMarke
     toggleOptionCompleted,
     updateOptionDueDate,
     updateOptionNotes,
+    updateOptionResponsible,
     addAttachment,
     removeAttachment,
     updateGeneratedCopy,

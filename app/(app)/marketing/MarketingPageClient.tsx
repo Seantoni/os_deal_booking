@@ -165,14 +165,19 @@ export default function MarketingPageClient() {
     loadCampaigns()
   }, [loadCampaigns])
 
+  // State for initial option to highlight (from inbox)
+  const [initialOptionId, setInitialOptionId] = useState<string | null>(null)
+
   // Handle 'open' query parameter to open campaign modal from URL
   useEffect(() => {
     if (!loading && campaigns.length > 0) {
       const openFromUrl = searchParams.get('open')
+      const optionFromUrl = searchParams.get('option')
       if (openFromUrl) {
         const campaign = campaigns.find(c => c.id === openFromUrl)
         if (campaign) {
           setSelectedCampaign(campaign)
+          setInitialOptionId(optionFromUrl) // Pass option ID to modal
           setModalOpen(true)
           // Clear the URL parameter
           router.replace('/marketing', { scroll: false })
@@ -499,9 +504,13 @@ return (
       {/* Marketing Campaign Modal */}
       <MarketingCampaignModal
         isOpen={modalOpen}
-        onClose={handleCloseModal}
+        onClose={() => {
+          handleCloseModal()
+          setInitialOptionId(null) // Clear initial option when closing
+        }}
         campaignId={selectedCampaign?.id || null}
         onSuccess={handleSuccess}
+        initialOptionId={initialOptionId}
       />
     </div>
   )

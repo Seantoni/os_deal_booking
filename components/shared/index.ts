@@ -6,6 +6,7 @@ export { default as CustomFieldsRenderer } from './CustomFieldsRenderer'
 export { default as MultiEmailInput } from './MultiEmailInput'
 export { default as DynamicFormField } from './DynamicFormField'
 export { default as DynamicFormSection } from './DynamicFormSection'
+export { default as UserSelect, type UserOption } from './UserSelect'
 
 // Entity page components
 export { EntityPageHeader, type FilterTab } from './EntityPageHeader'

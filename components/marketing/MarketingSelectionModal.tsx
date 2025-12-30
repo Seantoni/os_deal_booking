@@ -31,21 +31,21 @@ interface MarketingSelectionModalProps {
 const PlatformIcon = ({ platform }: { platform: string }) => {
   switch (platform) {
     case 'instagram':
-      return <InstagramIcon className="text-pink-500" style={{ fontSize: 24 }} />
+      return <InstagramIcon className="text-pink-500" style={{ fontSize: 20 }} />
     case 'tiktok':
       return (
         <svg
           viewBox="0 0 24 24"
-          className="w-6 h-6 text-gray-900"
+          className="w-5 h-5 text-gray-900"
           fill="currentColor"
         >
           <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
         </svg>
       )
     case 'ofertasimple':
-      return <BusinessIcon className="text-orange-500" style={{ fontSize: 24 }} />
+      return <BusinessIcon className="text-orange-500" style={{ fontSize: 20 }} />
     default:
-      return <CampaignIcon className="text-gray-500" style={{ fontSize: 24 }} />
+      return <CampaignIcon className="text-gray-500" style={{ fontSize: 20 }} />
   }
 }
 
@@ -165,15 +165,15 @@ export default function MarketingSelectionModal({
           }`}
         >
           {/* Header */}
-          <div className="bg-white border-b border-gray-200 px-4 py-3 flex-shrink-0">
+          <div className="bg-white border-b border-gray-200 px-3 py-2 flex-shrink-0">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-100 rounded-lg border border-orange-200">
-                  <CampaignIcon className="text-orange-600" style={{ fontSize: 24 }} />
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-orange-100 rounded-lg border border-orange-200">
+                  <CampaignIcon className="text-orange-600" style={{ fontSize: 20 }} />
                 </div>
                 <div>
                   <h2 className="text-base font-bold text-gray-900 leading-tight">
-                    Seleccionar Opciones de Marketing
+                    Seleccionar Opciones
                   </h2>
                   <p className="text-sm text-gray-500">{campaignName}</p>
                 </div>
@@ -188,11 +188,7 @@ export default function MarketingSelectionModal({
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            <p className="text-sm text-gray-600">
-              Selecciona las plataformas y opciones que se utilizarán para esta campaña de marketing.
-            </p>
-
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {/* Platform Sections */}
             {Object.entries(MARKETING_OPTIONS_CONFIG).map(([platform, config]) => {
               const platformOptions = optionsByPlatform[platform] || []
@@ -208,21 +204,21 @@ export default function MarketingSelectionModal({
                   <button
                     type="button"
                     onClick={() => togglePlatform(platform)}
-                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-100 transition-colors"
+                    className="w-full px-3 py-2 flex items-center gap-2 hover:bg-gray-100 transition-colors"
                   >
                     <div className="text-gray-400">
                       {allSelected ? (
-                        <CheckBoxIcon className="text-blue-600" style={{ fontSize: 24 }} />
+                        <CheckBoxIcon className="text-blue-600" style={{ fontSize: 20 }} />
                       ) : partiallySelected ? (
-                        <IndeterminateCheckBoxIcon className="text-blue-600" style={{ fontSize: 24 }} />
+                        <IndeterminateCheckBoxIcon className="text-blue-600" style={{ fontSize: 20 }} />
                       ) : (
-                        <CheckBoxOutlineBlankIcon style={{ fontSize: 24 }} />
+                        <CheckBoxOutlineBlankIcon style={{ fontSize: 20 }} />
                       )}
                     </div>
                     <PlatformIcon platform={platform} />
-                    <span className="font-semibold text-gray-800">{config.label}</span>
+                    <span className="text-base font-semibold text-gray-800">{config.label}</span>
                     <span className="text-xs text-gray-500 ml-auto">
-                      {platformOptions.filter(opt => selectedOptions.has(opt.id)).length}/{platformOptions.length} seleccionadas
+                      {platformOptions.filter(opt => selectedOptions.has(opt.id)).length}/{platformOptions.length}
                     </span>
                   </button>
 
@@ -237,14 +233,14 @@ export default function MarketingSelectionModal({
                           key={option.id}
                           type="button"
                           onClick={() => toggleOption(option.id)}
-                          className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
+                          className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
                         >
-                          <div className="w-6" /> {/* Spacer for alignment */}
+                          <div className="w-4" /> {/* Spacer for alignment */}
                           <div className="text-gray-400">
                             {isSelected ? (
-                              <CheckBoxIcon className="text-blue-600" style={{ fontSize: 20 }} />
+                              <CheckBoxIcon className="text-blue-600" style={{ fontSize: 18 }} />
                             ) : (
-                              <CheckBoxOutlineBlankIcon style={{ fontSize: 20 }} />
+                              <CheckBoxOutlineBlankIcon style={{ fontSize: 18 }} />
                             )}
                           </div>
                           <span className={`text-sm ${isSelected ? 'text-gray-900 font-medium' : 'text-gray-600'}`}>
@@ -260,12 +256,12 @@ export default function MarketingSelectionModal({
           </div>
 
           {/* Footer */}
-          <div className="border-t border-gray-200 bg-white px-4 py-3 flex justify-between items-center flex-shrink-0">
+          <div className="border-t border-gray-200 bg-white px-3 py-2 flex justify-between items-center flex-shrink-0">
             <span className="text-sm text-gray-500">
-              {selectedOptions.size} opción{selectedOptions.size !== 1 ? 'es' : ''} seleccionada{selectedOptions.size !== 1 ? 's' : ''}
+              {selectedOptions.size} seleccionada{selectedOptions.size !== 1 ? 's' : ''}
             </span>
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={onClose} size="sm" disabled={saving}>
+              <Button variant="secondary" onClick={onClose} size="sm" disabled={saving} className="text-sm px-3 py-1.5 h-7">
                 Cancelar
               </Button>
               <Button
@@ -273,8 +269,9 @@ export default function MarketingSelectionModal({
                 size="sm"
                 disabled={saving || selectedOptions.size === 0}
                 loading={saving}
+                className="text-sm px-3 py-1.5 h-7"
               >
-                Guardar y Continuar
+                Guardar
               </Button>
             </div>
           </div>

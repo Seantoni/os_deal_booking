@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import CloseIcon from '@mui/icons-material/Close'
 import CampaignIcon from '@mui/icons-material/Campaign'
@@ -26,13 +26,22 @@ import FormModalSkeleton from '@/components/common/FormModalSkeleton'
 import { formatShortDate } from '@/lib/date'
 import ImageLightbox from '@/components/common/ImageLightbox'
 import { useUserRole } from '@/hooks/useUserRole'
+import { getUsersForMarketing } from '@/app/actions/marketing'
 import toast from 'react-hot-toast'
+
+// User type for responsible dropdown
+interface UserOption {
+  clerkId: string
+  name: string | null
+  email: string | null
+}
 
 interface MarketingCampaignModalProps {
   isOpen: boolean
   onClose: () => void
   campaignId: string | null
   onSuccess?: () => void
+  initialOptionId?: string | null // Option to highlight/scroll to (from inbox)
 }
 
 // Platform icon mapping
@@ -62,6 +71,7 @@ export default function MarketingCampaignModal({
   onClose,
   campaignId,
   onSuccess,
+  initialOptionId,
 }: MarketingCampaignModalProps) {
   const { isAdmin, isMarketing } = useUserRole()
   const canEdit = isAdmin || isMarketing
@@ -71,6 +81,8 @@ export default function MarketingCampaignModal({
     tiktok: true,
     ofertasimple: true,
   })
+  const [highlightedOptionId, setHighlightedOptionId] = useState<string | null>(null)
+  const optionRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const [copyInput, setCopyInput] = useState('')
   const [copyDirty, setCopyDirty] = useState(false)
   const [scriptInput, setScriptInput] = useState('')
@@ -78,6 +90,7 @@ export default function MarketingCampaignModal({
   const [draggingImage, setDraggingImage] = useState<string | null>(null)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
+  const [users, setUsers] = useState<UserOption[]>([])
 
   const {
     campaign,
@@ -94,6 +107,7 @@ export default function MarketingCampaignModal({
     toggleOptionCompleted,
     updateOptionDueDate,
     updateOptionNotes,
+    updateOptionResponsible,
     addAttachment,
     removeAttachment,
     updateGeneratedCopy,
@@ -106,6 +120,51 @@ export default function MarketingCampaignModal({
     isOpen,
     onSuccess,
   })
+
+  // Fetch users when modal opens
+  useEffect(() => {
+    if (isOpen && canEdit) {
+      getUsersForMarketing().then(result => {
+        if (result.success && result.data) {
+          setUsers(result.data.map((u: { clerkId: string; name: string | null; email: string | null }) => ({
+            clerkId: u.clerkId,
+            name: u.name,
+            email: u.email,
+          })))
+        }
+      })
+    }
+  }, [isOpen, canEdit])
+
+  // Handle initialOptionId - expand platform and scroll to option
+  useEffect(() => {
+    if (initialOptionId && !loading && optionsByPlatform) {
+      // Find which platform contains this option
+      for (const [platform, options] of Object.entries(optionsByPlatform)) {
+        const option = options.find((o: { id: string }) => o.id === initialOptionId)
+        if (option) {
+          // Expand the platform
+          setExpandedPlatforms(prev => ({ ...prev, [platform]: true }))
+          // Set highlighted option
+          setHighlightedOptionId(initialOptionId)
+          
+          // Scroll to option after a short delay to allow DOM to update
+          setTimeout(() => {
+            const optionElement = optionRefs.current[initialOptionId]
+            if (optionElement) {
+              optionElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            }
+          }, 300)
+          
+          // Remove highlight after 3 seconds
+          setTimeout(() => {
+            setHighlightedOptionId(null)
+          }, 3000)
+          break
+        }
+      }
+    }
+  }, [initialOptionId, loading, optionsByPlatform])
 
   // Sync copy input with campaign data when it loads
   useState(() => {
@@ -556,21 +615,33 @@ const handleSaveCopy = async () => {
                                     const optionConfig = config.options.find(
                                       (o) => o.type === option.optionType
                                     )
+                                    const isHighlighted = highlightedOptionId === option.id
                                     return (
-                                      <MarketingOptionCard
+                                      <div
                                         key={option.id}
-                                        option={option}
-                                        optionLabel={optionConfig?.label || option.optionType}
-                                        canEdit={canEdit}
-                                        saving={saving}
-                                        draggingImage={draggingImage}
-                                        onTogglePlanned={toggleOptionPlanned}
-                                        onToggleCompleted={toggleOptionCompleted}
-                                        onUpdateDueDate={updateOptionDueDate}
-                                        onAddAttachment={addAttachment}
-                                        onRemoveAttachment={removeAttachment}
-                                        onImageDrop={handleImageDropOnOption}
-                                      />
+                                        ref={(el) => { optionRefs.current[option.id] = el }}
+                                        className={`transition-all duration-500 ${
+                                          isHighlighted
+                                            ? 'ring-2 ring-blue-500 ring-offset-2 rounded-lg bg-blue-50/50'
+                                            : ''
+                                        }`}
+                                      >
+                                        <MarketingOptionCard
+                                          option={option}
+                                          optionLabel={optionConfig?.label || option.optionType}
+                                          canEdit={canEdit}
+                                          saving={saving}
+                                          draggingImage={draggingImage}
+                                          users={users}
+                                          onTogglePlanned={toggleOptionPlanned}
+                                          onToggleCompleted={toggleOptionCompleted}
+                                          onUpdateDueDate={updateOptionDueDate}
+                                          onUpdateResponsible={updateOptionResponsible}
+                                          onAddAttachment={addAttachment}
+                                          onRemoveAttachment={removeAttachment}
+                                          onImageDrop={handleImageDropOnOption}
+                                        />
+                                      </div>
                                     )
                                   })}
                                 </div>
