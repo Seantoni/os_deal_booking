@@ -335,13 +335,13 @@ export function useMarketingCampaign({ campaignId, isOpen, onSuccess }: UseMarke
           }
         })
         toast.error(result.error || 'Failed to update option')
-      } else {
-        onSuccess?.()
       }
+      // Note: Don't call onSuccess here - optimistic update is sufficient
+      // Calling onSuccess triggers a full reload which is unnecessary for checkbox toggles
     } catch (err) {
       toast.error('An error occurred')
     }
-  }, [campaign, onSuccess])
+  }, [campaign])
 
   // Toggle option completed status
   const toggleOptionCompleted = useCallback(async (optionId: string, isCompleted: boolean) => {
@@ -372,13 +372,12 @@ export function useMarketingCampaign({ campaignId, isOpen, onSuccess }: UseMarke
           }
         })
         toast.error(result.error || 'Failed to update option')
-      } else {
-        onSuccess?.()
       }
+      // Note: Don't call onSuccess here - optimistic update is sufficient
     } catch (err) {
       toast.error('An error occurred')
     }
-  }, [campaign, onSuccess])
+  }, [campaign])
 
   // Update option due date
   const updateOptionDueDate = useCallback(async (optionId: string, dueDate: Date | null) => {

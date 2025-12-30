@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { formatShortDateNoYear } from '@/lib/date'
 import { getMarketingCampaigns } from '@/app/actions/marketing'
@@ -10,6 +11,7 @@ import FilterListIcon from '@mui/icons-material/FilterList'
 import InstagramIcon from '@mui/icons-material/Instagram'
 import BusinessIcon from '@mui/icons-material/Business'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck'
 import toast from 'react-hot-toast'
 import { useUserRole } from '@/hooks/useUserRole'
 import { 
@@ -21,9 +23,21 @@ import {
 import { EntityTable, StatusPill, TableRow, TableCell } from '@/components/shared/table'
 import { Button } from '@/components/ui'
 
-// Lazy load heavy modal component
+// Lazy load heavy modal components
 const MarketingCampaignModal = dynamic(
   () => import('@/components/marketing/MarketingCampaignModal'),
+  {
+    loading: () => (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
+        <div className="animate-spin h-8 w-8 border-4 border-orange-500 border-t-transparent rounded-full"></div>
+      </div>
+    ),
+    ssr: false,
+  }
+)
+
+const MarketingSelectionModal = dynamic(
+  () => import('@/components/marketing/MarketingSelectionModal'),
   {
     loading: () => (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
@@ -113,6 +127,8 @@ function PlatformStatus({ options, platform }: { options: MarketingCampaignData[
 export default function MarketingPageClient() {
   const { isAdmin, isMarketing } = useUserRole()
   const canEdit = isAdmin || isMarketing
+  const searchParams = useSearchParams()
+  const router = useRouter()
   
   // Data state
   const [campaigns, setCampaigns] = useState<MarketingCampaignData[]>([])
@@ -124,7 +140,8 @@ export default function MarketingPageClient() {
   
   // Modal state
   const [modalOpen, setModalOpen] = useState(false)
-  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null)
+  const [selectionModalOpen, setSelectionModalOpen] = useState(false)
+  const [selectedCampaign, setSelectedCampaign] = useState<MarketingCampaignData | null>(null)
   const [visibleCount, setVisibleCount] = useState(50)
 
   // Load campaigns
@@ -148,6 +165,22 @@ export default function MarketingPageClient() {
     loadCampaigns()
   }, [loadCampaigns])
 
+  // Handle 'open' query parameter to open campaign modal from URL
+  useEffect(() => {
+    if (!loading && campaigns.length > 0) {
+      const openFromUrl = searchParams.get('open')
+      if (openFromUrl) {
+        const campaign = campaigns.find(c => c.id === openFromUrl)
+        if (campaign) {
+          setSelectedCampaign(campaign)
+          setModalOpen(true)
+          // Clear the URL parameter
+          router.replace('/marketing', { scroll: false })
+        }
+      }
+    }
+  }, [loading, campaigns, searchParams, router])
+
   // Filter tabs
   const filterTabs: FilterTab[] = useMemo(() => {
     const doMarketingCount = campaigns.filter(c => c.doMarketing).length
@@ -156,11 +189,11 @@ export default function MarketingPageClient() {
     const inProgressCount = campaigns.filter(c => c.doMarketing && c.progress.planned > 0 && c.progress.completed < c.progress.planned).length
     
     return [
-      { id: 'all', label: 'All', count: campaigns.length },
-      { id: 'active', label: 'Active', count: doMarketingCount },
-      { id: 'in_progress', label: 'In Progress', count: inProgressCount },
-      { id: 'completed', label: 'Completed', count: completedCount },
-      { id: 'skipped', label: 'Skipped', count: skipMarketingCount },
+      { id: 'all', label: 'Todos', count: campaigns.length },
+      { id: 'active', label: 'Activos', count: doMarketingCount },
+      { id: 'in_progress', label: 'En Progreso', count: inProgressCount },
+      { id: 'completed', label: 'Completados', count: completedCount },
+      { id: 'skipped', label: 'Omitidos', count: skipMarketingCount },
     ]
   }, [campaigns])
 
@@ -250,14 +283,38 @@ export default function MarketingPageClient() {
   const visibleCampaigns = useMemo(() => filteredCampaigns.slice(0, visibleCount), [filteredCampaigns, visibleCount])
 
   // Handlers
-  const handleOpenModal = (campaign: MarketingCampaignData) => {
-    setSelectedCampaignId(campaign.id)
-    setModalOpen(true)
+  const handleRowClick = (campaign: MarketingCampaignData) => {
+    setSelectedCampaign(campaign)
+    
+    // Check if any option has isPlanned = true
+    const hasPlannedOptions = campaign.options.some(opt => opt.isPlanned)
+    
+    if (hasPlannedOptions) {
+      // Show campaign modal directly
+      setModalOpen(true)
+    } else {
+      // Show selection modal first
+      setSelectionModalOpen(true)
+    }
   }
 
   const handleCloseModal = () => {
     setModalOpen(false)
-    setSelectedCampaignId(null)
+    setSelectedCampaign(null)
+  }
+
+  const handleCloseSelectionModal = () => {
+    setSelectionModalOpen(false)
+    setSelectedCampaign(null)
+  }
+
+  // Called after selection is saved - opens campaign modal
+  const handleSelectionComplete = async () => {
+    setSelectionModalOpen(false)
+    // Reload to get updated options
+    await loadCampaigns()
+    // Open campaign modal
+    setModalOpen(true)
   }
 
   const handleSuccess = () => {
@@ -269,7 +326,7 @@ return (
       {/* Header */}
       <EntityPageHeader
         entityType="marketing"
-        searchPlaceholder="Search campaigns..."
+        searchPlaceholder="Buscar campañas..."
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         filterTabs={filterTabs}
@@ -310,7 +367,7 @@ return (
                 <TableRow
                   key={campaign.id}
                   index={index}
-                  onClick={() => handleOpenModal(campaign)}
+                  onClick={() => handleRowClick(campaign)}
                 >
                   {/* Business Name */}
                   <TableCell>
@@ -372,26 +429,41 @@ return (
                           }
                         />
                       ) : (
-                        <span className="text-xs text-gray-400">Not planned</span>
+                        <span className="text-xs text-gray-400">Sin planificar</span>
                       )
                     ) : (
-                      <StatusPill label="Skipped" tone="neutral" />
+                      <StatusPill label="Omitido" tone="neutral" />
                     )}
                   </TableCell>
 
                   {/* Actions */}
                   <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleOpenModal(campaign)
-                      }}
-                      leftIcon={<VisibilityIcon style={{ fontSize: 16 }} />}
-                    >
-                      View
-                    </Button>
+                    {campaign.progress.planned > 0 ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleRowClick(campaign)
+                        }}
+                        leftIcon={<VisibilityIcon style={{ fontSize: 16 }} />}
+                      >
+                        Ver
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleRowClick(campaign)
+                        }}
+                        leftIcon={<PlaylistAddCheckIcon style={{ fontSize: 16 }} />}
+                        className="text-blue-600 hover:text-blue-700"
+                      >
+                        Planificar
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -404,7 +476,7 @@ return (
                   size="sm"
                   onClick={() => setVisibleCount((c) => c + 50)}
                 >
-                  Load More ({filteredCampaigns.length - visibleCount} remaining)
+                  Cargar Más ({filteredCampaigns.length - visibleCount} restantes)
                 </Button>
               </div>
             )}
@@ -412,11 +484,23 @@ return (
         )}
       </div>
 
+      {/* Marketing Selection Modal (for first-time planning) */}
+      {selectedCampaign && (
+        <MarketingSelectionModal
+          isOpen={selectionModalOpen}
+          onClose={handleCloseSelectionModal}
+          campaignId={selectedCampaign.id}
+          campaignName={selectedCampaign.bookingRequest.merchant || selectedCampaign.bookingRequest.name}
+          options={selectedCampaign.options}
+          onComplete={handleSelectionComplete}
+        />
+      )}
+
       {/* Marketing Campaign Modal */}
       <MarketingCampaignModal
         isOpen={modalOpen}
         onClose={handleCloseModal}
-        campaignId={selectedCampaignId}
+        campaignId={selectedCampaign?.id || null}
         onSuccess={handleSuccess}
       />
     </div>

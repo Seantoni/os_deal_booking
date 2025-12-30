@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { 
-  getCompetitorDeals, 
-  getCompetitorDealStats,
+  getCompetitorDeals,
   CompetitorDealWithStats 
 } from '@/app/actions/competitor-deals'
 import RefreshIcon from '@mui/icons-material/Refresh'
@@ -34,16 +33,6 @@ export default function MarketIntelligenceClient() {
   const [loading, setLoading] = useState(true)
   const [scanning, setScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null)
-  const [stats, setStats] = useState<{
-    totalDeals: number
-    activeDeals: number
-    totalSalesTracked: number
-    bySite: { site: string; count: number; totalSold: number }[]
-    lastScanAt: Date | null
-    salesToday: number
-    salesThisWeek: number
-    salesLast30Days: number
-  } | null>(null)
   
   // Pagination
   const [page, setPage] = useState(1)
@@ -53,6 +42,7 @@ export default function MarketIntelligenceClient() {
   
   // Filters
   const [search, setSearch] = useState('')
+  const [searchTrigger, setSearchTrigger] = useState(0) // Incremented on search submit
   const [sourceSite, setSourceSite] = useState<string>('')
   const [status, setStatus] = useState<string>('active')
   const [sortBy, setSortBy] = useState<SortField>('totalSold')
@@ -84,24 +74,16 @@ export default function MarketIntelligenceClient() {
     }
   }, [page, pageSize, sourceSite, status, search, sortBy, sortOrder])
   
-  const loadStats = useCallback(async () => {
-    try {
-      const result = await getCompetitorDealStats()
-      setStats(result)
-    } catch (error) {
-      console.error('Failed to load stats:', error)
-    }
-  }, [])
   
+  // Reload deals when filter/sort/page/search changes
   useEffect(() => {
     loadDeals()
-    loadStats()
-  }, [loadDeals, loadStats])
+  }, [page, sourceSite, status, sortBy, sortOrder, searchTrigger])
   
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     setPage(1)
-    loadDeals()
+    setSearchTrigger(prev => prev + 1) // Trigger reload via useEffect
   }
   
   const handleSort = (field: SortField) => {
@@ -194,7 +176,6 @@ export default function MarketIntelligenceClient() {
                   )
                 }
                 loadDeals()
-                loadStats()
               } else if (eventLine.includes('error')) {
                 setScanProgress(null)
                 console.error('Scan error event:', data)
@@ -347,77 +328,6 @@ const formatCurrency = (value: number) => {
         </div>
       )}
       
-      {/* Stats Cards */}
-      {stats && (
-        <>
-          {/* Row 1: Overview */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Active Deals</p>
-              <p className="text-xl font-bold text-gray-900">{stats.activeDeals}</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">of {stats.totalDeals} total</p>
-            </div>
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Total Vouchers Sold</p>
-              <p className="text-xl font-bold text-gray-900">{stats.totalSalesTracked.toLocaleString()}</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">across all tracked deals</p>
-            </div>
-            <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg shadow-sm border border-orange-200 p-3">
-              <p className="text-[10px] text-orange-600 uppercase tracking-wide font-medium">RantanOfertas</p>
-              <p className="text-xl font-bold text-orange-700">
-                {(stats.bySite.find(s => s.site === 'rantanofertas')?.totalSold || 0).toLocaleString()}
-              </p>
-              <p className="text-[10px] text-orange-500 mt-0.5">
-                {stats.bySite.find(s => s.site === 'rantanofertas')?.count || 0} deals
-              </p>
-            </div>
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-sm border border-blue-200 p-3">
-              <p className="text-[10px] text-blue-600 uppercase tracking-wide font-medium">Oferta24</p>
-              <p className="text-xl font-bold text-blue-700">
-                {(stats.bySite.find(s => s.site === 'oferta24')?.totalSold || 0).toLocaleString()}
-              </p>
-              <p className="text-[10px] text-blue-500 mt-0.5">
-                {stats.bySite.find(s => s.site === 'oferta24')?.count || 0} deals
-              </p>
-            </div>
-          </div>
-          
-          {/* Row 2: Sales Performance */}
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg shadow-sm border border-green-200 p-3">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] text-green-600 uppercase tracking-wide font-medium">Sales Today</p>
-                <span className="text-green-500 text-sm">📈</span>
-              </div>
-              <p className="text-2xl font-bold text-green-700 mt-0.5">
-                {stats.salesToday.toLocaleString()}
-              </p>
-              <p className="text-[10px] text-green-500 mt-0.5">vouchers sold today</p>
-            </div>
-            <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-lg shadow-sm border border-purple-200 p-3">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] text-purple-600 uppercase tracking-wide font-medium">This Week</p>
-                <span className="text-purple-500 text-sm">📊</span>
-              </div>
-              <p className="text-2xl font-bold text-purple-700 mt-0.5">
-                {stats.salesThisWeek.toLocaleString()}
-              </p>
-              <p className="text-[10px] text-purple-500 mt-0.5">last 7 days</p>
-            </div>
-            <div className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-lg shadow-sm border border-indigo-200 p-3">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] text-indigo-600 uppercase tracking-wide font-medium">Last 30 Days</p>
-                <span className="text-indigo-500 text-sm">📅</span>
-              </div>
-              <p className="text-2xl font-bold text-indigo-700 mt-0.5">
-                {stats.salesLast30Days.toLocaleString()}
-              </p>
-              <p className="text-[10px] text-indigo-500 mt-0.5">monthly trend</p>
-            </div>
-          </div>
-        </>
-      )}
-      
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -459,13 +369,6 @@ const formatCurrency = (value: number) => {
             <option value="active">Active</option>
             <option value="expired">Expired</option>
           </select>
-          
-          {/* Last scan info */}
-          {stats?.lastScanAt && (
-            <div className="text-[10px] text-gray-500 ml-auto">
-              Last scan: {formatCompactDateTime(stats.lastScanAt)}
-            </div>
-          )}
         </div>
       </div>
       

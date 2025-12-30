@@ -1,6 +1,18 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
+import EventIcon from '@mui/icons-material/Event'
+import { formatISODateOnly, daysUntil } from '@/lib/date'
+import AttachFileIcon from '@mui/icons-material/AttachFile'
+import DeleteIcon from '@mui/icons-material/Delete'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import ExpandLessIcon from '@mui/icons-material/ExpandLess'
+import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
+import ImageLightbox from '@/components/common/ImageLightbox'
+import OptionChatThread from './OptionChatThread'
+import toast from 'react-hot-toast'
 
 // Define type inline to avoid Prisma client regeneration issues
 interface MarketingOption {
@@ -13,35 +25,14 @@ interface MarketingOption {
   dueDate: Date | null
   completedAt: Date | null
   completedBy: string | null
-  notes: string | null
-  notesUpdatedBy: string | null
-  notesUpdatedAt: Date | null
   mediaUrls: unknown
   createdAt: Date
   updatedAt: Date
 }
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
-import EventIcon from '@mui/icons-material/Event'
-import { formatISODateOnly } from '@/lib/date'
-import NoteAddIcon from '@mui/icons-material/NoteAdd'
-import AttachFileIcon from '@mui/icons-material/AttachFile'
-import DeleteIcon from '@mui/icons-material/Delete'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import ExpandLessIcon from '@mui/icons-material/ExpandLess'
-import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
-import { Button, Textarea } from '@/components/ui'
-import ImageLightbox from '@/components/common/ImageLightbox'
-import toast from 'react-hot-toast'
 
 interface MarketingOptionCardProps {
   option: MarketingOption & {
     completedByUser?: {
-      clerkId: string
-      name: string | null
-      email: string | null
-    } | null
-    notesUpdatedByUser?: {
       clerkId: string
       name: string | null
       email: string | null
@@ -54,7 +45,6 @@ interface MarketingOptionCardProps {
   onTogglePlanned: (optionId: string, isPlanned: boolean) => Promise<void>
   onToggleCompleted: (optionId: string, isCompleted: boolean) => Promise<void>
   onUpdateDueDate: (optionId: string, dueDate: Date | null) => Promise<void>
-  onUpdateNotes: (optionId: string, notes: string | null) => Promise<void>
   onAddAttachment: (optionId: string, url: string) => Promise<void>
   onRemoveAttachment: (optionId: string, url: string) => Promise<void>
   onImageDrop?: (optionId: string, imageUrl: string) => Promise<void>
@@ -69,14 +59,11 @@ export default function MarketingOptionCard({
   onTogglePlanned,
   onToggleCompleted,
   onUpdateDueDate,
-  onUpdateNotes,
   onAddAttachment,
   onRemoveAttachment,
   onImageDrop,
 }: MarketingOptionCardProps) {
   const [expanded, setExpanded] = useState(false)
-  const [localNotes, setLocalNotes] = useState(option.notes || '')
-  const [notesEditing, setNotesEditing] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
@@ -107,14 +94,19 @@ export default function MarketingOptionCard({
       if (!mediaUrls.includes(draggingImage)) {
         await onImageDrop(option.id, draggingImage)
       } else {
-        toast.error('Image already attached to this option')
+        toast.error('La imagen ya está adjunta a esta opción')
       }
     }
   }
 
   const handleTogglePlanned = async () => {
     if (!canEdit || saving) return
-    await onTogglePlanned(option.id, !option.isPlanned)
+    const newPlannedState = !option.isPlanned
+    await onTogglePlanned(option.id, newPlannedState)
+    // Expand the card when planning (checking the checkbox)
+    if (newPlannedState) {
+      setExpanded(true)
+    }
   }
 
   const handleToggleCompleted = async () => {
@@ -129,25 +121,19 @@ export default function MarketingOptionCard({
     await onUpdateDueDate(option.id, newDate)
   }
 
-  const handleSaveNotes = async () => {
-    if (!canEdit) return
-    await onUpdateNotes(option.id, localNotes || null)
-    setNotesEditing(false)
-  }
-
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      toast.error('Only images are allowed')
+      toast.error('Solo se permiten imágenes')
       return
     }
 
     // Validate file size (10MB max)
     if (file.size > 10 * 1024 * 1024) {
-      toast.error('File size must be less than 10MB')
+      toast.error('El archivo debe ser menor a 10MB')
       return
     }
 
@@ -167,12 +153,12 @@ export default function MarketingOptionCard({
 
       if (result.success && result.url) {
         await onAddAttachment(option.id, result.url)
-        toast.success('Image uploaded')
+        toast.success('Imagen subida')
       } else {
-        toast.error(result.error || 'Failed to upload image')
+        toast.error(result.error || 'Error al subir imagen')
       }
     } catch (err) {
-      toast.error('An error occurred uploading the image')
+      toast.error('Ocurrió un error al subir la imagen')
     } finally {
       setUploading(false)
       // Reset file input
@@ -188,220 +174,211 @@ export default function MarketingOptionCard({
   }
 
 const isOverdue = option.dueDate && new Date(option.dueDate) < new Date() && !option.isCompleted
+  const daysLeft = option.dueDate ? daysUntil(option.dueDate) : null
 
   // Determine if this card can receive a drop
   const canReceiveDrop = draggingImage && option.isPlanned && canEdit
+
+  // Format days left text
+  const getDaysLeftText = () => {
+    if (daysLeft === null) return null
+    if (daysLeft < 0) return `${Math.abs(daysLeft)} día${Math.abs(daysLeft) !== 1 ? 's' : ''} vencido${Math.abs(daysLeft) !== 1 ? 's' : ''}`
+    if (daysLeft === 0) return 'Vence hoy'
+    if (daysLeft === 1) return 'Vence mañana'
+    return `${daysLeft} día${daysLeft !== 1 ? 's' : ''} restante${daysLeft !== 1 ? 's' : ''}`
+  }
+
+  // Get styling for days left badge
+  const getDaysLeftStyle = () => {
+    if (daysLeft === null) return ''
+    if (daysLeft < 0) return 'bg-red-100 text-red-700 border-red-200'
+    if (daysLeft === 0) return 'bg-orange-100 text-orange-700 border-orange-200'
+    if (daysLeft <= 3) return 'bg-yellow-100 text-yellow-700 border-yellow-200'
+    return 'bg-green-100 text-green-700 border-green-200'
+  }
 
   return (
     <div
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`border rounded transition-all ${
+      className={`border rounded-lg transition-all shadow-sm ${
         isDragOver && canReceiveDrop
-          ? 'bg-blue-100 border-blue-400 border-dashed ring-2 ring-blue-200'
+          ? 'bg-blue-50 border-blue-400 border-dashed ring-2 ring-blue-100'
           : option.isCompleted
-          ? 'bg-green-50 border-green-200'
+          ? 'bg-white border-green-200'
           : option.isPlanned
           ? isOverdue
-            ? 'bg-red-50 border-red-200'
-            : 'bg-blue-50 border-blue-200'
-          : 'bg-gray-50 border-gray-200'
+            ? 'bg-white border-red-200'
+            : 'bg-white border-gray-200'
+          : 'bg-gray-50/50 border-gray-200'
       } ${canReceiveDrop ? 'cursor-copy' : ''}`}
     >
       {/* Header */}
-      <div className="px-3 py-2 flex items-center gap-3">
+      <div
+        role="button"
+        tabIndex={option.isPlanned ? 0 : -1}
+        onClick={() => option.isPlanned && setExpanded(!expanded)}
+        onKeyDown={(e) => {
+          if (option.isPlanned && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault()
+            setExpanded(!expanded)
+          }
+        }}
+        className={`w-full px-2 py-1.5 flex items-center gap-2 transition-colors ${
+          expanded ? 'border-b border-gray-100' : ''
+        } ${option.isPlanned ? 'cursor-pointer hover:bg-gray-50' : 'cursor-default'}`}
+        title={option.isPlanned ? (expanded ? 'Contraer' : 'Expandir') : undefined}
+      >
         {/* Planned checkbox */}
         <input
           type="checkbox"
           checked={option.isPlanned}
           onChange={handleTogglePlanned}
+          onClick={(e) => e.stopPropagation()}
           disabled={!canEdit || saving}
-          className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed"
-          title={option.isPlanned ? 'Unplan this option' : 'Plan this option'}
+          className="h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed flex-shrink-0"
+          title={option.isPlanned ? 'Desplanificar esta opción' : 'Planificar esta opción'}
         />
 
         {/* Option name */}
-        <span className={`font-medium flex-1 text-sm ${!option.isPlanned ? 'text-gray-500' : 'text-gray-800'}`}>
+        <span className={`font-medium flex-1 text-xs text-left ${!option.isPlanned ? 'text-gray-500' : 'text-gray-900'}`}>
           {optionLabel}
         </span>
 
-        {/* Completed toggle (only if planned) */}
-        {option.isPlanned && (
-          <button
-            onClick={handleToggleCompleted}
-            disabled={!canEdit || saving}
-            className={`p-0.5 rounded transition-colors ${
-              option.isCompleted
-                ? 'text-green-600 hover:bg-green-100'
-                : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
-            } disabled:cursor-not-allowed disabled:opacity-50`}
-            title={option.isCompleted ? 'Mark as incomplete' : 'Mark as complete'}
-          >
-            {option.isCompleted ? (
-              <CheckCircleIcon fontSize="small" style={{ fontSize: 18 }} />
-            ) : (
-              <CheckCircleOutlineIcon fontSize="small" style={{ fontSize: 18 }} />
-            )}
-          </button>
-        )}
+        {/* Action Buttons Group */}
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          {/* Completed toggle (only if planned) */}
+          {option.isPlanned && (
+            <button
+              type="button"
+              onClick={handleToggleCompleted}
+              disabled={!canEdit || saving}
+              className={`p-0.5 rounded transition-all ${
+                option.isCompleted
+                  ? 'text-green-600 bg-green-50 hover:bg-green-100'
+                  : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+              } disabled:cursor-not-allowed disabled:opacity-50`}
+              title={option.isCompleted ? 'Marcar como incompleto' : 'Marcar como completo'}
+            >
+              {option.isCompleted ? (
+                <CheckCircleIcon fontSize="small" style={{ fontSize: 16 }} />
+              ) : (
+                <CheckCircleOutlineIcon fontSize="small" style={{ fontSize: 16 }} />
+              )}
+            </button>
+          )}
 
-        {/* Expand/collapse if planned */}
-        {option.isPlanned && (
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="p-0.5 rounded text-gray-500 hover:bg-gray-100 transition-colors"
-            title={expanded ? 'Collapse' : 'Expand'}
-          >
-            {expanded ? <ExpandLessIcon fontSize="small" style={{ fontSize: 18 }} /> : <ExpandMoreIcon fontSize="small" style={{ fontSize: 18 }} />}
-          </button>
-        )}
+          {/* Expand/collapse indicator (only if planned) */}
+          {option.isPlanned && (
+            <div className="p-0.5 text-gray-400">
+              {expanded ? <ExpandLessIcon fontSize="small" style={{ fontSize: 16 }} /> : <ExpandMoreIcon fontSize="small" style={{ fontSize: 16 }} />}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Expanded details (only if planned and expanded) */}
       {option.isPlanned && expanded && (
-        <div className="border-t border-gray-200 px-3 py-2 space-y-2.5 bg-white/50">
-          {/* Due date */}
-          <div className="flex items-center gap-2">
-            <EventIcon className="text-gray-400" style={{ fontSize: 16 }} />
-            <label className="text-xs text-gray-600 min-w-[60px]">Due Date:</label>
-            <input
-              type="date"
-              value={formatISODateOnly(option.dueDate)}
-              onChange={handleDueDateChange}
-              disabled={!canEdit}
-              className={`px-1.5 py-0.5 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                isOverdue ? 'border-red-300 bg-red-50' : 'border-gray-300'
-              } disabled:bg-gray-100 disabled:cursor-not-allowed`}
-            />
-            {isOverdue && <span className="text-[10px] text-red-600 font-bold uppercase">Overdue</span>}
-          </div>
-
-          {/* Completed info */}
-          {option.isCompleted && option.completedAt && (
-            <div className="flex items-center gap-2 text-xs text-green-600 bg-green-50 px-2 py-1 rounded border border-green-100">
-              <CheckCircleIcon style={{ fontSize: 14 }} />
-              <span>
-                Completed {new Date(option.completedAt).toLocaleDateString()}
-                {option.completedByUser && (
-                  <> by {option.completedByUser.name || option.completedByUser.email}</>
-                )}
-              </span>
-            </div>
-          )}
-
-          {/* Notes */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <NoteAddIcon className="text-gray-400" style={{ fontSize: 16 }} />
-                <span className="text-xs text-gray-600">Notes:</span>
+        <div className="bg-white rounded-b-lg">
+          {/* Properties Bar - Like ClickUp's top bar */}
+          <div className="flex flex-wrap items-center gap-3 px-3 py-2 border-b border-gray-100 bg-gray-50/30">
+            {/* Due Date */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 text-gray-500">
+                <EventIcon style={{ fontSize: 16 }} />
+                <span className="text-xs font-medium uppercase tracking-wide">Fecha Límite</span>
               </div>
-              {option.notesUpdatedByUser && option.notesUpdatedAt && (
-                <span className="text-[10px] text-gray-400 italic">
-                  by {option.notesUpdatedByUser.name || option.notesUpdatedByUser.email?.split('@')[0]} · {new Date(option.notesUpdatedAt).toLocaleDateString()}
+              <input
+                type="date"
+                value={formatISODateOnly(option.dueDate)}
+                onChange={handleDueDateChange}
+                disabled={!canEdit}
+                className={`px-2 py-1 text-xs border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white ${
+                  isOverdue ? 'border-red-300 text-red-600 font-medium' : 'border-gray-200 text-gray-700'
+                } disabled:bg-gray-50 disabled:cursor-not-allowed transition-colors hover:border-gray-300`}
+              />
+              {daysLeft !== null && option.dueDate && !option.isCompleted && (
+                <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border ${getDaysLeftStyle()}`}>
+                  {getDaysLeftText()}
                 </span>
               )}
             </div>
-            {notesEditing ? (
-              <div className="space-y-1.5">
-                <Textarea
-                  value={localNotes}
-                  onChange={(e) => setLocalNotes(e.target.value)}
-                  placeholder="Add notes for this option..."
-                  rows={2}
-                  className="text-xs"
-                />
-                <div className="flex gap-1.5">
-                  <Button size="sm" onClick={handleSaveNotes} disabled={saving} className="h-6 text-[10px] px-2">
-                    Save
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      setLocalNotes(option.notes || '')
-                      setNotesEditing(false)
-                    }}
-                    className="h-6 text-[10px] px-2"
-                  >
-                    Cancel
-                  </Button>
-                </div>
+
+            {/* Attachments Section */}
+            <div className="flex items-center gap-2 border-l border-gray-200 pl-3">
+              <div className="flex items-center gap-1.5 text-gray-500">
+                <AttachFileIcon style={{ fontSize: 16 }} />
+                <span className="text-xs font-medium uppercase tracking-wide">Adjuntos</span>
               </div>
-            ) : (
-              <div
-                onClick={() => canEdit && setNotesEditing(true)}
-                className={`text-xs p-1.5 bg-white border rounded min-h-[40px] ${
-                  canEdit ? 'cursor-pointer hover:bg-gray-50' : ''
-                }`}
-              >
-                {option.notes || (
-                  <span className="text-gray-400 italic">
-                    {canEdit ? 'Click to add notes...' : 'No notes'}
-                  </span>
+              
+              <div className="flex items-center gap-2">
+                 {/* Upload button */}
+                 {canEdit && (
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors flex items-center gap-1"
+                    >
+                      <AddPhotoAlternateIcon style={{ fontSize: 14 }} />
+                      {uploading ? '...' : 'Agregar'}
+                    </button>
+                  </div>
                 )}
+
+                {/* Gallery Preview (Mini) */}
+                {mediaUrls.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    {mediaUrls.map((url, index) => (
+                      <div key={url} className="relative group w-6 h-6">
+                        <img
+                          src={url}
+                          alt={`Attachment ${index + 1}`}
+                          className="w-full h-full object-cover rounded-md border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => {
+                            setLightboxIndex(index)
+                            setLightboxOpen(true)
+                          }}
+                        />
+                        {canEdit && (
+                          <button
+                            onClick={() => handleRemoveAttachment(url)}
+                            className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-10"
+                            title="Eliminar adjunto"
+                          >
+                            <DeleteIcon style={{ fontSize: 8 }} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <span className="text-xs text-gray-400 ml-1">({mediaUrls.length})</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Completed By Info */}
+            {option.isCompleted && option.completedByUser && (
+              <div className="flex items-center gap-2 border-l border-gray-200 pl-3 ml-auto">
+                <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full border border-green-100 flex items-center gap-1">
+                  <CheckCircleIcon style={{ fontSize: 12 }} />
+                  Completado por {option.completedByUser.name || option.completedByUser.email?.split('@')[0]}
+                </span>
               </div>
             )}
           </div>
 
-          {/* Attachments */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AttachFileIcon className="text-gray-400" style={{ fontSize: 16 }} />
-                <span className="text-xs text-gray-600">Attachments ({mediaUrls.length}):</span>
-              </div>
-              
-              {/* Upload button */}
-              {canEdit && (
-                <div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="text-[10px] text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors"
-                  >
-                    <AddPhotoAlternateIcon style={{ fontSize: 14 }} />
-                    {uploading ? 'Uploading...' : 'Add Image'}
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Image gallery */}
-            {mediaUrls.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {mediaUrls.map((url, index) => (
-                  <div key={url} className="relative group">
-                    <img
-                      src={url}
-                      alt={`Attachment ${index + 1}`}
-                      className="w-12 h-12 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => {
-                        setLightboxIndex(index)
-                        setLightboxOpen(true)
-                      }}
-                    />
-                    {canEdit && (
-                      <button
-                        onClick={() => handleRemoveAttachment(url)}
-                        className="absolute -top-1.5 -right-1.5 p-0.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
-                        title="Remove attachment"
-                      >
-                        <DeleteIcon style={{ fontSize: 10 }} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+          {/* Activity / Chat Section */}
+          <div className="p-3">
+            <OptionChatThread optionId={option.id} canEdit={canEdit} />
           </div>
         </div>
       )}
@@ -416,4 +393,3 @@ const isOverdue = option.dueDate && new Date(option.dueDate) < new Date() && !op
     </div>
   )
 }
-

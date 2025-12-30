@@ -28,6 +28,7 @@ import LostReasonSection from './LostReasonSection'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
 import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
 import FormModalSkeleton from '@/components/common/FormModalSkeleton'
+import OpportunityChatThread from './OpportunityChatThread'
 
 interface OpportunityFormModalProps {
   isOpen: boolean
@@ -35,6 +36,7 @@ interface OpportunityFormModalProps {
   opportunity?: Opportunity | null
   onSuccess: (opportunity: Opportunity) => void
   initialBusinessId?: string
+  initialTab?: 'details' | 'activity' | 'chat'
   // Pre-loaded data to skip fetching (passed from parent page)
   preloadedBusinesses?: any[]
   preloadedCategories?: any[]
@@ -47,13 +49,21 @@ export default function OpportunityFormModal({
   opportunity,
   onSuccess,
   initialBusinessId,
+  initialTab = 'details',
   preloadedBusinesses,
   preloadedCategories,
   preloadedUsers,
 }: OpportunityFormModalProps) {
   const { user } = useUser()
   const { isAdmin } = useUserRole()
-  const [activeTab, setActiveTab] = useState<'details' | 'activity'>('details')
+  const [activeTab, setActiveTab] = useState<'details' | 'activity' | 'chat'>(initialTab)
+
+  // Update active tab when initialTab changes (e.g., opening from inbox)
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab)
+    }
+  }, [isOpen, initialTab])
   const [error, setError] = useState('')
   const [taskModalOpen, setTaskModalOpen] = useState(false)
 
@@ -541,10 +551,14 @@ export default function OpportunityFormModal({
             submitDisabled={loading || loadingData || dynamicForm.loading}
             leftContent="* Campos requeridos"
           />
-        ) : (
+        ) : activeTab === 'activity' ? (
           <ModalFooter
             onCancel={onClose}
             leftContent="* Campos requeridos"
+          />
+        ) : (
+          <ModalFooter
+            onCancel={onClose}
           />
         )
       }
@@ -619,6 +633,17 @@ export default function OpportunityFormModal({
                 }`}
               >
                 Actividad
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('chat')}
+                className={`px-6 py-3 text-sm font-medium transition-colors border-b-2 ${
+                  activeTab === 'chat'
+                    ? 'border-orange-600 text-orange-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Chat
               </button>
             </div>
           </div>
@@ -696,6 +721,23 @@ export default function OpportunityFormModal({
                     onDeleteTask={handleDeleteTask}
                     onToggleComplete={handleToggleTaskComplete}
                     isAdmin={isAdmin}
+                  />
+                )}
+              </div>
+            )}
+
+            {!loadingData && activeTab === 'chat' && (
+              <div className="p-6 bg-white h-full">
+                {!opportunity ? (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+                    <span className="text-4xl mb-3 block">💬</span>
+                    <p className="text-sm text-gray-500 mb-2">Guarde la oportunidad primero para usar el chat</p>
+                    <p className="text-xs text-gray-400">Cree la oportunidad, luego regrese para chatear</p>
+                  </div>
+                ) : (
+                  <OpportunityChatThread
+                    opportunityId={opportunity.id}
+                    canEdit={isAdmin || opportunity.responsibleId === user?.id || opportunity.userId === user?.id}
                   />
                 )}
               </div>

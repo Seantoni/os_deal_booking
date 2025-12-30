@@ -78,6 +78,17 @@ async function checkAdminAccess(): Promise<boolean> {
   return role === 'admin'
 }
 
+// Valid database columns that can be used in Prisma orderBy
+const VALID_DB_SORT_FIELDS = new Set([
+  'id', 'sourceUrl', 'sourceSite', 'merchantName', 'dealTitle',
+  'originalPrice', 'offerPrice', 'discountPercent', 'totalSold',
+  'imageUrl', 'tag', 'status', 'isTracking', 'firstSeenAt',
+  'lastScannedAt', 'expiresAt', 'createdAt', 'updatedAt'
+])
+
+// Computed fields that require in-memory sorting after stats calculation
+const COMPUTED_SORT_FIELDS = new Set(['salesToday', 'salesThisWeek', 'salesThisMonth'])
+
 /**
  * Get competitor deals with pagination, filtering, and calculated stats
  */
@@ -96,6 +107,9 @@ export async function getCompetitorDeals(params: GetDealsParams = {}): Promise<G
     sortBy = 'totalSold',
     sortOrder = 'desc',
   } = params
+  
+  // Check if we're sorting by a computed field
+  const isComputedSort = COMPUTED_SORT_FIELDS.has(sortBy)
   
   // Build where clause
   const where: WhereInput = {}
@@ -118,12 +132,14 @@ export async function getCompetitorDeals(params: GetDealsParams = {}): Promise<G
   // Get total count
   const total = await prisma.competitorDeal.count({ where })
   
-  // Get deals
+  // For computed field sorting, we need to fetch all matching records, compute stats, sort, then paginate
+  // For DB field sorting, we can use Prisma's orderBy with pagination
   const deals = await prisma.competitorDeal.findMany({
     where,
-    orderBy: { [sortBy]: sortOrder },
-    skip: (page - 1) * pageSize,
-    take: pageSize,
+    // Only apply DB-level sorting for valid DB fields
+    ...(isComputedSort ? {} : { orderBy: { [sortBy]: sortOrder } }),
+    // For computed sorts, fetch all records; for DB sorts, use pagination
+    ...(isComputedSort ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
   })
   
   // Calculate stats for each deal
@@ -195,8 +211,23 @@ export async function getCompetitorDeals(params: GetDealsParams = {}): Promise<G
     })
   )
   
+  // For computed field sorting, sort in memory and then paginate
+  let finalDeals = dealsWithStats
+  if (isComputedSort) {
+    // Sort by the computed field
+    finalDeals = [...dealsWithStats].sort((a, b) => {
+      const aVal = a[sortBy as keyof CompetitorDealWithStats] as number
+      const bVal = b[sortBy as keyof CompetitorDealWithStats] as number
+      return sortOrder === 'asc' ? aVal - bVal : bVal - aVal
+    })
+    
+    // Apply pagination after sorting
+    const startIndex = (page - 1) * pageSize
+    finalDeals = finalDeals.slice(startIndex, startIndex + pageSize)
+  }
+  
   return {
-    deals: dealsWithStats,
+    deals: finalDeals,
     total,
     page,
     pageSize,

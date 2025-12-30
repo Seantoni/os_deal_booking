@@ -66,8 +66,6 @@ export default function MarketingCampaignModal({
   const { isAdmin, isMarketing } = useUserRole()
   const canEdit = isAdmin || isMarketing
 
-  const [skipReasonInput, setSkipReasonInput] = useState('')
-  const [showSkipReason, setShowSkipReason] = useState(false)
   const [expandedPlatforms, setExpandedPlatforms] = useState<Record<string, boolean>>({
     instagram: true,
     tiktok: true,
@@ -92,7 +90,6 @@ export default function MarketingCampaignModal({
     requestImages,
     generatingCopy,
     generatingScript,
-    toggleDoMarketing,
     toggleOptionPlanned,
     toggleOptionCompleted,
     updateOptionDueDate,
@@ -125,21 +122,6 @@ export default function MarketingCampaignModal({
   // Update script input when campaign loads
   if (campaign?.videoScript && scriptInput === '' && !scriptDirty) {
     setScriptInput(campaign.videoScript)
-  }
-
-  const handleToggleDoMarketing = async (doMarketing: boolean) => {
-    if (doMarketing) {
-      await toggleDoMarketing(true)
-      setShowSkipReason(false)
-    } else {
-      setShowSkipReason(true)
-    }
-  }
-
-  const handleConfirmNoMarketing = async () => {
-    await toggleDoMarketing(false, skipReasonInput || undefined)
-    setShowSkipReason(false)
-    setSkipReasonInput('')
   }
 
   const togglePlatform = (platform: string) => {
@@ -272,7 +254,7 @@ const handleSaveCopy = async () => {
                             <div className="p-0.5 bg-purple-100 rounded">
                               <AutoFixHighIcon className="text-purple-600" style={{ fontSize: 12 }} />
                             </div>
-                            <h3 className="text-[10px] font-bold text-gray-700 uppercase tracking-wide">Marketing Copy</h3>
+                            <h3 className="text-[10px] font-bold text-gray-700 uppercase tracking-wide">Copia de Marketing</h3>
                           </div>
                         </div>
 
@@ -288,7 +270,7 @@ const handleSaveCopy = async () => {
                           ) : (
                             <AutoFixHighIcon style={{ fontSize: 12 }} className="mr-1" />
                           )}
-                          {generatingCopy ? 'Generating...' : 'Generate with AI'}
+                          {generatingCopy ? 'Generando...' : 'Generar con IA'}
                         </Button>
 
                         <div className="relative">
@@ -298,7 +280,7 @@ const handleSaveCopy = async () => {
                               setCopyInput(e.target.value)
                               setCopyDirty(true)
                             }}
-                            placeholder="Click 'Generate with AI'..."
+                            placeholder="Haz clic en 'Generar con IA'..."
                             rows={7}
                             disabled={!canEdit || generatingCopy}
                             className="text-[10px] pr-5 min-h-[120px] resize-none leading-relaxed"
@@ -307,7 +289,7 @@ const handleSaveCopy = async () => {
                             <button
                               onClick={handleCopyToClipboard}
                               className="absolute top-1.5 right-1.5 p-0.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                              title="Copy to clipboard"
+                              title="Copiar al portapapeles"
                             >
                               <ContentCopyIcon style={{ fontSize: 12 }} />
                             </button>
@@ -326,7 +308,7 @@ const handleSaveCopy = async () => {
                               className="h-5 text-[9px] px-1.5"
                             >
                               <SaveIcon style={{ fontSize: 10 }} className="mr-1" />
-                              Save
+                              Guardar
                             </Button>
                           )}
                         </div>
@@ -339,7 +321,7 @@ const handleSaveCopy = async () => {
                             <div className="p-0.5 bg-red-100 rounded">
                               <VideocamIcon className="text-red-600" style={{ fontSize: 12 }} />
                             </div>
-                            <h3 className="text-[10px] font-bold text-gray-700 uppercase tracking-wide">Video Script</h3>
+                            <h3 className="text-[10px] font-bold text-gray-700 uppercase tracking-wide">Guion de Video</h3>
                           </div>
                         </div>
 
@@ -355,7 +337,7 @@ const handleSaveCopy = async () => {
                           ) : (
                             <VideocamIcon style={{ fontSize: 12 }} className="mr-1" />
                           )}
-                          {generatingScript ? 'Generating...' : 'Generate Script'}
+                          {generatingScript ? 'Generando...' : 'Generar Guion'}
                         </Button>
 
                         <div className="relative">
@@ -365,7 +347,7 @@ const handleSaveCopy = async () => {
                               setScriptInput(e.target.value)
                               setScriptDirty(true)
                             }}
-                            placeholder="Click 'Generate Script'..."
+                            placeholder="Haz clic en 'Generar Guion'..."
                             rows={10}
                             disabled={!canEdit || generatingScript}
                             className="text-[10px] pr-5 min-h-[160px] resize-none font-mono leading-relaxed"
@@ -374,7 +356,7 @@ const handleSaveCopy = async () => {
                             <button
                               onClick={handleScriptToClipboard}
                               className="absolute top-1.5 right-1.5 p-0.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                              title="Copy to clipboard"
+                              title="Copiar al portapapeles"
                             >
                               <ContentCopyIcon style={{ fontSize: 12 }} />
                             </button>
@@ -383,7 +365,7 @@ const handleSaveCopy = async () => {
 
                         <div className="flex items-center justify-between mt-1">
                           <span className="text-[9px] text-gray-400">
-                            Narrative script
+                            Guion narrativo
                           </span>
                           {scriptDirty && canEdit && (
                             <Button
@@ -393,7 +375,7 @@ const handleSaveCopy = async () => {
                               className="h-5 text-[9px] px-1.5"
                             >
                               <SaveIcon style={{ fontSize: 10 }} className="mr-1" />
-                              Save
+                              Guardar
                             </Button>
                           )}
                         </div>
@@ -407,7 +389,7 @@ const handleSaveCopy = async () => {
                               <CollectionsIcon className="text-blue-600" style={{ fontSize: 12 }} />
                             </div>
                             <div>
-                              <h3 className="text-[10px] font-bold text-gray-700 uppercase tracking-wide">Media Gallery</h3>
+                              <h3 className="text-[10px] font-bold text-gray-700 uppercase tracking-wide">Galería de Medios</h3>
                             </div>
                           </div>
 
@@ -438,7 +420,7 @@ const handleSaveCopy = async () => {
                                       handleImageClick(idx)
                                     }}
                                     className="p-0.5 bg-white/90 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white shadow-sm"
-                                    title="View image"
+                                    title="Ver imagen"
                                   >
                                     <ZoomInIcon style={{ fontSize: 10 }} className="text-gray-700" />
                                   </button>
@@ -451,7 +433,7 @@ const handleSaveCopy = async () => {
                             ))}
                           </div>
                           <p className="text-[9px] text-gray-400 text-center mt-1">
-                            Drag to options
+                            Arrastrar a opciones
                           </p>
                         </div>
                       )}
@@ -460,7 +442,7 @@ const handleSaveCopy = async () => {
                       {requestImages.length === 0 && (
                         <div className="bg-white rounded-lg border border-gray-200 p-2 text-center">
                           <CollectionsIcon className="text-gray-300 mb-0.5" style={{ fontSize: 16 }} />
-                          <p className="text-[9px] text-gray-500">No images available</p>
+                          <p className="text-[9px] text-gray-500">No hay imágenes disponibles</p>
                         </div>
                       )}
                     </div>
@@ -509,91 +491,23 @@ const handleSaveCopy = async () => {
                       </div>
                     </div>
 
-                    {/* Marketing Toggle & Progress */}
-                    <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm flex items-center gap-4">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-medium text-gray-700">Enable Marketing?</span>
-                        <div className="flex bg-gray-100 rounded-lg p-0.5">
-                          <button
-                            onClick={() => handleToggleDoMarketing(true)}
-                            disabled={!canEdit || saving}
-                            className={`px-3 py-1 rounded-md text-[10px] font-semibold transition-all ${
-                              campaign.doMarketing
-                                ? 'bg-white text-green-600 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700'
-                            }`}
-                          >
-                            Yes
-                          </button>
-                          <button
-                            onClick={() => handleToggleDoMarketing(false)}
-                            disabled={!canEdit || saving}
-                            className={`px-3 py-1 rounded-md text-[10px] font-semibold transition-all ${
-                              !campaign.doMarketing
-                                ? 'bg-white text-red-600 shadow-sm'
-                                : 'text-gray-500 hover:text-gray-700'
-                            }`}
-                          >
-                            No
-                          </button>
+                    {/* Progress Bar */}
+                    {campaign.doMarketing && progress.planned > 0 && (
+                      <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Progress</span>
+                          <span className="text-[10px] font-bold text-gray-700">
+                            {progress.completed}/{progress.planned} tasks
+                          </span>
                         </div>
-                      </div>
-
-                      {campaign.doMarketing && (
-                        <div className="flex-1 flex items-center gap-3 border-l border-gray-100 pl-4">
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wide">Progress</span>
-                              <span className="text-[10px] font-bold text-gray-700">
-                                {progress.completed}/{progress.planned} tasks
-                              </span>
-                            </div>
-                            <div className="w-full bg-gray-100 rounded-full h-1.5">
-                              <div
-                                className="bg-green-500 h-1.5 rounded-full transition-all duration-300"
-                                style={{
-                                  width: `${progress.planned > 0 ? (progress.completed / progress.planned) * 100 : 0}%`,
-                                }}
-                              />
-                            </div>
-                          </div>
+                        <div className="w-full bg-gray-100 rounded-full h-1.5">
+                          <div
+                            className="bg-green-500 h-1.5 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${(progress.completed / progress.planned) * 100}%`,
+                            }}
+                          />
                         </div>
-                      )}
-                    </div>
-
-                    {/* Skip reason input/display */}
-                    {showSkipReason && (
-                      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg shadow-sm">
-                        <p className="text-xs text-yellow-800 mb-2 font-medium">
-                          Reason for skipping marketing (optional):
-                        </p>
-                        <Textarea
-                          value={skipReasonInput}
-                          onChange={(e) => setSkipReasonInput(e.target.value)}
-                          placeholder="Enter reason..."
-                          rows={2}
-                          className="mb-2 text-xs bg-white"
-                        />
-                        <div className="flex gap-2">
-                          <Button size="sm" onClick={handleConfirmNoMarketing} disabled={saving} className="h-6 text-[10px]">
-                            Confirm
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => setShowSkipReason(false)}
-                            className="h-6 text-[10px]"
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {!campaign.doMarketing && campaign.skipReason && (
-                      <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 text-xs shadow-sm">
-                        <span className="font-medium text-gray-600 mr-2">Skipped Reason:</span>
-                        <span className="text-gray-800">{campaign.skipReason}</span>
                       </div>
                     )}
 
@@ -615,8 +529,9 @@ const handleSaveCopy = async () => {
                             >
                               {/* Platform Header */}
                               <button
+                                type="button"
                                 onClick={() => togglePlatform(platform)}
-                                className="w-full px-3 py-2 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors"
+                                className="w-full px-3 py-2 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
                               >
                                 <div className="flex items-center gap-2">
                                   <PlatformIcon platform={platform} />
@@ -652,7 +567,6 @@ const handleSaveCopy = async () => {
                                         onTogglePlanned={toggleOptionPlanned}
                                         onToggleCompleted={toggleOptionCompleted}
                                         onUpdateDueDate={updateOptionDueDate}
-                                        onUpdateNotes={updateOptionNotes}
                                         onAddAttachment={addAttachment}
                                         onRemoveAttachment={removeAttachment}
                                         onImageDrop={handleImageDropOnOption}
@@ -664,19 +578,6 @@ const handleSaveCopy = async () => {
                             </div>
                           )
                         })}
-                      </div>
-                    )}
-
-                    {/* No Marketing Message */}
-                    {!campaign.doMarketing && (
-                      <div className="bg-gray-50 rounded-lg border border-gray-200 p-8 text-center">
-                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                          <CampaignIcon className="text-gray-400" style={{ fontSize: 24 }} />
-                        </div>
-                        <p className="text-gray-900 font-medium text-sm">Marketing Disabled</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Enable marketing above to start planning tasks.
-                        </p>
                       </div>
                     )}
                   </div>

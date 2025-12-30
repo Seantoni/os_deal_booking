@@ -53,6 +53,7 @@ export default function TaskManager({
           type="button"
           onClick={onAddTask}
           variant="secondary"
+          size="sm"
           leftIcon={<AddIcon fontSize="small" />}
           className="border-orange-200 text-orange-600 hover:bg-orange-50"
         >
@@ -69,6 +70,7 @@ export default function TaskManager({
         <Button
           type="button"
           onClick={onAddTask}
+          size="sm"
           leftIcon={<AddIcon fontSize="small" />}
           className="bg-orange-600 hover:bg-orange-700"
         >

@@ -138,15 +138,26 @@ export default function OpportunitiesPageClient({
   
   const confirmDialog = useConfirmDialog()
 
+  // Initial tab for opportunity modal (from URL params like ?tab=chat)
+  const [initialModalTab, setInitialModalTab] = useState<'details' | 'activity' | 'chat'>('details')
+
   // Handle opening opportunity from URL query params or session storage
   useEffect(() => {
     if (opportunities.length > 0) {
-      // First check URL query params (e.g., ?open=opportunityId from Tasks page)
+      // First check URL query params (e.g., ?open=opportunityId from Tasks page or Inbox)
       const openFromUrl = searchParams.get('open')
+      const tabFromUrl = searchParams.get('tab')
+      
       if (openFromUrl) {
         const opp = opportunities.find(o => o.id === openFromUrl)
         if (opp) {
           setSelectedOpportunity(opp)
+          // Set initial tab if provided (e.g., 'chat' from inbox)
+          if (tabFromUrl === 'chat' || tabFromUrl === 'activity' || tabFromUrl === 'details') {
+            setInitialModalTab(tabFromUrl)
+          } else {
+            setInitialModalTab('details')
+          }
           setOpportunityModalOpen(true)
         }
         return // Don't check sessionStorage if URL param was present
@@ -159,6 +170,7 @@ export default function OpportunitiesPageClient({
         const opp = opportunities.find(o => o.id === openOpportunityId)
         if (opp) {
           setSelectedOpportunity(opp)
+          setInitialModalTab('details') // Default to details from sessionStorage
           setOpportunityModalOpen(true)
         }
       }
@@ -473,6 +485,7 @@ export default function OpportunitiesPageClient({
         onClose={() => {
           setOpportunityModalOpen(false)
           setSelectedOpportunity(null)
+          setInitialModalTab('details') // Reset to default when closing
         }}
         opportunity={selectedOpportunity}
         onSuccess={(newOpportunity) => {
@@ -483,6 +496,7 @@ export default function OpportunitiesPageClient({
           }
           loadData()
         }}
+        initialTab={initialModalTab}
         // Pass preloaded data to skip fetching
         preloadedBusinesses={businessesFromOpportunities}
         preloadedCategories={categories}

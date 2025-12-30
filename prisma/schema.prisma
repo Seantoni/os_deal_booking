@@ -406,6 +406,7 @@ model Opportunity {
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   tasks    Task[] // Tasks linked to this opportunity
   deal     Deal? // Deal created from this opportunity's booked request
+  comments OpportunityComment[] // Chat comments on this opportunity
 
   @@index([businessId])
   @@index([stage])
@@ -647,6 +648,7 @@ model MarketingOption {
   
   // Relations
   campaign MarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  comments MarketingOptionComment[]
   
   @@unique([campaignId, platform, optionType])
   @@index([campaignId])
@@ -654,6 +656,69 @@ model MarketingOption {
   @@index([isPlanned])
   @@index([isCompleted])
   @@map("marketing_options")
+}
+
+// Marketing Option Comments - Chat/Discussion thread per option
+model MarketingOptionComment {
+  id          String   @id @default(cuid())
+  optionId    String   // FK to MarketingOption
+  userId      String   // Clerk user ID (author)
+  
+  // Content
+  content     String   @db.Text
+  mentions    Json?    // Array of mentioned user Clerk IDs: ["user_123", "user_456"]
+  reactions   Json?    // Emoji reactions: {"👍": ["user_123"], "❤️": ["user_456"]}
+  attachments Json?    // File attachments: [{url, filename, type, size}]
+  readBy      Json?    // Array of user Clerk IDs who have read this comment: ["user_123", "user_456"]
+  
+  // Edit tracking
+  isEdited    Boolean  @default(false)
+  editedAt    DateTime?
+  
+  // Soft delete
+  isDeleted   Boolean  @default(false)
+  deletedAt   DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  option      MarketingOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  
+  @@index([optionId, createdAt])
+  @@index([userId])
+  @@map("marketing_option_comments")
+}
+
+// Opportunity Comments - Chat/Discussion thread per opportunity
+model OpportunityComment {
+  id            String   @id @default(cuid())
+  opportunityId String   // FK to Opportunity
+  userId        String   // Clerk user ID (author)
+  
+  // Content
+  content     String   @db.Text
+  mentions    Json?    // Array of mentioned user Clerk IDs: ["user_123", "user_456"]
+  reactions   Json?    // Emoji reactions: {"👍": ["user_123"], "❤️": ["user_456"]}
+  readBy      Json?    // Array of user Clerk IDs who have read this comment: ["user_123", "user_456"]
+  
+  // Edit tracking
+  isEdited    Boolean  @default(false)
+  editedAt    DateTime?
+  
+  // Soft delete
+  isDeleted   Boolean  @default(false)
+  deletedAt   DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  opportunity Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  
+  @@index([opportunityId, createdAt])
+  @@index([userId])
+  @@map("opportunity_comments")
 }
 
 // ============================================================================

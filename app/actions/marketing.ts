@@ -619,6 +619,61 @@ export async function removeMarketingOptionAttachment(optionId: string, url: str
 }
 
 /**
+ * Batch update marketing options by IDs (for initial selection flow)
+ */
+export async function batchUpdateMarketingOptions(
+  optionIds: string[],
+  data: {
+    isPlanned?: boolean
+    isCompleted?: boolean
+  }
+) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    // Access control: admin and marketing can edit
+    const role = await getUserRole()
+    if (role !== 'admin' && role !== 'marketing') {
+      return { success: false, error: 'Unauthorized: Admin or Marketing access required' }
+    }
+
+    if (optionIds.length === 0) {
+      return { success: false, error: 'No options provided' }
+    }
+
+    // Update all options at once
+    await prisma.marketingOption.updateMany({
+      where: { id: { in: optionIds } },
+      data,
+    })
+
+    // Log activity
+    await logActivity({
+      action: 'UPDATE',
+      entityType: 'MarketingOption',
+      entityId: optionIds[0],
+      details: { 
+        newValues: { 
+          batchUpdate: true, 
+          optionsUpdated: optionIds.length, 
+          ...data 
+        } 
+      },
+    })
+
+    // Revalidate cache
+    invalidateEntity('marketing-campaigns')
+
+    return { success: true }
+  } catch (error) {
+    return handleServerActionError(error, 'batchUpdateMarketingOptions')
+  }
+}
+
+/**
  * Delete a marketing campaign (admin only)
  */
 export async function deleteMarketingCampaign(campaignId: string) {
