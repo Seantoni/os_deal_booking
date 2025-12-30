@@ -670,6 +670,7 @@ model MarketingOptionComment {
   reactions   Json?    // Emoji reactions: {"👍": ["user_123"], "❤️": ["user_456"]}
   attachments Json?    // File attachments: [{url, filename, type, size}]
   readBy      Json?    // Array of user Clerk IDs who have read this comment: ["user_123", "user_456"]
+  dismissedBy Json?    // Array of user Clerk IDs who dismissed this from inbox: ["user_123"]
   
   // Edit tracking
   isEdited    Boolean  @default(false)
@@ -701,6 +702,7 @@ model OpportunityComment {
   mentions    Json?    // Array of mentioned user Clerk IDs: ["user_123", "user_456"]
   reactions   Json?    // Emoji reactions: {"👍": ["user_123"], "❤️": ["user_456"]}
   readBy      Json?    // Array of user Clerk IDs who have read this comment: ["user_123", "user_456"]
+  dismissedBy Json?    // Array of user Clerk IDs who dismissed this from inbox: ["user_123"]
   
   // Edit tracking
   isEdited    Boolean  @default(false)

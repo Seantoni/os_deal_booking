@@ -114,6 +114,7 @@ export async function getInboxItems(): Promise<{
       userId: string
       content: string
       mentions: unknown
+      dismissedBy: unknown
       createdAt: Date
       opportunityId: string
       opportunity: {
@@ -136,6 +137,7 @@ export async function getInboxItems(): Promise<{
           userId: true,
           content: true,
           mentions: true,
+          dismissedBy: true,
           createdAt: true,
           opportunityId: true,
           opportunity: {
@@ -171,6 +173,7 @@ export async function getInboxItems(): Promise<{
           userId: true,
           content: true,
           mentions: true,
+          dismissedBy: true,
           createdAt: true,
           opportunityId: true,
           opportunity: {
@@ -208,6 +211,7 @@ export async function getInboxItems(): Promise<{
         userId: true,
         content: true,
         mentions: true,
+        dismissedBy: true,
         createdAt: true,
         optionId: true,
         option: {
@@ -267,6 +271,10 @@ export async function getInboxItems(): Promise<{
       // Skip if user has responded after this comment
       if (hasUserRespondedToOpp(comment.opportunityId, comment.createdAt)) continue
 
+      // Skip if user has dismissed this comment
+      const dismissedBy = (comment.dismissedBy as string[]) || []
+      if (dismissedBy.includes(userId)) continue
+
       const mentions = (comment.mentions as string[]) || []
       const isMentioned = mentions.includes(userId)
 
@@ -288,6 +296,10 @@ export async function getInboxItems(): Promise<{
     for (const comment of mktComments) {
       // Skip if user has responded after this comment
       if (hasUserRespondedToMkt(comment.optionId, comment.createdAt)) continue
+
+      // Skip if user has dismissed this comment
+      const dismissedBy = (comment.dismissedBy as string[]) || []
+      if (dismissedBy.includes(userId)) continue
 
       const mentions = (comment.mentions as string[]) || []
       const isMentioned = mentions.includes(userId)
@@ -344,5 +356,65 @@ export async function getUnreadInboxCount(): Promise<{
     return { success: true, data: inboxResult.data.length }
   } catch (error) {
     return handleServerActionError(error, 'getUnreadInboxCount')
+  }
+}
+
+/**
+ * Dismiss an inbox item (mark as done)
+ * Adds the current user to the dismissedBy array
+ */
+export async function dismissInboxItem(
+  commentId: string,
+  entityType: 'opportunity' | 'marketing'
+): Promise<{
+  success: boolean
+  error?: string
+}> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    if (entityType === 'opportunity') {
+      const comment = await prisma.opportunityComment.findUnique({
+        where: { id: commentId },
+        select: { dismissedBy: true },
+      })
+      
+      if (!comment) {
+        return { success: false, error: 'Comentario no encontrado' }
+      }
+      
+      const dismissedBy = (comment.dismissedBy as string[]) || []
+      if (!dismissedBy.includes(userId)) {
+        await prisma.opportunityComment.update({
+          where: { id: commentId },
+          data: { dismissedBy: [...dismissedBy, userId] },
+        })
+      }
+    } else {
+      const comment = await prisma.marketingOptionComment.findUnique({
+        where: { id: commentId },
+        select: { dismissedBy: true },
+      })
+      
+      if (!comment) {
+        return { success: false, error: 'Comentario no encontrado' }
+      }
+      
+      const dismissedBy = (comment.dismissedBy as string[]) || []
+      if (!dismissedBy.includes(userId)) {
+        await prisma.marketingOptionComment.update({
+          where: { id: commentId },
+          data: { dismissedBy: [...dismissedBy, userId] },
+        })
+      }
+    }
+
+    return { success: true }
+  } catch (error) {
+    return handleServerActionError(error, 'dismissInboxItem')
   }
 }

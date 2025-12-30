@@ -10,9 +10,11 @@ import CampaignIcon from '@mui/icons-material/Campaign'
 import { formatRelativeTime } from '@/lib/date'
 import {
   getInboxItems,
+  dismissInboxItem,
   type InboxItem,
 } from '@/app/actions/inbox'
 import toast from 'react-hot-toast'
+import CheckIcon from '@mui/icons-material/Check'
 
 interface InboxDropdownProps {
   onClose?: () => void
@@ -48,6 +50,20 @@ export default function InboxDropdown({ onClose }: InboxDropdownProps) {
   const handleItemClick = (item: InboxItem) => {
     router.push(item.linkUrl)
     onClose?.()
+  }
+
+  const handleDismiss = async (e: React.MouseEvent, item: InboxItem) => {
+    e.stopPropagation()
+    try {
+      const result = await dismissInboxItem(item.commentId, item.entityType)
+      if (result.success) {
+        setItems(prev => prev.filter(i => i.id !== item.id))
+      } else {
+        toast.error(result.error || 'Error al marcar como hecho')
+      }
+    } catch (err) {
+      toast.error('Error al marcar como hecho')
+    }
   }
 
   const getTypeIcon = (type: InboxItem['type']) => {
@@ -125,42 +141,55 @@ export default function InboxDropdown({ onClose }: InboxDropdownProps) {
         ) : (
           <div className="divide-y divide-gray-100">
             {items.map((item) => (
-              <button
+              <div
                 key={item.id}
-                onClick={() => handleItemClick(item)}
-                className="w-full text-left p-4 hover:bg-gray-50 transition-colors"
+                className="relative group"
               >
-                <div className="flex items-start gap-3">
-                  {/* Icon */}
-                  <div className="flex-shrink-0 mt-0.5">
-                    {getTypeIcon(item.type)}
-                  </div>
+                <button
+                  onClick={() => handleItemClick(item)}
+                  className="w-full text-left p-4 hover:bg-gray-50 transition-colors pr-12"
+                >
+                  <div className="flex items-start gap-3">
+                    {/* Icon */}
+                    <div className="flex-shrink-0 mt-0.5">
+                      {getTypeIcon(item.type)}
+                    </div>
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-medium text-gray-900">
-                        {item.author.name || item.author.email || 'Usuario'}
-                      </span>
-                      <span className="text-xs text-gray-400">•</span>
-                      <span className="text-xs text-gray-500">
-                        {getTypeLabel(item.type)}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-700 mb-2 line-clamp-2">
-                      {truncateContent(item.content)}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-gray-900">
-                        {item.entityName}
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        {formatRelativeTime(item.createdAt)}
-                      </span>
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-medium text-gray-900">
+                          {item.author.name || item.author.email || 'Usuario'}
+                        </span>
+                        <span className="text-xs text-gray-400">•</span>
+                        <span className="text-xs text-gray-500">
+                          {getTypeLabel(item.type)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700 mb-2 line-clamp-2">
+                        {truncateContent(item.content)}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-gray-900">
+                          {item.entityName}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {formatRelativeTime(item.createdAt)}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </button>
+                </button>
+                
+                {/* Dismiss button */}
+                <button
+                  onClick={(e) => handleDismiss(e, item)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                  title="Marcar como hecho"
+                >
+                  <CheckIcon style={{ fontSize: 18 }} />
+                </button>
+              </div>
             ))}
           </div>
         )}
