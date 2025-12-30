@@ -92,7 +92,7 @@ export default function OptionChatThread({ optionId, canEdit }: OptionChatThread
       return toggleCommentReaction(commentId, emoji)
     }, []),
 
-    getUsersForMention: useCallback(async (search) => {
+    getUsersForMention: useCallback(async (search?: string) => {
       return getUsersForMention(search)
     }, []),
   }
