@@ -13,7 +13,7 @@ export default function DirectorioStep({ formData, errors, updateFormData, isFie
   return (
     <div className="space-y-8">
       <div className="border-b border-gray-100 pb-4 mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Directorio de Responsables</h2>
+        <h2 className="text-xl font-bold text-gray-900">Directorio de Responsables</h2>
         <p className="text-sm text-gray-500 mt-1">Personas de contacto para operación y aprobación.</p>
       </div>
       

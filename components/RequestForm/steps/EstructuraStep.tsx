@@ -280,7 +280,7 @@ export default function EstructuraStep({
     <div className="space-y-8">
       <div className="border-b border-gray-100 pb-4 mb-6 flex justify-between items-end">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Estructura de la Oferta</h2>
+          <h2 className="text-xl font-bold text-gray-900">Estructura de la Oferta</h2>
           <p className="text-sm text-gray-500 mt-1">Defina las opciones de compra y precios para el cliente.</p>
         </div>
         <button

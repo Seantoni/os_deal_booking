@@ -19,25 +19,27 @@ import CloseIcon from '@mui/icons-material/Close'
 import MenuIcon from '@mui/icons-material/Menu'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 
+import MoreHorizIcon from '@mui/icons-material/MoreHoriz'
+
 type NavItem = {
   name: string
   href: string
   Icon: React.ElementType
 }
 
-// Primary nav items (shown in bottom bar) - max 5
+// Primary nav items (shown in bottom bar) - max 4 + More
 const adminPrimaryNav: NavItem[] = [
-  { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
-  { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
-  { name: 'Solicitudes', href: '/booking-requests', Icon: DescriptionIcon },
+  { name: 'Opps', href: '/opportunities', Icon: HandshakeIcon },
+  { name: 'Negocios', href: '/businesses', Icon: BusinessIcon },
   { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
+  { name: 'Requests', href: '/booking-requests', Icon: DescriptionIcon },
 ]
 
 const salesPrimaryNav: NavItem[] = [
-  { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
-  { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
-  { name: 'Solicitudes', href: '/booking-requests', Icon: DescriptionIcon },
+  { name: 'Opps', href: '/opportunities', Icon: HandshakeIcon },
+  { name: 'Negocios', href: '/businesses', Icon: BusinessIcon },
   { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
+  { name: 'Requests', href: '/booking-requests', Icon: DescriptionIcon },
 ]
 
 const editorPrimaryNav: NavItem[] = [
@@ -46,22 +48,24 @@ const editorPrimaryNav: NavItem[] = [
 
 // Secondary nav items (shown in "More" menu)
 const adminSecondaryNav: NavItem[] = [
+  { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
+  { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
+  { name: 'Marketing', href: '/marketing', Icon: AssignmentIcon },
   { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
   { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
   { name: 'Reservaciones', href: '/reservations', Icon: ListAltIcon },
   { name: 'Leads', href: '/leads', Icon: PersonAddIcon },
-  { name: 'Negocios', href: '/businesses', Icon: BusinessIcon },
-  { name: 'Oportunidades', href: '/opportunities', Icon: HandshakeIcon },
   { name: 'Inteligencia', href: '/market-intelligence', Icon: TrendingUpIcon },
   { name: 'Configuración', href: '/settings', Icon: SettingsIcon },
 ]
 
 const salesSecondaryNav: NavItem[] = [
+  { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
+  { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
+  { name: 'Marketing', href: '/marketing', Icon: AssignmentIcon },
   { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
   { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
   { name: 'Reservaciones', href: '/reservations', Icon: ListAltIcon },
-  { name: 'Negocios', href: '/businesses', Icon: BusinessIcon },
-  { name: 'Oportunidades', href: '/opportunities', Icon: HandshakeIcon },
 ]
 
 const editorSecondaryNav: NavItem[] = []
@@ -102,27 +106,49 @@ export default function MobileBottomNav() {
 
   return (
     <>
-      {/* Hamburger button */}
-      <div className="fixed top-4 left-4 z-40 md:hidden">
-        <button
-          onClick={() => setMoreMenuOpen(!moreMenuOpen)}
-          className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/90 shadow-lg border border-gray-200 text-gray-800 hover:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          aria-label="Abrir menú"
-        >
-          <MenuIcon fontSize="small" />
-          <span className="text-sm font-semibold">Menú</span>
-        </button>
+      {/* Bottom Navigation Bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 md:hidden pb-safe">
+        <div className="flex items-center justify-around h-16 px-1">
+          {primaryNav.map((item) => {
+            const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+            const Icon = item.Icon
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMoreMenuOpen(false)}
+                className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${
+                  isActive ? 'text-blue-600' : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                <Icon className={isActive ? 'text-blue-600' : 'text-gray-500'} style={{ fontSize: 24 }} />
+                <span className="text-[10px] font-medium truncate max-w-[64px]">{item.name}</span>
+              </Link>
+            )
+          })}
+          
+          {/* More Button */}
+          <button
+            onClick={() => setMoreMenuOpen(true)}
+            className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${
+              moreMenuOpen ? 'text-blue-600' : 'text-gray-500 hover:text-gray-900'
+            }`}
+          >
+            <MoreHorizIcon style={{ fontSize: 24 }} />
+            <span className="text-[10px] font-medium">Más</span>
+          </button>
+        </div>
       </div>
 
-      {/* Slide-in drawer */}
+      {/* Slide-in drawer (More Menu) */}
       {moreMenuOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => setMoreMenuOpen(false)}
           />
-          <div className="absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-white shadow-2xl border-r border-gray-200 transform transition-transform duration-200 ease-out">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <div className="absolute inset-y-0 right-0 w-72 max-w-[85vw] bg-white shadow-2xl border-l border-gray-200 transform transition-transform duration-200 ease-out flex flex-col pb-safe">
+            <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100">
               <span className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Menú</span>
               <button
                 onClick={() => setMoreMenuOpen(false)}
@@ -133,10 +159,9 @@ export default function MobileBottomNav() {
               </button>
             </div>
 
-            <div className="py-2 overflow-y-auto max-h-[calc(100vh-56px)]">
-              <div className="px-3 pb-2 text-xs font-semibold text-gray-500 uppercase">Principal</div>
+            <div className="flex-1 overflow-y-auto py-2">
               <div className="flex flex-col px-2 space-y-1">
-                {primaryNav.map((item) => {
+                {secondaryNav.map((item) => {
                   const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
                   const Icon = item.Icon
                   return (
@@ -144,7 +169,7 @@ export default function MobileBottomNav() {
                       key={item.href}
                       href={item.href}
                       onClick={() => setMoreMenuOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                      className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${
                         isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
                       }`}
                     >
@@ -154,31 +179,6 @@ export default function MobileBottomNav() {
                   )
                 })}
               </div>
-
-              {secondaryNav.length > 0 && (
-                <>
-                  <div className="px-3 pt-4 pb-2 text-xs font-semibold text-gray-500 uppercase">Más</div>
-                  <div className="flex flex-col px-2 space-y-1">
-                    {secondaryNav.map((item) => {
-                      const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
-                      const Icon = item.Icon
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          onClick={() => setMoreMenuOpen(false)}
-                          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                            isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          <Icon fontSize="small" className={isActive ? 'text-blue-600' : 'text-gray-500'} />
-                          <span className="font-medium">{item.name}</span>
-                        </Link>
-                      )
-                    })}
-                  </div>
-                </>
-              )}
             </div>
           </div>
         </div>

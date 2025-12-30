@@ -585,27 +585,117 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
   return (
     <div className="flex flex-col h-full bg-gradient-to-br from-gray-50 to-white">
       {/* Calendar Header */}
-      <div className="bg-white border-b border-gray-200 shadow-sm px-4 py-3 pl-5 pt-5">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h2 className="text-2xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
-            {getHeaderTitle()}
-          </h2>
+      <div className="bg-white border-b border-gray-200 shadow-sm px-3 py-3 md:px-4 md:pl-5 md:pt-5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center justify-between md:justify-start gap-3">
+            <h2 className="text-xl md:text-2xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent truncate">
+              {getHeaderTitle()}
+            </h2>
             {/* Event Count Badge */}
-            <div className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
+            <div className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold whitespace-nowrap">
               {filteredEvents.length} {filteredEvents.length === 1 ? 'event' : 'events'}
             </div>
           </div>
           
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Search Bar */}
-            <div className="relative">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-3">
+            {/* Controls Row */}
+            <div className="flex items-center justify-between md:justify-end gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
+              {/* Calendar View Toggle */}
+              <div className="flex items-center gap-0.5 bg-gray-100 rounded-md p-0.5 toggle-group flex-shrink-0">
+                <button
+                  onClick={() => setCalendarView('day')}
+                  className={`px-2 md:px-3 py-1.5 text-[10px] md:text-xs font-semibold rounded transition-all toggle-button ${
+                    calendarView === 'day'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md active'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-white'
+                  }`}
+                >
+                  Day
+                </button>
+                <button
+                  onClick={() => setCalendarView('week')}
+                  className={`px-2 md:px-3 py-1.5 text-[10px] md:text-xs font-semibold rounded transition-all toggle-button ${
+                    calendarView === 'week'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md active'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-white'
+                  }`}
+                >
+                  Week
+                </button>
+                <button
+                  onClick={() => setCalendarView('month')}
+                  className={`px-2 md:px-3 py-1.5 text-[10px] md:text-xs font-semibold rounded transition-all toggle-button ${
+                    calendarView === 'month'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md active'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-white'
+                  }`}
+                >
+                  Month
+                </button>
+              </div>
+
+              {/* View Mode Toggle */}
+              <div className="flex items-center gap-0.5 bg-gray-100 rounded-md p-0.5 toggle-group flex-shrink-0">
+                <button
+                  onClick={() => setViewMode('launch')}
+                  className={`px-2 md:px-3 py-1.5 text-[10px] md:text-xs font-semibold rounded transition-all toggle-button ${
+                    viewMode === 'launch'
+                      ? 'bg-gradient-to-r from-green-600 to-green-700 text-white shadow-md active'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-white'
+                  }`}
+                >
+                  Launch
+                </button>
+                <button
+                  onClick={() => setViewMode('live')}
+                  className={`px-2 md:px-3 py-1.5 text-[10px] md:text-xs font-semibold rounded transition-all toggle-button ${
+                    viewMode === 'live'
+                      ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-md active'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-white'
+                  }`}
+                >
+                  Live
+                </button>
+              </div>
+
+              {/* Navigation */}
+              <div className="flex items-center gap-1 bg-white rounded-md p-0.5 border border-gray-200 shadow-sm flex-shrink-0">
+                <button
+                  onClick={goToToday}
+                  className="px-2 md:px-3 py-1.5 text-[10px] md:text-xs font-semibold text-white bg-gradient-to-r from-indigo-600 to-indigo-700 rounded-md hover:from-indigo-700 hover:to-indigo-800 transition-all shadow-sm hover:shadow-md nav-button"
+                >
+                  Today
+                </button>
+                <div className="h-4 w-px bg-gray-300"></div>
+                <button
+                  onClick={navigatePrevious}
+                  className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-md transition-all nav-button"
+                  title="Previous"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button
+                  onClick={navigateNext}
+                  className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-md transition-all nav-button"
+                  title="Next"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Search Bar - Full width on mobile */}
+            <div className="relative w-full md:w-auto">
               <input
                 type="text"
                 placeholder="Search events..."
                 value={searchQuery}
                 onChange={(e) => onSearchChange?.(e.target.value)}
-                className="w-64 pl-9 pr-9 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full md:w-64 pl-9 pr-9 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
               <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -620,93 +710,6 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
                   </svg>
                 </button>
               )}
-            </div>
-
-            {/* Calendar View Toggle */}
-            <div className="flex items-center gap-0.5 bg-gray-100 rounded-md p-0.5 toggle-group">
-              <button
-                onClick={() => setCalendarView('day')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded transition-all toggle-button ${
-                  calendarView === 'day'
-                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md active'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-white'
-                }`}
-              >
-                Day
-              </button>
-              <button
-                onClick={() => setCalendarView('week')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded transition-all toggle-button ${
-                  calendarView === 'week'
-                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md active'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-white'
-                }`}
-              >
-                Week
-              </button>
-              <button
-                onClick={() => setCalendarView('month')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded transition-all toggle-button ${
-                  calendarView === 'month'
-                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md active'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-white'
-                }`}
-              >
-                Month
-              </button>
-            </div>
-
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-0.5 bg-gray-100 rounded-md p-0.5 toggle-group">
-              <button
-                onClick={() => setViewMode('launch')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded transition-all toggle-button ${
-                  viewMode === 'launch'
-                    ? 'bg-gradient-to-r from-green-600 to-green-700 text-white shadow-md active'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-white'
-                }`}
-              >
-                Launch
-              </button>
-              <button
-                onClick={() => setViewMode('live')}
-                className={`px-3 py-1.5 text-xs font-semibold rounded transition-all toggle-button ${
-                  viewMode === 'live'
-                    ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-md active'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-white'
-                }`}
-              >
-                Live
-              </button>
-            </div>
-
-            {/* Navigation */}
-            <div className="flex items-center gap-1 bg-white rounded-md p-0.5 border border-gray-200 shadow-sm">
-              <button
-                onClick={goToToday}
-                className="px-3 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-indigo-600 to-indigo-700 rounded-md hover:from-indigo-700 hover:to-indigo-800 transition-all shadow-sm hover:shadow-md nav-button"
-              >
-                Today
-              </button>
-              <div className="h-4 w-px bg-gray-300"></div>
-              <button
-                onClick={navigatePrevious}
-                className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-md transition-all nav-button"
-                title="Previous"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <button
-                onClick={navigateNext}
-                className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-md transition-all nav-button"
-                title="Next"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
             </div>
           </div>
         </div>

@@ -633,23 +633,24 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   // Show loading state when loading existing request for editing
   if (loadingEdit) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-100 py-12 px-4 sm:px-6 lg:px-8 font-sans flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-100 px-4 font-sans flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin h-10 w-10 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Cargando solicitud...</p>
+          <div className="animate-spin h-8 w-8 md:h-10 md:w-10 border-3 md:border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
+          <p className="text-gray-600 font-medium text-sm md:text-base">Cargando solicitud...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-100 py-12 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex gap-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-100 pb-24 md:pb-12 font-sans">
+      {/* Mobile: Full bleed, Desktop: padded */}
+      <div className="max-w-7xl mx-auto px-0 md:px-4 pt-4 md:pt-8">
+        <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
           {/* Category Availability Sidebar - Only visible on Configuración */}
           {currentStepKey === 'configuracion' && (
-            <div className="flex-shrink-0">
-              <div className="mb-4 w-80">
+            <div className="flex-shrink-0 w-full lg:w-80 order-1 px-3 md:px-0">
+              <div className="mb-3 w-full">
                 <p className="text-xs font-semibold text-gray-700 mb-1">Seleccionar categoría</p>
                 <Dropdown
                   fullWidth
@@ -672,20 +673,50 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
                   }}
                 />
               </div>
-              <CategoryAvailabilityList 
-                onCategorySelect={(option) => {
-                  // Update form data with selected category
-                  updateFormData('category', option.value)
-                  updateFormData('parentCategory', option.parent)
-                  updateFormData('subCategory1', option.sub1 || '')
-                  updateFormData('subCategory2', option.sub2 || '')
-                }}
-              />
+              
+              {/* Desktop: Always show list */}
+              <div className="hidden lg:block">
+                <CategoryAvailabilityList 
+                  onCategorySelect={(option) => {
+                    updateFormData('category', option.value)
+                    updateFormData('parentCategory', option.parent)
+                    updateFormData('subCategory1', option.sub1 || '')
+                    updateFormData('subCategory2', option.sub2 || '')
+                  }}
+                />
+              </div>
+
+              {/* Mobile: Collapsible list */}
+              <div className="lg:hidden mb-3">
+                <details className="group bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+                  <summary className="flex items-center justify-between p-3 font-medium cursor-pointer text-sm text-gray-700 hover:bg-gray-50 transition-colors select-none">
+                    <span>Ver Disponibilidad de Categorías</span>
+                    <span className="transition-transform group-open:rotate-180">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </span>
+                  </summary>
+                  <div className="p-3 border-t border-gray-200 max-h-60 overflow-y-auto">
+                    <CategoryAvailabilityList 
+                      onCategorySelect={(option) => {
+                        updateFormData('category', option.value)
+                        updateFormData('parentCategory', option.parent)
+                        updateFormData('subCategory1', option.sub1 || '')
+                        updateFormData('subCategory2', option.sub2 || '')
+                        // Close details on select (optional, but good UX)
+                        const details = document.querySelector('details.group')
+                        if (details) details.removeAttribute('open')
+                      }}
+                    />
+                  </div>
+                </details>
+              </div>
             </div>
           )}
 
           {/* Main Content Area */}
-          <div className={`flex-1 ${currentStepKey === 'configuracion' ? '' : 'max-w-5xl mx-auto'}`}>
+          <div className={`flex-1 order-2 px-3 md:px-0 ${currentStepKey === 'configuracion' ? '' : 'max-w-5xl mx-auto'}`}>
             <ProgressBar 
               steps={availableSteps}
               currentStepKey={currentStepKey}
@@ -693,8 +724,8 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
             />
 
             {/* Form Content */}
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-visible mt-6">
-              <div className="p-8 sm:p-10 overflow-visible">
+            <div className="bg-white rounded-xl md:rounded-2xl shadow-md md:shadow-xl border border-gray-100 overflow-visible mt-3 md:mt-6">
+              <div className="p-4 sm:p-6 md:p-10 overflow-visible">
                 <div className="animate-fadeIn overflow-visible">
                 {currentStepKey === 'configuracion' && (
                   <ConfiguracionStep 
@@ -784,23 +815,40 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
               </div>
             </div>
 
-            <NavigationButtons
-              currentStepIndex={currentStepIndex}
-              totalSteps={totalSteps}
-              saving={saving}
-              onPrevious={handlePrevious}
-              onNext={handleNext}
-              onSaveDraft={handleSaveDraft}
-              onSubmit={handleSubmit}
-              onGoBack={handleGoBack}
-            />
+            {/* Desktop: Inline navigation */}
+            <div className="hidden md:block mt-4 md:mt-6">
+              <NavigationButtons
+                currentStepIndex={currentStepIndex}
+                totalSteps={totalSteps}
+                saving={saving}
+                onPrevious={handlePrevious}
+                onNext={handleNext}
+                onSaveDraft={handleSaveDraft}
+                onSubmit={handleSubmit}
+                onGoBack={handleGoBack}
+              />
+            </div>
 
-            {/* Footer */}
-            <div className="mt-8 text-center text-sm text-gray-400 pb-8">
+            {/* Footer - Desktop only */}
+            <div className="hidden md:block mt-8 text-center text-sm text-gray-400 pb-8">
               OfertaSimple Booking System • {new Date().getFullYear()}
             </div>
           </div>
         </div>
+      </div>
+      
+      {/* Mobile: Fixed bottom navigation */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] safe-area-bottom">
+        <NavigationButtons
+          currentStepIndex={currentStepIndex}
+          totalSteps={totalSteps}
+          saving={saving}
+          onPrevious={handlePrevious}
+          onNext={handleNext}
+          onSaveDraft={handleSaveDraft}
+          onSubmit={handleSubmit}
+          onGoBack={handleGoBack}
+        />
       </div>
 
       {/* Submit Confirmation Dialog */}

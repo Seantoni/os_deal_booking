@@ -6,8 +6,8 @@ import { getUserRole } from '@/lib/auth/roles'
 import { requirePageAccess } from '@/lib/auth/page-access'
 import EventsPageClient from '@/components/events/EventsPageClient'
 import EventsHeaderActions from '@/components/events/EventsHeaderActions'
-import AppHeader from '@/components/common/AppHeader'
 import PageContent from '@/components/common/PageContent'
+import PageHeader from '@/components/common/PageHeader'
 
 export default async function EventsPage() {
   const { userId } = await auth()
@@ -31,18 +31,23 @@ export default async function EventsPage() {
   return (
     <PageContent>
       {/* Full-height calendar layout without card wrapper */}
-      <div className="h-screen flex flex-col">
-        <AppHeader 
-          title="Calendario"
-          actions={<EventsHeaderActions userRole={userRole} />}
-        />
-        {/* Main Content - add bottom padding on mobile for nav */}
-        <div className="flex-1 overflow-hidden pb-14 md:pb-0">
-          <EventsPageClient 
-            events={events} 
-            bookingRequests={bookingRequests} 
-            userRole={userRole} 
-          />
+      <div className="h-full flex flex-col p-3">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm flex-1 flex flex-col overflow-hidden">
+          {/* Page header */}
+          <div className="border-b border-gray-100 px-5 py-3 flex-shrink-0 bg-white">
+            <PageHeader 
+              title="Calendario"
+              actions={<EventsHeaderActions userRole={userRole} />}
+            />
+          </div>
+          {/* Main Content - add bottom padding on mobile for nav */}
+          <div className="flex-1 overflow-hidden pb-14 md:pb-0">
+            <EventsPageClient 
+              events={events} 
+              bookingRequests={bookingRequests} 
+              userRole={userRole} 
+            />
+          </div>
         </div>
       </div>
     </PageContent>

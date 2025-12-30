@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import { getBusinesses, deleteBusiness, getOpportunities } from '@/app/actions/crm'
@@ -70,6 +70,7 @@ export default function BusinessesPageClient({
   initialRequests,
 }: BusinessesPageClientProps = {}) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { role: userRole } = useUserRole()
   const isAdmin = userRole === 'admin'
   
@@ -117,6 +118,18 @@ export default function BusinessesPageClient({
   const [selectedBusinessForOpportunity, setSelectedBusinessForOpportunity] = useState<Business | null>(null)
   
   const confirmDialog = useConfirmDialog()
+
+  // Handle opening business from URL query params (e.g., from search)
+  useEffect(() => {
+    const openFromUrl = searchParams.get('open')
+    if (openFromUrl && businesses.length > 0) {
+      const business = businesses.find(b => b.id === openFromUrl)
+      if (business) {
+        setSelectedBusiness(business)
+        setBusinessModalOpen(true)
+      }
+    }
+  }, [searchParams, businesses])
 
   // Load opportunities and booking requests alongside businesses
   // Skip if we have server-prefetched data
@@ -413,7 +426,7 @@ export default function BusinessesPageClient({
       size="sm"
       leftIcon={<AddIcon style={{ fontSize: 16 }} sx={{}} />}
     >
-      New Business
+      Nuevo Negocio
     </Button>
   )
 

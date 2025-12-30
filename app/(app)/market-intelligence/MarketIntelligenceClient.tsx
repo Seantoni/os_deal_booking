@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { 
-  getCompetitorDeals,
+  getCompetitorDeals, 
   getCompetitorDealsDailyStats,
   CompetitorDealWithStats 
 } from '@/app/actions/competitor-deals'

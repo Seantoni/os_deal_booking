@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 import { unstable_cache } from 'next/cache'
 import AppClientProviders from '@/components/common/AppClientProviders'
+import GlobalHeader from '@/components/common/GlobalHeader'
 import HamburgerMenu from '@/components/common/HamburgerMenu'
 import MobileBottomNav from '@/components/common/MobileBottomNav'
 import { CACHE_REVALIDATE_CATEGORIES_SECONDS, CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
@@ -92,9 +93,22 @@ export default async function AppGroupLayout({ children }: { children: ReactNode
       initialUsers={users}
       initialRole={role}
     >
-      <div className="h-screen flex flex-col bg-white">
-        <HamburgerMenu />
-        {children}
+      <div className="h-screen flex flex-col bg-white overflow-hidden">
+        {/* Global Header - persistent across all pages */}
+        <GlobalHeader />
+        
+        {/* Main area: Sidebar + Content */}
+        <div className="flex-1 flex overflow-hidden relative">
+          {/* Sidebar */}
+          <HamburgerMenu />
+          
+          {/* Page content area */}
+          <div className="flex-1 overflow-hidden">
+            {children}
+          </div>
+        </div>
+        
+        {/* Mobile bottom navigation */}
         <MobileBottomNav />
       </div>
     </AppClientProviders>

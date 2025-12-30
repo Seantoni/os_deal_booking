@@ -182,7 +182,7 @@ export default function ValidacionStep({ formData, errors, updateFormData, updat
   return (
     <div className="space-y-8" ref={sectionRef}>
       <div className="border-b border-gray-100 pb-4 mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Validación Final</h2>
+        <h2 className="text-xl font-bold text-gray-900">Validación Final</h2>
         <p className="text-sm text-gray-500 mt-1">Revisa y confirma todos los detalles antes de enviar.</p>
       </div>
 

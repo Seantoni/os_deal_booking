@@ -91,6 +91,7 @@ export default function MarketingCampaignModal({
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
   const [users, setUsers] = useState<UserOption[]>([])
+  const [mobileTab, setMobileTab] = useState<'details' | 'resources'>('details')
 
   const {
     campaign,
@@ -257,9 +258,9 @@ const handleSaveCopy = async () => {
       />
 
       {/* Modal Container */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 pointer-events-none">
+      <div className="fixed inset-0 z-50 flex items-center justify-center md:p-3 pointer-events-none">
         <div
-          className={`w-full ${hasMediaOrCopy ? 'max-w-5xl' : 'max-w-3xl'} bg-white shadow-2xl rounded-xl flex flex-col max-h-[85vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${
+          className={`w-full ${hasMediaOrCopy ? 'max-w-5xl' : 'max-w-3xl'} bg-white shadow-2xl md:rounded-xl flex flex-col h-full md:h-auto md:max-h-[85vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${
             isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
           }`}
         >
@@ -288,7 +289,33 @@ const handleSaveCopy = async () => {
           </div>
 
           {/* Content - Two Column Layout */}
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+            {/* Mobile Tabs */}
+            {hasMediaOrCopy && (
+              <div className="md:hidden flex border-b border-gray-200 bg-gray-50 flex-shrink-0">
+                <button
+                  onClick={() => setMobileTab('details')}
+                  className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
+                    mobileTab === 'details'
+                      ? 'border-blue-500 text-blue-600 bg-white'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Detalles
+                </button>
+                <button
+                  onClick={() => setMobileTab('resources')}
+                  className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
+                    mobileTab === 'resources'
+                      ? 'border-blue-500 text-blue-600 bg-white'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Recursos
+                </button>
+              </div>
+            )}
+
             {error && (
               <div className="absolute top-12 left-4 right-4 z-10 p-2 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
                 <ErrorOutlineIcon className="text-red-600 flex-shrink-0 mt-0.5" fontSize="small" />
@@ -304,7 +331,7 @@ const handleSaveCopy = async () => {
               <>
                 {/* Left Side Panel - Sticky Copy & Media */}
                 {hasMediaOrCopy && (
-                  <div className="w-64 flex-shrink-0 border-r border-gray-200 bg-gray-50/50 overflow-y-auto custom-scrollbar">
+                  <div className={`${mobileTab === 'resources' ? 'block' : 'hidden'} md:block w-full md:w-64 flex-shrink-0 border-r border-gray-200 bg-gray-50/50 overflow-y-auto custom-scrollbar h-full`}>
                     <div className="p-2 space-y-2">
                       {/* AI Generated Copy Section */}
                       <div className="bg-white rounded-lg border border-gray-200 p-2">
@@ -509,7 +536,7 @@ const handleSaveCopy = async () => {
                 )}
 
                 {/* Right Main Content - Scrollable */}
-                <div className="flex-1 overflow-y-auto bg-gray-50">
+                <div className={`${mobileTab === 'details' ? 'block' : 'hidden'} md:block flex-1 overflow-y-auto bg-gray-50 h-full`}>
                   <div className="p-3 space-y-3">
                     {/* Booking Request Info */}
                     <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">

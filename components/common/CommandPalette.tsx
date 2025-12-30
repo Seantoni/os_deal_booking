@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSearchParams } from 'next/navigation'
 import SearchIcon from '@mui/icons-material/Search'
 import BusinessIcon from '@mui/icons-material/Business'
 import EventIcon from '@mui/icons-material/Event'
@@ -58,6 +57,12 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     return () => clearTimeout(timeoutId)
   }, [query])
 
+  // Handle result selection (navigate and close)
+  const handleSelectResult = (result: SearchResult) => {
+    router.push(result.url)
+    onClose()
+  }
+
   // Handle keyboard navigation
   useEffect(() => {
     if (!isOpen) return
@@ -73,27 +78,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         setSelectedIndex(prev => Math.max(prev - 1, 0))
       } else if (e.key === 'Enter' && results?.[selectedIndex]) {
         e.preventDefault()
-        const result = results[selectedIndex]
-        if (result.type === 'opportunity') {
-          sessionStorage.setItem('openOpportunityId', result.id)
-        }
-        
-        // Add search query to URL for pages that support it
-        let finalUrl = result.url
-        if (result.type === 'business' || result.type === 'opportunity' || result.type === 'booking-request') {
-          try {
-            const url = new URL(result.url, window.location.origin)
-            url.searchParams.set('search', result.title)
-            finalUrl = url.pathname + url.search
-          } catch (e) {
-            // If URL parsing fails, append search param manually
-            const separator = result.url.includes('?') ? '&' : '?'
-            finalUrl = `${result.url}${separator}search=${encodeURIComponent(result.title)}`
-          }
-        }
-        
-        router.push(finalUrl)
-        onClose()
+        handleSelectResult(results[selectedIndex])
       }
     }
 
@@ -211,28 +196,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                 {results.map((result, index) => (
                   <button
                     key={result.id}
-                    onClick={() => {
-                      if (result.type === 'opportunity') {
-                        sessionStorage.setItem('openOpportunityId', result.id)
-                      }
-                      
-                      // Add search query to URL for pages that support it
-                      let finalUrl = result.url
-                      if (result.type === 'business' || result.type === 'opportunity' || result.type === 'booking-request') {
-                        try {
-                          const url = new URL(result.url, window.location.origin)
-                          url.searchParams.set('search', result.title)
-                          finalUrl = url.pathname + url.search
-                        } catch (e) {
-                          // If URL parsing fails, append search param manually
-                          const separator = result.url.includes('?') ? '&' : '?'
-                          finalUrl = `${result.url}${separator}search=${encodeURIComponent(result.title)}`
-                        }
-                      }
-                      
-                      router.push(finalUrl)
-                      onClose()
-                    }}
+                    onClick={() => handleSelectResult(result)}
                     className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors ${
                       index === selectedIndex ? 'bg-gray-50' : ''
                     }`}

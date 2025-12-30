@@ -60,7 +60,7 @@ export async function globalSearch(query: string): Promise<{ success: boolean; d
         type: 'business',
         title: business.name,
         subtitle: business.contactEmail || business.contactName || undefined,
-        url: `/businesses?businessId=${business.id}`,
+        url: `/businesses?open=${business.id}`,
       })
     })
 
@@ -97,7 +97,7 @@ export async function globalSearch(query: string): Promise<{ success: boolean; d
         type: 'opportunity',
         title: `${opportunity.business.name} - ${opportunity.stage}`,
         subtitle: opportunity.notes || undefined,
-        url: `/opportunities`,
+        url: `/opportunities?open=${opportunity.id}`,
       })
     })
 
@@ -107,7 +107,6 @@ export async function globalSearch(query: string): Promise<{ success: boolean; d
         { name: { contains: searchTerm, mode: 'insensitive' } },
         { merchant: { contains: searchTerm, mode: 'insensitive' } },
         { businessEmail: { contains: searchTerm, mode: 'insensitive' } },
-        { description: { contains: searchTerm, mode: 'insensitive' } },
       ],
     }
 
@@ -184,7 +183,7 @@ export async function globalSearch(query: string): Promise<{ success: boolean; d
         type: 'deal',
         title: deal.bookingRequest.name,
         subtitle: deal.bookingRequest.merchant || deal.bookingRequest.businessEmail || deal.status || undefined,
-        url: `/deals?dealId=${deal.id}`,
+        url: `/deals?open=${deal.id}`,
       })
     })
 
@@ -213,7 +212,7 @@ export async function globalSearch(query: string): Promise<{ success: boolean; d
         type: 'event',
         title: event.name,
         subtitle: event.merchant || event.description || undefined,
-        url: `/events?eventId=${event.id}`,
+        url: `/events?open=${event.id}`,
       })
     })
 

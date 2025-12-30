@@ -2,9 +2,7 @@
 
 import { useMemo, useState, useEffect } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { UserButton } from '@clerk/nextjs'
 import { useSidebar } from './AppClientProviders'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import DashboardIcon from '@mui/icons-material/Dashboard'
@@ -146,17 +144,10 @@ export default function HamburgerMenu() {
       )}
 
       {/* Sidebar Menu - Hidden on mobile (md:block) */}
-      <div className={`hidden md:block fixed top-3 left-5 h-[calc(100vh-1.5rem)] bg-slate-50/95 backdrop-blur-xl border border-slate-200/80 shadow-lg rounded-2xl transform transition-all duration-300 ease-in-out ${
-        isOpen ? 'translate-x-0' : '-translate-x-[150%]'
+      <div className={`hidden md:block absolute top-2 left-2 bottom-2 bg-slate-50/95 backdrop-blur-xl border border-slate-200/80 shadow-lg rounded-2xl transform transition-all duration-300 ease-in-out ${
+        isOpen ? 'translate-x-0' : '-translate-x-[calc(100%+16px)]'
       } w-[88px]`} style={{ zIndex: isCalendarPage ? 50 : 30 }}>
         <div className={`h-full flex flex-col`}>
-          {/* Header - Logo Only */}
-          <div className="h-16 flex items-center justify-center">
-            <div className="relative w-8 h-8 rounded-lg overflow-hidden bg-white shadow-sm ring-1 ring-slate-200 group-hover:ring-blue-200 transition-all">
-              <Image src="/icon.png" alt="OS Deals" fill className="object-cover" />
-            </div>
-          </div>
-
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto py-2 px-1.5 space-y-1.5 scrollbar-hide">
             {(!mounted || loading) ? (
@@ -226,11 +217,10 @@ export default function HamburgerMenu() {
             )}
           </nav>
 
-          {/* Bottom Section - Settings + User Profile (always visible) */}
-          <div className="px-1.5 pb-3">
-            {/* Bottom Items (Settings) - Only show when mounted and loaded */}
-            {mounted && !loading && sidebarConfig.bottomItems.length > 0 && (
-              <div className="space-y-2 mb-2">
+          {/* Bottom Section - Settings (User profile is now in GlobalHeader) */}
+          {mounted && !loading && sidebarConfig.bottomItems.length > 0 && (
+            <div className="px-1.5 pb-3">
+              <div className="space-y-2">
                 <div className="h-px w-8 mx-auto bg-slate-200/60 mb-2" />
                 {sidebarConfig.bottomItems.map((item) => {
                   const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
@@ -276,15 +266,8 @@ export default function HamburgerMenu() {
                   )
                 })}
               </div>
-            )}
-
-            {/* User Profile */}
-            <div className="flex justify-center pt-2">
-              <div className="bg-white p-1 rounded-full shadow-md ring-1 ring-slate-100 transition-transform hover:scale-110 hover:shadow-lg cursor-pointer transform scale-90">
-                <UserButton afterSignOutUrl="/sign-in" />
-              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </>

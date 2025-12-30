@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import { getDeals, deleteDeal } from '@/app/actions/deals'
@@ -65,6 +66,7 @@ const COLUMNS: ColumnConfig[] = [
 const SEARCH_FIELDS = ['bookingRequest.name', 'bookingRequest.businessEmail', 'bookingRequest.merchant']
 
 export default function DealsPageClient() {
+  const searchParams = useSearchParams()
   const { isAdmin } = useUserRole()
   
   // Use shared hook for common functionality
@@ -107,6 +109,18 @@ export default function DealsPageClient() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [visibleCount, setVisibleCount] = useState(50)
   const confirmDialog = useConfirmDialog()
+
+  // Handle opening deal from URL query params (e.g., from search)
+  useEffect(() => {
+    const openFromUrl = searchParams.get('open')
+    if (openFromUrl && deals.length > 0) {
+      const deal = deals.find(d => d.id === openFromUrl)
+      if (deal) {
+        setSelectedDeal(deal)
+        setDealModalOpen(true)
+      }
+    }
+  }, [searchParams, deals])
 
   // Get unique responsible users for filter
   const responsibleUsers = useMemo(() => {

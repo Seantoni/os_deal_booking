@@ -45,7 +45,7 @@ export default function InformacionAdicionalStep({ formData, errors, updateFormD
   return (
     <div className="space-y-8">
       <div className="border-b border-gray-100 pb-4 mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Información Adicional</h2>
+        <h2 className="text-xl font-bold text-gray-900">Información Adicional</h2>
         <p className="text-sm text-gray-500 mt-1">
           Información específica para <span className="font-semibold text-gray-700">{getDisplayName()}</span>.
         </p>
