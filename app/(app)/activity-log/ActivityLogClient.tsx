@@ -34,7 +34,7 @@ interface ActivityLog {
   entityType: string
   entityId: string | null
   entityName: string | null
-  details: any
+  details: Record<string, unknown> | null
   createdAt: Date
 }
 
@@ -177,8 +177,8 @@ export default function ActivityLogClient() {
       const offset = reset ? 0 : page * limit
       const result = await getActivityLogs({
         userId: selectedUser || undefined,
-        action: selectedAction as any || undefined,
-        entityType: selectedEntity as any || undefined,
+        action: (selectedAction || undefined) as typeof selectedAction,
+        entityType: (selectedEntity || undefined) as typeof selectedEntity,
         search: search || undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,

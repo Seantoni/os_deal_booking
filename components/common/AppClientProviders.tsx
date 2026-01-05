@@ -3,15 +3,15 @@
 import { ReactNode, createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
-import type { UserRole } from '@/types'
+import type { UserRole, CategoryOption, UserProfile } from '@/types'
 
 // ============================================================================
 // Shared Data Context (Categories & Users)
 // ============================================================================
 
 interface SharedDataContextType {
-  categories: any[]
-  users: any[]
+  categories: CategoryOption[]
+  users: UserProfile[]
   loading: boolean
   refreshCategories: () => Promise<void>
   refreshUsers: () => Promise<void>
@@ -23,8 +23,8 @@ export function useSharedData() {
   const context = useContext(SharedDataContext)
   if (!context) {
     return {
-      categories: [] as any[],
-      users: [] as any[],
+      categories: [] as CategoryOption[],
+      users: [] as UserProfile[],
       loading: false,
       refreshCategories: async () => {},
       refreshUsers: async () => {},
@@ -34,8 +34,8 @@ export function useSharedData() {
 }
 
 // Utility to clear cache (e.g., after settings change)
-let cachedCategories: any[] | null = null
-let cachedUsers: any[] | null = null
+let cachedCategories: CategoryOption[] | null = null
+let cachedUsers: UserProfile[] | null = null
 
 export function clearSharedDataCache() {
   cachedCategories = null
@@ -78,8 +78,8 @@ export function useSidebar() {
 interface AppClientProvidersProps {
   children: ReactNode
   // Server-fetched initial data
-  initialCategories?: any[]
-  initialUsers?: any[]
+  initialCategories?: CategoryOption[]
+  initialUsers?: UserProfile[]
   initialRole?: UserRole | null
 }
 
@@ -120,8 +120,8 @@ export default function AppClientProviders({
   // ============================================================================
   // Shared Data State (initialized from server)
   // ============================================================================
-  const [categories, setCategories] = useState<any[]>(initialCategories)
-  const [users, setUsers] = useState<any[]>(initialUsers)
+  const [categories, setCategories] = useState<CategoryOption[]>(initialCategories)
+  const [users, setUsers] = useState<UserProfile[]>(initialUsers)
   const [sharedDataLoading, setSharedDataLoading] = useState(false)
   
   // Cache the initial data

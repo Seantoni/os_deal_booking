@@ -70,7 +70,7 @@ export default function AdvancedFilterBuilder({
       
       if (!customFieldEntityType) return
 
-      const result = await getCustomFields(customFieldEntityType as any)
+      const result = await getCustomFields(customFieldEntityType as 'business' | 'opportunity' | 'deal' | 'lead')
       if (result.success && result.data) {
         setCustomFields(result.data)
       }
@@ -111,7 +111,7 @@ export default function AdvancedFilterBuilder({
     }
   }
 
-  const handleRuleChange = (ruleId: string, field: keyof FilterRule, value: any) => {
+  const handleRuleChange = (ruleId: string, field: keyof FilterRule, value: FilterRule[keyof FilterRule]) => {
     setRules(rules.map(r => {
       if (r.id !== ruleId) return r
       

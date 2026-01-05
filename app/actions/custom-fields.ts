@@ -96,7 +96,7 @@ export async function getCustomFields(entityType?: EntityType) {
     })
 
     // Parse options JSON for select fields
-    const parsedFields = fields.map((field: any) => ({
+    const parsedFields = fields.map((field) => ({
       ...field,
       options: field.options ? (field.options as unknown as SelectOption[]) : null,
     }))
@@ -125,7 +125,7 @@ export async function getAllCustomFields() {
       ],
     })
 
-    const parsedFields = fields.map((field: any) => ({
+    const parsedFields = fields.map((field) => ({
       ...field,
       options: field.options ? (field.options as unknown as SelectOption[]) : null,
     }))
@@ -249,14 +249,14 @@ export async function updateCustomField(id: string, data: {
       return { success: false, error: 'Select fields require at least one option' }
     }
 
-    const updateData: any = {}
+    const updateData: Prisma.CustomFieldUpdateInput = {}
     
     if (data.label !== undefined) updateData.label = data.label.trim()
     if (data.isRequired !== undefined) updateData.isRequired = data.isRequired
     if (data.placeholder !== undefined) updateData.placeholder = data.placeholder?.trim() || null
     if (data.defaultValue !== undefined) updateData.defaultValue = data.defaultValue?.trim() || null
     if (data.helpText !== undefined) updateData.helpText = data.helpText?.trim() || null
-    if (data.options !== undefined && existingField.fieldType === 'select') updateData.options = data.options
+    if (data.options !== undefined && existingField.fieldType === 'select') updateData.options = data.options as unknown as Prisma.InputJsonValue
     if (data.displayOrder !== undefined) updateData.displayOrder = data.displayOrder
     if (data.showInTable !== undefined) updateData.showInTable = data.showInTable
     if (data.isActive !== undefined) updateData.isActive = data.isActive
@@ -376,7 +376,7 @@ export async function getCustomFieldValues(entityId: string, entityType: EntityT
 
     // Transform to a map of fieldKey -> value for easier access
     const valueMap: Record<string, string | null> = {}
-    values.forEach((v: any) => {
+    values.forEach((v) => {
       valueMap[v.customField.fieldKey] = v.value
     })
 
@@ -409,7 +409,7 @@ export async function saveCustomFieldValues(
     })
 
     // Create a map of fieldKey -> field
-    const fieldMap = new Map(fields.map((f: any) => [f.fieldKey, f]))
+    const fieldMap = new Map(fields.map((f) => [f.fieldKey, f]))
 
     // Validate required fields
     for (const field of fields) {
@@ -479,7 +479,7 @@ export async function getCustomFieldsWithValues(entityId: string, entityType: En
       },
     })
 
-    const result = fields.map((field: any) => ({
+    const result = fields.map((field) => ({
       ...field,
       options: field.options ? (field.options as unknown as SelectOption[]) : null,
       value: field.values[0]?.value ?? field.defaultValue ?? null,

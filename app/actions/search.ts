@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@prisma/client'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
 import { getUserRole } from '@/lib/auth/roles'
 
@@ -32,7 +33,7 @@ export async function globalSearch(query: string): Promise<{ success: boolean; d
     const results: SearchResult[] = []
 
     // Search Businesses
-    let businessWhere: any = {
+    let businessWhere: Prisma.BusinessWhereInput = {
       OR: [
         { name: { contains: searchTerm, mode: 'insensitive' } },
         { contactName: { contains: searchTerm, mode: 'insensitive' } },
@@ -65,7 +66,7 @@ export async function globalSearch(query: string): Promise<{ success: boolean; d
     })
 
     // Search Opportunities
-    let opportunityWhere: any = {
+    let opportunityWhere: Prisma.OpportunityWhereInput = {
       OR: [
         { notes: { contains: searchTerm, mode: 'insensitive' } },
         { business: { name: { contains: searchTerm, mode: 'insensitive' } } },
@@ -102,7 +103,7 @@ export async function globalSearch(query: string): Promise<{ success: boolean; d
     })
 
     // Search Booking Requests
-    let bookingRequestWhere: any = {
+    let bookingRequestWhere: Prisma.BookingRequestWhereInput = {
       OR: [
         { name: { contains: searchTerm, mode: 'insensitive' } },
         { merchant: { contains: searchTerm, mode: 'insensitive' } },
@@ -133,7 +134,7 @@ export async function globalSearch(query: string): Promise<{ success: boolean; d
     })
 
     // Search Deals
-    let dealWhere: any = {
+    let dealWhere: Prisma.DealWhereInput = {
       OR: [
         { bookingRequest: { name: { contains: searchTerm, mode: 'insensitive' } } },
         { bookingRequest: { merchant: { contains: searchTerm, mode: 'insensitive' } } },
@@ -188,7 +189,7 @@ export async function globalSearch(query: string): Promise<{ success: boolean; d
     })
 
     // Search Events
-    let eventWhere: any = {
+    let eventWhere: Prisma.EventWhereInput = {
       OR: [
         { name: { contains: searchTerm, mode: 'insensitive' } },
         { description: { contains: searchTerm, mode: 'insensitive' } },

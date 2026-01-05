@@ -4,10 +4,13 @@ import { useState } from 'react'
 import type { FilterFieldDefinition, FieldType } from '@/lib/filters/filterConfig'
 import { DATE_PRESETS } from '@/lib/filters/filterConfig'
 
+// Type for filter values (can be string, number, boolean, or null)
+type FilterValue = string | number | boolean | null
+
 interface FilterValueInputProps {
   field: FilterFieldDefinition
-  value: any
-  onChange: (value: any) => void
+  value: FilterValue
+  onChange: (value: FilterValue) => void
   operator: string
   disabled?: boolean
 }

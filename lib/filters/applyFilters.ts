@@ -1,35 +1,39 @@
 import type { FilterRule, FilterOperator } from '@/app/actions/filters'
 import { resolveDatePreset, DATE_PRESETS } from './filterConfig'
 
+// Type for values that can be compared in filters
+type FilterableValue = string | number | boolean | Date | null | undefined
+
 /**
  * Get nested value from an object using dot notation
  * e.g., getNestedValue({ a: { b: 1 } }, 'a.b') => 1
  */
-function getNestedValue(obj: any, path: string): any {
-  return path.split('.').reduce((current, key) => current?.[key], obj)
+function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
+  return path.split('.').reduce((current, key) => (current as Record<string, unknown>)?.[key], obj as unknown)
 }
 
 /**
  * Check if a value is a date preset
  */
-function isDatePreset(value: any): boolean {
+function isDatePreset(value: unknown): boolean {
   return typeof value === 'string' && DATE_PRESETS.some(p => p.value === value)
 }
 
 /**
  * Normalize value for comparison
  */
-function normalizeValue(value: any): any {
+function normalizeValue(value: unknown): FilterableValue {
   if (value === null || value === undefined) return null
   if (typeof value === 'string') return value.toLowerCase().trim()
   if (value instanceof Date) return value.getTime()
-  return value
+  if (typeof value === 'number' || typeof value === 'boolean') return value
+  return String(value)
 }
 
 /**
  * Parse a date value (could be a preset, ISO string, or Date object)
  */
-function parseDateValue(value: any): Date | null {
+function parseDateValue(value: unknown): Date | null {
   if (!value) return null
   
   if (isDatePreset(value)) {
@@ -47,7 +51,7 @@ function parseDateValue(value: any): Date | null {
 /**
  * Compare two values using an operator
  */
-function compareValues(fieldValue: any, operator: FilterOperator, filterValue: any): boolean {
+function compareValues(fieldValue: unknown, operator: FilterOperator, filterValue: unknown): boolean {
   // Handle null checks first
   if (operator === 'isNull') {
     return fieldValue === null || fieldValue === undefined || fieldValue === ''
@@ -153,7 +157,7 @@ function compareValues(fieldValue: any, operator: FilterOperator, filterValue: a
 /**
  * Check if a single item matches a filter rule
  */
-function matchesRule(item: any, rule: FilterRule): boolean {
+function matchesRule(item: Record<string, unknown>, rule: FilterRule): boolean {
   const fieldValue = getNestedValue(item, rule.field)
   return compareValues(fieldValue, rule.operator, rule.value)
 }
@@ -162,7 +166,7 @@ function matchesRule(item: any, rule: FilterRule): boolean {
  * Apply filter rules to a single item
  * Returns true if the item matches all filter rules
  */
-export function matchesFilters(item: any, rules: FilterRule[]): boolean {
+export function matchesFilters(item: Record<string, unknown>, rules: FilterRule[]): boolean {
   if (!rules || rules.length === 0) return true
 
   let result = matchesRule(item, rules[0])

@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import { deleteBookingRequest, resendBookingRequest, bulkDeleteBookingRequests, bulkUpdateBookingRequestStatus, refreshBookingRequests, cancelBookingRequest } from '@/app/actions/booking'
 import type { BookingRequest } from '@/types'
+import type { BookingRequestStatus } from '@/lib/constants'
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
 import FilterListIcon from '@mui/icons-material/FilterList'
@@ -179,11 +180,12 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
 
     setResendingId(resendRequest.id)
     
-    const result = await resendBookingRequest(resendRequest.id, emails)
+    const result = await resendBookingRequest(resendRequest.id, emails) as
+      | { success: true; sentCount: number; totalCount: number }
+      | { success: false; error: string }
     
     if (result.success) {
-      const sentCount = (result as any).sentCount || 1
-      const totalCount = (result as any).totalCount || 1
+      const { sentCount, totalCount } = result
       toast.success(
         totalCount > 1 
           ? `Email enviado a ${sentCount} de ${totalCount} destinatarios` 
@@ -198,7 +200,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
       // Refresh data in background (fetches only booking requests, NOT user data)
       refreshData()
     } else {
-      const errorMessage = (result as any).error || 'Error al reenviar email'
+      const errorMessage = result.error || 'Error al reenviar email'
       toast.error(errorMessage)
       throw new Error(errorMessage)
     }
@@ -306,8 +308,8 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     if (!sortColumn) return requests
 
     return [...requests].sort((a, b) => {
-      let aValue: any
-      let bValue: any
+      let aValue: string | number | null
+      let bValue: string | number | null
 
       switch (sortColumn) {
         case 'status':
@@ -468,11 +470,11 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     
     // Optimistic update
     setBookingRequests(prev => 
-      prev.map(r => selectedIds.has(r.id) ? { ...r, status: status as any } : r)
+      prev.map(r => selectedIds.has(r.id) ? { ...r, status: status as BookingRequestStatus } : r)
     )
     setSelectedIds(new Set())
 
-    const result = await bulkUpdateBookingRequestStatus(idsArray, status as any)
+    const result = await bulkUpdateBookingRequestStatus(idsArray, status as BookingRequestStatus)
     
     if (result.success && 'updatedCount' in result) {
       toast.success(`Se actualizaron exitosamente ${result.updatedCount || idsArray.length} solicitud${idsArray.length > 1 ? 'es' : ''}`)
@@ -538,7 +540,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
               { id: 'cancelled', label: 'Cancelado', count: statusCounts.cancelled },
             ]}
             activeId={statusFilter}
-            onChange={(id) => setStatusFilter(id as any)}
+            onChange={(id) => setStatusFilter(id as typeof statusFilter)}
           />
         </div>
       </div>

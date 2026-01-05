@@ -49,7 +49,7 @@ export const validateStep = (
     return isRequired(fieldKey)
   }
 
-  const isEmpty = (value: any) => {
+  const isEmpty = (value: unknown) => {
     if (Array.isArray(value)) return value.length === 0
     if (value === undefined || value === null) return true
     if (typeof value === 'string') return value.trim().length === 0
@@ -60,7 +60,7 @@ export const validateStep = (
   if (stepDef) {
     stepDef.fields.forEach((field) => {
       if (!shouldValidateField(field.key)) return
-      const value = (formData as any)[field.key]
+      const value = formData[field.key as keyof BookingFormData]
       if (isEmpty(value)) {
         newErrors[field.key] = 'Requerido'
       }
@@ -259,9 +259,9 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
     
     // Collect all field values from the template
     template.fields.forEach(fieldConfig => {
-      const value = (formData as any)[fieldConfig.name]
+      const value = formData[fieldConfig.name as keyof BookingFormData]
       if (value !== undefined && value !== '') {
-        fields[fieldConfig.name] = value
+        fields[fieldConfig.name] = String(value)
       }
     })
     

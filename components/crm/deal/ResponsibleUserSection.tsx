@@ -4,14 +4,15 @@ import { useState } from 'react'
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import type { UserProfile } from '@/types'
 
 interface ResponsibleUserSectionProps {
   responsibleId: string
   onResponsibleChange: (id: string) => void
   ereResponsibleId: string
   onEreResponsibleChange: (id: string) => void
-  editorUsers: any[]
-  ereUsers: any[]
+  editorUsers: UserProfile[]
+  ereUsers: UserProfile[]
   isAdmin: boolean
 }
 

@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { getUserRole } from '@/lib/auth/roles'
+import type { CompetitorDeal, CompetitorDealSnapshot, Prisma } from '@prisma/client'
 
 // Inline type definition to avoid Prisma cache issues
 type WhereInput = {
@@ -19,6 +20,13 @@ type WhereInput = {
 interface SnapshotForCalc {
   totalSold: number
   scannedAt: Date
+}
+
+// Type for groupBy result
+interface GroupBySiteResult {
+  sourceSite: string
+  _count: { id: number }
+  _sum: { totalSold: number | null }
 }
 
 // Types
@@ -167,8 +175,7 @@ export async function getCompetitorDeals(params: GetDealsParams = {}): Promise<G
   monthStart.setMonth(monthStart.getMonth() - 1)
   
   const dealsWithStats: CompetitorDealWithStats[] = await Promise.all(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    deals.map(async (deal: any) => {
+    deals.map(async (deal: CompetitorDeal) => {
       // Get snapshots for calculating sales
       const snapshots = await prisma.competitorDealSnapshot.findMany({
         where: { dealId: deal.id },
@@ -209,8 +216,8 @@ export async function getCompetitorDeals(params: GetDealsParams = {}): Promise<G
         sourceSite: deal.sourceSite,
         merchantName: deal.merchantName,
         dealTitle: deal.dealTitle,
-        originalPrice: deal.originalPrice.toNumber(),
-        offerPrice: deal.offerPrice.toNumber(),
+        originalPrice: Number(deal.originalPrice),
+        offerPrice: Number(deal.offerPrice),
         discountPercent: deal.discountPercent,
         totalSold: deal.totalSold,
         imageUrl: deal.imageUrl,
@@ -316,8 +323,8 @@ export async function getCompetitorDeal(dealId: string): Promise<{
     sourceSite: deal.sourceSite,
     merchantName: deal.merchantName,
     dealTitle: deal.dealTitle,
-    originalPrice: deal.originalPrice.toNumber(),
-    offerPrice: deal.offerPrice.toNumber(),
+    originalPrice: Number(deal.originalPrice),
+    offerPrice: Number(deal.offerPrice),
     discountPercent: deal.discountPercent,
     totalSold: deal.totalSold,
     imageUrl: deal.imageUrl,
@@ -332,12 +339,11 @@ export async function getCompetitorDeal(dealId: string): Promise<{
     salesThisMonth: Math.max(0, salesThisMonth),
   }
   
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const formattedSnapshots: DealSnapshot[] = snapshots.map((s: any) => ({
+  const formattedSnapshots: DealSnapshot[] = snapshots.map((s: CompetitorDealSnapshot) => ({
     id: s.id,
     totalSold: s.totalSold,
-    offerPrice: s.offerPrice.toNumber(),
-    originalPrice: s.originalPrice.toNumber(),
+    offerPrice: Number(s.offerPrice),
+    originalPrice: Number(s.originalPrice),
     scannedAt: s.scannedAt,
   }))
   
@@ -485,15 +491,13 @@ export async function getCompetitorDealStats(): Promise<{
   }
   
   // Total across all sites
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const totalSalesTracked = bySiteStats.reduce((sum: number, s: any) => sum + (s._sum.totalSold || 0), 0)
+  const totalSalesTracked = bySiteStats.reduce((sum: number, s: GroupBySiteResult) => sum + (s._sum.totalSold || 0), 0)
   
   return {
     totalDeals,
     activeDeals,
     totalSalesTracked,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    bySite: bySiteStats.map((r: any) => ({ 
+    bySite: bySiteStats.map((r: GroupBySiteResult) => ({ 
       site: r.sourceSite, 
       count: r._count.id,
       totalSold: r._sum.totalSold || 0,

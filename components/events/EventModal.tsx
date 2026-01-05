@@ -9,7 +9,14 @@ import { getMaxDuration, getDaysDifference, getCategoryOptions, getCategoryColor
 import type { CategoryOption } from '@/lib/categories'
 import { checkUniquenesViolation, check30DayMerchantRule, getDailyLimitStatus, getEventsOnDate, calculateNextAvailableDate } from '@/lib/event-validation'
 import { formatDateForPanama, PANAMA_TIMEZONE } from '@/lib/date/timezone'
-import type { Event, UserRole, EventModalPrefillData } from '@/types'
+import type { Event, UserRole, EventModalPrefillData, BookingRequest } from '@/types'
+
+// Extended type for linked booking request with user info
+type LinkedBookingRequest = BookingRequest & {
+  processedByUser?: { name: string | null; email: string | null } | null
+  createdByUser?: { name: string | null; email: string | null } | null
+  marketingCampaignId?: string | null
+}
 import { hasCategoryData } from '@/types'
 import { getSettings, getBusinessException } from '@/lib/settings'
 import WarningIcon from '@mui/icons-material/Warning'
@@ -132,7 +139,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
   
   // Separate state for data that doesn't fit the form pattern
   const [userSettings, setUserSettings] = useState(getSettings())
-  const [linkedBookingRequest, setLinkedBookingRequest] = useState<any>(null)
+  const [linkedBookingRequest, setLinkedBookingRequest] = useState<LinkedBookingRequest | null>(null)
   
   // Helper functions to dispatch common actions
   const setField = useCallback(<K extends keyof FormState>(field: K, value: FormState[K]) => {
@@ -554,13 +561,18 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       try {
         // Import the book function
         const { bookEvent } = await import('@/app/actions/events')
-        const result = await bookEvent(eventToEdit.id)
+        const result = await bookEvent(eventToEdit.id) as {
+          event?: unknown
+          externalApi?: {
+            success: boolean
+            externalId?: number
+            error?: string
+            logId?: string
+          } | null
+        }
         toast.success('Evento reservado exitosamente')
 
-        const externalApi = (result as any)?.externalApi as
-          | { success: true; externalId?: number; logId?: string }
-          | { success: false; error?: string; logId?: string }
-          | null
+        const externalApi = result?.externalApi ?? null
 
         // Show external API result (success/failure) after booking
         if (externalApi) {

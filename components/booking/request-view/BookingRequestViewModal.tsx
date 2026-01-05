@@ -615,7 +615,7 @@ export default function BookingRequestViewModal({
           vouchersPerPerson: requestData.vouchersPerPerson ? String(requestData.vouchersPerPerson) : undefined,
           commission: requestData.commission ? String(requestData.commission) : undefined,
 
-          redemptionMethods: Array.isArray(requestData.redemptionMethods) ? (requestData.redemptionMethods as any) : undefined,
+          redemptionMethods: Array.isArray(requestData.redemptionMethods) ? requestData.redemptionMethods : undefined,
           contactDetails: requestData.contactDetails ? String(requestData.contactDetails) : undefined,
           socialMedia: requestData.socialMedia ? String(requestData.socialMedia) : undefined,
 
@@ -626,8 +626,8 @@ export default function BookingRequestViewModal({
           goodToKnow: requestData.goodToKnow ? String(requestData.goodToKnow) : undefined,
 
           offerMargin: requestData.offerMargin ? String(requestData.offerMargin) : undefined,
-          pricingOptions: Array.isArray(requestData.pricingOptions) ? (requestData.pricingOptions as any) : undefined,
-          dealImages: Array.isArray(requestData.dealImages) ? (requestData.dealImages as any) : undefined,
+          pricingOptions: Array.isArray(requestData.pricingOptions) ? requestData.pricingOptions : undefined,
+          dealImages: Array.isArray(requestData.dealImages) ? requestData.dealImages : undefined,
 
           cancellationPolicy: requestData.cancellationPolicy ? String(requestData.cancellationPolicy) : undefined,
           marketValidation: requestData.marketValidation ? String(requestData.marketValidation) : undefined,
@@ -748,7 +748,7 @@ export default function BookingRequestViewModal({
                 <VisibilityIcon style={{ fontSize: 20 }} />
               </button>
               {/* Marketing Campaign Button - Only for booked requests */}
-              {requestData?.status === 'booked' && (requestData as any).marketingCampaignId && (
+              {requestData?.status === 'booked' && requestData.marketingCampaignId && (
                 <button
                   onClick={() => setShowMarketingModal(true)}
                   disabled={loading}
@@ -1314,11 +1314,11 @@ export default function BookingRequestViewModal({
       />
 
       {/* Marketing Campaign Modal */}
-      {(requestData as any)?.marketingCampaignId && (
+      {requestData?.marketingCampaignId && (
         <MarketingCampaignModal
           isOpen={showMarketingModal}
           onClose={() => setShowMarketingModal(false)}
-          campaignId={(requestData as any).marketingCampaignId}
+          campaignId={requestData.marketingCampaignId}
           onSuccess={() => {
             // Optionally refresh data
           }}

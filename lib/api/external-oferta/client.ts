@@ -180,12 +180,22 @@ function safeStringify(value: unknown, maxLen: number = 1500): string {
   }
 }
 
+interface ApiErrorResponse {
+  errors?: unknown
+  error?: { errors?: unknown } | string
+  validation?: unknown
+  detail?: unknown
+  details?: unknown
+  data?: { errors?: unknown }
+  message?: string
+}
+
 function formatValidationError(responseData: unknown, responseText: string): string {
-  const data = (responseData ?? {}) as any
+  const data = (responseData ?? {}) as ApiErrorResponse
 
   const candidates = [
     data?.errors,
-    data?.error?.errors,
+    typeof data?.error === 'object' ? data?.error?.errors : undefined,
     data?.validation,
     data?.detail,
     data?.details,
@@ -217,13 +227,24 @@ function formatValidationError(responseData: unknown, responseText: string): str
   return `Validation failed (raw): ${rawSnippet || safeStringify(data)}`
 }
 
+interface PriceOptionWithTitle {
+  title?: string
+  description?: string | null
+  price?: number
+  value?: number
+  quantity?: number
+  limitByUser?: number
+  expiresIn?: string | null
+  endAt?: string | null
+}
+
 function normalizePayloadForExternalApi(payload: ExternalOfertaDealRequest): ExternalOfertaDealRequest {
   // OfertaSimple live validator rejects `priceOptions[*][title]` as unexpected.
   // Strip it and preserve it into description if needed.
   return {
     ...payload,
     priceOptions: Array.isArray(payload.priceOptions)
-      ? (payload.priceOptions as any[]).map((opt) => {
+      ? payload.priceOptions.map((opt: PriceOptionWithTitle) => {
           const { title, ...rest } = opt || {}
           return {
             ...rest,
@@ -291,15 +312,16 @@ export async function sendExternalDealPayload(
       responseData = { raw: responseText.substring(0, 500) }
     }
 
-    const success = response.ok && isJson && (responseData as any).status === 'success'
-    const externalId = success ? (responseData as ExternalOfertaDealResponse).id : undefined
+    const typedResponse = responseData as ExternalOfertaDealResponse & { status?: string; error?: string; message?: string }
+    const success = response.ok && isJson && typedResponse.status === 'success'
+    const externalId = success ? typedResponse.id : undefined
 
     let errorMessage: string | undefined
     if (!success) {
       if (response.status === 422) {
         errorMessage = formatValidationError(responseData, responseText)
       } else {
-        errorMessage = (responseData as any).error || (responseData as any).message || `HTTP ${response.status}`
+        errorMessage = typedResponse.error || typedResponse.message || `HTTP ${response.status}`
       }
       if (options?.resendOfLogId) {
         errorMessage = `[resendOf:${options.resendOfLogId}] ${errorMessage || 'Request failed'}`
@@ -316,7 +338,7 @@ export async function sendExternalDealPayload(
       durationMs,
       response: {
         statusCode: response.status,
-        body: isJson ? (responseData as any) : undefined,
+        body: isJson ? (responseData as Record<string, unknown>) : undefined,
         raw: responseText.substring(0, 4000),
         success,
         errorMessage,
@@ -425,7 +447,7 @@ export async function sendDealToExternalApi(
         pricingOptions = []
       }
     } else if (Array.isArray(bookingRequest.pricingOptions)) {
-      pricingOptions = bookingRequest.pricingOptions as any
+      pricingOptions = bookingRequest.pricingOptions as typeof pricingOptions
     }
   }
   
@@ -439,7 +461,7 @@ export async function sendDealToExternalApi(
         dealImages = []
       }
     } else if (Array.isArray(bookingRequest.dealImages)) {
-      dealImages = bookingRequest.dealImages as any
+      dealImages = bookingRequest.dealImages as typeof dealImages
     }
   }
   
@@ -450,7 +472,7 @@ export async function sendDealToExternalApi(
     endDate: endDate.toISOString().split('T')[0],
     campaignDuration: bookingRequest.campaignDuration || '3',
     offerMargin: bookingRequest.offerMargin || '', // Comisión OfertaSimple (maps to oufferMargin in API)
-    pricingOptions: pricingOptions as any,
+    pricingOptions: pricingOptions,
     shortTitle: bookingRequest.shortTitle || '',
     aboutOffer: bookingRequest.aboutOffer || '',
     whatWeLike: bookingRequest.whatWeLike || '',

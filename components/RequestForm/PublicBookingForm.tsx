@@ -28,7 +28,7 @@ export default function PublicBookingForm({ token }: PublicBookingFormProps) {
 
   const currentStep = PUBLIC_STEPS[currentStepIndex]
 
-  const updateFormData = (field: keyof BookingFormData, value: any) => {
+  const updateFormData = (field: keyof BookingFormData, value: BookingFormData[keyof BookingFormData]) => {
     setFormData(prev => ({ ...prev, [field]: value }))
     // Clear error for this field
     if (errors[field]) {

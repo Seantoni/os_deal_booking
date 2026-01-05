@@ -35,7 +35,7 @@ interface AIReviewResult {
 interface ValidacionStepProps {
   formData: BookingFormData
   errors: Record<string, string>
-  updateFormData: (field: keyof BookingFormData, value: any) => void
+  updateFormData: (field: keyof BookingFormData, value: BookingFormData[keyof BookingFormData]) => void
   updatePricingOption?: (index: number, field: string, value: string) => void
   isFieldRequired?: (fieldKey: string) => boolean
 }

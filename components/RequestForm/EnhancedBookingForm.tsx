@@ -217,7 +217,8 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
               if (additionalInfo.fields && typeof additionalInfo.fields === 'object') {
                 Object.entries(additionalInfo.fields).forEach(([fieldKey, value]) => {
                   if (value !== undefined && value !== null && value !== '') {
-                    (updatedData as any)[fieldKey] = value
+                    // Dynamic field assignment for template-specific fields
+                    (updatedData as Record<string, unknown>)[fieldKey] = value
                   }
                 })
               }
@@ -422,16 +423,17 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         const additionalInfoParam = searchParams.get('additionalInfo')
         if (additionalInfoParam) {
           try {
-            const additionalInfo = JSON.parse(additionalInfoParam)
+            const additionalInfo = JSON.parse(additionalInfoParam) as { fields?: Record<string, string> }
             if (additionalInfo && additionalInfo.fields && typeof additionalInfo.fields === 'object') {
               // Unpack all template-specific fields back into formData
               Object.entries(additionalInfo.fields).forEach(([fieldKey, value]) => {
                 if (value !== undefined && value !== null && value !== '') {
-                  (newData as any)[fieldKey] = value
+                  // Dynamic field assignment for template-specific fields
+                  (newData as Record<string, unknown>)[fieldKey] = value
                 }
               })
             }
-          } catch (e) {
+          } catch {
             // Failed to parse additionalInfo
           }
         }
@@ -518,7 +520,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   const currentStepIndex = availableSteps.findIndex(step => step.key === currentStepKey)
   const currentStepId = getStepIdByKey(currentStepKey) || 1
 
-  const updateFormData = (field: keyof BookingFormData, value: any) => {
+  const updateFormData = (field: keyof BookingFormData, value: BookingFormData[keyof BookingFormData]) => {
     setFormData(prev => ({ ...prev, [field]: value }))
     // Clear error for this field
     if (errors[field]) {

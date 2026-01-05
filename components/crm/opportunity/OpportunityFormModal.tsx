@@ -5,7 +5,8 @@ import { useUser } from '@clerk/nextjs'
 import { createOpportunity, updateOpportunity, createTask, updateTask, deleteTask } from '@/app/actions/crm'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
-import type { Opportunity, OpportunityStage, Task, Business } from '@/types'
+import type { Opportunity, OpportunityStage, Task, Business, UserProfile } from '@/types'
+import type { CategoryOption } from '@/types/category'
 import CloseIcon from '@mui/icons-material/Close'
 import HandshakeIcon from '@mui/icons-material/Handshake'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
@@ -44,9 +45,9 @@ interface OpportunityFormModalProps {
   initialBusinessId?: string
   initialTab?: 'details' | 'activity' | 'chat'
   // Pre-loaded data to skip fetching (passed from parent page)
-  preloadedBusinesses?: any[]
-  preloadedCategories?: any[]
-  preloadedUsers?: any[]
+  preloadedBusinesses?: Business[]
+  preloadedCategories?: CategoryOption[]
+  preloadedUsers?: UserProfile[]
 }
 
 export default function OpportunityFormModal({
@@ -134,7 +135,7 @@ export default function OpportunityFormModal({
     if (!opportunity) {
       // For new opportunities, look up business data from preloaded businesses
       const preloadedBusiness = initialBusinessId && preloadedBusinesses
-        ? preloadedBusinesses.find((b: any) => b.id === initialBusinessId)
+        ? preloadedBusinesses.find((b) => b.id === initialBusinessId)
         : null
       
       return {
@@ -179,7 +180,7 @@ export default function OpportunityFormModal({
       // Also sync category and other business fields when business changes
       // Check both loaded businesses and preloaded businesses
       const allBusinesses = [...(businesses || []), ...(preloadedBusinesses || [])]
-      const selectedBusiness = allBusinesses.find((b: any) => b.id === businessId)
+      const selectedBusiness = allBusinesses.find((b) => b.id === businessId)
       if (selectedBusiness) {
         if (selectedBusiness.categoryId) {
           dynamicForm.setValue('categoryId', selectedBusiness.categoryId)

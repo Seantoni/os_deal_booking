@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getAllUsers } from '@/app/actions/crm'
-import type { Deal } from '@/types'
+import type { Deal, UserProfile } from '@/types'
 
 interface UseDealFormProps {
   isOpen: boolean
@@ -19,9 +19,9 @@ export function useDealForm({
   const [status, setStatus] = useState('pendiente_por_asignar')
 
   // Data state
-  const [users, setUsers] = useState<any[]>([])
-  const [editorUsers, setEditorUsers] = useState<any[]>([])
-  const [ereUsers, setEreUsers] = useState<any[]>([])
+  const [users, setUsers] = useState<UserProfile[]>([])
+  const [editorUsers, setEditorUsers] = useState<UserProfile[]>([])
+  const [ereUsers, setEreUsers] = useState<UserProfile[]>([])
 
   // Loading state
   const [loadingData, setLoadingData] = useState(false)
@@ -43,15 +43,15 @@ export function useDealForm({
         if (usersResult.success && usersResult.data) {
           setUsers(usersResult.data)
           // Filter users by role
-          setEditorUsers(usersResult.data.filter((u: any) => u.role === 'editor'))
-          setEreUsers(usersResult.data.filter((u: any) => u.role === 'ere'))
+          setEditorUsers(usersResult.data.filter((u: UserProfile) => u.role === 'editor'))
+          setEreUsers(usersResult.data.filter((u: UserProfile) => u.role === 'ere'))
         }
       }
 
       // Pre-fill form if editing
       if (currentDeal) {
         setResponsibleId(currentDeal.responsibleId || '')
-        setEreResponsibleId((currentDeal as any).ereResponsibleId || '')
+        setEreResponsibleId(currentDeal.ereResponsibleId || '')
         setStatus(currentDeal.status || 'pendiente_por_asignar')
       } else {
         setResponsibleId('')

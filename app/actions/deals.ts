@@ -348,7 +348,7 @@ export async function updateDealResponsible(dealId: string, responsibleId: strin
 
   try {
     // Update responsible users
-    const updateData: any = {
+    const updateData: { responsibleId: string | null; ereResponsibleId?: string | null } = {
       responsibleId: responsibleId || null,
     }
     if (ereResponsibleId !== undefined) {
@@ -397,7 +397,7 @@ export async function updateDealStatus(dealId: string, status: string) {
   try {
     // Validate status
     const { DEAL_STATUS_VALUES } = await import('@/lib/constants')
-    if (!DEAL_STATUS_VALUES.includes(status as any)) {
+    if (!DEAL_STATUS_VALUES.includes(status as typeof DEAL_STATUS_VALUES[number])) {
       return { success: false, error: 'Invalid status' }
     }
 

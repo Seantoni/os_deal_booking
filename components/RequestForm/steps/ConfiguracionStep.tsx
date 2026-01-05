@@ -14,7 +14,7 @@ import { Input } from '@/components/ui'
 interface ConfiguracionStepProps {
   formData: BookingFormData
   errors: Record<string, string>
-  updateFormData: (field: keyof BookingFormData, value: any) => void
+  updateFormData: (field: keyof BookingFormData, value: BookingFormData[keyof BookingFormData]) => void
   isPublicForm?: boolean // If true, disable date calculation
   isFieldRequired?: (fieldKey: string) => boolean
 }

@@ -48,9 +48,9 @@ export type EntityType =
  */
 export interface ActivityDetails {
   /** Previous values before update */
-  previousValues?: Record<string, any>
+  previousValues?: Record<string, unknown>
   /** New values after update */
-  newValues?: Record<string, any>
+  newValues?: Record<string, unknown>
   /** Specific fields that changed */
   changedFields?: string[]
   /** Status transition (e.g., "pending -> approved") */
@@ -59,9 +59,9 @@ export interface ActivityDetails {
     to: string
   }
   /** Any additional metadata */
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
   /** Generic changes object for update operations */
-  changes?: Record<string, any>
+  changes?: Record<string, unknown>
   /** Bulk update indicator with count */
   bulkUpdate?: boolean
   /** Number of items affected in bulk operation */
@@ -151,7 +151,7 @@ export async function logActivity(params: LogActivityParams): Promise<void> {
         entityType: params.entityType,
         entityId: params.entityId || null,
         entityName: params.entityName || null,
-        details: params.details ? (params.details as any) : undefined,
+        details: params.details ?? undefined,
         ipAddress,
         userAgent,
       },
@@ -214,7 +214,7 @@ export async function logActivities(activities: LogActivityParams[]): Promise<vo
         entityType: params.entityType,
         entityId: params.entityId || null,
         entityName: params.entityName || null,
-        details: params.details ? (params.details as any) : undefined,
+        details: params.details ?? undefined,
         ipAddress,
         userAgent,
       })),
@@ -248,7 +248,13 @@ export async function getActivityLogs(options: {
     offset = 0,
   } = options
 
-  const where: any = {}
+  const where: {
+    userId?: string
+    entityType?: EntityType
+    entityId?: string
+    action?: ActivityAction
+    createdAt?: { gte?: Date; lte?: Date }
+  } = {}
 
   if (userId) where.userId = userId
   if (entityType) where.entityType = entityType

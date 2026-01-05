@@ -4,7 +4,7 @@ import { Dropdown, Input, Textarea } from '@/components/ui'
 interface OperatividadStepProps {
   formData: BookingFormData
   errors: Record<string, string>
-  updateFormData: (field: keyof BookingFormData, value: any) => void
+  updateFormData: (field: keyof BookingFormData, value: BookingFormData[keyof BookingFormData]) => void
   isFieldRequired?: (fieldKey: string) => boolean
 }
 

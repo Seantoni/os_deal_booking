@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@prisma/client'
 import { requireAuth } from '@/lib/utils/server-actions'
 import { unstable_cache } from 'next/cache'
 import { CACHE_REVALIDATE_DASHBOARD_SECONDS } from '@/lib/constants'
@@ -32,7 +33,7 @@ async function fetchDashboardStatsInternal(filters: DashboardFilters = {}, userP
     const { startDate, endDate } = filters
 
     // Date filter logic
-    const dateFilter: any = {}
+    const dateFilter: Prisma.DateTimeFilter = {}
     if (startDate) {
       dateFilter.gte = new Date(startDate)
     }

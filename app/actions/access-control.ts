@@ -9,6 +9,15 @@ import { addToClerkAllowlist, removeFromClerkAllowlist } from '@/lib/clerk-allow
 import { USER_ROLE_VALUES, type UserRole } from '@/lib/constants'
 import { logger } from '@/lib/logger'
 
+// Type for Clerk API errors
+interface ClerkError {
+  message?: string
+  longMessage?: string
+  clerkError?: boolean
+  status?: number
+  errors?: Array<{ message?: string; longMessage?: string }>
+}
+
 /**
  * Check if an email has access to the application
  */
@@ -431,9 +440,9 @@ export async function inviteUser(email: string, role: UserRole, notes?: string) 
           if (users.data && users.data.length > 0) {
             throw new Error('This email is already registered as a user in the system')
           }
-        } catch (checkError: any) {
+        } catch (checkError) {
           // If it's our custom error, rethrow it
-          if (checkError.message.includes('already registered')) {
+          if (checkError instanceof Error && checkError.message.includes('already registered')) {
             throw checkError
           }
           // Otherwise, continue - the email might not exist yet
@@ -470,14 +479,15 @@ export async function inviteUser(email: string, role: UserRole, notes?: string) 
         
         invalidateEntity('access-control')
         return { success: true, invitationId: invitation.id }
-      } catch (clerkError: any) {
+      } catch (err) {
+        const clerkError = err as ClerkError
         logger.error('[access-control] Error creating Clerk invitation:', clerkError)
         
         // Extract more detailed error message from Clerk
         let errorMessage = 'Failed to send invitation'
         if (clerkError.clerkError) {
           if (clerkError.errors && Array.isArray(clerkError.errors) && clerkError.errors.length > 0) {
-            errorMessage = clerkError.errors.map((e: any) => e.message || e.longMessage || '').filter(Boolean).join('. ') || errorMessage
+            errorMessage = clerkError.errors.map((e) => e.message || e.longMessage || '').filter(Boolean).join('. ') || errorMessage
           } else if (clerkError.longMessage) {
             errorMessage = clerkError.longMessage
           } else if (clerkError.message) {
@@ -523,9 +533,9 @@ export async function inviteUser(email: string, role: UserRole, notes?: string) 
       if (users.data && users.data.length > 0) {
         throw new Error('This email is already registered as a user in the system')
       }
-    } catch (checkError: any) {
+    } catch (checkError) {
       // If it's our custom error, rethrow it
-      if (checkError.message.includes('already registered')) {
+      if (checkError instanceof Error && checkError.message.includes('already registered')) {
         throw checkError
       }
       // Otherwise, continue - the email might not exist yet
@@ -578,14 +588,15 @@ export async function inviteUser(email: string, role: UserRole, notes?: string) 
     
     invalidateEntity('access-control')
     return { success: true, invitationId: invitation.id }
-  } catch (clerkError: any) {
+  } catch (err) {
+    const clerkError = err as ClerkError
     logger.error('[access-control] Error creating Clerk invitation:', clerkError)
     
     // Extract more detailed error message from Clerk
     let errorMessage = 'Failed to send invitation'
     if (clerkError.clerkError) {
       if (clerkError.errors && Array.isArray(clerkError.errors) && clerkError.errors.length > 0) {
-        errorMessage = clerkError.errors.map((e: any) => e.message || e.longMessage || '').filter(Boolean).join('. ') || errorMessage
+        errorMessage = clerkError.errors.map((e) => e.message || e.longMessage || '').filter(Boolean).join('. ') || errorMessage
       } else if (clerkError.longMessage) {
         errorMessage = clerkError.longMessage
       } else if (clerkError.message) {

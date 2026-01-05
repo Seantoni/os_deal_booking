@@ -224,8 +224,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
         const existingRequest = await prisma.bookingRequest.findUnique({
           where: { id: requestId },
         })
-        // Type assertion: Prisma types may need IDE restart to fully update
-        const storedEmails = (existingRequest as any)?.additionalEmails
+        const storedEmails = existingRequest?.additionalEmails
         if (storedEmails && Array.isArray(storedEmails)) {
           additionalEmails = storedEmails as string[]
         }
@@ -485,13 +484,15 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
     )
 
     // Generate email HTML (for business recipients)
+    // Cast additionalInfo from Prisma JsonValue to email template type
+    const emailAdditionalInfo = data.additionalInfo as { templateDisplayName?: string; fields?: Record<string, string> } | null
     const emailHtml = renderBookingRequestEmail({
       requestName: data.name!,
       businessEmail: data.businessEmail!,
       merchant: data.merchant || undefined,
       category: categoryString,
-      additionalInfo: (data as any).additionalInfo || null,
-      bookingData: data as any,
+      additionalInfo: emailAdditionalInfo,
+      bookingData: data,
       startDate: formatDateForEmail(startDateTime),
       endDate: formatDateForEmail(endDateTime),
       approveUrl,
@@ -523,8 +524,8 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
           businessEmail: data.businessEmail!,
           merchant: data.merchant || undefined,
           category: categoryString,
-          additionalInfo: (data as any).additionalInfo || null,
-          bookingData: data as any,
+          additionalInfo: emailAdditionalInfo,
+          bookingData: data,
           startDate: formatDateForEmail(startDateTime),
           endDate: formatDateForEmail(endDateTime),
           approveUrl,

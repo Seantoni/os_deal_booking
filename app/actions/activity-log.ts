@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@prisma/client'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
 import { getUserRole } from '@/lib/auth/roles'
 import type { ActivityAction, EntityType } from '@/lib/activity-log'
@@ -45,7 +46,7 @@ export async function getActivityLogs(params: GetActivityLogsParams = {}) {
     } = params
 
     // Build where clause
-    const where: any = {}
+    const where: Prisma.ActivityLogWhereInput = {}
 
     if (userId) where.userId = userId
     if (entityType) where.entityType = entityType

@@ -13,7 +13,7 @@ interface DynamicFieldProps {
   config: FieldConfig
   formData: BookingFormData
   errors: Record<string, string>
-  updateFormData: (field: keyof BookingFormData, value: any) => void
+  updateFormData: (field: keyof BookingFormData, value: BookingFormData[keyof BookingFormData]) => void
 }
 
 /**

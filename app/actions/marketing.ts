@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { unstable_cache } from 'next/cache'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
 import { invalidateEntity } from '@/lib/cache'
@@ -418,7 +419,7 @@ export async function updateMarketingOption(
     }
 
     // Build update data
-    const updateData: any = {}
+    const updateData: Prisma.MarketingOptionUpdateInput = {}
     
     if (data.isPlanned !== undefined) {
       updateData.isPlanned = data.isPlanned
@@ -446,7 +447,7 @@ export async function updateMarketingOption(
     }
     
     if (data.mediaUrls !== undefined) {
-      updateData.mediaUrls = data.mediaUrls
+      updateData.mediaUrls = data.mediaUrls ?? Prisma.JsonNull
     }
     
     if (data.responsibleId !== undefined) {

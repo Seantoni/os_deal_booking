@@ -26,7 +26,7 @@ export type FilterRule = {
   id: string
   field: string
   operator: FilterOperator
-  value: any
+  value: string | number | boolean | string[] | null
   conjunction: FilterConjunction
 }
 

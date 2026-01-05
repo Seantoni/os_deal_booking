@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { getAllUsers, getOpportunitiesByBusiness } from '@/app/actions/crm'
 import { getCategories } from '@/app/actions/categories'
 import { getRequestsByBusiness } from '@/app/actions/booking-requests'
-import type { Business, Opportunity, BookingRequest } from '@/types'
+import type { Business, Opportunity, BookingRequest, UserProfile } from '@/types'
+import type { CategoryOption } from '@/types/category'
 
 interface UseBusinessFormProps {
   isOpen: boolean
@@ -10,8 +11,8 @@ interface UseBusinessFormProps {
   isAdmin: boolean
   currentUserId?: string | null // Current logged-in user ID
   // Pre-loaded data to skip fetching
-  preloadedCategories?: any[]
-  preloadedUsers?: any[]
+  preloadedCategories?: CategoryOption[]
+  preloadedUsers?: UserProfile[]
 }
 
 export function useBusinessForm({
@@ -36,8 +37,8 @@ export function useBusinessForm({
   const [tier, setTier] = useState<string>('')
 
   // Data state
-  const [categories, setCategories] = useState<any[]>([])
-  const [users, setUsers] = useState<any[]>([])
+  const [categories, setCategories] = useState<CategoryOption[]>([])
+  const [users, setUsers] = useState<UserProfile[]>([])
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [requests, setRequests] = useState<BookingRequest[]>([])
 
@@ -76,7 +77,7 @@ export function useBusinessForm({
       let usersData = preloadedUsers
 
       // Build fetch promises for missing data
-      const fetchPromises: Promise<any>[] = []
+      const fetchPromises: Promise<{ success: boolean; data?: unknown; error?: string }>[] = []
       const fetchKeys: string[] = []
 
       if (!categoriesData) {
@@ -96,8 +97,8 @@ export function useBusinessForm({
       }
 
       // Parallel fetch only missing data
-      let opportunitiesData: any[] = []
-      let requestsData: any[] = []
+      let opportunitiesData: Opportunity[] = []
+      let requestsData: BookingRequest[] = []
       if (fetchPromises.length > 0) {
         const results = await Promise.all(fetchPromises)
         fetchKeys.forEach((key, index) => {

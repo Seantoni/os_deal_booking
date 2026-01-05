@@ -20,10 +20,10 @@ interface CalendarViewProps {
   showPendingBooking: boolean
   categoryFilter?: string | null
   searchQuery?: string
-  draggingRequest?: any
+  draggingRequest?: BookingRequest | null
   bookingRequests?: BookingRequest[]
   onSearchChange?: (query: string) => void
-  onRequestDropOnDate?: (request: any, date: Date) => void
+  onRequestDropOnDate?: (request: BookingRequest, date: Date) => void
   onDateClick?: (date: Date) => void
   onDateRangeSelect?: (startDate: Date, endDate: Date) => void
   onEventClick?: (event: Event) => void

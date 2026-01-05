@@ -6,7 +6,8 @@ import { useUser } from '@clerk/nextjs'
 import { createBusiness, updateBusiness, createOpportunity } from '@/app/actions/crm'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
-import type { Business, Opportunity, BookingRequest } from '@/types'
+import type { Business, Opportunity, BookingRequest, UserProfile } from '@/types'
+import type { CategoryOption } from '@/types/category'
 import toast from 'react-hot-toast'
 
 // Action state types for React 19 useActionState
@@ -37,8 +38,8 @@ interface BusinessFormModalProps {
   business?: Business | null
   onSuccess: (business: Business) => void
   // Pre-loaded data to skip fetching (passed from parent page)
-  preloadedCategories?: any[]
-  preloadedUsers?: any[]
+  preloadedCategories?: CategoryOption[]
+  preloadedUsers?: UserProfile[]
 }
 
 export default function BusinessFormModal({ 
@@ -53,7 +54,7 @@ export default function BusinessFormModal({
     success: boolean
     data?: Business
     error?: string
-    existingBusiness?: any
+    existingBusiness?: Business
   }
   const router = useRouter()
   const { user } = useUser()

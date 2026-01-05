@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { getBusinesses, getAllUsers, getTasksByOpportunity, getBusiness } from '@/app/actions/crm'
 import { getCategories } from '@/app/actions/categories'
 import { getBookingRequest } from '@/app/actions/booking'
-import type { Opportunity, OpportunityStage, Task, Business, BookingRequest } from '@/types'
+import type { Opportunity, OpportunityStage, Task, Business, BookingRequest, UserProfile } from '@/types'
+import type { CategoryOption } from '@/types/category'
 
 interface UseOpportunityFormProps {
   isOpen: boolean
@@ -11,9 +12,9 @@ interface UseOpportunityFormProps {
   isAdmin: boolean
   currentUserId?: string | null // Current logged-in user ID
   // Pre-loaded data to skip fetching
-  preloadedBusinesses?: any[]
-  preloadedCategories?: any[]
-  preloadedUsers?: any[]
+  preloadedBusinesses?: Business[]
+  preloadedCategories?: CategoryOption[]
+  preloadedUsers?: UserProfile[]
 }
 
 export function useOpportunityForm({
@@ -40,9 +41,9 @@ export function useOpportunityForm({
   const [contactEmail, setContactEmail] = useState('')
 
   // Data state
-  const [businesses, setBusinesses] = useState<any[]>([])
-  const [categories, setCategories] = useState<any[]>([])
-  const [users, setUsers] = useState<any[]>([])
+  const [businesses, setBusinesses] = useState<Business[]>([])
+  const [categories, setCategories] = useState<CategoryOption[]>([])
+  const [users, setUsers] = useState<UserProfile[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [linkedBusiness, setLinkedBusiness] = useState<Business | null>(null)
   const [linkedBookingRequest, setLinkedBookingRequest] = useState<BookingRequest | null>(null)
@@ -85,7 +86,7 @@ export function useOpportunityForm({
       let usersData = preloadedUsers
 
       // Only fetch what we don't have
-      const fetchPromises: Promise<any>[] = []
+      const fetchPromises: Promise<{ success: boolean; data?: unknown; error?: string }>[] = []
       const fetchKeys: string[] = []
 
       if (!businessesData) {
@@ -129,7 +130,7 @@ export function useOpportunityForm({
         setResponsibleId(currentOpportunity.responsibleId || '')
         
         // Load from business (use already fetched data)
-        const selectedBusiness = businessesData?.find((b: any) => b.id === currentOpportunity.businessId)
+        const selectedBusiness = businessesData?.find((b) => b.id === currentOpportunity.businessId)
         if (selectedBusiness) {
           setCategoryId(selectedBusiness.categoryId || '')
           setTier(selectedBusiness.tier?.toString() || '')
@@ -169,7 +170,7 @@ export function useOpportunityForm({
         
         // If initialBusinessId is provided, load business data
         if (initialBusinessId && businessesData) {
-          const selectedBusiness = businessesData.find((b: any) => b.id === initialBusinessId)
+          const selectedBusiness = businessesData.find((b) => b.id === initialBusinessId)
           if (selectedBusiness) {
             setCategoryId(selectedBusiness.categoryId || '')
             setTier(selectedBusiness.tier?.toString() || '')
@@ -218,7 +219,7 @@ export function useOpportunityForm({
   // Load business data when businessId changes
   useEffect(() => {
     if (businessId && !opportunity) {
-      const selectedBusiness = businesses.find((b: any) => b.id === businessId)
+      const selectedBusiness = businesses.find((b) => b.id === businessId)
       if (selectedBusiness) {
         setCategoryId(selectedBusiness.categoryId || '')
         setTier(selectedBusiness.tier?.toString() || '')

@@ -217,7 +217,7 @@ export function useUserRole() {
   // Expose a function to manually refresh role (for debugging/admin updates)
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      (window as any).refreshUserRole = () => {
+      (window as Window & { refreshUserRole?: () => void }).refreshUserRole = () => {
         clearCache()
         sessionFetched = false
         hasFetchedRef.current = false

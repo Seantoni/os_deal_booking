@@ -112,16 +112,16 @@ export async function logApiCall(
   // Log full request body structure for debugging
   if (!response.success) {
     console.error('[External API Logger] Request body structure:', {
-      nameEs: (requestBody as any).nameEs,
-      slug: (requestBody as any).slug,
-      emailSubject: (requestBody as any).emailSubject,
-      summaryEs: (requestBody as any).summaryEs,
-      expiresOn: (requestBody as any).expiresOn,
-      categoryId: (requestBody as any).categoryId,
-      vendorName: (requestBody as any).vendorName,
-      priceOptions: (requestBody as any).priceOptions,
-      priceOptionsType: typeof (requestBody as any).priceOptions,
-      priceOptionsIsArray: Array.isArray((requestBody as any).priceOptions),
+      nameEs: requestBody.nameEs,
+      slug: requestBody.slug,
+      emailSubject: requestBody.emailSubject,
+      summaryEs: requestBody.summaryEs,
+      expiresOn: requestBody.expiresOn,
+      categoryId: requestBody.categoryId,
+      vendorName: requestBody.vendorName,
+      priceOptions: requestBody.priceOptions,
+      priceOptionsType: typeof requestBody.priceOptions,
+      priceOptionsIsArray: Array.isArray(requestBody.priceOptions),
     })
   }
   

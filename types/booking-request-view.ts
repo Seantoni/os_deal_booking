@@ -128,6 +128,9 @@ export interface BookingRequestViewData {
   // Relations (populated by includes)
   processedByUser?: UserReference | null
   createdByUser?: UserReference | null
+  
+  // Marketing Campaign (populated if booked)
+  marketingCampaignId?: string | null
 }
 
 // Field type enum

@@ -1,6 +1,10 @@
 import type { BookingFormData } from '@/components/RequestForm/types'
 import { getAppBaseUrl } from '@/lib/config/env'
 
+// Type for booking data that can come from form data or database record
+// Uses Record<string, unknown> to accept both form and DB field structures
+type BookingDataInput = Partial<BookingFormData> | Record<string, unknown> | null
+
 interface BookingRequestEmailProps {
   requestName: string
   businessEmail: string
@@ -16,7 +20,7 @@ interface BookingRequestEmailProps {
     fields?: Record<string, string>
   } | null
   tncUrl?: string
-  bookingData?: Partial<BookingFormData> | null
+  bookingData?: BookingDataInput
   hideActions?: boolean
 }
 
@@ -52,9 +56,10 @@ export function renderBookingRequestEmail(props: BookingRequestEmailProps): stri
 const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
 
   // Helpers
-  const formatValue = (val: any): string => {
+  const formatValue = (val: unknown): string => {
     if (Array.isArray(val)) return val.filter(Boolean).join(', ')
-    return typeof val === 'string' ? val : val ?? ''
+    if (val === null || val === undefined) return ''
+    return typeof val === 'string' ? val : String(val)
   }
 
   const escapeHtml = (text: string | undefined | null) => {
@@ -67,6 +72,12 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
       .replace(/'/g, '&#039;')
   }
 
+  // Helper to safely access booking data fields
+  const getBookingValue = (key: string): unknown => {
+    if (!bookingData) return undefined
+    return (bookingData as Record<string, unknown>)[key]
+  }
+
   // Section renderer - Table based for Outlook
   const renderSection = (
     title: string,
@@ -77,7 +88,7 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
     // Filter fields that have values
     const filled = fields.filter(f => {
       if (f.value !== undefined) return f.value !== null && String(f.value).trim() !== ''
-      const value = (bookingData as any)?.[f.key]
+      const value = getBookingValue(f.key)
       if (Array.isArray(value)) return value.length > 0
       return value !== undefined && value !== null && String(value).trim() !== ''
     })
@@ -85,7 +96,7 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
     if (filled.length === 0) return ''
 
     const rows = filled.map(f => {
-      const value = f.value !== undefined ? f.value : formatValue((bookingData as any)?.[f.key])
+      const value = f.value !== undefined ? f.value : formatValue(getBookingValue(f.key))
       return `
         <tr>
           <td style="padding: 12px 0; border-bottom: 1px solid #f0f0f0; vertical-align: top;">
@@ -126,10 +137,21 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
     `
   }
 
+  // Pricing option type for rendering
+  interface PricingOption {
+    title?: string
+    description?: string
+    price?: string | number
+    realValue?: string | number
+    quantity?: string | number
+  }
+
   // Pricing options renderer - Table based
   const renderPricingOptions = () => {
-    const pricingOptions = (bookingData as any)?.pricingOptions
-    if (!pricingOptions || !Array.isArray(pricingOptions) || pricingOptions.length === 0) return ''
+    const pricingOptionsRaw = getBookingValue('pricingOptions')
+    if (!pricingOptionsRaw || !Array.isArray(pricingOptionsRaw) || pricingOptionsRaw.length === 0) return ''
+    
+    const pricingOptions = pricingOptionsRaw as PricingOption[]
     
     return `
       <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 30px; width: 100%;">
@@ -143,7 +165,7 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
         <tr>
           <td>
             <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px;">
-              ${pricingOptions.map((opt: any, i: number) => `
+              ${pricingOptions.map((opt: PricingOption, i: number) => `
                 <table border="0" cellpadding="0" cellspacing="0" width="100%" style="width: 100%; margin-bottom: ${i === pricingOptions.length - 1 ? '0' : '20px'}; border-bottom: ${i === pricingOptions.length - 1 ? 'none' : '1px solid #e2e8f0'};">
                   <tr>
                     <td style="padding-bottom: ${i === pricingOptions.length - 1 ? '0' : '20px'};">

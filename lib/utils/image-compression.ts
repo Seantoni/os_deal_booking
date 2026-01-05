@@ -55,7 +55,8 @@ export async function compressImage(
       useWebWorker: mergedOptions.useWebWorker,
       initialQuality: mergedOptions.initialQuality,
       // Preserve file name but change extension if format changes
-      fileType: file.type as any,
+      // Type assertion needed: browser-image-compression expects specific MIME strings
+      fileType: file.type as `image/${string}`,
     })
 
     // Return as File with original name (browser-image-compression returns Blob)

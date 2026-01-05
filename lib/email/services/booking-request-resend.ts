@@ -13,7 +13,8 @@ import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
  * @param bookingRequest - The booking request to resend
  * @returns Success status and any error message
  */
-export async function resendBookingRequestEmail(bookingRequest: {
+// Type for the booking request parameter
+interface BookingRequestForResend {
   id: string
   name: string
   businessEmail: string
@@ -25,7 +26,13 @@ export async function resendBookingRequestEmail(bookingRequest: {
   startDate: Date
   endDate: Date
   userId: string
-}) {
+  additionalInfo?: {
+    templateDisplayName?: string
+    fields?: Record<string, string>
+  } | null
+}
+
+export async function resendBookingRequestEmail(bookingRequest: BookingRequestForResend) {
   try {
     // Get user information for email
     const user = await currentUser()
@@ -65,8 +72,8 @@ export async function resendBookingRequestEmail(bookingRequest: {
       businessEmail: bookingRequest.businessEmail,
       merchant: bookingRequest.merchant || undefined,
       category: categoryString,
-      additionalInfo: (bookingRequest as any).additionalInfo || null,
-      bookingData: bookingRequest as any,
+      additionalInfo: bookingRequest.additionalInfo || null,
+      bookingData: bookingRequest,
       startDate: formatDateForEmail(bookingRequest.startDate),
       endDate: formatDateForEmail(bookingRequest.endDate),
       approveUrl,
@@ -90,8 +97,8 @@ export async function resendBookingRequestEmail(bookingRequest: {
         businessEmail: bookingRequest.businessEmail,
         merchant: bookingRequest.merchant || undefined,
         category: categoryString,
-        additionalInfo: (bookingRequest as any).additionalInfo || null,
-        bookingData: bookingRequest as any,
+        additionalInfo: bookingRequest.additionalInfo || null,
+        bookingData: bookingRequest,
         startDate: formatDateForEmail(bookingRequest.startDate),
         endDate: formatDateForEmail(bookingRequest.endDate),
         approveUrl,
