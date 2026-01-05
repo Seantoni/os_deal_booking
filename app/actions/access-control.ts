@@ -1,5 +1,6 @@
 'use server'
 
+// Access control server actions for managing user permissions and invitations
 import { auth, clerkClient } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth/roles'
