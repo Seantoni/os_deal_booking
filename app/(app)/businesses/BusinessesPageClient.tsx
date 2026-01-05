@@ -1,13 +1,11 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import { getBusinesses, deleteBusiness, getOpportunities } from '@/app/actions/crm'
 import { getBookingRequests } from '@/app/actions/booking-requests'
 import type { BookingRequest } from '@/types'
-import { syncBusinessesFromApi } from '@/app/actions/crm/sync-business-metrics'
 import type { Business, Opportunity } from '@/types'
 import AddIcon from '@mui/icons-material/Add'
 import FilterListIcon from '@mui/icons-material/FilterList'
@@ -112,8 +110,6 @@ export default function BusinessesPageClient({
   const [opportunities, setOpportunities] = useState<Opportunity[]>(initialOpportunities || [])
   const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>(initialRequests || [])
   const [opportunityFilter, setOpportunityFilter] = useState<'all' | 'with-open' | 'without-open'>('all')
-  const [revenueMap, setRevenueMap] = useState<Record<string, number>>({})
-  const [syncingRevenue, setSyncingRevenue] = useState(false)
   const [visibleCount, setVisibleCount] = useState(50)
   
   // Modal state
@@ -163,73 +159,6 @@ export default function BusinessesPageClient({
     }
     loadOpportunitiesAndRequests()
   }, [initialOpportunities, initialRequests])
-
-  // ---- Daily revenue sync (Panama time, once per day after 8am) ----
-  const hasSyncedRevenue = useRef(false)
-
-  const getPanamaNow = useCallback(() => {
-    // Convert to Panama timezone using Intl
-    return new Date(new Date().toLocaleString('en-US', { timeZone: PANAMA_TIMEZONE }))
-  }, [])
-
-  const shouldSyncRevenueToday = useCallback(() => {
-    const now = getPanamaNow()
-    const lastSyncRaw = typeof window !== 'undefined' ? localStorage.getItem('businesses_revenue_last_sync') : null
-    const lastSync = lastSyncRaw ? new Date(lastSyncRaw) : null
-
-    const todayStr = now.toISOString().slice(0, 10)
-    const lastSyncDay = lastSync ? lastSync.toISOString().slice(0, 10) : null
-
-    const isPast8amPanama = now.getHours() >= 8
-    const notSyncedToday = todayStr !== lastSyncDay
-
-    return isPast8amPanama && notSyncedToday
-  }, [getPanamaNow])
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function syncRevenue() {
-      if (cancelled || hasSyncedRevenue.current || syncingRevenue) return
-      if (!shouldSyncRevenueToday()) return
-
-      hasSyncedRevenue.current = true
-      setSyncingRevenue(true)
-      try {
-        const result = await syncBusinessesFromApi()
-        if (result.success && result.data) {
-          const revMap = Object.fromEntries(
-            Object.entries(result.data).map(([id, payload]) => [id, payload.net_rev_360_days ?? 0])
-          )
-          setRevenueMap(revMap)
-          await loadData()
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('businesses_revenue_last_sync', getPanamaNow().toISOString())
-          }
-        } else {
-          toast.error(result.error || 'Failed to sync revenue')
-          hasSyncedRevenue.current = false // allow retry on failure
-        }
-      } catch (error) {
-        toast.error('Failed to sync revenue')
-        logger.error('Failed to sync revenue:', error)
-        hasSyncedRevenue.current = false // allow retry on failure
-      } finally {
-        if (!cancelled) {
-          setSyncingRevenue(false)
-        }
-      }
-    }
-
-    // Run immediately on mount and then every 5 minutes to catch 8am boundary
-    syncRevenue()
-    const interval = setInterval(syncRevenue, 5 * 60 * 1000)
-
-    return () => {
-      cancelled = true
-      clearInterval(interval)
-    }
-  }, [getPanamaNow, loadData, shouldSyncRevenueToday, syncingRevenue])
 
   // Map of business IDs to count of open opportunities
   const businessOpenOpportunityCount = useMemo(() => {
@@ -298,8 +227,7 @@ export default function BusinessesPageClient({
         return (business.category?.parentCategory || '').toLowerCase()
       case 'netRev360':
         if (business.sourceType !== 'api') return null
-        const metricRev = (business as any)?.metrics?.net_rev_360_days as number | undefined
-        return revenueMap[business.id] ?? metricRev ?? null
+        return (business as any)?.metrics?.net_rev_360_days ?? null
       case 'openOpps':
         return businessOpenOpportunityCount.get(business.id) || 0
       case 'pendingReqs':
@@ -307,7 +235,7 @@ export default function BusinessesPageClient({
       default:
         return null
     }
-  }, [revenueMap, businessOpenOpportunityCount, businessPendingRequestCount])
+  }, [businessOpenOpportunityCount, businessPendingRequestCount])
 
   // Filter and sort businesses
   const filteredBusinesses = useMemo(() => {
@@ -328,7 +256,7 @@ export default function BusinessesPageClient({
 
     // Sort
     return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
-  }, [businesses, opportunityFilter, businessHasOpenOpportunity, revenueMap, applySearchFilter, applyAdvancedFilters, sortColumn, sortDirection, getSortValue])
+  }, [businesses, opportunityFilter, businessHasOpenOpportunity, applySearchFilter, applyAdvancedFilters, sortColumn, sortDirection, getSortValue])
 
   const visibleBusinesses = useMemo(() => filteredBusinesses.slice(0, visibleCount), [filteredBusinesses, visibleCount])
 
@@ -637,10 +565,10 @@ export default function BusinessesPageClient({
                     )}
                   </TableCell>
                   <TableCell align="right">
-                    {business.sourceType === 'api' && (revenueMap[business.id] !== undefined || (business as any)?.metrics?.net_rev_360_days !== undefined) ? (
+                    {business.sourceType === 'api' && (business as any)?.metrics?.net_rev_360_days !== undefined ? (
                       <span className="text-xs font-semibold text-gray-900">
                         {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(
-                          revenueMap[business.id] ?? (business as any)?.metrics?.net_rev_360_days ?? 0
+                          (business as any)?.metrics?.net_rev_360_days ?? 0
                         )}
                       </span>
                     ) : (
