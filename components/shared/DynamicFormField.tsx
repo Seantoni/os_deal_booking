@@ -3,19 +3,8 @@
 import { memo } from 'react'
 import { Input, Select, Textarea } from '@/components/ui'
 import CategorySelect from './CategorySelect'
-import type { FormFieldWithDefinition, BuiltinFieldDefinition } from '@/types'
+import type { FormFieldWithDefinition, BuiltinFieldDefinition, CategoryRecord } from '@/types'
 import type { SelectOption } from '@/app/actions/custom-fields'
-
-// Props for rendering category select
-interface CategoryOption {
-  id: string
-  categoryKey?: string
-  parentCategory: string
-  subCategory1: string | null
-  subCategory2: string | null
-  subCategory3: string | null
-  subCategory4: string | null
-}
 
 // Props for rendering user select
 interface UserOption {
@@ -36,7 +25,7 @@ interface DynamicFormFieldProps {
   onChange: (value: string | null) => void
   disabled?: boolean
   // For special field types
-  categories?: CategoryOption[]
+  categories?: CategoryRecord[]
   users?: UserOption[]
   businesses?: BusinessOption[]
   // Override props

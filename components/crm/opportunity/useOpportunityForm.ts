@@ -2,17 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { getBusinesses, getAllUsers, getTasksByOpportunity, getBusiness } from '@/app/actions/crm'
 import { getCategories } from '@/app/actions/categories'
 import { getBookingRequest } from '@/app/actions/booking'
-import type { Opportunity, OpportunityStage, Task, Business, BookingRequest } from '@/types'
+import type { Opportunity, OpportunityStage, Task, Business, BookingRequest, UserData } from '@/types'
 import type { Category } from '@prisma/client'
-
-// User data type matching what's passed from shared context
-type UserData = {
-  id: string
-  clerkId: string
-  name: string | null
-  email: string | null
-  role: string
-}
 
 interface UseOpportunityFormProps {
   isOpen: boolean
@@ -117,9 +108,9 @@ export function useOpportunityForm({
         fetchKeys.forEach((key, index) => {
           const result = results[index]
           if (result.success && result.data) {
-            if (key === 'businesses') businessesData = result.data
-            else if (key === 'categories') categoriesData = result.data
-            else if (key === 'users') usersData = result.data
+            if (key === 'businesses') businessesData = result.data as Business[]
+            else if (key === 'categories') categoriesData = result.data as Category[]
+            else if (key === 'users') usersData = result.data as UserData[]
           }
         })
       }

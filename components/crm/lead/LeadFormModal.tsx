@@ -6,7 +6,7 @@ import { getCategories } from '@/app/actions/categories'
 import { LEAD_STAGE_LABELS, LEAD_STAGE_COLORS } from '@/lib/constants'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
-import type { Lead, LeadStage } from '@/types'
+import type { Lead, LeadStage, CategoryRecord } from '@/types'
 import CloseIcon from '@mui/icons-material/Close'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
@@ -22,16 +22,6 @@ interface LeadFormModalProps {
   onClose: () => void
   lead?: Lead | null
   onSuccess: (lead: Lead) => void
-}
-
-interface CategoryOption {
-  id: string
-  categoryKey: string
-  parentCategory: string
-  subCategory1: string | null
-  subCategory2: string | null
-  subCategory3: string | null
-  subCategory4: string | null
 }
 
 interface ResponsibleUser {
@@ -58,7 +48,7 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
   const [stage, setStage] = useState<LeadStage>('por_asignar')
   
   // Reference data
-  const [categories, setCategories] = useState<CategoryOption[]>([])
+  const [categories, setCategories] = useState<CategoryRecord[]>([])
   const [users, setUsers] = useState<ResponsibleUser[]>([])
 
   // Build initial values from lead entity

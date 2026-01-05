@@ -154,7 +154,7 @@ export function getAllCategories(): string[] {
 export const CATEGORIES = getAllCategories(); // Note: This evaluates once at load time.
 
 // Re-export centralized types
-export type { Category, CategoryOption, CategoryColors } from '@/types'
+export type { CategoryOption, CategoryColors, CategoryRecord } from '@/types'
 
 /**
  * Recursively build category options from a node

@@ -1,20 +1,9 @@
 'use client'
 
-import { getCategoryOptions, CategoryOption } from '@/lib/categories'
+import { getCategoryOptions, CategoryOption, CategoryRecord } from '@/lib/categories'
 import { useState, useRef, useEffect, useMemo, memo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { Input } from '@/components/ui'
-
-// Category data structure from DynamicFormField
-interface CategoryData {
-  id: string
-  categoryKey?: string
-  parentCategory: string
-  subCategory1: string | null
-  subCategory2: string | null
-  subCategory3: string | null
-  subCategory4: string | null
-}
 
 interface CategorySelectProps {
   // Legacy interface (for EventModal, ConfiguracionStep, etc.)
@@ -24,7 +13,7 @@ interface CategorySelectProps {
   // New value-based interface (for DynamicFormField)
   value?: string | null
   onValueChange?: (id: string | null) => void
-  categories?: CategoryData[] // Optional: pass categories directly instead of fetching
+  categories?: CategoryRecord[] // Optional: pass categories directly instead of fetching
   
   // Common props
   label?: string

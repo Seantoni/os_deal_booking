@@ -3,17 +3,8 @@
 import { ReactNode, createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
-import type { UserRole } from '@/types'
+import type { UserRole, UserData } from '@/types'
 import type { Category } from '@prisma/client'
-
-// User data as passed from layout (subset of UserProfile)
-type UserData = {
-  id: string
-  clerkId: string
-  name: string | null
-  email: string | null
-  role: string
-}
 
 // ============================================================================
 // Shared Data Context (Categories & Users)

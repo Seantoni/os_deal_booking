@@ -4,17 +4,7 @@ import { useState, memo, type ReactElement } from 'react'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import DynamicFormField from './DynamicFormField'
-import type { FormSectionWithDefinitions } from '@/types'
-
-interface CategoryOption {
-  id: string
-  categoryKey: string
-  parentCategory: string
-  subCategory1: string | null
-  subCategory2: string | null
-  subCategory3: string | null
-  subCategory4: string | null
-}
+import type { FormSectionWithDefinitions, CategoryRecord } from '@/types'
 
 interface UserOption {
   clerkId: string
@@ -33,7 +23,7 @@ interface DynamicFormSectionProps {
   onChange: (fieldKey: string, value: string | null) => void
   disabled?: boolean
   // For special field types
-  categories?: CategoryOption[]
+  categories?: CategoryRecord[]
   users?: UserOption[]
   businesses?: BusinessOption[]
   // Field-specific overrides

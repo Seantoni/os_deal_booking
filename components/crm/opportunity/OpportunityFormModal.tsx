@@ -5,17 +5,8 @@ import { useUser } from '@clerk/nextjs'
 import { createOpportunity, updateOpportunity, createTask, updateTask, deleteTask } from '@/app/actions/crm'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
-import type { Opportunity, OpportunityStage, Task, Business } from '@/types'
+import type { Opportunity, OpportunityStage, Task, Business, UserData } from '@/types'
 import type { Category } from '@prisma/client'
-
-// User data type matching what's passed from shared context
-type UserData = {
-  id: string
-  clerkId: string
-  name: string | null
-  email: string | null
-  role: string
-}
 import CloseIcon from '@mui/icons-material/Close'
 import HandshakeIcon from '@mui/icons-material/Handshake'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'

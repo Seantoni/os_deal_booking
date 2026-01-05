@@ -21,16 +21,16 @@ export type { BookingRequestStatus } from '@/lib/constants'
 
 // Category types
 export type {
-  Category,
   CategoryNode,
   CategoryHierarchy,
   CategoryOption,
+  CategoryRecord,
   CategoryColors,
   CategoryDurations,
 } from './category'
 
 // User types
-export type { UserRole, UserProfile } from './user'
+export type { UserRole, UserProfile, UserData } from './user'
 
 // Settings types
 export type { BusinessException, BookingSettings, RequestFieldConfig, RequestFormFieldsConfig } from './settings'

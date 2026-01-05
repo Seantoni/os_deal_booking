@@ -2,17 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { getAllUsers, getOpportunitiesByBusiness } from '@/app/actions/crm'
 import { getCategories } from '@/app/actions/categories'
 import { getRequestsByBusiness } from '@/app/actions/booking-requests'
-import type { Business, Opportunity, BookingRequest } from '@/types'
+import type { Business, Opportunity, BookingRequest, UserData } from '@/types'
 import type { Category } from '@prisma/client'
-
-// User data type matching what's passed from shared context
-type UserData = {
-  id: string
-  clerkId: string
-  name: string | null
-  email: string | null
-  role: string
-}
 
 interface UseBusinessFormProps {
   isOpen: boolean
@@ -113,11 +104,11 @@ export function useBusinessForm({
         fetchKeys.forEach((key, index) => {
           const result = results[index]
           if (result.success && result.data) {
-            if (key === 'categories') categoriesData = result.data
-            else if (key === 'users') usersData = result.data
-            else if (key === 'opportunities') opportunitiesData = result.data
-            else if (key === 'requests') requestsData = result.data
-        }
+            if (key === 'categories') categoriesData = result.data as Category[]
+            else if (key === 'users') usersData = result.data as UserData[]
+            else if (key === 'opportunities') opportunitiesData = result.data as Opportunity[]
+            else if (key === 'requests') requestsData = result.data as BookingRequest[]
+          }
         })
       }
 

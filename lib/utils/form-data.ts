@@ -10,7 +10,7 @@
 export function parseFormDataJsonField(
   formData: FormData,
   fieldName: string
-): any | null {
+): unknown {
   const value = formData.get(fieldName) as string
   if (!value) return null
 
@@ -92,7 +92,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
   commission: string | null
 
   // Descripción: Descripción y Canales de Venta
-  redemptionMethods: any | null
+  redemptionMethods: string[] | null
   contactDetails: string | null
   socialMedia: string | null
 
@@ -105,8 +105,8 @@ export function extractBookingRequestFromFormData(formData: FormData): {
 
   // Estructura: Estructura de la Oferta
   offerMargin: string | null
-  pricingOptions: any | null
-  dealImages: any | null
+  pricingOptions: Array<{ optionName: string; originalPrice: string; discountPrice: string; discount: string; pricePerUnit?: string; discountPerUnit?: string; unitLabel?: string }> | null
+  dealImages: Array<{ url: string; order: number }> | null
 
   // Políticas: Políticas Generales
   cancellationPolicy: string | null
@@ -131,7 +131,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
     subCategory3: getFormDataString(formData, 'subCategory3'),
     merchant: getFormDataString(formData, 'merchant'),
     businessEmail: getFormDataString(formData, 'businessEmail'),
-    additionalEmails: parseFormDataJsonField(formData, 'additionalEmails'),
+    additionalEmails: parseFormDataJsonField(formData, 'additionalEmails') as string[] | null,
     startDate: getFormDataString(formData, 'startDate'),
     endDate: getFormDataString(formData, 'endDate'),
     opportunityId: getFormDataString(formData, 'opportunityId'),
@@ -175,7 +175,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
     commission: getFormDataString(formData, 'commission'),
 
     // Descripción: Descripción y Canales de Venta
-    redemptionMethods: parseFormDataJsonField(formData, 'redemptionMethods'),
+    redemptionMethods: parseFormDataJsonField(formData, 'redemptionMethods') as string[] | null,
     contactDetails: getFormDataString(formData, 'contactDetails'),
     socialMedia: getFormDataString(formData, 'socialMedia'),
 
@@ -188,8 +188,8 @@ export function extractBookingRequestFromFormData(formData: FormData): {
 
     // Estructura: Estructura de la Oferta
     offerMargin: getFormDataString(formData, 'offerMargin'),
-    pricingOptions: parseFormDataJsonField(formData, 'pricingOptions'),
-    dealImages: parseFormDataJsonField(formData, 'dealImages'),
+    pricingOptions: parseFormDataJsonField(formData, 'pricingOptions') as Array<{ optionName: string; originalPrice: string; discountPrice: string; discount: string; pricePerUnit?: string; discountPerUnit?: string; unitLabel?: string }> | null,
+    dealImages: parseFormDataJsonField(formData, 'dealImages') as Array<{ url: string; order: number }> | null,
 
     // Políticas: Políticas Generales
     cancellationPolicy: getFormDataString(formData, 'cancellationPolicy'),
@@ -197,7 +197,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
     additionalComments: getFormDataString(formData, 'additionalComments'),
 
     // Información Adicional (Dynamic template-based)
-    additionalInfo: parseFormDataJsonField(formData, 'additionalInfo'),
+    additionalInfo: parseFormDataJsonField(formData, 'additionalInfo') as { templateName: string; templateDisplayName: string; fields: Record<string, string> } | null,
   }
 }
 

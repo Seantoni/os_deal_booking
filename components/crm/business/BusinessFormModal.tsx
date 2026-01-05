@@ -6,17 +6,8 @@ import { useUser } from '@clerk/nextjs'
 import { createBusiness, updateBusiness, createOpportunity } from '@/app/actions/crm'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
-import type { Business, Opportunity, BookingRequest } from '@/types'
+import type { Business, Opportunity, BookingRequest, UserData } from '@/types'
 import type { Category } from '@prisma/client'
-
-// User data type matching what's passed from shared context
-type UserData = {
-  id: string
-  clerkId: string
-  name: string | null
-  email: string | null
-  role: string
-}
 import toast from 'react-hot-toast'
 
 // Action state types for React 19 useActionState
