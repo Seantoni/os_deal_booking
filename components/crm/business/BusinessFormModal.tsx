@@ -6,8 +6,17 @@ import { useUser } from '@clerk/nextjs'
 import { createBusiness, updateBusiness, createOpportunity } from '@/app/actions/crm'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
-import type { Business, Opportunity, BookingRequest, UserProfile } from '@/types'
-import type { CategoryOption } from '@/types/category'
+import type { Business, Opportunity, BookingRequest } from '@/types'
+import type { Category } from '@prisma/client'
+
+// User data type matching what's passed from shared context
+type UserData = {
+  id: string
+  clerkId: string
+  name: string | null
+  email: string | null
+  role: string
+}
 import toast from 'react-hot-toast'
 
 // Action state types for React 19 useActionState
@@ -38,8 +47,8 @@ interface BusinessFormModalProps {
   business?: Business | null
   onSuccess: (business: Business) => void
   // Pre-loaded data to skip fetching (passed from parent page)
-  preloadedCategories?: CategoryOption[]
-  preloadedUsers?: UserProfile[]
+  preloadedCategories?: Category[]
+  preloadedUsers?: UserData[]
 }
 
 export default function BusinessFormModal({ 

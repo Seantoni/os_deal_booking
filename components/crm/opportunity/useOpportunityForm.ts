@@ -2,8 +2,17 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { getBusinesses, getAllUsers, getTasksByOpportunity, getBusiness } from '@/app/actions/crm'
 import { getCategories } from '@/app/actions/categories'
 import { getBookingRequest } from '@/app/actions/booking'
-import type { Opportunity, OpportunityStage, Task, Business, BookingRequest, UserProfile } from '@/types'
-import type { CategoryOption } from '@/types/category'
+import type { Opportunity, OpportunityStage, Task, Business, BookingRequest } from '@/types'
+import type { Category } from '@prisma/client'
+
+// User data type matching what's passed from shared context
+type UserData = {
+  id: string
+  clerkId: string
+  name: string | null
+  email: string | null
+  role: string
+}
 
 interface UseOpportunityFormProps {
   isOpen: boolean
@@ -13,8 +22,8 @@ interface UseOpportunityFormProps {
   currentUserId?: string | null // Current logged-in user ID
   // Pre-loaded data to skip fetching
   preloadedBusinesses?: Business[]
-  preloadedCategories?: CategoryOption[]
-  preloadedUsers?: UserProfile[]
+  preloadedCategories?: Category[]
+  preloadedUsers?: UserData[]
 }
 
 export function useOpportunityForm({
@@ -42,8 +51,8 @@ export function useOpportunityForm({
 
   // Data state
   const [businesses, setBusinesses] = useState<Business[]>([])
-  const [categories, setCategories] = useState<CategoryOption[]>([])
-  const [users, setUsers] = useState<UserProfile[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [users, setUsers] = useState<UserData[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [linkedBusiness, setLinkedBusiness] = useState<Business | null>(null)
   const [linkedBookingRequest, setLinkedBookingRequest] = useState<BookingRequest | null>(null)
