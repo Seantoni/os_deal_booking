@@ -33,7 +33,7 @@ export default function FilterValueInput({
   if (field.type === 'select' && field.options) {
     return (
       <select
-        value={value || ''}
+        value={value != null ? String(value) : ''}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         className="flex-1 min-w-[140px] px-3 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white disabled:bg-gray-100"
@@ -98,7 +98,7 @@ export default function FilterValueInput({
           <div className="flex items-center gap-2 flex-1">
             <input
               type="date"
-              value={value || ''}
+              value={typeof value === 'string' || typeof value === 'number' ? value : ''}
               onChange={(e) => onChange(e.target.value)}
               disabled={disabled}
               className="flex-1 min-w-[140px] px-3 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white disabled:bg-gray-100"
@@ -124,7 +124,7 @@ export default function FilterValueInput({
     return (
       <input
         type="number"
-        value={value || ''}
+        value={typeof value === 'string' || typeof value === 'number' ? value : ''}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
         placeholder="Enter value..."
@@ -137,7 +137,7 @@ export default function FilterValueInput({
   return (
     <input
       type="text"
-      value={value || ''}
+      value={typeof value === 'string' || typeof value === 'number' ? value : ''}
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
       placeholder="Enter value..."
