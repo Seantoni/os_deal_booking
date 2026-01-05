@@ -50,12 +50,12 @@ export default function BusinessFormModal({
   preloadedCategories,
   preloadedUsers,
 }: BusinessFormModalProps) {
-  // CreateResult uses Partial<Business> for existingBusiness since Prisma returns JsonValue for metrics
+  // CreateResult type - existingBusiness uses Record for flexibility with Prisma's return type
   type CreateResult = {
     success: boolean
     data?: Business
     error?: string
-    existingBusiness?: Partial<Business> & { name: string; owner?: { name: string | null; email: string | null } | null }
+    existingBusiness?: Record<string, unknown> & { name: string; owner?: { name: string | null; email: string | null } | null }
   }
   const router = useRouter()
   const { user } = useUser()
