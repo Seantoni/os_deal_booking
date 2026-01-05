@@ -50,11 +50,12 @@ export default function BusinessFormModal({
   preloadedCategories,
   preloadedUsers,
 }: BusinessFormModalProps) {
+  // CreateResult uses Partial<Business> for existingBusiness since Prisma returns JsonValue for metrics
   type CreateResult = {
     success: boolean
     data?: Business
     error?: string
-    existingBusiness?: Business
+    existingBusiness?: Partial<Business> & { name: string; owner?: { name: string | null; email: string | null } | null }
   }
   const router = useRouter()
   const { user } = useUser()
@@ -151,7 +152,7 @@ export default function BusinessFormModal({
           onClose()
           return { success: true, error: null }
         } else {
-          const existing = result.existingBusiness as (Business & { owner?: { name: string | null; email: string | null } }) | undefined
+          const existing = result.existingBusiness
           if (existing) {
             const ownerInfo = existing.owner?.name || existing.owner?.email || 'Desconocido'
             const errorMsg = `El negocio ya existe: "${existing.name}" (Propietario: ${ownerInfo})`
