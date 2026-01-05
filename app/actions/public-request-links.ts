@@ -2,6 +2,7 @@
 
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { generatePublicLinkToken } from '@/lib/tokens'
 import { resend, EMAIL_CONFIG } from '@/lib/email/config'
 import { handleServerActionError, requireAuth } from '@/lib/utils/server-actions'
@@ -203,6 +204,22 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
     const existingCount = await countBusinessRequests(fields.name!)
     const requestName = generateRequestName(fields.name!, existingCount)
 
+    // Convert JSON array fields to Prisma-compatible format (null -> Prisma.JsonNull)
+    const redemptionMethodsJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
+      fields.redemptionMethods && Array.isArray(fields.redemptionMethods) && fields.redemptionMethods.length > 0
+        ? (fields.redemptionMethods as Prisma.InputJsonValue)
+        : Prisma.JsonNull
+
+    const pricingOptionsJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
+      fields.pricingOptions && Array.isArray(fields.pricingOptions) && fields.pricingOptions.length > 0
+        ? (fields.pricingOptions as Prisma.InputJsonValue)
+        : Prisma.JsonNull
+
+    const dealImagesJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
+      fields.dealImages && Array.isArray(fields.dealImages) && fields.dealImages.length > 0
+        ? (fields.dealImages as Prisma.InputJsonValue)
+        : Prisma.JsonNull
+
     // Create booking request with status 'approved' (as requested)
     // Use the userId from the public link creator (createdBy)
     const bookingRequest = await prisma.bookingRequest.create({
@@ -255,7 +272,7 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
         vouchersPerPerson: fields.vouchersPerPerson,
         commission: fields.commission,
         // Descripción: Descripción y Canales de Venta
-        redemptionMethods: fields.redemptionMethods,
+        redemptionMethods: redemptionMethodsJson,
         contactDetails: fields.contactDetails,
         socialMedia: fields.socialMedia,
         // Contenido: AI-Generated Content Fields
@@ -264,8 +281,8 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
         aboutOffer: fields.aboutOffer,
         goodToKnow: fields.goodToKnow,
         // Estructura: Estructura de la Oferta
-        pricingOptions: fields.pricingOptions,
-        dealImages: fields.dealImages,
+        pricingOptions: pricingOptionsJson,
+        dealImages: dealImagesJson,
         // Políticas: Políticas Generales
         cancellationPolicy: fields.cancellationPolicy,
         marketValidation: fields.marketValidation,
