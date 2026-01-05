@@ -648,4 +648,156 @@ export async function getBusinessesWithBookingStatus() {
   }
 }
 
+/**
+ * Bulk upsert businesses from CSV import
+ * Admin only
+ */
+export interface BulkBusinessRow {
+  id?: string
+  name: string
+  contactName?: string
+  contactEmail?: string
+  contactPhone?: string
+  category?: string // Full category path (e.g., "Food > Restaurants > Italian")
+  owner?: string
+  salesReps?: string
+  province?: string
+  district?: string
+  ruc?: string
+  razonSocial?: string
+}
+
+export interface BulkUpsertResult {
+  created: number
+  updated: number
+  errors: string[]
+}
+
+export async function bulkUpsertBusinesses(
+  rows: BulkBusinessRow[]
+): Promise<{ success: boolean; data?: BulkUpsertResult; error?: string }> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  // Check admin access
+  if (!(await isAdmin())) {
+    return { success: false, error: 'Admin access required' }
+  }
+
+  try {
+    let created = 0
+    let updated = 0
+    const errors: string[] = []
+
+    // Get all users for owner/salesReps lookup
+    const allUsers = await prisma.userProfile.findMany({
+      select: { id: true, clerkId: true, name: true, email: true },
+    })
+    const userByName = new Map(allUsers.map(u => [(u.name || '').toLowerCase(), u]))
+    const userByEmail = new Map(allUsers.map(u => [(u.email || '').toLowerCase(), u]))
+
+    // Get all categories for lookup
+    const allCategories = await prisma.category.findMany()
+    const categoryByPath = new Map<string, string>()
+    allCategories.forEach(cat => {
+      let path = cat.parentCategory
+      if (cat.subCategory1) path += ` > ${cat.subCategory1}`
+      if (cat.subCategory2) path += ` > ${cat.subCategory2}`
+      categoryByPath.set(path.toLowerCase(), cat.id)
+    })
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      const rowNum = i + 2 // +2 for 1-indexed and header row
+
+      try {
+        // Validate required fields for new records
+        if (!row.id && !row.name) {
+          errors.push(`Fila ${rowNum}: Nombre es requerido para nuevos registros`)
+          continue
+        }
+
+        // Find owner by name or email
+        let ownerId: string | null = null
+        if (row.owner) {
+          const ownerLower = row.owner.toLowerCase()
+          const ownerUser = userByName.get(ownerLower) || userByEmail.get(ownerLower)
+          if (ownerUser) {
+            ownerId = ownerUser.clerkId
+          }
+        }
+
+        // Find category by path
+        let categoryId: string | null = null
+        if (row.category) {
+          categoryId = categoryByPath.get(row.category.toLowerCase()) || null
+        }
+
+        // Build data object
+        const data = {
+          name: row.name,
+          contactName: row.contactName || '',
+          contactEmail: row.contactEmail || '',
+          contactPhone: row.contactPhone || '',
+          categoryId,
+          ownerId,
+          province: row.province || null,
+          district: row.district || null,
+          ruc: row.ruc || null,
+          razonSocial: row.razonSocial || null,
+        }
+
+        if (row.id) {
+          // Update existing
+          const existing = await prisma.business.findUnique({ where: { id: row.id } })
+          if (!existing) {
+            errors.push(`Fila ${rowNum}: No se encontró negocio con ID ${row.id}`)
+            continue
+          }
+
+          await prisma.business.update({
+            where: { id: row.id },
+            data,
+          })
+          updated++
+        } else {
+          // Create new - check for duplicate name
+          const existingByName = await prisma.business.findFirst({
+            where: { name: { equals: row.name, mode: 'insensitive' } },
+          })
+          
+          if (existingByName) {
+            errors.push(`Fila ${rowNum}: Ya existe un negocio con el nombre "${row.name}"`)
+            continue
+          }
+
+          await prisma.business.create({ data })
+          created++
+        }
+      } catch (err) {
+        errors.push(`Fila ${rowNum}: ${err instanceof Error ? err.message : 'Error desconocido'}`)
+      }
+    }
+
+    // Invalidate cache
+    await invalidateEntity('businesses')
+
+    // Log activity
+    await logActivity({
+      action: 'IMPORT',
+      entityType: 'Business',
+      entityId: 'bulk',
+      details: { 
+        newValues: { created, updated, errorCount: errors.length },
+      },
+    })
+
+    return { success: true, data: { created, updated, errors } }
+  } catch (error) {
+    return handleServerActionError(error, 'bulkUpsertBusinesses')
+  }
+}
 

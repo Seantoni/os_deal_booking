@@ -10,7 +10,6 @@ import FilterListIcon from '@mui/icons-material/FilterList'
 import toast from 'react-hot-toast'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useEntityPage, sortEntities } from '@/hooks/useEntityPage'
-import { logger } from '@/lib/logger'
 import { 
   EntityPageHeader, 
   EmptyTableState, 

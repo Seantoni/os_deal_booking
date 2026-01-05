@@ -6,6 +6,7 @@ import { formatShortDateNoYear } from '@/lib/date'
 import { buildCategoryDisplayString } from '@/types'
 import PublicIcon from '@mui/icons-material/Public'
 import LockIcon from '@mui/icons-material/Lock'
+import LightbulbIcon from '@mui/icons-material/Lightbulb'
 import type { BookingRequest } from '@/types'
 
 interface PendingRequestsSidebarProps {
@@ -42,7 +43,7 @@ return (
     <div className="w-64 bg-white border-r border-gray-200 h-full overflow-y-auto flex flex-col">
       <div className="p-4 border-b border-gray-200 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-gray-900">Pending Requests</h2>
+          <h2 className="text-base font-semibold text-gray-900">Pending Requests</h2>
           <button
             onClick={onBackClick}
             className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
@@ -59,11 +60,14 @@ return (
           placeholder="Search requests..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
         
         <div className="mt-3 text-xs text-gray-600 bg-blue-50 border border-blue-200 rounded-md p-2">
-          <p className="font-medium text-blue-900">💡 Drag & Drop</p>
+          <p className="font-medium text-blue-900 flex items-center gap-1.5">
+            <LightbulbIcon style={{ fontSize: 16 }} />
+            Drag & Drop
+          </p>
           <p className="mt-1">Drag requests to calendar to set launch date</p>
         </div>
       </div>

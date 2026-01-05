@@ -997,3 +997,183 @@ export async function deleteTask(taskId: string) {
   }
 }
 
+/**
+ * Bulk upsert opportunities from CSV import
+ * Admin only
+ */
+export interface BulkOpportunityRow {
+  id?: string
+  business?: string // Business name
+  stage?: string
+  startDate?: string // YYYY-MM-DD
+  closeDate?: string // YYYY-MM-DD
+  notes?: string
+  responsible?: string // User name or email
+  lostReason?: string
+  hasRequest?: string // "Sí" or "No"
+}
+
+export interface BulkOpportunityUpsertResult {
+  created: number
+  updated: number
+  errors: string[]
+}
+
+// Stage label to key mapping (reverse of STAGE_LABELS)
+const STAGE_KEY_MAP: Record<string, OpportunityStage> = {
+  'iniciación': 'iniciacion',
+  'iniciacion': 'iniciacion',
+  'reunión': 'reunion',
+  'reunion': 'reunion',
+  'propuesta enviada': 'propuesta_enviada',
+  'propuesta aprobada': 'propuesta_aprobada',
+  'won': 'won',
+  'lost': 'lost',
+}
+
+export async function bulkUpsertOpportunities(
+  rows: BulkOpportunityRow[]
+): Promise<{ success: boolean; data?: BulkOpportunityUpsertResult; error?: string }> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  // Check admin access
+  if (!(await isAdmin())) {
+    return { success: false, error: 'Admin access required' }
+  }
+
+  try {
+    let created = 0
+    let updated = 0
+    const errors: string[] = []
+
+    // Get all users for responsible lookup
+    const allUsers = await prisma.userProfile.findMany({
+      select: { id: true, clerkId: true, name: true, email: true },
+    })
+    const userByName = new Map(allUsers.map(u => [(u.name || '').toLowerCase(), u]))
+    const userByEmail = new Map(allUsers.map(u => [(u.email || '').toLowerCase(), u]))
+
+    // Get all businesses for lookup
+    const allBusinesses = await prisma.business.findMany({
+      select: { id: true, name: true },
+    })
+    const businessByName = new Map(allBusinesses.map(b => [b.name.toLowerCase(), b]))
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      const rowNum = i + 2 // +2 for 1-indexed and header row
+
+      try {
+        // Validate required fields for new records
+        if (!row.id && !row.business) {
+          errors.push(`Fila ${rowNum}: Negocio es requerido para nuevos registros`)
+          continue
+        }
+
+        // Find business by name
+        let businessId: string | null = null
+        if (row.business) {
+          const business = businessByName.get(row.business.toLowerCase())
+          if (business) {
+            businessId = business.id
+          } else if (!row.id) {
+            errors.push(`Fila ${rowNum}: No se encontró negocio "${row.business}"`)
+            continue
+          }
+        }
+
+        // Find responsible by name or email
+        let responsibleId: string | null = null
+        if (row.responsible) {
+          const responsibleLower = row.responsible.toLowerCase()
+          const responsibleUser = userByName.get(responsibleLower) || userByEmail.get(responsibleLower)
+          if (responsibleUser) {
+            responsibleId = responsibleUser.clerkId
+          }
+        }
+
+        // Parse stage
+        let stage: OpportunityStage = 'iniciacion'
+        if (row.stage) {
+          const normalizedStage = row.stage.toLowerCase().trim()
+          stage = STAGE_KEY_MAP[normalizedStage] || 'iniciacion'
+        }
+
+        // Parse dates
+        const startDate = row.startDate ? new Date(row.startDate) : new Date()
+        const closeDate = row.closeDate ? new Date(row.closeDate) : null
+
+        // Parse hasRequest
+        const hasRequest = row.hasRequest?.toLowerCase() === 'sí' || row.hasRequest?.toLowerCase() === 'si'
+
+        // Build data object
+        const data = {
+          businessId: businessId!,
+          stage,
+          startDate,
+          closeDate,
+          notes: row.notes || null,
+          responsibleId,
+          lostReason: row.lostReason || null,
+          hasRequest,
+          userId, // Set creator as current user
+        }
+
+        if (row.id) {
+          // Update existing
+          const existing = await prisma.opportunity.findUnique({ where: { id: row.id } })
+          if (!existing) {
+            errors.push(`Fila ${rowNum}: No se encontró oportunidad con ID ${row.id}`)
+            continue
+          }
+
+          // Don't overwrite businessId and userId on update
+          const { businessId: _bId, userId: _uId, ...updateData } = data
+          
+          await prisma.opportunity.update({
+            where: { id: row.id },
+            data: {
+              ...updateData,
+              // Only update businessId if provided and different
+              ...(businessId && businessId !== existing.businessId ? { businessId } : {}),
+            },
+          })
+          updated++
+        } else {
+          // Create new
+          if (!businessId) {
+            errors.push(`Fila ${rowNum}: Negocio es requerido`)
+            continue
+          }
+
+          await prisma.opportunity.create({ data })
+          created++
+        }
+      } catch (err) {
+        errors.push(`Fila ${rowNum}: ${err instanceof Error ? err.message : 'Error desconocido'}`)
+      }
+    }
+
+    // Invalidate cache
+    await invalidateEntity('opportunities')
+
+    // Log activity
+    await logActivity({
+      action: 'IMPORT',
+      entityType: 'Opportunity',
+      entityId: 'bulk',
+      details: { 
+        newValues: { created, updated, errorCount: errors.length },
+      },
+    })
+
+    return { success: true, data: { created, updated, errors } }
+  } catch (error) {
+    return handleServerActionError(error, 'bulkUpsertOpportunities')
+  }
+}
+

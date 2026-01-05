@@ -1,17 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { getDashboardStats } from '@/app/actions/dashboard'
-import { getAllUsers } from '@/app/actions/crm'
+import { getDashboardStats, type DashboardFilters } from '@/app/actions/dashboard'
 import { getInboxItems, dismissInboxItem, type InboxItem } from '@/app/actions/inbox'
-import { PANAMA_TIMEZONE, formatRelativeTime } from '@/lib/date'
+import { useSharedData } from '@/hooks/useSharedData'
+import { formatRelativeTime, PANAMA_TIMEZONE } from '@/lib/date'
 import FilterListIcon from '@mui/icons-material/FilterList'
+import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import HandshakeIcon from '@mui/icons-material/Handshake'
 import DescriptionIcon from '@mui/icons-material/Description'
 import GroupIcon from '@mui/icons-material/Group'
 import RefreshIcon from '@mui/icons-material/Refresh'
-import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import InboxIcon from '@mui/icons-material/Inbox'
 import CampaignIcon from '@mui/icons-material/Campaign'
 import CheckIcon from '@mui/icons-material/Check'
@@ -20,52 +20,121 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import toast from 'react-hot-toast'
 
+// Dashboard stats type
+interface DashboardStats {
+  opportunities: {
+    total: number
+    byStage: Record<string, number>
+  }
+  tasks: {
+    total: number
+    completed: number
+    pending: number
+    meetings: number
+    meetingsCompleted: number
+    meetingsPending: number
+    todos: number
+  }
+  bookings: {
+    total: number
+    byStatus: Record<string, number>
+  }
+  teamPerformance: Array<{
+    userId: string
+    name: string
+    isCurrentUser: boolean
+    oppsOpen: number
+    oppsWon: number
+    tasksCompleted: number
+    tasksPending: number
+    meetings: number
+    todos: number
+    approvedRequests: number
+    bookedRequests: number
+  }>
+  isSalesUser: boolean
+}
+
 export default function DashboardClient() {
   const router = useRouter()
+  
+  // Use shared users from context (already loaded in layout) - saves 1 API call
+  const { users } = useSharedData()
+  
   const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState<any>(null)
-  const [users, setUsers] = useState<any[]>([])
+  const [stats, setStats] = useState<DashboardStats | null>(null)
   const [inboxItems, setInboxItems] = useState<InboxItem[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState<DashboardFilters>({
     userId: '',
     startDate: '',
     endDate: '',
   })
-  const [panamaTime, setPanamaTime] = useState<string>('')
+  const [time, setTime] = useState<string>('')
+  const [date, setDate] = useState<string>('')
+  
+  // Debounce timer ref for filter changes
+  const filterDebounceRef = useRef<NodeJS.Timeout | null>(null)
+  const isInitialMount = useRef(true)
 
-  // Update Panama time every second
+  // Update Panama time every minute (not every second - reduces re-renders)
   useEffect(() => {
     const updateTime = () => {
       const now = new Date()
-      setPanamaTime(now.toLocaleString('es-PA', {
+      setTime(now.toLocaleString('es-PA', {
         timeZone: PANAMA_TIMEZONE,
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-        second: '2-digit',
         hour12: true,
+      }))
+      setDate(now.toLocaleString('es-PA', {
+        timeZone: PANAMA_TIMEZONE,
+        day: 'numeric',
+        month: 'short',
       }))
     }
     updateTime()
-    const interval = setInterval(updateTime, 1000)
+    const interval = setInterval(updateTime, 60000) // Every minute instead of every second
     return () => clearInterval(interval)
   }, [])
 
+  // Initial load
   useEffect(() => {
     loadData()
+  }, [])
+
+  // Debounced filter effect (500ms delay)
+  useEffect(() => {
+    // Skip initial mount (already loaded above)
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      return
+    }
+    
+    // Clear previous debounce timer
+    if (filterDebounceRef.current) {
+      clearTimeout(filterDebounceRef.current)
+    }
+    
+    // Debounce filter changes by 500ms
+    filterDebounceRef.current = setTimeout(() => {
+      loadData()
+    }, 500)
+    
+    return () => {
+      if (filterDebounceRef.current) {
+        clearTimeout(filterDebounceRef.current)
+      }
+    }
   }, [filters])
 
   async function loadData() {
     setLoading(true)
     setError(null)
     try {
-      const [statsResult, usersResult, inboxResult] = await Promise.all([
+      // Parallel fetch stats and inbox (users come from shared context)
+      const [statsResult, inboxResult] = await Promise.all([
         getDashboardStats(filters),
-        getAllUsers(),
         getInboxItems(),
       ])
 
@@ -76,10 +145,6 @@ export default function DashboardClient() {
         console.error('Dashboard stats error:', errorMsg)
         setError(errorMsg as string)
         setStats(null)
-      }
-      
-      if (usersResult.success && usersResult.data) {
-        setUsers(usersResult.data)
       }
 
       if (inboxResult.success && inboxResult.data) {
@@ -164,19 +229,8 @@ export default function DashboardClient() {
     <div className="min-h-full">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
         
-        {/* Panama Timezone Display - For Validation */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-            <AccessTimeIcon className="text-blue-600" fontSize="small" />
-            <div className="text-sm">
-              <span className="font-medium text-blue-700">Panamá: </span>
-              <span className="text-blue-900 font-mono">{panamaTime || 'Cargando...'}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Filters Row - Moved Title to AppHeader */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-end gap-4">
+        {/* Filters Row */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
             <div className="flex items-center px-2 text-gray-400">
               <FilterListIcon fontSize="small" />
@@ -186,7 +240,7 @@ export default function DashboardClient() {
                 size="sm"
                 options={[
                   { value: '', label: 'Todos los miembros' },
-                  ...users.map(u => ({ value: u.clerkId, label: u.name || u.email }))
+                  ...users.map(u => ({ value: u.clerkId, label: u.name || u.email || 'Usuario' }))
                 ]}
               value={filters.userId}
               onChange={(e) => handleFilterChange('userId', e.target.value)}
@@ -220,6 +274,14 @@ export default function DashboardClient() {
             >
               <RefreshIcon fontSize="small" />
             </button>
+          </div>
+          
+          {/* Minimalistic Date/Time Display */}
+          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <AccessTimeIcon className="text-gray-400" style={{ fontSize: 14 }} />
+            <span className="font-mono">{time}</span>
+            <span className="text-gray-400">•</span>
+            <span>{date}</span>
           </div>
         </div>
 

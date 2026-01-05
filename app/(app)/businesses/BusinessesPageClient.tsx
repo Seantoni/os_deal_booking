@@ -14,6 +14,11 @@ import FilterListIcon from '@mui/icons-material/FilterList'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import HandshakeIcon from '@mui/icons-material/Handshake'
 import DescriptionIcon from '@mui/icons-material/Description'
+import DownloadIcon from '@mui/icons-material/Download'
+import UploadIcon from '@mui/icons-material/Upload'
+import { generateCsv, downloadCsv, formatDateForCsv, generateFilename, type ParsedCsvRow } from '@/lib/utils/csv-export'
+import CsvUploadModal, { type CsvUploadPreview, type CsvUploadResult } from '@/components/common/CsvUploadModal'
+import { bulkUpsertBusinesses, type BulkBusinessRow } from '@/app/actions/businesses'
 
 // Lazy load heavy modal components
 const BusinessFormModal = dynamic(() => import('@/components/crm/business/BusinessFormModal'), {
@@ -116,6 +121,7 @@ export default function BusinessesPageClient({
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null)
   const [opportunityModalOpen, setOpportunityModalOpen] = useState(false)
   const [selectedBusinessForOpportunity, setSelectedBusinessForOpportunity] = useState<Business | null>(null)
+  const [uploadModalOpen, setUploadModalOpen] = useState(false)
   
   const confirmDialog = useConfirmDialog()
 
@@ -364,6 +370,110 @@ export default function BusinessesPageClient({
     setOpportunityModalOpen(true)
   }
 
+  function handleDownloadCsv() {
+    const csvColumns = [
+      { key: 'id', label: 'ID', getValue: (b: Business) => b.id },
+      { key: 'name', label: 'Nombre', getValue: (b: Business) => b.name },
+      { key: 'contactName', label: 'Contacto', getValue: (b: Business) => b.contactName || '' },
+      { key: 'contactEmail', label: 'Email', getValue: (b: Business) => b.contactEmail || '' },
+      { key: 'contactPhone', label: 'Teléfono', getValue: (b: Business) => b.contactPhone || '' },
+      { key: 'category', label: 'Categoría', getValue: (b: Business) => {
+        if (!b.category) return ''
+        let cat = b.category.parentCategory
+        if (b.category.subCategory1) cat += ` > ${b.category.subCategory1}`
+        if (b.category.subCategory2) cat += ` > ${b.category.subCategory2}`
+        return cat
+      }},
+      { key: 'owner', label: 'Owner', getValue: (b: Business) => b.owner?.name || '' },
+      { key: 'salesReps', label: 'Sales Reps', getValue: (b: Business) => 
+        b.salesReps?.map(r => r.salesRep?.name || '').filter(Boolean).join(', ') || ''
+      },
+      { key: 'province', label: 'Provincia', getValue: (b: Business) => b.province || '' },
+      { key: 'district', label: 'Distrito', getValue: (b: Business) => b.district || '' },
+      { key: 'ruc', label: 'RUC', getValue: (b: Business) => b.ruc || '' },
+      { key: 'razonSocial', label: 'Razón Social', getValue: (b: Business) => b.razonSocial || '' },
+      { key: 'createdAt', label: 'Fecha Creación', getValue: (b: Business) => formatDateForCsv(b.createdAt) },
+    ]
+    
+    const csvContent = generateCsv(filteredBusinesses, csvColumns)
+    downloadCsv(csvContent, generateFilename('businesses'))
+    toast.success(`Exported ${filteredBusinesses.length} businesses`)
+  }
+
+  // CSV Upload expected headers (matching download format)
+  const csvUploadHeaders = ['ID', 'Nombre', 'Contacto', 'Email', 'Teléfono', 'Categoría', 'Owner', 'Sales Reps', 'Provincia', 'Distrito', 'RUC', 'Razón Social', 'Fecha Creación']
+
+  // CSV Upload preview handler
+  async function handleUploadPreview(rows: ParsedCsvRow[]): Promise<CsvUploadPreview> {
+    let toCreate = 0
+    let toUpdate = 0
+    let skipped = 0
+    const errors: string[] = []
+
+    // Get existing business IDs for validation
+    const existingIds = new Set(businesses.map(b => b.id))
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      const rowNum = i + 2
+
+      const id = row['ID']?.trim()
+      const name = row['Nombre']?.trim()
+
+      if (id) {
+        if (existingIds.has(id)) {
+          toUpdate++
+        } else {
+          errors.push(`Fila ${rowNum}: ID "${id}" no encontrado`)
+          skipped++
+        }
+      } else if (name) {
+        // Check for duplicate name
+        const existingName = businesses.find(b => b.name.toLowerCase() === name.toLowerCase())
+        if (existingName) {
+          errors.push(`Fila ${rowNum}: Ya existe negocio con nombre "${name}"`)
+          skipped++
+        } else {
+          toCreate++
+        }
+      } else {
+        errors.push(`Fila ${rowNum}: Se requiere ID o Nombre`)
+        skipped++
+      }
+    }
+
+    return { toCreate, toUpdate, skipped, errors, rows }
+  }
+
+  // CSV Upload confirm handler
+  async function handleUploadConfirm(rows: ParsedCsvRow[]): Promise<CsvUploadResult> {
+    // Map CSV rows to BulkBusinessRow
+    const businessRows: BulkBusinessRow[] = rows.map(row => ({
+      id: row['ID']?.trim() || undefined,
+      name: row['Nombre']?.trim() || '',
+      contactName: row['Contacto']?.trim(),
+      contactEmail: row['Email']?.trim(),
+      contactPhone: row['Teléfono']?.trim(),
+      category: row['Categoría']?.trim(),
+      owner: row['Owner']?.trim(),
+      salesReps: row['Sales Reps']?.trim(),
+      province: row['Provincia']?.trim(),
+      district: row['Distrito']?.trim(),
+      ruc: row['RUC']?.trim(),
+      razonSocial: row['Razón Social']?.trim(),
+    }))
+
+    const result = await bulkUpsertBusinesses(businessRows)
+    
+    if (result.success && result.data) {
+      // Reload data after successful import
+      loadData()
+      return result.data
+    }
+    
+    return { created: 0, updated: 0, errors: [result.error || 'Error al importar'] }
+  }
+
   function handleCreateRequest(business: Business) {
     // Build query parameters with business data (matching OpportunityFormModal behavior)
     const params = new URLSearchParams()
@@ -421,13 +531,37 @@ export default function BusinessesPageClient({
 
   // Right side content for header
   const headerRightContent = (
-    <Button
-      onClick={handleCreateBusiness}
-      size="sm"
-      leftIcon={<AddIcon style={{ fontSize: 16 }} sx={{}} />}
-    >
-      Nuevo Negocio
-    </Button>
+    <div className="flex items-center gap-2">
+      {isAdmin && (
+        <>
+          <Button
+            onClick={() => setUploadModalOpen(true)}
+            variant="secondary"
+            size="sm"
+            leftIcon={<UploadIcon style={{ fontSize: 16 }} />}
+            title="Importar CSV"
+          >
+            Importar
+          </Button>
+          <Button
+            onClick={handleDownloadCsv}
+            variant="secondary"
+            size="sm"
+            leftIcon={<DownloadIcon style={{ fontSize: 16 }} />}
+            title="Descargar CSV"
+          >
+            CSV
+          </Button>
+        </>
+      )}
+      <Button
+        onClick={handleCreateBusiness}
+        size="sm"
+        leftIcon={<AddIcon style={{ fontSize: 16 }} sx={{}} />}
+      >
+        Nuevo Negocio
+      </Button>
+    </div>
   )
 
   return (
@@ -647,6 +781,17 @@ export default function BusinessesPageClient({
         confirmVariant={confirmDialog.options.confirmVariant}
         onConfirm={confirmDialog.handleConfirm}
         onCancel={confirmDialog.handleCancel}
+      />
+
+      {/* CSV Upload Modal */}
+      <CsvUploadModal
+        isOpen={uploadModalOpen}
+        onClose={() => setUploadModalOpen(false)}
+        entityName="Negocios"
+        expectedHeaders={csvUploadHeaders}
+        idField="ID"
+        onPreview={handleUploadPreview}
+        onConfirm={handleUploadConfirm}
       />
     </div>
   )

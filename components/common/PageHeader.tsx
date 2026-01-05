@@ -22,9 +22,9 @@ export default function PageHeader({
   return (
     <div className={`flex items-center justify-between gap-4 ${className}`}>
       <div className="min-w-0">
-        <h1 className="text-lg font-bold text-gray-900 truncate">{title}</h1>
+        <h1 className="text-lg font-semibold text-gray-900 truncate tracking-tight">{title}</h1>
         {subtitle && (
-          <p className="text-sm text-gray-500 truncate">{subtitle}</p>
+          <p className="text-sm text-gray-500 truncate mt-0.5">{subtitle}</p>
         )}
       </div>
       {actions && (

@@ -120,7 +120,7 @@ export default function GlobalHeader() {
           </div>
 
           {/* User Profile */}
-          <div className="pl-1">
+          <div className="flex items-center">
             <UserButton 
               afterSignOutUrl="/sign-in"
               appearance={{

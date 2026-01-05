@@ -9,6 +9,11 @@ import type { Opportunity } from '@/types'
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban'
 import TableChartIcon from '@mui/icons-material/TableChart'
 import FilterListIcon from '@mui/icons-material/FilterList'
+import DownloadIcon from '@mui/icons-material/Download'
+import UploadIcon from '@mui/icons-material/Upload'
+import { generateCsv, downloadCsv, formatDateForCsv, generateFilename, type ParsedCsvRow } from '@/lib/utils/csv-export'
+import CsvUploadModal, { type CsvUploadPreview, type CsvUploadResult } from '@/components/common/CsvUploadModal'
+import { bulkUpsertOpportunities, type BulkOpportunityRow } from '@/app/actions/opportunities'
 import OpportunityKanban from '@/components/crm/OpportunityKanban'
 import NewRequestModal from '@/components/booking/NewRequestModal'
 import toast from 'react-hot-toast'
@@ -135,6 +140,7 @@ export default function OpportunitiesPageClient({
   // New request modal state
   const [showNewRequestModal, setShowNewRequestModal] = useState(false)
   const [newRequestQueryParams, setNewRequestQueryParams] = useState<Record<string, string>>({})
+  const [uploadModalOpen, setUploadModalOpen] = useState(false)
   
   const confirmDialog = useConfirmDialog()
 
@@ -329,6 +335,98 @@ export default function OpportunitiesPageClient({
     setShowNewRequestModal(true)
   }
 
+  function handleDownloadCsv() {
+    const csvColumns = [
+      { key: 'id', label: 'ID', getValue: (o: Opportunity) => o.id },
+      { key: 'business', label: 'Negocio', getValue: (o: Opportunity) => o.business?.name || '' },
+      { key: 'stage', label: 'Etapa', getValue: (o: Opportunity) => STAGE_LABELS[o.stage] || o.stage },
+      { key: 'startDate', label: 'Fecha Inicio', getValue: (o: Opportunity) => formatDateForCsv(o.startDate) },
+      { key: 'closeDate', label: 'Fecha Cierre', getValue: (o: Opportunity) => formatDateForCsv(o.closeDate) },
+      { key: 'notes', label: 'Notas', getValue: (o: Opportunity) => o.notes || '' },
+      { key: 'responsible', label: 'Responsable', getValue: (o: Opportunity) => o.responsible?.name || '' },
+      { key: 'lostReason', label: 'Motivo de Pérdida', getValue: (o: Opportunity) => o.lostReason || '' },
+      { key: 'hasRequest', label: 'Tiene Solicitud', getValue: (o: Opportunity) => o.hasRequest ? 'Sí' : 'No' },
+      { key: 'createdAt', label: 'Fecha Creación', getValue: (o: Opportunity) => formatDateForCsv(o.createdAt) },
+    ]
+    
+    const csvContent = generateCsv(filteredOpportunities, csvColumns)
+    downloadCsv(csvContent, generateFilename('opportunities'))
+    toast.success(`Exported ${filteredOpportunities.length} opportunities`)
+  }
+
+  // CSV Upload expected headers (matching download format)
+  const csvUploadHeaders = ['ID', 'Negocio', 'Etapa', 'Fecha Inicio', 'Fecha Cierre', 'Notas', 'Responsable', 'Motivo de Pérdida', 'Tiene Solicitud', 'Fecha Creación']
+
+  // CSV Upload preview handler
+  async function handleUploadPreview(rows: ParsedCsvRow[]): Promise<CsvUploadPreview> {
+    let toCreate = 0
+    let toUpdate = 0
+    let skipped = 0
+    const errors: string[] = []
+
+    // Get existing opportunity IDs for validation
+    const existingIds = new Set(opportunities.map(o => o.id))
+    
+    // Get business names for validation
+    const businessNames = new Set(businessesFromOpportunities.map(b => b.name.toLowerCase()))
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      const rowNum = i + 2
+
+      const id = row['ID']?.trim()
+      const businessName = row['Negocio']?.trim()
+
+      if (id) {
+        if (existingIds.has(id)) {
+          toUpdate++
+        } else {
+          errors.push(`Fila ${rowNum}: ID "${id}" no encontrado`)
+          skipped++
+        }
+      } else if (businessName) {
+        // Check if business exists
+        if (!businessNames.has(businessName.toLowerCase())) {
+          errors.push(`Fila ${rowNum}: Negocio "${businessName}" no encontrado`)
+          skipped++
+        } else {
+          toCreate++
+        }
+      } else {
+        errors.push(`Fila ${rowNum}: Se requiere ID o Negocio`)
+        skipped++
+      }
+    }
+
+    return { toCreate, toUpdate, skipped, errors, rows }
+  }
+
+  // CSV Upload confirm handler
+  async function handleUploadConfirm(rows: ParsedCsvRow[]): Promise<CsvUploadResult> {
+    // Map CSV rows to BulkOpportunityRow
+    const opportunityRows: BulkOpportunityRow[] = rows.map(row => ({
+      id: row['ID']?.trim() || undefined,
+      business: row['Negocio']?.trim(),
+      stage: row['Etapa']?.trim(),
+      startDate: row['Fecha Inicio']?.trim(),
+      closeDate: row['Fecha Cierre']?.trim(),
+      notes: row['Notas']?.trim(),
+      responsible: row['Responsable']?.trim(),
+      lostReason: row['Motivo de Pérdida']?.trim(),
+      hasRequest: row['Tiene Solicitud']?.trim(),
+    }))
+
+    const result = await bulkUpsertOpportunities(opportunityRows)
+    
+    if (result.success && result.data) {
+      // Reload data after successful import
+      loadData()
+      return result.data
+    }
+    
+    return { created: 0, updated: 0, errors: [result.error || 'Error al importar'] }
+  }
+
   // View toggle component
   const viewToggle = (
     <div className="flex p-0.5 bg-gray-100 rounded-md border border-gray-200 flex-shrink-0">
@@ -357,6 +455,30 @@ export default function OpportunitiesPageClient({
     </div>
   )
 
+  // Right side content for header (admin only CSV download/upload)
+  const headerRightContent = isAdmin ? (
+    <div className="flex items-center gap-2">
+      <Button
+        onClick={() => setUploadModalOpen(true)}
+        variant="secondary"
+        size="sm"
+        leftIcon={<UploadIcon style={{ fontSize: 16 }} />}
+        title="Importar CSV"
+      >
+        Importar
+      </Button>
+      <Button
+        onClick={handleDownloadCsv}
+        variant="secondary"
+        size="sm"
+        leftIcon={<DownloadIcon style={{ fontSize: 16 }} />}
+        title="Descargar CSV"
+      >
+        CSV
+      </Button>
+    </div>
+  ) : null
+
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header with Search and Filters */}
@@ -375,6 +497,7 @@ export default function OpportunitiesPageClient({
         onSavedFiltersChange={loadSavedFilters}
         isAdmin={isAdmin}
         beforeFilters={viewToggle}
+        rightContent={headerRightContent}
       />
 
       {/* Content */}
@@ -524,6 +647,17 @@ export default function OpportunitiesPageClient({
         confirmVariant={confirmDialog.options.confirmVariant}
         onConfirm={confirmDialog.handleConfirm}
         onCancel={confirmDialog.handleCancel}
+      />
+
+      {/* CSV Upload Modal */}
+      <CsvUploadModal
+        isOpen={uploadModalOpen}
+        onClose={() => setUploadModalOpen(false)}
+        entityName="Oportunidades"
+        expectedHeaders={csvUploadHeaders}
+        idField="ID"
+        onPreview={handleUploadPreview}
+        onConfirm={handleUploadConfirm}
       />
     </div>
   )

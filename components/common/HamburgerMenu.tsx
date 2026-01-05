@@ -144,7 +144,7 @@ export default function HamburgerMenu() {
       )}
 
       {/* Sidebar Menu - Hidden on mobile (md:block) */}
-      <div className={`hidden md:block absolute top-2 left-2 bottom-2 bg-slate-50/95 backdrop-blur-xl border border-slate-200/80 shadow-lg rounded-2xl transform transition-all duration-300 ease-in-out ${
+      <div className={`hidden md:block absolute top-3 left-2 bottom-3 bg-slate-50/95 backdrop-blur-xl border border-slate-200/80 shadow-lg rounded-2xl transform transition-all duration-300 ease-in-out ${
         isOpen ? 'translate-x-0' : '-translate-x-[calc(100%+16px)]'
       } w-[88px]`} style={{ zIndex: isCalendarPage ? 50 : 30 }}>
         <div className={`h-full flex flex-col`}>
@@ -204,7 +204,7 @@ export default function HamburgerMenu() {
                             }
                           }}
                         >
-                          <Icon className={`transition-colors duration-300 ${isActive ? '' : 'text-slate-400'}`} style={{ fontSize: '1.35rem', color: isActive ? '#e84c0f' : undefined }} />
+                          <Icon className={`transition-colors duration-300 ${isActive ? '' : 'text-slate-400'}`} style={{ fontSize: '1.2rem', color: isActive ? '#e84c0f' : undefined }} />
                           <span className="text-[9px] font-semibold leading-none text-center w-full truncate px-0.5 opacity-90 tracking-tight">
                             {item.name}
                           </span>
@@ -258,7 +258,7 @@ export default function HamburgerMenu() {
                         }
                       }}
                     >
-                      <Icon className={`transition-colors duration-300 ${isActive ? '' : 'text-slate-400'}`} style={{ fontSize: '1.35rem', color: isActive ? '#e84c0f' : undefined }} />
+                      <Icon className={`transition-colors duration-300 ${isActive ? '' : 'text-slate-400'}`} style={{ fontSize: '1.2rem', color: isActive ? '#e84c0f' : undefined }} />
                       <span className="text-[9px] font-semibold leading-none text-center w-full truncate px-0.5 opacity-90 tracking-tight">
                         {item.name}
                       </span>
