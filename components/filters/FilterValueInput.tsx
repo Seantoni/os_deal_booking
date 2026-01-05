@@ -73,7 +73,7 @@ export default function FilterValueInput({
         {!useCustomDate ? (
           <>
             <select
-              value={isPreset ? value : ''}
+              value={isPreset && typeof value === 'string' ? value : ''}
               onChange={(e) => {
                 if (e.target.value === '__custom__') {
                   setUseCustomDate(true)
