@@ -316,7 +316,7 @@ export default function AdvancedFilterBuilder({
                   {selectedField && (
                     <FilterValueInput
                       field={selectedField}
-                      value={rule.value}
+                      value={Array.isArray(rule.value) ? rule.value[0] ?? null : rule.value}
                       onChange={(value) => handleRuleChange(rule.id, 'value', value)}
                       operator={rule.operator}
                       disabled={!rule.field}
