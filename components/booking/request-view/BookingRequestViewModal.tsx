@@ -626,7 +626,15 @@ export default function BookingRequestViewModal({
           goodToKnow: requestData.goodToKnow ? String(requestData.goodToKnow) : undefined,
 
           offerMargin: requestData.offerMargin ? String(requestData.offerMargin) : undefined,
-          pricingOptions: Array.isArray(requestData.pricingOptions) ? requestData.pricingOptions : undefined,
+          pricingOptions: Array.isArray(requestData.pricingOptions) 
+            ? requestData.pricingOptions.map(opt => ({
+                title: opt.title,
+                description: opt.description ?? '',
+                price: String(opt.price ?? ''),
+                realValue: String(opt.realValue ?? ''),
+                quantity: String(opt.quantity ?? ''),
+              }))
+            : undefined,
           dealImages: Array.isArray(requestData.dealImages) ? requestData.dealImages : undefined,
 
           cancellationPolicy: requestData.cancellationPolicy ? String(requestData.cancellationPolicy) : undefined,
