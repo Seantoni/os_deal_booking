@@ -6,7 +6,7 @@
 
 import { logApiCall } from './logger'
 import { mapBookingFormToApi } from './mapper'
-import type { ExternalOfertaDealRequest, ExternalOfertaDealResponse } from './types'
+import type { ExternalOfertaDealRequest, ExternalOfertaDealResponse, ExternalOfertaPriceOption } from './types'
 import type { BookingFormData } from '@/components/RequestForm/types'
 import type { Prisma } from '@prisma/client'
 import { formatDateForPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
@@ -231,10 +231,10 @@ interface PriceOptionWithTitle {
   title?: string
   description?: string | null
   price?: number
-  value?: number
-  quantity?: number
-  limitByUser?: number
-  expiresIn?: string | null
+  value?: number | null
+  quantity?: number | null
+  limitByUser?: number | null
+  expiresIn?: string | number | null
   endAt?: string | null
 }
 
@@ -250,7 +250,7 @@ function normalizePayloadForExternalApi(payload: ExternalOfertaDealRequest): Ext
             ...rest,
             description: rest.description ?? (title ? String(title) : null),
           }
-        })
+        }) as ExternalOfertaPriceOption[]
       : payload.priceOptions,
   }
 }
@@ -472,7 +472,7 @@ export async function sendDealToExternalApi(
     endDate: endDate.toISOString().split('T')[0],
     campaignDuration: bookingRequest.campaignDuration || '3',
     offerMargin: bookingRequest.offerMargin || '', // Comisión OfertaSimple (maps to oufferMargin in API)
-    pricingOptions: pricingOptions,
+    pricingOptions: pricingOptions as BookingFormData['pricingOptions'],
     shortTitle: bookingRequest.shortTitle || '',
     aboutOffer: bookingRequest.aboutOffer || '',
     whatWeLike: bookingRequest.whatWeLike || '',

@@ -15,7 +15,7 @@ function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
 /**
  * Check if a value is a date preset
  */
-function isDatePreset(value: unknown): boolean {
+function isDatePreset(value: unknown): value is string {
   return typeof value === 'string' && DATE_PRESETS.some(p => p.value === value)
 }
 
@@ -44,8 +44,12 @@ function parseDateValue(value: unknown): Date | null {
     return value
   }
   
-  const parsed = new Date(value)
-  return isNaN(parsed.getTime()) ? null : parsed
+  if (typeof value === 'string' || typeof value === 'number') {
+    const parsed = new Date(value)
+    return isNaN(parsed.getTime()) ? null : parsed
+  }
+  
+  return null
 }
 
 /**
@@ -189,7 +193,7 @@ export function matchesFilters(item: Record<string, unknown>, rules: FilterRule[
  * Apply filter rules to an array of items
  * Returns filtered array
  */
-export function applyFilters<T>(items: T[], rules: FilterRule[]): T[] {
+export function applyFilters<T extends Record<string, unknown>>(items: T[], rules: FilterRule[]): T[] {
   if (!rules || rules.length === 0) return items
   return items.filter(item => matchesFilters(item, rules))
 }

@@ -180,10 +180,10 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
                             <td style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px;">
                               ${opt.price && opt.realValue ? `
                                 <span style="color: #059669; font-weight: 600; background-color: #ecfdf5; padding: 2px 8px; border-radius: 4px; display: inline-block; margin-right: 10px; margin-bottom: 5px;">
-                                  Precio: $${escapeHtml(opt.price)} / Valor: $${escapeHtml(opt.realValue)}
+                                  Precio: $${escapeHtml(String(opt.price))} / Valor: $${escapeHtml(String(opt.realValue))}
                                 </span>
                               ` : ''}
-                              ${opt.quantity ? `<span style="color: #6b7280; display: inline-block;">Cantidad: ${escapeHtml(opt.quantity)}</span>` : ''}
+                              ${opt.quantity ? `<span style="color: #6b7280; display: inline-block;">Cantidad: ${escapeHtml(String(opt.quantity))}</span>` : ''}
                             </td>
                           </tr>
                         </table>

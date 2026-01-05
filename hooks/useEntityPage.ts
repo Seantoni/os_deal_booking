@@ -63,7 +63,7 @@ export interface EntityPageReturn<T> {
   
   // Filtering helpers
   applySearchFilter: <D>(items: D[]) => D[]
-  applyAdvancedFilters: <D>(items: D[]) => D[]
+  applyAdvancedFilters: <D extends Record<string, unknown>>(items: D[]) => D[]
 }
 
 /**
@@ -241,7 +241,7 @@ export function useEntityPage<T>({
   }, [searchQuery, searchFields])
 
   // Advanced filters helper
-  const applyAdvancedFilters = useCallback(<D,>(items: D[]): D[] => {
+  const applyAdvancedFilters = useCallback(<D extends Record<string, unknown>>(items: D[]): D[] => {
     if (activeFilterRules.length === 0) return items
     return applyFilters(items, activeFilterRules)
   }, [activeFilterRules])

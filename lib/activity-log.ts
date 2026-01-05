@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { headers } from 'next/headers'
 
@@ -151,7 +152,7 @@ export async function logActivity(params: LogActivityParams): Promise<void> {
         entityType: params.entityType,
         entityId: params.entityId || null,
         entityName: params.entityName || null,
-        details: params.details ?? undefined,
+        details: params.details ? (params.details as unknown as Prisma.InputJsonValue) : undefined,
         ipAddress,
         userAgent,
       },
@@ -214,7 +215,7 @@ export async function logActivities(activities: LogActivityParams[]): Promise<vo
         entityType: params.entityType,
         entityId: params.entityId || null,
         entityName: params.entityName || null,
-        details: params.details ?? undefined,
+        details: params.details ? (params.details as unknown as Prisma.InputJsonValue) : undefined,
         ipAddress,
         userAgent,
       })),
