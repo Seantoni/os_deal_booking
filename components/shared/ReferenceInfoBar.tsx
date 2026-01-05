@@ -7,6 +7,7 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutline'
 import EventIcon from '@mui/icons-material/Event'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import FlagIcon from '@mui/icons-material/Flag'
+import HistoryIcon from '@mui/icons-material/History'
 import { formatShortDate } from '@/lib/date'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import UserSelect from './UserSelect'
@@ -33,9 +34,10 @@ function InlineSelect({
   useEffect(() => {
     if (isOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect()
+      // Use viewport coordinates for fixed positioning (no scroll offset needed)
       setPosition({
-        top: rect.bottom + window.scrollY + 2,
-        left: rect.left + window.scrollX,
+        top: rect.bottom + 2,
+        left: rect.left,
         width: Math.max(rect.width, 150),
       })
     }
@@ -283,13 +285,25 @@ function UserDisplayItem({
   )
 }
 
+// Section component for grouping related items
+function Section({ children, label }: { children: React.ReactNode; label?: string }) {
+  return (
+    <div className="flex items-center gap-2 py-0.5 pr-3 border-r border-gray-300 last:border-r-0 last:pr-0">
+      {label && <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">{label}</span>}
+      <div className="flex items-center gap-3">
+        {children}
+      </div>
+    </div>
+  )
+}
+
 // Main container component
 interface ReferenceInfoBarProps {
   children: React.ReactNode
   variant?: 'default' | 'border-bottom'
 }
 
-export default function ReferenceInfoBar({ 
+function ReferenceInfoBar({ 
   children, 
   variant = 'default' 
 }: ReferenceInfoBarProps) {
@@ -313,6 +327,7 @@ ReferenceInfoBar.CreatedDateItem = CreatedDateItem
 ReferenceInfoBar.UserSelectItem = UserSelectItem
 ReferenceInfoBar.TeamSelectItem = TeamSelectItem
 ReferenceInfoBar.UserDisplayItem = UserDisplayItem
+ReferenceInfoBar.Section = Section
 
 // Export icons for custom use
 ReferenceInfoBar.Icons = {
@@ -321,5 +336,8 @@ ReferenceInfoBar.Icons = {
   Event: EventIcon,
   PlayArrow: PlayArrowIcon,
   Flag: FlagIcon,
+  History: HistoryIcon,
 }
+
+export default ReferenceInfoBar
 

@@ -1,8 +1,9 @@
 'use client'
 
-import { forwardRef, useState, useRef, useEffect, useMemo } from 'react'
+import { forwardRef, useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import type { SelectHTMLAttributes, ReactNode } from 'react'
+import { Input } from './Input'
 
 type SelectSize = 'sm' | 'md' | 'lg'
 
@@ -46,6 +47,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
   ref
 ) {
   const [isOpen, setIsOpen] = useState(false)
+  const [search, setSearch] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 })
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -58,13 +60,27 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
     return options.find(opt => opt.value === currentValue) || null
   }, [options, currentValue])
 
+  // Filter options based on search
+  const filteredOptions = useMemo(() => {
+    if (!search) return options
+    return options.filter(opt =>
+      opt.label.toLowerCase().includes(search.toLowerCase())
+    )
+  }, [options, search])
+
+  // Reset selectedIndex when search changes
+  useEffect(() => {
+    setSelectedIndex(-1)
+  }, [search])
+
   // Update dropdown position when open
   useEffect(() => {
     if (isOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect()
+      // Use viewport coordinates for fixed positioning (no scroll offset needed)
       setDropdownPosition({
-        top: rect.bottom + window.scrollY + 4,
-        left: rect.left + window.scrollX,
+        top: rect.bottom + 4,
+        left: rect.left,
         width: rect.width,
       })
     }
@@ -87,6 +103,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
       ) {
         setIsOpen(false)
         setSelectedIndex(-1)
+        setSearch('')
       }
     }
 
@@ -96,7 +113,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
     }
   }, [isOpen])
 
-  const handleSelect = (optionValue: string) => {
+  const handleSelect = useCallback((optionValue: string) => {
     if (onChange) {
       // Create a synthetic event to match native select behavior
       const syntheticEvent = {
@@ -107,7 +124,55 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
     }
     setIsOpen(false)
     setSelectedIndex(-1)
-  }
+    setSearch('')
+  }, [onChange])
+
+  // Handle keyboard input on the button to open dropdown and start searching
+  const handleButtonKeyDown = useCallback((e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (disabled) return
+
+    // If it's a printable character (letter, number, symbol), open dropdown and search
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault()
+      setSearch(e.key)
+      setIsOpen(true)
+    }
+    // Arrow down/up or Enter/Space to open dropdown
+    else if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key) && !isOpen) {
+      e.preventDefault()
+      setIsOpen(true)
+      if (e.key === 'ArrowDown') {
+        setSelectedIndex(0)
+      }
+    }
+    // Handle navigation when already open
+    else if (isOpen && filteredOptions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSelectedIndex(prev => 
+          prev < filteredOptions.length - 1 ? prev + 1 : 0
+        )
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSelectedIndex(prev => 
+          prev > 0 ? prev - 1 : filteredOptions.length - 1
+        )
+      } else if (e.key === 'Enter' && selectedIndex >= 0) {
+        e.preventDefault()
+        handleSelect(filteredOptions[selectedIndex].value)
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        setIsOpen(false)
+        setSelectedIndex(-1)
+        setSearch('')
+      }
+    }
+    // Escape to close if open
+    else if (e.key === 'Escape' && isOpen) {
+      setIsOpen(false)
+      setSearch('')
+    }
+  }, [disabled, isOpen, filteredOptions, selectedIndex, handleSelect])
 
   const displayValue = currentOption ? currentOption.label : (placeholder || 'Seleccionar una opción')
 
@@ -123,14 +188,41 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         zIndex: 99999,
       }}
     >
-      {placeholder && (
-        <div className="px-3 py-2 text-sm font-medium text-gray-900 border-b border-gray-200 bg-gray-50">
-          {placeholder}
-        </div>
-      )}
+      <div className="p-2 border-b border-gray-200">
+        <Input
+          type="text"
+          placeholder="Escriba para buscar..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (filteredOptions.length === 0) return
+            
+            if (e.key === 'ArrowDown') {
+              e.preventDefault()
+              setSelectedIndex(prev => 
+                prev < filteredOptions.length - 1 ? prev + 1 : 0
+              )
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault()
+              setSelectedIndex(prev => 
+                prev > 0 ? prev - 1 : filteredOptions.length - 1
+              )
+            } else if (e.key === 'Enter' && selectedIndex >= 0) {
+              e.preventDefault()
+              handleSelect(filteredOptions[selectedIndex].value)
+            } else if (e.key === 'Escape') {
+              setIsOpen(false)
+              setSelectedIndex(-1)
+              setSearch('')
+            }
+          }}
+          autoFocus
+          size="sm"
+        />
+      </div>
       <div className="overflow-y-auto max-h-48">
-        {options.length > 0 ? (
-          options.map((option, index) => {
+        {filteredOptions.length > 0 ? (
+          filteredOptions.map((option, index) => {
             const isSelected = index === selectedIndex
             const isCurrentSelection = currentValue === option.value
             
@@ -157,7 +249,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           })
         ) : (
           <div className="px-3 py-4 text-center text-sm text-gray-500">
-            No hay opciones disponibles
+            {search ? 'No se encontraron resultados' : 'No hay opciones disponibles'}
           </div>
         )}
       </div>
@@ -185,6 +277,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           ref={buttonRef}
           type="button"
           onClick={() => !disabled && setIsOpen(!isOpen)}
+          onKeyDown={handleButtonKeyDown}
           disabled={disabled}
           className={cn(
             base,
@@ -197,36 +290,6 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
               : 'text-gray-800',
             className
           )}
-          onKeyDown={(e) => {
-            if (disabled) return
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              setIsOpen(!isOpen)
-            } else if (e.key === 'ArrowDown' && !isOpen) {
-              e.preventDefault()
-              setIsOpen(true)
-              setSelectedIndex(0)
-            } else if (isOpen && options.length > 0) {
-              if (e.key === 'ArrowDown') {
-                e.preventDefault()
-                setSelectedIndex(prev => 
-                  prev < options.length - 1 ? prev + 1 : 0
-                )
-              } else if (e.key === 'ArrowUp') {
-                e.preventDefault()
-                setSelectedIndex(prev => 
-                  prev > 0 ? prev - 1 : options.length - 1
-                )
-              } else if (e.key === 'Enter' && selectedIndex >= 0) {
-                e.preventDefault()
-                handleSelect(options[selectedIndex].value)
-              } else if (e.key === 'Escape') {
-                e.preventDefault()
-                setIsOpen(false)
-                setSelectedIndex(-1)
-              }
-            }
-          }}
         >
           <span className={cn('truncate', currentOption ? 'text-gray-900' : 'text-gray-400')}>
             {displayValue}

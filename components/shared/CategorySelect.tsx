@@ -99,9 +99,10 @@ function CategorySelect({
   useEffect(() => {
     if (isOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect()
+      // Use viewport coordinates for fixed positioning (no scroll offset needed)
       setDropdownPosition({
-        top: rect.bottom + window.scrollY + 4,
-        left: rect.left + window.scrollX,
+        top: rect.bottom + 4,
+        left: rect.left,
         width: rect.width,
       })
     }
@@ -150,6 +151,28 @@ function CategorySelect({
   }, [onChange, onValueChange])
 
   const displayValue = currentSelection ? currentSelection.label : placeholder
+
+  // Handle keyboard input on the button to open dropdown and start searching
+  const handleButtonKeyDown = useCallback((e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (disabled) return
+
+    // If it's a printable character (letter, number, symbol), open dropdown and search
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault()
+      setSearch(e.key)
+      setIsOpen(true)
+    }
+    // Arrow down/up or Enter/Space to open dropdown
+    else if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key) && !isOpen) {
+      e.preventDefault()
+      setIsOpen(true)
+    }
+    // Escape to close if open
+    else if (e.key === 'Escape' && isOpen) {
+      setIsOpen(false)
+      setSearch('')
+    }
+  }, [disabled, isOpen])
 
   // Size classes
   const sizeClasses = size === 'sm' 
@@ -249,6 +272,7 @@ function CategorySelect({
           ref={buttonRef}
           type="button"
           onClick={() => !disabled && setIsOpen(!isOpen)}
+          onKeyDown={handleButtonKeyDown}
           disabled={disabled}
           className={`w-full bg-white border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 flex items-center justify-between gap-2 transition-all duration-200 ${sizeClasses} ${
             disabled 

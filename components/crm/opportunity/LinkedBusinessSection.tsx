@@ -31,33 +31,33 @@ export default function LinkedBusinessSection({ business, onEdit }: LinkedBusine
           className="w-full p-1.5 bg-gray-50 border border-gray-200 rounded hover:bg-gray-100 hover:border-gray-300 transition-all text-left group"
         >
           <div className="flex items-center justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h4 className="text-xs font-medium text-gray-900 truncate">
-                  {business.name}
-                </h4>
-                {business.tier && (
-                  <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 rounded text-[10px] font-medium whitespace-nowrap">
-                    Nivel {business.tier}
-                  </span>
-                )}
-              </div>
-              
-              <div className="flex items-center gap-2 text-[10px] text-gray-500">
-                <div className="flex items-center gap-1 min-w-0">
-                  <PersonIcon style={{ fontSize: 12 }} />
-                  <span className="truncate">{business.contactName}</span>
-                </div>
-                {business.contactPhone && (
-                  <>
-                    <span className="text-gray-400">•</span>
-                    <div className="flex items-center gap-1 min-w-0">
-                      <PhoneIcon style={{ fontSize: 12 }} />
-                      <span className="truncate">{business.contactPhone}</span>
-                    </div>
-                  </>
-                )}
-              </div>
+            <div className="flex-1 min-w-0 flex items-center gap-2 text-xs">
+              <h4 className="font-medium text-gray-900 truncate">
+                {business.name}
+              </h4>
+              {business.tier && (
+                <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-800 rounded text-[10px] font-medium whitespace-nowrap flex-shrink-0">
+                  Nivel {business.tier}
+                </span>
+              )}
+              {business.contactName && (
+                <>
+                  <span className="text-gray-400 flex-shrink-0">•</span>
+                  <div className="flex items-center gap-1 min-w-0">
+                    <PersonIcon style={{ fontSize: 12 }} className="flex-shrink-0" />
+                    <span className="truncate text-gray-500">{business.contactName}</span>
+                  </div>
+                </>
+              )}
+              {business.contactPhone && (
+                <>
+                  <span className="text-gray-400 flex-shrink-0">•</span>
+                  <div className="flex items-center gap-1 min-w-0">
+                    <PhoneIcon style={{ fontSize: 12 }} className="flex-shrink-0" />
+                    <span className="truncate text-gray-500">{business.contactPhone}</span>
+                  </div>
+                </>
+              )}
             </div>
             <ArrowForwardIcon className="text-gray-400 group-hover:text-blue-600 flex-shrink-0 transition-colors" style={{ fontSize: 12 }} />
           </div>

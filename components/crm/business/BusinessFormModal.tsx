@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, useCallback, useActionState, useTransition } from 'react'
+import { useEffect, useState, useMemo, useCallback, useActionState, useTransition, lazy, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { createBusiness, updateBusiness, createOpportunity } from '@/app/actions/crm'
@@ -8,29 +8,43 @@ import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
 import type { Business, Opportunity, BookingRequest, UserData } from '@/types'
 import type { Category } from '@prisma/client'
-import toast from 'react-hot-toast'
 
 // Action state types for React 19 useActionState
 type FormActionState = {
   success: boolean
   error: string | null
 }
-import CloseIcon from '@mui/icons-material/Close'
 import BusinessIcon from '@mui/icons-material/Business'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenIcon from '@mui/icons-material/LockOpen'
-import OpportunityFormModal from '../opportunity/OpportunityFormModal'
-import BookingRequestViewModal from '@/components/booking/request-view/BookingRequestViewModal'
 import { useBusinessForm } from './useBusinessForm'
 import ReferenceInfoBar from '@/components/shared/ReferenceInfoBar'
-import OpportunitiesSection from './OpportunitiesSection'
-import RequestsSection from './RequestsSection'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
 import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
 import { Button, Alert } from '@/components/ui'
 import FormModalSkeleton from '@/components/common/FormModalSkeleton'
+
+// Lazy load nested modals - only loaded when opened
+const OpportunityFormModal = lazy(() => import('../opportunity/OpportunityFormModal'))
+const BookingRequestViewModal = lazy(() => import('@/components/booking/request-view/BookingRequestViewModal'))
+
+// Lazy load sections only shown for existing businesses
+const OpportunitiesSection = lazy(() => import('./OpportunitiesSection'))
+const RequestsSection = lazy(() => import('./RequestsSection'))
+
+// Simple loading fallback for lazy sections
+function SectionLoadingFallback() {
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <div className="animate-pulse flex items-center gap-2">
+        <div className="w-4 h-4 bg-gray-200 rounded" />
+        <div className="h-4 bg-gray-200 rounded w-32" />
+      </div>
+    </div>
+  )
+}
 
 interface BusinessFormModalProps {
   isOpen: boolean
@@ -519,6 +533,9 @@ export default function BusinessFormModal({
     return addons
   }, [isEditMode, isAdmin, dynamicForm.initialized, dynamicForm.sections, unlockedFields, allFormValues, toggleFieldUnlock])
 
+  // Early return if modal is not open - saves rendering work
+  if (!isOpen) return null
+
   return (
     <>
     <ModalShell
@@ -564,7 +581,7 @@ export default function BusinessFormModal({
         />
       }
     >
-      <form id="modal-form" onSubmit={handleSubmit} className="bg-gray-50 h-full flex flex-col">
+      <form id="modal-form" onSubmit={handleSubmit} className="bg-gray-50 min-h-[450px] flex flex-col">
             {error && (
               <div className="mx-6 mt-4">
                 <Alert variant="error" icon={<ErrorOutlineIcon fontSize="small" />}>
@@ -621,55 +638,66 @@ export default function BusinessFormModal({
                   </div>
                 )}
 
-                {/* Opportunities Section (special section - not from form config) */}
+                {/* Opportunities Section (lazy loaded - only for existing businesses) */}
                 {business && (
-                  <OpportunitiesSection
-                    opportunities={opportunities}
-                    onEditOpportunity={handleEditOpportunity}
-                    onCreateNew={handleCreateNewOpportunity}
-                    businessName={business.name}
-                  />
+                  <Suspense fallback={<SectionLoadingFallback />}>
+                    <OpportunitiesSection
+                      opportunities={opportunities}
+                      onEditOpportunity={handleEditOpportunity}
+                      onCreateNew={handleCreateNewOpportunity}
+                      businessName={business.name}
+                    />
+                  </Suspense>
                 )}
 
-                {/* Requests Section (special section - not from form config) */}
+                {/* Requests Section (lazy loaded - only for existing businesses) */}
                 {business && (
-                  <RequestsSection
-                    requests={requests}
-                    onViewRequest={handleViewRequest}
-                    onCreateRequest={handleCreateRequest}
-                    businessName={business.name}
-                  />
+                  <Suspense fallback={<SectionLoadingFallback />}>
+                    <RequestsSection
+                      requests={requests}
+                      onViewRequest={handleViewRequest}
+                      onCreateRequest={handleCreateRequest}
+                      businessName={business.name}
+                    />
+                  </Suspense>
                 )}
               </div>
             )}
       </form>
     </ModalShell>
 
-    {/* Opportunity Modal */}
-    <OpportunityFormModal
-      isOpen={opportunityModalOpen}
-      onClose={() => {
-        setOpportunityModalOpen(false)
-        setSelectedOpportunity(null)
-      }}
-      opportunity={selectedOpportunity}
-      onSuccess={handleOpportunitySuccess}
-      initialBusinessId={business?.id}
-      preloadedBusinesses={business ? [business] : undefined}
-      preloadedCategories={categories}
-      preloadedUsers={users}
-    />
+    {/* Lazy-loaded modals - only rendered when open */}
+    {opportunityModalOpen && (
+      <Suspense fallback={null}>
+        <OpportunityFormModal
+          isOpen={opportunityModalOpen}
+          onClose={() => {
+            setOpportunityModalOpen(false)
+            setSelectedOpportunity(null)
+          }}
+          opportunity={selectedOpportunity}
+          onSuccess={handleOpportunitySuccess}
+          initialBusinessId={business?.id}
+          preloadedBusinesses={business ? [business] : undefined}
+          preloadedCategories={categories}
+          preloadedUsers={users}
+        />
+      </Suspense>
+    )}
 
-    {/* Request View Modal */}
-    <BookingRequestViewModal
-      isOpen={requestViewModalOpen}
-      onClose={() => {
-        setRequestViewModalOpen(false)
-        setSelectedRequestId(null)
-      }}
-      requestId={selectedRequestId}
-      hideBackdrop={true}
-    />
+    {requestViewModalOpen && (
+      <Suspense fallback={null}>
+        <BookingRequestViewModal
+          isOpen={requestViewModalOpen}
+          onClose={() => {
+            setRequestViewModalOpen(false)
+            setSelectedRequestId(null)
+          }}
+          requestId={selectedRequestId}
+          hideBackdrop={true}
+        />
+      </Suspense>
+    )}
   </>
   )
 }

@@ -1,41 +1,59 @@
 'use client'
 
-import { useState, useMemo, useEffect, useTransition, useOptimistic } from 'react'
+import { useState, useMemo, useEffect, useTransition, useOptimistic, lazy, Suspense } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { createOpportunity, updateOpportunity, createTask, updateTask, deleteTask } from '@/app/actions/crm'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
+import { getTodayInPanama } from '@/lib/date/timezone'
 import type { Opportunity, OpportunityStage, Task, Business, UserData } from '@/types'
 import type { Category } from '@prisma/client'
-import CloseIcon from '@mui/icons-material/Close'
 import HandshakeIcon from '@mui/icons-material/Handshake'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import EventIcon from '@mui/icons-material/Event'
-import { Button } from '@/components/ui'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
-import ConfirmDialog from '@/components/common/ConfirmDialog'
-import BusinessFormModal from '../business/BusinessFormModal'
-import { BookingRequestViewModal } from '@/components/booking/request-view'
-import NewRequestModal from '@/components/booking/NewRequestModal'
 import { useOpportunityForm } from './useOpportunityForm'
 import OpportunityPipeline from './OpportunityPipeline'
 import ReferenceInfoBar from '@/components/shared/ReferenceInfoBar'
 import WonStageBanner from './WonStageBanner'
 import LinkedBusinessSection from './LinkedBusinessSection'
-import TaskManager from './TaskManager'
-import TaskModal from './TaskModal'
-import LostReasonModal from './LostReasonModal'
 import LostReasonSection from './LostReasonSection'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
 import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
-import FormModalSkeleton from '@/components/common/FormModalSkeleton'
-import OpportunityChatThread from './OpportunityChatThread'
 import {
-  OpportunityModalFullSkeleton,
   OpportunityDetailsSkeleton,
   OpportunityActivitySkeleton,
   OpportunityChatSkeleton,
+  OpportunityPipelineSkeleton,
 } from './OpportunityModalSkeleton'
+
+// Lazy load nested modals - only loaded when opened
+const BusinessFormModal = lazy(() => import('../business/BusinessFormModal'))
+const BookingRequestViewModal = lazy(() => import('@/components/booking/request-view/BookingRequestViewModal'))
+const NewRequestModal = lazy(() => import('@/components/booking/NewRequestModal'))
+const TaskModal = lazy(() => import('./TaskModal'))
+const LostReasonModal = lazy(() => import('./LostReasonModal'))
+const ConfirmDialog = lazy(() => import('@/components/common/ConfirmDialog'))
+
+// Import for checking meeting data (non-lazy, small utility function)
+import { parseMeetingData } from './TaskModal'
+
+// Lazy load tab content - only loaded when tab is active
+const TaskManager = lazy(() => import('./TaskManager'))
+const OpportunityChatThread = lazy(() => import('./OpportunityChatThread'))
+const OpportunityHistory = lazy(() => import('./OpportunityHistory'))
+
+// Simple loading fallback for lazy components
+function TabLoadingFallback() {
+  return (
+    <div className="p-6 flex items-center justify-center">
+      <div className="animate-pulse flex items-center gap-2 text-gray-400">
+        <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+        <span className="text-sm">Cargando...</span>
+      </div>
+    </div>
+  )
+}
 
 interface OpportunityFormModalProps {
   isOpen: boolean
@@ -43,7 +61,7 @@ interface OpportunityFormModalProps {
   opportunity?: Opportunity | null
   onSuccess: (opportunity: Opportunity) => void
   initialBusinessId?: string
-  initialTab?: 'details' | 'activity' | 'chat'
+  initialTab?: 'details' | 'activity' | 'chat' | 'history'
   // Pre-loaded data to skip fetching (passed from parent page)
   preloadedBusinesses?: Business[]
   preloadedCategories?: Category[]
@@ -63,7 +81,7 @@ export default function OpportunityFormModal({
 }: OpportunityFormModalProps) {
   const { user } = useUser()
   const { isAdmin } = useUserRole()
-  const [activeTab, setActiveTab] = useState<'details' | 'activity' | 'chat'>(initialTab)
+  const [activeTab, setActiveTab] = useState<'details' | 'activity' | 'chat' | 'history'>(initialTab)
 
   // Update active tab when initialTab changes (e.g., opening from inbox)
   useEffect(() => {
@@ -73,6 +91,7 @@ export default function OpportunityFormModal({
   }, [isOpen, initialTab])
   const [error, setError] = useState('')
   const [taskModalOpen, setTaskModalOpen] = useState(false)
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null) // Track if we're completing a meeting
 
   // React 19: useTransition for non-blocking UI during form actions
   const [isSubmitPending, startSubmitTransition] = useTransition()
@@ -170,6 +189,80 @@ export default function OpportunityFormModal({
     entityId: opportunity?.id,
     initialValues,
   })
+
+  // Calculate activity summaries (Next/Last Task/Meeting) with days difference
+  const activitySummary = useMemo(() => {
+    if (!tasks.length) return { nextTask: null, lastTask: null, nextMeeting: null, lastMeeting: null }
+
+    const getTaskDateStr = (date: Date | string) => {
+      const d = new Date(date)
+      const year = d.getUTCFullYear()
+      const month = String(d.getUTCMonth() + 1).padStart(2, '0')
+      const day = String(d.getUTCDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+    const todayStr = getTodayInPanama()
+    const todayParts = todayStr.split('-').map(Number)
+    const todayDate = new Date(todayParts[0], todayParts[1] - 1, todayParts[2])
+
+    // Helper to calculate days difference
+    const getDaysDiff = (date: Date | string) => {
+      const d = new Date(date)
+      const taskDate = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+      const diffTime = taskDate.getTime() - todayDate.getTime()
+      return Math.round(diffTime / (1000 * 60 * 60 * 24))
+    }
+
+    // Helper to format days text
+    const formatDays = (days: number) => {
+      if (days === 0) return 'hoy'
+      if (days === 1) return 'mañana'
+      if (days === -1) return 'ayer'
+      if (days > 0) return `en ${days}d`
+      return `hace ${Math.abs(days)}d`
+    }
+
+    // Helper to sort by date
+    const sortByDateAsc = (a: Task, b: Task) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    const sortByDateDesc = (a: Task, b: Task) => new Date(b.date).getTime() - new Date(a.date).getTime()
+
+    // Filter tasks by type
+    const regularTasks = tasks.filter(t => t.category !== 'meeting')
+    const meetingTasks = tasks.filter(t => t.category === 'meeting')
+
+    // Find Next Task (first pending in future/today)
+    const nextTask = regularTasks
+      .filter(t => !t.completed)
+      .sort(sortByDateAsc)[0]
+
+    // Find Last Task (most recent completed or past)
+    const lastTask = regularTasks
+      .filter(t => {
+        const dateStr = getTaskDateStr(t.date)
+        return t.completed || dateStr < todayStr
+      })
+      .sort(sortByDateDesc)[0]
+
+    // Find Next Meeting
+    const nextMeeting = meetingTasks
+      .filter(t => !t.completed)
+      .sort(sortByDateAsc)[0]
+
+    // Find Last Meeting
+    const lastMeeting = meetingTasks
+      .filter(t => {
+        const dateStr = getTaskDateStr(t.date)
+        return t.completed || dateStr < todayStr
+      })
+      .sort(sortByDateDesc)[0]
+
+    return {
+      nextTask: nextTask ? { date: nextTask.date, days: getDaysDiff(nextTask.date), daysText: formatDays(getDaysDiff(nextTask.date)) } : null,
+      lastTask: lastTask ? { date: lastTask.date, days: getDaysDiff(lastTask.date), daysText: formatDays(getDaysDiff(lastTask.date)) } : null,
+      nextMeeting: nextMeeting ? { date: nextMeeting.date, days: getDaysDiff(nextMeeting.date), daysText: formatDays(getDaysDiff(nextMeeting.date)) } : null,
+      lastMeeting: lastMeeting ? { date: lastMeeting.date, days: getDaysDiff(lastMeeting.date), daysText: formatDays(getDaysDiff(lastMeeting.date)) } : null,
+    }
+  }, [tasks])
 
   // Sync businessId from useOpportunityForm to dynamicForm when it changes
   // This handles the case where businessId is set from useOpportunityForm
@@ -369,19 +462,75 @@ export default function OpportunityFormModal({
           : await createTask(formData)
 
         if (result.success && result.data) {
-          if (selectedTask) {
-            setTasks(prev => prev.map(t => t.id === selectedTask.id ? result.data : t))
-          } else {
-            setTasks(prev => prev.map(t => t.id === newTask.id ? result.data : t))
+          let updatedTask = result.data
+          const taskId = selectedTask?.id || result.data.id
+          
+          // For meetings, check if outcome fields are filled to auto-complete
+          let shouldAutoComplete = false
+          let shouldAskWon = false
+          
+          if (data.category === 'meeting') {
+            const meetingData = parseMeetingData(data.notes)
+            // If nextSteps is filled, the meeting outcome is recorded - auto-complete
+            if (meetingData?.nextSteps?.trim()) {
+              shouldAutoComplete = true
+              // If agreement reached, ask about Won stage
+              if (meetingData.reachedAgreement === 'si' && stage !== 'won') {
+                shouldAskWon = true
+              }
+            }
           }
+          
+          // Auto-complete if outcome fields are filled OR if we were explicitly completing
+          if (shouldAutoComplete || (completingTaskId && selectedTask?.id === completingTaskId)) {
+            if (!updatedTask.completed) {
+              const completeFormData = new FormData()
+              completeFormData.append('category', data.category)
+              completeFormData.append('title', data.title)
+              completeFormData.append('date', data.date)
+              completeFormData.append('completed', 'true')
+              completeFormData.append('notes', data.notes || '')
+              
+              const completeResult = await updateTask(taskId, completeFormData)
+              if (completeResult.success && completeResult.data) {
+                updatedTask = completeResult.data
+              }
+            }
+            setCompletingTaskId(null)
+          }
+          
+          // Update tasks state
+          if (selectedTask) {
+            setTasks(prev => prev.map(t => t.id === selectedTask.id ? updatedTask : t))
+          } else {
+            setTasks(prev => prev.map(t => t.id === newTask.id ? updatedTask : t))
+          }
+          
+          // Close modal
           setTaskModalOpen(false)
           setSelectedTask(null)
+          
+          // Ask about Won stage if agreement was reached
+          if (shouldAskWon) {
+            const wantToWin = await confirmDialog.confirm({
+              title: '¡Acuerdo Alcanzado!',
+              message: 'Se llegó a un acuerdo en esta reunión. ¿Desea marcar esta oportunidad como Ganada (Won)?',
+              confirmText: 'Sí, marcar como Ganada',
+              cancelText: 'No, mantener estado actual',
+              confirmVariant: 'success',
+            })
+            
+            if (wantToWin) {
+              handleStageChange('won')
+            }
+          }
         } else {
           if (selectedTask) {
             setTasks(prev => prev.map(t => t.id === selectedTask.id ? selectedTask : t))
           } else {
             setTasks(prev => prev.filter(t => t.id !== newTask.id))
           }
+          setCompletingTaskId(null)
           setError(result.error || 'Error al guardar la tarea')
         }
       } catch (err) {
@@ -390,6 +539,7 @@ export default function OpportunityFormModal({
         } else {
           setTasks(prev => prev.filter(t => !t.id.startsWith('temp-')))
         }
+        setCompletingTaskId(null)
         setError('An error occurred')
       }
     })
@@ -434,6 +584,20 @@ export default function OpportunityFormModal({
 
   // React 19: Toggle task completion with useOptimistic for instant UI update
   function handleToggleTaskComplete(task: Task) {
+    // If trying to complete a meeting, check if outcome fields are filled
+    if (task.category === 'meeting' && !task.completed) {
+      const meetingData = parseMeetingData(task.notes)
+      // Meeting outcome fields must be filled (nextSteps) before completing
+      // Check for missing data, empty string, or whitespace-only
+      const hasNextSteps = meetingData?.nextSteps?.trim()
+      if (!meetingData || !hasNextSteps) {
+        // Open task modal for editing and track that we're completing it
+        setCompletingTaskId(task.id)
+        openTaskModal(task, true)
+        return
+      }
+    }
+
     startToggleTransition(async () => {
       // Instant optimistic update
       addOptimisticToggle(task.id)
@@ -458,8 +622,12 @@ export default function OpportunityFormModal({
     })
   }
 
-  function openTaskModal(task?: Task) {
+  function openTaskModal(task?: Task, forCompletion = false) {
     setSelectedTask(task || null)
+    // Only keep completingTaskId if explicitly opening for completion
+    if (!forCompletion) {
+      setCompletingTaskId(null)
+    }
     setTaskModalOpen(true)
   }
 
@@ -519,12 +687,8 @@ export default function OpportunityFormModal({
     setShowNewRequestModal(true)
   }
 
-  if (!isOpen) return null
-
-  const isEditMode = !!opportunity
-
-  // Prepare categories and users for dynamic fields
-  const categoryOptions = categories.map(cat => ({
+  // Memoize category options to prevent recalculation on every render
+  const categoryOptions = useMemo(() => categories.map(cat => ({
     id: cat.id,
     categoryKey: cat.categoryKey,
     parentCategory: cat.parentCategory,
@@ -532,13 +696,18 @@ export default function OpportunityFormModal({
     subCategory2: cat.subCategory2,
     subCategory3: cat.subCategory3,
     subCategory4: cat.subCategory4,
-  }))
+  })), [categories])
 
-  const userOptions = users.map(user => ({
-    clerkId: user.clerkId,
-    name: user.name,
-    email: user.email,
-  }))
+  // Memoize user options to prevent recalculation on every render
+  const userOptions = useMemo(() => users.map(u => ({
+    clerkId: u.clerkId,
+    name: u.name,
+    email: u.email,
+  })), [users])
+
+  if (!isOpen) return null
+
+  const isEditMode = !!opportunity
 
   return (
     <>
@@ -563,6 +732,10 @@ export default function OpportunityFormModal({
             onCancel={onClose}
             leftContent="* Campos requeridos"
           />
+        ) : activeTab === 'chat' ? (
+          <ModalFooter
+            onCancel={onClose}
+          />
         ) : (
           <ModalFooter
             onCancel={onClose}
@@ -572,38 +745,115 @@ export default function OpportunityFormModal({
     >
 
           {/* Sales Path (Pipeline) */}
-          {!loadingData && (
+          {loadingData ? (
+            <OpportunityPipelineSkeleton />
+          ) : (
             <OpportunityPipeline stage={stage} onStageChange={handleStageChange} saving={savingStage} />
           )}
 
-          {/* Reference Info Bar */}
+          {/* Reference Info Bar - 2-line layout */}
           {!loadingData && (
-            <ReferenceInfoBar variant="border-bottom">
-              <ReferenceInfoBar.CreatedDateItem entity={opportunity} />
-              <ReferenceInfoBar.DateItem
-                icon={<ReferenceInfoBar.Icons.PlayArrow className="text-green-500" style={{ fontSize: 14 }} />}
-                label="Inicio"
-                date={dynamicForm.getValue('startDate') || opportunity?.startDate}
-              />
-              <ReferenceInfoBar.DateItem
-                icon={<ReferenceInfoBar.Icons.Flag className="text-blue-500" style={{ fontSize: 14 }} />}
-                label="Cierre"
-                date={dynamicForm.getValue('closeDate') || opportunity?.closeDate}
-              />
-              <ReferenceInfoBar.DateItem
-                icon={<ReferenceInfoBar.Icons.Event className="text-orange-500" style={{ fontSize: 14 }} />}
-                label="Próxima Actividad"
-                date={dynamicForm.getValue('nextActivityDate') || opportunity?.nextActivityDate}
-              />
-              <ReferenceInfoBar.UserSelectItem
-                label="Responsable"
-                userId={responsibleId}
-                users={users}
-                isAdmin={isAdmin}
-                onChange={setResponsibleId}
-                placeholder="Seleccionar responsable..."
-              />
-            </ReferenceInfoBar>
+            <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 space-y-1.5">
+              {/* Line 1: Action-oriented (What do I need to do?) */}
+              <div className="flex flex-wrap items-center gap-5 text-xs">
+                {/* Tasks */}
+                {(activitySummary.nextTask || activitySummary.lastTask) && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Tareas</span>
+                    {activitySummary.nextTask && (
+                      <span className="flex items-center gap-1">
+                        <span className="font-semibold text-orange-600">
+                          Próx: {new Date(activitySummary.nextTask.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
+                        </span>
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                          activitySummary.nextTask.days <= 0 ? 'bg-red-100 text-red-700' : 
+                          activitySummary.nextTask.days <= 2 ? 'bg-amber-100 text-amber-700' : 
+                          'bg-green-100 text-green-700'
+                        }`}>
+                          {activitySummary.nextTask.daysText}
+                        </span>
+                      </span>
+                    )}
+                    {activitySummary.lastTask && (
+                      <span className="flex items-center gap-1">
+                        <span className="text-[10px] text-gray-500">
+                          Últ: {new Date(activitySummary.lastTask.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
+                        </span>
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                          {activitySummary.lastTask.daysText}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                )}
+                
+                {/* Meetings */}
+                {(activitySummary.nextMeeting || activitySummary.lastMeeting) && (
+                  <div className="flex items-center gap-2 pl-5 border-l border-gray-300">
+                    <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Reuniones</span>
+                    {activitySummary.nextMeeting && (
+                      <span className="flex items-center gap-1">
+                        <span className="font-semibold text-blue-600">
+                          Próx: {new Date(activitySummary.nextMeeting.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
+                        </span>
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                          activitySummary.nextMeeting.days <= 0 ? 'bg-red-100 text-red-700' : 
+                          activitySummary.nextMeeting.days <= 2 ? 'bg-amber-100 text-amber-700' : 
+                          'bg-green-100 text-green-700'
+                        }`}>
+                          {activitySummary.nextMeeting.daysText}
+                        </span>
+                      </span>
+                    )}
+                    {activitySummary.lastMeeting && (
+                      <span className="flex items-center gap-1">
+                        <span className="text-[10px] text-gray-500">
+                          Últ: {new Date(activitySummary.lastMeeting.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
+                        </span>
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                          {activitySummary.lastMeeting.daysText}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Line 2: Context (Timeline + Owner) */}
+              <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500">
+                {/* Timeline dates */}
+                <div className="flex items-center gap-2">
+                  {opportunity?.createdAt && (
+                    <span className="text-gray-400">
+                      Creado: {new Date(opportunity.createdAt).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
+                    </span>
+                  )}
+                  {(dynamicForm.getValue('startDate') || opportunity?.startDate) && (
+                    <span>
+                      Inicio: {new Date(dynamicForm.getValue('startDate') || opportunity?.startDate!).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
+                    </span>
+                  )}
+                  {(dynamicForm.getValue('closeDate') || opportunity?.closeDate) && (
+                    <span>
+                      Cierre: {new Date(dynamicForm.getValue('closeDate') || opportunity?.closeDate!).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
+                    </span>
+                  )}
+                </div>
+
+                {/* Separator */}
+                <span className="text-gray-300">|</span>
+
+                {/* Owner */}
+                <ReferenceInfoBar.UserSelectItem
+                  label="Responsable"
+                  userId={responsibleId}
+                  users={users}
+                  isAdmin={isAdmin}
+                  onChange={setResponsibleId}
+                  placeholder="Sin asignar"
+                />
+              </div>
+            </div>
           )}
 
           {/* WON Stage Banner */}
@@ -617,15 +867,15 @@ export default function OpportunityFormModal({
           )}
 
           {/* Tabs */}
-          <div className="border-b border-gray-200 bg-white">
-            <div className="flex">
+          <div className="bg-gray-50 border-b border-gray-200">
+            <div className="flex px-4 pt-2 -mb-px">
               <button
                 type="button"
                 onClick={() => setActiveTab('details')}
-                className={`px-6 py-3 text-sm font-medium transition-colors border-b-2 ${
+                className={`px-4 py-2.5 text-sm font-medium transition-all border border-b-0 rounded-t-lg -mb-px ${
                   activeTab === 'details'
-                    ? 'border-orange-600 text-orange-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ? 'bg-white text-gray-900 border-gray-200'
+                    : 'bg-transparent text-gray-500 border-transparent hover:text-gray-700'
                 }`}
               >
                 Detalles
@@ -633,10 +883,10 @@ export default function OpportunityFormModal({
               <button
                 type="button"
                 onClick={() => setActiveTab('activity')}
-                className={`px-6 py-3 text-sm font-medium transition-colors border-b-2 ${
+                className={`px-4 py-2.5 text-sm font-medium transition-all border border-b-0 rounded-t-lg -mb-px ${
                   activeTab === 'activity'
-                    ? 'border-orange-600 text-orange-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ? 'bg-white text-gray-900 border-gray-200'
+                    : 'bg-transparent text-gray-500 border-transparent hover:text-gray-700'
                 }`}
               >
                 Actividad
@@ -644,18 +894,29 @@ export default function OpportunityFormModal({
               <button
                 type="button"
                 onClick={() => setActiveTab('chat')}
-                className={`px-6 py-3 text-sm font-medium transition-colors border-b-2 ${
+                className={`px-4 py-2.5 text-sm font-medium transition-all border border-b-0 rounded-t-lg -mb-px ${
                   activeTab === 'chat'
-                    ? 'border-orange-600 text-orange-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ? 'bg-white text-gray-900 border-gray-200'
+                    : 'bg-transparent text-gray-500 border-transparent hover:text-gray-700'
                 }`}
               >
                 Chat
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('history')}
+                className={`px-4 py-2.5 text-sm font-medium transition-all border border-b-0 rounded-t-lg -mb-px ${
+                  activeTab === 'history'
+                    ? 'bg-white text-gray-900 border-gray-200'
+                    : 'bg-transparent text-gray-500 border-transparent hover:text-gray-700'
+                }`}
+              >
+                Histórico
+              </button>
             </div>
           </div>
 
-      <form id="modal-form" onSubmit={handleSubmit} className="bg-gray-50 h-full flex flex-col">
+      <form id="modal-form" onSubmit={handleSubmit} className="bg-white min-h-[450px] flex flex-col">
             {error && (
               <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
                 <ErrorOutlineIcon className="text-red-600 flex-shrink-0 mt-0.5" fontSize="small" />
@@ -663,17 +924,9 @@ export default function OpportunityFormModal({
               </div>
             )}
 
-            {/* Loading state - show appropriate skeleton for each tab */}
+            {/* Loading state - show skeleton for details tab only (other tabs lazy load their own content) */}
             {(loadingData || dynamicForm.loading) ? (
-              activeTab === 'details' ? (
-                <OpportunityDetailsSkeleton />
-              ) : activeTab === 'activity' ? (
-                <OpportunityActivitySkeleton />
-              ) : activeTab === 'chat' ? (
-                <OpportunityChatSkeleton />
-              ) : (
-                <OpportunityModalFullSkeleton />
-              )
+              <OpportunityDetailsSkeleton />
             ) : activeTab === 'details' ? (
               <div className="p-4 space-y-4">
                 {/* Dynamic Sections from Form Config */}
@@ -730,14 +983,16 @@ export default function OpportunityFormModal({
                     <p className="text-xs text-gray-400">Cree la oportunidad, luego regrese para agregar actividades</p>
                   </div>
                 ) : (
-                  <TaskManager
-                    tasks={optimisticTasks}
-                    onAddTask={() => openTaskModal()}
-                    onEditTask={(task) => openTaskModal(task)}
-                    onDeleteTask={handleDeleteTask}
-                    onToggleComplete={handleToggleTaskComplete}
-                    isAdmin={isAdmin}
-                  />
+                  <Suspense fallback={<OpportunityActivitySkeleton />}>
+                    <TaskManager
+                      tasks={optimisticTasks}
+                      onAddTask={() => openTaskModal()}
+                      onEditTask={(task) => openTaskModal(task)}
+                      onDeleteTask={handleDeleteTask}
+                      onToggleComplete={handleToggleTaskComplete}
+                      isAdmin={isAdmin}
+                    />
+                  </Suspense>
                 )}
               </div>
             )}
@@ -751,10 +1006,30 @@ export default function OpportunityFormModal({
                     <p className="text-xs text-gray-400">Cree la oportunidad, luego regrese para chatear</p>
                   </div>
                 ) : (
-                  <OpportunityChatThread
-                    opportunityId={opportunity.id}
-                    canEdit={isAdmin || opportunity.responsibleId === user?.id || opportunity.userId === user?.id}
-                  />
+                  <Suspense fallback={<OpportunityChatSkeleton />}>
+                    <OpportunityChatThread
+                      opportunityId={opportunity.id}
+                      canEdit={isAdmin || opportunity.responsibleId === user?.id || opportunity.userId === user?.id}
+                    />
+                  </Suspense>
+                )}
+              </div>
+            )}
+
+            {!loadingData && activeTab === 'history' && (
+              <div className="bg-white h-full">
+                {!opportunity ? (
+                  <div className="p-6">
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+                      <span className="text-4xl mb-3 block">📋</span>
+                      <p className="text-sm text-gray-500 mb-2">Guarde la oportunidad primero para ver el historial</p>
+                      <p className="text-xs text-gray-400">Cree la oportunidad, luego regrese para ver las actividades</p>
+                    </div>
+                  </div>
+                ) : (
+                  <Suspense fallback={<TabLoadingFallback />}>
+                    <OpportunityHistory opportunityId={opportunity.id} />
+                  </Suspense>
                 )}
               </div>
             )}
@@ -762,68 +1037,89 @@ export default function OpportunityFormModal({
       </form>
     </ModalShell>
 
-      {/* Task Modal */}
-      <TaskModal
-        isOpen={taskModalOpen}
-        onClose={() => {
-          setTaskModalOpen(false)
-          setSelectedTask(null)
-        }}
-        task={selectedTask}
-        onSubmit={handleTaskSubmit}
-        loading={loading}
-        error={error}
-        businessName={linkedBusiness?.name || opportunity?.business?.name || ''}
-      />
+      {/* Lazy-loaded modals - only rendered when open */}
+      {taskModalOpen && (
+        <Suspense fallback={null}>
+          <TaskModal
+            isOpen={taskModalOpen}
+            onClose={() => {
+              setTaskModalOpen(false)
+              setSelectedTask(null)
+              setCompletingTaskId(null) // Clear completing state on close
+            }}
+            task={selectedTask}
+            onSubmit={handleTaskSubmit}
+            loading={loading}
+            error={error}
+            businessName={linkedBusiness?.name || opportunity?.business?.name || ''}
+            forCompletion={!!completingTaskId}
+          />
+        </Suspense>
+      )}
 
-      {/* Business Modal */}
-      <BusinessFormModal
-        isOpen={businessModalOpen}
-        onClose={() => {
-          setBusinessModalOpen(false)
-          setSelectedBusiness(null)
-        }}
-        business={selectedBusiness}
-        onSuccess={handleBusinessSuccess}
-      />
+      {businessModalOpen && (
+        <Suspense fallback={null}>
+          <BusinessFormModal
+            isOpen={businessModalOpen}
+            onClose={() => {
+              setBusinessModalOpen(false)
+              setSelectedBusiness(null)
+            }}
+            business={selectedBusiness}
+            onSuccess={handleBusinessSuccess}
+          />
+        </Suspense>
+      )}
 
-      {/* Booking Request Modal */}
-      <BookingRequestViewModal
-        isOpen={bookingRequestModalOpen}
-        onClose={() => setBookingRequestModalOpen(false)}
-        requestId={linkedBookingRequest?.id || null}
-      />
+      {bookingRequestModalOpen && (
+        <Suspense fallback={null}>
+          <BookingRequestViewModal
+            isOpen={bookingRequestModalOpen}
+            onClose={() => setBookingRequestModalOpen(false)}
+            requestId={linkedBookingRequest?.id || null}
+          />
+        </Suspense>
+      )}
 
-      {/* New Request Modal */}
-      <NewRequestModal
-        isOpen={showNewRequestModal}
-        onClose={() => {
-          setShowNewRequestModal(false)
-          setNewRequestQueryParams({})
-        }}
-        queryParams={newRequestQueryParams}
-      />
+      {showNewRequestModal && (
+        <Suspense fallback={null}>
+          <NewRequestModal
+            isOpen={showNewRequestModal}
+            onClose={() => {
+              setShowNewRequestModal(false)
+              setNewRequestQueryParams({})
+            }}
+            queryParams={newRequestQueryParams}
+          />
+        </Suspense>
+      )}
 
-      {/* Lost Reason Modal */}
-      <LostReasonModal
-        isOpen={lostReasonModalOpen}
-        onClose={handleLostReasonCancel}
-        onConfirm={handleLostReasonConfirm}
-        currentReason={opportunity?.lostReason || null}
-        loading={savingStage}
-      />
+      {lostReasonModalOpen && (
+        <Suspense fallback={null}>
+          <LostReasonModal
+            isOpen={lostReasonModalOpen}
+            onClose={handleLostReasonCancel}
+            onConfirm={handleLostReasonConfirm}
+            currentReason={opportunity?.lostReason || null}
+            loading={savingStage}
+          />
+        </Suspense>
+      )}
 
-      {/* Confirm Dialog */}
-      <ConfirmDialog
-        isOpen={confirmDialog.isOpen}
-        title={confirmDialog.options.title}
-        message={confirmDialog.options.message}
-        confirmText={confirmDialog.options.confirmText}
-        cancelText={confirmDialog.options.cancelText}
-        confirmVariant={confirmDialog.options.confirmVariant}
-        onConfirm={confirmDialog.handleConfirm}
-        onCancel={confirmDialog.handleCancel}
-      />
+      {confirmDialog.isOpen && (
+        <Suspense fallback={null}>
+          <ConfirmDialog
+            isOpen={confirmDialog.isOpen}
+            title={confirmDialog.options.title}
+            message={confirmDialog.options.message}
+            confirmText={confirmDialog.options.confirmText}
+            cancelText={confirmDialog.options.cancelText}
+            confirmVariant={confirmDialog.options.confirmVariant}
+            onConfirm={confirmDialog.handleConfirm}
+            onCancel={confirmDialog.handleCancel}
+          />
+        </Suspense>
+      )}
     </>
   )
 }

@@ -8,6 +8,7 @@ import { getUserRole, isAdmin } from '@/lib/auth/roles'
 import type { OpportunityStage } from '@/types'
 import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
 import { logActivity } from '@/lib/activity-log'
+import { getTodayInPanama } from '@/lib/date/timezone'
 
 /**
  * Get all opportunities (cached, minimal data for lists)
@@ -821,14 +822,19 @@ export async function createTask(formData: FormData) {
     }
 
     const taskDate = new Date(date)
+    
+    // Check if task date is in the past - auto-complete if so
+    const todayStr = getTodayInPanama() // YYYY-MM-DD in Panama timezone
+    const isDateInPast = date < todayStr
 
-    // Create task
+    // Create task (auto-complete if date is in the past)
     const task = await prisma.task.create({
       data: {
         opportunityId,
         category,
         title,
         date: taskDate,
+        completed: isDateInPast, // Auto-complete past tasks
         notes: notes || null,
       },
     })
@@ -836,7 +842,21 @@ export async function createTask(formData: FormData) {
     // Update opportunity's nextActivityDate and lastActivityDate
     const opportunity = await prisma.opportunity.findUnique({
       where: { id: opportunityId },
-      include: { tasks: true },
+      include: { tasks: true, business: true },
+    })
+
+    // Log activity for task creation on the opportunity
+    await logActivity({
+      action: 'CREATE',
+      entityType: 'Opportunity',
+      entityId: opportunityId,
+      entityName: opportunity?.business?.name || undefined,
+      details: {
+        taskAction: 'created',
+        taskTitle: title,
+        taskCategory: category,
+        taskDate: date,
+      },
     })
 
     if (opportunity) {
@@ -896,6 +916,7 @@ export async function updateTask(taskId: string, formData: FormData) {
     // Get opportunity ID before updating
     const existingTask = await prisma.task.findUnique({
       where: { id: taskId },
+      include: { opportunity: { include: { business: true } } },
     })
 
     if (!existingTask) {
@@ -913,6 +934,35 @@ export async function updateTask(taskId: string, formData: FormData) {
         notes: notes || null,
       },
     })
+
+    // Log activity for task update on the opportunity
+    // Determine what changed
+    const completionChanged = existingTask.completed !== completed
+    if (completionChanged) {
+      await logActivity({
+        action: 'UPDATE',
+        entityType: 'Opportunity',
+        entityId: existingTask.opportunityId,
+        entityName: existingTask.opportunity?.business?.name || undefined,
+        details: {
+          taskAction: completed ? 'completed' : 'reopened',
+          taskTitle: title,
+          taskCategory: category,
+        },
+      })
+    } else {
+      await logActivity({
+        action: 'UPDATE',
+        entityType: 'Opportunity',
+        entityId: existingTask.opportunityId,
+        entityName: existingTask.opportunity?.business?.name || undefined,
+        details: {
+          taskAction: 'updated',
+          taskTitle: title,
+          taskCategory: category,
+        },
+      })
+    }
 
     // Update opportunity's nextActivityDate and lastActivityDate
     const allTasks = await prisma.task.findMany({
@@ -960,6 +1010,7 @@ export async function deleteTask(taskId: string) {
     // Get opportunity ID before deleting
     const task = await prisma.task.findUnique({
       where: { id: taskId },
+      include: { opportunity: { include: { business: true } } },
     })
 
     if (!task) {
@@ -968,6 +1019,19 @@ export async function deleteTask(taskId: string) {
 
     await prisma.task.delete({
       where: { id: taskId },
+    })
+
+    // Log activity for task deletion on the opportunity
+    await logActivity({
+      action: 'DELETE',
+      entityType: 'Opportunity',
+      entityId: task.opportunityId,
+      entityName: task.opportunity?.business?.name || undefined,
+      details: {
+        taskAction: 'deleted',
+        taskTitle: task.title,
+        taskCategory: task.category,
+      },
     })
 
     // Update opportunity's nextActivityDate and lastActivityDate

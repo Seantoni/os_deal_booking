@@ -12,29 +12,26 @@ import { ChatLoadingSkeleton } from '@/components/common/ChatLoadingSkeleton'
  * Pipeline skeleton - matches OpportunityPipeline component
  */
 export function OpportunityPipelineSkeleton() {
+  const stages = ['Iniciación', 'Reunión', 'Propuesta Enviada', 'Propuesta Aprobada', 'Won', 'Lost']
+  
   return (
-    <div className="bg-white border-b border-gray-200 px-6 py-4">
-      <div className="flex items-center justify-between gap-4 overflow-x-auto">
-        {['Iniciación', 'Reunión', 'Propuesta', 'Won', 'Lost'].map((_, i) => (
-          <div key={i} className="flex flex-col items-center gap-2 min-w-[100px] flex-1">
-            {/* Progress bar */}
-            <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
-              <div 
-                className={`h-full rounded-full animate-pulse ${i === 0 ? 'bg-orange-300' : 'bg-gray-200'}`}
-                style={{ 
-                  width: i === 0 ? '100%' : i === 1 ? '0%' : '0%',
-                  animationDelay: `${i * 0.1}s`
-                }}
-              ></div>
+    <div className="bg-white border-b border-gray-200 px-4 py-3">
+      <div className="flex items-center gap-1">
+        {stages.map((_, i) => (
+          <div key={i} className="flex items-center flex-1">
+            {/* Stage button skeleton */}
+            <div className="flex-1 h-8 flex items-center justify-center border border-gray-200 rounded bg-gray-50 animate-pulse" style={{ animationDelay: `${i * 0.05}s` }}>
+              <div className="flex items-center gap-1.5 px-2">
+                {/* Check icon placeholder (only for past stages) */}
+                {i < 2 && <div className="h-3.5 w-3.5 bg-gray-300 rounded"></div>}
+                {/* Stage label */}
+                <div className="h-3 bg-gray-300 rounded w-20"></div>
+              </div>
             </div>
-            {/* Stage circle */}
-            <div className={`h-10 w-10 rounded-full border-2 flex items-center justify-center ${
-              i === 0 ? 'border-orange-500 bg-orange-50' : 'border-gray-300 bg-white'
-            } animate-pulse`} style={{ animationDelay: `${i * 0.1}s` }}>
-              <div className={`h-4 w-4 rounded-full ${i === 0 ? 'bg-orange-500' : 'bg-gray-300'}`}></div>
-            </div>
-            {/* Stage label */}
-            <div className={`h-3.5 bg-gray-200 rounded w-16 animate-pulse`} style={{ animationDelay: `${i * 0.15}s` }}></div>
+            {/* Divider between stages */}
+            {i < stages.length - 1 && (
+              <div className="w-1 h-0.5 bg-gray-200 flex-shrink-0"></div>
+            )}
           </div>
         ))}
       </div>

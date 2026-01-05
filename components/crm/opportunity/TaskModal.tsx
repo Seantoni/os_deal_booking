@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import CloseIcon from '@mui/icons-material/Close'
 import GroupsIcon from '@mui/icons-material/Groups'
 import type { Task } from '@/types'
 import { Button, Input, Select, Textarea } from '@/components/ui'
 import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
+import { getTodayInPanama } from '@/lib/date/timezone'
 
 // Meeting data structure stored as JSON in notes
 export interface MeetingData {
@@ -52,6 +52,7 @@ interface TaskModalProps {
   loading?: boolean
   error?: string
   businessName?: string // For auto-filling "Reunión con"
+  forCompletion?: boolean // When true, outcome fields are required before saving
 }
 
 export default function TaskModal({ 
@@ -61,7 +62,8 @@ export default function TaskModal({
   onSubmit, 
   loading, 
   error,
-  businessName = ''
+  businessName = '',
+  forCompletion = false,
 }: TaskModalProps) {
   const [taskCategory, setTaskCategory] = useState<'meeting' | 'todo'>('todo')
   
@@ -75,15 +77,25 @@ export default function TaskModal({
   const [position, setPosition] = useState('')
   const [isDecisionMaker, setIsDecisionMaker] = useState<'si' | 'no' | 'no_se'>('no_se')
   const [meetingDetails, setMeetingDetails] = useState('')
+  const [meetingHappened, setMeetingHappened] = useState<'si' | 'no'>('no') // New field for "today" meetings
   const [reachedAgreement, setReachedAgreement] = useState<'si' | 'no'>('si')
   const [mainObjection, setMainObjection] = useState('')
   const [objectionSolution, setObjectionSolution] = useState('')
   const [nextSteps, setNextSteps] = useState('')
+  const [validationError, setValidationError] = useState<string | null>(null)
 
   useEffect(() => {
+    // Reset validation error when modal opens or task changes
+    setValidationError(null)
+    
     if (task) {
       setTaskCategory(task.category)
-      setTaskDate(new Date(task.date).toISOString().split('T')[0])
+      // Format the task date in Panama timezone for the date input
+      const taskDateObj = new Date(task.date)
+      const year = taskDateObj.getUTCFullYear()
+      const month = String(taskDateObj.getUTCMonth() + 1).padStart(2, '0')
+      const day = String(taskDateObj.getUTCDate()).padStart(2, '0')
+      setTaskDate(`${year}-${month}-${day}`)
       
       if (task.category === 'meeting') {
         // Parse meeting data from notes
@@ -97,12 +109,15 @@ export default function TaskModal({
           setMainObjection(meetingData.mainObjection || '')
           setObjectionSolution(meetingData.objectionSolution || '')
           setNextSteps(meetingData.nextSteps)
+          // If completing or nextSteps has content, meeting happened
+          setMeetingHappened(forCompletion || meetingData.nextSteps ? 'si' : 'no')
           // Title is derived from meetingWith
           setTaskTitle(meetingData.meetingWith)
         } else {
           // Fallback for old meeting data
           setTaskTitle(task.title)
           setTaskNotes(task.notes || '')
+          setMeetingHappened(forCompletion ? 'si' : 'no')
         }
       } else {
         setTaskTitle(task.title)
@@ -112,39 +127,53 @@ export default function TaskModal({
       // Reset all fields for new task
       setTaskCategory('todo')
       setTaskTitle('')
-      setTaskDate(new Date().toISOString().split('T')[0])
+      setTaskDate(getTodayInPanama())
       setTaskNotes('')
       // Reset meeting fields
       setMeetingWith('')
       setPosition('')
       setIsDecisionMaker('no_se')
       setMeetingDetails('')
+      setMeetingHappened('no')
       setReachedAgreement('si')
       setMainObjection('')
       setObjectionSolution('')
       setNextSteps('')
     }
-  }, [task, isOpen, businessName])
+  }, [task, isOpen, businessName, forCompletion])
 
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setValidationError(null)
     
     if (taskCategory === 'meeting') {
+      // Validate meeting outcome fields if they should be shown
+      if (showMeetingOutcomeFields) {
+        if (!nextSteps.trim()) {
+          setValidationError('Por favor complete el campo "Siguientes pasos" antes de guardar')
+          return
+        }
+        if (reachedAgreement === 'no' && (!mainObjection.trim() || !objectionSolution.trim())) {
+          setValidationError('Por favor complete los campos de objeción antes de guardar')
+          return
+        }
+      }
+      
       // Build meeting data
       const meetingData: MeetingData = {
         meetingWith,
         position,
         isDecisionMaker,
         meetingDetails,
-        reachedAgreement,
-        nextSteps,
+        reachedAgreement: showMeetingOutcomeFields ? reachedAgreement : 'si', // Default if not shown
+        nextSteps: showMeetingOutcomeFields ? nextSteps.trim() : '', // Empty if not shown, trimmed if shown
       }
       
-      // Only include objection fields if agreement was not reached
-      if (reachedAgreement === 'no') {
-        meetingData.mainObjection = mainObjection
-        meetingData.objectionSolution = objectionSolution
+      // Only include objection fields if agreement was not reached and outcome fields are shown
+      if (showMeetingOutcomeFields && reachedAgreement === 'no') {
+        meetingData.mainObjection = mainObjection.trim()
+        meetingData.objectionSolution = objectionSolution.trim()
       }
       
       await onSubmit({
@@ -166,6 +195,43 @@ export default function TaskModal({
   const isMeeting = taskCategory === 'meeting'
   const showObjectionFields = isMeeting && reachedAgreement === 'no'
 
+  // Determine if date is past, today, or future using Panama timezone
+  const todayStr = getTodayInPanama() // YYYY-MM-DD in Panama timezone
+  const selectedDateStr = taskDate || todayStr
+  
+  const isDatePast = selectedDateStr < todayStr
+  const isDateToday = selectedDateStr === todayStr
+  const isDateFuture = selectedDateStr > todayStr
+
+  // Show meeting outcome fields based on date and meeting happened status
+  // OR when opening for completion (must fill outcome fields to complete)
+  const showMeetingOutcomeFields = isMeeting && (forCompletion || isDatePast || (isDateToday && meetingHappened === 'si'))
+
+  // Compute if form is valid for submission
+  const isFormValid = (() => {
+    // Basic validation for all tasks
+    if (!taskDate) return false
+    
+    if (isMeeting) {
+      // Meeting basic fields
+      if (!meetingWith.trim() || !position.trim() || !meetingDetails.trim()) return false
+      
+      // Meeting outcome fields required when shown
+      if (showMeetingOutcomeFields) {
+        if (!nextSteps.trim()) return false
+        // If no agreement, objection fields required
+        if (reachedAgreement === 'no') {
+          if (!mainObjection.trim() || !objectionSolution.trim()) return false
+        }
+      }
+    } else {
+      // Todo task requires title
+      if (!taskTitle.trim()) return false
+    }
+    
+    return true
+  })()
+
   return (
     <ModalShell
       isOpen={isOpen}
@@ -179,16 +245,16 @@ export default function TaskModal({
           onCancel={onClose}
           submitLabel={task ? 'Actualizar' : 'Crear'}
           submitLoading={loading}
-          submitDisabled={loading}
+          submitDisabled={loading || !isFormValid}
           submitVariant={isMeeting ? 'primary' : 'primary'}
           formId="task-modal-form"
         />
       }
     >
       <form id="task-modal-form" onSubmit={handleSubmit} className="p-6 space-y-4">
-          {error && (
+          {(error || validationError) && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800">
-              {error}
+              {validationError || error}
             </div>
           )}
           
@@ -288,53 +354,75 @@ export default function TaskModal({
                 helperText="Incluya todos los puntos importantes discutidos"
               />
 
-              <Select
-                label="¿Se llegó a un acuerdo?"
-                value={reachedAgreement}
-                onChange={(e) => setReachedAgreement(e.target.value as 'si' | 'no')}
-                required
-                options={[
-                  { value: 'si', label: 'Sí' },
-                  { value: 'no', label: 'No' },
-                ]}
-              />
-
-              {/* Conditional objection fields */}
-              {showObjectionFields && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-4">
-                  <h5 className="text-sm font-medium text-amber-800">Información sobre objeción</h5>
-                  
-                  <Input
-                    type="text"
-                    label="Principal objeción"
-                    value={mainObjection}
-                    onChange={(e) => setMainObjection(e.target.value)}
-                    required
-                    placeholder="Objeción principal o 'no sé'"
-                    helperText="¿Cuál fue la principal objeción o barrera?"
-                  />
-                  
-                  <Textarea
-                    label="Posible solución a objeción"
-                    value={objectionSolution}
-                    onChange={(e) => setObjectionSolution(e.target.value)}
-                    required
-                    rows={2}
-                    placeholder="Posible solución para llegar a un acuerdo..."
-                    helperText="¿Cómo se podría resolver esta objeción?"
-                  />
-                </div>
+              {/* Show "Meeting happened?" field only for today's date */}
+              {isDateToday && (
+                <Select
+                  label="¿Ya se tuvo la reunión?"
+                  value={meetingHappened}
+                  onChange={(e) => setMeetingHappened(e.target.value as 'si' | 'no')}
+                  required
+                  options={[
+                    { value: 'no', label: 'No' },
+                    { value: 'si', label: 'Sí' },
+                  ]}
+                />
               )}
 
-              <Textarea
-                label="Siguientes pasos"
-                value={nextSteps}
-                onChange={(e) => setNextSteps(e.target.value)}
-                required
-                rows={3}
-                placeholder='Ej: "Se enviará propuesta de…" o "Aliado se reunirá, y quedamos en hablar el día…"'
-                helperText="Acciones definidas y fechas de seguimiento"
-              />
+              {/* Meeting outcome fields - shown for past dates or today if meeting happened */}
+              {showMeetingOutcomeFields && (
+                <>
+                  <Select
+                    label="¿Se llegó a un acuerdo?"
+                    value={reachedAgreement}
+                    onChange={(e) => setReachedAgreement(e.target.value as 'si' | 'no')}
+                    required
+                    options={[
+                      { value: 'si', label: 'Sí' },
+                      { value: 'no', label: 'No' },
+                    ]}
+                  />
+
+                  {/* Conditional objection fields */}
+                  {showObjectionFields && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-4">
+                      <h5 className="text-sm font-medium text-amber-800">Información sobre objeción</h5>
+                      
+                      <Input
+                        type="text"
+                        label="Principal objeción"
+                        value={mainObjection}
+                        onChange={(e) => setMainObjection(e.target.value)}
+                        required
+                        placeholder="Objeción principal o 'no sé'"
+                        helperText="¿Cuál fue la principal objeción o barrera?"
+                      />
+                      
+                      <Textarea
+                        label="Posible solución a objeción"
+                        value={objectionSolution}
+                        onChange={(e) => setObjectionSolution(e.target.value)}
+                        required
+                        rows={2}
+                        placeholder="Posible solución para llegar a un acuerdo..."
+                        helperText="¿Cómo se podría resolver esta objeción?"
+                      />
+                    </div>
+                  )}
+
+                  <Textarea
+                    label="Siguientes pasos"
+                    value={nextSteps}
+                    onChange={(e) => {
+                      setNextSteps(e.target.value)
+                      if (validationError) setValidationError(null)
+                    }}
+                    required
+                    rows={3}
+                    placeholder='Ej: "Se enviará propuesta de…" o "Aliado se reunirá, y quedamos en hablar el día…"'
+                    helperText="Acciones definidas y fechas de seguimiento"
+                  />
+                </>
+              )}
             </>
           )}
 

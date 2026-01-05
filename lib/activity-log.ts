@@ -67,6 +67,11 @@ export interface ActivityDetails {
   bulkUpdate?: boolean
   /** Number of items affected in bulk operation */
   optionsUpdated?: number
+  /** Task-related activity details */
+  taskAction?: 'created' | 'updated' | 'completed' | 'reopened' | 'deleted'
+  taskTitle?: string
+  taskCategory?: string
+  taskDate?: string
 }
 
 /**

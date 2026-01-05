@@ -1,18 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
+import { PANAMA_TIMEZONE, getTodayInPanama } from '@/lib/date/timezone'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
 import EventIcon from '@mui/icons-material/Event'
-import GroupsIcon from '@mui/icons-material/Groups'
-import PersonIcon from '@mui/icons-material/Person'
-import WorkIcon from '@mui/icons-material/Work'
-import ThumbUpIcon from '@mui/icons-material/ThumbUp'
-import ThumbDownIcon from '@mui/icons-material/ThumbDown'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import type { Task } from '@/types'
@@ -28,6 +23,8 @@ interface TaskManagerProps {
   isAdmin?: boolean
 }
 
+type TaskFilter = 'all' | 'task' | 'meeting'
+
 export default function TaskManager({
   tasks,
   onAddTask,
@@ -36,12 +33,42 @@ export default function TaskManager({
   onToggleComplete,
   isAdmin = false,
 }: TaskManagerProps) {
-  const futureTasks = tasks
-    .filter(t => !t.completed && new Date(t.date) >= new Date())
+  const [filter, setFilter] = useState<TaskFilter>('all')
+  const todayStr = getTodayInPanama() // YYYY-MM-DD in Panama timezone
+  
+  // Helper to get the date string from a task date (stored as UTC midnight)
+  // We use UTC components to get the original date the user selected
+  const getTaskDateStr = (date: Date | string) => {
+    const d = new Date(date)
+    const year = d.getUTCFullYear()
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0')
+    const day = String(d.getUTCDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // Filter tasks by type
+  const filteredTasks = tasks.filter(t => {
+    if (filter === 'all') return true
+    if (filter === 'meeting') return t.category === 'meeting'
+    return t.category !== 'meeting'
+  })
+
+  // Count tasks by type for badges
+  const meetingCount = tasks.filter(t => t.category === 'meeting').length
+  const taskCount = tasks.filter(t => t.category !== 'meeting').length
+  
+  const futureTasks = filteredTasks
+    .filter(t => {
+      const taskDateStr = getTaskDateStr(t.date)
+      return !t.completed && taskDateStr >= todayStr
+    })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
   
-  const pastTasks = tasks
-    .filter(t => t.completed || new Date(t.date) < new Date())
+  const pastTasks = filteredTasks
+    .filter(t => {
+      const taskDateStr = getTaskDateStr(t.date)
+      return t.completed || taskDateStr < todayStr
+    })
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   if (tasks.length === 0) {
@@ -64,27 +91,60 @@ export default function TaskManager({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Add Task Button */}
-      <div className="flex justify-end">
-        <Button
+    <div className="space-y-4">
+      {/* Quick Filters */}
+      <div className="flex items-center gap-1">
+        <button
           type="button"
-          onClick={onAddTask}
-          size="sm"
-          leftIcon={<AddIcon fontSize="small" />}
-          className="bg-orange-600 hover:bg-orange-700"
+          onClick={() => setFilter('all')}
+          className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
+            filter === 'all'
+              ? 'bg-gray-800 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
         >
-          Nueva Tarea
-        </Button>
+          Todos ({tasks.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilter('task')}
+          className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
+            filter === 'task'
+              ? 'bg-gray-800 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          Tareas ({taskCount})
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilter('meeting')}
+          className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
+            filter === 'meeting'
+              ? 'bg-blue-600 text-white'
+              : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+          }`}
+        >
+          Reuniones ({meetingCount})
+        </button>
       </div>
 
       {/* Future Tasks */}
       {futureTasks.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+          <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
             <h3 className="text-sm font-bold text-gray-700">Tareas Pendientes</h3>
+            <Button
+              type="button"
+              onClick={onAddTask}
+              size="xs"
+              leftIcon={<AddIcon style={{ fontSize: 14 }} />}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              Nueva Tarea
+            </Button>
           </div>
-          <div className="p-4 space-y-2">
+          <div className="p-2 space-y-0">
             {futureTasks.map((task) => (
               <TaskItem
                 key={task.id}
@@ -102,10 +162,21 @@ export default function TaskManager({
       {/* Past Tasks */}
       {pastTasks.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+          <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
             <h3 className="text-sm font-bold text-gray-700">Tareas Pasadas</h3>
+            {futureTasks.length === 0 && (
+              <Button
+                type="button"
+                onClick={onAddTask}
+                size="xs"
+                leftIcon={<AddIcon style={{ fontSize: 14 }} />}
+                className="bg-orange-600 hover:bg-orange-700"
+              >
+                Nueva Tarea
+              </Button>
+            )}
           </div>
-          <div className="p-4 space-y-2">
+          <div className="p-2 space-y-0">
             {pastTasks.map((task) => (
               <TaskItem
                 key={task.id}
@@ -118,6 +189,15 @@ export default function TaskManager({
               />
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Empty state for filtered results */}
+      {futureTasks.length === 0 && pastTasks.length === 0 && filter !== 'all' && (
+        <div className="bg-white border border-gray-200 rounded-lg p-6 text-center">
+          <p className="text-sm text-gray-500">
+            No hay {filter === 'meeting' ? 'reuniones' : 'tareas'} registradas
+          </p>
         </div>
       )}
     </div>
@@ -143,118 +223,143 @@ function TaskItem({
   const isMeeting = task.category === 'meeting'
   const meetingData = isMeeting ? parseMeetingData(task.notes) : null
 
+  // Format date compactly
+  const formattedDate = new Date(task.date).toLocaleDateString('es-ES', {
+    timeZone: PANAMA_TIMEZONE,
+    month: 'short',
+    day: 'numeric',
+  })
+
+  // Calculate days difference
+  // Get task date as YYYY-MM-DD using UTC (to match how it was stored)
+  const taskDateObj = new Date(task.date)
+  const taskYear = taskDateObj.getUTCFullYear()
+  const taskMonth = taskDateObj.getUTCMonth()
+  const taskDay = taskDateObj.getUTCDate()
+  
+  // Get today in Panama timezone
+  const todayStr = getTodayInPanama() // YYYY-MM-DD
+  const todayParts = todayStr.split('-').map(Number)
+  
+  // Create local dates for diff calculation (both at midnight local)
+  const todayDate = new Date(todayParts[0], todayParts[1] - 1, todayParts[2])
+  const taskLocalDate = new Date(taskYear, taskMonth, taskDay)
+  
+  const diffTime = taskLocalDate.getTime() - todayDate.getTime()
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+  
+  let daysText = ''
+  let daysColor = ''
+  
+  if (diffDays > 0) {
+    daysText = `en ${diffDays}d`
+    // Color based on urgency: red for 0-2 days, orange for 3-7 days, green for 8+ days
+    if (diffDays <= 2) {
+      daysColor = 'text-red-500'
+    } else if (diffDays <= 7) {
+      daysColor = 'text-amber-500'
+    } else {
+      daysColor = 'text-green-500'
+    }
+  } else if (diffDays < 0) {
+    daysText = `hace ${Math.abs(diffDays)}d`
+    // Overdue tasks are always red
+    daysColor = 'text-red-500'
+  } else {
+    daysText = 'hoy'
+    // Today is urgent
+    daysColor = 'text-red-500'
+  }
+
   return (
     <div
-      className={`border rounded-lg ${
+      className={`group transition-colors border-b border-gray-200 last:border-b-0 ${
         isPast
           ? task.completed
-            ? 'bg-green-50 border-green-200'
-            : 'bg-gray-50 border-gray-200 opacity-75'
-          : isMeeting
-          ? 'bg-blue-50 border-blue-200 hover:bg-blue-100'
-          : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-      } transition-colors`}
+            ? 'hover:bg-green-50'
+            : 'opacity-60 hover:bg-gray-50'
+          : 'hover:bg-gray-50'
+      }`}
     >
-      {/* Header Row */}
-      <div className="p-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3 flex-1">
+      {/* Single Row Layout */}
+      <div className="flex items-center gap-2 py-1 px-2">
+        {/* Checkbox */}
+        <button
+          type="button"
+          onClick={() => onToggleComplete(task)}
+          className="text-gray-300 hover:text-green-500 transition-colors flex-shrink-0"
+        >
+          {task.completed ? (
+            <CheckCircleIcon className="text-green-500" style={{ fontSize: 18 }} />
+          ) : (
+            <RadioButtonUncheckedIcon style={{ fontSize: 18 }} />
+          )}
+        </button>
+
+        {/* Type indicator dot */}
+        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+          isMeeting ? 'bg-blue-500' : 'bg-gray-400'
+        }`} />
+
+        {/* Title with description */}
+        <span className={`text-xs flex-1 min-w-0 truncate ${
+          task.completed ? 'line-through text-gray-400' : 'text-gray-700'
+        }`}>
+          {meetingData ? `${meetingData.meetingWith}` : task.title}
+          {!isMeeting && task.notes && (
+            <span className="text-gray-400 font-normal"> | {task.notes}</span>
+          )}
+        </span>
+
+        {/* Due date with days remaining in parentheses */}
+        <span className="text-[11px] text-gray-400 flex-shrink-0 tabular-nums">
+          {formattedDate} <span className={daysColor}>({daysText})</span>
+        </span>
+
+        {/* Task type */}
+        <span className="text-[11px] text-gray-500 flex-shrink-0">
+          {isMeeting ? 'Reunión' : 'Tarea'}
+        </span>
+
+        {/* Actions */}
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => setExpanded(!expanded)}
+            className="p-0.5 text-gray-400 hover:text-blue-600 transition-colors"
+          >
+            {expanded ? <ExpandLessIcon style={{ fontSize: 16 }} /> : <ExpandMoreIcon style={{ fontSize: 16 }} />}
+          </button>
+          <button
+            type="button"
+            onClick={() => onEdit(task)}
+            className="p-0.5 text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <EditIcon style={{ fontSize: 16 }} />
+          </button>
+          {isAdmin && (
             <button
               type="button"
-              onClick={() => onToggleComplete(task)}
-              className="mt-0.5 text-gray-400 hover:text-green-600 transition-colors"
+              onClick={() => onDelete(task.id)}
+              className="p-0.5 text-gray-400 hover:text-red-600 transition-colors"
             >
-              {task.completed ? (
-                <CheckCircleIcon className="text-green-600" fontSize="small" />
-              ) : (
-                <RadioButtonUncheckedIcon fontSize="small" />
-              )}
+              <DeleteIcon style={{ fontSize: 16 }} />
             </button>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <span className={`px-2 py-0.5 rounded text-xs font-medium flex items-center gap-1 ${
-                  isMeeting 
-                    ? 'bg-blue-100 text-blue-800' 
-                    : 'bg-gray-100 text-gray-800'
-                }`}>
-                  {isMeeting && <GroupsIcon style={{ fontSize: 12 }} />}
-                  {isMeeting ? 'Reunión' : 'Tarea'}
-                </span>
-                <span className="text-xs text-gray-500">
-                  {new Date(task.date).toLocaleDateString('es-ES', {
-                    timeZone: PANAMA_TIMEZONE,
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
-                </span>
-                {meetingData && (
-                  <span className={`px-2 py-0.5 rounded text-xs font-medium flex items-center gap-1 ${
-                    meetingData.reachedAgreement === 'si'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-amber-100 text-amber-800'
-                  }`}>
-                    {meetingData.reachedAgreement === 'si' ? (
-                      <><ThumbUpIcon style={{ fontSize: 10 }} /> Acuerdo</>
-                    ) : (
-                      <><ThumbDownIcon style={{ fontSize: 10 }} /> Sin acuerdo</>
-                    )}
-                  </span>
-                )}
-              </div>
-              <h4 className={`text-sm font-medium ${task.completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-                {meetingData ? `Reunión con ${meetingData.meetingWith}` : task.title}
-              </h4>
-              
-              {/* Quick preview for meetings */}
-              {meetingData && !expanded && (
-                <p className="text-xs text-gray-500 mt-1 truncate">
-                  {meetingData.position} • {meetingData.isDecisionMaker === 'si' ? 'Decisor' : meetingData.isDecisionMaker === 'no' ? 'No decisor' : 'Desconocido'}
-                </p>
-              )}
-              
-              {/* Regular notes for non-meetings */}
-              {!isMeeting && task.notes && (
-                <p className="text-xs text-gray-600 mt-1">{task.notes}</p>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            {/* Expand button for meetings */}
-            {meetingData && (
-              <button
-                type="button"
-                onClick={() => setExpanded(!expanded)}
-                className="p-1 text-blue-500 hover:text-blue-700 transition-colors"
-                title={expanded ? 'Contraer' : 'Expandir'}
-              >
-                {expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => onEdit(task)}
-              className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <EditIcon fontSize="small" />
-            </button>
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={() => onDelete(task.id)}
-                className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-              >
-                <DeleteIcon fontSize="small" />
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Expanded Meeting Details */}
-      {meetingData && expanded && (
-        <MeetingDetails meetingData={meetingData} />
+      {/* Expanded Details */}
+      {expanded && (
+        <div className="ml-[68px] mr-2 mb-2">
+          {meetingData ? (
+            <MeetingDetails meetingData={meetingData} />
+          ) : task.notes ? (
+            <div className="bg-gray-50 border border-gray-100 rounded-md p-2.5 text-xs text-gray-600">
+              {task.notes}
+            </div>
+          ) : null}
+        </div>
       )}
     </div>
   )
@@ -262,82 +367,37 @@ function TaskItem({
 
 function MeetingDetails({ meetingData }: { meetingData: MeetingData }) {
   return (
-    <div className="border-t border-blue-200 bg-white px-4 py-3 space-y-3 text-sm">
-      {/* Contact Info */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="flex items-start gap-2">
-          <PersonIcon className="text-blue-500 mt-0.5" style={{ fontSize: 16 }} />
-          <div>
-            <p className="text-xs font-medium text-gray-500">Reunión con</p>
-            <p className="text-gray-900">{meetingData.meetingWith}</p>
-          </div>
-        </div>
-        <div className="flex items-start gap-2">
-          <WorkIcon className="text-blue-500 mt-0.5" style={{ fontSize: 16 }} />
-          <div>
-            <p className="text-xs font-medium text-gray-500">Posición</p>
-            <p className="text-gray-900">{meetingData.position}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Decision Maker */}
-      <div>
-        <p className="text-xs font-medium text-gray-500">¿Es quien toma la decisión final?</p>
-        <p className={`font-medium ${
-          meetingData.isDecisionMaker === 'si' 
-            ? 'text-green-700' 
-            : meetingData.isDecisionMaker === 'no' 
-            ? 'text-red-700' 
-            : 'text-gray-700'
-        }`}>
-          {meetingData.isDecisionMaker === 'si' ? 'Sí' : meetingData.isDecisionMaker === 'no' ? 'No' : 'No sé'}
-        </p>
+    <div className="bg-blue-50/50 border border-blue-100 rounded-md p-2.5 space-y-2 text-xs">
+      {/* Contact & Position - inline */}
+      <div className="flex items-center gap-3 text-gray-600">
+        <span><span className="text-gray-400">Con:</span> {meetingData.meetingWith}</span>
+        <span className="text-gray-300">•</span>
+        <span><span className="text-gray-400">Cargo:</span> {meetingData.position}</span>
+        <span className="text-gray-300">•</span>
+        <span className={meetingData.isDecisionMaker === 'si' ? 'text-green-600' : 'text-gray-500'}>
+          {meetingData.isDecisionMaker === 'si' ? '✓ Decisor' : meetingData.isDecisionMaker === 'no' ? 'No decisor' : '? Desconocido'}
+        </span>
       </div>
 
       {/* Meeting Details */}
-      <div>
-        <p className="text-xs font-medium text-gray-500">Detalle de la reunión</p>
-        <p className="text-gray-900 whitespace-pre-wrap">{meetingData.meetingDetails}</p>
-      </div>
+      {meetingData.meetingDetails && (
+        <p className="text-gray-600 whitespace-pre-wrap">{meetingData.meetingDetails}</p>
+      )}
 
-      {/* Agreement Status */}
-      <div className={`p-3 rounded-lg ${
-        meetingData.reachedAgreement === 'si' 
-          ? 'bg-green-50 border border-green-200' 
-          : 'bg-amber-50 border border-amber-200'
-      }`}>
-        <p className="text-xs font-medium text-gray-500">¿Se llegó a un acuerdo?</p>
-        <p className={`font-semibold ${
-          meetingData.reachedAgreement === 'si' ? 'text-green-700' : 'text-amber-700'
-        }`}>
-          {meetingData.reachedAgreement === 'si' ? '✓ Sí' : '✗ No'}
-        </p>
-      </div>
-
-      {/* Objection fields - only if no agreement */}
+      {/* Agreement & Objections */}
       {meetingData.reachedAgreement === 'no' && (meetingData.mainObjection || meetingData.objectionSolution) && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
-          {meetingData.mainObjection && (
-            <div>
-              <p className="text-xs font-medium text-amber-700">Principal objeción</p>
-              <p className="text-amber-900">{meetingData.mainObjection}</p>
-            </div>
-          )}
-          {meetingData.objectionSolution && (
-            <div>
-              <p className="text-xs font-medium text-amber-700">Posible solución</p>
-              <p className="text-amber-900">{meetingData.objectionSolution}</p>
-            </div>
-          )}
+        <div className="text-amber-700 bg-amber-50 rounded px-2 py-1.5">
+          {meetingData.mainObjection && <p><span className="font-medium">Objeción:</span> {meetingData.mainObjection}</p>}
+          {meetingData.objectionSolution && <p><span className="font-medium">Solución:</span> {meetingData.objectionSolution}</p>}
         </div>
       )}
 
       {/* Next Steps */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-        <p className="text-xs font-medium text-blue-700">Siguientes pasos</p>
-        <p className="text-blue-900 whitespace-pre-wrap">{meetingData.nextSteps}</p>
-      </div>
+      {meetingData.nextSteps && (
+        <div className="text-blue-700 bg-blue-50 rounded px-2 py-1.5">
+          <span className="font-medium">Siguiente:</span> {meetingData.nextSteps}
+        </div>
+      )}
     </div>
   )
 }
