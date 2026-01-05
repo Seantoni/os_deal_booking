@@ -37,7 +37,9 @@ export async function getSettingsFromDB(): Promise<ServerActionResponse<BookingS
     const defaultRequestFormFields = getDefaultRequestFormFieldsConfig()
     const mergedRequestFormFields: RequestFormFieldsConfig = {
       ...defaultRequestFormFields,
-      ...dbRequestFormFields,
+      ...(dbRequestFormFields && typeof dbRequestFormFields === 'object' && !Array.isArray(dbRequestFormFields)
+        ? (dbRequestFormFields as RequestFormFieldsConfig)
+        : {}),
     }
 
     const bookingSettings: BookingSettings = {
