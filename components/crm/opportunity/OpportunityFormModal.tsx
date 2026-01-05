@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useTransition, useOptimistic, lazy, Suspense } from 'react'
+import { useState, useMemo, useEffect, useTransition, lazy, Suspense } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { createOpportunity, updateOpportunity, createTask, updateTask, deleteTask } from '@/app/actions/crm'
 import { useUserRole } from '@/hooks/useUserRole'
@@ -97,7 +97,6 @@ export default function OpportunityFormModal({
   const [isSubmitPending, startSubmitTransition] = useTransition()
   const [isStagePending, startStageTransition] = useTransition()
   const [isTaskPending, startTaskTransition] = useTransition()
-  const [isTogglePending, startToggleTransition] = useTransition()
   
   // Combined loading states for UI
   const loading = isSubmitPending || isTaskPending
@@ -141,12 +140,8 @@ export default function OpportunityFormModal({
     preloadedUsers,
   })
 
-  // React 19: useOptimistic for instant task completion UI updates
-  const [optimisticTasks, addOptimisticToggle] = useOptimistic(
-    tasks,
-    (currentTasks, taskId: string) =>
-      currentTasks.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t)
-  )
+  // Track tasks being toggled for loading state
+  const [togglingTaskIds, setTogglingTaskIds] = useState<Set<string>>(new Set())
 
   // Build initial values from opportunity entity
   // Note: categoryId, tier, contactName, contactPhone, contactEmail come from the linked business
@@ -582,8 +577,8 @@ export default function OpportunityFormModal({
     })
   }
 
-  // React 19: Toggle task completion with useOptimistic for instant UI update
-  function handleToggleTaskComplete(task: Task) {
+  // Toggle task completion with immediate optimistic update
+  async function handleToggleTaskComplete(task: Task) {
     // If trying to complete a meeting, check if outcome fields are filled
     if (task.category === 'meeting' && !task.completed) {
       const meetingData = parseMeetingData(task.notes)
@@ -598,28 +593,37 @@ export default function OpportunityFormModal({
       }
     }
 
-    startToggleTransition(async () => {
-      // Instant optimistic update
-      addOptimisticToggle(task.id)
+    // Immediately update UI (optimistic)
+    const newCompletedState = !task.completed
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: newCompletedState } : t))
+    setTogglingTaskIds(prev => new Set(prev).add(task.id))
 
-      try {
-        const formData = new FormData()
-        formData.append('category', task.category)
-        formData.append('title', task.title)
-        formData.append('date', new Date(task.date).toISOString().split('T')[0])
-        formData.append('completed', (!task.completed).toString())
-        formData.append('notes', task.notes || '')
+    try {
+      const formData = new FormData()
+      formData.append('category', task.category)
+      formData.append('title', task.title)
+      formData.append('date', new Date(task.date).toISOString().split('T')[0])
+      formData.append('completed', newCompletedState.toString())
+      formData.append('notes', task.notes || '')
 
-        const result = await updateTask(task.id, formData)
-        if (result.success && result.data) {
-          // Update actual state to match
-          setTasks(prev => prev.map(t => t.id === task.id ? result.data : t))
-        }
-        // On failure, optimistic state automatically reverts when transition ends
-      } catch (err) {
-        // On error, optimistic state automatically reverts when transition ends
+      const result = await updateTask(task.id, formData)
+      if (result.success && result.data) {
+        // Confirm with server data
+        setTasks(prev => prev.map(t => t.id === task.id ? result.data : t))
+      } else {
+        // Revert on failure
+        setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: task.completed } : t))
       }
-    })
+    } catch (err) {
+      // Revert on error
+      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: task.completed } : t))
+    } finally {
+      setTogglingTaskIds(prev => {
+        const next = new Set(prev)
+        next.delete(task.id)
+        return next
+      })
+    }
   }
 
   function openTaskModal(task?: Task, forCompletion = false) {
@@ -985,7 +989,7 @@ export default function OpportunityFormModal({
                 ) : (
                   <Suspense fallback={<OpportunityActivitySkeleton />}>
                     <TaskManager
-                      tasks={optimisticTasks}
+                      tasks={tasks}
                       onAddTask={() => openTaskModal()}
                       onEditTask={(task) => openTaskModal(task)}
                       onDeleteTask={handleDeleteTask}

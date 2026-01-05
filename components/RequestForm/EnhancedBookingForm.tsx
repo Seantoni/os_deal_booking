@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useActionState, useTransition } from 'react'
+import { useState, useEffect, useCallback, useActionState, useTransition, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { saveBookingRequestDraft, sendBookingRequest, getBookingRequest } from '@/app/actions/booking'
 import type { BookingFormData } from './types'
@@ -45,6 +45,9 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   const [requiredFields, setRequiredFields] = useState<RequestFormFieldsConfig>({})
   const [loadingEdit, setLoadingEdit] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  
+  // Ref for the scrollable form container
+  const formContainerRef = useRef<HTMLDivElement>(null)
   
   // Get editId from URL (for continuing to edit a draft)
   const editIdFromUrl = searchParams.get('editId')
@@ -541,6 +544,25 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
 
   const totalSteps = availableSteps.length
 
+  // Scroll to top of the form when changing steps
+  const scrollToTop = useCallback(() => {
+    // Use setTimeout to ensure scroll happens after React state update and re-render
+    setTimeout(() => {
+      // First, scroll the form container ref if available
+      if (formContainerRef.current) {
+        formContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+      
+      // Also scroll all parent scroll containers (PageContent, etc.)
+      const scrollContainers = document.querySelectorAll('.overflow-auto')
+      scrollContainers.forEach((container) => {
+        container.scrollTo({ top: 0, behavior: 'smooth' })
+      })
+      
+      // Also try window scroll as final fallback
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }, 50)
+  }, [])
 
   const handleNext = () => {
     if (handleValidateStep(currentStepKey)) {
@@ -548,6 +570,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
       if (nextIndex < availableSteps.length) {
         const nextStepKey = availableSteps[nextIndex].key
         setCurrentStepKey(nextStepKey)
+        scrollToTop()
       }
     }
   }
@@ -557,6 +580,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     if (prevIndex >= 0) {
       const prevStepKey = availableSteps[prevIndex].key
       setCurrentStepKey(prevStepKey)
+      scrollToTop()
     }
   }
   
@@ -565,6 +589,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     // Only allow clicking on steps that are before the current step
     if (clickedIndex < currentStepIndex) {
       setCurrentStepKey(stepKey)
+      scrollToTop()
     }
   }
 
@@ -635,7 +660,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   // Show loading state when loading existing request for editing
   if (loadingEdit) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-100 px-4 font-sans flex items-center justify-center">
+      <div className="h-full min-h-screen overflow-auto bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-100 px-4 font-sans flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin h-8 w-8 md:h-10 md:w-10 border-3 md:border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
           <p className="text-gray-600 font-medium text-sm md:text-base">Cargando solicitud...</p>
@@ -645,7 +670,10 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-100 pb-24 md:pb-12 font-sans">
+    <div 
+      ref={formContainerRef}
+      className="h-full min-h-screen overflow-auto bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-100 pb-24 md:pb-12 font-sans"
+    >
       {/* Mobile: Full bleed, Desktop: padded */}
       <div className="max-w-7xl mx-auto px-0 md:px-4 pt-4 md:pt-8">
         <div className="flex flex-col lg:flex-row gap-4 md:gap-6">

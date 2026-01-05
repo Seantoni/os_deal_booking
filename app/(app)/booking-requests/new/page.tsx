@@ -1,18 +1,16 @@
 import { requirePageAccess } from '@/lib/auth/page-access'
-import { getUserRole } from '@/lib/auth/roles'
 import EnhancedBookingForm from '@/components/RequestForm/EnhancedBookingForm'
-import AppLayout from '@/components/common/AppLayout'
+import PageContent from '@/components/common/PageContent'
 
 export default async function NewBookingRequestPage() {
   // Check role-based access
   await requirePageAccess('/booking-requests/new')
-  
-  // Get user role
-  const role = await getUserRole()
 
+  // Don't use AppLayout here - the form has its own full-page layout
+  // Just use PageContent for sidebar margin handling
   return (
-    <AppLayout title="New Booking Request">
+    <PageContent>
       <EnhancedBookingForm />
-    </AppLayout>
+    </PageContent>
   )
 }

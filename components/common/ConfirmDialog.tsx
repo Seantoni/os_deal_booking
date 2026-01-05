@@ -41,9 +41,11 @@ export default function ConfirmDialog({
   useEffect(() => {
     if (isOpen) {
       // Prevent body scroll when dialog is open
+      const originalOverflow = document.body.style.overflow
       document.body.style.overflow = 'hidden'
       return () => {
-        document.body.style.overflow = 'unset'
+        // Restore original value (or remove if it was empty)
+        document.body.style.overflow = originalOverflow || ''
       }
     }
   }, [isOpen])

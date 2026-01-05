@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import { requirePageAccess } from '@/lib/auth/page-access'
 import { getBookingRequest } from '@/app/actions/booking'
 import EnhancedBookingForm from '@/components/RequestForm'
+import PageContent from '@/components/common/PageContent'
 
 interface EditBookingRequestPageProps {
   params: Promise<{ id: string }>
@@ -191,13 +192,15 @@ export default async function EditBookingRequestPage({ params }: EditBookingRequ
     ...(storedAdditionalInfo?.fields || {}),
   }
 
+  // Don't wrap in extra div - the form has its own full-page layout
+  // Use PageContent for sidebar margin handling
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <PageContent>
       <EnhancedBookingForm 
         requestId={id}
         initialFormData={initialFormData}
       />
-    </div>
+    </PageContent>
   )
 }
 

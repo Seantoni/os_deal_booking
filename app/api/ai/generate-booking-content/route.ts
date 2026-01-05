@@ -64,16 +64,18 @@ interface BookingContentOutput {
 const SYSTEM_PROMPT = `Eres un agente experto en generar ofertas de descuentos para negocios. Tu trabajo es crear contenido promocional atractivo, persuasivo y profesional en español.
 
 REGLAS CRÍTICAS (NUNCA VIOLAR):
-1. NUNCA contradigas los datos proporcionados. Si dice "Válido en feriados: No", NUNCA digas que es válido en feriados.
-2. NUNCA inventes información que contradiga los términos y condiciones proporcionados.
-3. Si una restricción está marcada como "No" o tiene un valor negativo, DEBES mencionarla como restricción, NO como beneficio.
-4. Las fechas blackout, restricciones de feriados, y límites de vouchers son RESTRICCIONES que deben aparecer claramente.
+1. NUNCA inventes información. SOLO usa la información que se te proporciona explícitamente.
+2. Si un campo está vacío, marcado como "No especificado", o no está presente, NO inventes contenido para ese campo.
+3. Si falta información esencial (nombre del negocio, ubicación, precios), debes responder con: "No hay información suficiente para generar este contenido. Por favor complete los campos requeridos."
+4. NUNCA contradigas los datos proporcionados. Si dice "Válido en feriados: No", NUNCA digas que es válido en feriados.
+5. Si una restricción está marcada como "No" o tiene un valor negativo, DEBES mencionarla como restricción, NO como beneficio.
+6. Las fechas blackout, restricciones de feriados, y límites de vouchers son RESTRICCIONES que deben aparecer claramente.
 
 REGLAS DE FORMATO:
 1. Siempre genera contenido en español neutro
 2. Usa viñetas con asterisco (*) para listas
 3. Mantén un tono positivo y vendedor, pero SIEMPRE respetando las restricciones
-4. Si falta información no crítica, puedes asumir valores lógicos
+4. SOLO menciona información que esté explícitamente proporcionada. Si no hay información sobre horarios, NO inventes horarios. Si no hay dirección, NO inventes una dirección.
 5. Evita errores de ortografía
 6. Mantén cada sección breve (2-5 oraciones por párrafo)
 
@@ -121,11 +123,41 @@ SECCIONES REQUERIDAS:
 
 // Section-specific prompts
 const SECTION_PROMPTS: Record<keyof BookingContentOutput, string> = {
-  shortTitle: `Genera un título corto y atractivo para la oferta usando el formato "$PRECIO por DESCRIPCIÓN". Usa el precio más bajo de las opciones de precio y una descripción breve de lo que incluye. NO incluyas el nombre del negocio. Ejemplo: "$14 por Rodizio todo incluido" o "$25 por Spa Day con masaje". Máximo 100 caracteres. Solo el título, sin comillas ni explicación.`,
-  whatWeLike: `Genera la sección "LO QUE NOS GUSTA" con 4-6 puntos destacando los beneficios y atractivos de esta oferta. Usa viñetas con asterisco (*). Máximo 800 caracteres. No incluyas el encabezado de la sección.`,
-  aboutCompany: `Genera la sección "LA EMPRESA" con nombre, ubicación, horario y redes sociales del negocio. Formato estructurado y claro. Máximo 600 caracteres. No incluyas el encabezado de la sección.`,
-  aboutOffer: `Genera la sección "ACERCA DE ESTA OFERTA" con descripción del negocio, explicación detallada de la oferta y llamada a acción. Máximo 1200 caracteres. No incluyas el encabezado de la sección.`,
-  goodToKnow: `Genera la sección "LO QUE CONVIENE SABER" con información general, restricciones, reservaciones, método de canje y periodo de validez. Usa sub-secciones claras. Máximo 1500 caracteres. No incluyas el encabezado de la sección.`,
+  shortTitle: `Genera un título corto y atractivo para la oferta usando el formato "$PRECIO por DESCRIPCIÓN". Usa el precio más bajo de las opciones de precio y una descripción breve de lo que incluye. NO incluyas el nombre del negocio. Ejemplo: "$14 por Rodizio todo incluido" o "$25 por Spa Day con masaje". Máximo 100 caracteres. Solo el título, sin comillas ni explicación. IMPORTANTE: Si no hay información de precios, responde con el mensaje de error.`,
+  whatWeLike: `Genera la sección "LO QUE NOS GUSTA" con 4-6 puntos destacando los beneficios y atractivos de esta oferta. Usa viñetas con asterisco (*). Máximo 800 caracteres. No incluyas el encabezado de la sección. IMPORTANTE: Solo menciona beneficios que estén explícitamente en la información proporcionada. NO inventes información.`,
+  aboutCompany: `Genera la sección "LA EMPRESA" con nombre, ubicación, horario y redes sociales del negocio. Formato estructurado y claro. Máximo 600 caracteres. No incluyas el encabezado de la sección. IMPORTANTE: Si falta la ubicación o el nombre del negocio, responde con el mensaje de error. NO inventes direcciones o horarios.`,
+  aboutOffer: `Genera la sección "ACERCA DE ESTA OFERTA" con descripción del negocio, explicación detallada de la oferta y llamada a acción. Máximo 1200 caracteres. No incluyas el encabezado de la sección. IMPORTANTE: Solo usa información proporcionada. NO inventes descripciones de productos o servicios.`,
+  goodToKnow: `Genera la sección "LO QUE CONVIENE SABER" con información general, restricciones, reservaciones, método de canje y periodo de validez. Usa sub-secciones claras. Máximo 1500 caracteres. No incluyas el encabezado de la sección. IMPORTANTE: Solo menciona información que esté explícitamente proporcionada. NO inventes políticas o métodos de canje.`,
+}
+
+// Validate required fields before generating content
+function validateRequiredFields(input: BookingContentInput): { valid: boolean; missingFields: string[] } {
+  const missingFields: string[] = []
+  
+  // Required: Business name
+  if (!input.businessName?.trim()) {
+    missingFields.push('nombre del negocio')
+  }
+  
+  // Required: Business location/address
+  if (!input.addressAndHours?.trim()) {
+    missingFields.push('dirección y horario del negocio')
+  }
+  
+  // Required: At least one pricing option with a price (for title generation)
+  if (!input.pricingOptions || input.pricingOptions.length === 0) {
+    missingFields.push('opciones de precio')
+  } else {
+    const hasValidPrice = input.pricingOptions.some(opt => opt.price && parseFloat(opt.price) > 0)
+    if (!hasValidPrice) {
+      missingFields.push('al menos una opción de precio con valor')
+    }
+  }
+  
+  return {
+    valid: missingFields.length === 0,
+    missingFields,
+  }
 }
 
 // Helper to format business info for the prompt
@@ -272,6 +304,12 @@ async function generateSection(
   sectionName: keyof BookingContentOutput,
   input: BookingContentInput
 ): Promise<string> {
+  // Validate required fields first
+  const validation = validateRequiredFields(input)
+  if (!validation.valid) {
+    return `No hay información suficiente para generar este contenido. Por favor complete los siguientes campos requeridos: ${validation.missingFields.join(', ')}.`
+  }
+  
   const openai = getOpenAIClient()
   
   const businessInfo = formatBusinessInfo(input)
@@ -287,6 +325,8 @@ async function generateSection(
 INFORMACIÓN DEL NEGOCIO:
 ${businessInfo}
 
+IMPORTANTE: Si falta información esencial para esta sección, responde con: "No hay información suficiente para generar este contenido. Por favor complete los campos requeridos."
+
 Genera SOLO la sección solicitada.`
       },
     ],
@@ -299,6 +339,19 @@ Genera SOLO la sección solicitada.`
 
 // Generate all sections at once
 async function generateAllSections(input: BookingContentInput): Promise<BookingContentOutput> {
+  // Validate required fields first
+  const validation = validateRequiredFields(input)
+  if (!validation.valid) {
+    const errorMessage = `No hay información suficiente para generar este contenido. Por favor complete los siguientes campos requeridos: ${validation.missingFields.join(', ')}.`
+    return {
+      shortTitle: errorMessage,
+      whatWeLike: errorMessage,
+      aboutCompany: errorMessage,
+      aboutOffer: errorMessage,
+      goodToKnow: errorMessage,
+    }
+  }
+  
   const openai = getOpenAIClient()
   
   const businessInfo = formatBusinessInfo(input)
@@ -312,6 +365,8 @@ async function generateAllSections(input: BookingContentInput): Promise<BookingC
         content: `Genera contenido promocional completo basado en la siguiente información del negocio:
 
 ${businessInfo}
+
+IMPORTANTE: Si falta información esencial para alguna sección, usa "No hay información suficiente para generar este contenido. Por favor complete los campos requeridos." para esa sección específica.
 
 Responde en formato JSON con las siguientes claves (sin incluir los encabezados de sección en el contenido):
 {
@@ -327,7 +382,8 @@ NOTA SOBRE shortTitle: Usa el PRECIO MÁS BAJO de las opciones de precio disponi
 IMPORTANTE: 
 - Responde SOLO con el JSON, sin texto adicional ni bloques de código.
 - NO excedas los límites de caracteres indicados para cada sección.
-- Si necesitas incluir información importante, prioriza la más relevante y mantén el contenido conciso.`
+- NO inventes información. Solo usa la información proporcionada.
+- Si falta información importante para una sección, usa el mensaje de error para esa sección específica.`
       },
     ],
     temperature: 0.7,
