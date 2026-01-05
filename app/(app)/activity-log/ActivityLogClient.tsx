@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { getActivityLogs, getActivityLogUsers } from '@/app/actions/activity-log'
+import type { ActivityAction, EntityType } from '@/lib/activity-log'
 import { formatDateTime } from '@/lib/date'
 import { Input, Button, Select } from '@/components/ui'
 import { EntityTable, EmptyTableState, type ColumnConfig } from '@/components/shared'
@@ -177,8 +178,8 @@ export default function ActivityLogClient() {
       const offset = reset ? 0 : page * limit
       const result = await getActivityLogs({
         userId: selectedUser || undefined,
-        action: (selectedAction || undefined) as typeof selectedAction,
-        entityType: (selectedEntity || undefined) as typeof selectedEntity,
+        action: (selectedAction || undefined) as ActivityAction | undefined,
+        entityType: (selectedEntity || undefined) as EntityType | undefined,
         search: search || undefined,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
