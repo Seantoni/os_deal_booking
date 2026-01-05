@@ -26,6 +26,15 @@ import CancelIcon from '@mui/icons-material/Cancel'
 import SendIcon from '@mui/icons-material/Send'
 import FilterListIcon from '@mui/icons-material/FilterList'
 
+interface ActivityLogDetails {
+  statusChange?: { from: string; to: string }
+  metadata?: Record<string, unknown>
+  changedFields?: string[]
+  previousValues?: Record<string, unknown>
+  newValues?: Record<string, unknown>
+  [key: string]: unknown
+}
+
 interface ActivityLog {
   id: string
   userId: string
@@ -35,7 +44,7 @@ interface ActivityLog {
   entityType: string
   entityId: string | null
   entityName: string | null
-  details: Record<string, unknown> | null
+  details: ActivityLogDetails | null
   createdAt: Date
 }
 
@@ -440,8 +449,8 @@ export default function ActivityLogClient() {
                           {log.details.changedFields && log.details.changedFields.length > 0 && (
                             <div className="flex flex-col gap-0.5 mt-0.5">
                               {log.details.changedFields.map((field: string) => {
-                                const from = log.details.previousValues?.[field]
-                                const to = log.details.newValues?.[field]
+                                const from = log.details?.previousValues?.[field]
+                                const to = log.details?.newValues?.[field]
                                 return (
                                   <span key={field} className="truncate max-w-[300px] text-[12px]">
                                     <span className="text-gray-500 capitalize">{field.replace(/([A-Z])/g, ' $1').trim()}:</span>{' '}
