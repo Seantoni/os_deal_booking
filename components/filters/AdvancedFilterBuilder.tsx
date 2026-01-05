@@ -118,7 +118,7 @@ export default function AdvancedFilterBuilder({
       const updated = { ...r, [field]: value }
       
       // Reset operator and value when field changes
-      if (field === 'field') {
+      if (field === 'field' && typeof value === 'string') {
         const fieldDef = getFieldDefinition(entityType, value, fields)
         if (fieldDef) {
           const operators = getOperatorsForFieldType(fieldDef.type)
