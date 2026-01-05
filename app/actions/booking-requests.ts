@@ -79,6 +79,27 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
       requestName = generateRequestName(fields.name!, existingCount)
     }
 
+    // Convert JSON array fields to Prisma-compatible format (null -> Prisma.JsonNull)
+    const redemptionMethodsJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
+      fields.redemptionMethods && Array.isArray(fields.redemptionMethods) && fields.redemptionMethods.length > 0
+        ? (fields.redemptionMethods as Prisma.InputJsonValue)
+        : Prisma.JsonNull
+
+    const pricingOptionsJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
+      fields.pricingOptions && Array.isArray(fields.pricingOptions) && fields.pricingOptions.length > 0
+        ? (fields.pricingOptions as Prisma.InputJsonValue)
+        : Prisma.JsonNull
+
+    const dealImagesJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
+      fields.dealImages && Array.isArray(fields.dealImages) && fields.dealImages.length > 0
+        ? (fields.dealImages as Prisma.InputJsonValue)
+        : Prisma.JsonNull
+
+    const additionalInfoJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
+      fields.additionalInfo && typeof fields.additionalInfo === 'object'
+        ? (fields.additionalInfo as Prisma.InputJsonValue)
+        : Prisma.JsonNull
+
     const data = {
       name: requestName,
       category: fields.category,
@@ -128,7 +149,7 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
       vouchersPerPerson: fields.vouchersPerPerson,
       commission: fields.commission,
       // Descripción: Descripción y Canales de Venta
-      redemptionMethods: fields.redemptionMethods,
+      redemptionMethods: redemptionMethodsJson,
       contactDetails: fields.contactDetails,
       socialMedia: fields.socialMedia,
       // Contenido: AI-Generated Content Fields
@@ -139,14 +160,14 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
       goodToKnow: fields.goodToKnow,
       // Estructura: Estructura de la Oferta
       offerMargin: fields.offerMargin,
-      pricingOptions: fields.pricingOptions,
-      dealImages: fields.dealImages,
+      pricingOptions: pricingOptionsJson,
+      dealImages: dealImagesJson,
       // Políticas: Políticas Generales
       cancellationPolicy: fields.cancellationPolicy,
       marketValidation: fields.marketValidation,
       additionalComments: fields.additionalComments,
       // Información Adicional (Dynamic template-based)
-      additionalInfo: fields.additionalInfo || undefined,
+      additionalInfo: additionalInfoJson,
     }
 
     let bookingRequest
@@ -259,28 +280,40 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       return { success: false, error: 'End date must be after start date' }
     }
 
-    // Parse JSON fields
+    // Parse JSON fields - use Prisma.JsonNull for null values
     const redemptionMethodsStr = formData.get('redemptionMethods') as string
     const pricingOptionsStr = formData.get('pricingOptions') as string
     const dealImagesStr = formData.get('dealImages') as string
     const additionalInfoStr = formData.get('additionalInfo') as string
-    let redemptionMethods = null
-    let pricingOptions = null
-    let dealImages = null
-    let additionalInfo = null
+    let redemptionMethods: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
+    let pricingOptions: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
+    let dealImages: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
+    let additionalInfo: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
     
     try {
       if (redemptionMethodsStr) {
-        redemptionMethods = JSON.parse(redemptionMethodsStr)
+        const parsed = JSON.parse(redemptionMethodsStr)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          redemptionMethods = parsed as Prisma.InputJsonValue
+        }
       }
       if (pricingOptionsStr) {
-        pricingOptions = JSON.parse(pricingOptionsStr)
+        const parsed = JSON.parse(pricingOptionsStr)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          pricingOptions = parsed as Prisma.InputJsonValue
+        }
       }
       if (dealImagesStr) {
-        dealImages = JSON.parse(dealImagesStr)
+        const parsed = JSON.parse(dealImagesStr)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          dealImages = parsed as Prisma.InputJsonValue
+        }
       }
       if (additionalInfoStr) {
-        additionalInfo = JSON.parse(additionalInfoStr)
+        const parsed = JSON.parse(additionalInfoStr)
+        if (parsed && typeof parsed === 'object') {
+          additionalInfo = parsed as Prisma.InputJsonValue
+        }
       }
     } catch (e) {
       logger.error('Error parsing JSON fields:', e)
