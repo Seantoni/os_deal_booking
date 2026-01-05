@@ -3,15 +3,25 @@
 import { ReactNode, createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
-import type { UserRole, CategoryOption, UserProfile } from '@/types'
+import type { UserRole } from '@/types'
+import type { Category } from '@prisma/client'
+
+// User data as passed from layout (subset of UserProfile)
+type UserData = {
+  id: string
+  clerkId: string
+  name: string | null
+  email: string | null
+  role: string
+}
 
 // ============================================================================
 // Shared Data Context (Categories & Users)
 // ============================================================================
 
 interface SharedDataContextType {
-  categories: CategoryOption[]
-  users: UserProfile[]
+  categories: Category[]
+  users: UserData[]
   loading: boolean
   refreshCategories: () => Promise<void>
   refreshUsers: () => Promise<void>
@@ -23,8 +33,8 @@ export function useSharedData() {
   const context = useContext(SharedDataContext)
   if (!context) {
     return {
-      categories: [] as CategoryOption[],
-      users: [] as UserProfile[],
+      categories: [] as Category[],
+      users: [] as UserData[],
       loading: false,
       refreshCategories: async () => {},
       refreshUsers: async () => {},
@@ -34,8 +44,8 @@ export function useSharedData() {
 }
 
 // Utility to clear cache (e.g., after settings change)
-let cachedCategories: CategoryOption[] | null = null
-let cachedUsers: UserProfile[] | null = null
+let cachedCategories: Category[] | null = null
+let cachedUsers: UserData[] | null = null
 
 export function clearSharedDataCache() {
   cachedCategories = null
@@ -78,8 +88,8 @@ export function useSidebar() {
 interface AppClientProvidersProps {
   children: ReactNode
   // Server-fetched initial data
-  initialCategories?: CategoryOption[]
-  initialUsers?: UserProfile[]
+  initialCategories?: Category[]
+  initialUsers?: UserData[]
   initialRole?: UserRole | null
 }
 
@@ -120,8 +130,8 @@ export default function AppClientProviders({
   // ============================================================================
   // Shared Data State (initialized from server)
   // ============================================================================
-  const [categories, setCategories] = useState<CategoryOption[]>(initialCategories)
-  const [users, setUsers] = useState<UserProfile[]>(initialUsers)
+  const [categories, setCategories] = useState<Category[]>(initialCategories)
+  const [users, setUsers] = useState<UserData[]>(initialUsers)
   const [sharedDataLoading, setSharedDataLoading] = useState(false)
   
   // Cache the initial data
