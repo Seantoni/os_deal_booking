@@ -301,7 +301,8 @@ export type PendingBookingItem = {
 
 /**
  * Get events that are pending or approved (ready to be booked)
- * Admin only - shows all pending events
+ * - Admin: sees all pending events
+ * - Sales/Editor: sees only their own pending events
  */
 export async function getPendingBookings(): Promise<{
   success: boolean
@@ -318,18 +319,21 @@ export async function getPendingBookings(): Promise<{
     return { success: false, error: 'User profile not found' }
   }
 
-  // Only admin can see all pending bookings
-  if (userProfile.role !== 'admin') {
-    return { success: true, data: [] }
-  }
-
   try {
+    // Build where clause based on role
+    const whereClause: Prisma.EventWhereInput = {
+      status: { in: ['pending', 'approved'] },
+      // Only show future events or events happening today
+      endDate: { gte: new Date() },
+    }
+
+    // Non-admin users only see their own pending events
+    if (userProfile.role !== 'admin') {
+      whereClause.userId = userProfile.clerkId
+    }
+
     const pendingEvents = await prisma.event.findMany({
-      where: {
-        status: { in: ['pending', 'approved'] },
-        // Only show future events or events happening today
-        endDate: { gte: new Date() },
-      },
+      where: whereClause,
       select: {
         id: true,
         name: true,
