@@ -286,3 +286,84 @@ export async function getDashboardStats(filters: DashboardFilters = {}) {
   return await getCachedStats()
 }
 
+// Type for pending booking items
+export type PendingBookingItem = {
+  id: string
+  name: string
+  businessName: string | null
+  startDate: Date
+  endDate: Date
+  status: string
+  category: string | null
+  parentCategory: string | null
+  createdAt: Date
+}
+
+/**
+ * Get events that are pending or approved (ready to be booked)
+ * Admin only - shows all pending events
+ */
+export async function getPendingBookings(): Promise<{
+  success: boolean
+  data?: PendingBookingItem[]
+  error?: string
+}> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return { success: false, error: 'Unauthorized' }
+  }
+
+  const userProfile = await getUserProfile()
+  if (!userProfile) {
+    return { success: false, error: 'User profile not found' }
+  }
+
+  // Only admin can see all pending bookings
+  if (userProfile.role !== 'admin') {
+    return { success: true, data: [] }
+  }
+
+  try {
+    const pendingEvents = await prisma.event.findMany({
+      where: {
+        status: { in: ['pending', 'approved'] },
+        // Only show future events or events happening today
+        endDate: { gte: new Date() },
+      },
+      select: {
+        id: true,
+        name: true,
+        merchant: true,
+        startDate: true,
+        endDate: true,
+        status: true,
+        category: true,
+        parentCategory: true,
+        createdAt: true,
+      },
+      orderBy: { startDate: 'asc' },
+      take: 20, // Limit to 20 items
+    })
+
+    const data: PendingBookingItem[] = pendingEvents.map(event => ({
+      id: event.id,
+      name: event.name,
+      businessName: event.merchant,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      status: event.status,
+      category: event.category,
+      parentCategory: event.parentCategory,
+      createdAt: event.createdAt,
+    }))
+
+    return { success: true, data }
+  } catch (error) {
+    logger.error('Error fetching pending bookings:', error)
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to fetch pending bookings' 
+    }
+  }
+}
+

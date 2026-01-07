@@ -682,21 +682,21 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
             const eventCount = eventsToShow.length
             
             return eventCount > 0 ? (
-              <button
+            <button
                 onMouseDown={(e) => e.stopPropagation()}
                 onMouseUp={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation()
+              onClick={(e) => {
+                e.stopPropagation()
                   e.preventDefault()
                   onDayExpand?.(new Date(year, month, dayNum), eventsToShow)
-                }}
-                className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-all opacity-0 group-hover:opacity-100"
+              }}
+              className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-all opacity-0 group-hover:opacity-100"
                 title={`View all ${eventCount} events`}
-              >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                </svg>
-              </button>
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+            </button>
             ) : null
           })()}
         </div>
@@ -835,73 +835,73 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
-            </div>
+          </div>
             <div className="h-4 w-px bg-gray-300"></div>
-            {/* Calendar View Toggle */}
+              {/* Calendar View Toggle */}
             <div className="flex items-center bg-gray-100 rounded p-0.5 flex-shrink-0">
-              <button
+                <button
                 onClick={() => handleViewChange('day')}
                 className={`px-1.5 py-1 text-[10px] font-semibold rounded transition-all ${
-                  calendarView === 'day'
+                    calendarView === 'day'
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-gray-600 hover:bg-white'
-                }`}
-              >
+                  }`}
+                >
                 D
-              </button>
-              <button
+                </button>
+                <button
                 onClick={() => handleViewChange('week')}
                 className={`px-1.5 py-1 text-[10px] font-semibold rounded transition-all ${
-                  calendarView === 'week'
+                    calendarView === 'week'
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-gray-600 hover:bg-white'
-                }`}
-              >
+                  }`}
+                >
                 W
-              </button>
-              <button
+                </button>
+                <button
                 onClick={() => handleViewChange('month')}
                 className={`px-1.5 py-1 text-[10px] font-semibold rounded transition-all ${
-                  calendarView === 'month'
+                    calendarView === 'month'
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-gray-600 hover:bg-white'
-                }`}
-              >
+                  }`}
+                >
                 M
-              </button>
-            </div>
+                </button>
+              </div>
             <div className="h-4 w-px bg-gray-300"></div>
-            {/* View Mode Toggle */}
+              {/* View Mode Toggle */}
             <div className="flex items-center bg-gray-100 rounded p-0.5 flex-shrink-0">
-              <button
-                onClick={() => setViewMode('launch')}
+                <button
+                  onClick={() => setViewMode('launch')}
                 className={`px-2 py-1 text-[10px] font-semibold rounded transition-all flex items-center gap-1 ${
-                  viewMode === 'launch'
+                    viewMode === 'launch'
                     ? 'bg-green-600 text-white shadow-sm'
                     : 'text-gray-600 hover:bg-white'
-                }`}
+                  }`}
                 title="Launch view"
-              >
+                >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                 </svg>
                 <span>Launch</span>
-              </button>
-              <button
-                onClick={() => setViewMode('live')}
+                </button>
+                <button
+                  onClick={() => setViewMode('live')}
                 className={`px-2 py-1 text-[10px] font-semibold rounded transition-all flex items-center gap-1 ${
-                  viewMode === 'live'
+                    viewMode === 'live'
                     ? 'bg-purple-600 text-white shadow-sm'
                     : 'text-gray-600 hover:bg-white'
-                }`}
+                  }`}
                 title="Live view"
-              >
+                >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
+                  </svg>
                 <span>Live</span>
-              </button>
-            </div>
+                </button>
+              </div>
             <div className="h-4 w-px bg-gray-300"></div>
             {/* Search Bar */}
             <div className="relative flex-shrink-0">
@@ -974,7 +974,7 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
               >
                 <span className="block">{dayNames[dayOfWeek]}</span>
                 <span className="block text-[9px] text-gray-500 font-medium">{dayNum}</span>
-              </div>
+          </div>
             )
           })
         ) : (
@@ -1077,7 +1077,7 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
                         title="Drag left to extend start, right to shorten"
                         onClick={(e) => e.stopPropagation()}
                         onMouseDown={(e) => e.stopPropagation()}
-                      >
+                  >
                         <div className="w-1 h-full bg-blue-600 rounded-full"></div>
                       </div>
                     )}
@@ -1110,25 +1110,25 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
                           )}
                         </>
                       )}
-                    </div>
-                    
+                        </div>
+                      
                     {/* Right Resize Handle - outside the draggable bar */}
-                    {!readOnly && segment.isLast && (
-                      <div
-                        draggable
+                      {!readOnly && segment.isLast && (
+                        <div
+                          draggable
                         onDragStart={(e) => {
                           e.stopPropagation()
                           handleResizeStart(event, 'end', e)
                         }}
-                        onDragEnd={handleResizeEnd}
+                          onDragEnd={handleResizeEnd}
                         className="absolute -right-1 top-0 bottom-0 w-3 cursor-ew-resize hover:bg-blue-500/50 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center resize-handle rounded-r-md z-30"
                         title="Drag right to extend end, left to shorten"
-                        onClick={(e) => e.stopPropagation()}
+                          onClick={(e) => e.stopPropagation()}
                         onMouseDown={(e) => e.stopPropagation()}
-                      >
+                        >
                         <div className="w-1 h-full bg-blue-600 rounded-full"></div>
-                      </div>
-                    )}
+                        </div>
+                      )}
                   </div>
                 )
               })

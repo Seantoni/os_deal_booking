@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { getCompetitorDeal, CompetitorDealWithStats, DealSnapshot } from '@/app/actions/competitor-deals'
+import { useModalEscape } from '@/hooks/useModalEscape'
 import CloseIcon from '@mui/icons-material/Close'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
-import StorefrontIcon from '@mui/icons-material/Storefront'
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import { formatCompactDateTime, formatShortDate } from '@/lib/date'
@@ -19,6 +19,8 @@ export default function DealDetailModal({ dealId, onClose }: DealDetailModalProp
   const [deal, setDeal] = useState<CompetitorDealWithStats | null>(null)
   const [snapshots, setSnapshots] = useState<DealSnapshot[]>([])
   const [loading, setLoading] = useState(true)
+  
+  useModalEscape(true, onClose)
   
   useEffect(() => {
     const loadDeal = async () => {
@@ -61,190 +63,264 @@ const formatCurrency = (value: number) => {
     return colors[site] || 'bg-gray-100 text-gray-800 border-gray-200'
   }
   
-  // Calculate chart data
-  const chartData = snapshots.map((s, index) => {
-    const prevSnapshot = index > 0 ? snapshots[index - 1] : null
-    const salesSinceLast = prevSnapshot ? s.totalSold - prevSnapshot.totalSold : 0
-    return {
-      ...s,
-      salesSinceLast,
+  // Calculate chart data with all days filled in
+  const chartData = (() => {
+    if (snapshots.length === 0) return []
+    
+    const firstDate = new Date(snapshots[0].scannedAt)
+    const lastDate = new Date(snapshots[snapshots.length - 1].scannedAt)
+    
+    // Normalize to start of day
+    firstDate.setHours(0, 0, 0, 0)
+    lastDate.setHours(0, 0, 0, 0)
+    
+    const dayMs = 24 * 60 * 60 * 1000
+    const totalDays = Math.ceil((lastDate.getTime() - firstDate.getTime()) / dayMs) + 1
+    
+    // Create a map of date -> snapshot for quick lookup
+    const snapshotsByDate = new Map<string, typeof snapshots[0]>()
+    snapshots.forEach(s => {
+      const d = new Date(s.scannedAt)
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+      // Keep the latest snapshot for each day
+      if (!snapshotsByDate.has(key) || new Date(snapshotsByDate.get(key)!.scannedAt) < d) {
+        snapshotsByDate.set(key, s)
+      }
+    })
+    
+    const result: Array<{
+      id: string
+      totalSold: number
+      scannedAt: Date
+      salesSinceLast: number
+      hasData: boolean
+    }> = []
+    
+    let lastKnownSnapshot = snapshots[0]
+    let prevTotalSold = 0
+    
+    for (let i = 0; i < totalDays; i++) {
+      const currentDate = new Date(firstDate.getTime() + i * dayMs)
+      const key = `${currentDate.getFullYear()}-${currentDate.getMonth()}-${currentDate.getDate()}`
+      
+      const snapshot = snapshotsByDate.get(key)
+      
+      if (snapshot) {
+        lastKnownSnapshot = snapshot
+        const salesSinceLast = prevTotalSold > 0 ? snapshot.totalSold - prevTotalSold : 0
+        result.push({
+          id: snapshot.id,
+          totalSold: snapshot.totalSold,
+          scannedAt: currentDate,
+          salesSinceLast,
+          hasData: true,
+        })
+        prevTotalSold = snapshot.totalSold
+      } else {
+        // No data for this day - use last known value
+        result.push({
+          id: `blank-${i}`,
+          totalSold: lastKnownSnapshot.totalSold,
+          scannedAt: currentDate,
+          salesSinceLast: 0,
+          hasData: false,
+        })
+      }
     }
-  })
+    
+    return result
+  })()
   
   // Get max values for scaling
-  const maxTotalSold = Math.max(...snapshots.map(s => s.totalSold), 1)
+  const maxTotalSold = Math.max(...chartData.map(s => s.totalSold), 1)
   
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-black/50 transition-opacity"
+        className="fixed inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity"
         onClick={onClose}
       />
       
       {/* Modal */}
       <div className="relative min-h-screen flex items-center justify-center p-4">
-        <div className="relative bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+        <div className="relative bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
           {/* Header */}
-          <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <TrendingUpIcon className="text-blue-600" />
-              Deal Details
-            </h2>
+          <div className="sticky top-0 bg-gradient-to-r from-slate-50 to-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+            <div className="flex items-center gap-3">
+              <TrendingUpIcon className="text-blue-600" style={{ fontSize: 20 }} />
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">Deal Analytics</h2>
+                <p className="text-[10px] text-gray-500">Competitor tracking</p>
+              </div>
+            </div>
             <button
               onClick={onClose}
-              className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              <CloseIcon className="text-gray-500" />
+              <CloseIcon className="text-gray-400" style={{ fontSize: 18 }} />
             </button>
           </div>
           
           {/* Content */}
-          <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+          <div className="p-4 overflow-y-auto max-h-[calc(90vh-60px)]">
             {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <RefreshIcon className="animate-spin text-gray-400" style={{ fontSize: 32 }} />
+              <div className="flex items-center justify-center py-8">
+                <RefreshIcon className="animate-spin text-gray-400" style={{ fontSize: 24 }} />
               </div>
             ) : !deal ? (
-              <div className="text-center py-12 text-gray-500">
+              <div className="text-center py-8 text-gray-500 text-sm">
                 Deal not found
               </div>
             ) : (
-              <div className="space-y-6">
-                {/* Deal Info */}
-                <div className="flex gap-6">
+              <div className="space-y-4">
+                {/* Deal Info - Compact */}
+                <div className="flex gap-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
                   {/* Image */}
                   {deal.imageUrl && (
-                    <div className="flex-shrink-0">
-                      <img 
-                        src={deal.imageUrl} 
-                        alt="" 
-                        className="w-32 h-32 rounded-lg object-cover shadow-sm"
-                      />
-                    </div>
+                    <img 
+                      src={deal.imageUrl} 
+                      alt="" 
+                      className="w-20 h-20 rounded-lg object-cover shadow-sm flex-shrink-0"
+                    />
                   )}
                   
                   {/* Details */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${getSiteBadgeColor(deal.sourceSite)}`}>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${getSiteBadgeColor(deal.sourceSite)}`}>
                         {getSiteLabel(deal.sourceSite)}
                       </span>
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold ${
                         deal.status === 'active' 
-                          ? 'bg-green-100 text-green-800 border border-green-200' 
+                          ? 'bg-green-100 text-green-700 border border-green-200' 
                           : 'bg-gray-100 text-gray-600 border border-gray-200'
                       }`}>
                         {deal.status === 'active' ? 'Active' : 'Expired'}
                       </span>
                     </div>
                     
-                    <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                      <StorefrontIcon className="text-gray-400" style={{ fontSize: 20 }} />
-                      {deal.merchantName}
-                    </h3>
-                    <p className="text-gray-600 mt-1">{deal.dealTitle}</p>
+                    <h3 className="text-sm font-bold text-gray-900 truncate">{deal.merchantName}</h3>
+                    <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">{deal.dealTitle}</p>
                     
-                    <div className="mt-4 flex items-center gap-6">
-                      <div>
-                        <p className="text-sm text-gray-500">Offer Price</p>
-                        <p className="text-2xl font-bold text-green-600">{formatCurrency(deal.offerPrice)}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Original</p>
-                        <p className="text-lg text-gray-400 line-through">{formatCurrency(deal.originalPrice)}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Discount</p>
-                        <p className="text-lg font-bold text-red-600">-{deal.discountPercent}%</p>
-                      </div>
+                    <div className="mt-2 flex items-baseline gap-3">
+                      <span className="text-lg font-bold text-green-600">{formatCurrency(deal.offerPrice)}</span>
+                      <span className="text-xs text-gray-400 line-through">{formatCurrency(deal.originalPrice)}</span>
+                      <span className="text-xs font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">-{deal.discountPercent}%</span>
                     </div>
-                    
-                    <a
-                      href={deal.sourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 mt-4 text-sm text-blue-600 hover:text-blue-800"
-                    >
-                      View on {getSiteLabel(deal.sourceSite)}
-                      <OpenInNewIcon style={{ fontSize: 14 }} />
-                    </a>
                   </div>
+                  
+                  {/* External Link */}
+                  <a
+                    href={deal.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="self-start p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    title={`View on ${getSiteLabel(deal.sourceSite)}`}
+                  >
+                    <OpenInNewIcon style={{ fontSize: 16 }} />
+                  </a>
                 </div>
                 
-                {/* Stats Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
-                    <p className="text-sm text-blue-600 font-medium">Total Sold</p>
-                    <p className="text-3xl font-bold text-blue-900">{deal.totalSold.toLocaleString()}</p>
+                {/* Stats Cards - Compact inline */}
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="bg-blue-50/50 rounded-lg px-3 py-2 border border-blue-100/50">
+                    <p className="text-[10px] text-blue-600 font-medium">Total</p>
+                    <p className="text-lg font-bold text-blue-900">{deal.totalSold.toLocaleString()}</p>
                   </div>
-                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4 border border-green-100">
-                    <p className="text-sm text-green-600 font-medium">Sales Today</p>
-                    <p className="text-3xl font-bold text-green-900">
+                  <div className="bg-green-50/50 rounded-lg px-3 py-2 border border-green-100/50">
+                    <p className="text-[10px] text-green-600 font-medium">Today</p>
+                    <p className="text-lg font-bold text-green-900">
                       {deal.salesToday > 0 ? `+${deal.salesToday}` : '-'}
                     </p>
                   </div>
-                  <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-lg p-4 border border-purple-100">
-                    <p className="text-sm text-purple-600 font-medium">This Week</p>
-                    <p className="text-3xl font-bold text-purple-900">
+                  <div className="bg-purple-50/50 rounded-lg px-3 py-2 border border-purple-100/50">
+                    <p className="text-[10px] text-purple-600 font-medium">Week</p>
+                    <p className="text-lg font-bold text-purple-900">
                       {deal.salesThisWeek > 0 ? `+${deal.salesThisWeek}` : '-'}
                     </p>
                   </div>
-                  <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg p-4 border border-orange-100">
-                    <p className="text-sm text-orange-600 font-medium">This Month</p>
-                    <p className="text-3xl font-bold text-orange-900">
+                  <div className="bg-orange-50/50 rounded-lg px-3 py-2 border border-orange-100/50">
+                    <p className="text-[10px] text-orange-600 font-medium">Month</p>
+                    <p className="text-lg font-bold text-orange-900">
                       {deal.salesThisMonth > 0 ? `+${deal.salesThisMonth}` : '-'}
                     </p>
                   </div>
                 </div>
                 
-                {/* Dates */}
-                <div className="flex items-center gap-6 text-sm text-gray-500">
+                {/* Dates - inline */}
+                <div className="flex items-center gap-4 text-[10px] text-gray-400">
                   <div className="flex items-center gap-1">
-                    <CalendarTodayIcon style={{ fontSize: 16 }} />
-                    First seen: {formatShortDate(deal.firstSeenAt)}
+                    <CalendarTodayIcon style={{ fontSize: 12 }} />
+                    First: {formatShortDate(deal.firstSeenAt)}
                   </div>
                   <div className="flex items-center gap-1">
-                    <RefreshIcon style={{ fontSize: 16 }} />
-                    Last updated: {formatCompactDateTime(deal.lastScannedAt)}
+                    <RefreshIcon style={{ fontSize: 12 }} />
+                    Updated: {formatCompactDateTime(deal.lastScannedAt)}
                   </div>
                 </div>
                 
                 {/* Sales Chart */}
-                {snapshots.length > 1 && (
-                  <div className="mt-6">
-                    <h4 className="text-sm font-semibold text-gray-700 mb-4">Sales History</h4>
+                {snapshots.length > 1 && chartData.length > 0 && (
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                      <h4 className="text-xs font-semibold text-gray-700">Sales History</h4>
+                      <div className="flex items-center gap-3 text-[10px] text-gray-400">
+                        <span>{chartData.length}d</span>
+                        <span>•</span>
+                        <span>{snapshots.length} pts</span>
+                        <span>•</span>
+                        <div className="flex items-center gap-1">
+                          <div className="w-1.5 h-1.5 bg-gray-300 rounded"></div>
+                          <span>gap</span>
+                        </div>
+                      </div>
+                    </div>
                     
-                    {/* Simple bar chart */}
-                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                      <div className="h-48 flex items-end gap-1">
+                    <div className="p-3">
+                      <div className="h-32 flex items-end gap-[1px]">
                         {chartData.map((snapshot, index) => {
-                          const height = (snapshot.totalSold / maxTotalSold) * 100
+                          const height = maxTotalSold > 0 ? (snapshot.totalSold / maxTotalSold) * 100 : 5
                           const isLatest = index === chartData.length - 1
+                          const barWidth = Math.max(100 / chartData.length, 3)
                           
                           return (
                             <div 
                               key={snapshot.id}
-                              className="flex-1 flex flex-col items-center group relative"
+                              className="flex flex-col items-center group relative"
+                              style={{ 
+                                width: `${barWidth}%`,
+                                minWidth: '3px',
+                                height: '100%',
+                                display: 'flex',
+                                justifyContent: 'flex-end'
+                              }}
                             >
-                              {/* Bar */}
                               <div 
-                                className={`w-full rounded-t transition-all ${
-                                  isLatest 
-                                    ? 'bg-gradient-to-t from-blue-600 to-blue-400' 
-                                    : 'bg-gradient-to-t from-gray-400 to-gray-300'
-                                } hover:opacity-80`}
-                                style={{ height: `${Math.max(height, 2)}%` }}
+                                className={`w-full rounded-sm transition-all cursor-pointer ${
+                                  !snapshot.hasData
+                                    ? 'bg-gray-200'
+                                    : isLatest 
+                                      ? 'bg-blue-500' 
+                                      : 'bg-gray-400'
+                                } hover:opacity-70`}
+                                style={{ 
+                                  height: `${Math.max(height, 4)}%`,
+                                  minHeight: '3px'
+                                }}
                               />
                               
-                              {/* Tooltip */}
                               <div className="absolute bottom-full mb-2 hidden group-hover:block z-10">
-                                <div className="bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap">
-                                  <p className="font-semibold">{snapshot.totalSold.toLocaleString()} sold</p>
-                                  {snapshot.salesSinceLast > 0 && (
-                                    <p className="text-green-400">+{snapshot.salesSinceLast} since last</p>
+                                <div className="bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap shadow-lg">
+                                  <p className="font-semibold">{snapshot.totalSold.toLocaleString()}</p>
+                                  {snapshot.hasData ? (
+                                    snapshot.salesSinceLast > 0 && (
+                                      <p className="text-green-400">+{snapshot.salesSinceLast}</p>
+                                    )
+                                  ) : (
+                                    <p className="text-gray-400">no data</p>
                                   )}
-                                  <p className="text-gray-400">{formatCompactDateTime(snapshot.scannedAt)}</p>
+                                  <p className="text-gray-400">{formatShortDate(snapshot.scannedAt)}</p>
                                 </div>
                               </div>
                             </div>
@@ -252,27 +328,19 @@ const formatCurrency = (value: number) => {
                         })}
                       </div>
                       
-                      {/* X-axis labels */}
-                      <div className="flex justify-between mt-2 text-xs text-gray-400">
-                        <span>{formatShortDate(snapshots[0].scannedAt)}</span>
-                        <span>{formatShortDate(snapshots[snapshots.length - 1].scannedAt)}</span>
+                      <div className="flex justify-between mt-1.5 text-[10px] text-gray-400">
+                        <span>{formatShortDate(chartData[0].scannedAt)}</span>
+                        <span>{formatShortDate(chartData[chartData.length - 1].scannedAt)}</span>
                       </div>
                     </div>
-                    
-                    {/* Legend */}
-                    <p className="text-xs text-gray-400 mt-2 text-center">
-                      {snapshots.length} data points tracked
-                    </p>
                   </div>
                 )}
                 
                 {snapshots.length <= 1 && (
-                  <div className="bg-gray-50 rounded-lg p-6 text-center border border-gray-200">
-                    <TrendingUpIcon className="text-gray-300 mx-auto mb-2" style={{ fontSize: 48 }} />
-                    <p className="text-gray-500">Not enough data for sales chart</p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Charts will appear after multiple scans
-                    </p>
+                  <div className="bg-gray-50 rounded-lg p-4 text-center border border-gray-200">
+                    <TrendingUpIcon className="text-gray-300 mx-auto mb-1" style={{ fontSize: 32 }} />
+                    <p className="text-xs text-gray-500">Not enough data yet</p>
+                    <p className="text-[10px] text-gray-400">Charts appear after multiple scans</p>
                   </div>
                 )}
               </div>

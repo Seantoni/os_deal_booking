@@ -706,8 +706,8 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                 className="w-full flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-50 via-purple-50 to-indigo-50 hover:from-indigo-100 hover:via-purple-100 hover:to-indigo-100 transition-all group"
               >
                 <svg className="w-4 h-4 text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
                 <span className="text-xs font-medium text-indigo-800 truncate">{linkedBookingRequest.name}</span>
                 <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
                   <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
@@ -716,14 +716,14 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                       : 'bg-gray-100 text-gray-600'
                   }`}>
                     {linkedBookingRequest.sourceType === 'public_link' ? 'Público' : 'Interno'}
-                  </span>
+                    </span>
                   <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
                     linkedBookingRequest.status === 'approved' ? 'bg-green-100 text-green-700' :
                     linkedBookingRequest.status === 'booked' ? 'bg-blue-100 text-blue-700' :
                     linkedBookingRequest.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                     'bg-gray-100 text-gray-600'
-                  }`}>
-                    {linkedBookingRequest.status?.charAt(0).toUpperCase() + linkedBookingRequest.status?.slice(1)}
+                    }`}>
+                      {linkedBookingRequest.status?.charAt(0).toUpperCase() + linkedBookingRequest.status?.slice(1)}
                   </span>
                   <svg className="w-4 h-4 text-gray-400 group-hover:text-indigo-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -738,9 +738,9 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                 {hasEmptyRequiredFields() && (
                   <Alert variant="error" icon={<BlockIcon fontSize="small" />}>
                     Completa los campos requeridos (*)
-                  </Alert>
-                )}
-                {error && <Alert variant="error">{error}</Alert>}
+              </Alert>
+            )}
+            {error && <Alert variant="error">{error}</Alert>}
                 {durationWarning && <Alert variant="warning">{durationWarning}</Alert>}
                 {uniquenessWarning && <Alert variant="warning">{uniquenessWarning}</Alert>}
                 {merchantWarning && <Alert variant="warning">{merchantWarning}</Alert>}
@@ -748,8 +748,8 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                 {dailyLimitWarnings.length > 0 && (
                   <Alert variant="error">
                     Excede máx. {userSettings.maxDailyLaunches}/día: {dailyLimitWarnings.join(', ')}
-                  </Alert>
-                )}
+              </Alert>
+            )}
               </div>
             )}
 
@@ -759,7 +759,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Negocio</span>
                   <span className="text-sm font-semibold text-gray-900">{merchant}</span>
-                </div>
+                  </div>
               ) : (
                 <BusinessSelect
                   value={merchant}
@@ -780,43 +780,43 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
             <div className="px-4 py-3 space-y-3">
               {/* Name & Category Row */}
               <div className="grid grid-cols-2 gap-3">
-                <Input
-                  id="name"
-                  name="name"
-                  type="text"
+            <Input
+                id="name"
+                name="name"
+              type="text"
                   label={readOnly ? 'Nombre' : 'Nombre *'}
-                  required={!readOnly}
-                  value={name}
-                  onChange={(e) => !readOnly && setField('name', e.target.value)}
-                  readOnly={readOnly}
-                  placeholder="Nombre del evento"
-                />
-                <div>
+              required={!readOnly}
+                value={name}
+              onChange={(e) => !readOnly && setField('name', e.target.value)}
+              readOnly={readOnly}
+                placeholder="Nombre del evento"
+              />
+            <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     {readOnly ? 'Categoría' : 'Categoría *'}
-                  </label>
-                  {readOnly ? (
+              </label>
+              {readOnly ? (
                     <div className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50">
                       {categoryOption?.label || '-'}
-                    </div>
-                  ) : (
-                    <>
-                      <CategorySelect selectedOption={categoryOption} onChange={(opt) => setField('categoryOption', opt)} />
-                      {!categoryOption && <p className="text-[10px] text-red-500 mt-0.5">Requerido</p>}
-                    </>
-                  )}
                 </div>
+              ) : (
+                <>
+              <CategorySelect selectedOption={categoryOption} onChange={(opt) => setField('categoryOption', opt)} />
+                      {!categoryOption && <p className="text-[10px] text-red-500 mt-0.5">Requerido</p>}
+                </>
+              )}
+            </div>
               </div>
-              <input type="hidden" name="merchant" value={merchant} />
+            <input type="hidden" name="merchant" value={merchant} />
 
               {/* Dates Row */}
               <div className="grid grid-cols-2 gap-3">
-                <Input
+              <Input
                   id="startDate"
                   name="startDate"
-                  type="date"
+                type="date"
                   label={readOnly ? 'Inicio' : 'Inicio *'}
-                  required={!readOnly}
+                required={!readOnly}
                   value={startDate}
                   onChange={(e) => {
                     if (readOnly) return
@@ -826,19 +826,19 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                       setField('name', generateEventName(merchant, newDate))
                     }
                   }}
-                  readOnly={readOnly}
-                />
-                <Input
+                readOnly={readOnly}
+              />
+              <Input
                   id="endDate"
                   name="endDate"
-                  type="date"
+                type="date"
                   label={readOnly ? 'Fin' : 'Fin *'}
-                  required={!readOnly}
+                required={!readOnly}
                   value={endDate}
-                  onChange={(e) => !readOnly && setField('endDate', e.target.value)}
-                  readOnly={readOnly}
+                onChange={(e) => !readOnly && setField('endDate', e.target.value)}
+                readOnly={readOnly}
                 />
-              </div>
+            </div>
 
               {/* Description */}
               <Textarea
@@ -884,25 +884,25 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                 ) : (
                   <>
                     <Button type="button" onClick={onClose} variant="ghost" size="sm">Cancelar</Button>
-                    {eventToEdit && (eventToEdit.status === 'approved' || eventToEdit.status === 'pending') && userRole === 'admin' ? (
+                {eventToEdit && (eventToEdit.status === 'approved' || eventToEdit.status === 'pending') && userRole === 'admin' ? (
                       !showRejectionField ? (
-                        <>
+                      <>
                           <Button type="button" onClick={() => setField('showRejectionField', true)} variant="destructive" size="sm" disabled={loading}>
-                            Rechazar
-                          </Button>
+                          Rechazar
+                        </Button>
                           <Button type="button" onClick={handleBook} disabled={loading || hasEmptyRequiredFields()} loading={loading} size="sm" className="bg-green-600 hover:bg-green-700">
                             Reservar
-                          </Button>
-                        </>
-                      ) : (
-                        <Button type="button" onClick={handleReject} variant="destructive" size="sm" disabled={loading || !rejectionReason.trim()} loading={loading}>
-                          Confirmar Rechazo
                         </Button>
-                      )
+                      </>
                     ) : (
+                        <Button type="button" onClick={handleReject} variant="destructive" size="sm" disabled={loading || !rejectionReason.trim()} loading={loading}>
+                        Confirmar Rechazo
+                      </Button>
+                      )
+                ) : (
                       <Button type="submit" disabled={loading || hasEmptyRequiredFields()} loading={loading} size="sm">
                         {eventToEdit ? 'Guardar' : 'Crear'}
-                      </Button>
+                </Button>
                     )}
                   </>
                 )}

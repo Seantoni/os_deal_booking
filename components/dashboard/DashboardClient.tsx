@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { getDashboardStats, type DashboardFilters } from '@/app/actions/dashboard'
+import { getDashboardStats, getPendingBookings, type DashboardFilters, type PendingBookingItem } from '@/app/actions/dashboard'
 import { getInboxItems, dismissInboxItem, type InboxItem } from '@/app/actions/inbox'
 import { useSharedData } from '@/hooks/useSharedData'
 import { formatRelativeTime, PANAMA_TIMEZONE } from '@/lib/date'
@@ -15,6 +15,8 @@ import RefreshIcon from '@mui/icons-material/Refresh'
 import InboxIcon from '@mui/icons-material/Inbox'
 import CampaignIcon from '@mui/icons-material/Campaign'
 import CheckIcon from '@mui/icons-material/Check'
+import EventIcon from '@mui/icons-material/Event'
+import ScheduleIcon from '@mui/icons-material/Schedule'
 import { Select } from '@/components/ui/Select'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -64,6 +66,7 @@ export default function DashboardClient() {
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [inboxItems, setInboxItems] = useState<InboxItem[]>([])
+  const [pendingBookings, setPendingBookings] = useState<PendingBookingItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [filters, setFilters] = useState<DashboardFilters>({
     userId: '',
@@ -132,10 +135,11 @@ export default function DashboardClient() {
     setLoading(true)
     setError(null)
     try {
-      // Parallel fetch stats and inbox (users come from shared context)
-      const [statsResult, inboxResult] = await Promise.all([
+      // Parallel fetch stats, inbox, and pending bookings (users come from shared context)
+      const [statsResult, inboxResult, pendingResult] = await Promise.all([
         getDashboardStats(filters),
         getInboxItems(),
+        getPendingBookings(),
       ])
 
       if (statsResult.success && 'data' in statsResult && statsResult.data) {
@@ -149,6 +153,10 @@ export default function DashboardClient() {
 
       if (inboxResult.success && inboxResult.data) {
         setInboxItems(inboxResult.data)
+      }
+
+      if (pendingResult.success && pendingResult.data) {
+        setPendingBookings(pendingResult.data)
       }
     } catch (error) {
       console.error('Failed to load dashboard data:', error)
@@ -227,355 +235,370 @@ export default function DashboardClient() {
 
   return (
     <div className="min-h-full">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         
-        {/* Filters Row */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
-            <div className="flex items-center px-2 text-gray-400">
-              <FilterListIcon fontSize="small" />
+        {/* Header Row: Filters + Time */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            {/* User Filter */}
+            <div className="flex items-center gap-2 bg-white pl-3 pr-1 py-1.5 rounded-lg border border-gray-200 shadow-sm">
+              <FilterListIcon className="text-gray-400" style={{ fontSize: 14 }} />
+              <select
+                value={filters.userId}
+                onChange={(e) => handleFilterChange('userId', e.target.value)}
+                className="text-xs text-gray-700 bg-transparent border-0 focus:ring-0 cursor-pointer pr-6 py-0.5 font-medium"
+              >
+                <option value="">Todos los usuarios</option>
+                {users.map(u => (
+                  <option key={u.clerkId} value={u.clerkId}>
+                    {u.name || u.email || 'Usuario'}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="w-40">
-              <Select
-                size="sm"
-                options={[
-                  { value: '', label: 'Todos los miembros' },
-                  ...users.map(u => ({ value: u.clerkId, label: u.name || u.email || 'Usuario' }))
-                ]}
-              value={filters.userId}
-              onChange={(e) => handleFilterChange('userId', e.target.value)}
-                className="border-0 bg-transparent focus:ring-0 shadow-none text-sm"
+            
+            {/* Date Range Filter */}
+            <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
+              <input
+                type="date"
+                value={filters.startDate}
+                onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                className="text-xs text-gray-600 bg-transparent border-0 focus:ring-0 cursor-pointer w-[105px] py-0.5"
+                placeholder="Desde"
+              />
+              <span className="text-gray-300 text-xs">→</span>
+              <input
+                type="date"
+                value={filters.endDate}
+                onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                className="text-xs text-gray-600 bg-transparent border-0 focus:ring-0 cursor-pointer w-[105px] py-0.5"
+                placeholder="Hasta"
               />
             </div>
-            <div className="h-6 w-px bg-gray-200"></div>
-            <div className="w-32">
-              <Input
-              type="date"
-                size="sm"
-              value={filters.startDate}
-              onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                className="border-0 bg-transparent focus:ring-0 shadow-none text-sm"
-            />
-            </div>
-            <span className="text-gray-400">-</span>
-            <div className="w-32">
-              <Input
-              type="date"
-                size="sm"
-              value={filters.endDate}
-              onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                className="border-0 bg-transparent focus:ring-0 shadow-none text-sm"
-              />
-            </div>
-            <div className="h-6 w-px bg-gray-200"></div>
+            
+            {/* Refresh Button */}
             <button 
               onClick={loadData}
-              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              className="px-2.5 py-1.5 text-gray-400 hover:text-blue-600 bg-white hover:bg-blue-50 rounded-lg border border-gray-200 shadow-sm transition-colors flex items-center justify-center"
+              title="Actualizar datos"
             >
-              <RefreshIcon fontSize="small" />
+              <RefreshIcon style={{ fontSize: 16 }} />
             </button>
           </div>
           
-          {/* Minimalistic Date/Time Display */}
-          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+          {/* Time Display */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100/50 rounded-lg">
             <AccessTimeIcon className="text-gray-400" style={{ fontSize: 14 }} />
-            <span className="font-mono">{time}</span>
-            <span className="text-gray-400">•</span>
-            <span>{date}</span>
+            <span className="text-xs font-medium text-gray-600">{time}</span>
+            <span className="text-gray-300">•</span>
+            <span className="text-xs text-gray-500">{date}</span>
           </div>
         </div>
 
-        {/* Top Metrics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Opportunities Card */}
-          <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-2 bg-green-50 rounded-lg">
-                <HandshakeIcon className="text-green-600" fontSize="small" />
-              </div>
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Ofertas Ganadas</span>
-            </div>
-            <div className="flex items-baseline gap-2 mb-2">
-              <span className="text-3xl font-bold text-gray-900">{stats?.opportunities?.byStage?.['won'] || 0}</span>
-              <span className="text-sm text-gray-500">/ {stats?.opportunities?.total || 0} totales</span>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-500 font-medium">Tasa de Conversión</span>
-                <span className="text-green-600 font-bold">{getPercent(stats?.opportunities?.byStage?.['won'] || 0, stats?.opportunities?.total || 0)}%</span>
-              </div>
-              <div className="bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                <div 
-                  className="bg-green-500 h-1.5 rounded-full transition-all duration-500" 
-                  style={{ width: `${getPercent(stats?.opportunities?.byStage?.['won'] || 0, stats?.opportunities?.total || 0)}%` }}
-                ></div>
-              </div>
-            </div>
-          </div>
-
-          {/* Meetings Card */}
-          <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-2 bg-blue-50 rounded-lg">
-                <GroupIcon className="text-blue-600" fontSize="small" />
-              </div>
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Reuniones</span>
-            </div>
-            <div className="flex items-baseline gap-2 mb-4">
-              <span className="text-3xl font-bold text-gray-900">{stats?.tasks?.meetings || 0}</span>
-              <span className="text-sm text-gray-500">programadas</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-green-50/50 rounded-lg p-2 text-center border border-green-100">
-                <div className="text-lg font-bold text-green-700">{stats?.tasks?.meetingsCompleted || 0}</div>
-                <div className="text-[10px] text-green-600 font-semibold uppercase tracking-wide">Completadas</div>
-              </div>
-              <div className="bg-blue-50/50 rounded-lg p-2 text-center border border-blue-100">
-                <div className="text-lg font-bold text-blue-700">{stats?.tasks?.meetingsPending || 0}</div>
-                <div className="text-[10px] text-blue-600 font-semibold uppercase tracking-wide">Pendientes</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Booking Requests Card */}
-          <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-2 bg-purple-50 rounded-lg">
-                <DescriptionIcon className="text-purple-600" fontSize="small" />
-              </div>
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Solicitudes</span>
-            </div>
-            <div className="flex items-baseline gap-2 mb-4">
-              <span className="text-3xl font-bold text-gray-900">{stats?.bookings?.total || 0}</span>
-              <span className="text-sm text-gray-500">totales</span>
-            </div>
-            <div className="flex gap-2">
-              <div className="flex-1 flex flex-col justify-between bg-gray-50 rounded-lg p-2 border border-gray-100">
-                <span className="text-[10px] text-gray-500 uppercase font-medium">Aprobadas</span>
-                <span className="text-lg font-bold text-gray-900">{stats?.bookings?.byStatus?.['approved'] || 0}</span>
-              </div>
-              <div className="flex-1 flex flex-col justify-between bg-blue-50/50 rounded-lg p-2 border border-blue-100">
-                <span className="text-[10px] text-blue-600 uppercase font-medium">Reservadas</span>
-                <span className="text-lg font-bold text-blue-700">{stats?.bookings?.byStatus?.['booked'] || 0}</span>
-              </div>
-              <div className="flex-1 flex flex-col justify-between bg-yellow-50/50 rounded-lg p-2 border border-yellow-100">
-                <span className="text-[10px] text-yellow-600 uppercase font-medium">Pendientes</span>
-                <span className="text-lg font-bold text-yellow-700">{stats?.bookings?.byStatus?.['pending'] || 0}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Left Column: Leaderboard */}
-          <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white">
-              <div className="flex items-center gap-3">
-                <div className="p-1.5 bg-yellow-50 rounded-md">
-                  <HandshakeIcon className="text-yellow-600" fontSize="small" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-gray-900">Clasificación</h3>
-                  <p className="text-xs text-gray-500">Ranking de rendimiento del equipo</p>
-                </div>
-              </div>
+        {/* Priority Row: Pending Bookings + Inbox side by side */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Pending Bookings Widget - Compact */}
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                 <span className="text-xs font-medium px-2 py-1 bg-gray-100 rounded text-gray-600">Ordenado por Reservadas</span>
-              </div>
-            </div>
-            
-            <div className="overflow-x-auto flex-1">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50/50 border-b border-gray-100 text-left">
-                    <th className="px-6 py-3 font-semibold text-gray-500 text-xs uppercase tracking-wider w-1/3">Miembro</th>
-                    <th className="px-4 py-[5px] font-semibold text-gray-500 text-xs uppercase tracking-wider text-center">Aprobadas</th>
-                    <th className="px-4 py-[5px] font-semibold text-gray-500 text-xs uppercase tracking-wider text-center">Reservadas</th>
-                    <th className="px-4 py-[5px] font-semibold text-gray-500 text-xs uppercase tracking-wider text-center">Reuniones</th>
-                    <th className="px-4 py-[5px] font-semibold text-gray-500 text-xs uppercase tracking-wider text-center">Tareas</th>
-                </tr>
-              </thead>
-                <tbody className="divide-y divide-gray-50">
-                {stats?.teamPerformance?.map((member: any, index: number) => (
-                  <tr 
-                    key={member.userId} 
-                      className={`group transition-colors ${member.isCurrentUser ? 'bg-blue-50/30 hover:bg-blue-50/50' : 'hover:bg-gray-50/50'}`}
-                  >
-                      <td className="px-6 py-3">
-                        <div className="flex items-center gap-3">
-                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ring-1 ring-inset ${
-                            index === 0 ? 'bg-yellow-50 text-yellow-700 ring-yellow-600/20' :
-                            index === 1 ? 'bg-gray-100 text-gray-700 ring-gray-500/20' :
-                            index === 2 ? 'bg-orange-50 text-orange-800 ring-orange-600/20' :
-                            'bg-transparent text-gray-400 ring-gray-200'
-                        }`}>
-                          {index + 1}
-                        </span>
-                          <div className="flex flex-col">
-                            <span className={`font-semibold ${member.isCurrentUser ? 'text-blue-700' : 'text-gray-900'}`}>
-                          {member.name}
-                        </span>
-                            {member.isCurrentUser && <span className="text-[10px] text-blue-500 font-medium">Tú</span>}
-                          </div>
-                      </div>
-                    </td>
-                      <td className="px-4 py-[5px] text-center">
-                        <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-100">
-                        {member.approvedRequests || 0}
-                      </span>
-                    </td>
-                      <td className="px-4 py-[5px] text-center">
-                        <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100 shadow-sm">
-                        {member.bookedRequests || 0}
-                      </span>
-                    </td>
-                      <td className="px-4 py-[5px] text-center text-gray-600 font-medium">
-                      {member.meetings || 0}
-                    </td>
-                      <td className="px-4 py-[5px] text-center text-gray-600 font-medium">
-                      {member.todos || 0}
-                    </td>
-                  </tr>
-                ))}
-                {(!stats?.teamPerformance || stats?.teamPerformance.length === 0) && (
-                  <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-gray-400 text-sm">
-                        No se encontró actividad del equipo en este período.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-          {/* Right Column: Request Flow & Inbox */}
-          <div className="flex flex-col gap-6">
-            
-            {/* Inbox Widget */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100 bg-white flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-1.5 bg-blue-50 rounded-md">
-                    <InboxIcon className="text-blue-600" fontSize="small" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-gray-900">Inbox</h3>
-                    <p className="text-xs text-gray-500">Mensajes pendientes</p>
-                  </div>
+                <div className="p-1 bg-orange-50 rounded">
+                  <EventIcon className="text-orange-500" style={{ fontSize: 16 }} />
                 </div>
-                {inboxItems.length > 0 && (
-                  <span className="text-xs font-semibold px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
-                    {inboxItems.length}
-                  </span>
-                )}
+                <h3 className="text-sm font-semibold text-gray-900">Por Reservar</h3>
               </div>
-              <div className="max-h-[300px] overflow-y-auto">
-                {inboxItems.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-center px-4">
-                    <InboxIcon className="text-gray-200 mb-2" style={{ fontSize: 40 }} />
-                    <p className="text-sm text-gray-500">No hay mensajes pendientes</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-gray-50">
-                    {inboxItems.slice(0, 5).map((item) => (
-                      <div
-                        key={item.id}
-                        className="relative group"
-                      >
-                        <button
-                          onClick={() => handleInboxItemClick(item)}
-                          className="w-full text-left px-5 py-3 hover:bg-gray-50 transition-colors pr-10"
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="flex-shrink-0 mt-0.5">
-                              {item.entityType === 'opportunity' ? (
-                                <HandshakeIcon className="text-orange-500" style={{ fontSize: 16 }} />
-                              ) : (
-                                <CampaignIcon className="text-purple-500" style={{ fontSize: 16 }} />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-0.5">
-                                <span className="text-xs font-medium text-gray-900 truncate">
-                                  {item.author.name || item.author.email || 'Usuario'}
-                                </span>
-                                <span className="text-[10px] text-gray-400">
-                                  {formatRelativeTime(item.createdAt)}
-                                </span>
-                              </div>
-                              <p className="text-xs text-gray-600 line-clamp-2 mb-1">
-                                {truncateContent(item.content)}
-                              </p>
-                              <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-                                {item.entityName}
-                              </span>
-                            </div>
-                          </div>
-                        </button>
-                        
-                        {/* Dismiss button */}
-                        <button
-                          onClick={(e) => handleDismissInbox(e, item)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-full transition-all opacity-0 group-hover:opacity-100"
-                          title="Marcar como hecho"
-                        >
-                          <CheckIcon style={{ fontSize: 14 }} />
-                        </button>
+              {pendingBookings.length > 0 && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded-full">
+                  {pendingBookings.length}
+                </span>
+              )}
+            </div>
+            <div className="max-h-[180px] overflow-y-auto">
+              {pendingBookings.length === 0 ? (
+                <div className="flex items-center justify-center py-6 text-center">
+                  <p className="text-xs text-gray-400">Sin fechas pendientes</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {pendingBookings.slice(0, 5).map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => router.push('/events')}
+                      className="w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-3"
+                    >
+                      <ScheduleIcon 
+                        className={item.status === 'pending' ? 'text-yellow-500' : 'text-green-500'} 
+                        style={{ fontSize: 14 }} 
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-gray-900 truncate">{item.name}</span>
+                          <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${
+                            item.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
+                          }`}>
+                            {item.status === 'pending' ? 'PEND' : 'APROB'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                          <span>{item.businessName || 'Sin negocio'}</span>
+                          <span>•</span>
+                          <span>{new Date(item.startDate).toLocaleDateString('es-PA', { month: 'short', day: 'numeric' })}</span>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {inboxItems.length > 5 && (
-                <div className="px-5 py-2 border-t border-gray-100 bg-gray-50">
-                  <button
-                    onClick={() => router.push('/dashboard')}
-                    className="w-full text-xs text-blue-600 hover:text-blue-800 font-medium"
-                  >
-                    Ver todos ({inboxItems.length})
-                  </button>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
+            {pendingBookings.length > 5 && (
+              <button
+                onClick={() => router.push('/events')}
+                className="w-full px-4 py-2 text-[10px] text-orange-600 hover:bg-orange-50 font-medium border-t border-gray-100"
+              >
+                Ver {pendingBookings.length - 5} más →
+              </button>
+            )}
+          </div>
 
-            {/* Request Flow Widget */}
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-100 bg-white">
-                <h3 className="text-base font-bold text-gray-900">Flujo de Solicitudes</h3>
-                <p className="text-xs text-gray-500">Distribución de estados actuales</p>
+          {/* Inbox Widget - Compact */}
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1 bg-blue-50 rounded">
+                  <InboxIcon className="text-blue-500" style={{ fontSize: 16 }} />
+                </div>
+                <h3 className="text-sm font-semibold text-gray-900">Inbox</h3>
               </div>
-              <div className="p-5">
-                <div className="space-y-4">
-                  {[
-                    { label: 'Borrador', count: stats?.bookings?.byStatus?.['draft'] || 0, color: 'gray', bg: 'bg-gray-100', text: 'text-gray-600' },
-                    { label: 'Pendientes', count: stats?.bookings?.byStatus?.['pending'] || 0, color: 'yellow', bg: 'bg-yellow-50', text: 'text-yellow-700' },
-                    { label: 'Aprobadas', count: stats?.bookings?.byStatus?.['approved'] || 0, color: 'green', bg: 'bg-green-50', text: 'text-green-700' },
-                    { label: 'Reservadas', count: stats?.bookings?.byStatus?.['booked'] || 0, color: 'blue', bg: 'bg-blue-50', text: 'text-blue-700' },
-                    { label: 'Rechazadas', count: stats?.bookings?.byStatus?.['rejected'] || 0, color: 'red', bg: 'bg-red-50', text: 'text-red-700' },
-                  ].map((item) => (
-                    <div key={item.label} className="flex items-center justify-between group">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${item.bg.replace('bg-', 'bg-').replace('50', '400').replace('100', '400')}`}></div>
-                        <span className="text-sm font-medium text-gray-600">{item.label}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 w-24 h-1.5 bg-gray-50 rounded-full overflow-hidden">
-                          <div 
-                            className={`h-full rounded-full ${item.bg.replace('bg-', 'bg-').replace('50', '500').replace('100', '500')}`}
-                            style={{ width: `${getPercent(item.count, stats?.bookings?.total || 0)}%` }}
-                          ></div>
+              {inboxItems.length > 0 && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full">
+                  {inboxItems.length}
+                </span>
+              )}
+            </div>
+            <div className="max-h-[180px] overflow-y-auto">
+              {inboxItems.length === 0 ? (
+                <div className="flex items-center justify-center py-6 text-center">
+                  <p className="text-xs text-gray-400">Sin mensajes</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {inboxItems.slice(0, 5).map((item) => (
+                    <div key={item.id} className="relative group">
+                      <button
+                        onClick={() => handleInboxItemClick(item)}
+                        className="w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-3 pr-8"
+                      >
+                        {item.entityType === 'opportunity' ? (
+                          <HandshakeIcon className="text-orange-400" style={{ fontSize: 14 }} />
+                        ) : (
+                          <CampaignIcon className="text-purple-400" style={{ fontSize: 14 }} />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-gray-900 truncate">
+                              {item.author.name || 'Usuario'}
+                            </span>
+                            <span className="text-[10px] text-gray-400">{formatRelativeTime(item.createdAt)}</span>
+                          </div>
+                          <p className="text-[10px] text-gray-500 truncate">{truncateContent(item.content, 50)}</p>
                         </div>
-                        <span className={`text-sm font-bold ${item.text}`}>{item.count}</span>
-                      </div>
+                      </button>
+                      <button
+                        onClick={(e) => handleDismissInbox(e, item)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-300 hover:text-green-600 hover:bg-green-50 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                      >
+                        <CheckIcon style={{ fontSize: 12 }} />
+                      </button>
                     </div>
                   ))}
                 </div>
+              )}
+            </div>
+            {inboxItems.length > 5 && (
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="w-full px-4 py-2 text-[10px] text-blue-600 hover:bg-blue-50 font-medium border-t border-gray-100"
+              >
+                Ver {inboxItems.length - 5} más →
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Stats Row - Compact horizontal cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Won Deals */}
+          <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <HandshakeIcon className="text-green-500" style={{ fontSize: 16 }} />
+              <span className="text-[10px] font-semibold text-gray-500 uppercase">Ganadas</span>
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-bold text-gray-900">{stats?.opportunities?.byStage?.['won'] || 0}</span>
+              <span className="text-xs text-gray-400">/ {stats?.opportunities?.total || 0}</span>
+            </div>
+            <div className="mt-2 bg-gray-100 rounded-full h-1 overflow-hidden">
+              <div 
+                className="bg-green-500 h-1 rounded-full" 
+                style={{ width: `${getPercent(stats?.opportunities?.byStage?.['won'] || 0, stats?.opportunities?.total || 0)}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Meetings */}
+          <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <GroupIcon className="text-blue-500" style={{ fontSize: 16 }} />
+              <span className="text-[10px] font-semibold text-gray-500 uppercase">Reuniones</span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-gray-900">{stats?.tasks?.meetings || 0}</span>
+              <div className="flex gap-1 text-[10px]">
+                <span className="text-green-600">{stats?.tasks?.meetingsCompleted || 0}✓</span>
+                <span className="text-blue-600">{stats?.tasks?.meetingsPending || 0}○</span>
               </div>
             </div>
+          </div>
 
+          {/* Bookings */}
+          <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <DescriptionIcon className="text-purple-500" style={{ fontSize: 16 }} />
+              <span className="text-[10px] font-semibold text-gray-500 uppercase">Solicitudes</span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-gray-900">{stats?.bookings?.total || 0}</span>
+            </div>
+            <div className="flex gap-2 mt-1 text-[10px]">
+              <span className="text-green-600">{stats?.bookings?.byStatus?.['approved'] || 0} aprob</span>
+              <span className="text-blue-600">{stats?.bookings?.byStatus?.['booked'] || 0} res</span>
+            </div>
+          </div>
+
+          {/* Tasks */}
+          <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckIcon className="text-emerald-500" style={{ fontSize: 16 }} />
+              <span className="text-[10px] font-semibold text-gray-500 uppercase">Tareas</span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold text-gray-900">{stats?.tasks?.completed || 0}</span>
+              <span className="text-xs text-gray-400">/ {stats?.tasks?.total || 0}</span>
+            </div>
+            <div className="mt-2 bg-gray-100 rounded-full h-1 overflow-hidden">
+              <div 
+                className="bg-emerald-500 h-1 rounded-full" 
+                style={{ width: `${getPercent(stats?.tasks?.completed || 0, stats?.tasks?.total || 0)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content: Leaderboard + Request Flow */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          
+          {/* Leaderboard */}
+          <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1 bg-yellow-50 rounded">
+                  <HandshakeIcon className="text-yellow-600" style={{ fontSize: 16 }} />
+                </div>
+                <h3 className="text-sm font-semibold text-gray-900">Clasificación</h3>
+              </div>
+              <span className="text-[10px] text-gray-400">Por reservadas</span>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-gray-50/80 border-b border-gray-100">
+                    <th className="px-4 py-2 font-semibold text-gray-500 text-left">Miembro</th>
+                    <th className="px-3 py-2 font-semibold text-gray-500 text-center">Aprob</th>
+                    <th className="px-3 py-2 font-semibold text-gray-500 text-center">Reserv</th>
+                    <th className="px-3 py-2 font-semibold text-gray-500 text-center">Meet</th>
+                    <th className="px-3 py-2 font-semibold text-gray-500 text-center">Tasks</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {stats?.teamPerformance?.map((member: any, index: number) => (
+                    <tr 
+                      key={member.userId} 
+                      className={`${member.isCurrentUser ? 'bg-blue-50/40' : 'hover:bg-gray-50/50'}`}
+                    >
+                      <td className="px-4 py-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${
+                            index === 0 ? 'bg-yellow-100 text-yellow-700' :
+                            index === 1 ? 'bg-gray-200 text-gray-600' :
+                            index === 2 ? 'bg-orange-100 text-orange-700' :
+                            'text-gray-400'
+                          }`}>
+                            {index + 1}
+                          </span>
+                          <div>
+                            <span className={`font-medium ${member.isCurrentUser ? 'text-blue-700' : 'text-gray-900'}`}>
+                              {member.name}
+                            </span>
+                            {member.isCurrentUser && <span className="ml-1 text-[9px] text-blue-500">(tú)</span>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <span className="px-1.5 py-0.5 bg-green-50 text-green-700 rounded font-medium">
+                          {member.approvedRequests || 0}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded font-semibold">
+                          {member.bookedRequests || 0}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-center text-gray-600">{member.meetings || 0}</td>
+                      <td className="px-3 py-2 text-center text-gray-600">{member.todos || 0}</td>
+                    </tr>
+                  ))}
+                  {(!stats?.teamPerformance || stats?.teamPerformance.length === 0) && (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-xs">
+                        Sin actividad en este período
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Request Flow */}
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100">
+              <h3 className="text-sm font-semibold text-gray-900">Flujo de Solicitudes</h3>
+            </div>
+            <div className="p-4 space-y-3">
+              {[
+                { label: 'Borrador', count: stats?.bookings?.byStatus?.['draft'] || 0, color: 'gray' },
+                { label: 'Pendientes', count: stats?.bookings?.byStatus?.['pending'] || 0, color: 'yellow' },
+                { label: 'Aprobadas', count: stats?.bookings?.byStatus?.['approved'] || 0, color: 'green' },
+                { label: 'Reservadas', count: stats?.bookings?.byStatus?.['booked'] || 0, color: 'blue' },
+                { label: 'Rechazadas', count: stats?.bookings?.byStatus?.['rejected'] || 0, color: 'red' },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full bg-${item.color}-400`}></div>
+                    <span className="text-xs text-gray-600">{item.label}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-20 h-1 bg-gray-100 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full rounded-full bg-${item.color}-400`}
+                        style={{ width: `${getPercent(item.count, stats?.bookings?.total || 0)}%` }}
+                      />
+                    </div>
+                    <span className={`text-xs font-semibold text-${item.color}-600 w-6 text-right`}>{item.count}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
         </div>
