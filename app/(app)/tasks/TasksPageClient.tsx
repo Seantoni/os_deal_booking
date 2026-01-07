@@ -33,6 +33,9 @@ const TaskModal = dynamic(() => import('@/components/crm/opportunity/TaskModal')
   ssr: false,
 })
 
+// Import parseMeetingData for validation
+import { parseMeetingData } from '@/components/crm/opportunity/TaskModal'
+
 const OpportunityFormModal = dynamic(() => import('@/components/crm/opportunity/OpportunityFormModal'), {
   loading: () => null,
   ssr: false,
@@ -85,6 +88,7 @@ export default function TasksPageClient() {
   const [selectedTask, setSelectedTask] = useState<TaskWithOpportunity | null>(null)
   const [savingTask, setSavingTask] = useState(false)
   const [taskError, setTaskError] = useState('')
+  const [forCompletion, setForCompletion] = useState(false) // Track if opening modal to complete a meeting
   const [opportunityModalOpen, setOpportunityModalOpen] = useState(false)
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null)
   const [loadingOpportunity, setLoadingOpportunity] = useState(false)
@@ -203,6 +207,21 @@ export default function TasksPageClient() {
 
   // React 19: Handle toggle complete using useOptimistic for instant UI update
   const handleToggleComplete = (task: TaskWithOpportunity) => {
+    // If trying to complete a meeting, check if outcome fields are filled
+    if (task.category === 'meeting' && !task.completed) {
+      const meetingData = parseMeetingData(task.notes || null)
+      // Meeting outcome fields must be filled (nextSteps) before completing
+      const hasNextSteps = meetingData?.nextSteps?.trim()
+      if (!meetingData || !hasNextSteps) {
+        // Open task modal for editing with forCompletion flag
+        setSelectedTask(task)
+        setForCompletion(true)
+        setTaskError('')
+        setTaskModalOpen(true)
+        return
+      }
+    }
+
     startToggleTransition(async () => {
       // Instant optimistic update
       addOptimisticTask(task.id)
@@ -221,6 +240,7 @@ export default function TasksPageClient() {
   // Handle edit task
   const handleEditTask = (task: TaskWithOpportunity) => {
     setSelectedTask(task)
+    setForCompletion(false) // Regular edit, not for completion
     setTaskError('')
     setTaskModalOpen(true)
   }
@@ -285,15 +305,17 @@ export default function TasksPageClient() {
       formData.append('category', data.category)
       formData.append('title', data.title)
       formData.append('date', data.date)
-      formData.append('completed', selectedTask.completed.toString())
+      // If forCompletion is true, mark as completed after saving
+      formData.append('completed', forCompletion ? 'true' : selectedTask.completed.toString())
       formData.append('notes', data.notes)
 
       const result = await updateTask(selectedTask.id, formData)
 
       if (result.success) {
-        toast.success('Tarea actualizada')
+        toast.success(forCompletion ? 'Tarea completada' : 'Tarea actualizada')
         setTaskModalOpen(false)
         setSelectedTask(null)
+        setForCompletion(false)
         await loadTasks()
       } else {
         setTaskError(result.error || 'Failed to update task')
@@ -537,12 +559,14 @@ export default function TasksPageClient() {
         onClose={() => {
           setTaskModalOpen(false)
           setSelectedTask(null)
+          setForCompletion(false)
         }}
         task={selectedTask}
         onSubmit={handleTaskSubmit}
         loading={savingTask}
         error={taskError}
         businessName={selectedTask?.opportunity?.business?.name || ''}
+        forCompletion={forCompletion}
       />
 
       {/* Opportunity Modal */}

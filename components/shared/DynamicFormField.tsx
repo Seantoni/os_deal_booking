@@ -85,22 +85,11 @@ function DynamicFormField({
         label: o.label,
       })) || [])
 
-  // Common wrapper for consistent field spacing
-  const FieldWrapper = ({ children, showHelp = true }: { children: React.ReactNode; showHelp?: boolean }) => (
-    <div className="space-y-0.5">
-      {children}
-      {showHelp && helpText && (
-        <p className="text-[10px] text-slate-400 leading-tight pl-0.5">{helpText}</p>
-      )}
-    </div>
-  )
-
-  // Handle special field types
+      // Handle special field types
   switch (fieldType) {
     case 'category':
       // Category select - use shared CategorySelect component with search
       return (
-        <FieldWrapper showHelp={false}>
         <CategorySelect
           value={value}
           onValueChange={onChange}
@@ -109,10 +98,9 @@ function DynamicFormField({
           required={isRequired}
           disabled={fieldDisabled}
           helpText={helpText}
-            placeholder="Seleccionar categoría..."
+          placeholder="Seleccionar categoría..."
           size="sm"
         />
-        </FieldWrapper>
       )
 
     case 'user-select':
@@ -122,7 +110,6 @@ function DynamicFormField({
         label: user.name || user.email || user.clerkId,
       }))
       return (
-        <FieldWrapper showHelp={false}>
         <Select
           label={label}
           value={value || ''}
@@ -131,10 +118,9 @@ function DynamicFormField({
           required={isRequired}
           size="sm"
           options={userSelectOptions}
-            placeholder="Seleccionar usuario..."
+          placeholder="Seleccionar usuario..."
           helperText={helpText}
         />
-        </FieldWrapper>
       )
 
     case 'business-select':
@@ -145,26 +131,24 @@ function DynamicFormField({
       // In edit mode with existing value, show locked readonly field
       if (isEditMode && value) {
         return (
-          <FieldWrapper>
-            <div className="space-y-0.5">
-              <FieldLabel label={label} required={isRequired} />
-              <div className="relative">
-                <input
-                  type="text"
-                  value={businessName}
-                  readOnly
-                  disabled
-                  className="w-full border border-slate-200 rounded-md bg-slate-50 text-slate-600 cursor-not-allowed text-xs px-2.5 py-1.5 pr-7"
-                />
-                <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                  <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                </div>
+          <div className="space-y-0.5">
+            <FieldLabel label={label} required={isRequired} />
+            <div className="relative">
+              <input
+                type="text"
+                value={businessName}
+                readOnly
+                disabled
+                className="w-full border border-slate-200 rounded-md bg-slate-50 text-slate-600 cursor-not-allowed text-xs px-2.5 py-1.5 pr-7"
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
               </div>
-              <p className="text-[10px] text-slate-400 pl-0.5">Bloqueado</p>
             </div>
-          </FieldWrapper>
+            <p className="text-[10px] text-slate-400 pl-0.5">Bloqueado</p>
+          </div>
         )
       }
       
@@ -174,7 +158,6 @@ function DynamicFormField({
         label: b.name,
       }))
       return (
-        <FieldWrapper showHelp={false}>
         <Select
           label={label}
           value={value || ''}
@@ -183,17 +166,15 @@ function DynamicFormField({
           required={isRequired}
           size="sm"
           options={businessSelectOptions}
-            placeholder="Seleccionar negocio..."
+          placeholder="Seleccionar negocio..."
           helperText={helpText}
         />
-        </FieldWrapper>
       )
 
     case 'stage-select':
     case 'select':
       // Generic select - use options prop
       return (
-        <FieldWrapper showHelp={false}>
         <Select
           label={label}
           value={value || ''}
@@ -202,14 +183,12 @@ function DynamicFormField({
           required={isRequired}
           size="sm"
           options={selectOptions}
-            placeholder="Seleccionar..."
+          placeholder="Seleccionar..."
         />
-        </FieldWrapper>
       )
 
     case 'textarea':
       return (
-        <FieldWrapper showHelp={false}>
         <Textarea
           label={label}
           value={value || ''}
@@ -217,15 +196,14 @@ function DynamicFormField({
           disabled={fieldDisabled}
           required={isRequired}
           placeholder={placeholder}
-            rows={2}
+          rows={2}
           size="sm"
         />
-        </FieldWrapper>
       )
 
     case 'checkbox':
       return (
-        <FieldWrapper>
+        <div className="space-y-0.5">
           <label className="inline-flex items-center gap-2 cursor-pointer group py-1">
             <input
               type="checkbox"
@@ -239,12 +217,14 @@ function DynamicFormField({
               {isRequired && <span className="text-red-500 ml-0.5">*</span>}
             </span>
           </label>
-        </FieldWrapper>
+          {helpText && (
+            <p className="text-[10px] text-slate-400 leading-tight pl-0.5">{helpText}</p>
+          )}
+        </div>
       )
 
     case 'date':
       return (
-        <FieldWrapper showHelp={false}>
         <Input
           type="date"
           label={label}
@@ -254,12 +234,10 @@ function DynamicFormField({
           required={isRequired}
           size="sm"
         />
-        </FieldWrapper>
       )
 
     case 'number':
       return (
-        <FieldWrapper showHelp={false}>
         <Input
           type="number"
           label={label}
@@ -270,12 +248,10 @@ function DynamicFormField({
           placeholder={placeholder}
           size="sm"
         />
-        </FieldWrapper>
       )
 
     case 'email':
       return (
-        <FieldWrapper showHelp={false}>
         <Input
           type="email"
           label={label}
@@ -286,12 +262,10 @@ function DynamicFormField({
           placeholder={placeholder}
           size="sm"
         />
-        </FieldWrapper>
       )
 
     case 'phone':
       return (
-        <FieldWrapper showHelp={false}>
         <Input
           type="tel"
           label={label}
@@ -302,7 +276,6 @@ function DynamicFormField({
           placeholder={placeholder}
           size="sm"
         />
-        </FieldWrapper>
       )
 
     case 'url':
@@ -316,7 +289,6 @@ function DynamicFormField({
         }
       }
       return (
-        <FieldWrapper showHelp={false}>
         <Input
           type="url"
           label={label}
@@ -325,16 +297,14 @@ function DynamicFormField({
           onBlur={handleUrlBlur}
           disabled={fieldDisabled}
           required={isRequired}
-            placeholder={placeholder || 'https://...'}
+          placeholder={placeholder || 'https://...'}
           size="sm"
         />
-        </FieldWrapper>
       )
 
     case 'text':
     default:
       return (
-        <FieldWrapper showHelp={false}>
         <Input
           type="text"
           label={label}
@@ -345,10 +315,18 @@ function DynamicFormField({
           placeholder={placeholder}
           size="sm"
         />
-        </FieldWrapper>
       )
   }
 }
 
-// Memoize to prevent re-renders when other fields change
-export default memo(DynamicFormField)
+// Custom comparison to prevent unnecessary re-renders while allowing value updates
+function arePropsEqual(prevProps: DynamicFormFieldProps, nextProps: DynamicFormFieldProps) {
+  // Re-render only when these specific props change
+  if (prevProps.value !== nextProps.value) return false
+  if (prevProps.canEdit !== nextProps.canEdit) return false
+  if (prevProps.disabled !== nextProps.disabled) return false
+  if (prevProps.field.id !== nextProps.field.id) return false
+  return true
+}
+
+export default memo(DynamicFormField, arePropsEqual)

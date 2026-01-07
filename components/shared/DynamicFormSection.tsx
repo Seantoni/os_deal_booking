@@ -187,5 +187,36 @@ function DynamicFormSection({
   )
 }
 
-// Memoize to prevent re-renders when sibling sections update
-export default memo(DynamicFormSection)
+// Custom comparison - section re-renders when its values or visibility changes
+function arePropsEqual(
+  prevProps: DynamicFormSectionProps, 
+  nextProps: DynamicFormSectionProps
+) {
+  // Section identity
+  if (prevProps.section.id !== nextProps.section.id) return false
+  // Disabled state
+  if (prevProps.disabled !== nextProps.disabled) return false
+  // Collapsible/expanded state
+  if (prevProps.defaultExpanded !== nextProps.defaultExpanded) return false
+  if (prevProps.collapsible !== nextProps.collapsible) return false
+  // Edit mode
+  if (prevProps.isEditMode !== nextProps.isEditMode) return false
+  
+  // Check if any field value in this section changed
+  const visibleFields = prevProps.section.fields.filter(f => f.isVisible)
+  for (const field of visibleFields) {
+    if (prevProps.values[field.fieldKey] !== nextProps.values[field.fieldKey]) {
+      return false
+    }
+    // Check field overrides
+    const prevOverride = prevProps.fieldOverrides?.[field.fieldKey]
+    const nextOverride = nextProps.fieldOverrides?.[field.fieldKey]
+    if (prevOverride?.canEdit !== nextOverride?.canEdit) {
+      return false
+    }
+  }
+  
+  return true
+}
+
+export default memo(DynamicFormSection, arePropsEqual)

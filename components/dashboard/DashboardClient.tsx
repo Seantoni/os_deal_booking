@@ -434,12 +434,9 @@ export default function DashboardClient() {
               <GroupIcon className="text-blue-500" style={{ fontSize: 16 }} />
               <span className="text-[10px] font-semibold text-gray-500 uppercase">Reuniones</span>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-gray-900">{stats?.tasks?.meetings || 0}</span>
-              <div className="flex gap-1 text-[10px]">
-                <span className="text-green-600">{stats?.tasks?.meetingsCompleted || 0}✓</span>
-                <span className="text-blue-600">{stats?.tasks?.meetingsPending || 0}○</span>
-              </div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-bold text-gray-900">{stats?.tasks?.meetingsCompleted || 0}</span>
+              <span className="text-xs text-gray-400">/ {stats?.tasks?.meetings || 0}</span>
             </div>
           </div>
 
