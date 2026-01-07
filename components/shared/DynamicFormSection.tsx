@@ -1,8 +1,6 @@
 'use client'
 
 import { useState, memo, type ReactElement } from 'react'
-import ExpandLessIcon from '@mui/icons-material/ExpandLess'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import DynamicFormField from './DynamicFormField'
 import type { FormSectionWithDefinitions, CategoryRecord } from '@/types'
 
@@ -76,7 +74,7 @@ function DynamicFormSection({
         const nextOverride = fieldOverrides[nextField.fieldKey] || {}
         const nextAddon = fieldAddons[nextField.fieldKey]
         elements.push(
-          <div key={`${field.id}-${nextField.id}`} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div key={`${field.id}-${nextField.id}`} className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
             <div className={addon ? 'flex items-end gap-2' : ''}>
               <div className={addon ? 'flex-1' : ''}>
                 <DynamicFormField
@@ -140,33 +138,48 @@ function DynamicFormSection({
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <div className="rounded-lg overflow-hidden border border-slate-200/60 bg-white shadow-sm">
       {collapsible ? (
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between text-left"
+          className="w-full px-3 py-2 flex items-center justify-between text-left bg-gradient-to-r from-slate-50 to-slate-100/50 hover:from-slate-100 hover:to-slate-100/80 transition-colors group"
           aria-label={isExpanded ? 'Contraer sección' : 'Expandir sección'}
         >
-          <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
-            {section.name}
-          </h3>
-          {isExpanded ? (
-            <ExpandLessIcon fontSize="small" className="text-gray-500" />
-          ) : (
-            <ExpandMoreIcon fontSize="small" className="text-gray-500" />
-          )}
+          <div className="flex items-center gap-2">
+            <div className={`w-1 h-4 rounded-full transition-colors ${isExpanded ? 'bg-blue-500' : 'bg-slate-300 group-hover:bg-slate-400'}`} />
+            <h3 className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+              {section.name}
+            </h3>
+            <span className="text-[10px] text-slate-400 font-normal">
+              ({visibleFields.length})
+            </span>
+          </div>
+          <svg 
+            className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
         </button>
       ) : (
-        <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-          <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
-            {section.name}
-          </h3>
+        <div className="px-3 py-2 bg-gradient-to-r from-slate-50 to-slate-100/50">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-4 rounded-full bg-blue-500" />
+            <h3 className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+              {section.name}
+            </h3>
+            <span className="text-[10px] text-slate-400 font-normal">
+              ({visibleFields.length})
+            </span>
+          </div>
         </div>
       )}
 
       {isExpanded && (
-        <div className="p-4 space-y-3">
+        <div className="px-3 py-3 space-y-2.5 bg-white">
           {renderFields()}
         </div>
       )}

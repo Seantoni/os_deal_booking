@@ -34,11 +34,11 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
   ref
 ) {
   const base =
-    'w-full border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors resize-none'
+    'w-full border border-gray-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed transition-all duration-200 bg-white hover:border-gray-300 resize-none'
 
   return (
-    <label className={cn('flex flex-col gap-1', fullWidth && 'w-full')}>
-      {label && <span className="text-sm font-medium text-gray-700">{label}</span>}
+    <label className={cn('flex flex-col gap-0.5', fullWidth && 'w-full')}>
+      {label && <span className="text-xs font-medium text-slate-600">{label}</span>}
       <textarea
         ref={ref}
         disabled={disabled}

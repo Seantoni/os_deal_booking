@@ -62,14 +62,14 @@ export function Alert({ variant = 'info', title, children, className, icon }: Al
         variantClass.bg,
         variantClass.border,
         variantClass.text,
-        'border rounded-xl px-4 py-3 flex items-start gap-3 shadow-sm',
+        'border rounded-lg px-3 py-1.5 flex items-center gap-2',
         className
       )}
     >
-      <span className={cn(variantClass.icon, 'flex-shrink-0 mt-0.5')}>{displayIcon}</span>
-      <div className="flex-1 min-w-0">
-        {title && <p className="font-semibold text-sm mb-1">{title}</p>}
-        <div className="text-sm">{children}</div>
+      <span className={cn(variantClass.icon, 'flex-shrink-0')}>{displayIcon}</span>
+      <div className="flex-1 min-w-0 flex items-center gap-2">
+        {title && <span className="font-semibold text-xs">{title}</span>}
+        <span className="text-xs">{children}</span>
       </div>
     </div>
   )

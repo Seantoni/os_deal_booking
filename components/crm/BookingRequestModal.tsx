@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { getBookingRequest } from '@/app/actions/booking-requests'
+import { useModalEscape } from '@/hooks/useModalEscape'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import CloseIcon from '@mui/icons-material/Close'
 import DescriptionIcon from '@mui/icons-material/Description'
@@ -25,6 +26,9 @@ interface BookingRequestModalProps {
 export default function BookingRequestModal({ isOpen, onClose, requestId }: BookingRequestModalProps) {
   const [request, setRequest] = useState<any>(null)
   const [loading, setLoading] = useState(false)
+
+  // Close modal on Escape key
+  useModalEscape(isOpen, onClose)
 
   useEffect(() => {
     if (isOpen && requestId) {

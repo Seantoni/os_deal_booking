@@ -7,6 +7,7 @@ import CategoriesSidebar from '@/components/calendar/CategoriesSidebar'
 import PendingRequestsSidebar from '@/components/booking/PendingRequestsSidebar'
 import CalendarView from '@/components/calendar/CalendarView'
 import DayEventsModal from '@/components/calendar/DayEventsModal'
+import NewRequestModal from '@/components/booking/NewRequestModal'
 import { updateEvent, refreshCalendarData } from '@/app/actions/events'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import CloseIcon from '@mui/icons-material/Close'
@@ -14,7 +15,7 @@ import type { Event, BookingRequest, UserRole } from '@/types'
 
 // Lazy load heavy modal component
 const EventModal = dynamic(() => import('@/components/events/EventModal'), {
-  loading: () => <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"><div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div></div>,
+  loading: () => null, // Don't show loading overlay - modal handles its own loading state
   ssr: false,
 })
 
@@ -43,6 +44,15 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [shouldLoadModal, setShouldLoadModal] = useState(false)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
+  
+  // Mini calendar navigation state
+  const [externalCalendarDate, setExternalCalendarDate] = useState<Date | null>(null)
+  const [externalCalendarView, setExternalCalendarView] = useState<'day' | 'week' | 'month' | null>(null)
+  const [selectedMiniDate, setSelectedMiniDate] = useState<Date | null>(null)
+  const [selectedMiniRange, setSelectedMiniRange] = useState<{ start: Date; end: Date } | null>(null)
+  
+  // New Request Modal state
+  const [showNewRequestModal, setShowNewRequestModal] = useState(false)
 
   const openEventModal = () => {
     setShouldLoadModal(true)
@@ -287,6 +297,53 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
     setDraggingRequest(request)
   }
 
+  // Mini calendar handlers
+  const handleMiniCalendarDateSelect = (date: Date, mode: 'day') => {
+    setSelectedMiniDate(date)
+    setSelectedMiniRange(null)
+    setExternalCalendarDate(date)
+    setExternalCalendarView('day')
+  }
+
+  const handleMiniCalendarRangeSelect = (startDate: Date, endDate: Date) => {
+    setSelectedMiniDate(null)
+    setSelectedMiniRange({ start: startDate, end: endDate })
+    setExternalCalendarDate(startDate)
+    // For range selection, show week view if range is 7 days or less, otherwise month
+    const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    setExternalCalendarView(daysDiff <= 7 ? 'week' : 'month')
+  }
+
+  const handleMiniCalendarMonthSelect = (year: number, month: number) => {
+    setSelectedMiniDate(null)
+    setSelectedMiniRange(null)
+    setExternalCalendarDate(new Date(year, month, 1))
+    setExternalCalendarView('month')
+  }
+
+  const handleMiniCalendarClearSelection = () => {
+    setSelectedMiniDate(null)
+    setSelectedMiniRange(null)
+    // Keep the current date but switch to month view
+    setExternalCalendarView('month')
+  }
+
+  const handleCalendarViewChange = (view: 'day' | 'week' | 'month') => {
+    // When user clicks Day/Week/Month buttons, clear mini calendar selection
+    // and show the standard calendar view
+    setSelectedMiniDate(null)
+    setSelectedMiniRange(null)
+    setExternalCalendarView(view)
+  }
+
+  const handleCalendarDateChange = (date: Date) => {
+    // When date changes in main calendar, update the selected mini date
+    // only if we're in day view
+    if (externalCalendarView === 'day') {
+      setSelectedMiniDate(date)
+    }
+  }
+
   const handleRequestDropOnDate = async (request: BookingRequest, date: Date) => {
     // Import category duration check
     const { getMaxDuration } = await import('@/lib/categories')
@@ -407,6 +464,14 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
                   showPendingBooking={effectiveShowPendingBooking}
                   onPendingBookingToggle={canSeePendingRequests ? () => setShowPendingBooking(!showPendingBooking) : undefined}
                   userRole={userRole}
+                  onMiniCalendarDateSelect={handleMiniCalendarDateSelect}
+                  onMiniCalendarRangeSelect={handleMiniCalendarRangeSelect}
+                  onMiniCalendarMonthSelect={handleMiniCalendarMonthSelect}
+                  onMiniCalendarClearSelection={handleMiniCalendarClearSelection}
+                  selectedMiniDate={selectedMiniDate}
+                  selectedMiniRange={selectedMiniRange}
+                  events={events}
+                  pendingCount={pendingRequests.length}
                 />
               )}
             </div>
@@ -446,6 +511,14 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
               onEventResize={userRole === 'admin' ? handleEventResize : undefined}
               onDayExpand={handleDayExpand}
               readOnly={userRole !== 'admin'}
+              externalDate={externalCalendarDate}
+              externalView={externalCalendarView}
+              externalRange={selectedMiniRange}
+              onViewChange={handleCalendarViewChange}
+              onCurrentDateChange={handleCalendarDateChange}
+              onNewRequestClick={() => setShowNewRequestModal(true)}
+              onCreateEventClick={openEventModal}
+              userRole={userRole}
             />
           </div>
         </div>
@@ -474,6 +547,12 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
         date={dayModalDate}
         events={dayModalEvents}
         onEventClick={handleEventClick}
+      />
+
+      {/* New Request Modal */}
+      <NewRequestModal
+        isOpen={showNewRequestModal}
+        onClose={() => setShowNewRequestModal(false)}
       />
     </>
   )

@@ -5,6 +5,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import EmailIcon from '@mui/icons-material/Email'
 import SendIcon from '@mui/icons-material/Send'
 import AddIcon from '@mui/icons-material/Add'
+import { useModalEscape } from '@/hooks/useModalEscape'
 
 interface ResendRequestModalProps {
   isOpen: boolean
@@ -21,6 +22,9 @@ export default function ResendRequestModal({
   currentEmail,
   requestName,
 }: ResendRequestModalProps) {
+  // Close modal on Escape key
+  useModalEscape(isOpen, onClose)
+  
   const [emailOption, setEmailOption] = useState<'same' | 'new' | 'multiple'>('same')
   const [newEmail, setNewEmail] = useState('')
   const [additionalEmails, setAdditionalEmails] = useState<string[]>([])

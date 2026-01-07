@@ -14,6 +14,7 @@ import {
   type AdditionalInfo,
 } from '@/types'
 import { useUserRole } from '@/hooks/useUserRole'
+import { useModalEscape } from '@/hooks/useModalEscape'
 import { useUser } from '@clerk/nextjs'
 import { FIELD_TEMPLATES } from '@/components/RequestForm/config/field-templates'
 import { FieldWithComments } from './FieldWithComments'
@@ -186,6 +187,9 @@ export default function BookingRequestViewModal({
   requestId,
   hideBackdrop = false,
 }: BookingRequestViewModalProps) {
+  // Close modal on Escape key
+  useModalEscape(isOpen, onClose)
+  
   const router = useRouter()
   const { isAdmin } = useUserRole()
   const { user } = useUser()

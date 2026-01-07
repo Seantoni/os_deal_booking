@@ -8,9 +8,23 @@ import EventIcon from '@mui/icons-material/Event'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import FlagIcon from '@mui/icons-material/Flag'
 import HistoryIcon from '@mui/icons-material/History'
-import { formatShortDate } from '@/lib/date'
+import AssignmentIcon from '@mui/icons-material/Assignment'
+import GroupsIcon from '@mui/icons-material/Groups'
+import ScheduleIcon from '@mui/icons-material/Schedule'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import UserSelect from './UserSelect'
+
+// Compact date formatter - always shows "4 ene" format for brevity
+function formatCompactDate(date: string | Date | null | undefined): string {
+  if (!date) return ''
+  const d = typeof date === 'string' ? new Date(date) : date
+  
+  return d.toLocaleDateString('es-ES', { 
+    timeZone: PANAMA_TIMEZONE, 
+    month: 'short', 
+    day: 'numeric' 
+  })
+}
 
 // Mini portal-based select for compact inline use
 function InlineSelect({
@@ -34,7 +48,6 @@ function InlineSelect({
   useEffect(() => {
     if (isOpen && buttonRef.current) {
       const rect = buttonRef.current.getBoundingClientRect()
-      // Use viewport coordinates for fixed positioning (no scroll offset needed)
       setPosition({
         top: rect.bottom + 2,
         left: rect.left,
@@ -104,7 +117,7 @@ function InlineSelect({
   )
 }
 
-// Generic item component
+// Generic item component (kept for backwards compatibility)
 function Item({ 
   icon, 
   label, 
@@ -123,7 +136,7 @@ function Item({
   )
 }
 
-// Date item component
+// Date item component (kept for backwards compatibility)
 function DateItem({ 
   icon, 
   label, 
@@ -137,13 +150,17 @@ function DateItem({
 }) {
   const formattedDate = formatFn 
     ? formatFn(date) 
-    : (date ? formatShortDate(date instanceof Date ? date.toISOString() : date) : '')
+    : formatCompactDate(date)
+  
+  // Don't render if no date
+  if (!date) return null
+  
   return (
     <Item 
       icon={icon || <CalendarTodayIcon className="text-gray-400" style={{ fontSize: 14 }} />}
       label={label}
     >
-      <span className={date ? '' : 'text-gray-400'}>{formattedDate || 'N/A'}</span>
+      <span>{formattedDate}</span>
     </Item>
   )
 }
@@ -157,31 +174,14 @@ function CreatedDateItem({
   createdAt?: string | Date | null
 }) {
   const date = createdAt || entity?.createdAt
-  const formatDate = (d: string | Date | null | undefined) => {
-    if (!d) return ''
-    if (typeof d === 'string') {
-      return new Date(d).toLocaleDateString('en-US', { 
-        timeZone: PANAMA_TIMEZONE, 
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric' 
-      })
-    }
-    return d.toLocaleDateString('en-US', { 
-      timeZone: PANAMA_TIMEZONE, 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
-    })
-  }
-
+  
   return (
     <Item 
       icon={<CalendarTodayIcon className="text-gray-400" style={{ fontSize: 14 }} />}
       label="Creado"
     >
       {date ? (
-        <span>{formatDate(date)}</span>
+        <span>{formatCompactDate(date)}</span>
       ) : (
         <span className="text-gray-400">Nuevo</span>
       )}
@@ -205,7 +205,6 @@ function UserSelectItem({
   onChange: (id: string) => void
   placeholder: string
 }) {
-  // Convert users to the format expected by UserSelect
   const userOptions = users.map(u => ({
     clerkId: u.clerkId,
     name: u.name || null,
@@ -285,11 +284,117 @@ function UserDisplayItem({
   )
 }
 
-// Section component for grouping related items
-function Section({ children, label }: { children: React.ReactNode; label?: string }) {
+// NEW: Activity Pair - shows Next/Last for a category in compact format
+function ActivityPair({
+  icon,
+  label,
+  nextDate,
+  lastDate,
+}: {
+  icon: React.ReactNode
+  label: string
+  nextDate?: string | Date | null
+  lastDate?: string | Date | null
+}) {
+  // Don't render if no dates
+  if (!nextDate && !lastDate) return null
+
   return (
-    <div className="flex items-center gap-2 py-0.5 pr-3 border-r border-gray-300 last:border-r-0 last:pr-0">
-      {label && <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">{label}</span>}
+    <div className="flex items-center gap-1.5">
+      {icon}
+      <span className="text-[10px] font-medium text-gray-500 uppercase">{label}</span>
+      <div className="flex items-center gap-2">
+        {nextDate && (
+          <span className="text-xs font-semibold text-gray-900">
+            Próx: {formatCompactDate(nextDate)}
+          </span>
+        )}
+        {lastDate && (
+          <span className="text-[10px] text-gray-400">
+            Últ: {formatCompactDate(lastDate)}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// NEW: Compact Date - for timeline dates with minimal label
+function CompactDate({
+  label,
+  date,
+  muted = false,
+}: {
+  label: string
+  date?: string | Date | null
+  muted?: boolean
+}) {
+  // Don't render if no date
+  if (!date) return null
+
+  return (
+    <span className={`text-xs ${muted ? 'text-gray-400' : 'text-gray-600'}`}>
+      <span className="text-gray-400">{label}:</span> {formatCompactDate(date)}
+    </span>
+  )
+}
+
+// NEW: Compact User - for owner display
+function CompactUser({
+  user,
+  users,
+  isAdmin,
+  onChange,
+  placeholder,
+}: {
+  user: string | null
+  users: Array<{ clerkId: string; name?: string | null; email?: string | null }>
+  isAdmin: boolean
+  onChange: (id: string) => void
+  placeholder: string
+}) {
+  const userOptions = users.map(u => ({
+    clerkId: u.clerkId,
+    name: u.name || null,
+    email: u.email || null,
+  }))
+
+  const handleChange = (newUserId: string | null) => {
+    onChange(newUserId || '')
+  }
+
+  const selectedUser = users.find(u => u.clerkId === user)
+  const displayName = selectedUser?.name?.split(' ')[0] || selectedUser?.email?.split('@')[0] || placeholder
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <PersonOutlineIcon className="text-gray-400" style={{ fontSize: 14 }} />
+      {isAdmin ? (
+        <UserSelect
+          value={user}
+          onChange={handleChange}
+          users={userOptions}
+          canEdit={isAdmin}
+          placeholder={placeholder}
+          showIcon={false}
+          showLabel={false}
+          size="sm"
+          variant="inline"
+        />
+      ) : (
+        <span className="text-xs font-medium text-gray-700">{displayName}</span>
+      )}
+    </div>
+  )
+}
+
+// Section component with background pill styling
+const Section = ({ children, label }: { children: React.ReactNode; label?: string }) => {
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100/80 rounded-lg">
+      {label && (
+        <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">{label}</span>
+      )}
       <div className="flex items-center gap-3">
         {children}
       </div>
@@ -297,47 +402,57 @@ function Section({ children, label }: { children: React.ReactNode; label?: strin
   )
 }
 
-// Main container component
+// Main container component - now with 2-line layout option
 interface ReferenceInfoBarProps {
   children: React.ReactNode
-  variant?: 'default' | 'border-bottom'
+  variant?: 'default' | 'border-bottom' | 'compact'
 }
 
-function ReferenceInfoBar({ 
+const ReferenceInfoBarComponent = ({ 
   children, 
   variant = 'default' 
-}: ReferenceInfoBarProps) {
+}: ReferenceInfoBarProps) => {
   const containerClass = variant === 'border-bottom'
-    ? 'bg-gray-50 border-b border-gray-200 px-4 py-2.5'
+    ? 'bg-gray-50 border-b border-gray-200 px-4 py-2'
+    : variant === 'compact'
+    ? 'bg-gray-50/50 px-4 py-1.5'
     : 'bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5'
 
   return (
     <div className={containerClass}>
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-gray-600">
+      <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600">
         {children}
       </div>
     </div>
   )
 }
 
-// Export sub-components
-ReferenceInfoBar.Item = Item
-ReferenceInfoBar.DateItem = DateItem
-ReferenceInfoBar.CreatedDateItem = CreatedDateItem
-ReferenceInfoBar.UserSelectItem = UserSelectItem
-ReferenceInfoBar.TeamSelectItem = TeamSelectItem
-ReferenceInfoBar.UserDisplayItem = UserDisplayItem
-ReferenceInfoBar.Section = Section
-
-// Export icons for custom use
-ReferenceInfoBar.Icons = {
+// Icons for custom use
+const Icons = {
   Calendar: CalendarTodayIcon,
   Person: PersonOutlineIcon,
   Event: EventIcon,
   PlayArrow: PlayArrowIcon,
   Flag: FlagIcon,
   History: HistoryIcon,
+  Task: AssignmentIcon,
+  Meeting: GroupsIcon,
+  Schedule: ScheduleIcon,
 }
 
-export default ReferenceInfoBar
+// Create compound component
+const ReferenceInfoBar = Object.assign(ReferenceInfoBarComponent, {
+  Item,
+  DateItem,
+  CreatedDateItem,
+  UserSelectItem,
+  TeamSelectItem,
+  UserDisplayItem,
+  Section,
+  ActivityPair,
+  CompactDate,
+  CompactUser,
+  Icons,
+})
 
+export default ReferenceInfoBar

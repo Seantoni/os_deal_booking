@@ -6,6 +6,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import ErrorIcon from '@mui/icons-material/Error'
 import WarningIcon from '@mui/icons-material/Warning'
+import { useModalEscape } from '@/hooks/useModalEscape'
 import { Button } from '@/components/ui'
 import { parseCsv, type ParsedCsvRow } from '@/lib/utils/csv-export'
 
@@ -65,6 +66,9 @@ export default function CsvUploadModal({
     resetState()
     onClose()
   }, [onClose, resetState])
+
+  // Close modal on Escape key
+  useModalEscape(isOpen, handleClose)
 
   const handleFileSelect = useCallback(async (selectedFile: File) => {
     setFile(selectedFile)

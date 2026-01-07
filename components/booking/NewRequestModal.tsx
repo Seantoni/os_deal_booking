@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { generateAndSendPublicLink } from '@/app/actions/booking'
+import { useModalEscape } from '@/hooks/useModalEscape'
 import CloseIcon from '@mui/icons-material/Close'
 import EmailIcon from '@mui/icons-material/Email'
 import EditIcon from '@mui/icons-material/Edit'
@@ -27,6 +28,9 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
   // React 19: useTransition for non-blocking UI during form actions
   const [isPending, startTransition] = useTransition()
   const isGenerating = isPending
+
+  // Close modal on Escape key
+  useModalEscape(isOpen, onClose)
 
   if (!isOpen) return null
 

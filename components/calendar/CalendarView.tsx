@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { getDaysDifference, getCategoryColors } from '@/lib/categories'
 import { getEventsOnDate, getDailyLimitStatus } from '@/lib/event-validation'
 import { getSettings } from '@/lib/settings'
@@ -8,7 +8,7 @@ import { formatDateForPanama, PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import EventSearchResults from '@/components/events/EventSearchResults'
 import PublicIcon from '@mui/icons-material/Public'
 import LockIcon from '@mui/icons-material/Lock'
-import type { Event, BookingRequest } from '@/types'
+import type { Event, BookingRequest, UserRole } from '@/types'
 import './CalendarView.css'
 
 type ViewMode = 'launch' | 'live'
@@ -31,9 +31,19 @@ interface CalendarViewProps {
   onEventResize?: (event: Event, newEndDate: Date) => void
   onDayExpand?: (date: Date, events: Event[]) => void
   readOnly?: boolean
+  // External navigation control
+  externalDate?: Date | null
+  externalView?: CalendarViewMode | null
+  externalRange?: { start: Date; end: Date } | null
+  onViewChange?: (view: CalendarViewMode) => void
+  onCurrentDateChange?: (date: Date) => void
+  // Action buttons
+  onNewRequestClick?: () => void
+  onCreateEventClick?: () => void
+  userRole?: UserRole
 }
 
-export default function CalendarView({ events, selectedCategories, showPendingBooking, categoryFilter, searchQuery = '', draggingRequest, bookingRequests = [], onSearchChange, onRequestDropOnDate, onDateClick, onDateRangeSelect, onEventClick, onEventMove, onEventResize, onDayExpand, readOnly = false }: CalendarViewProps) {
+export default function CalendarView({ events, selectedCategories, showPendingBooking, categoryFilter, searchQuery = '', draggingRequest, bookingRequests = [], onSearchChange, onRequestDropOnDate, onDateClick, onDateRangeSelect, onEventClick, onEventMove, onEventResize, onDayExpand, readOnly = false, externalDate, externalView, externalRange, onViewChange, onCurrentDateChange, onNewRequestClick, onCreateEventClick, userRole }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [dragStartDay, setDragStartDay] = useState<number | null>(null)
   const [dragEndDay, setDragEndDay] = useState<number | null>(null)
@@ -57,6 +67,19 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
   const [resizeStartDay, setResizeStartDay] = useState<number | null>(null)
   const [resizeMode, setResizeMode] = useState<'start' | 'end' | null>(null)
   const userSettings = getSettings()
+
+  // Handle external navigation control
+  useEffect(() => {
+    if (externalDate) {
+      setCurrentDate(externalDate)
+    }
+  }, [externalDate])
+
+  useEffect(() => {
+    if (externalView) {
+      setCalendarView(externalView)
+    }
+  }, [externalView])
 
   // Filter events by categories and booking status
   const filteredEvents = useMemo(() => {
@@ -104,15 +127,39 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
   const month = currentDate.getMonth()
   const day = currentDate.getDate()
 
-  // Calculate range based on calendar view mode
+  // Calculate range based on calendar view mode or external range selection
   const getViewRange = () => {
+    // If external range is provided, show ONLY those selected days
+    if (externalRange) {
+      const rangeStartYear = externalRange.start.getFullYear()
+      const rangeStartMonth = externalRange.start.getMonth()
+      const rangeStartDay = externalRange.start.getDate()
+      const rangeEndYear = externalRange.end.getFullYear()
+      const rangeEndMonth = externalRange.end.getMonth()
+      const rangeEndDay = externalRange.end.getDate()
+      
+      // Check if range is within current month view
+      if (rangeStartYear === year && rangeStartMonth === month &&
+          rangeEndYear === year && rangeEndMonth === month) {
+        const daysInRange = rangeEndDay - rangeStartDay + 1
+        return {
+          startDay: rangeStartDay,
+          endDay: rangeEndDay,
+          startingDayOfWeek: new Date(year, month, rangeStartDay).getDay(),
+          daysToShow: daysInRange,
+          isCustomRange: true
+        }
+      }
+    }
+    
+    // Single day selection (Day view)
     if (calendarView === 'day') {
-      // Show just the selected day
       return {
         startDay: day,
         endDay: day,
         startingDayOfWeek: new Date(year, month, day).getDay(),
-        daysToShow: 1
+        daysToShow: 1,
+        isCustomRange: false
       }
     } else if (calendarView === 'week') {
       // Show the week containing the current date
@@ -123,7 +170,8 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
         startDay: Math.max(1, startOfWeek),
         endDay: Math.min(new Date(year, month + 1, 0).getDate(), endOfWeek),
         startingDayOfWeek: 0,
-        daysToShow: 7
+        daysToShow: 7,
+        isCustomRange: false
       }
     } else {
       // Month view - show full month
@@ -133,40 +181,81 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
         startDay: 1,
         endDay: lastDayOfMonth.getDate(),
         startingDayOfWeek: firstDayOfMonth.getDay(),
-        daysToShow: lastDayOfMonth.getDate()
+        daysToShow: lastDayOfMonth.getDate(),
+        isCustomRange: false
       }
     }
   }
 
   const viewRange = getViewRange()
-  const { startDay, endDay, startingDayOfWeek, daysToShow } = viewRange
+  const { startDay, endDay, startingDayOfWeek, daysToShow, isCustomRange } = viewRange
   const daysInMonth = new Date(year, month + 1, 0).getDate()
+  
+  // Determine grid columns based on view mode
+  const getGridCols = () => {
+    if (isCustomRange) {
+      // For custom range, use appropriate columns based on days count
+      if (daysToShow === 1) return 1
+      if (daysToShow <= 3) return daysToShow
+      if (daysToShow <= 7) return Math.min(daysToShow, 7)
+      return 7 // For larger ranges, use 7-column grid
+    }
+    return calendarView === 'day' ? 1 : 7
+  }
+  const gridCols = getGridCols()
 
   const navigatePrevious = () => {
+    let newDate: Date
     if (calendarView === 'day') {
-      setCurrentDate(new Date(year, month, day - 1))
+      newDate = new Date(year, month, day - 1)
     } else if (calendarView === 'week') {
-      setCurrentDate(new Date(year, month, day - 7))
+      newDate = new Date(year, month, day - 7)
     } else {
-      setCurrentDate(new Date(year, month - 1, 1))
+      newDate = new Date(year, month - 1, 1)
     }
+    setCurrentDate(newDate)
+    onCurrentDateChange?.(newDate)
   }
 
   const navigateNext = () => {
+    let newDate: Date
     if (calendarView === 'day') {
-      setCurrentDate(new Date(year, month, day + 1))
+      newDate = new Date(year, month, day + 1)
     } else if (calendarView === 'week') {
-      setCurrentDate(new Date(year, month, day + 7))
+      newDate = new Date(year, month, day + 7)
     } else {
-      setCurrentDate(new Date(year, month + 1, 1))
+      newDate = new Date(year, month + 1, 1)
     }
+    setCurrentDate(newDate)
+    onCurrentDateChange?.(newDate)
   }
 
   const goToToday = () => {
-    setCurrentDate(new Date())
+    const newDate = new Date()
+    setCurrentDate(newDate)
+    onCurrentDateChange?.(newDate)
+  }
+  
+  const handleViewChange = (view: CalendarViewMode) => {
+    setCalendarView(view)
+    onViewChange?.(view)
   }
 
   const getHeaderTitle = () => {
+    // For custom range selection from mini calendar
+    if (isCustomRange && externalRange) {
+      const rangeStart = externalRange.start
+      const rangeEnd = externalRange.end
+      if (rangeStart.getDate() === rangeEnd.getDate() && 
+          rangeStart.getMonth() === rangeEnd.getMonth() &&
+          rangeStart.getFullYear() === rangeEnd.getFullYear()) {
+        // Single day
+        return rangeStart.toLocaleDateString('en-US', { timeZone: PANAMA_TIMEZONE, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+      }
+      // Range of days
+      return `${rangeStart.toLocaleDateString('en-US', { timeZone: PANAMA_TIMEZONE, month: 'short', day: 'numeric' })} - ${rangeEnd.toLocaleDateString('en-US', { timeZone: PANAMA_TIMEZONE, month: 'short', day: 'numeric', year: 'numeric' })}`
+    }
+    
     if (calendarView === 'day') {
       return currentDate.toLocaleDateString('en-US', { timeZone: PANAMA_TIMEZONE, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
     } else if (calendarView === 'week') {
@@ -186,7 +275,7 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
   // Process events for display - mutually exclusive views
-  const { eventsByDate, spanningEvents } = useMemo(() => {
+  const { eventsByDate, spanningEvents, overflowPerDay } = useMemo(() => {
     const grouped: { [key: string]: Event[] } = {}
     const spanning: Array<Event & { startDay: number; endDay: number; spanDays: number }> = []
     
@@ -210,20 +299,19 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
         }
       })
     } else {
-      // Live dates mode: ONLY show as spanning bars (ALL VIEWS - Month, Week, Day)
+      // Live dates mode: Show as continuous spanning bars
       filteredEvents.forEach(event => {
         const startDate = new Date(event.startDate)
         const endDate = new Date(event.endDate)
         
-        // Use Panama timezone to get correct dates (stored dates are in UTC but represent Panama time)
+        // Use Panama timezone to get correct dates
         const startDateStr = formatDateForPanama(startDate)
         const endDateStr = formatDateForPanama(endDate)
         
-        // formatDateForPanama returns YYYY-MM-DD (month is 1-indexed), convert to 0-indexed for JS Date
         const [eventStartYear, eventStartMonthRaw, eventStartDate] = startDateStr.split('-').map(Number)
         const [eventEndYear, eventEndMonthRaw, eventEndDate] = endDateStr.split('-').map(Number)
-        const eventStartMonth = eventStartMonthRaw - 1 // Convert to 0-indexed
-        const eventEndMonth = eventEndMonthRaw - 1 // Convert to 0-indexed
+        const eventStartMonth = eventStartMonthRaw - 1
+        const eventEndMonth = eventEndMonthRaw - 1
         
         // Calculate event's visible range in current view
         const eventStartDay = eventStartMonth === month && eventStartYear === year 
@@ -237,7 +325,6 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
         if (eventStartDay !== null && eventEndDay !== null && eventStartDay <= endDay && eventEndDay >= startDay) {
           const spanDays = eventEndDay - eventStartDay + 1
           
-          // ALL events go to spanning (including single-day)
           spanning.push({
             ...event,
             startDay: eventStartDay,
@@ -248,7 +335,68 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
       })
     }
     
-    return { eventsByDate: grouped, spanningEvents: spanning }
+    // Allocate lanes to spanning events to prevent overlaps
+    const sortedSpanning = [...spanning].sort((a, b) => {
+      if (a.startDay !== b.startDay) return a.startDay - b.startDay
+      return b.spanDays - a.spanDays // Longer events first
+    })
+    
+    const eventLanes: Map<string, number> = new Map()
+    const dayLanes: Map<number, Set<number>> = new Map()
+    
+    sortedSpanning.forEach(event => {
+      let lane = 0
+      let foundLane = false
+      
+      while (!foundLane) {
+        let laneAvailable = true
+        for (let d = event.startDay; d <= event.endDay; d++) {
+          const usedLanes = dayLanes.get(d) || new Set()
+          if (usedLanes.has(lane)) {
+            laneAvailable = false
+            break
+          }
+        }
+        
+        if (laneAvailable) {
+          foundLane = true
+          for (let d = event.startDay; d <= event.endDay; d++) {
+            if (!dayLanes.has(d)) {
+              dayLanes.set(d, new Set())
+            }
+            dayLanes.get(d)!.add(lane)
+          }
+          eventLanes.set(event.id, lane)
+        } else {
+          lane++
+        }
+      }
+    })
+    
+    const spanningWithLanes = sortedSpanning.map(event => ({
+      ...event,
+      lane: eventLanes.get(event.id) || 0
+    }))
+    
+    // Limit visible lanes based on view - Month: 5, Week: 8, Day: unlimited
+    const MAX_VISIBLE_LANES = calendarView === 'month' ? 5 : calendarView === 'week' ? 8 : 100
+    const overflowPerDay: Map<number, number> = new Map()
+    
+    spanningWithLanes.forEach(event => {
+      if (event.lane >= MAX_VISIBLE_LANES) {
+        for (let d = event.startDay; d <= event.endDay; d++) {
+          overflowPerDay.set(d, (overflowPerDay.get(d) || 0) + 1)
+        }
+      }
+    })
+    
+    const visibleSpanningEvents = spanningWithLanes.filter(e => e.lane < MAX_VISIBLE_LANES)
+    
+    return { 
+      eventsByDate: grouped, 
+      spanningEvents: visibleSpanningEvents,
+      overflowPerDay
+    }
   }, [filteredEvents, viewMode, year, month, calendarView, startDay, endDay])
 
   const getEventsForDay = (day: number) => {
@@ -310,6 +458,11 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
 
   const handleEventDragStart = (event: Event, e: React.DragEvent) => {
     if (readOnly) {
+      e.preventDefault()
+      return
+    }
+    // Don't start dragging the event if we're resizing
+    if (resizingEvent) {
       e.preventDefault()
       return
     }
@@ -416,6 +569,8 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
       return
     }
     e.stopPropagation()
+    // Clear any dragging state to ensure resize takes priority
+    setDraggingEvent(null)
     setResizingEvent(event)
     setResizeMode(mode)
     const startDate = new Date(event.startDate)
@@ -432,8 +587,12 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
   // Generate calendar grid
   const calendarDays = []
   
-  // Empty cells for days before range starts (only in month view)
-  if (calendarView === 'month') {
+  // Empty cells for days before range starts
+  // - Month view: always add empty cells to align with day-of-week headers
+  // - Custom range > 7 days: add empty cells to align with day-of-week headers
+  // - Custom range <= 7 days or Day view: no empty cells (headers match days directly)
+  const needsEmptyCells = calendarView === 'month' || (isCustomRange && daysToShow > 7)
+  if (needsEmptyCells) {
     for (let i = 0; i < startingDayOfWeek; i++) {
       calendarDays.push(
         <div key={`empty-${i}`} className="bg-gray-50 border-r border-b border-gray-200 min-h-24 empty-day opacity-50"></div>
@@ -467,9 +626,11 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
         onMouseUp={() => handleMouseUp(dayNum)}
         onDragOver={(e) => handleDayDragOver(dayNum, e)}
         onDrop={(e) => handleDayDrop(dayNum, e)}
-        className={`border-r border-b border-gray-200 calendar-day ${calendarView === 'month' ? (viewMode === 'launch' ? 'min-h-16 sm:min-h-20' : 'min-h-20 sm:min-h-24') : 'min-h-32 sm:min-h-40'} ${viewMode === 'launch' ? 'p-0.5 sm:p-1' : 'p-1.5 sm:p-2'} cursor-pointer select-none ${
+        className={`border-r border-b border-gray-200 calendar-day ${calendarView === 'month' ? 'min-h-20 sm:min-h-24' : 'min-h-32 sm:min-h-40'} p-1.5 sm:p-2 cursor-pointer select-none ${
           dropTargetDay === dayNum && (draggingEvent || draggingRequest)
             ? 'bg-gradient-to-br from-purple-100 to-purple-200 border-purple-300 shadow-md'
+            : dropTargetDay === dayNum && resizingEvent
+            ? 'bg-gradient-to-br from-green-100 to-green-200 border-green-300 shadow-md ring-2 ring-green-400'
             : inDragRange
             ? 'bg-gradient-to-br from-blue-100 to-blue-200 border-blue-300 shadow-sm'
             : today
@@ -477,11 +638,13 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
             : 'bg-white hover:bg-gradient-to-br hover:from-gray-50 hover:to-white'
         } transition-all relative group`}
       >
-        <div className={`flex items-center justify-between ${viewMode === 'launch' ? 'mb-0.5' : 'mb-1'}`}>
+        <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-1.5">
-            <div className={`text-sm font-bold ${
+            <div className={`text-[10px] font-semibold ${
               dropTargetDay === dayNum && draggingEvent
                 ? 'text-purple-900'
+                : dropTargetDay === dayNum && resizingEvent
+                ? 'text-green-900'
                 : inDragRange
                 ? 'text-blue-900'
                 : today
@@ -492,7 +655,7 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
             </div>
             {/* Daily count indicator */}
             {dailyCount > 0 && (
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold daily-count-badge ${
+              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold daily-count-badge ${
                 dailyStatus === 'under' 
                   ? 'bg-gradient-to-r from-red-100 to-red-200 text-red-800 border border-red-300' 
                   : dailyStatus === 'over'
@@ -503,24 +666,43 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
               </span>
             )}
           </div>
-          {dayEvents.length > 0 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onDayExpand?.(new Date(year, month, dayNum), dayEvents)
-              }}
-              className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-all opacity-0 group-hover:opacity-100"
-              title={`View all ${dayEvents.length} events`}
-            >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-              </svg>
-            </button>
-          )}
+          {(() => {
+            // Calculate events for this day based on view mode
+            const liveEventsOnDay = viewMode === 'live' ? filteredEvents.filter(event => {
+              const startDateStr = formatDateForPanama(new Date(event.startDate))
+              const endDateStr = formatDateForPanama(new Date(event.endDate))
+              const [sy, smr, sd] = startDateStr.split('-').map(Number)
+              const [ey, emr, ed] = endDateStr.split('-').map(Number)
+              const eventStart = new Date(sy, smr - 1, sd)
+              const eventEnd = new Date(ey, emr - 1, ed)
+              const dayDate = new Date(year, month, dayNum)
+              return eventStart <= dayDate && eventEnd >= dayDate
+            }) : []
+            const eventsToShow = viewMode === 'launch' ? dayEvents : liveEventsOnDay
+            const eventCount = eventsToShow.length
+            
+            return eventCount > 0 ? (
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onMouseUp={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  e.preventDefault()
+                  onDayExpand?.(new Date(year, month, dayNum), eventsToShow)
+                }}
+                className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-all opacity-0 group-hover:opacity-100"
+                title={`View all ${eventCount} events`}
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                </svg>
+              </button>
+            ) : null
+          })()}
         </div>
         
-        <div className="space-y-0.5">
-          {/* Launch mode only: show event blocks */}
+        <div className="space-y-[3px]" style={{ maxHeight: calendarView === 'month' ? '85px' : undefined }}>
+          {/* Show event blocks - ONLY for launch mode (start date only) */}
           {viewMode === 'launch' && (calendarView === 'month' ? dayEvents.slice(0, 4) : dayEvents).map(event => {
             // Use parentCategory for colors
             const colors = getCategoryColors(event.parentCategory)
@@ -544,7 +726,7 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
                   e.stopPropagation()
                   onEventClick?.(event)
                 }}
-                className={`text-[10px] sm:text-[11px] px-1.5 sm:px-2 py-0.5 ${colors.indicator} text-white rounded-md cursor-move transition-all flex items-center gap-0.5 sm:gap-1 event-card shadow-sm hover:shadow-md leading-tight font-semibold truncate ${
+                className={`text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0 h-[15px] ${colors.indicator} text-white rounded cursor-move transition-all flex items-center gap-0.5 event-card shadow-sm hover:shadow-md leading-tight font-semibold truncate ${
                   isNotBooked ? 'ring-2 ring-yellow-400 pending opacity-70' : ''
                 }`}
                 title={`${event.name}${event.category ? ` - ${event.category}` : ''}${isPending ? ' [PENDING]' : event.status === 'approved' ? ' [APPROVED - Ready to Book]' : isPreBooked ? ' [PRE-BOOKED]' : ''}${showSourceBadge ? ` [${isPublicLink ? 'PUBLIC LINK' : 'INTERNAL'}]` : ''}`}
@@ -565,152 +747,202 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
               </div>
             )
           })}
-          {/* Show "+X more" in month view if over 4 events */}
+          {/* Show "+X more" for launch mode in month view */}
           {viewMode === 'launch' && calendarView === 'month' && dayEvents.length > 4 && (
             <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onMouseUp={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation()
+                e.preventDefault()
                 onDayExpand?.(new Date(year, month, dayNum), dayEvents)
               }}
-              className="w-full text-[8px] text-blue-600 font-semibold bg-blue-50 hover:bg-blue-100 rounded py-0.5 px-1 transition-all border border-blue-200 hover:border-blue-300"
+              className="w-full text-[8px] text-blue-700 font-semibold bg-blue-100/90 hover:bg-blue-200 rounded py-0.5 px-1 transition-all border border-blue-300"
             >
               +{dayEvents.length - 4} more
             </button>
           )}
         </div>
+        {/* Show "+X more" for live mode overflow - positioned at bottom of cell */}
+        {viewMode === 'live' && (overflowPerDay.get(dayNum) || 0) > 0 && (
+          <button
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              e.preventDefault()
+              // Get all events active on this day
+              const allEventsOnDay = filteredEvents.filter(event => {
+                const startDateStr = formatDateForPanama(new Date(event.startDate))
+                const endDateStr = formatDateForPanama(new Date(event.endDate))
+                const [sy, smr, sd] = startDateStr.split('-').map(Number)
+                const [ey, emr, ed] = endDateStr.split('-').map(Number)
+                const sm = smr - 1
+                const em = emr - 1
+                const eventStart = new Date(sy, sm, sd)
+                const eventEnd = new Date(ey, em, ed)
+                const dayDate = new Date(year, month, dayNum)
+                return eventStart <= dayDate && eventEnd >= dayDate
+              })
+              onDayExpand?.(new Date(year, month, dayNum), allEventsOnDay)
+            }}
+            className="absolute bottom-0.5 left-0.5 right-0.5 text-[8px] text-blue-700 font-semibold bg-blue-100/90 hover:bg-blue-200 rounded py-0.5 px-1 transition-all border border-blue-300 z-20 backdrop-blur-sm"
+          >
+            +{overflowPerDay.get(dayNum)} more
+          </button>
+        )}
       </div>
     )
   }
 
   return (
     <div className="flex flex-col h-full bg-gradient-to-br from-gray-50 to-white">
-      {/* Calendar Header */}
-      <div className="bg-white border-b border-gray-200 shadow-sm px-3 py-3 md:px-4 md:pl-5 md:pt-5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex items-center justify-between md:justify-start gap-3">
-            <h2 className="text-lg font-semibold text-gray-900 truncate tracking-tight">
+      {/* Calendar Header - Compact */}
+      <div className="bg-white border-b border-gray-200 px-2 py-2 md:px-3">
+        <div className="flex items-center justify-between gap-2">
+          {/* Left: Title, Count & Navigation */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <h2 className="text-sm font-semibold text-gray-900 truncate">
               {getHeaderTitle()}
             </h2>
-            {/* Event Count Badge */}
-            <div className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium whitespace-nowrap">
-              {filteredEvents.length} {filteredEvents.length === 1 ? 'event' : 'events'}
+            <div className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[10px] font-medium">
+              {filteredEvents.length}
             </div>
-          </div>
-          
-          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-3">
-            {/* Controls Row */}
-            <div className="flex items-center justify-between md:justify-end gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
-              {/* Calendar View Toggle */}
-              <div className="flex items-center gap-0.5 bg-gray-100 rounded-md p-0.5 toggle-group flex-shrink-0">
-                <button
-                  onClick={() => setCalendarView('day')}
-                  className={`px-2 md:px-3 py-1.5 text-[10px] md:text-xs font-semibold rounded transition-all toggle-button ${
-                    calendarView === 'day'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md active'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-white'
-                  }`}
-                >
-                  Day
-                </button>
-                <button
-                  onClick={() => setCalendarView('week')}
-                  className={`px-2 md:px-3 py-1.5 text-[10px] md:text-xs font-semibold rounded transition-all toggle-button ${
-                    calendarView === 'week'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md active'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-white'
-                  }`}
-                >
-                  Week
-                </button>
-                <button
-                  onClick={() => setCalendarView('month')}
-                  className={`px-2 md:px-3 py-1.5 text-[10px] md:text-xs font-semibold rounded transition-all toggle-button ${
-                    calendarView === 'month'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md active'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-white'
-                  }`}
-                >
-                  Month
-                </button>
-              </div>
-
-              {/* View Mode Toggle */}
-              <div className="flex items-center gap-0.5 bg-gray-100 rounded-md p-0.5 toggle-group flex-shrink-0">
-                <button
-                  onClick={() => setViewMode('launch')}
-                  className={`px-2 md:px-3 py-1.5 text-[10px] md:text-xs font-semibold rounded transition-all toggle-button ${
-                    viewMode === 'launch'
-                      ? 'bg-gradient-to-r from-green-600 to-green-700 text-white shadow-md active'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-white'
-                  }`}
-                >
-                  Launch
-                </button>
-                <button
-                  onClick={() => setViewMode('live')}
-                  className={`px-2 md:px-3 py-1.5 text-[10px] md:text-xs font-semibold rounded transition-all toggle-button ${
-                    viewMode === 'live'
-                      ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-md active'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-white'
-                  }`}
-                >
-                  Live
-                </button>
-              </div>
-
-              {/* Navigation */}
-              <div className="flex items-center gap-1 bg-white rounded-md p-0.5 border border-gray-200 shadow-sm flex-shrink-0">
-                <button
-                  onClick={goToToday}
-                  className="px-2 md:px-3 py-1.5 text-[10px] md:text-xs font-semibold text-white bg-gradient-to-r from-indigo-600 to-indigo-700 rounded-md hover:from-indigo-700 hover:to-indigo-800 transition-all shadow-sm hover:shadow-md nav-button"
-                >
-                  Today
-                </button>
-                <div className="h-4 w-px bg-gray-300"></div>
-                <button
-                  onClick={navigatePrevious}
-                  className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-md transition-all nav-button"
-                  title="Previous"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <button
-                  onClick={navigateNext}
-                  className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-md transition-all nav-button"
-                  title="Next"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
+            <div className="h-4 w-px bg-gray-300"></div>
+            {/* Navigation */}
+            <div className="flex items-center bg-white rounded border border-gray-200 flex-shrink-0">
+              <button
+                onClick={goToToday}
+                className="px-2 py-1 text-[10px] font-semibold text-white bg-indigo-600 rounded-l hover:bg-indigo-700 transition-colors"
+              >
+                Today
+              </button>
+              <button
+                onClick={navigatePrevious}
+                className="p-1 text-gray-500 hover:bg-gray-100 transition-colors border-l border-gray-200"
+                title="Previous"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button
+                onClick={navigateNext}
+                className="p-1 text-gray-500 hover:bg-gray-100 rounded-r transition-colors border-l border-gray-200"
+                title="Next"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
             </div>
-
-            {/* Search Bar - Full width on mobile */}
-            <div className="relative w-full md:w-auto">
+            <div className="h-4 w-px bg-gray-300"></div>
+            {/* Calendar View Toggle */}
+            <div className="flex items-center bg-gray-100 rounded p-0.5 flex-shrink-0">
+              <button
+                onClick={() => handleViewChange('day')}
+                className={`px-1.5 py-1 text-[10px] font-semibold rounded transition-all ${
+                  calendarView === 'day'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-white'
+                }`}
+              >
+                D
+              </button>
+              <button
+                onClick={() => handleViewChange('week')}
+                className={`px-1.5 py-1 text-[10px] font-semibold rounded transition-all ${
+                  calendarView === 'week'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-white'
+                }`}
+              >
+                W
+              </button>
+              <button
+                onClick={() => handleViewChange('month')}
+                className={`px-1.5 py-1 text-[10px] font-semibold rounded transition-all ${
+                  calendarView === 'month'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-white'
+                }`}
+              >
+                M
+              </button>
+            </div>
+            <div className="h-4 w-px bg-gray-300"></div>
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-gray-100 rounded p-0.5 flex-shrink-0">
+              <button
+                onClick={() => setViewMode('launch')}
+                className={`px-2 py-1 text-[10px] font-semibold rounded transition-all flex items-center gap-1 ${
+                  viewMode === 'launch'
+                    ? 'bg-green-600 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-white'
+                }`}
+                title="Launch view"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                </svg>
+                <span>Launch</span>
+              </button>
+              <button
+                onClick={() => setViewMode('live')}
+                className={`px-2 py-1 text-[10px] font-semibold rounded transition-all flex items-center gap-1 ${
+                  viewMode === 'live'
+                    ? 'bg-purple-600 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-white'
+                }`}
+                title="Live view"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span>Live</span>
+              </button>
+            </div>
+            <div className="h-4 w-px bg-gray-300"></div>
+            {/* Search Bar */}
+            <div className="relative flex-shrink-0">
               <input
                 type="text"
-                placeholder="Search events..."
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => onSearchChange?.(e.target.value)}
-                className="w-full md:w-64 pl-9 pr-9 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-28 md:w-36 pl-7 pr-7 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent"
               />
-              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               {searchQuery && (
                 <button
                   onClick={() => onSearchChange?.('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               )}
             </div>
+            {userRole === 'admin' && onCreateEventClick && (
+              <>
+                <div className="h-4 w-px bg-gray-300"></div>
+                {/* Action Buttons */}
+                <div className="flex items-center gap-0.5 flex-shrink-0">
+                  <button
+                    onClick={onCreateEventClick}
+                    className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                    title="Crear Evento"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -726,16 +958,31 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
       ) : (
         <>
       {/* Day Names */}
-          <div className={`grid ${calendarView === 'day' ? 'grid-cols-1' : 'grid-cols-7'} bg-gradient-to-r from-gray-100 to-gray-50 border-b border-gray-200 day-header`}>
-        {calendarView === 'day' ? (
-          <div className="text-center text-sm font-bold text-gray-800 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-200">
-            {dayNames[new Date(year, month, day).getDay()]}
-          </div>
+          <div 
+            className={`grid bg-gradient-to-r from-gray-100 to-gray-50 border-b border-gray-200 day-header`}
+            style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}
+          >
+        {(isCustomRange && daysToShow <= 7) || calendarView === 'day' ? (
+          // For custom range (7 days or less) or day view, show headers for the specific days selected
+          Array.from({ length: endDay - startDay + 1 }, (_, i) => {
+            const dayNum = startDay + i
+            const dayOfWeek = new Date(year, month, dayNum).getDay()
+            return (
+              <div 
+                key={dayNum}
+                className="text-center text-[10px] font-bold text-gray-700 py-1 border-r border-gray-200 last:border-r-0 uppercase tracking-wide bg-gradient-to-r from-blue-50 to-indigo-50"
+              >
+                <span className="block">{dayNames[dayOfWeek]}</span>
+                <span className="block text-[9px] text-gray-500 font-medium">{dayNum}</span>
+              </div>
+            )
+          })
         ) : (
+          // For month view or custom ranges > 7 days, show standard day-of-week headers
           dayNames.map(dayName => (
             <div
               key={dayName}
-              className="text-center text-xs font-bold text-gray-700 py-2 border-r border-gray-200 last:border-r-0 uppercase tracking-wide"
+              className="text-center text-[10px] font-bold text-gray-700 py-1 border-r border-gray-200 last:border-r-0 uppercase tracking-wide"
             >
               {dayName}
             </div>
@@ -745,15 +992,17 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
 
       {/* Calendar Grid */}
       <div className="flex-1 relative overflow-auto calendar-container">
-        <div className={`grid ${calendarView === 'day' ? 'grid-cols-1' : 'grid-cols-7'} auto-rows-fr min-h-full`}>
+        <div 
+          className="grid auto-rows-fr min-h-full"
+          style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}
+        >
           {calendarDays}
         </div>
         
-        {/* Spanning Events Overlay (Live mode only) - works for Day, Week, Month */}
+        {/* Spanning Events Overlay (Live mode only) */}
         {viewMode === 'live' && spanningEvents.length > 0 && (
           <div className="absolute inset-0 pointer-events-none" style={{ top: 0 }}>
-            {spanningEvents.map((event, idx) => {
-              // Use parentCategory for colors
+            {spanningEvents.map((event) => {
               const colors = getCategoryColors(event.parentCategory)
               const isPending = event.status === 'pending'
               const isBooked = event.status === 'booked' || event.status === 'pre-booked'
@@ -763,64 +1012,17 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
               const isPublicLink = sourceType === 'public_link'
               const showSourceBadge = isPublicLink && (isPending || event.status === 'approved')
               
-              // Calculate grid columns based on view mode
-              const gridCols = calendarView === 'day' ? 1 : 7
-              
-              // For Day view: simple single column
-              if (calendarView === 'day') {
-                const top = `${(idx % 5) * 24 + 36}px`
-                
-                return (
-                  <div
-                    key={event.id}
-                    className="absolute pointer-events-auto"
-                    style={{
-                      left: '2px',
-                      right: '2px',
-                      top,
-                      zIndex: 10,
-                      height: '18px',
-                    }}
-                  >
-                    <div
-                      draggable={!readOnly}
-                      onDragStart={(e) => handleEventDragStart(event, e)}
-                      onDragEnd={handleEventDragEnd}
-                      onClick={() => onEventClick?.(event)}
-                      className={`h-full px-1.5 sm:px-2 py-0.5 ${colors.indicator} text-white text-[10px] sm:text-[11px] rounded-md ${readOnly ? 'cursor-pointer' : 'cursor-move'} transition-all truncate flex items-center gap-0.5 sm:gap-1 font-semibold shadow-sm hover:shadow-md event-spanning ${
-                        isNotBooked ? 'ring-2 ring-yellow-400 pending opacity-70' : ''
-                      }`}
-                      title={`${event.name}${event.category ? ` - ${event.category}` : ''}${isPending ? ' [PENDING]' : event.status === 'approved' ? ' [APPROVED - Ready to Book]' : isPreBooked ? ' [PRE-BOOKED]' : ''}${showSourceBadge ? ` [${isPublicLink ? 'PUBLIC LINK' : 'INTERNAL'}]` : ''}\nStart: ${new Date(event.startDate).toLocaleDateString('en-US', { timeZone: PANAMA_TIMEZONE })}\nEnd: ${new Date(event.endDate).toLocaleDateString('en-US', { timeZone: PANAMA_TIMEZONE })}`}
-                    >
-                      {isPending && (
-                        <svg className="w-3 h-3 flex-shrink-0 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                        </svg>
-                      )}
-                      <span className="truncate flex-1 leading-tight">{event.name}</span>
-                      {showSourceBadge && (
-                        <span className={`px-1 py-0.5 rounded text-[9px] font-bold flex-shrink-0 border flex items-center ${
-                          isPublicLink ? 'bg-purple-600/90 text-white border-purple-400' : 'bg-gray-600/90 text-white border-gray-400'
-                        }`}>
-                          {isPublicLink ? <PublicIcon className="w-3 h-3" /> : <LockIcon className="w-3 h-3" />}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )
-              }
-              
-              // For Week and Month views: calculate spanning segments
-              const segments = []
+              // Calculate spanning segments (one per row)
+              const segments: Array<{ row: number; colStart: number; colSpan: number; isFirst: boolean; isLast: boolean }> = []
               let currentDay = event.startDay
               let remainingDays = event.spanDays
               
               while (remainingDays > 0) {
-                // Calculate position in grid
-                // For month view: account for empty cells at start (startingDayOfWeek)
-                // For week view: days are 0-indexed from startDay
-                const adjustedDay = calendarView === 'month' ? currentDay : (currentDay - startDay)
-                const totalCellsBefore = (calendarView === 'month' ? startingDayOfWeek + currentDay - 1 : adjustedDay)
+                const needsOffsetForHeaders = calendarView === 'month' || (isCustomRange && daysToShow > 7)
+                const adjustedDay = currentDay - startDay
+                const totalCellsBefore = needsOffsetForHeaders
+                  ? startingDayOfWeek + adjustedDay
+                  : adjustedDay
                 const row = Math.floor(totalCellsBefore / gridCols)
                 const colStart = totalCellsBefore % gridCols
                 const daysLeftInRow = gridCols - colStart
@@ -841,9 +1043,14 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
               return segments.map((segment, segIdx) => {
                 const cellWidth = 100 / gridCols
                 const left = `${segment.colStart * cellWidth}%`
-                const width = `calc(${segment.colSpan * cellWidth}% - 8px)`
-                const totalRows = Math.ceil((calendarView === 'month' ? startingDayOfWeek + daysInMonth : daysToShow) / gridCols)
-                const top = `calc(${segment.row * (100 / totalRows)}% + ${(idx % 3) * 24 + 36}px)`
+                const width = `${segment.colSpan * cellWidth}%`
+                const needsOffsetForHeaders = calendarView === 'month' || (isCustomRange && daysToShow > 7)
+                const totalRows = Math.ceil(
+                  needsOffsetForHeaders
+                    ? (startingDayOfWeek + daysToShow) / gridCols 
+                    : daysToShow / gridCols
+                )
+                const top = `calc(${segment.row * (100 / totalRows)}% + ${event.lane * 18 + 32}px)`
                 
                 return (
                   <div
@@ -854,19 +1061,37 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
                       width,
                       top,
                       zIndex: 10,
-                      marginLeft: '2px',
-                      height: '18px',
+                      height: '15px',
                     }}
                   >
+                    {/* Left Resize Handle - outside the draggable bar */}
+                    {!readOnly && segment.isFirst && (
+                      <div
+                        draggable
+                        onDragStart={(e) => {
+                          e.stopPropagation()
+                          handleResizeStart(event, 'start', e)
+                        }}
+                        onDragEnd={handleResizeEnd}
+                        className="absolute -left-1 top-0 bottom-0 w-3 cursor-ew-resize hover:bg-blue-500/50 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center resize-handle rounded-l-md z-30"
+                        title="Drag left to extend start, right to shorten"
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                      >
+                        <div className="w-1 h-full bg-blue-600 rounded-full"></div>
+                      </div>
+                    )}
+                    
+                    {/* Event Bar - draggable for moving */}
                     <div
-                      draggable={!readOnly}
+                      draggable={!readOnly && !resizingEvent}
                       onDragStart={(e) => handleEventDragStart(event, e)}
                       onDragEnd={handleEventDragEnd}
                       onClick={() => onEventClick?.(event)}
-                      className={`relative h-full px-1.5 sm:px-2 py-0.5 ${colors.indicator} text-white text-[10px] sm:text-[11px] rounded-md ${readOnly ? 'cursor-pointer' : 'cursor-move'} transition-all truncate flex items-center gap-0.5 sm:gap-1 font-semibold shadow-sm hover:shadow-md event-spanning ${
+                      className={`relative h-full px-1 sm:px-1.5 py-0 ${colors.indicator} text-white text-[9px] sm:text-[10px] rounded ${readOnly ? 'cursor-pointer' : 'cursor-move'} transition-all truncate flex items-center gap-0.5 font-semibold shadow-sm hover:shadow-md event-spanning ${
                         isNotBooked ? 'ring-2 ring-yellow-400 pending opacity-70' : ''
                       }`}
-                      title={`${event.name}${event.category ? ` - ${event.category}` : ''}${isPending ? ' [PENDING]' : event.status === 'approved' ? ' [APPROVED - Ready to Book]' : isPreBooked ? ' [PRE-BOOKED]' : ''}${showSourceBadge ? ` [${isPublicLink ? 'PUBLIC LINK' : 'INTERNAL'}]` : ''}`}
+                      title={`${event.name}${event.category ? ` - ${event.category}` : ''}${isPending ? ' [PENDING]' : event.status === 'approved' ? ' [APPROVED]' : isPreBooked ? ' [PRE-BOOKED]' : ''}`}
                     >
                       {segment.isFirst && (
                         <>
@@ -885,35 +1110,25 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
                           )}
                         </>
                       )}
-                      
-                      {/* Left Resize Handle - only on first segment, hidden in readOnly mode */}
-                      {!readOnly && segment.isFirst && (
-                        <div
-                          draggable
-                          onDragStart={(e) => handleResizeStart(event, 'start', e)}
-                          onDragEnd={handleResizeEnd}
-                          className="absolute left-0 top-0 bottom-0 w-3 cursor-ew-resize hover:bg-white/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center resize-handle rounded-l-md"
-                          title="Drag to resize start"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="w-0.5 h-3 bg-white rounded-full"></div>
-                        </div>
-                      )}
-                      
-                      {/* Right Resize Handle - only on last segment, hidden in readOnly mode */}
-                      {!readOnly && segment.isLast && (
-                        <div
-                          draggable
-                          onDragStart={(e) => handleResizeStart(event, 'end', e)}
-                          onDragEnd={handleResizeEnd}
-                          className="absolute right-0 top-0 bottom-0 w-3 cursor-ew-resize hover:bg-white/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center resize-handle rounded-r-md"
-                          title="Drag to resize end"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="w-0.5 h-3 bg-white rounded-full"></div>
-                        </div>
-                      )}
                     </div>
+                    
+                    {/* Right Resize Handle - outside the draggable bar */}
+                    {!readOnly && segment.isLast && (
+                      <div
+                        draggable
+                        onDragStart={(e) => {
+                          e.stopPropagation()
+                          handleResizeStart(event, 'end', e)
+                        }}
+                        onDragEnd={handleResizeEnd}
+                        className="absolute -right-1 top-0 bottom-0 w-3 cursor-ew-resize hover:bg-blue-500/50 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center resize-handle rounded-r-md z-30"
+                        title="Drag right to extend end, left to shorten"
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                      >
+                        <div className="w-1 h-full bg-blue-600 rounded-full"></div>
+                      </div>
+                    )}
                   </div>
                 )
               })

@@ -9,6 +9,7 @@ import CheckBoxIcon from '@mui/icons-material/CheckBox'
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank'
 import IndeterminateCheckBoxIcon from '@mui/icons-material/IndeterminateCheckBox'
 import { Button } from '@/components/ui'
+import { useModalEscape } from '@/hooks/useModalEscape'
 import { MARKETING_OPTIONS_CONFIG } from '@/lib/constants/marketing'
 import { batchUpdateMarketingOptions } from '@/app/actions/marketing'
 import toast from 'react-hot-toast'
@@ -57,6 +58,9 @@ export default function MarketingSelectionModal({
   options,
   onComplete,
 }: MarketingSelectionModalProps) {
+  // Close modal on Escape key
+  useModalEscape(isOpen, onClose)
+  
   const [selectedOptions, setSelectedOptions] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
 

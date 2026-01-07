@@ -189,7 +189,7 @@ export default function DealFormModal({
           {(loadingData || dynamicForm.loading) ? (
             <FormModalSkeleton sections={2} fieldsPerSection={2} />
           ) : (
-            <div className="p-4 space-y-4">
+            <div className="p-3 space-y-3">
               {/* Opportunity Responsible Reference */}
               {deal?.opportunityResponsible && (
                 <ReferenceInfoBar>

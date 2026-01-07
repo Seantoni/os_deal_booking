@@ -190,31 +190,17 @@ export default function BusinessSelect({
             key={business.id}
             onClick={() => handleSelect(business)}
             className={`
-              px-4 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors
+              px-3 py-1.5 cursor-pointer hover:bg-gray-50 transition-colors flex items-center justify-between gap-2
               ${value === business.name ? 'bg-blue-50' : ''}
             `}
           >
-            <div className="flex items-center justify-between">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-900 truncate">
-                    {business.name}
-                  </span>
-                  {(business.hasFutureBooking || business.hasActiveRequest) && (
-                    <WarningAmberIcon 
-                      className="w-4 h-4 text-amber-500 flex-shrink-0" 
-                      titleAccess="Has active booking or request"
-                    />
-                  )}
-                </div>
-                {business.contactEmail && (
-                  <span className="text-xs text-gray-500 truncate block">
-                    {business.contactEmail}
-                  </span>
-                )}
-              </div>
+            <span className="text-sm text-gray-900 truncate">{business.name}</span>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {(business.hasFutureBooking || business.hasActiveRequest) && (
+                <WarningAmberIcon className="w-3.5 h-3.5 text-amber-500" titleAccess="Tiene reservas activas" />
+              )}
               {value === business.name && (
-                <CheckIcon className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                <CheckIcon className="w-4 h-4 text-blue-600" />
               )}
             </div>
           </div>
@@ -225,9 +211,9 @@ export default function BusinessSelect({
   ) : null
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-0.5">
       {label && (
-        <span className="text-sm font-medium text-gray-700">
+        <span className="text-xs font-medium text-gray-700">
           {label} {required && <span className="text-red-500">*</span>}
         </span>
       )}
@@ -243,22 +229,22 @@ export default function BusinessSelect({
           `}
           onClick={() => !disabled && setIsOpen(!isOpen)}
         >
-          <div className="flex items-center px-3 py-2">
-            <SearchIcon className="w-4 h-4 text-gray-400 mr-2" />
+          <div className="flex items-center px-2.5 py-1.5">
+            <SearchIcon className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
             {isOpen ? (
               <input
                 ref={inputRef}
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={loading ? 'Loading businesses...' : placeholder}
+                placeholder={loading ? 'Cargando...' : placeholder}
                 className="flex-1 text-sm outline-none bg-transparent"
                 autoFocus
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
-              <span className={`flex-1 text-sm ${value ? 'text-gray-900' : 'text-gray-500'}`}>
-                {value || (loading ? 'Loading businesses...' : placeholder)}
+              <span className={`flex-1 text-sm truncate ${value ? 'text-gray-900' : 'text-gray-500'}`}>
+                {value || (loading ? 'Cargando...' : placeholder)}
               </span>
             )}
             {value && !disabled && (
@@ -268,15 +254,15 @@ export default function BusinessSelect({
                   e.stopPropagation()
                   handleClear()
                 }}
-                className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600 mr-1"
+                className="p-0.5 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600 ml-1 flex-shrink-0"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             )}
             <KeyboardArrowDownIcon 
-              className={`w-5 h-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} 
+              className={`w-4 h-4 text-gray-400 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} 
             />
           </div>
         </div>
@@ -288,17 +274,13 @@ export default function BusinessSelect({
 
       {/* Warning banner for active bookings */}
       {showWarning && selectedBusiness && (selectedBusiness.hasFutureBooking || selectedBusiness.hasActiveRequest) && (
-        <Alert variant="warning" icon={<WarningAmberIcon fontSize="small" />} className="mt-2">
-          <div className="text-sm">
-            <strong>{selectedBusiness.name}</strong> has 
-            {selectedBusiness.hasFutureBooking && selectedBusiness.hasActiveRequest 
-              ? ' future booked events and pending booking requests'
-              : selectedBusiness.hasFutureBooking 
-                ? ' future booked events' 
-                : ' pending/approved booking requests'
-            }
-            . You may still proceed, but please verify before submitting.
-          </div>
+        <Alert variant="warning" className="mt-1.5">
+          {selectedBusiness.name}: {selectedBusiness.hasFutureBooking && selectedBusiness.hasActiveRequest 
+            ? 'tiene eventos y solicitudes activas'
+            : selectedBusiness.hasFutureBooking 
+              ? 'tiene eventos futuros' 
+              : 'tiene solicitudes pendientes'
+          }
         </Alert>
       )}
     </div>

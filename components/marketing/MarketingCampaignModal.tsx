@@ -20,6 +20,7 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import ZoomInIcon from '@mui/icons-material/ZoomIn'
 import VideocamIcon from '@mui/icons-material/Videocam'
 import { Button, Textarea } from '@/components/ui'
+import { useModalEscape } from '@/hooks/useModalEscape'
 import { useMarketingCampaign } from './useMarketingCampaign'
 import MarketingOptionCard from './MarketingOptionCard'
 import FormModalSkeleton from '@/components/common/FormModalSkeleton'
@@ -73,6 +74,9 @@ export default function MarketingCampaignModal({
   onSuccess,
   initialOptionId,
 }: MarketingCampaignModalProps) {
+  // Close modal on Escape key
+  useModalEscape(isOpen, onClose)
+  
   const { isAdmin, isMarketing } = useUserRole()
   const canEdit = isAdmin || isMarketing
 

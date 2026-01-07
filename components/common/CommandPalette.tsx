@@ -192,12 +192,12 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                 </div>
               </div>
             ) : (
-              <div className="py-2">
+              <div className="py-1">
                 {results.map((result, index) => (
                   <button
                     key={result.id}
                     onClick={() => handleSelectResult(result)}
-                    className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors ${
+                    className={`w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-gray-50 transition-colors ${
                       index === selectedIndex ? 'bg-gray-50' : ''
                     }`}
                     onMouseEnter={() => setSelectedIndex(index)}
@@ -205,17 +205,17 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                     <div className="flex-shrink-0 text-gray-400">
                       {getIcon(result.type)}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
+                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-900 truncate">
                         {result.title}
-                      </p>
+                      </span>
                       {result.subtitle && (
-                        <p className="text-xs text-gray-500 truncate mt-0.5">
+                        <span className="text-xs text-gray-500 truncate">
                           {result.subtitle}
-                        </p>
+                        </span>
                       )}
                     </div>
-                    <div className="flex-shrink-0 text-xs text-gray-400 uppercase">
+                    <div className="flex-shrink-0 text-xs text-gray-400 uppercase whitespace-nowrap">
                       {result.type.replace('-', ' ')}
                     </div>
                   </button>

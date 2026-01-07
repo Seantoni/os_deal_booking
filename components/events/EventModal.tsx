@@ -25,6 +25,7 @@ import EventIcon from '@mui/icons-material/Event'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import toast from 'react-hot-toast'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
+import { useModalEscape } from '@/hooks/useModalEscape'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { Button, Input, Textarea, Alert } from '@/components/ui'
 
@@ -123,6 +124,9 @@ interface EventModalProps {
 }
 
 export default function EventModal({ isOpen, onClose, selectedDate, selectedEndDate, eventToEdit, bookingRequestId, allEvents = [], userRole = 'sales', readOnly = false, onSuccess }: EventModalProps) {
+  // Close modal on Escape key
+  useModalEscape(isOpen, onClose)
+  
   const confirmDialog = useConfirmDialog()
 
   // React 19: useTransition for non-blocking UI during form actions
@@ -151,6 +155,15 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
   }, [])
   
   const setError = useCallback((value: string) => setField('error', value), [setField])
+
+  // Helper to generate event name from business and date
+  const generateEventName = useCallback((businessName: string, dateStr: string) => {
+    if (!businessName || !dateStr) return ''
+    const date = new Date(dateStr + 'T12:00:00')
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const formatted = `${monthNames[date.getMonth()]}-${date.getDate()}-${date.getFullYear()}`
+    return `${businessName} | ${formatted}`
+  }, [])
 
   // Reload settings when modal opens (in case they changed)
   useEffect(() => {
@@ -668,310 +681,228 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
           } : undefined}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
-            <h2 className="text-2xl font-semibold text-gray-900">
-              {readOnly ? 'Ver Evento' : (eventToEdit ? 'Editar Evento' : 'Crear Nuevo Evento')}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+            <h2 className="text-base font-semibold text-gray-900">
+              {readOnly ? 'Ver Evento' : (eventToEdit ? 'Editar Evento' : 'Crear Evento')}
             </h2>
             <Button
               onClick={onClose}
               variant="ghost"
-              className="p-2"
+              className="p-1.5"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </Button>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
-            {/* Show linked booking request info when editing an event or creating from sidebar */}
+          <form onSubmit={handleSubmit} className="divide-y divide-gray-100">
+            {/* Linked Booking Request - Top Banner */}
             {linkedBookingRequest && (
-              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                    <span className="font-semibold text-indigo-800">Solicitud de Booking Vinculada</span>
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+              <button
+                type="button"
+                onClick={() => setField('showBookingRequestModal', true)}
+                className="w-full flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-50 via-purple-50 to-indigo-50 hover:from-indigo-100 hover:via-purple-100 hover:to-indigo-100 transition-all group"
+              >
+                <svg className="w-4 h-4 text-indigo-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span className="text-xs font-medium text-indigo-800 truncate">{linkedBookingRequest.name}</span>
+                <div className="flex items-center gap-1.5 ml-auto flex-shrink-0">
+                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
                     linkedBookingRequest.sourceType === 'public_link' 
-                      ? 'bg-purple-100 text-purple-800' 
-                      : 'bg-gray-100 text-gray-800'
+                      ? 'bg-purple-100 text-purple-700' 
+                      : 'bg-gray-100 text-gray-600'
                   }`}>
-                      {linkedBookingRequest.sourceType === 'public_link' ? 'Enlace Público' : 'Interno'}
-                    </span>
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                      linkedBookingRequest.status === 'approved' ? 'bg-green-100 text-green-800' :
-                      linkedBookingRequest.status === 'booked' ? 'bg-blue-100 text-blue-800' :
-                      linkedBookingRequest.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {linkedBookingRequest.status?.charAt(0).toUpperCase() + linkedBookingRequest.status?.slice(1)}
+                    {linkedBookingRequest.sourceType === 'public_link' ? 'Público' : 'Interno'}
                   </span>
+                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
+                    linkedBookingRequest.status === 'approved' ? 'bg-green-100 text-green-700' :
+                    linkedBookingRequest.status === 'booked' ? 'bg-blue-100 text-blue-700' :
+                    linkedBookingRequest.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-gray-100 text-gray-600'
+                  }`}>
+                    {linkedBookingRequest.status?.charAt(0).toUpperCase() + linkedBookingRequest.status?.slice(1)}
+                  </span>
+                  <svg className="w-4 h-4 text-gray-400 group-hover:text-indigo-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
                 </div>
-                  <Button
-                    type="button"
-                    onClick={() => setField('showBookingRequestModal', true)}
-                    variant="primary"
-                    size="sm"
-                    leftIcon={<VisibilityIcon style={{ fontSize: 14 }} />}
-                  >
-                    Ver Solicitud Completa
-                  </Button>
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-gray-500">Negocio:</span>
-                    <span className="ml-2 text-gray-900 font-medium">{linkedBookingRequest.name}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Correo:</span>
-                    <span className="ml-2 text-gray-900 font-medium">{linkedBookingRequest.businessEmail}</span>
-                  </div>
-                  {linkedBookingRequest.merchant && (
-                    <div>
-                      <span className="text-gray-500">Comerciante:</span>
-                      <span className="ml-2 text-gray-900 font-medium">{linkedBookingRequest.merchant}</span>
-                    </div>
-                  )}
-                  {linkedBookingRequest.parentCategory && (
-                    <div>
-                      <span className="text-gray-500">Categoría:</span>
-                      <span className="ml-2 text-gray-900 font-medium">{linkedBookingRequest.parentCategory}</span>
-                    </div>
-                  )}
-                    </div>
+              </button>
+            )}
+
+            {/* Warnings Section - Collapsed */}
+            {(error || durationWarning || uniquenessWarning || merchantWarning || dailyLimitWarnings.length > 0 || dateAdjustmentInfo || hasEmptyRequiredFields()) && (
+              <div className="px-4 py-2 space-y-1.5 bg-gray-50">
+                {hasEmptyRequiredFields() && (
+                  <Alert variant="error" icon={<BlockIcon fontSize="small" />}>
+                    Completa los campos requeridos (*)
+                  </Alert>
+                )}
+                {error && <Alert variant="error">{error}</Alert>}
+                {durationWarning && <Alert variant="warning">{durationWarning}</Alert>}
+                {uniquenessWarning && <Alert variant="warning">{uniquenessWarning}</Alert>}
+                {merchantWarning && <Alert variant="warning">{merchantWarning}</Alert>}
+                {dateAdjustmentInfo && <Alert variant="info">{dateAdjustmentInfo}</Alert>}
+                {dailyLimitWarnings.length > 0 && (
+                  <Alert variant="error">
+                    Excede máx. {userSettings.maxDailyLaunches}/día: {dailyLimitWarnings.join(', ')}
+                  </Alert>
+                )}
               </div>
             )}
-            
-            {dateAdjustmentInfo && (
-              <Alert variant="info" icon={<EventIcon fontSize="small" />}>
-                {dateAdjustmentInfo}
-              </Alert>
-            )}
-            
-            {error && <Alert variant="error">{error}</Alert>}
-            
-            {durationWarning && (
-              <Alert variant="warning" icon={<WarningIcon fontSize="small" />}>
-                {durationWarning}
-              </Alert>
-            )}
-            
-            {uniquenessWarning && (
-              <Alert variant="warning" className="bg-orange-50 border-orange-200 text-orange-800">
-                {uniquenessWarning}
-              </Alert>
-            )}
-            
-            {merchantWarning && (
-              <Alert variant="warning" className="bg-purple-50 border-purple-200 text-purple-800">
-                {merchantWarning}
-              </Alert>
-            )}
-            
-            {dailyLimitWarnings.length > 0 && (
-              <Alert variant="error" icon={<WarningIcon fontSize="small" />}>
-                  <div>
-                    <strong>Días que exceden el máximo de {userSettings.maxDailyLaunches} ofertas:</strong>
-                    <ul className="mt-1 ml-4 list-disc">
-                      {dailyLimitWarnings.map((warning, idx) => (
-                        <li key={idx}>{warning}</li>
-                      ))}
-                    </ul>
-                  </div>
-              </Alert>
-            )}
-            
-            {hasEmptyRequiredFields() && (
-              <Alert variant="error" icon={<BlockIcon fontSize="small" />} className="bg-red-100 border-red-300 text-red-900 font-medium">
-                  Por favor completa todos los campos requeridos (*)
-              </Alert>
-            )}
 
-            <Input
-                id="name"
-                name="name"
-              type="text"
-              label={`Nombre del Evento ${!readOnly ? '*' : ''}`}
-              required={!readOnly}
-                value={name}
-              onChange={(e) => !readOnly && setField('name', e.target.value)}
-              readOnly={readOnly}
-                placeholder="Nombre del evento"
-              />
-
-            <div>
-              <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
-                Categoría {!readOnly && '*'}
-              </label>
+            {/* Business Selection */}
+            <div className="px-4 py-3">
               {readOnly ? (
-                <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
-                  {categoryOption?.label || 'No hay categoría seleccionada'}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Negocio</span>
+                  <span className="text-sm font-semibold text-gray-900">{merchant}</span>
                 </div>
               ) : (
-                <>
-              <CategorySelect selectedOption={categoryOption} onChange={(opt) => setField('categoryOption', opt)} />
-              {!categoryOption && (
-                <p className="text-xs text-red-600 mt-1">Categoría es requerida</p>
-                  )}
-                </>
+                <BusinessSelect
+                  value={merchant}
+                  onChange={(businessName) => {
+                    setField('merchant', businessName)
+                    if (!eventToEdit && startDate) {
+                      setField('name', generateEventName(businessName, startDate))
+                    }
+                  }}
+                  label="Negocio *"
+                  required
+                  error={!merchant ? 'Requerido' : undefined}
+                />
               )}
             </div>
 
-            {readOnly ? (
-              <Input
-                id="merchant"
-                name="merchant"
-                type="text"
-                label="Negocio"
-                value={merchant}
-                readOnly={true}
-              />
-            ) : (
-              <BusinessSelect
-                value={merchant}
-                onChange={(businessName) => setField('merchant', businessName)}
-                label="Negocio"
-                required
-                error={!merchant ? 'El negocio es requerido' : undefined}
-              />
-            )}
-            {/* Hidden input for form submission */}
-            <input type="hidden" name="merchant" value={merchant} />
+            {/* Event Details Section */}
+            <div className="px-4 py-3 space-y-3">
+              {/* Name & Category Row */}
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  id="name"
+                  name="name"
+                  type="text"
+                  label={readOnly ? 'Nombre' : 'Nombre *'}
+                  required={!readOnly}
+                  value={name}
+                  onChange={(e) => !readOnly && setField('name', e.target.value)}
+                  readOnly={readOnly}
+                  placeholder="Nombre del evento"
+                />
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    {readOnly ? 'Categoría' : 'Categoría *'}
+                  </label>
+                  {readOnly ? (
+                    <div className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50">
+                      {categoryOption?.label || '-'}
+                    </div>
+                  ) : (
+                    <>
+                      <CategorySelect selectedOption={categoryOption} onChange={(opt) => setField('categoryOption', opt)} />
+                      {!categoryOption && <p className="text-[10px] text-red-500 mt-0.5">Requerido</p>}
+                    </>
+                  )}
+                </div>
+              </div>
+              <input type="hidden" name="merchant" value={merchant} />
 
-            <Textarea
-                id="description"
-                name="description"
-              label={`Descripción ${!readOnly ? '*' : ''}`}
-                rows={3}
-                value={description}
-              onChange={(e) => !readOnly && setField('description', e.target.value)}
-              readOnly={readOnly}
-              required={!readOnly}
-                placeholder="Descripción del evento..."
-              />
-
-            <div className="grid grid-cols-2 gap-4">
-              <Input
+              {/* Dates Row */}
+              <div className="grid grid-cols-2 gap-3">
+                <Input
                   id="startDate"
                   name="startDate"
-                type="date"
-                label={`Fecha de Inicio ${!readOnly ? '*' : ''}`}
-                required={!readOnly}
+                  type="date"
+                  label={readOnly ? 'Inicio' : 'Inicio *'}
+                  required={!readOnly}
                   value={startDate}
-                onChange={(e) => !readOnly && setField('startDate', e.target.value)}
-                readOnly={readOnly}
-              />
-
-              <Input
+                  onChange={(e) => {
+                    if (readOnly) return
+                    const newDate = e.target.value
+                    setField('startDate', newDate)
+                    if (!eventToEdit && merchant) {
+                      setField('name', generateEventName(merchant, newDate))
+                    }
+                  }}
+                  readOnly={readOnly}
+                />
+                <Input
                   id="endDate"
                   name="endDate"
-                type="date"
-                label={`Fecha de Fin ${!readOnly ? '*' : ''}`}
-                required={!readOnly}
+                  type="date"
+                  label={readOnly ? 'Fin' : 'Fin *'}
+                  required={!readOnly}
                   value={endDate}
-                onChange={(e) => !readOnly && setField('endDate', e.target.value)}
-                readOnly={readOnly}
+                  onChange={(e) => !readOnly && setField('endDate', e.target.value)}
+                  readOnly={readOnly}
                 />
+              </div>
+
+              {/* Description */}
+              <Textarea
+                id="description"
+                name="description"
+                label={readOnly ? 'Descripción' : 'Descripción *'}
+                rows={2}
+                value={description}
+                onChange={(e) => !readOnly && setField('description', e.target.value)}
+                readOnly={readOnly}
+                required={!readOnly}
+                placeholder="Descripción del evento..."
+              />
             </div>
 
-            {/* Rejection Reason Field - Only for approved events when rejecting */}
+            {/* Rejection Reason Field */}
             {eventToEdit && eventToEdit.status === 'approved' && showRejectionField && userRole === 'admin' && (
-              <div className="bg-red-50 border border-red-200 rounded-md p-4">
+              <div className="px-4 py-3 bg-red-50">
                 <Textarea
                   id="rejectionReason"
                   label="Razón de Rechazo *"
-                  rows={3}
+                  rows={2}
                   value={rejectionReason}
                   onChange={(e) => setField('rejectionReason', e.target.value)}
                   className="border-red-300 focus:ring-red-500"
-                  placeholder="Explique por qué se está rechazando esta reserva..."
+                  placeholder="Explique por qué se está rechazando..."
                 />
               </div>
             )}
 
-            {/* Footer Buttons */}
-            <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+            {/* Footer */}
+            <div className="px-4 py-3 bg-gray-50 flex items-center justify-between">
               <div>
                 {!readOnly && eventToEdit && userRole === 'admin' && eventToEdit.status !== 'approved' && (
-                  <Button
-                    type="button"
-                    onClick={handleDelete}
-                    variant="destructive"
-                    size="sm"
-                    disabled={loading}
-                  >
-                    Eliminar Evento
+                  <Button type="button" onClick={handleDelete} variant="ghost" size="sm" disabled={loading} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                    Eliminar
                   </Button>
                 )}
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 {readOnly ? (
-                  /* Read-only mode: Only show Close button */
-                  <Button
-                  type="button"
-                  onClick={onClose}
-                    className="bg-gray-600 hover:bg-gray-700 focus-visible:ring-gray-500 disabled:bg-gray-300"
-                  >
-                    Cerrar
-                  </Button>
+                  <Button type="button" onClick={onClose} variant="secondary" size="sm">Cerrar</Button>
                 ) : (
                   <>
-                <Button
-                  type="button"
-                  onClick={onClose}
-                  variant="secondary"
-                >
-                  Cancelar
-                </Button>
-                
-                {/* For pending/approved events: Show Book and Reject buttons (admin only) */}
-                {eventToEdit && (eventToEdit.status === 'approved' || eventToEdit.status === 'pending') && userRole === 'admin' ? (
-                  <>
-                    {!showRejectionField ? (
-                      <>
-                        <Button
-                          type="button"
-                          onClick={() => setField('showRejectionField', true)}
-                          variant="destructive"
-                          disabled={loading}
-                        >
-                          Rechazar
+                    <Button type="button" onClick={onClose} variant="ghost" size="sm">Cancelar</Button>
+                    {eventToEdit && (eventToEdit.status === 'approved' || eventToEdit.status === 'pending') && userRole === 'admin' ? (
+                      !showRejectionField ? (
+                        <>
+                          <Button type="button" onClick={() => setField('showRejectionField', true)} variant="destructive" size="sm" disabled={loading}>
+                            Rechazar
+                          </Button>
+                          <Button type="button" onClick={handleBook} disabled={loading || hasEmptyRequiredFields()} loading={loading} size="sm" className="bg-green-600 hover:bg-green-700">
+                            Reservar
+                          </Button>
+                        </>
+                      ) : (
+                        <Button type="button" onClick={handleReject} variant="destructive" size="sm" disabled={loading || !rejectionReason.trim()} loading={loading}>
+                          Confirmar Rechazo
                         </Button>
-                        <Button
-                          type="button"
-                          onClick={handleBook}
-                          disabled={loading || hasEmptyRequiredFields()}
-                          loading={loading}
-                          className="bg-green-600 hover:bg-green-700 focus-visible:ring-green-500 disabled:bg-green-300"
-                        >
-                          Reservar Evento
-                        </Button>
-                      </>
+                      )
                     ) : (
-                      <Button
-                        type="button"
-                        onClick={handleReject}
-                        variant="destructive"
-                        disabled={loading || !rejectionReason.trim()}
-                        loading={loading}
-                      >
-                        Confirmar Rechazo
+                      <Button type="submit" disabled={loading || hasEmptyRequiredFields()} loading={loading} size="sm">
+                        {eventToEdit ? 'Guardar' : 'Crear'}
                       </Button>
-                    )}
-                  </>
-                ) : (
-                  /* For booked events or new events: Show regular Save button */
-                <Button
-                  type="submit"
-                  disabled={loading || hasEmptyRequiredFields()}
-                  loading={loading}
-                  title={hasEmptyRequiredFields() ? 'Completa los campos requeridos para continuar' : ''}
-                >
-                  {eventToEdit ? 'Guardar Cambios' : 'Crear Evento'}
-                </Button>
                     )}
                   </>
                 )}

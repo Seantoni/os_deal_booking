@@ -1,6 +1,7 @@
 'use client'
 
 import CloseIcon from '@mui/icons-material/Close'
+import { useModalEscape } from '@/hooks/useModalEscape'
 import { Button } from '@/components/ui'
 import type { ReactNode } from 'react'
 
@@ -29,12 +30,12 @@ const maxWidthClasses = {
 }
 
 const iconColorClasses = {
-  blue: 'bg-blue-100 border-blue-200 text-blue-600',
-  orange: 'bg-orange-100 border-orange-200 text-orange-600',
-  green: 'bg-green-100 border-green-200 text-green-600',
-  purple: 'bg-purple-100 border-purple-200 text-purple-600',
-  red: 'bg-red-100 border-red-200 text-red-600',
-  gray: 'bg-gray-100 border-gray-200 text-gray-600',
+  blue: 'bg-blue-50 text-blue-600',
+  orange: 'bg-orange-50 text-orange-600',
+  green: 'bg-green-50 text-green-600',
+  purple: 'bg-purple-50 text-purple-600',
+  red: 'bg-red-50 text-red-600',
+  gray: 'bg-gray-50 text-gray-600',
 }
 
 export default function ModalShell({
@@ -51,64 +52,61 @@ export default function ModalShell({
   hideBackdrop = false,
   backdropClassName,
 }: ModalShellProps) {
+  // Close modal on Escape key
+  useModalEscape(isOpen, onClose)
+  
   if (!isOpen) return null
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop - z-[60] to be above GlobalHeader (z-50) */}
       {!hideBackdrop && (
         <div
-          className={`fixed inset-0 bg-gray-900/20 z-40 transition-opacity ${
+          className={`fixed inset-0 bg-gray-900/20 backdrop-blur-sm z-[60] transition-opacity ${
             isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
           } ${backdropClassName || ''}`}
           onClick={onClose}
         />
       )}
 
-      {/* Modal Container */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+      {/* Modal Container - z-[70] to be above backdrop */}
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 pointer-events-none">
         {/* Modal Panel */}
         <div
-          className={`w-full ${maxWidthClasses[maxWidth]} bg-white shadow-2xl rounded-2xl flex flex-col max-h-[90vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${
+          className={`w-full ${maxWidthClasses[maxWidth]} bg-white shadow-xl rounded-lg flex flex-col max-h-[90vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${
             isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
           }`}
         >
-          {/* Header */}
+          {/* Header - Compact like EventModal */}
           {(title || icon || headerActions) && (
-            <div className="bg-white border-b border-gray-200 px-6 py-4">
-              <div className="flex items-start justify-between">
-                {(title || icon || subtitle) && (
-                  <div className="flex items-center gap-3">
-                    {icon && (
-                      <div className={`p-2 rounded-lg border ${iconColorClasses[iconColor]}`}>
-                        {icon}
-                      </div>
-                    )}
-                    {(title || subtitle) && (
-                      <div>
-                        {subtitle && (
-                          <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">
-                            {subtitle}
-                          </p>
-                        )}
-                        {title && (
-                          <h2 className="text-xl font-bold text-gray-900">{title}</h2>
-                        )}
-                      </div>
-                    )}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <div className="flex items-center gap-2 min-w-0">
+                {icon && (
+                  <div className={`p-1.5 rounded ${iconColorClasses[iconColor]} flex-shrink-0`}>
+                    {icon}
                   </div>
                 )}
-                <div className="flex items-center gap-2">
-                  {headerActions}
-                  <Button
-                    onClick={onClose}
-                    variant="ghost"
-                    className="p-2"
-                    aria-label="Cerrar"
-                  >
-                    <CloseIcon fontSize="medium" />
-                  </Button>
-                </div>
+                {subtitle && (
+                  <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider flex-shrink-0">
+                    {subtitle}
+                  </span>
+                )}
+                {title && (
+                  <h2 className="text-base font-semibold text-gray-900 truncate">{title}</h2>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                {headerActions}
+                <Button
+                  onClick={onClose}
+                  variant="ghost"
+                  className="p-1.5"
+                  aria-label="Cerrar"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </Button>
               </div>
             </div>
           )}
@@ -118,9 +116,9 @@ export default function ModalShell({
             {children}
           </div>
 
-          {/* Footer */}
+          {/* Footer - Compact like EventModal */}
           {footer && (
-            <div className="border-t border-gray-200 bg-white px-6 py-4 sticky bottom-0">
+            <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 sticky bottom-0">
               {footer}
             </div>
           )}
@@ -163,9 +161,9 @@ export function ModalFooter({
   return (
     <div className="flex justify-between items-center">
       {leftContent && <div className="text-xs text-gray-500">{leftContent}</div>}
-      <div className="flex gap-3 ml-auto">
+      <div className="flex items-center gap-2 ml-auto">
         {onCancel && (
-          <Button type="button" onClick={onCancel} variant="secondary">
+          <Button type="button" onClick={onCancel} variant="ghost" size="sm">
             {cancelLabel}
           </Button>
         )}
@@ -176,6 +174,7 @@ export function ModalFooter({
             form={formId}
             disabled={submitDisabled}
             loading={submitLoading}
+            size="sm"
             className={submitButtonClass}
           >
             {submitLabel}

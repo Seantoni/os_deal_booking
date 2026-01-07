@@ -261,9 +261,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
     'w-full bg-white border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed transition-all duration-200 hover:border-gray-300'
 
   return (
-    <div className={cn('flex flex-col gap-1', fullWidth && 'w-full')}>
+    <div className={cn('flex flex-col gap-0.5', fullWidth && 'w-full')}>
       {label && (
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-xs font-medium text-slate-600">
           {label}
         </label>
       )}

@@ -34,6 +34,16 @@ interface DynamicFormFieldProps {
   isEditMode?: boolean
 }
 
+// Compact label component for consistent styling
+function FieldLabel({ label, required }: { label: string; required?: boolean }) {
+  return (
+    <span className="text-xs font-medium text-slate-600">
+      {label}
+      {required && <span className="text-red-500 ml-0.5">*</span>}
+    </span>
+  )
+}
+
 function DynamicFormField({
   field,
   value,
@@ -75,22 +85,34 @@ function DynamicFormField({
         label: o.label,
       })) || [])
 
+  // Common wrapper for consistent field spacing
+  const FieldWrapper = ({ children, showHelp = true }: { children: React.ReactNode; showHelp?: boolean }) => (
+    <div className="space-y-0.5">
+      {children}
+      {showHelp && helpText && (
+        <p className="text-[10px] text-slate-400 leading-tight pl-0.5">{helpText}</p>
+      )}
+    </div>
+  )
+
   // Handle special field types
   switch (fieldType) {
     case 'category':
       // Category select - use shared CategorySelect component with search
       return (
-        <CategorySelect
-          value={value}
-          onValueChange={onChange}
-          categories={categories}
-          label={label}
-          required={isRequired}
-          disabled={fieldDisabled}
-          helpText={helpText}
-          placeholder="Seleccionar una categoría"
-          size="sm"
-        />
+        <FieldWrapper showHelp={false}>
+          <CategorySelect
+            value={value}
+            onValueChange={onChange}
+            categories={categories}
+            label={label}
+            required={isRequired}
+            disabled={fieldDisabled}
+            helpText={helpText}
+            placeholder="Seleccionar categoría..."
+            size="sm"
+          />
+        </FieldWrapper>
       )
 
     case 'user-select':
@@ -100,17 +122,19 @@ function DynamicFormField({
         label: user.name || user.email || user.clerkId,
       }))
       return (
-        <Select
-          label={label}
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value || null)}
-          disabled={fieldDisabled}
-          required={isRequired}
-          size="sm"
-          options={userSelectOptions}
-          placeholder="Seleccionar un usuario"
-          helperText={helpText}
-        />
+        <FieldWrapper showHelp={false}>
+          <Select
+            label={label}
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value || null)}
+            disabled={fieldDisabled}
+            required={isRequired}
+            size="sm"
+            options={userSelectOptions}
+            placeholder="Seleccionar usuario..."
+            helperText={helpText}
+          />
+        </FieldWrapper>
       )
 
     case 'business-select':
@@ -121,30 +145,26 @@ function DynamicFormField({
       // In edit mode with existing value, show locked readonly field
       if (isEditMode && value) {
         return (
-          <div className="flex flex-col gap-1 w-full">
-            <label className="block text-sm font-medium text-gray-700">
-              {label}
-              {isRequired && <span className="text-red-500 ml-1">*</span>}
-            </label>
-            <div className="flex items-center gap-2">
-              <div className="flex-1 relative">
+          <FieldWrapper>
+            <div className="space-y-0.5">
+              <FieldLabel label={label} required={isRequired} />
+              <div className="relative">
                 <input
                   type="text"
                   value={businessName}
                   readOnly
                   disabled
-                  className="w-full border border-gray-200 rounded-lg shadow-sm bg-gray-50 text-gray-700 cursor-not-allowed transition-all duration-200 text-xs px-3 py-1.5 pr-8"
+                  className="w-full border border-slate-200 rounded-md bg-slate-50 text-slate-600 cursor-not-allowed text-xs px-2.5 py-1.5 pr-7"
                 />
                 <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                  <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                 </div>
               </div>
+              <p className="text-[10px] text-slate-400 pl-0.5">Bloqueado</p>
             </div>
-            {helpText && <p className="text-xs text-gray-500">{helpText}</p>}
-            <p className="text-[10px] text-gray-400">El negocio vinculado no puede ser cambiado</p>
-          </div>
+          </FieldWrapper>
         )
       }
       
@@ -154,122 +174,135 @@ function DynamicFormField({
         label: b.name,
       }))
       return (
-        <Select
-          label={label}
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value || null)}
-          disabled={fieldDisabled}
-          required={isRequired}
-          size="sm"
-          options={businessSelectOptions}
-          placeholder="Seleccionar un negocio"
-          helperText={helpText}
-        />
+        <FieldWrapper showHelp={false}>
+          <Select
+            label={label}
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value || null)}
+            disabled={fieldDisabled}
+            required={isRequired}
+            size="sm"
+            options={businessSelectOptions}
+            placeholder="Seleccionar negocio..."
+            helperText={helpText}
+          />
+        </FieldWrapper>
       )
 
     case 'stage-select':
     case 'select':
       // Generic select - use options prop
       return (
-        <Select
-          label={label}
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value || null)}
-          disabled={fieldDisabled}
-          required={isRequired}
-          size="sm"
-          options={selectOptions}
-          placeholder="Seleccionar una opción"
-        />
+        <FieldWrapper showHelp={false}>
+          <Select
+            label={label}
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value || null)}
+            disabled={fieldDisabled}
+            required={isRequired}
+            size="sm"
+            options={selectOptions}
+            placeholder="Seleccionar..."
+          />
+        </FieldWrapper>
       )
 
     case 'textarea':
       return (
-        <Textarea
-          label={label}
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value || null)}
-          disabled={fieldDisabled}
-          required={isRequired}
-          placeholder={placeholder}
-          rows={3}
-          size="sm"
-        />
+        <FieldWrapper showHelp={false}>
+          <Textarea
+            label={label}
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value || null)}
+            disabled={fieldDisabled}
+            required={isRequired}
+            placeholder={placeholder}
+            rows={2}
+            size="sm"
+          />
+        </FieldWrapper>
       )
 
     case 'checkbox':
       return (
-        <div>
-          <label className="flex items-center gap-2 cursor-pointer">
+        <FieldWrapper>
+          <label className="inline-flex items-center gap-2 cursor-pointer group py-1">
             <input
               type="checkbox"
               checked={value === 'true'}
               onChange={(e) => onChange(e.target.checked ? 'true' : 'false')}
               disabled={fieldDisabled}
-              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+              className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 focus:ring-offset-0 disabled:opacity-50"
             />
-            <span className="text-sm text-gray-700">
+            <span className="text-xs text-slate-700 group-hover:text-slate-900 transition-colors">
               {label}
-              {isRequired && <span className="text-red-500 ml-1">*</span>}
+              {isRequired && <span className="text-red-500 ml-0.5">*</span>}
             </span>
           </label>
-          {helpText && <p className="text-xs text-gray-500 mt-1">{helpText}</p>}
-        </div>
+        </FieldWrapper>
       )
 
     case 'date':
       return (
-        <Input
-          type="date"
-          label={label}
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value || null)}
-          disabled={fieldDisabled}
-          required={isRequired}
-          size="sm"
-        />
+        <FieldWrapper showHelp={false}>
+          <Input
+            type="date"
+            label={label}
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value || null)}
+            disabled={fieldDisabled}
+            required={isRequired}
+            size="sm"
+          />
+        </FieldWrapper>
       )
 
     case 'number':
       return (
-        <Input
-          type="number"
-          label={label}
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value || null)}
-          disabled={fieldDisabled}
-          required={isRequired}
-          placeholder={placeholder}
-          size="sm"
-        />
+        <FieldWrapper showHelp={false}>
+          <Input
+            type="number"
+            label={label}
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value || null)}
+            disabled={fieldDisabled}
+            required={isRequired}
+            placeholder={placeholder}
+            size="sm"
+          />
+        </FieldWrapper>
       )
 
     case 'email':
       return (
-        <Input
-          type="email"
-          label={label}
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value || null)}
-          disabled={fieldDisabled}
-          required={isRequired}
-          placeholder={placeholder}
-          size="sm"
-        />
+        <FieldWrapper showHelp={false}>
+          <Input
+            type="email"
+            label={label}
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value || null)}
+            disabled={fieldDisabled}
+            required={isRequired}
+            placeholder={placeholder}
+            size="sm"
+          />
+        </FieldWrapper>
       )
 
     case 'phone':
       return (
-        <Input
-          type="tel"
-          label={label}
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value || null)}
-          disabled={fieldDisabled}
-          required={isRequired}
-          placeholder={placeholder}
-          size="sm"
-        />
+        <FieldWrapper showHelp={false}>
+          <Input
+            type="tel"
+            label={label}
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value || null)}
+            disabled={fieldDisabled}
+            required={isRequired}
+            placeholder={placeholder}
+            size="sm"
+          />
+        </FieldWrapper>
       )
 
     case 'url':
@@ -283,32 +316,36 @@ function DynamicFormField({
         }
       }
       return (
-        <Input
-          type="url"
-          label={label}
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value || null)}
-          onBlur={handleUrlBlur}
-          disabled={fieldDisabled}
-          required={isRequired}
-          placeholder={placeholder || 'https://example.com'}
-          size="sm"
-        />
+        <FieldWrapper showHelp={false}>
+          <Input
+            type="url"
+            label={label}
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value || null)}
+            onBlur={handleUrlBlur}
+            disabled={fieldDisabled}
+            required={isRequired}
+            placeholder={placeholder || 'https://...'}
+            size="sm"
+          />
+        </FieldWrapper>
       )
 
     case 'text':
     default:
       return (
-        <Input
-          type="text"
-          label={label}
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value || null)}
-          disabled={fieldDisabled}
-          required={isRequired}
-          placeholder={placeholder}
-          size="sm"
-        />
+        <FieldWrapper showHelp={false}>
+          <Input
+            type="text"
+            label={label}
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value || null)}
+            disabled={fieldDisabled}
+            required={isRequired}
+            placeholder={placeholder}
+            size="sm"
+          />
+        </FieldWrapper>
       )
   }
 }

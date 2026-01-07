@@ -237,117 +237,111 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
 
   return (
     <div className="p-4 max-w-6xl mx-auto space-y-4">
-      {/* Header Card */}
-      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col md:flex-row gap-6 md:items-start justify-between">
-        <div className="flex items-start gap-5">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md flex-shrink-0">
-            <StoreIcon style={{ fontSize: 32 }} />
-          </div>
-          <div>
-            <div className="flex flex-col gap-1">
-              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{business.name}</h1>
-              <div className="flex flex-wrap items-center gap-2 mt-1">
+      {/* Header Card - Compact */}
+      <div className="bg-white border border-slate-200 rounded-lg px-4 py-3 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
+          {/* Left: Icon + Info */}
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm flex-shrink-0">
+              <StoreIcon style={{ fontSize: 20 }} />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base font-semibold text-slate-900 truncate">{business.name}</h1>
                 {business.tier && (
-                  <Badge className="bg-amber-50 text-amber-700 border border-amber-200/60 ring-1 ring-amber-200/50">
-                    Tier {business.tier}
-                  </Badge>
+                  <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700 rounded">
+                    T{business.tier}
+                  </span>
                 )}
-                <Badge className={`border ring-1 ${
+                <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${
                   business.sourceType === 'api' 
-                    ? 'bg-blue-50 text-blue-700 border-blue-200/60 ring-blue-200/50' 
-                    : 'bg-slate-50 text-slate-600 border-slate-200/60 ring-slate-200/50'
+                    ? 'bg-blue-100 text-blue-700' 
+                    : 'bg-slate-100 text-slate-600'
                 }`}>
-                  {business.sourceType === 'api' ? 'Synced (API)' : 'Manual'}
-                </Badge>
+                  {business.sourceType === 'api' ? 'API' : 'Manual'}
+                </span>
                 {business.metrics?.net_rev_360_days !== undefined && (
-                  <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200/60 ring-1 ring-emerald-200/50 font-mono">
-                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(business.metrics.net_rev_360_days)} (360d)
-                  </Badge>
+                  <span className="px-1.5 py-0.5 text-[10px] font-mono font-medium bg-emerald-100 text-emerald-700 rounded">
+                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(business.metrics.net_rev_360_days)}
+                  </span>
                 )}
               </div>
-            </div>
-            
-            <div className="flex flex-wrap gap-y-1 text-sm text-slate-500 mt-3 font-medium">
               {business.category && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-slate-400">Category:</span>
-                  <span className="text-slate-700 flex items-center">
-                    {business.category.parentCategory}
-                    {business.category.subCategory1 && (
-                      <>
-                        <span className="text-slate-300 mx-1.5">›</span>
-                        {business.category.subCategory1}
-                      </>
-                    )}
-                  </span>
+                <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
+                  <span className="truncate">{business.category.parentCategory}</span>
+                  {business.category.subCategory1 && (
+                    <>
+                      <span className="text-slate-300">›</span>
+                      <span className="truncate">{business.category.subCategory1}</span>
+                    </>
+                  )}
                 </div>
               )}
             </div>
           </div>
-        </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto pt-2">
-          {activeTab === 'details' && (
-            <div className="relative flex-1 sm:w-64">
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search details..."
-                leftIcon={<SearchIcon className="w-4 h-4 text-slate-400" />}
-                className="text-sm border-slate-200 focus:border-blue-500 focus:ring-blue-500/20"
-                size="sm"
-              />
-            </div>
-          )}
-          <Button
-            onClick={() => setIsOpportunityModalOpen(true)}
-            size="sm"
-            leftIcon={<AddIcon fontSize="small" />}
-            className="shadow-sm bg-blue-600 hover:bg-blue-700 text-white border-transparent"
-          >
-            New Opportunity
-          </Button>
-          <Button
-            onClick={handleCreateRequest}
-            size="sm"
-            leftIcon={<DescriptionIcon fontSize="small" />}
-            className="shadow-sm bg-green-600 hover:bg-green-700 text-white border-transparent"
-          >
-            New Request
-          </Button>
-          <Button
-            onClick={() => setIsEditModalOpen(true)}
-            variant="secondary"
-            size="sm"
-            leftIcon={<EditIcon fontSize="small" />}
-            className="shadow-sm bg-white border-slate-200 hover:bg-slate-50 text-slate-700"
-          >
-            Edit
-          </Button>
+          {/* Right: Actions */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {activeTab === 'details' && (
+              <div className="hidden sm:block w-40">
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search..."
+                  leftIcon={<SearchIcon style={{ fontSize: 14 }} />}
+                  size="sm"
+                />
+              </div>
+            )}
+            <Button
+              onClick={() => setIsOpportunityModalOpen(true)}
+              size="xs"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <AddIcon style={{ fontSize: 14 }} />
+              <span className="hidden sm:inline ml-1">Opportunity</span>
+            </Button>
+            <Button
+              onClick={handleCreateRequest}
+              size="xs"
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <DescriptionIcon style={{ fontSize: 14 }} />
+              <span className="hidden sm:inline ml-1">Request</span>
+            </Button>
+            <Button
+              onClick={() => setIsEditModalOpen(true)}
+              variant="secondary"
+              size="xs"
+            >
+              <EditIcon style={{ fontSize: 14 }} />
+              <span className="hidden sm:inline ml-1">Edit</span>
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Tabs Navigation */}
-      <div className="flex items-center gap-6 border-b border-slate-200 mb-8 px-2">
+      {/* Tabs Navigation - Compact */}
+      <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5 w-fit">
         <button
           onClick={() => setActiveTab('pipeline')}
-          className={`pb-3 text-sm font-semibold border-b-2 transition-all ${
+          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
             activeTab === 'pipeline'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+              ? 'bg-white text-slate-900 shadow-sm'
+              : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          Pipeline & Activity
+          Pipeline
         </button>
         <button
           onClick={() => setActiveTab('details')}
-          className={`pb-3 text-sm font-semibold border-b-2 transition-all ${
+          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
             activeTab === 'details'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+              ? 'bg-white text-slate-900 shadow-sm'
+              : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          Business Details
+          Details
         </button>
       </div>
 

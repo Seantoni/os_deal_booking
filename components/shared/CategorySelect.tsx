@@ -259,11 +259,11 @@ function CategorySelect({
   ) : null
 
   return (
-    <div className="flex flex-col gap-1 w-full">
+    <div className="flex flex-col gap-0.5 w-full">
       {label && (
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-xs font-medium text-slate-600">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-red-500 ml-0.5">*</span>}
         </label>
       )}
       

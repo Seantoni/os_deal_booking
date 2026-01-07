@@ -920,7 +920,7 @@ export default function OpportunityFormModal({
             </div>
           </div>
 
-      <form id="modal-form" onSubmit={handleSubmit} className="bg-white min-h-[450px] flex flex-col">
+      <form id="modal-form" onSubmit={handleSubmit} className="bg-white min-h-[500px] flex flex-col">
             {error && (
               <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
                 <ErrorOutlineIcon className="text-red-600 flex-shrink-0 mt-0.5" fontSize="small" />
@@ -932,23 +932,28 @@ export default function OpportunityFormModal({
             {(loadingData || dynamicForm.loading) ? (
               <OpportunityDetailsSkeleton />
             ) : activeTab === 'details' ? (
-              <div className="p-4 space-y-4">
+              <div className="p-3 space-y-3">
                 {/* Dynamic Sections from Form Config */}
-                {dynamicForm.initialized && dynamicForm.sections.map(section => (
-                  <DynamicFormSection
-                    key={section.id}
-                    section={section}
-                    values={dynamicForm.getAllValues()}
-                    onChange={dynamicForm.setValue}
-                    disabled={loading}
-                    categories={categoryOptions}
-                    users={userOptions}
-                    businesses={businesses}
-                    defaultExpanded={!section.isCollapsed}
-                    collapsible={true}
-                    isEditMode={isEditMode}
-                  />
-                ))}
+                {dynamicForm.initialized && dynamicForm.sections.map((section) => {
+                  // Collapse sections with many fields (10+) by default for better UX
+                  const visibleFieldCount = section.fields.filter(f => f.isVisible).length
+                  const shouldCollapse = section.isCollapsed || visibleFieldCount >= 10
+                  return (
+                    <DynamicFormSection
+                      key={section.id}
+                      section={section}
+                      values={dynamicForm.getAllValues()}
+                      onChange={dynamicForm.setValue}
+                      disabled={loading}
+                      categories={categoryOptions}
+                      users={userOptions}
+                      businesses={businesses}
+                      defaultExpanded={!shouldCollapse}
+                      collapsible={true}
+                      isEditMode={isEditMode}
+                    />
+                  )
+                })}
 
                 {/* Fallback if form config not initialized */}
                 {!dynamicForm.initialized && (

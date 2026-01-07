@@ -581,7 +581,7 @@ export default function BusinessFormModal({
         />
       }
     >
-      <form id="modal-form" onSubmit={handleSubmit} className="bg-gray-50 min-h-[450px] flex flex-col">
+      <form id="modal-form" onSubmit={handleSubmit} className="bg-gray-50 min-h-[500px] flex flex-col">
             {error && (
               <div className="mx-6 mt-4">
                 <Alert variant="error" icon={<ErrorOutlineIcon fontSize="small" />}>
@@ -593,7 +593,7 @@ export default function BusinessFormModal({
             {(loadingData || dynamicForm.loading) ? (
               <FormModalSkeleton sections={3} fieldsPerSection={3} />
             ) : (
-              <div className="p-4 space-y-4">
+              <div className="p-3 space-y-3">
                 {/* Reference Info Bar (special section - not from form config) */}
                 <ReferenceInfoBar>
                   <ReferenceInfoBar.CreatedDateItem entity={business} />
@@ -614,21 +614,26 @@ export default function BusinessFormModal({
                 </ReferenceInfoBar>
 
                 {/* Dynamic Sections from Form Config */}
-                {dynamicForm.initialized && dynamicForm.sections.map(section => (
-                  <DynamicFormSection
-                    key={section.id}
-                    section={section}
-                    values={allFormValues}
-                    onChange={dynamicForm.setValue}
-                    disabled={loading}
-                    categories={categoryOptions}
-                    users={userOptions}
-                    fieldOverrides={fieldOverrides}
-                    fieldAddons={fieldAddons}
-                    defaultExpanded={!section.isCollapsed}
-                    collapsible={true}
-                  />
-                ))}
+                {dynamicForm.initialized && dynamicForm.sections.map((section) => {
+                  // Collapse sections with many fields (10+) by default for better UX
+                  const visibleFieldCount = section.fields.filter(f => f.isVisible).length
+                  const shouldCollapse = section.isCollapsed || visibleFieldCount >= 10
+                  return (
+                    <DynamicFormSection
+                      key={section.id}
+                      section={section}
+                      values={allFormValues}
+                      onChange={dynamicForm.setValue}
+                      disabled={loading}
+                      categories={categoryOptions}
+                      users={userOptions}
+                      fieldOverrides={fieldOverrides}
+                      fieldAddons={fieldAddons}
+                      defaultExpanded={!shouldCollapse}
+                      collapsible={true}
+                    />
+                  )
+                })}
 
                 {/* Fallback if form config not initialized */}
                 {!dynamicForm.initialized && (

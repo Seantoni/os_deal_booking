@@ -268,7 +268,7 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
             {(loadingData || dynamicForm.loading) ? (
               <FormModalSkeleton sections={3} fieldsPerSection={3} />
             ) : (
-              <div className="p-4 space-y-4">
+              <div className="p-3 space-y-3">
                 {/* Stage and Responsible Bar */}
                 {isEditMode && (
                   <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 flex items-center gap-4 flex-wrap">
@@ -324,19 +324,24 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
                 )}
 
                 {/* Dynamic Sections from Form Config */}
-                {dynamicForm.initialized && dynamicForm.sections.map(section => (
-                  <DynamicFormSection
-                    key={section.id}
-                    section={section}
-                    values={dynamicForm.getAllValues()}
-                    onChange={dynamicForm.setValue}
-                    disabled={loading || isConverted}
-                    categories={categoryOptions}
-                    users={userOptions}
-                    defaultExpanded={!section.isCollapsed}
-                    collapsible={true}
-                  />
-                ))}
+                {dynamicForm.initialized && dynamicForm.sections.map((section) => {
+                  // Collapse sections with many fields (10+) by default for better UX
+                  const visibleFieldCount = section.fields.filter(f => f.isVisible).length
+                  const shouldCollapse = section.isCollapsed || visibleFieldCount >= 10
+                  return (
+                    <DynamicFormSection
+                      key={section.id}
+                      section={section}
+                      values={dynamicForm.getAllValues()}
+                      onChange={dynamicForm.setValue}
+                      disabled={loading || isConverted}
+                      categories={categoryOptions}
+                      users={userOptions}
+                      defaultExpanded={!shouldCollapse}
+                      collapsible={true}
+                    />
+                  )
+                })}
 
                 {/* Fallback if form config not initialized */}
                 {!dynamicForm.initialized && (
