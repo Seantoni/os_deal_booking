@@ -15,10 +15,11 @@ interface PendingRequestsSidebarProps {
   onRequestClick?: (request: BookingRequest) => void
   onRequestDragStart?: (request: BookingRequest | null) => void
   onCategoryFilter?: (category: string | null) => void
+  onNavigateToDate?: (date: Date) => void
   onBackClick: () => void
 }
 
-export default function PendingRequestsSidebar({ requests, filteredCategory, onRequestClick, onRequestDragStart, onCategoryFilter, onBackClick }: PendingRequestsSidebarProps) {
+export default function PendingRequestsSidebar({ requests, filteredCategory, onRequestClick, onRequestDragStart, onCategoryFilter, onNavigateToDate, onBackClick }: PendingRequestsSidebarProps) {
   const [searchQuery, setSearchQuery] = useState('')
   
   // Get category display using centralized utility
@@ -66,9 +67,9 @@ return (
         <div className="mt-3 text-xs text-gray-600 bg-blue-50 border border-blue-200 rounded-md p-2">
           <p className="font-medium text-blue-900 flex items-center gap-1.5">
             <LightbulbIcon style={{ fontSize: 16 }} />
-            Drag & Drop
+            Quick Actions
           </p>
-          <p className="mt-1">Drag requests to calendar to set launch date</p>
+          <p className="mt-1">Click to jump to date • Drag to set launch date</p>
         </div>
       </div>
 
@@ -83,6 +84,13 @@ return (
                 <div
                   key={request.id}
                   draggable
+                  onClick={() => {
+                    // Navigate to the start date in calendar view
+                    if (onNavigateToDate && request.startDate) {
+                      const startDate = new Date(request.startDate)
+                      onNavigateToDate(startDate)
+                    }
+                  }}
                   onDragStart={(e) => {
                     e.dataTransfer.effectAllowed = 'move'
                     e.dataTransfer.setData('text/plain', request.id)
@@ -99,7 +107,7 @@ return (
                     // Clear drag state when drag ends (if drag was cancelled)
                     onRequestDragStart?.(null)
                   }}
-                  className={`bg-white border rounded-lg p-3 hover:shadow-md transition-all group cursor-move ${
+                  className={`bg-white border rounded-lg p-3 hover:shadow-md transition-all group cursor-pointer ${
                     isFiltered 
                       ? 'border-blue-500 shadow-md ring-2 ring-blue-200' 
                       : 'border-gray-200 hover:border-blue-300'
@@ -109,8 +117,12 @@ return (
                   <div className="flex items-start gap-2 mb-2">
                     <div className={`w-3 h-3 rounded-full ${colors.indicator} flex-shrink-0 mt-0.5`}></div>
                     <div 
-                      className="flex-1 min-w-0 cursor-pointer"
-                      onClick={() => onRequestClick?.(request)}
+                      className="flex-1 min-w-0 cursor-pointer hover:text-blue-600"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onRequestClick?.(request)
+                      }}
+                      title="Click to view details"
                     >
                       <h3 className="font-semibold text-sm text-gray-900 truncate" title={request.name}>
                         {request.name}
@@ -179,12 +191,20 @@ return (
                     </div>
                   </div>
 
-                  {/* Drag Indicator */}
-                  <div className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-1.5 text-[10px] text-gray-500">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                    </svg>
-                    <span>Drag to calendar</span>
+                  {/* Action Indicator */}
+                  <div className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-3 text-[10px] text-gray-500">
+                    <div className="flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                      </svg>
+                      <span>Click to view</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                      </svg>
+                      <span>Drag to set date</span>
+                    </div>
                   </div>
                 </div>
               )

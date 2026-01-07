@@ -101,17 +101,17 @@ function DynamicFormField({
       // Category select - use shared CategorySelect component with search
       return (
         <FieldWrapper showHelp={false}>
-          <CategorySelect
-            value={value}
-            onValueChange={onChange}
-            categories={categories}
-            label={label}
-            required={isRequired}
-            disabled={fieldDisabled}
-            helpText={helpText}
+        <CategorySelect
+          value={value}
+          onValueChange={onChange}
+          categories={categories}
+          label={label}
+          required={isRequired}
+          disabled={fieldDisabled}
+          helpText={helpText}
             placeholder="Seleccionar categoría..."
-            size="sm"
-          />
+          size="sm"
+        />
         </FieldWrapper>
       )
 
@@ -123,17 +123,17 @@ function DynamicFormField({
       }))
       return (
         <FieldWrapper showHelp={false}>
-          <Select
-            label={label}
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value || null)}
-            disabled={fieldDisabled}
-            required={isRequired}
-            size="sm"
-            options={userSelectOptions}
+        <Select
+          label={label}
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value || null)}
+          disabled={fieldDisabled}
+          required={isRequired}
+          size="sm"
+          options={userSelectOptions}
             placeholder="Seleccionar usuario..."
-            helperText={helpText}
-          />
+          helperText={helpText}
+        />
         </FieldWrapper>
       )
 
@@ -175,17 +175,17 @@ function DynamicFormField({
       }))
       return (
         <FieldWrapper showHelp={false}>
-          <Select
-            label={label}
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value || null)}
-            disabled={fieldDisabled}
-            required={isRequired}
-            size="sm"
-            options={businessSelectOptions}
+        <Select
+          label={label}
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value || null)}
+          disabled={fieldDisabled}
+          required={isRequired}
+          size="sm"
+          options={businessSelectOptions}
             placeholder="Seleccionar negocio..."
-            helperText={helpText}
-          />
+          helperText={helpText}
+        />
         </FieldWrapper>
       )
 
@@ -194,32 +194,32 @@ function DynamicFormField({
       // Generic select - use options prop
       return (
         <FieldWrapper showHelp={false}>
-          <Select
-            label={label}
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value || null)}
-            disabled={fieldDisabled}
-            required={isRequired}
-            size="sm"
-            options={selectOptions}
+        <Select
+          label={label}
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value || null)}
+          disabled={fieldDisabled}
+          required={isRequired}
+          size="sm"
+          options={selectOptions}
             placeholder="Seleccionar..."
-          />
+        />
         </FieldWrapper>
       )
 
     case 'textarea':
       return (
         <FieldWrapper showHelp={false}>
-          <Textarea
-            label={label}
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value || null)}
-            disabled={fieldDisabled}
-            required={isRequired}
-            placeholder={placeholder}
+        <Textarea
+          label={label}
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value || null)}
+          disabled={fieldDisabled}
+          required={isRequired}
+          placeholder={placeholder}
             rows={2}
-            size="sm"
-          />
+          size="sm"
+        />
         </FieldWrapper>
       )
 
@@ -245,63 +245,63 @@ function DynamicFormField({
     case 'date':
       return (
         <FieldWrapper showHelp={false}>
-          <Input
-            type="date"
-            label={label}
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value || null)}
-            disabled={fieldDisabled}
-            required={isRequired}
-            size="sm"
-          />
+        <Input
+          type="date"
+          label={label}
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value || null)}
+          disabled={fieldDisabled}
+          required={isRequired}
+          size="sm"
+        />
         </FieldWrapper>
       )
 
     case 'number':
       return (
         <FieldWrapper showHelp={false}>
-          <Input
-            type="number"
-            label={label}
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value || null)}
-            disabled={fieldDisabled}
-            required={isRequired}
-            placeholder={placeholder}
-            size="sm"
-          />
+        <Input
+          type="number"
+          label={label}
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value || null)}
+          disabled={fieldDisabled}
+          required={isRequired}
+          placeholder={placeholder}
+          size="sm"
+        />
         </FieldWrapper>
       )
 
     case 'email':
       return (
         <FieldWrapper showHelp={false}>
-          <Input
-            type="email"
-            label={label}
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value || null)}
-            disabled={fieldDisabled}
-            required={isRequired}
-            placeholder={placeholder}
-            size="sm"
-          />
+        <Input
+          type="email"
+          label={label}
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value || null)}
+          disabled={fieldDisabled}
+          required={isRequired}
+          placeholder={placeholder}
+          size="sm"
+        />
         </FieldWrapper>
       )
 
     case 'phone':
       return (
         <FieldWrapper showHelp={false}>
-          <Input
-            type="tel"
-            label={label}
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value || null)}
-            disabled={fieldDisabled}
-            required={isRequired}
-            placeholder={placeholder}
-            size="sm"
-          />
+        <Input
+          type="tel"
+          label={label}
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value || null)}
+          disabled={fieldDisabled}
+          required={isRequired}
+          placeholder={placeholder}
+          size="sm"
+        />
         </FieldWrapper>
       )
 
@@ -317,17 +317,17 @@ function DynamicFormField({
       }
       return (
         <FieldWrapper showHelp={false}>
-          <Input
-            type="url"
-            label={label}
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value || null)}
-            onBlur={handleUrlBlur}
-            disabled={fieldDisabled}
-            required={isRequired}
+        <Input
+          type="url"
+          label={label}
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value || null)}
+          onBlur={handleUrlBlur}
+          disabled={fieldDisabled}
+          required={isRequired}
             placeholder={placeholder || 'https://...'}
-            size="sm"
-          />
+          size="sm"
+        />
         </FieldWrapper>
       )
 
@@ -335,16 +335,16 @@ function DynamicFormField({
     default:
       return (
         <FieldWrapper showHelp={false}>
-          <Input
-            type="text"
-            label={label}
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value || null)}
-            disabled={fieldDisabled}
-            required={isRequired}
-            placeholder={placeholder}
-            size="sm"
-          />
+        <Input
+          type="text"
+          label={label}
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value || null)}
+          disabled={fieldDisabled}
+          required={isRequired}
+          placeholder={placeholder}
+          size="sm"
+        />
         </FieldWrapper>
       )
   }

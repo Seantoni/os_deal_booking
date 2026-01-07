@@ -619,19 +619,19 @@ export default function BusinessFormModal({
                   const visibleFieldCount = section.fields.filter(f => f.isVisible).length
                   const shouldCollapse = section.isCollapsed || visibleFieldCount >= 10
                   return (
-                    <DynamicFormSection
-                      key={section.id}
-                      section={section}
-                      values={allFormValues}
-                      onChange={dynamicForm.setValue}
-                      disabled={loading}
-                      categories={categoryOptions}
-                      users={userOptions}
-                      fieldOverrides={fieldOverrides}
-                      fieldAddons={fieldAddons}
+                  <DynamicFormSection
+                    key={section.id}
+                    section={section}
+                    values={allFormValues}
+                    onChange={dynamicForm.setValue}
+                    disabled={loading}
+                    categories={categoryOptions}
+                    users={userOptions}
+                    fieldOverrides={fieldOverrides}
+                    fieldAddons={fieldAddons}
                       defaultExpanded={!shouldCollapse}
-                      collapsible={true}
-                    />
+                    collapsible={true}
+                  />
                   )
                 })}
 

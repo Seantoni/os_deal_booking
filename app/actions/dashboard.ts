@@ -321,8 +321,9 @@ export async function getPendingBookings(): Promise<{
 
   try {
     // Build where clause based on role
+    // Only show 'approved' events (ready to be booked/reserved)
     const whereClause: Prisma.EventWhereInput = {
-      status: { in: ['pending', 'approved'] },
+      status: 'approved',
       // Only show future events or events happening today
       endDate: { gte: new Date() },
     }

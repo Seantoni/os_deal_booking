@@ -149,8 +149,8 @@ function DynamicFormSection({
           <div className="flex items-center gap-2">
             <div className={`w-1 h-4 rounded-full transition-colors ${isExpanded ? 'bg-blue-500' : 'bg-slate-300 group-hover:bg-slate-400'}`} />
             <h3 className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
-              {section.name}
-            </h3>
+            {section.name}
+          </h3>
             <span className="text-[10px] text-slate-400 font-normal">
               ({visibleFields.length})
             </span>
@@ -169,8 +169,8 @@ function DynamicFormSection({
           <div className="flex items-center gap-2">
             <div className="w-1 h-4 rounded-full bg-blue-500" />
             <h3 className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
-              {section.name}
-            </h3>
+            {section.name}
+          </h3>
             <span className="text-[10px] text-slate-400 font-normal">
               ({visibleFields.length})
             </span>

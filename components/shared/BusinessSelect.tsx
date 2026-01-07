@@ -196,9 +196,9 @@ export default function BusinessSelect({
           >
             <span className="text-sm text-gray-900 truncate">{business.name}</span>
             <div className="flex items-center gap-1 flex-shrink-0">
-              {(business.hasFutureBooking || business.hasActiveRequest) && (
+                  {(business.hasFutureBooking || business.hasActiveRequest) && (
                 <WarningAmberIcon className="w-3.5 h-3.5 text-amber-500" titleAccess="Tiene reservas activas" />
-              )}
+                  )}
               {value === business.name && (
                 <CheckIcon className="w-4 h-4 text-blue-600" />
               )}
@@ -277,10 +277,10 @@ export default function BusinessSelect({
         <Alert variant="warning" className="mt-1.5">
           {selectedBusiness.name}: {selectedBusiness.hasFutureBooking && selectedBusiness.hasActiveRequest 
             ? 'tiene eventos y solicitudes activas'
-            : selectedBusiness.hasFutureBooking 
+              : selectedBusiness.hasFutureBooking 
               ? 'tiene eventos futuros' 
               : 'tiene solicitudes pendientes'
-          }
+            }
         </Alert>
       )}
     </div>

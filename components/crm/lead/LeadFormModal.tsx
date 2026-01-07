@@ -329,17 +329,17 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
                   const visibleFieldCount = section.fields.filter(f => f.isVisible).length
                   const shouldCollapse = section.isCollapsed || visibleFieldCount >= 10
                   return (
-                    <DynamicFormSection
-                      key={section.id}
-                      section={section}
-                      values={dynamicForm.getAllValues()}
-                      onChange={dynamicForm.setValue}
-                      disabled={loading || isConverted}
-                      categories={categoryOptions}
-                      users={userOptions}
+                  <DynamicFormSection
+                    key={section.id}
+                    section={section}
+                    values={dynamicForm.getAllValues()}
+                    onChange={dynamicForm.setValue}
+                    disabled={loading || isConverted}
+                    categories={categoryOptions}
+                    users={userOptions}
                       defaultExpanded={!shouldCollapse}
-                      collapsible={true}
-                    />
+                    collapsible={true}
+                  />
                   )
                 })}
 

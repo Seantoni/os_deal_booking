@@ -244,7 +244,7 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm flex-shrink-0">
               <StoreIcon style={{ fontSize: 20 }} />
-            </div>
+          </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-base font-semibold text-slate-900 truncate">{business.name}</h1>
@@ -269,54 +269,54 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
               {business.category && (
                 <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
                   <span className="truncate">{business.category.parentCategory}</span>
-                  {business.category.subCategory1 && (
-                    <>
+                    {business.category.subCategory1 && (
+                      <>
                       <span className="text-slate-300">›</span>
                       <span className="truncate">{business.category.subCategory1}</span>
-                    </>
-                  )}
+                      </>
+                    )}
                 </div>
               )}
-            </div>
           </div>
+        </div>
 
           {/* Right: Actions */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {activeTab === 'details' && (
+          {activeTab === 'details' && (
               <div className="hidden sm:block w-40">
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search..."
                   leftIcon={<SearchIcon style={{ fontSize: 14 }} />}
-                  size="sm"
-                />
-              </div>
-            )}
-            <Button
-              onClick={() => setIsOpportunityModalOpen(true)}
+                size="sm"
+              />
+            </div>
+          )}
+          <Button
+            onClick={() => setIsOpportunityModalOpen(true)}
               size="xs"
               className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
+          >
               <AddIcon style={{ fontSize: 14 }} />
               <span className="hidden sm:inline ml-1">Opportunity</span>
-            </Button>
-            <Button
-              onClick={handleCreateRequest}
+          </Button>
+          <Button
+            onClick={handleCreateRequest}
               size="xs"
               className="bg-green-600 hover:bg-green-700 text-white"
-            >
+          >
               <DescriptionIcon style={{ fontSize: 14 }} />
               <span className="hidden sm:inline ml-1">Request</span>
-            </Button>
-            <Button
-              onClick={() => setIsEditModalOpen(true)}
-              variant="secondary"
+          </Button>
+          <Button
+            onClick={() => setIsEditModalOpen(true)}
+            variant="secondary"
               size="xs"
-            >
+          >
               <EditIcon style={{ fontSize: 14 }} />
               <span className="hidden sm:inline ml-1">Edit</span>
-            </Button>
+          </Button>
           </div>
         </div>
       </div>

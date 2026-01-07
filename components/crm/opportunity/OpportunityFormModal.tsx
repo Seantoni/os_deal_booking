@@ -939,19 +939,19 @@ export default function OpportunityFormModal({
                   const visibleFieldCount = section.fields.filter(f => f.isVisible).length
                   const shouldCollapse = section.isCollapsed || visibleFieldCount >= 10
                   return (
-                    <DynamicFormSection
-                      key={section.id}
-                      section={section}
-                      values={dynamicForm.getAllValues()}
-                      onChange={dynamicForm.setValue}
-                      disabled={loading}
-                      categories={categoryOptions}
-                      users={userOptions}
-                      businesses={businesses}
+                  <DynamicFormSection
+                    key={section.id}
+                    section={section}
+                    values={dynamicForm.getAllValues()}
+                    onChange={dynamicForm.setValue}
+                    disabled={loading}
+                    categories={categoryOptions}
+                    users={userOptions}
+                    businesses={businesses}
                       defaultExpanded={!shouldCollapse}
-                      collapsible={true}
-                      isEditMode={isEditMode}
-                    />
+                    collapsible={true}
+                    isEditMode={isEditMode}
+                  />
                   )
                 })}
 

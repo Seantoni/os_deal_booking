@@ -178,11 +178,11 @@ const formatCurrency = (value: number) => {
                 <div className="flex gap-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
                   {/* Image */}
                   {deal.imageUrl && (
-                    <img 
-                      src={deal.imageUrl} 
-                      alt="" 
+                      <img 
+                        src={deal.imageUrl} 
+                        alt="" 
                       className="w-20 h-20 rounded-lg object-cover shadow-sm flex-shrink-0"
-                    />
+                      />
                   )}
                   
                   {/* Details */}
@@ -207,19 +207,19 @@ const formatCurrency = (value: number) => {
                       <span className="text-lg font-bold text-green-600">{formatCurrency(deal.offerPrice)}</span>
                       <span className="text-xs text-gray-400 line-through">{formatCurrency(deal.originalPrice)}</span>
                       <span className="text-xs font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">-{deal.discountPercent}%</span>
+                      </div>
                     </div>
-                  </div>
-                  
+                    
                   {/* External Link */}
-                  <a
-                    href={deal.sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    <a
+                      href={deal.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
                     className="self-start p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                     title={`View on ${getSiteLabel(deal.sourceSite)}`}
-                  >
+                    >
                     <OpenInNewIcon style={{ fontSize: 16 }} />
-                  </a>
+                    </a>
                 </div>
                 
                 {/* Stats Cards - Compact inline */}

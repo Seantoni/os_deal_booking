@@ -452,6 +452,12 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
                   onRequestClick={handleRequestClick}
                   onRequestDragStart={handleRequestDragStart}
                   onCategoryFilter={setCategoryFilter}
+                  onNavigateToDate={(date) => {
+                    setSelectedMiniDate(null)
+                    setSelectedMiniRange(null)
+                    setExternalCalendarDate(date)
+                    setExternalCalendarView('month')
+                  }}
                   onBackClick={() => {
                     setShowPendingBooking(false)
                     setCategoryFilter(null)
