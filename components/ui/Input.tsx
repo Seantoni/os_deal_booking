@@ -68,7 +68,7 @@ const InputComponent = forwardRef<HTMLInputElement, InputProps>(function Input(
   const internalRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
   const [isPending, startTransition] = useTransition()
-  
+
   // Expose the internal ref to the forwarded ref
   useImperativeHandle(ref, () => internalRef.current as HTMLInputElement, [])
 

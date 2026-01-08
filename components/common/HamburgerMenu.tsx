@@ -27,26 +27,26 @@ type SidebarItem = {
 }
 
 // Define sidebar configurations for each role
-// Organized by workflow: Daily Ops -> Sales Funnel -> Fulfillment -> Database
+// Organized into 3 groups: Monitor -> Work -> Acquire
 const adminSidebarConfig = {
-  mainItems: [
-    // 1. Daily Overview & Actions
+  // Monitor & Analyze (top - high-level overview)
+  monitorItems: [
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
+    { name: 'Inteligencia', href: '/market-intelligence', Icon: TrendingUpIcon },
+  ],
+  // Work (daily execution - heart of the product)
+  workItems: [
     { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
     { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
     { name: 'Solicitudes', href: '/booking-requests', Icon: DescriptionIcon },
-    
-    // 2. Sales Funnel (Inflow -> Active -> Closing)
+    { name: 'Negocios', href: '/businesses', Icon: BusinessIcon },
+    { name: 'Opps', href: '/opportunities', Icon: HandshakeIcon },
+  ],
+  // Acquire & Grow (less frequent)
+  acquireItems: [
     { name: 'Leads', href: '/leads', Icon: PersonAddIcon },
     { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
     { name: 'Marketing', href: '/marketing', Icon: CampaignIcon },
-    { name: 'Oportunidades', href: '/opportunities', Icon: HandshakeIcon },
-        
-    // 4. Database / CRM
-    { name: 'Negocios', href: '/businesses', Icon: BusinessIcon },
-    
-    // 5. Market Intelligence (Admin only)
-    { name: 'Inteligencia', href: '/market-intelligence', Icon: TrendingUpIcon },
   ],
   bottomItems: [
     { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
@@ -56,21 +56,18 @@ const adminSidebarConfig = {
 }
 
 const salesSidebarConfig = {
-  mainItems: [
-    // 1. Daily Overview & Actions
+  monitorItems: [
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
+  ],
+  workItems: [
     { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
     { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
     { name: 'Solicitudes', href: '/booking-requests', Icon: DescriptionIcon },
-    
-    // 2. Sales Funnel
-    // Note: Leads might be restricted for sales, but if they have access:
-    // { name: 'Leads', href: '/leads', Icon: PersonAddIcon }, 
-    { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
-    { name: 'Oportunidades', href: '/opportunities', Icon: HandshakeIcon },
-    
-    // 4. Database
     { name: 'Negocios', href: '/businesses', Icon: BusinessIcon },
+    { name: 'Opps', href: '/opportunities', Icon: HandshakeIcon },
+  ],
+  acquireItems: [
+    { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
   ],
   bottomItems: [
     { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
@@ -78,17 +75,21 @@ const salesSidebarConfig = {
 }
 
 const editorSidebarConfig = {
-  mainItems: [
+  monitorItems: [],
+  workItems: [],
+  acquireItems: [
     { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
   ],
-  bottomItems: [], // No settings for editor
+  bottomItems: [],
 }
 
 const marketingSidebarConfig = {
-  mainItems: [
+  monitorItems: [],
+  workItems: [],
+  acquireItems: [
     { name: 'Marketing', href: '/marketing', Icon: CampaignIcon },
   ],
-  bottomItems: [], // No additional items for marketing role
+  bottomItems: [],
 }
 
 export default function HamburgerMenu() {
@@ -106,7 +107,9 @@ export default function HamburgerMenu() {
     // Return empty config while loading or if role is not set
     if (loading || !role || role === null) {
       return {
-        mainItems: [],
+        monitorItems: [],
+        workItems: [],
+        acquireItems: [],
         bottomItems: [],
       }
     }
@@ -127,7 +130,9 @@ export default function HamburgerMenu() {
       default:
         // If role doesn't match any known role, return empty config
         return {
-          mainItems: [],
+          monitorItems: [],
+          workItems: [],
+          acquireItems: [],
           bottomItems: [],
         }
     }
@@ -144,31 +149,31 @@ export default function HamburgerMenu() {
       )}
 
       {/* Sidebar Menu - Hidden on mobile (md:block) */}
-      <div className={`hidden md:block absolute top-3 left-2 bottom-3 bg-slate-50/95 backdrop-blur-xl border border-slate-200/80 shadow-lg rounded-2xl transform transition-all duration-300 ease-in-out ${
+      <div className={`hidden md:block absolute top-3 left-2 bottom-3 bg-white/95 backdrop-blur-xl border border-slate-200/60 shadow-md rounded-xl transform transition-all duration-300 ease-in-out ${
         isOpen ? 'translate-x-0' : '-translate-x-[calc(100%+16px)]'
-      } w-[88px]`} style={{ zIndex: isCalendarPage ? 50 : 30 }}>
+      } w-[78px]`} style={{ zIndex: isCalendarPage ? 50 : 30 }}>
         <div className={`h-full flex flex-col`}>
           {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto py-2 px-1.5 space-y-1.5 scrollbar-hide">
+          <nav className="flex-1 overflow-y-auto py-2 px-1.5 scrollbar-hide">
             {(!mounted || loading) ? (
               // Shimmer loading effect
-              <div className="space-y-4 px-1">
+              <div className="space-y-0.5">
                 {[...Array(6)].map((_, i) => (
                   <div
                     key={i}
-                    className="flex flex-col items-center gap-2 px-1 py-2 rounded-lg animate-pulse"
+                    className="flex flex-col items-center justify-center py-1.5 rounded animate-pulse"
                   >
-                    <div className="w-5 h-5 bg-slate-200 rounded-full"></div>
-                    <div className="h-1.5 bg-slate-200 rounded w-10"></div>
+                    <div className="w-4 h-4 bg-slate-100 rounded"></div>
+                    <div className="w-6 h-1 bg-slate-100 rounded mt-0.5"></div>
                   </div>
                 ))}
               </div>
             ) : (
-              <>
-                {/* Main Items */}
-                {sidebarConfig.mainItems.length > 0 && (
-                  <div className="space-y-2">
-                    {sidebarConfig.mainItems.map((item) => {
+              <div className="space-y-3">
+                {/* Monitor & Analyze (Dashboard on top) */}
+                {sidebarConfig.monitorItems.length > 0 && (
+                  <div className="space-y-1">
+                    {sidebarConfig.monitorItems.map((item) => {
                       const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
                       const Icon = item.Icon
                       return (
@@ -180,32 +185,16 @@ export default function HamburgerMenu() {
                               setIsOpen(false)
                             }
                           }}
-                          className={`flex flex-col items-center justify-center gap-1 px-1 py-2 rounded-xl transition-all duration-300 group relative ${
+                          className={`group flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-all duration-200 ${
                             isActive 
-                              ? 'bg-white shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)] ring-1 ring-slate-100 translate-y-[-1px]' 
-                              : 'text-slate-500 hover:bg-white/80 hover:shadow-sm'
+                              ? 'bg-orange-100 text-orange-600' 
+                              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                           }`}
-                          title={item.name}
-                          style={{
-                            color: isActive ? '#e84c0f' : undefined,
-                          }}
-                          onMouseEnter={(e) => {
-                            if (!isActive) {
-                              e.currentTarget.style.color = '#e84c0f'
-                              const icon = e.currentTarget.querySelector('svg')
-                              if (icon) icon.style.color = '#e84c0f'
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            if (!isActive) {
-                              e.currentTarget.style.color = ''
-                              const icon = e.currentTarget.querySelector('svg')
-                              if (icon) icon.style.color = ''
-                            }
-                          }}
                         >
-                          <Icon className={`transition-colors duration-300 ${isActive ? '' : 'text-slate-400'}`} style={{ fontSize: '1.2rem', color: isActive ? '#e84c0f' : undefined }} />
-                          <span className="text-[9px] font-semibold leading-none text-center w-full truncate px-0.5 opacity-90 tracking-tight">
+                          <Icon style={{ fontSize: '1.1rem' }} className={isActive ? 'text-orange-600' : ''} />
+                          <span className={`text-[10px] font-medium mt-1 leading-tight truncate w-full text-center ${
+                            isActive ? 'text-orange-600' : 'text-slate-500 group-hover:text-slate-700'
+                          }`}>
                             {item.name}
                           </span>
                         </Link>
@@ -213,15 +202,90 @@ export default function HamburgerMenu() {
                     })}
                   </div>
                 )}
-              </>
+
+                {/* Separator */}
+                {sidebarConfig.monitorItems.length > 0 && sidebarConfig.workItems.length > 0 && (
+                  <div className="h-px bg-slate-200/60 mx-2" />
+                )}
+
+                {/* Work (daily execution) */}
+                {sidebarConfig.workItems.length > 0 && (
+                  <div className="space-y-1">
+                    {sidebarConfig.workItems.map((item) => {
+                      const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+                      const Icon = item.Icon
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => {
+                            if (isCalendarPage) {
+                              setIsOpen(false)
+                            }
+                          }}
+                          className={`group flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-all duration-200 ${
+                            isActive 
+                              ? 'bg-orange-100 text-orange-600' 
+                              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                          }`}
+                        >
+                          <Icon style={{ fontSize: '1.1rem' }} className={isActive ? 'text-orange-600' : ''} />
+                          <span className={`text-[10px] font-medium mt-1 leading-tight truncate w-full text-center ${
+                            isActive ? 'text-orange-600' : 'text-slate-500 group-hover:text-slate-700'
+                          }`}>
+                            {item.name}
+                          </span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Separator */}
+                {sidebarConfig.workItems.length > 0 && sidebarConfig.acquireItems.length > 0 && (
+                  <div className="h-px bg-slate-200/60 mx-2" />
+                )}
+
+                {/* Acquire & Grow */}
+                {sidebarConfig.acquireItems.length > 0 && (
+                  <div className="space-y-1">
+                    {sidebarConfig.acquireItems.map((item) => {
+                      const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+                      const Icon = item.Icon
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => {
+                            if (isCalendarPage) {
+                              setIsOpen(false)
+                            }
+                          }}
+                          className={`group flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-all duration-200 ${
+                            isActive 
+                              ? 'bg-orange-100 text-orange-600' 
+                              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                          }`}
+                        >
+                          <Icon style={{ fontSize: '1.1rem' }} className={isActive ? 'text-orange-600' : ''} />
+                          <span className={`text-[10px] font-medium mt-1 leading-tight truncate w-full text-center ${
+                            isActive ? 'text-orange-600' : 'text-slate-500 group-hover:text-slate-700'
+                          }`}>
+                            {item.name}
+                          </span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             )}
           </nav>
 
-          {/* Bottom Section - Settings (User profile is now in GlobalHeader) */}
+          {/* Bottom Section - Settings */}
           {mounted && !loading && sidebarConfig.bottomItems.length > 0 && (
-            <div className="px-1.5 pb-3">
-              <div className="space-y-2">
-                <div className="h-px w-8 mx-auto bg-slate-200/60 mb-2" />
+            <div className="px-1.5 pb-2 pt-2 border-t border-slate-200/60">
+              <div className="space-y-1">
                 {sidebarConfig.bottomItems.map((item) => {
                   const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
                   const Icon = item.Icon
@@ -234,32 +298,16 @@ export default function HamburgerMenu() {
                           setIsOpen(false)
                         }
                       }}
-                      className={`flex flex-col items-center justify-center gap-1 px-1 py-2 rounded-xl transition-all duration-300 group relative ${
+                      className={`group flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-all duration-200 ${
                         isActive 
-                          ? 'bg-white shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)] ring-1 ring-slate-100 translate-y-[-1px]' 
-                          : 'text-slate-500 hover:bg-white/80 hover:shadow-sm'
+                          ? 'bg-orange-100 text-orange-600' 
+                          : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                       }`}
-                      title={item.name}
-                      style={{
-                        color: isActive ? '#e84c0f' : undefined,
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.color = '#e84c0f'
-                          const icon = e.currentTarget.querySelector('svg')
-                          if (icon) icon.style.color = '#e84c0f'
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.color = ''
-                          const icon = e.currentTarget.querySelector('svg')
-                          if (icon) icon.style.color = ''
-                        }
-                      }}
                     >
-                      <Icon className={`transition-colors duration-300 ${isActive ? '' : 'text-slate-400'}`} style={{ fontSize: '1.2rem', color: isActive ? '#e84c0f' : undefined }} />
-                      <span className="text-[9px] font-semibold leading-none text-center w-full truncate px-0.5 opacity-90 tracking-tight">
+                      <Icon style={{ fontSize: '1.1rem' }} className={isActive ? 'text-orange-600' : ''} />
+                      <span className={`text-[10px] font-medium mt-1 leading-tight truncate w-full text-center ${
+                        isActive ? 'text-orange-600' : 'text-slate-500 group-hover:text-slate-700'
+                      }`}>
                         {item.name}
                       </span>
                     </Link>
