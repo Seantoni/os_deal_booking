@@ -69,52 +69,61 @@ export async function previewBusinessImport(
 }
 
 /**
+ * Helper to convert blank strings to undefined (becomes null in DB)
+ */
+function blankToUndefined(value: string | undefined | null): string | undefined {
+  const trimmed = value?.trim()
+  return trimmed === '' ? undefined : trimmed
+}
+
+/**
  * Map CSV row to BulkBusinessRow
+ * Blank values are converted to undefined (null in DB)
  */
 function mapCsvRowToBusinessRow(row: ParsedCsvRow): BulkBusinessRow {
   return {
     // Core identification
-    id: row['ID']?.trim() || undefined,
-    name: row['Nombre']?.trim() || '',
+    id: blankToUndefined(row['ID']),
+    name: row['Nombre']?.trim() || '', // Name is required, keep empty string
     // Contact info
-    contactName: row['Contacto']?.trim(),
-    contactEmail: row['Email']?.trim(),
-    contactPhone: row['Teléfono']?.trim(),
+    contactName: blankToUndefined(row['Contacto']),
+    contactEmail: blankToUndefined(row['Email']),
+    contactPhone: blankToUndefined(row['Teléfono']),
     // Category
-    category: row['Categoría']?.trim(),
+    category: blankToUndefined(row['Categoría']),
     // Ownership
-    owner: row['Owner']?.trim(),
-    salesReps: row['Sales Reps']?.trim(),
-    salesTeam: row['Equipo']?.trim(),
+    owner: blankToUndefined(row['Owner']),
+    salesReps: blankToUndefined(row['Sales Reps']),
+    salesTeam: blankToUndefined(row['Equipo']),
     // Business info
-    tier: row['Tier']?.trim(),
-    accountManager: row['Account Manager']?.trim(),
-    ere: row['ERE']?.trim(),
-    salesType: row['Tipo de Venta']?.trim(),
-    isAsesor: row['Es Asesor']?.trim(),
-    osAsesor: row['OS Asesor']?.trim(),
+    tier: blankToUndefined(row['Tier']),
+    accountManager: blankToUndefined(row['Account Manager']),
+    ere: blankToUndefined(row['ERE']),
+    salesType: blankToUndefined(row['Tipo de Venta']),
+    isAsesor: blankToUndefined(row['Es Asesor']),
+    osAsesor: blankToUndefined(row['OS Asesor']),
     // Online presence
-    website: row['Website']?.trim(),
-    instagram: row['Instagram']?.trim(),
-    description: row['Descripción']?.trim(),
+    website: blankToUndefined(row['Website']),
+    instagram: blankToUndefined(row['Instagram']),
+    description: blankToUndefined(row['Descripción']),
     // Legal/Tax
-    ruc: row['RUC']?.trim(),
-    razonSocial: row['Razón Social']?.trim(),
+    ruc: blankToUndefined(row['RUC']),
+    razonSocial: blankToUndefined(row['Razón Social']),
     // Location
-    province: row['Provincia']?.trim(),
-    district: row['Distrito']?.trim(),
-    corregimiento: row['Corregimiento']?.trim(),
-    address: row['Dirección']?.trim(),
-    neighborhood: row['Barriada']?.trim(),
+    province: blankToUndefined(row['Provincia']),
+    district: blankToUndefined(row['Distrito']),
+    corregimiento: blankToUndefined(row['Corregimiento']),
+    address: blankToUndefined(row['Dirección']),
+    neighborhood: blankToUndefined(row['Barriada']),
     // Payment info
-    paymentPlan: row['Plan de Pago']?.trim(),
-    bank: row['Banco']?.trim(),
-    beneficiaryName: row['Nombre Beneficiario']?.trim(),
-    accountNumber: row['Número de Cuenta']?.trim(),
-    accountType: row['Tipo de Cuenta']?.trim(),
-    emailPaymentContacts: row['Emails de Pago']?.trim(),
+    paymentPlan: blankToUndefined(row['Plan de Pago']),
+    bank: blankToUndefined(row['Banco']),
+    beneficiaryName: blankToUndefined(row['Nombre Beneficiario']),
+    accountNumber: blankToUndefined(row['Número de Cuenta']),
+    accountType: blankToUndefined(row['Tipo de Cuenta']),
+    emailPaymentContacts: blankToUndefined(row['Emails de Pago']),
     // External IDs
-    osAdminVendorId: row['OS Admin Vendor ID']?.trim(),
+    osAdminVendorId: blankToUndefined(row['OS Admin Vendor ID']),
   }
 }
 

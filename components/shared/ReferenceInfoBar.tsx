@@ -248,8 +248,8 @@ function TeamSelectItem({
   placeholder: string
 }) {
   const teamOptions = [
-    { value: 'Inside Sales', label: 'Ventas Internas' },
-    { value: 'Outside Sales', label: 'Ventas Externas' },
+    { value: 'Inside Sales', label: 'Inside Sales' },
+    { value: 'Outside Sales', label: 'Outside Sales' },
   ]
 
   return (

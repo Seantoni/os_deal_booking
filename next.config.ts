@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
   // Performance optimizations
   experimental: {
     optimizePackageImports: ['@mui/icons-material', '@mui/material'],
+    // Increase Server Actions body size limit for large CSV imports
+    serverActions: {
+      bodySizeLimit: '5mb',
+    },
   },
   // Exclude puppeteer-core from bundle (chromium must be bundled for Vercel)
   serverExternalPackages: ['puppeteer-core'],
