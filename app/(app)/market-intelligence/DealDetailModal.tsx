@@ -310,16 +310,16 @@ const formatCurrency = (value: number) => {
                                 }}
                               />
                               
+                              {/* Tooltip on hover */}
                               <div className="absolute bottom-full mb-2 hidden group-hover:block z-10">
                                 <div className="bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap shadow-lg">
-                                  <p className="font-semibold">{snapshot.totalSold.toLocaleString()}</p>
-                                  {snapshot.hasData ? (
-                                    snapshot.salesSinceLast > 0 && (
-                                      <p className="text-green-400">+{snapshot.salesSinceLast}</p>
-                                    )
-                                  ) : (
-                                    <p className="text-gray-400">no data</p>
-                                  )}
+                                  <div className="flex items-baseline gap-1.5">
+                                    <span className="font-bold">{snapshot.totalSold.toLocaleString()}</span>
+                                    {snapshot.hasData && snapshot.salesSinceLast > 0 && (
+                                      <span className="text-green-400 text-[9px]">+{snapshot.salesSinceLast}</span>
+                                    )}
+                                  </div>
+                                  {!snapshot.hasData && <p className="text-gray-400">no data</p>}
                                   <p className="text-gray-400">{formatShortDate(snapshot.scannedAt)}</p>
                                 </div>
                               </div>
@@ -328,9 +328,23 @@ const formatCurrency = (value: number) => {
                         })}
                       </div>
                       
+                      {/* X-axis dates and totals summary */}
                       <div className="flex justify-between mt-1.5 text-[10px] text-gray-400">
-                        <span>{formatShortDate(chartData[0].scannedAt)}</span>
-                        <span>{formatShortDate(chartData[chartData.length - 1].scannedAt)}</span>
+                        <div className="flex flex-col">
+                          <span>{formatShortDate(chartData[0].scannedAt)}</span>
+                          <span className="text-gray-600 font-medium">{chartData[0].totalSold.toLocaleString()}</span>
+                        </div>
+                        <div className="flex flex-col items-end">
+                          <span>{formatShortDate(chartData[chartData.length - 1].scannedAt)}</span>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-gray-600 font-medium">{chartData[chartData.length - 1].totalSold.toLocaleString()}</span>
+                            {chartData.length > 1 && chartData[chartData.length - 1].totalSold > chartData[0].totalSold && (
+                              <span className="text-green-600 font-semibold">
+                                +{(chartData[chartData.length - 1].totalSold - chartData[0].totalSold).toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>

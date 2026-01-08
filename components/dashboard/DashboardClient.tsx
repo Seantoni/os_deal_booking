@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { getDashboardStats, getPendingBookings, type DashboardFilters, type PendingBookingItem } from '@/app/actions/dashboard'
-import { getInboxItems, dismissInboxItem, type InboxItem } from '@/app/actions/inbox'
+import { getDashboardStats, getPendingBookings, type DashboardFilters } from '@/app/actions/dashboard'
+import { getInboxItems, dismissInboxItem } from '@/app/actions/inbox'
 import { useSharedData } from '@/hooks/useSharedData'
 import { formatRelativeTime, PANAMA_TIMEZONE } from '@/lib/date'
 import FilterListIcon from '@mui/icons-material/FilterList'
@@ -21,7 +21,8 @@ import { Select } from '@/components/ui/Select'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import toast from 'react-hot-toast'
-import { DashboardSkeleton } from './DashboardSkeleton'
+import type { PendingBookingItem } from '@/app/actions/dashboard'
+import type { InboxItem } from '@/app/actions/inbox'
 
 // Dashboard stats type
 interface DashboardStats {
@@ -58,16 +59,25 @@ interface DashboardStats {
   isSalesUser: boolean
 }
 
-export default function DashboardClient() {
+interface DashboardClientProps {
+  initialData?: {
+    stats: DashboardStats | null
+    inboxItems: InboxItem[]
+    pendingBookings: PendingBookingItem[]
+  }
+}
+
+export default function DashboardClient({ initialData }: DashboardClientProps) {
   const router = useRouter()
   
   // Use shared users from context (already loaded in layout) - saves 1 API call
   const { users } = useSharedData()
   
-  const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [inboxItems, setInboxItems] = useState<InboxItem[]>([])
-  const [pendingBookings, setPendingBookings] = useState<PendingBookingItem[]>([])
+  // Use initial data from server if available (no loading flash)
+  const [loading, setLoading] = useState(!initialData?.stats)
+  const [stats, setStats] = useState<DashboardStats | null>(initialData?.stats || null)
+  const [inboxItems, setInboxItems] = useState<InboxItem[]>(initialData?.inboxItems || [])
+  const [pendingBookings, setPendingBookings] = useState<PendingBookingItem[]>(initialData?.pendingBookings || [])
   const [error, setError] = useState<string | null>(null)
   const [filters, setFilters] = useState<DashboardFilters>({
     userId: '',
@@ -102,9 +112,11 @@ export default function DashboardClient() {
     return () => clearInterval(interval)
   }, [])
 
-  // Initial load
+  // Initial load - skip if we have initial data from server
   useEffect(() => {
-    loadData()
+    if (!initialData?.stats) {
+      loadData()
+    }
   }, [])
 
   // Debounced filter effect (500ms delay)
@@ -197,8 +209,9 @@ export default function DashboardClient() {
 
   const getPercent = (val: number, total: number) => total > 0 ? Math.round((val / total) * 100) : 0
 
+  // Loading state handled by loading.tsx
   if (loading && !stats) {
-    return <DashboardSkeleton />
+    return null
   }
 
   if (!stats) {
