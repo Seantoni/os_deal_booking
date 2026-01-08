@@ -247,6 +247,7 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
             submitLoading={loading || loadingData || dynamicForm.loading}
             submitDisabled={loading || loadingData || dynamicForm.loading}
             leftContent="* Campos requeridos"
+            formId="lead-modal-form"
           />
         ) : (
           <ModalFooter
@@ -256,7 +257,7 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
         )
       }
     >
-      <form id="modal-form" onSubmit={handleSubmit} className="bg-gray-50 h-full flex flex-col">
+      <form id="lead-modal-form" onSubmit={handleSubmit} className="bg-gray-50 h-full flex flex-col">
             {error && (
               <div className="mx-6 mt-4">
                 <Alert variant="error" icon={<ErrorOutlineIcon fontSize="small" />}>

@@ -6,6 +6,7 @@ import { useUser } from '@clerk/nextjs'
 import { createBusiness, updateBusiness, createOpportunity } from '@/app/actions/crm'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
+import { useCachedFormConfig } from '@/hooks/useFormConfigCache'
 import type { Business, Opportunity, BookingRequest, UserData } from '@/types'
 import type { Category } from '@prisma/client'
 
@@ -85,6 +86,9 @@ export default function BusinessFormModal({
   // Track unlocked state for fields with canEditAfterCreation
   const [unlockedFields, setUnlockedFields] = useState<Record<string, boolean>>({})
 
+  // Get cached form configuration (instant if already prefetched)
+  const { sections: cachedSections, initialized: cachedInitialized, loading: configLoading } = useCachedFormConfig('business')
+
   // Load supporting data using existing hook
   const {
     ownerId,
@@ -142,11 +146,14 @@ export default function BusinessFormModal({
     }
   }, [business])
 
-  // Dynamic form hook
+  // Dynamic form hook - pass preloaded sections from cache
   const dynamicForm = useDynamicForm({
     entityType: 'business',
     entityId: business?.id,
     initialValues,
+    // Use cached form config if available (instant load)
+    preloadedSections: cachedSections.length > 0 ? cachedSections : undefined,
+    preloadedInitialized: cachedInitialized,
   })
 
   // React 19: useActionState for save/update business action
@@ -187,6 +194,9 @@ export default function BusinessFormModal({
     },
     { success: false, error: null }
   )
+
+  // State to hold the newly created business for opening opportunity modal
+  const [createdBusiness, setCreatedBusiness] = useState<Business | null>(null)
 
   // React 19: useActionState for create business & opportunity action
   const [createWithOppState, createWithOppAction, isCreateWithOppPending] = useActionState<FormActionState, FormData>(
@@ -230,9 +240,10 @@ export default function BusinessFormModal({
         const opportunityResult = await createOpportunity(opportunityFormData)
 
         if (opportunityResult.success && businessResult.data && opportunityResult.data) {
-          sessionStorage.setItem('openOpportunityId', opportunityResult.data.id)
-          onClose()
-          router.push('/opportunities')
+          // Store the created business and open opportunity modal
+          setCreatedBusiness(businessResult.data)
+          setSelectedOpportunity(opportunityResult.data)
+          setOpportunityModalOpen(true)
           return { success: true, error: null }
         } else {
           const errorMsg = 'Negocio creado pero falló al crear la oportunidad: ' + (opportunityResult.error || 'Error desconocido')
@@ -268,11 +279,14 @@ export default function BusinessFormModal({
   }, [])
 
   function handleEditOpportunity(opportunity: Opportunity) {
-    setSelectedOpportunity(opportunity)
-    setOpportunityModalOpen(true)
+    // Close business modal and navigate to opportunities page with this opportunity
+    sessionStorage.setItem('openOpportunityId', opportunity.id)
+    onClose()
+    router.push('/opportunities')
   }
 
   function handleCreateNewOpportunity() {
+    // Open opportunity modal to create a new opportunity for this business
     setSelectedOpportunity(null)
     setOpportunityModalOpen(true)
   }
@@ -341,9 +355,19 @@ export default function BusinessFormModal({
   }
 
   async function handleOpportunitySuccess(opportunity: Opportunity) {
+    // Close the opportunity modal
+    setOpportunityModalOpen(false)
+    setSelectedOpportunity(null)
+    
     if (business) {
+      // Editing existing business - refresh data and stay in business modal
       await loadFormData()
       onSuccess(business)
+    } else if (createdBusiness) {
+      // New business was just created - close everything and notify parent
+      setCreatedBusiness(null)
+      onSuccess(createdBusiness)
+      onClose()
     }
   }
 
@@ -555,6 +579,7 @@ export default function BusinessFormModal({
           submitLoading={loading || loadingData || dynamicForm.loading}
           submitDisabled={loading || loadingData || dynamicForm.loading}
           leftContent="* Campos requeridos"
+          formId="business-modal-form"
           additionalActions={
             !business ? (
               <Button
@@ -571,7 +596,7 @@ export default function BusinessFormModal({
         />
       }
     >
-      <form id="modal-form" onSubmit={handleSubmit} className="bg-gray-50 min-h-[500px] flex flex-col">
+      <form id="business-modal-form" onSubmit={handleSubmit} className="bg-gray-50 min-h-[500px] flex flex-col">
             {error && (
               <div className="mx-6 mt-4">
                 <Alert variant="error" icon={<ErrorOutlineIcon fontSize="small" />}>
@@ -675,11 +700,15 @@ export default function BusinessFormModal({
           onClose={() => {
             setOpportunityModalOpen(false)
             setSelectedOpportunity(null)
+            setCreatedBusiness(null)
           }}
           opportunity={selectedOpportunity}
           onSuccess={handleOpportunitySuccess}
-          initialBusinessId={business?.id}
-          preloadedBusinesses={business ? [business] : undefined}
+          initialBusinessId={selectedOpportunity?.businessId || createdBusiness?.id || business?.id}
+          preloadedBusinesses={[
+            ...(business ? [business] : []),
+            ...(createdBusiness && createdBusiness.id !== business?.id ? [createdBusiness] : []),
+          ].filter(Boolean)}
           preloadedCategories={categories}
           preloadedUsers={users}
         />

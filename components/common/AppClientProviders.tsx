@@ -3,6 +3,7 @@
 import { ReactNode, createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
+import { FormConfigCacheProvider } from '@/hooks/useFormConfigCache'
 import type { UserRole, UserData } from '@/types'
 import type { Category } from '@prisma/client'
 
@@ -209,7 +210,9 @@ export default function AppClientProviders({
   return (
     <SharedDataContext.Provider value={sharedDataValue}>
       <SidebarContext.Provider value={sidebarValue}>
-        {children}
+        <FormConfigCacheProvider>
+          {children}
+        </FormConfigCacheProvider>
       </SidebarContext.Provider>
     </SharedDataContext.Provider>
   )

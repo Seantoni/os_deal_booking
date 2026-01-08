@@ -136,6 +136,7 @@ export default function OpportunitiesPageClient({
   // Modal state
   const [opportunityModalOpen, setOpportunityModalOpen] = useState(false)
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null)
+  const [initialBusinessId, setInitialBusinessId] = useState<string | undefined>(undefined)
   
   // New request modal state
   const [showNewRequestModal, setShowNewRequestModal] = useState(false)
@@ -149,6 +150,17 @@ export default function OpportunitiesPageClient({
 
   // Handle opening opportunity from URL query params or session storage
   useEffect(() => {
+    // Check for creating a new opportunity for a specific business
+    const createForBusinessId = sessionStorage.getItem('createOpportunityForBusinessId')
+    if (createForBusinessId) {
+      sessionStorage.removeItem('createOpportunityForBusinessId')
+      setInitialBusinessId(createForBusinessId)
+      setSelectedOpportunity(null)
+      setInitialModalTab('details')
+      setOpportunityModalOpen(true)
+      return
+    }
+
     if (opportunities.length > 0) {
       // First check URL query params (e.g., ?open=opportunityId from Tasks page or Inbox)
       const openFromUrl = searchParams.get('open')
@@ -608,6 +620,7 @@ export default function OpportunitiesPageClient({
         onClose={() => {
           setOpportunityModalOpen(false)
           setSelectedOpportunity(null)
+          setInitialBusinessId(undefined)
           setInitialModalTab('details') // Reset to default when closing
         }}
         opportunity={selectedOpportunity}
@@ -620,6 +633,7 @@ export default function OpportunitiesPageClient({
           loadData()
         }}
         initialTab={initialModalTab}
+        initialBusinessId={initialBusinessId}
         // Pass preloaded data to skip fetching
         preloadedBusinesses={businessesFromOpportunities}
         preloadedCategories={categories}

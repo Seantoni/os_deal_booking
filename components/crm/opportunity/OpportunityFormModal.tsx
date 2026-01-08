@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useTransition, lazy, Suspense } from 'react'
+import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { createOpportunity, updateOpportunity, createTask, updateTask, deleteTask } from '@/app/actions/crm'
 import { useUserRole } from '@/hooks/useUserRole'
@@ -28,9 +29,7 @@ import {
 } from './OpportunityModalSkeleton'
 
 // Lazy load nested modals - only loaded when opened
-const BusinessFormModal = lazy(() => import('../business/BusinessFormModal'))
 const BookingRequestViewModal = lazy(() => import('@/components/booking/request-view/BookingRequestViewModal'))
-const NewRequestModal = lazy(() => import('@/components/booking/NewRequestModal'))
 const TaskModal = lazy(() => import('./TaskModal'))
 const LostReasonModal = lazy(() => import('./LostReasonModal'))
 const ConfirmDialog = lazy(() => import('@/components/common/ConfirmDialog'))
@@ -79,6 +78,7 @@ export default function OpportunityFormModal({
   preloadedCategories,
   preloadedUsers,
 }: OpportunityFormModalProps) {
+  const router = useRouter()
   const { user } = useUser()
   const { isAdmin } = useUserRole()
   const [activeTab, setActiveTab] = useState<'details' | 'activity' | 'chat' | 'history'>(initialTab)
@@ -102,11 +102,7 @@ export default function OpportunityFormModal({
   const loading = isSubmitPending || isTaskPending
   const savingStage = isStagePending
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
-  const [businessModalOpen, setBusinessModalOpen] = useState(false)
-  const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null)
   const [bookingRequestModalOpen, setBookingRequestModalOpen] = useState(false)
-  const [showNewRequestModal, setShowNewRequestModal] = useState(false)
-  const [newRequestQueryParams, setNewRequestQueryParams] = useState<Record<string, string>>({})
   const [lostReasonModalOpen, setLostReasonModalOpen] = useState(false)
   const [pendingLostStage, setPendingLostStage] = useState<OpportunityStage | null>(null)
 
@@ -636,59 +632,55 @@ export default function OpportunityFormModal({
   }
 
   function handleEditBusiness(business: Business) {
-    setSelectedBusiness(business)
-    setBusinessModalOpen(true)
-  }
-
-  async function handleBusinessSuccess(business: Business) {
-    setLinkedBusiness(business)
-    if (opportunity) {
-      await loadFormData(true)
-    }
+    // Close opportunity modal and navigate to businesses page with modal open
+    sessionStorage.setItem('openBusinessId', business.id)
+    onClose()
+    router.push('/businesses')
   }
 
   function handleCreateRequest() {
     if (!linkedBusiness || !opportunity) return
 
-    const params: Record<string, string> = {}
-    params.fromOpportunity = opportunity.id
-    params.businessName = linkedBusiness.name
-    params.businessEmail = linkedBusiness.contactEmail
-    params.contactName = linkedBusiness.contactName
-    params.contactPhone = linkedBusiness.contactPhone
+    // Build query parameters with business data for pre-filling the booking form
+    const params = new URLSearchParams()
+    params.set('fromOpportunity', opportunity.id)
+    params.set('businessName', linkedBusiness.name || '')
+    if (linkedBusiness.contactEmail) params.set('businessEmail', linkedBusiness.contactEmail)
+    if (linkedBusiness.contactName) params.set('contactName', linkedBusiness.contactName)
+    if (linkedBusiness.contactPhone) params.set('contactPhone', linkedBusiness.contactPhone)
+    
+    // Category info
     if (linkedBusiness.category) {
-      params.categoryId = linkedBusiness.category.id
-      params.parentCategory = linkedBusiness.category.parentCategory
-      if (linkedBusiness.category.subCategory1) {
-        params.subCategory1 = linkedBusiness.category.subCategory1
-      }
-      if (linkedBusiness.category.subCategory2) {
-        params.subCategory2 = linkedBusiness.category.subCategory2
-      }
+      if (linkedBusiness.category.parentCategory) params.set('parentCategory', linkedBusiness.category.parentCategory)
+      if (linkedBusiness.category.subCategory1) params.set('subCategory1', linkedBusiness.category.subCategory1)
+      if (linkedBusiness.category.subCategory2) params.set('subCategory2', linkedBusiness.category.subCategory2)
     }
-    if (linkedBusiness.razonSocial) params.legalName = linkedBusiness.razonSocial
-    if (linkedBusiness.ruc) params.ruc = linkedBusiness.ruc
-    if (linkedBusiness.province) params.province = linkedBusiness.province
-    if (linkedBusiness.district) params.district = linkedBusiness.district
-    if (linkedBusiness.corregimiento) params.corregimiento = linkedBusiness.corregimiento
-    if (linkedBusiness.bank) params.bank = linkedBusiness.bank
-    if (linkedBusiness.beneficiaryName) params.bankAccountName = linkedBusiness.beneficiaryName
-    if (linkedBusiness.accountNumber) params.accountNumber = linkedBusiness.accountNumber
-    if (linkedBusiness.accountType) params.accountType = linkedBusiness.accountType
-    if (linkedBusiness.paymentPlan) params.paymentPlan = linkedBusiness.paymentPlan
-    if (linkedBusiness.address) params.address = linkedBusiness.address
-    if (linkedBusiness.neighborhood) params.neighborhood = linkedBusiness.neighborhood
-    if (linkedBusiness.description) params.description = linkedBusiness.description
-    if (linkedBusiness.website) params.website = linkedBusiness.website
-    if (linkedBusiness.instagram) params.instagram = linkedBusiness.instagram
-    if (linkedBusiness.emailPaymentContacts) {
-      const paymentEmails = linkedBusiness.emailPaymentContacts.split(/[;,\\s]+/).filter(Boolean)
-      if (paymentEmails.length > 0) {
-        params.paymentEmails = JSON.stringify(paymentEmails)
-      }
-    }
-    setNewRequestQueryParams(params)
-    setShowNewRequestModal(true)
+    
+    // Legal/Tax info
+    if (linkedBusiness.razonSocial) params.set('legalName', linkedBusiness.razonSocial)
+    if (linkedBusiness.ruc) params.set('ruc', linkedBusiness.ruc)
+    
+    // Location info
+    if (linkedBusiness.province) params.set('province', linkedBusiness.province)
+    if (linkedBusiness.district) params.set('district', linkedBusiness.district)
+    if (linkedBusiness.corregimiento) params.set('corregimiento', linkedBusiness.corregimiento)
+    if (linkedBusiness.address) params.set('address', linkedBusiness.address)
+    if (linkedBusiness.neighborhood) params.set('neighborhood', linkedBusiness.neighborhood)
+    
+    // Bank/Payment info
+    if (linkedBusiness.bank) params.set('bank', linkedBusiness.bank)
+    if (linkedBusiness.beneficiaryName) params.set('bankAccountName', linkedBusiness.beneficiaryName)
+    if (linkedBusiness.accountNumber) params.set('accountNumber', linkedBusiness.accountNumber)
+    if (linkedBusiness.accountType) params.set('accountType', linkedBusiness.accountType)
+    if (linkedBusiness.paymentPlan) params.set('paymentPlan', linkedBusiness.paymentPlan)
+    
+    // Additional info
+    if (linkedBusiness.website) params.set('website', linkedBusiness.website)
+    if (linkedBusiness.instagram) params.set('instagram', linkedBusiness.instagram)
+    
+    // Close the opportunity modal and navigate to booking request form
+    onClose()
+    router.push(`/booking-requests/new?${params.toString()}`)
   }
 
   // Memoize category options to prevent recalculation on every render
@@ -730,6 +722,7 @@ export default function OpportunityFormModal({
             submitLoading={loading || loadingData || dynamicForm.loading}
             submitDisabled={loading || loadingData || dynamicForm.loading}
             leftContent="* Campos requeridos"
+            formId="opportunity-modal-form"
           />
         ) : activeTab === 'activity' ? (
           <ModalFooter
@@ -920,7 +913,7 @@ export default function OpportunityFormModal({
             </div>
           </div>
 
-      <form id="modal-form" onSubmit={handleSubmit} className="bg-white min-h-[500px] flex flex-col">
+      <form id="opportunity-modal-form" onSubmit={handleSubmit} className="bg-white min-h-[500px] flex flex-col">
             {error && (
               <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
                 <ErrorOutlineIcon className="text-red-600 flex-shrink-0 mt-0.5" fontSize="small" />
@@ -1066,39 +1059,12 @@ export default function OpportunityFormModal({
         </Suspense>
       )}
 
-      {businessModalOpen && (
-        <Suspense fallback={null}>
-          <BusinessFormModal
-            isOpen={businessModalOpen}
-            onClose={() => {
-              setBusinessModalOpen(false)
-              setSelectedBusiness(null)
-            }}
-            business={selectedBusiness}
-            onSuccess={handleBusinessSuccess}
-          />
-        </Suspense>
-      )}
-
       {bookingRequestModalOpen && (
         <Suspense fallback={null}>
           <BookingRequestViewModal
             isOpen={bookingRequestModalOpen}
             onClose={() => setBookingRequestModalOpen(false)}
             requestId={linkedBookingRequest?.id || null}
-          />
-        </Suspense>
-      )}
-
-      {showNewRequestModal && (
-        <Suspense fallback={null}>
-          <NewRequestModal
-            isOpen={showNewRequestModal}
-            onClose={() => {
-              setShowNewRequestModal(false)
-              setNewRequestQueryParams({})
-            }}
-            queryParams={newRequestQueryParams}
           />
         </Suspense>
       )}

@@ -34,6 +34,7 @@ import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useSharedData } from '@/hooks/useSharedData'
+import { useFormConfigCache } from '@/hooks/useFormConfigCache'
 import { useEntityPage, sortEntities } from '@/hooks/useEntityPage'
 import { logger } from '@/lib/logger'
 import { 
@@ -81,6 +82,9 @@ export default function BusinessesPageClient({
   // Get shared/cached data for categories and users
   const { categories, users } = useSharedData()
   
+  // Get form config cache for prefetching
+  const { prefetch: prefetchFormConfig, getConfig: getCachedFormConfig } = useFormConfigCache()
+  
   // Use shared hook for common functionality
   const {
     data: businesses,
@@ -122,8 +126,23 @@ export default function BusinessesPageClient({
   
   const confirmDialog = useConfirmDialog()
 
-  // Handle opening business from URL query params (e.g., from search)
+  // Handle opening business from URL query params or sessionStorage
   useEffect(() => {
+    // First check sessionStorage (e.g., from opportunity modal)
+    const openBusinessId = sessionStorage.getItem('openBusinessId')
+    if (openBusinessId) {
+      sessionStorage.removeItem('openBusinessId')
+      if (businesses.length > 0) {
+        const business = businesses.find(b => b.id === openBusinessId)
+        if (business) {
+          setSelectedBusiness(business)
+          setBusinessModalOpen(true)
+          return
+        }
+      }
+    }
+
+    // Then check URL query params (e.g., from search)
     const openFromUrl = searchParams.get('open')
     if (openFromUrl && businesses.length > 0) {
       const business = businesses.find(b => b.id === openFromUrl)
@@ -261,6 +280,11 @@ export default function BusinessesPageClient({
 
   const visibleBusinesses = useMemo(() => filteredBusinesses.slice(0, visibleCount), [filteredBusinesses, visibleCount])
 
+  // Prefetch form config when hovering over "New Business" button
+  const handleNewBusinessHover = useCallback(() => {
+    prefetchFormConfig('business')
+  }, [prefetchFormConfig])
+
   function handleCreateBusiness() {
     setSelectedBusiness(null)
     setBusinessModalOpen(true)
@@ -270,6 +294,11 @@ export default function BusinessesPageClient({
     setSelectedBusiness(business)
     setBusinessModalOpen(true)
   }
+  
+  // Prefetch form config when hovering over a row
+  const handleRowHover = useCallback(() => {
+    prefetchFormConfig('business')
+  }, [prefetchFormConfig])
 
   async function handleDeleteBusiness(businessId: string) {
     const confirmed = await confirmDialog.confirm({
@@ -400,6 +429,7 @@ export default function BusinessesPageClient({
       )}
       <Button
         onClick={handleCreateBusiness}
+        onMouseEnter={handleNewBusinessHover}
         size="sm"
         leftIcon={<AddIcon style={{ fontSize: 16 }} sx={{}} />}
       >
@@ -455,6 +485,7 @@ export default function BusinessesPageClient({
                   key={business.id}
                   index={index}
                   onClick={() => handleEditBusiness(business)}
+                  onMouseEnter={handleRowHover}
                 >
                   <TableCell>
                     <span className="font-medium text-gray-900 text-[13px]">

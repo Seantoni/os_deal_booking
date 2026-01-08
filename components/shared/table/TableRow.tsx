@@ -5,10 +5,11 @@ interface TableRowProps {
   index: number
   className?: string
   onClick?: (e?: React.MouseEvent) => void
+  onMouseEnter?: () => void
   highlight?: boolean
 }
 
-export function TableRow({ children, index, className = '', onClick, highlight = false }: TableRowProps) {
+export function TableRow({ children, index, className = '', onClick, onMouseEnter, highlight = false }: TableRowProps) {
   // Determine row background color
   // Even rows: white
   // Odd rows: light blue/slate for better contrast
@@ -34,6 +35,7 @@ export function TableRow({ children, index, className = '', onClick, highlight =
     <tr
       className={`${finalBgColor} transition-colors group border-b border-gray-100 last:border-0 ${cursorClass} ${className}`}
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
     >
       {children}
     </tr>

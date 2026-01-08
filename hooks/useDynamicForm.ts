@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { getFormConfiguration } from '@/app/actions/form-config'
 import { getCustomFieldsWithValues, saveCustomFieldValues } from '@/app/actions/custom-fields'
 import type { FormEntityType, FormSectionWithDefinitions, FormFieldWithDefinition } from '@/types'
@@ -9,17 +9,37 @@ interface UseDynamicFormOptions {
   entityType: FormEntityType
   entityId?: string | null
   initialValues?: Record<string, string | null>
+  // Optional pre-loaded form config (from cache or server)
+  preloadedSections?: FormSectionWithDefinitions[]
+  preloadedInitialized?: boolean
 }
 
-export function useDynamicForm({ entityType, entityId, initialValues = {} }: UseDynamicFormOptions) {
-  const [sections, setSections] = useState<FormSectionWithDefinitions[]>([])
+export function useDynamicForm({ 
+  entityType, 
+  entityId, 
+  initialValues = {},
+  preloadedSections,
+  preloadedInitialized,
+}: UseDynamicFormOptions) {
+  const [sections, setSections] = useState<FormSectionWithDefinitions[]>(preloadedSections || [])
   const [values, setValues] = useState<Record<string, string | null>>(initialValues)
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string | null>>({})
-  const [loading, setLoading] = useState(true)
-  const [initialized, setInitialized] = useState(false)
+  const [loading, setLoading] = useState(!preloadedSections)
+  const [initialized, setInitialized] = useState(preloadedInitialized || false)
+  
+  // Track loaded entity to prevent redundant fetches
+  const loadedEntityRef = useRef<string | null>(null)
 
-  // Load form configuration
+  // Load form configuration (only if not preloaded)
   const loadConfiguration = useCallback(async () => {
+    // Skip if already have preloaded sections
+    if (preloadedSections && preloadedSections.length > 0) {
+      setSections(preloadedSections)
+      setInitialized(preloadedInitialized || false)
+      setLoading(false)
+      return
+    }
+    
     setLoading(true)
     try {
       const result = await getFormConfiguration(entityType)
@@ -27,28 +47,47 @@ export function useDynamicForm({ entityType, entityId, initialValues = {} }: Use
         setSections(result.data.sections)
         setInitialized(result.data.initialized)
       }
-
-      // Load custom field values if editing an existing entity
-      if (entityId) {
-        const customResult = await getCustomFieldsWithValues(entityId, entityType)
-        if (customResult.success && customResult.data) {
-          const cfValues: Record<string, string | null> = {}
-          customResult.data.forEach((field: any) => {
-            cfValues[field.fieldKey] = field.value
-          })
-          setCustomFieldValues(cfValues)
-        }
-      }
     } catch (error) {
       console.error('Failed to load form configuration:', error)
     } finally {
       setLoading(false)
     }
-  }, [entityType, entityId])
+  }, [entityType, preloadedSections, preloadedInitialized])
 
+  // Load custom field values for existing entity
+  const loadCustomFieldValues = useCallback(async (targetEntityId: string) => {
+    if (loadedEntityRef.current === targetEntityId) return
+    loadedEntityRef.current = targetEntityId
+    
+    try {
+      const customResult = await getCustomFieldsWithValues(targetEntityId, entityType)
+      if (customResult.success && customResult.data) {
+        const cfValues: Record<string, string | null> = {}
+        customResult.data.forEach((field: { fieldKey: string; value: string | null }) => {
+          cfValues[field.fieldKey] = field.value
+        })
+        setCustomFieldValues(cfValues)
+      }
+    } catch (error) {
+      console.error('Failed to load custom field values:', error)
+    }
+  }, [entityType])
+
+  // Initial load
   useEffect(() => {
     loadConfiguration()
   }, [loadConfiguration])
+
+  // Load custom field values when entity changes
+  useEffect(() => {
+    if (entityId) {
+      loadCustomFieldValues(entityId)
+    } else {
+      // New entity - clear custom field values
+      loadedEntityRef.current = null
+      setCustomFieldValues({})
+    }
+  }, [entityId, loadCustomFieldValues])
 
   // Update initial values when they change (e.g., when editing an entity)
   useEffect(() => {

@@ -10,7 +10,7 @@ interface UseBusinessFormProps {
   business?: Business | null
   isAdmin: boolean
   currentUserId?: string | null // Current logged-in user ID
-  // Pre-loaded data to skip fetching
+  // Pre-loaded data from parent (passed from SharedData context or server)
   preloadedCategories?: Category[]
   preloadedUsers?: UserData[]
 }
@@ -23,22 +23,15 @@ export function useBusinessForm({
   preloadedCategories,
   preloadedUsers,
 }: UseBusinessFormProps) {
-  // Form state
-  const [name, setName] = useState('')
-  const [contactName, setContactName] = useState('')
-  const [contactPhone, setContactPhone] = useState('')
-  const [contactEmail, setContactEmail] = useState('')
-  const [categoryId, setCategoryId] = useState<string>('')
+  // Reference bar state (not handled by dynamic form)
   const [ownerId, setOwnerId] = useState<string>('')
   const [salesTeam, setSalesTeam] = useState<string>('')
-  const [website, setWebsite] = useState('')
-  const [instagram, setInstagram] = useState('')
-  const [description, setDescription] = useState('')
-  const [tier, setTier] = useState<string>('')
 
-  // Data state
-  const [categories, setCategories] = useState<Category[]>([])
-  const [users, setUsers] = useState<UserData[]>([])
+  // Data state - use preloaded if available
+  const [categories, setCategories] = useState<Category[]>(preloadedCategories || [])
+  const [users, setUsers] = useState<UserData[]>(preloadedUsers || [])
+  
+  // Business-specific data (opportunities, requests)
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [requests, setRequests] = useState<BookingRequest[]>([])
 
@@ -50,45 +43,35 @@ export function useBusinessForm({
   const businessRef = useRef(business)
   businessRef.current = business
 
-  // Reusable load function
+  // Load business-specific data (opportunities, requests)
   const loadFormData = useCallback(async () => {
     const currentBusiness = businessRef.current
 
-    // Clear form immediately to prevent showing stale data
-    setName('')
-    setContactName('')
-    setContactPhone('')
-    setContactEmail('')
-    setCategoryId('')
-    // Default owner to current user for new businesses
-    setOwnerId(currentBusiness ? '' : (currentUserId || ''))
-    setSalesTeam('')
-    setWebsite('')
-    setInstagram('')
-    setDescription('')
-    setTier('')
+    // Reset reference bar fields
+    setOwnerId(currentBusiness?.ownerId || currentUserId || '')
+    setSalesTeam(currentBusiness?.salesTeam || '')
     setOpportunities([])
     setRequests([])
 
     setLoadingData(true)
     try {
-      // Use preloaded data if available, otherwise fetch
-      let categoriesData = preloadedCategories
-      let usersData = preloadedUsers
-
-      // Build fetch promises for missing data
+      // Build fetch promises - only fetch what's not preloaded
       const fetchPromises: Promise<{ success: boolean; data?: unknown; error?: string }>[] = []
       const fetchKeys: string[] = []
 
-      if (!categoriesData) {
+      // Categories (skip if preloaded)
+      if (!preloadedCategories || preloadedCategories.length === 0) {
         fetchPromises.push(getCategories())
         fetchKeys.push('categories')
       }
-      if (!usersData && isAdmin) {
+
+      // Users (skip if preloaded, only fetch for admin)
+      if (isAdmin && (!preloadedUsers || preloadedUsers.length === 0)) {
         fetchPromises.push(getAllUsers())
         fetchKeys.push('users')
       }
-      // Always fetch opportunities and requests for the business if editing
+
+      // Business-specific data (always fetch if editing)
       if (currentBusiness) {
         fetchPromises.push(getOpportunitiesByBusiness(currentBusiness.id))
         fetchKeys.push('opportunities')
@@ -96,50 +79,23 @@ export function useBusinessForm({
         fetchKeys.push('requests')
       }
 
-      // Parallel fetch only missing data
-      let opportunitiesData: Opportunity[] = []
-      let requestsData: BookingRequest[] = []
+      // Parallel fetch
       if (fetchPromises.length > 0) {
         const results = await Promise.all(fetchPromises)
         fetchKeys.forEach((key, index) => {
           const result = results[index]
           if (result.success && result.data) {
-            if (key === 'categories') categoriesData = result.data as Category[]
-            else if (key === 'users') usersData = result.data as UserData[]
-            else if (key === 'opportunities') opportunitiesData = result.data as Opportunity[]
-            else if (key === 'requests') requestsData = result.data as BookingRequest[]
+            if (key === 'categories') setCategories(result.data as Category[])
+            else if (key === 'users') setUsers(result.data as UserData[])
+            else if (key === 'opportunities') setOpportunities(result.data as Opportunity[])
+            else if (key === 'requests') setRequests(result.data as BookingRequest[])
           }
         })
-      }
-
-      // Update state with data
-      if (categoriesData) setCategories(categoriesData)
-      if (usersData && isAdmin) setUsers(usersData)
-
-      if (currentBusiness) {
-        setName(currentBusiness.name)
-        setContactName(currentBusiness.contactName)
-        setContactPhone(currentBusiness.contactPhone)
-        setContactEmail(currentBusiness.contactEmail)
-        setCategoryId(currentBusiness.categoryId || '')
-        // Use business owner if exists, otherwise default to current user
-        setOwnerId(currentBusiness.ownerId || currentUserId || '')
-        setSalesTeam(currentBusiness.salesTeam || '')
-        setWebsite(currentBusiness.website || '')
-        setInstagram(currentBusiness.instagram || '')
-        setDescription(currentBusiness.description || '')
-        setTier(currentBusiness.tier?.toString() || '')
-
-        setOpportunities(opportunitiesData)
-        setRequests(requestsData)
-      } else {
-        // New business - default owner to current user
-        setOwnerId(currentUserId || '')
       }
     } finally {
       setLoadingData(false)
     }
-  }, [isAdmin, currentUserId, preloadedCategories, preloadedUsers])
+  }, [currentUserId, preloadedCategories, preloadedUsers, isAdmin])
 
   // Main load effect
   useEffect(() => {
@@ -159,33 +115,17 @@ export function useBusinessForm({
   }, [isOpen, business?.id, loadFormData])
 
   return {
-    // Form state
-    name,
-    setName,
-    contactName,
-    setContactName,
-    contactPhone,
-    setContactPhone,
-    contactEmail,
-    setContactEmail,
-    categoryId,
-    setCategoryId,
+    // Reference bar state (owner, salesTeam)
     ownerId,
     setOwnerId,
     salesTeam,
     setSalesTeam,
-    website,
-    setWebsite,
-    instagram,
-    setInstagram,
-    description,
-    setDescription,
-    tier,
-    setTier,
     
-    // Data
+    // Supporting data
     categories,
     users,
+    
+    // Business-specific data
     opportunities,
     setOpportunities,
     requests,
@@ -196,4 +136,3 @@ export function useBusinessForm({
     loadFormData,
   }
 }
-

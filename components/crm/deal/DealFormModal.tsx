@@ -174,11 +174,12 @@ export default function DealFormModal({
           submitLoading={loading || loadingData || dynamicForm.loading}
           submitDisabled={loading || loadingData || dynamicForm.loading || !isAdmin}
           leftContent={isAdmin ? 'Asignar un usuario responsable para esta oferta' : isSales ? 'Modo solo lectura - Puede ver ofertas de sus oportunidades' : 'Modo solo lectura'}
+          formId="deal-modal-form"
         />
       }
     >
 
-      <form id="modal-form" onSubmit={handleSubmit} className="bg-gray-50 h-full flex flex-col">
+      <form id="deal-modal-form" onSubmit={handleSubmit} className="bg-gray-50 h-full flex flex-col">
           {error && (
             <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
               <ErrorOutlineIcon className="text-red-600 flex-shrink-0 mt-0.5" fontSize="small" />
