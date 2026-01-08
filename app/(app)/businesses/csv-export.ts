@@ -56,6 +56,8 @@ export const CSV_EXPORT_COLUMNS = [
   { key: 'accountNumber', label: 'Número de Cuenta', getValue: (b: Business) => b.accountNumber || '' },
   { key: 'accountType', label: 'Tipo de Cuenta', getValue: (b: Business) => b.accountType || '' },
   { key: 'emailPaymentContacts', label: 'Emails de Pago', getValue: (b: Business) => b.emailPaymentContacts || '' },
+  // External IDs
+  { key: 'osAdminVendorId', label: 'OS Admin Vendor ID', getValue: (b: Business) => b.osAdminVendorId || '' },
   // Metadata
   { key: 'createdAt', label: 'Fecha Creación', getValue: (b: Business) => formatDateForCsv(b.createdAt) },
 ]

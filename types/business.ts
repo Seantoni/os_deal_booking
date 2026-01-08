@@ -47,6 +47,8 @@ export type Business = {
   salesType?: string | null
   isAsesor?: string | null
   osAsesor?: string | null
+  // External IDs
+  osAdminVendorId?: string | null
   // Relations
   category?: {
     id: string

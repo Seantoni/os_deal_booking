@@ -284,6 +284,44 @@ function UserDisplayItem({
   )
 }
 
+// Text input item for editable text fields
+function TextItem({
+  label,
+  value,
+  onChange,
+  placeholder,
+  icon,
+  readOnly = false,
+}: {
+  label: string
+  value: string
+  onChange?: (value: string) => void
+  placeholder?: string
+  icon?: React.ReactNode
+  readOnly?: boolean
+}) {
+  return (
+    <Item 
+      icon={icon}
+      label={label}
+    >
+      {readOnly ? (
+        <span className={value ? 'text-gray-900' : 'text-gray-400'}>
+          {value || placeholder || '-'}
+        </span>
+      ) : (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange?.(e.target.value)}
+          placeholder={placeholder}
+          className="text-xs border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded px-2 py-0.5 bg-white shadow-sm w-24"
+        />
+      )}
+    </Item>
+  )
+}
+
 // NEW: Activity Pair - shows Next/Last for a category in compact format
 function ActivityPair({
   icon,
@@ -448,6 +486,7 @@ const ReferenceInfoBar = Object.assign(ReferenceInfoBarComponent, {
   UserSelectItem,
   TeamSelectItem,
   UserDisplayItem,
+  TextItem,
   Section,
   ActivityPair,
   CompactDate,

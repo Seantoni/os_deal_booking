@@ -138,6 +138,7 @@ export default function BusinessFormModal({
       emailPaymentContacts: business.emailPaymentContacts || null,
       address: business.address || null,
       neighborhood: business.neighborhood || null,
+      osAdminVendorId: business.osAdminVendorId || null,
     }
   }, [business])
 
@@ -384,6 +385,7 @@ export default function BusinessFormModal({
     if (allValues.emailPaymentContacts) formData.append('emailPaymentContacts', allValues.emailPaymentContacts)
     if (allValues.address) formData.append('address', allValues.address)
     if (allValues.neighborhood) formData.append('neighborhood', allValues.neighborhood)
+    if (allValues.osAdminVendorId) formData.append('osAdminVendorId', allValues.osAdminVendorId)
 
     return formData
   }
@@ -585,6 +587,12 @@ export default function BusinessFormModal({
                 {/* Reference Info Bar (special section - not from form config) */}
                 <ReferenceInfoBar>
                   <ReferenceInfoBar.CreatedDateItem entity={business} />
+                  <ReferenceInfoBar.TextItem
+                    label="Vendor ID"
+                    value={allFormValues.osAdminVendorId || ''}
+                    onChange={(val) => dynamicForm.setValue('osAdminVendorId', val)}
+                    placeholder="OS Admin ID"
+                  />
                   <ReferenceInfoBar.UserSelectItem
                     label="Propietario"
                     userId={ownerId}

@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation'
 import { getDashboardStats, getPendingBookings, type DashboardFilters } from '@/app/actions/dashboard'
 import { getInboxItems, dismissInboxItem } from '@/app/actions/inbox'
 import { useSharedData } from '@/hooks/useSharedData'
-import { formatRelativeTime, PANAMA_TIMEZONE } from '@/lib/date'
+import { formatRelativeTime } from '@/lib/date'
+
+const PANAMA_TZ = 'America/Panama'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import HandshakeIcon from '@mui/icons-material/Handshake'
@@ -96,13 +98,13 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
     const updateTime = () => {
       const now = new Date()
       setTime(now.toLocaleString('es-PA', {
-        timeZone: PANAMA_TIMEZONE,
+        timeZone: PANAMA_TZ,
         hour: '2-digit',
         minute: '2-digit',
         hour12: true,
       }))
       setDate(now.toLocaleString('es-PA', {
-        timeZone: PANAMA_TIMEZONE,
+        timeZone: PANAMA_TZ,
         day: 'numeric',
         month: 'short',
       }))

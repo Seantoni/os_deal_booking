@@ -205,6 +205,7 @@ export async function createBusiness(formData: FormData) {
     const emailPaymentContacts = formData.get('emailPaymentContacts') as string | null
     const address = formData.get('address') as string | null
     const neighborhood = formData.get('neighborhood') as string | null
+    const osAdminVendorId = formData.get('osAdminVendorId') as string | null
 
     // Prevent duplicates by business name (case-insensitive)
     const existingBusiness = await prisma.business.findFirst({
@@ -279,6 +280,7 @@ export async function createBusiness(formData: FormData) {
       emailPaymentContacts: emailPaymentContacts || null,
       address: address || null,
       neighborhood: neighborhood || null,
+      osAdminVendorId: osAdminVendorId || null,
       salesReps: {
         create: salesRepIds.map((clerkId) => ({
           salesRepId: clerkId,
@@ -373,6 +375,7 @@ export async function updateBusiness(businessId: string, formData: FormData) {
     const emailPaymentContacts = formData.get('emailPaymentContacts') as string | null
     const address = formData.get('address') as string | null
     const neighborhood = formData.get('neighborhood') as string | null
+    const osAdminVendorId = formData.get('osAdminVendorId') as string | null
 
     if (!name || !contactName || !contactPhone || !contactEmail) {
       return { success: false, error: 'Missing required fields' }
@@ -417,6 +420,7 @@ export async function updateBusiness(businessId: string, formData: FormData) {
       emailPaymentContacts: emailPaymentContacts || null,
       address: address || null,
       neighborhood: neighborhood || null,
+      osAdminVendorId: osAdminVendorId || null,
       salesReps: {
         create: salesRepIds.map((clerkId) => ({
           salesRepId: clerkId,
@@ -689,6 +693,8 @@ export interface BulkBusinessRow {
   accountNumber?: string
   accountType?: string
   emailPaymentContacts?: string
+  // External IDs
+  osAdminVendorId?: string
 }
 
 export interface BulkUpsertResult {
@@ -796,6 +802,8 @@ export async function bulkUpsertBusinesses(
           accountNumber: row.accountNumber || null,
           accountType: row.accountType || null,
           emailPaymentContacts: row.emailPaymentContacts || null,
+          // External IDs
+          osAdminVendorId: row.osAdminVendorId || null,
         }
 
         if (row.id) {

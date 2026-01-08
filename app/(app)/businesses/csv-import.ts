@@ -17,6 +17,7 @@ export const CSV_IMPORT_HEADERS = [
   'RUC', 'Razón Social', 
   'Provincia', 'Distrito', 'Corregimiento', 'Dirección', 'Barriada',
   'Plan de Pago', 'Banco', 'Nombre Beneficiario', 'Número de Cuenta', 'Tipo de Cuenta', 'Emails de Pago',
+  'OS Admin Vendor ID',
   'Fecha Creación'
 ]
 
@@ -112,6 +113,8 @@ function mapCsvRowToBusinessRow(row: ParsedCsvRow): BulkBusinessRow {
     accountNumber: row['Número de Cuenta']?.trim(),
     accountType: row['Tipo de Cuenta']?.trim(),
     emailPaymentContacts: row['Emails de Pago']?.trim(),
+    // External IDs
+    osAdminVendorId: row['OS Admin Vendor ID']?.trim(),
   }
 }
 

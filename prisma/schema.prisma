@@ -350,6 +350,8 @@ model Business {
   // Location / web
   address            String?
   neighborhood       String?
+  // External IDs
+  osAdminVendorId    String? // OS Admin Vendor ID for reference
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
