@@ -661,10 +661,34 @@ export interface BulkBusinessRow {
   category?: string // Full category path (e.g., "Food > Restaurants > Italian")
   owner?: string
   salesReps?: string
+  salesTeam?: string
+  // Location
   province?: string
   district?: string
+  corregimiento?: string
+  address?: string
+  neighborhood?: string
+  // Legal/Tax
   ruc?: string
   razonSocial?: string
+  // Online presence
+  website?: string
+  instagram?: string
+  description?: string
+  // Business info
+  tier?: string
+  accountManager?: string
+  ere?: string
+  salesType?: string
+  isAsesor?: string
+  osAsesor?: string
+  // Payment
+  paymentPlan?: string
+  bank?: string
+  beneficiaryName?: string
+  accountNumber?: string
+  accountType?: string
+  emailPaymentContacts?: string
 }
 
 export interface BulkUpsertResult {
@@ -736,7 +760,7 @@ export async function bulkUpsertBusinesses(
           categoryId = categoryByPath.get(row.category.toLowerCase()) || null
         }
 
-        // Build data object
+        // Build data object with all fields
         const data = {
           name: row.name,
           contactName: row.contactName || '',
@@ -744,10 +768,34 @@ export async function bulkUpsertBusinesses(
           contactPhone: row.contactPhone || '',
           categoryId,
           ownerId,
+          salesTeam: row.salesTeam || null,
+          // Location
           province: row.province || null,
           district: row.district || null,
+          corregimiento: row.corregimiento || null,
+          address: row.address || null,
+          neighborhood: row.neighborhood || null,
+          // Legal/Tax
           ruc: row.ruc || null,
           razonSocial: row.razonSocial || null,
+          // Online presence
+          website: row.website || null,
+          instagram: row.instagram || null,
+          description: row.description || null,
+          // Business info
+          tier: row.tier ? parseInt(row.tier, 10) || null : null,
+          accountManager: row.accountManager || null,
+          ere: row.ere || null,
+          salesType: row.salesType || null,
+          isAsesor: row.isAsesor || null,
+          osAsesor: row.osAsesor || null,
+          // Payment
+          paymentPlan: row.paymentPlan || null,
+          bank: row.bank || null,
+          beneficiaryName: row.beneficiaryName || null,
+          accountNumber: row.accountNumber || null,
+          accountType: row.accountType || null,
+          emailPaymentContacts: row.emailPaymentContacts || null,
         }
 
         if (row.id) {

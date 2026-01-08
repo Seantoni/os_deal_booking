@@ -14,9 +14,10 @@ import HandshakeIcon from '@mui/icons-material/Handshake'
 import DescriptionIcon from '@mui/icons-material/Description'
 import DownloadIcon from '@mui/icons-material/Download'
 import UploadIcon from '@mui/icons-material/Upload'
-import { generateCsv, downloadCsv, formatDateForCsv, generateFilename, type ParsedCsvRow } from '@/lib/utils/csv-export'
+import type { ParsedCsvRow } from '@/lib/utils/csv-export'
 import CsvUploadModal, { type CsvUploadPreview, type CsvUploadResult } from '@/components/common/CsvUploadModal'
-import { bulkUpsertBusinesses, type BulkBusinessRow } from '@/app/actions/businesses'
+import { exportBusinessesToCsv } from './csv-export'
+import { CSV_IMPORT_HEADERS, previewBusinessImport, confirmBusinessImport } from './csv-import'
 
 // Lazy load heavy modal components
 const BusinessFormModal = dynamic(() => import('@/components/crm/business/BusinessFormModal'), {
@@ -299,107 +300,22 @@ export default function BusinessesPageClient({
   }
 
   function handleDownloadCsv() {
-    const csvColumns = [
-      { key: 'id', label: 'ID', getValue: (b: Business) => b.id },
-      { key: 'name', label: 'Nombre', getValue: (b: Business) => b.name },
-      { key: 'contactName', label: 'Contacto', getValue: (b: Business) => b.contactName || '' },
-      { key: 'contactEmail', label: 'Email', getValue: (b: Business) => b.contactEmail || '' },
-      { key: 'contactPhone', label: 'Teléfono', getValue: (b: Business) => b.contactPhone || '' },
-      { key: 'category', label: 'Categoría', getValue: (b: Business) => {
-        if (!b.category) return ''
-        let cat = b.category.parentCategory
-        if (b.category.subCategory1) cat += ` > ${b.category.subCategory1}`
-        if (b.category.subCategory2) cat += ` > ${b.category.subCategory2}`
-        return cat
-      }},
-      { key: 'owner', label: 'Owner', getValue: (b: Business) => b.owner?.name || '' },
-      { key: 'salesReps', label: 'Sales Reps', getValue: (b: Business) => 
-        b.salesReps?.map(r => r.salesRep?.name || '').filter(Boolean).join(', ') || ''
-      },
-      { key: 'province', label: 'Provincia', getValue: (b: Business) => b.province || '' },
-      { key: 'district', label: 'Distrito', getValue: (b: Business) => b.district || '' },
-      { key: 'ruc', label: 'RUC', getValue: (b: Business) => b.ruc || '' },
-      { key: 'razonSocial', label: 'Razón Social', getValue: (b: Business) => b.razonSocial || '' },
-      { key: 'createdAt', label: 'Fecha Creación', getValue: (b: Business) => formatDateForCsv(b.createdAt) },
-    ]
-    
-    const csvContent = generateCsv(filteredBusinesses, csvColumns)
-    downloadCsv(csvContent, generateFilename('businesses'))
-    toast.success(`Exported ${filteredBusinesses.length} businesses`)
+    const count = exportBusinessesToCsv(filteredBusinesses)
+    toast.success(`Exported ${count} businesses`)
   }
-
-  // CSV Upload expected headers (matching download format)
-  const csvUploadHeaders = ['ID', 'Nombre', 'Contacto', 'Email', 'Teléfono', 'Categoría', 'Owner', 'Sales Reps', 'Provincia', 'Distrito', 'RUC', 'Razón Social', 'Fecha Creación']
 
   // CSV Upload preview handler
   async function handleUploadPreview(rows: ParsedCsvRow[]): Promise<CsvUploadPreview> {
-    let toCreate = 0
-    let toUpdate = 0
-    let skipped = 0
-    const errors: string[] = []
-
-    // Get existing business IDs for validation
-    const existingIds = new Set(businesses.map(b => b.id))
-
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i]
-      const rowNum = i + 2
-
-      const id = row['ID']?.trim()
-      const name = row['Nombre']?.trim()
-
-      if (id) {
-        if (existingIds.has(id)) {
-          toUpdate++
-        } else {
-          errors.push(`Fila ${rowNum}: ID "${id}" no encontrado`)
-          skipped++
-        }
-      } else if (name) {
-        // Check for duplicate name
-        const existingName = businesses.find(b => b.name.toLowerCase() === name.toLowerCase())
-        if (existingName) {
-          errors.push(`Fila ${rowNum}: Ya existe negocio con nombre "${name}"`)
-          skipped++
-        } else {
-          toCreate++
-        }
-      } else {
-        errors.push(`Fila ${rowNum}: Se requiere ID o Nombre`)
-        skipped++
-      }
-    }
-
-    return { toCreate, toUpdate, skipped, errors, rows }
+    return previewBusinessImport(rows, businesses)
   }
 
   // CSV Upload confirm handler
   async function handleUploadConfirm(rows: ParsedCsvRow[]): Promise<CsvUploadResult> {
-    // Map CSV rows to BulkBusinessRow
-    const businessRows: BulkBusinessRow[] = rows.map(row => ({
-      id: row['ID']?.trim() || undefined,
-      name: row['Nombre']?.trim() || '',
-      contactName: row['Contacto']?.trim(),
-      contactEmail: row['Email']?.trim(),
-      contactPhone: row['Teléfono']?.trim(),
-      category: row['Categoría']?.trim(),
-      owner: row['Owner']?.trim(),
-      salesReps: row['Sales Reps']?.trim(),
-      province: row['Provincia']?.trim(),
-      district: row['Distrito']?.trim(),
-      ruc: row['RUC']?.trim(),
-      razonSocial: row['Razón Social']?.trim(),
-    }))
-
-    const result = await bulkUpsertBusinesses(businessRows)
-    
-    if (result.success && result.data) {
-      // Reload data after successful import
-      loadData()
-      return result.data
+    const result = await confirmBusinessImport(rows)
+    if (result.created > 0 || result.updated > 0) {
+      loadData() // Reload data after successful import
     }
-    
-    return { created: 0, updated: 0, errors: [result.error || 'Error al importar'] }
+    return result
   }
 
   function handleCreateRequest(business: Business) {
@@ -716,7 +632,7 @@ export default function BusinessesPageClient({
         isOpen={uploadModalOpen}
         onClose={() => setUploadModalOpen(false)}
         entityName="Negocios"
-        expectedHeaders={csvUploadHeaders}
+        expectedHeaders={CSV_IMPORT_HEADERS}
         idField="ID"
         onPreview={handleUploadPreview}
         onConfirm={handleUploadConfirm}
