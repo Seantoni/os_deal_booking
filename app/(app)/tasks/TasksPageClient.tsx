@@ -10,6 +10,7 @@ import toast from 'react-hot-toast'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useUserRole } from '@/hooks/useUserRole'
+import { useFormConfigCache } from '@/hooks/useFormConfigCache'
 import AssignmentIcon from '@mui/icons-material/Assignment'
 import GroupsIcon from '@mui/icons-material/Groups'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
@@ -79,6 +80,9 @@ type FilterType = 'all' | 'pending' | 'completed' | 'overdue' | 'meetings' | 'to
 export default function TasksPageClient() {
   const { isAdmin } = useUserRole()
   const confirmDialog = useConfirmDialog()
+  
+  // Get form config cache for prefetching
+  const { prefetch: prefetchFormConfig } = useFormConfigCache()
 
   const [tasks, setTasks] = useState<TaskWithOpportunity[]>([])
   const [loading, setLoading] = useState(true)
@@ -415,6 +419,7 @@ export default function TasksPageClient() {
                   key={task.id} 
                   index={index}
                   onClick={() => handleEditTask(task)}
+                  onMouseEnter={() => prefetchFormConfig('opportunity')}
                   className={task.completed ? 'opacity-60' : ''}
                 >
                   {/* Status */}

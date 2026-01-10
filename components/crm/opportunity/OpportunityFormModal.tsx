@@ -6,6 +6,7 @@ import { useUser } from '@clerk/nextjs'
 import { createOpportunity, updateOpportunity, createTask, updateTask, deleteTask } from '@/app/actions/crm'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
+import { useCachedFormConfig } from '@/hooks/useFormConfigCache'
 import { getTodayInPanama } from '@/lib/date/timezone'
 import type { Opportunity, OpportunityStage, Task, Business, UserData } from '@/types'
 import type { Category } from '@prisma/client'
@@ -82,6 +83,9 @@ export default function OpportunityFormModal({
   const { user } = useUser()
   const { isAdmin } = useUserRole()
   const [activeTab, setActiveTab] = useState<'details' | 'activity' | 'chat' | 'history'>(initialTab)
+  
+  // Get cached form configuration (instant if already prefetched)
+  const { sections: cachedSections, initialized: cachedInitialized } = useCachedFormConfig('opportunity')
 
   // Update active tab when initialTab changes (e.g., opening from inbox)
   useEffect(() => {
@@ -174,11 +178,14 @@ export default function OpportunityFormModal({
     }
   }, [opportunity, initialBusinessId, preloadedBusinesses])
 
-  // Dynamic form hook
+  // Dynamic form hook - pass preloaded sections from cache
   const dynamicForm = useDynamicForm({
     entityType: 'opportunity',
     entityId: opportunity?.id,
     initialValues,
+    // Use cached form config if available (instant load)
+    preloadedSections: cachedSections.length > 0 ? cachedSections : undefined,
+    preloadedInitialized: cachedInitialized,
   })
 
   // Calculate activity summaries (Next/Last Task/Meeting) with days difference

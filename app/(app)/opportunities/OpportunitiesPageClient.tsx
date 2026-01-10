@@ -21,6 +21,7 @@ import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useSharedData } from '@/hooks/useSharedData'
+import { useFormConfigCache } from '@/hooks/useFormConfigCache'
 import { useEntityPage, sortEntities } from '@/hooks/useEntityPage'
 import { 
   EntityPageHeader, 
@@ -85,6 +86,9 @@ export default function OpportunitiesPageClient({
   
   // Get shared/cached data for categories and users
   const { categories, users } = useSharedData()
+  
+  // Get form config cache for prefetching
+  const { prefetch: prefetchFormConfig } = useFormConfigCache()
   
   // Use shared hook for common functionality
   const {
@@ -268,6 +272,11 @@ export default function OpportunitiesPageClient({
     () => filteredOpportunities.slice(0, visibleCount),
     [filteredOpportunities, visibleCount]
   )
+
+  // Prefetch form config when hovering over a row
+  const handleRowHover = useCallback(() => {
+    prefetchFormConfig('opportunity')
+  }, [prefetchFormConfig])
 
   function handleEditOpportunity(opportunity: Opportunity) {
     setSelectedOpportunity(opportunity)
@@ -548,6 +557,7 @@ export default function OpportunitiesPageClient({
                   key={opportunity.id}
                   index={index}
                   onClick={() => handleEditOpportunity(opportunity)}
+                  onMouseEnter={handleRowHover}
                 >
                   <TableCell>
                     <span className="font-medium text-gray-900 text-[13px]">

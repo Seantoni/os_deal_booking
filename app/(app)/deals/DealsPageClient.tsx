@@ -9,6 +9,7 @@ import type { Deal } from '@/types'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import toast from 'react-hot-toast'
 import { useUserRole } from '@/hooks/useUserRole'
+import { useFormConfigCache } from '@/hooks/useFormConfigCache'
 import { useEntityPage, sortEntities } from '@/hooks/useEntityPage'
 import { 
   EntityPageHeader, 
@@ -67,6 +68,9 @@ const SEARCH_FIELDS = ['bookingRequest.name', 'bookingRequest.businessEmail', 'b
 export default function DealsPageClient() {
   const searchParams = useSearchParams()
   const { isAdmin } = useUserRole()
+  
+  // Get form config cache for prefetching
+  const { prefetch: prefetchFormConfig } = useFormConfigCache()
   
   // Use shared hook for common functionality
   const {
@@ -206,6 +210,11 @@ export default function DealsPageClient() {
 
   const visibleDeals = useMemo(() => filteredDeals.slice(0, visibleCount), [filteredDeals, visibleCount])
 
+  // Prefetch form config when hovering over a row
+  const handleRowHover = useCallback(() => {
+    prefetchFormConfig('deal')
+  }, [prefetchFormConfig])
+
   function handleEditDeal(deal: Deal) {
     setSelectedDeal(deal)
     setDealModalOpen(true)
@@ -288,6 +297,7 @@ export default function DealsPageClient() {
                 key={deal.id}
                 index={index}
                 onClick={() => handleEditDeal(deal)}
+                onMouseEnter={handleRowHover}
               >
                 <TableCell>
                   <span className="text-[13px] font-medium text-gray-900">

@@ -12,6 +12,7 @@ import toast from 'react-hot-toast'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useUserRole } from '@/hooks/useUserRole'
+import { useFormConfigCache } from '@/hooks/useFormConfigCache'
 import { useEntityPage, sortEntities } from '@/hooks/useEntityPage'
 import { logger } from '@/lib/logger'
 import { 
@@ -48,6 +49,9 @@ const SEARCH_FIELDS = ['name', 'contactName', 'contactEmail', 'contactPhone', 's
 export default function LeadsPageClient() {
   const { role: userRole } = useUserRole()
   const isAdmin = userRole === 'admin'
+  
+  // Get form config cache for prefetching
+  const { prefetch: prefetchFormConfig } = useFormConfigCache()
   
   // Use shared hook for common functionality
   const {
@@ -175,6 +179,11 @@ export default function LeadsPageClient() {
 
   const visibleLeads = useMemo(() => filteredLeads.slice(0, visibleCount), [filteredLeads, visibleCount])
 
+  // Prefetch form config when hovering over a row
+  const handleRowHover = useCallback(() => {
+    prefetchFormConfig('lead')
+  }, [prefetchFormConfig])
+
   function handleCreateLead() {
     setSelectedLead(null)
     setLeadModalOpen(true)
@@ -212,6 +221,7 @@ export default function LeadsPageClient() {
   const headerRightContent = (
     <Button
       onClick={handleCreateLead}
+      onMouseEnter={handleRowHover}
       variant="primary"
       size="sm"
       leftIcon={<AddIcon style={{ fontSize: 16 }} />}
@@ -268,6 +278,7 @@ export default function LeadsPageClient() {
                   key={lead.id}
                   index={index}
                   onClick={() => handleEditLead(lead)}
+                  onMouseEnter={handleRowHover}
                 >
                   <TableCell>
                     <div className="flex items-center gap-2">

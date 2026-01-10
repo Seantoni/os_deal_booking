@@ -6,6 +6,7 @@ import { getCategories } from '@/app/actions/categories'
 import { LEAD_STAGE_LABELS, LEAD_STAGE_COLORS } from '@/lib/constants'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
+import { useCachedFormConfig } from '@/hooks/useFormConfigCache'
 import type { Lead, LeadStage, CategoryRecord } from '@/types'
 import CloseIcon from '@mui/icons-material/Close'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
@@ -35,6 +36,9 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
   const { isAdmin } = useUserRole()
   const [loadingData, setLoadingData] = useState(true)
   const [error, setError] = useState('')
+  
+  // Get cached form configuration (instant if already prefetched)
+  const { sections: cachedSections, initialized: cachedInitialized } = useCachedFormConfig('lead')
   
   // React 19: useTransition for non-blocking UI during form actions
   const [isSubmitPending, startSubmitTransition] = useTransition()
@@ -68,11 +72,14 @@ export default function LeadFormModal({ isOpen, onClose, lead, onSuccess }: Lead
     }
   }, [lead])
 
-  // Dynamic form hook
+  // Dynamic form hook - pass preloaded sections from cache
   const dynamicForm = useDynamicForm({
     entityType: 'lead',
     entityId: lead?.id,
     initialValues,
+    // Use cached form config if available (instant load)
+    preloadedSections: cachedSections.length > 0 ? cachedSections : undefined,
+    preloadedInitialized: cachedInitialized,
   })
 
   const loadFormData = useCallback(async () => {

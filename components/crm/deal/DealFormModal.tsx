@@ -4,6 +4,7 @@ import { useState, useMemo, useTransition } from 'react'
 import { updateDealResponsible, updateDealStatus } from '@/app/actions/deals'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
+import { useCachedFormConfig } from '@/hooks/useFormConfigCache'
 import type { Deal } from '@/types'
 import CloseIcon from '@mui/icons-material/Close'
 import DescriptionIcon from '@mui/icons-material/Description'
@@ -35,6 +36,9 @@ export default function DealFormModal({
   const { isAdmin, isSales } = useUserRole()
   const [error, setError] = useState('')
   const [bookingRequestModalOpen, setBookingRequestModalOpen] = useState(false)
+  
+  // Get cached form configuration (instant if already prefetched)
+  const { sections: cachedSections, initialized: cachedInitialized } = useCachedFormConfig('deal')
 
   // React 19: useTransition for non-blocking UI during form actions
   const [isSubmitPending, startSubmitTransition] = useTransition()
@@ -72,11 +76,14 @@ export default function DealFormModal({
     }
   }, [deal])
 
-  // Dynamic form hook for custom fields
+  // Dynamic form hook for custom fields - pass preloaded sections from cache
   const dynamicForm = useDynamicForm({
     entityType: 'deal',
     entityId: deal?.id,
     initialValues,
+    // Use cached form config if available (instant load)
+    preloadedSections: cachedSections.length > 0 ? cachedSections : undefined,
+    preloadedInitialized: cachedInitialized,
   })
 
   // React 19: Status change handler using useTransition

@@ -1,10 +1,10 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
-import { deleteBookingRequest, resendBookingRequest, bulkDeleteBookingRequests, bulkUpdateBookingRequestStatus, refreshBookingRequests, cancelBookingRequest } from '@/app/actions/booking'
+import { deleteBookingRequest, resendBookingRequest, bulkDeleteBookingRequests, bulkUpdateBookingRequestStatus, refreshBookingRequests, cancelBookingRequest, getBookingRequest } from '@/app/actions/booking'
 import type { BookingRequest } from '@/types'
 import type { BookingRequestStatus } from '@/lib/constants'
 import AddIcon from '@mui/icons-material/Add'
@@ -65,6 +65,20 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
   const [visibleCount, setVisibleCount] = useState(50)
   
   const isAdmin = userRole === 'admin'
+
+  // Prefetch cache for booking request details (improves modal load time)
+  const prefetchedRequestsRef = useRef<Set<string>>(new Set())
+  
+  // Prefetch booking request data on hover (instant modal open experience)
+  const handleRowHover = useCallback((requestId: string) => {
+    if (prefetchedRequestsRef.current.has(requestId)) return
+    prefetchedRequestsRef.current.add(requestId)
+    // Fire and forget - prefetch in background
+    getBookingRequest(requestId).catch(() => {
+      // Remove from cache on error so it can be retried
+      prefetchedRequestsRef.current.delete(requestId)
+    })
+  }, [])
 
   // Refresh booking requests data without full page refresh
   // This avoids Clerk API calls on booking request updates
@@ -752,12 +766,13 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                     }
                   }
                   
-                  return (
+                    return (
                     <TableRow
                       key={request.id}
                       index={index}
                       className={rowBgColor}
                       onClick={() => setViewRequestId(request.id)}
+                      onMouseEnter={() => handleRowHover(request.id)}
                     >
                       {isAdmin && (
                         <TableCell>
