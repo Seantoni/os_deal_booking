@@ -20,17 +20,19 @@ export default function DayEventsModal({ isOpen, onClose, date, events, onEventC
   if (!isOpen || !date) return null
 
 return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        {/* Backdrop */}
-        <div 
-        className="fixed inset-0 bg-black/30 backdrop-blur-[2px]"
-          onClick={onClose}
+    <>
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-gray-900/20 z-40 transition-opacity"
+        onClick={onClose}
       />
 
-        {/* Modal */}
-      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      {/* Modal Container */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center md:p-3 pointer-events-none">
+        {/* Modal Panel - Mobile: full screen, Desktop: centered */}
+        <div className="w-full max-w-md bg-white shadow-2xl md:rounded-xl flex flex-col h-full md:h-auto md:max-h-[85vh] pointer-events-auto transform transition-all duration-200 overflow-hidden">
           {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100">
+          <div className="flex items-center justify-between px-4 py-2.5 bg-white border-b border-gray-200 flex-shrink-0">
           <div>
             <h2 className="text-sm font-semibold text-slate-800">
               {formatFullDateWithWeekday(date)}
@@ -107,12 +109,13 @@ return (
                 })}
               </div>
             ) : (
-            <div className="text-center py-8 text-slate-400 text-sm">
-              No events scheduled
+              <div className="text-center py-8 text-gray-400 text-sm">
+                No events scheduled
               </div>
             )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }

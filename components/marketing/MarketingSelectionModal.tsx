@@ -162,9 +162,10 @@ export default function MarketingSelectionModal({
       />
 
       {/* Modal Container */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 pointer-events-none">
+      {/* Mobile: full screen, Desktop: centered with padding */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center md:p-3 pointer-events-none">
         <div
-          className={`w-full max-w-lg bg-white shadow-2xl rounded-xl flex flex-col max-h-[85vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${
+          className={`w-full max-w-lg bg-white shadow-2xl md:rounded-xl flex flex-col h-full md:h-[85vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${
             isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
           }`}
         >

@@ -149,27 +149,32 @@ export default function CsvUploadModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <>
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40" onClick={handleClose} />
+      <div 
+        className="fixed inset-0 bg-gray-900/20 z-40 transition-opacity" 
+        onClick={handleClose} 
+      />
       
-      {/* Modal */}
-      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Importar {entityName}
-          </h2>
-          <button
-            onClick={handleClose}
-            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
-          >
-            <CloseIcon style={{ fontSize: 20 }} />
-          </button>
-        </div>
+      {/* Modal Container */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center md:p-3 pointer-events-none">
+        {/* Modal Panel - Mobile: full screen, Desktop: centered */}
+        <div className="w-full max-w-lg bg-white shadow-2xl md:rounded-xl flex flex-col h-full md:h-auto md:max-h-[85vh] pointer-events-auto transform transition-all duration-200 overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 flex-shrink-0">
+            <h2 className="text-sm font-bold text-gray-900">
+              Importar {entityName}
+            </h2>
+            <button
+              onClick={handleClose}
+              className="text-gray-400 hover:text-gray-500 transition-colors p-1"
+            >
+              <CloseIcon style={{ fontSize: 20 }} />
+            </button>
+          </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-auto p-5">
+          {/* Content - Scrollable */}
+          <div className="flex-1 overflow-auto p-4">
           {/* Step: Select File */}
           {step === 'select' && (
             <div className="space-y-4">
@@ -375,7 +380,7 @@ export default function CsvUploadModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-end gap-2 px-4 py-2.5 border-t border-gray-200 bg-gray-50 flex-shrink-0">
           {step === 'select' && (
             <Button variant="secondary" onClick={handleClose}>
               Cancelar
@@ -404,6 +409,7 @@ export default function CsvUploadModal({
         </div>
       </div>
     </div>
+    </>
   )
 }
 

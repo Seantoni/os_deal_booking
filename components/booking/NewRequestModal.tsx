@@ -136,21 +136,30 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-sm">
-      <div className="bg-white rounded-lg shadow-2xl border border-gray-200 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-3 border-b border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900">Nueva Solicitud de Booking</h2>
-          <button
-            onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <CloseIcon fontSize="small" />
-          </button>
-        </div>
+    <>
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-gray-900/20 z-40 transition-opacity"
+        onClick={handleClose}
+      />
 
-        {/* Content */}
-        <div className="p-4 space-y-4">
+      {/* Modal Container */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center md:p-3 pointer-events-none">
+        {/* Modal Panel - Mobile: full screen, Desktop: centered */}
+        <div className="w-full max-w-md bg-white shadow-2xl md:rounded-xl flex flex-col h-full md:h-auto md:max-h-[85vh] pointer-events-auto transform transition-all duration-200 overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 flex-shrink-0">
+            <h2 className="text-sm font-bold text-gray-900">Nueva Solicitud de Booking</h2>
+            <button
+              onClick={handleClose}
+              className="text-gray-400 hover:text-gray-500 transition-colors p-1"
+            >
+              <CloseIcon style={{ fontSize: 20 }} />
+            </button>
+          </div>
+
+        {/* Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {!success ? (
             <>
               <p className="text-xs text-gray-600 mb-3">
@@ -307,6 +316,7 @@ export default function NewRequestModal({ isOpen, onClose, queryParams }: NewReq
         </div>
       </div>
     </div>
+    </>
   )
 }
 

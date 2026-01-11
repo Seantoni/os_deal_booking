@@ -682,20 +682,21 @@ export default function BookingRequestViewModal({
       )}
 
       {/* Modal Container */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+      {/* Mobile: full screen, Desktop: centered with padding */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center md:p-3 pointer-events-none">
         {/* Modal Panel */}
-        <div className={`w-full max-w-5xl bg-white shadow-2xl rounded-2xl flex flex-col max-h-[90vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${
+        {/* Mobile: full height, no rounded. Desktop: 85vh max, rounded */}
+        <div className={`w-full max-w-5xl bg-white shadow-2xl md:rounded-xl flex flex-col h-full md:h-[85vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${
           isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
         }`}>
           {/* Header */}
-          <div className="bg-white border-b border-slate-200 px-6 py-5 flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-sm text-white">
-                <DescriptionIcon fontSize="medium" />
+          <div className="bg-white border-b border-gray-200 px-4 py-2.5 flex items-center justify-between flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-blue-100 rounded-lg border border-blue-200">
+                <DescriptionIcon className="text-blue-600" style={{ fontSize: 20 }} />
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-0.5">Solicitud de Reserva</p>
-                <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+                <h2 className="text-sm font-bold text-gray-900 leading-tight">
                   {(requestData?.name as string) || 'Cargando...'}
                 </h2>
               </div>
