@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import Link from 'next/link'
+import * as Sentry from '@sentry/nextjs'
 import { logger } from '@/lib/logger'
 import { PublicPageHeader } from '@/components/shared/public-pages/PublicPageHeader'
 
@@ -19,8 +20,16 @@ export default function PublicError({ error, reset }: ErrorPageProps) {
     // Log the error for debugging
     logger.error('Public route error:', error.message, error.digest)
     
-    // In production, this would send to error tracking service (e.g., Sentry)
-    // Example: Sentry.captureException(error)
+    // Capture exception in Sentry with context
+    Sentry.captureException(error, {
+      tags: {
+        errorBoundary: 'public',
+        digest: error.digest,
+      },
+      extra: {
+        digest: error.digest,
+      },
+    })
   }, [error])
 
   return (

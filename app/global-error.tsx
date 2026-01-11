@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import * as Sentry from '@sentry/nextjs'
 
 interface GlobalErrorProps {
   error: Error & { digest?: string }
@@ -20,8 +21,18 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
     // and we want to ensure errors are always logged even if our logger fails
     console.error('[GLOBAL ERROR]', error.message, error.digest)
     
-    // In production, this would send to error tracking service (e.g., Sentry)
-    // Example: Sentry.captureException(error)
+    // Capture exception in Sentry - critical errors at root level
+    Sentry.captureException(error, {
+      level: 'fatal',
+      tags: {
+        errorBoundary: 'global',
+        digest: error.digest,
+      },
+      extra: {
+        digest: error.digest,
+        isCritical: true,
+      },
+    })
   }, [error])
 
   return (

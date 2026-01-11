@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from '@clerk/nextjs';
 import { esES } from '@clerk/localizations';
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import ToastProvider from '@/components/common/ToastProvider';
 import CommandPaletteProvider from '@/components/common/CommandPaletteProvider';
 import "./globals.css";
@@ -48,6 +50,10 @@ export default function RootLayout({
         <CommandPaletteProvider>
           {children}
         </CommandPaletteProvider>
+        {/* Vercel Analytics - tracks page views and custom events */}
+        <Analytics />
+        {/* Vercel Speed Insights - tracks Core Web Vitals */}
+        <SpeedInsights />
       </body>
     </html>
     </ClerkProvider>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import * as Sentry from '@sentry/nextjs'
 import { logger } from '@/lib/logger'
 
 interface ErrorPageProps {
@@ -17,8 +18,16 @@ export default function AppError({ error, reset }: ErrorPageProps) {
     // Log the error for debugging
     logger.error('App route error:', error.message, error.digest)
     
-    // In production, this would send to error tracking service (e.g., Sentry)
-    // Example: Sentry.captureException(error)
+    // Capture exception in Sentry with context
+    Sentry.captureException(error, {
+      tags: {
+        errorBoundary: 'app',
+        digest: error.digest,
+      },
+      extra: {
+        digest: error.digest,
+      },
+    })
   }, [error])
 
   return (

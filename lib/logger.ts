@@ -1,5 +1,5 @@
 /**
- * Centralized logging utility with log levels
+ * Centralized logging utility with log levels and Sentry integration
  * 
  * Usage:
  *   import { logger } from '@/lib/logger'
@@ -20,6 +20,8 @@
  *   LOG_LEVEL=error npm run build
  */
 
+import * as Sentry from '@sentry/nextjs'
+
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
 const LOG_LEVEL: LogLevel = (process.env.LOG_LEVEL as LogLevel) || 'warn'
@@ -35,7 +37,19 @@ function shouldLog(level: LogLevel): boolean {
 }
 
 /**
- * Centralized logger with log levels
+ * Extract error from args if present
+ */
+function extractError(args: unknown[]): Error | undefined {
+  for (const arg of args) {
+    if (arg instanceof Error) {
+      return arg
+    }
+  }
+  return undefined
+}
+
+/**
+ * Centralized logger with log levels and Sentry integration
  */
 export const logger = {
   /**
@@ -61,20 +75,49 @@ export const logger = {
   /**
    * Warning logs - potential issues that don't break functionality
    * Shown when LOG_LEVEL=debug, info, or warn (default)
+   * Also sends to Sentry as a breadcrumb
    */
   warn: (msg: string, ...args: unknown[]): void => {
     if (shouldLog('warn')) {
       console.warn(`[WARN] ${msg}`, ...args)
     }
+    
+    // Add warning as Sentry breadcrumb for context
+    Sentry.addBreadcrumb({
+      category: 'warning',
+      message: msg,
+      level: 'warning',
+      data: args.length > 0 ? { args } : undefined,
+    })
   },
 
   /**
    * Error logs - errors that need attention
    * Always shown regardless of LOG_LEVEL
+   * Also captures in Sentry for tracking
    */
   error: (msg: string, ...args: unknown[]): void => {
     // Errors are always logged
     console.error(`[ERROR] ${msg}`, ...args)
+    
+    // Extract error if present in args
+    const error = extractError(args)
+    
+    if (error) {
+      // Capture the actual error with context
+      Sentry.captureException(error, {
+        extra: {
+          message: msg,
+          args: args.filter(arg => !(arg instanceof Error)),
+        },
+      })
+    } else {
+      // Capture as a message if no error object
+      Sentry.captureMessage(msg, {
+        level: 'error',
+        extra: args.length > 0 ? { args } : undefined,
+      })
+    }
   },
 }
 
@@ -92,3 +135,22 @@ export function isDebugEnabled(): boolean {
   return LOG_LEVEL === 'debug'
 }
 
+/**
+ * Log a server action error with context
+ * Convenience function for server actions
+ */
+export function logServerActionError(
+  actionName: string,
+  error: unknown,
+  context?: Record<string, unknown>
+): void {
+  const errorMessage = error instanceof Error ? error.message : String(error)
+  logger.error(`Server action "${actionName}" failed: ${errorMessage}`, error)
+  
+  if (context) {
+    Sentry.setContext('serverAction', {
+      actionName,
+      ...context,
+    })
+  }
+}
