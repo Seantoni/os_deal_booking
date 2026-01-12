@@ -18,6 +18,9 @@ export interface DropdownProps {
   fullWidth?: boolean
   className?: string
   buttonClassName?: string
+  error?: string
+  label?: string
+  required?: boolean
 }
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -32,6 +35,9 @@ export function Dropdown({
   fullWidth = false,
   className,
   buttonClassName,
+  error,
+  label,
+  required,
 }: DropdownProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -54,14 +60,24 @@ export function Dropdown({
   }, [])
 
   return (
-    <div ref={ref} className={cn('relative inline-block text-left', fullWidth && 'w-full', className)}>
-      <button
+    <div className={cn('flex flex-col gap-0.5', fullWidth && 'w-full')}>
+      {label && (
+        <span className="text-xs font-medium text-slate-600 flex items-center gap-1">
+          {label}
+          {required && <span className="text-red-500">*</span>}
+        </span>
+      )}
+      <div ref={ref} className={cn('relative inline-block text-left', fullWidth && 'w-full', className)}>
+        <button
         type="button"
         onClick={() => setOpen(!open)}
         className={cn(
-          'w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800',
+          'w-full bg-white border rounded-lg px-3 py-2 text-sm text-gray-800',
           'shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:border-gray-300',
-          'focus:outline-none focus:ring-2 focus:ring-blue-500/30 flex items-center justify-between gap-2',
+          'focus:outline-none focus:ring-2 flex items-center justify-between gap-2',
+          error 
+            ? 'border-red-300 focus:ring-red-500/30' 
+            : 'border-gray-200 focus:ring-blue-500/30',
           buttonClassName
         )}
       >
@@ -119,6 +135,10 @@ export function Dropdown({
             )}
           </ul>
         </div>
+      )}
+      </div>
+      {error && (
+        <span className="text-xs text-red-600">{error}</span>
       )}
     </div>
   )

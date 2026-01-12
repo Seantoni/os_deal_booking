@@ -139,26 +139,23 @@ export default function ContenidoStep({ formData, errors, updateFormData, isFiel
           Información de Contacto
         </h3>
         
-        <div className="group">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Número, correo electrónico y/o app específico
-          </label>
-          <Input
-            value={formData.contactDetails}
-            onChange={(e) => updateFormData('contactDetails', e.target.value)}
-            placeholder="Detalles de contacto para canje"
-          />
-        </div>
+        <Input
+          label="Número, correo electrónico y/o app específico"
+          required={isFieldRequired('contactDetails')}
+          value={formData.contactDetails}
+          onChange={(e) => updateFormData('contactDetails', e.target.value)}
+          placeholder="Detalles de contacto para canje"
+          error={errors.contactDetails}
+        />
 
-        <div className="group">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Redes Sociales y Web</label>
-          <Input
-            value={formData.socialMedia}
-            onChange={(e) => updateFormData('socialMedia', e.target.value)}
-            placeholder="Ej: @instagram_handle, www.sitio.com"
-          />
-        </div>
-
+        <Input
+          label="Redes Sociales y Web"
+          required={isFieldRequired('socialMedia')}
+          value={formData.socialMedia}
+          onChange={(e) => updateFormData('socialMedia', e.target.value)}
+          placeholder="Ej: @instagram_handle, www.sitio.com"
+          error={errors.socialMedia}
+        />
       </div>
 
       {/* AI-Generated Content Section */}
@@ -204,8 +201,8 @@ export default function ContenidoStep({ formData, errors, updateFormData, isFiel
             : null
           
           return (
-            <div key={fieldKey} className="group">
-              <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+            <div key={fieldKey}>
+              <label className="block text-xs font-medium text-slate-600 mb-0.5 flex items-center gap-1">
                 <span>{config.label}</span>
                 <span className="text-xs text-purple-500 font-normal">(IA)</span>
               </label>
@@ -246,70 +243,44 @@ export default function ContenidoStep({ formData, errors, updateFormData, isFiel
           Políticas y Términos
         </h3>
         
-        <div className="group">
-          <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
-            <span>Políticas de Cancelación</span>
-            {isFieldRequired('cancellationPolicy') ? (
-              <span className="text-red-500">*</span>
-            ) : (
-              <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
-            )}
-          </label>
-          <Textarea
-            value={formData.cancellationPolicy}
-            onChange={(e) => updateFormData('cancellationPolicy', e.target.value)}
-            rows={3}
-            placeholder="Políticas de reservación y cancelación..."
-            error={errors.cancellationPolicy}
-          />
-        </div>
+        <Textarea
+          label="Políticas de Cancelación"
+          required={isFieldRequired('cancellationPolicy')}
+          value={formData.cancellationPolicy}
+          onChange={(e) => updateFormData('cancellationPolicy', e.target.value)}
+          rows={3}
+          placeholder="Políticas de reservación y cancelación..."
+          error={errors.cancellationPolicy}
+        />
 
-        <div className="group">
-          <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
-            <span>Validación de Mercado</span>
-            {isFieldRequired('marketValidation') ? (
-              <span className="text-red-500">*</span>
-            ) : (
-              <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
-            )}
-          </label>
-          <Dropdown
-            fullWidth
-            items={[
+        <Dropdown
+          label="Validación de Mercado"
+          required={isFieldRequired('marketValidation')}
+          fullWidth
+          items={[
+            { value: 'Sí', label: 'Sí (El paquete se ofrece regularmente por el Aliado)' },
+            { value: 'No', label: 'No' },
+          ]}
+          selectedLabel={
+            [
               { value: 'Sí', label: 'Sí (El paquete se ofrece regularmente por el Aliado)' },
               { value: 'No', label: 'No' },
-            ]}
-            selectedLabel={
-              (
-                [
-                  { value: 'Sí', label: 'Sí (El paquete se ofrece regularmente por el Aliado)' },
-                  { value: 'No', label: 'No' },
-                ].find(o => o.value === formData.marketValidation)?.label
-              ) || 'Seleccionar...'
-            }
-            placeholder="Seleccionar..."
-            onSelect={(value) => updateFormData('marketValidation', value)}
-          />
-          {errors.marketValidation && <p className="text-red-500 text-xs mt-1.5 ml-1">{errors.marketValidation}</p>}
-        </div>
+            ].find(o => o.value === formData.marketValidation)?.label || 'Seleccionar...'
+          }
+          placeholder="Seleccionar..."
+          onSelect={(value) => updateFormData('marketValidation', value)}
+          error={errors.marketValidation}
+        />
 
-        <div className="group">
-          <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
-            <span>Comentarios Finales</span>
-            {isFieldRequired('additionalComments') ? (
-              <span className="text-red-500">*</span>
-            ) : (
-              <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
-            )}
-          </label>
-          <Textarea
-            value={formData.additionalComments}
-            onChange={(e) => updateFormData('additionalComments', e.target.value)}
-            rows={4}
-            placeholder="Comentarios adicionales del asesor comercial..."
-            error={errors.additionalComments}
-          />
-        </div>
+        <Textarea
+          label="Comentarios Finales"
+          required={isFieldRequired('additionalComments')}
+          value={formData.additionalComments}
+          onChange={(e) => updateFormData('additionalComments', e.target.value)}
+          rows={4}
+          placeholder="Comentarios adicionales del asesor comercial..."
+          error={errors.additionalComments}
+        />
       </div>
     </div>
   )

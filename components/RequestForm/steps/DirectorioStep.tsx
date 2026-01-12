@@ -25,57 +25,37 @@ export default function DirectorioStep({ formData, errors, updateFormData, isFie
           A. Responsable de Canje (Operativo)
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="group">
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
-              <span>Nombre</span>
-              {isFieldRequired('redemptionContactName') ? (
-                <span className="text-red-500">*</span>
-              ) : (
-                <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
-              )}
-            </label>
-            <Input
-              value={formData.redemptionContactName}
-              onChange={(e) => updateFormData('redemptionContactName', e.target.value)}
-              placeholder="Nombre del encargado"
-              size="sm"
-            />
-          </div>
-          <div className="group">
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
-              <span>Email</span>
-              {isFieldRequired('redemptionContactEmail') ? (
-                <span className="text-red-500">*</span>
-              ) : (
-                <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
-              )}
-            </label>
-            <Input
-              type="email"
-              value={formData.redemptionContactEmail}
-              onChange={(e) => updateFormData('redemptionContactEmail', e.target.value)}
-              placeholder="email@negocio.com"
-              error={errors.redemptionContactEmail}
-              size="sm"
-            />
-          </div>
-          <div className="group">
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
-              <span>Teléfono</span>
-              <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
-            </label>
-            <Input
-              type="tel"
-              value={formData.redemptionContactPhone}
-              onChange={(e) => updateFormData('redemptionContactPhone', e.target.value)}
-              placeholder="+507"
-              size="sm"
-            />
-          </div>
+          <Input
+            label="Nombre"
+            required={isFieldRequired('redemptionContactName')}
+            value={formData.redemptionContactName}
+            onChange={(e) => updateFormData('redemptionContactName', e.target.value)}
+            placeholder="Nombre del encargado"
+            size="sm"
+            error={errors.redemptionContactName}
+          />
+          <Input
+            label="Email"
+            required={isFieldRequired('redemptionContactEmail')}
+            type="email"
+            value={formData.redemptionContactEmail}
+            onChange={(e) => updateFormData('redemptionContactEmail', e.target.value)}
+            placeholder="email@negocio.com"
+            error={errors.redemptionContactEmail}
+            size="sm"
+          />
+          <Input
+            label="Teléfono"
+            required={isFieldRequired('redemptionContactPhone')}
+            type="tel"
+            value={formData.redemptionContactPhone}
+            onChange={(e) => updateFormData('redemptionContactPhone', e.target.value)}
+            placeholder="+507"
+            size="sm"
+            error={errors.redemptionContactPhone}
+          />
         </div>
       </div>
-
     </div>
   )
 }
-

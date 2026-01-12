@@ -244,9 +244,17 @@ const InputComponent = forwardRef<HTMLInputElement, InputProps>(function Input(
   // Default email icon for email inputs
   const defaultLeftIcon = isEmailType && leftIcon === undefined ? <EmailIcon className="w-4 h-4" /> : leftIcon
 
+  // Check if required (from props spread)
+  const isRequired = props.required
+
   return (
     <label className={cn('flex flex-col gap-0.5', fullWidth && 'w-full')}>
-      {label && <span className="text-xs font-medium text-slate-600">{label}</span>}
+      {label && (
+        <span className="text-xs font-medium text-slate-600 flex items-center gap-1">
+          {label}
+          {isRequired && <span className="text-red-500">*</span>}
+        </span>
+      )}
       <div className="relative">
         {defaultLeftIcon && (
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">{defaultLeftIcon}</span>

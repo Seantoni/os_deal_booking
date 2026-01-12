@@ -856,6 +856,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
                 onSaveDraft={handleSaveDraft}
                 onSubmit={handleSubmit}
                 onGoBack={handleGoBack}
+                hasErrors={Object.keys(errors).length > 0}
               />
             </div>
 
@@ -878,6 +879,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
           onSaveDraft={handleSaveDraft}
           onSubmit={handleSubmit}
           onGoBack={handleGoBack}
+          hasErrors={Object.keys(errors).length > 0}
         />
       </div>
 

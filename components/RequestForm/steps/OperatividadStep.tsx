@@ -17,77 +17,51 @@ export default function OperatividadStep({ formData, errors, updateFormData, isF
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="group">
-          <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-            <span>Modalidad de Canje</span>
-            {isFieldRequired('redemptionMode') ? (
-              <span className="text-red-500">*</span>
-            ) : (
-              <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
-            )}
-          </label>
-          <Dropdown
-            fullWidth
-            items={[
+        <Dropdown
+          label="Modalidad de Canje"
+          required={isFieldRequired('redemptionMode')}
+          fullWidth
+          items={[
+            { value: 'Canje Simple', label: 'Canje Simple (Canje desde el día uno)' },
+            { value: 'Canje Diferido', label: 'Canje Diferido' },
+            { value: 'Otro', label: 'Otro' },
+          ]}
+          selectedLabel={
+            [
               { value: 'Canje Simple', label: 'Canje Simple (Canje desde el día uno)' },
               { value: 'Canje Diferido', label: 'Canje Diferido' },
               { value: 'Otro', label: 'Otro' },
-            ]}
-            selectedLabel={
-              (
-                [
-                  { value: 'Canje Simple', label: 'Canje Simple (Canje desde el día uno)' },
-                  { value: 'Canje Diferido', label: 'Canje Diferido' },
-                  { value: 'Otro', label: 'Otro' },
-                ].find(o => o.value === formData.redemptionMode)?.label
-              ) || 'Seleccionar...'
-            }
-            placeholder="Seleccionar..."
-            onSelect={(value) => updateFormData('redemptionMode', value)}
-          />
-          {errors.redemptionMode && <p className="text-red-500 text-xs mt-1.5 ml-1">{errors.redemptionMode}</p>}
-        </div>
+            ].find(o => o.value === formData.redemptionMode)?.label || 'Seleccionar...'
+          }
+          placeholder="Seleccionar..."
+          onSelect={(value) => updateFormData('redemptionMode', value)}
+          error={errors.redemptionMode}
+        />
 
-        <div className="group">
-          <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-            <span>¿Esta Oferta es recurrente?</span>
-            {isFieldRequired('isRecurring') ? (
-              <span className="text-red-500">*</span>
-            ) : (
-              <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
-            )}
-          </label>
-          <Dropdown
-            fullWidth
-            items={[
+        <Dropdown
+          label="¿Esta Oferta es recurrente?"
+          required={isFieldRequired('isRecurring')}
+          fullWidth
+          items={[
+            { value: 'No', label: 'No' },
+            { value: 'Sí', label: 'Sí' },
+          ]}
+          selectedLabel={
+            [
               { value: 'No', label: 'No' },
               { value: 'Sí', label: 'Sí' },
-            ]}
-            selectedLabel={
-              (
-                [
-                  { value: 'No', label: 'No' },
-                  { value: 'Sí', label: 'Sí' },
-                ].find(o => o.value === formData.isRecurring)?.label
-              ) || 'Seleccionar...'
-            }
-            placeholder="Seleccionar..."
-            onSelect={(value) => updateFormData('isRecurring', value)}
-          />
-          {errors.isRecurring && <p className="text-red-500 text-xs mt-1.5 ml-1">{errors.isRecurring}</p>}
-        </div>
+            ].find(o => o.value === formData.isRecurring)?.label || 'Seleccionar...'
+          }
+          placeholder="Seleccionar..."
+          onSelect={(value) => updateFormData('isRecurring', value)}
+          error={errors.isRecurring}
+        />
 
         {formData.isRecurring === 'Sí' && (
-          <div className="md:col-span-2 group animate-fadeIn">
-            <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-              <span>Enlace de oferta a replicar</span>
-              {isFieldRequired('recurringOfferLink') ? (
-                <span className="text-red-500">*</span>
-              ) : (
-                <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
-              )}
-            </label>
+          <div className="md:col-span-2 animate-fadeIn">
             <Input
+              label="Enlace de oferta a replicar"
+              required={isFieldRequired('recurringOfferLink')}
               type="url"
               value={formData.recurringOfferLink}
               onChange={(e) => updateFormData('recurringOfferLink', e.target.value)}
@@ -97,46 +71,43 @@ export default function OperatividadStep({ formData, errors, updateFormData, isF
           </div>
         )}
 
-        <div className="group">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Tipo de Pago
-          </label>
-          <Dropdown
-            fullWidth
-            items={[
+        <Dropdown
+          label="Tipo de Pago"
+          required={isFieldRequired('paymentType')}
+          fullWidth
+          items={[
+            { value: '', label: 'Seleccionar...' },
+            { value: 'QR Mensual', label: 'QR Mensual' },
+            { value: 'Transferencia', label: 'Transferencia' },
+            { value: 'Yappy', label: 'Yappy' },
+            { value: 'Otro', label: 'Otro' },
+          ]}
+          selectedLabel={
+            [
               { value: '', label: 'Seleccionar...' },
               { value: 'QR Mensual', label: 'QR Mensual' },
               { value: 'Transferencia', label: 'Transferencia' },
               { value: 'Yappy', label: 'Yappy' },
               { value: 'Otro', label: 'Otro' },
-            ]}
-            selectedLabel={
-              [
-                { value: '', label: 'Seleccionar...' },
-                { value: 'QR Mensual', label: 'QR Mensual' },
-                { value: 'Transferencia', label: 'Transferencia' },
-                { value: 'Yappy', label: 'Yappy' },
-                { value: 'Otro', label: 'Otro' },
-              ].find(opt => opt.value === formData.paymentType)?.label || 'Seleccionar...'
-            }
-            placeholder="Seleccionar..."
-            onSelect={(value) => updateFormData('paymentType', value)}
-          />
-        </div>
+            ].find(opt => opt.value === formData.paymentType)?.label || 'Seleccionar...'
+          }
+          placeholder="Seleccionar..."
+          onSelect={(value) => updateFormData('paymentType', value)}
+          error={errors.paymentType}
+        />
 
-        <div className="md:col-span-2 group">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Instrucciones de Pago
-          </label>
+        <div className="md:col-span-2">
           <Textarea
+            label="Instrucciones de Pago"
+            required={isFieldRequired('paymentInstructions')}
             value={formData.paymentInstructions}
             onChange={(e) => updateFormData('paymentInstructions', e.target.value)}
             rows={3}
             placeholder="Detalles de pago (Ej: correos específicos para facturación)"
+            error={errors.paymentInstructions}
           />
         </div>
       </div>
     </div>
   )
 }
-

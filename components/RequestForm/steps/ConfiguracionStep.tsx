@@ -224,8 +224,8 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
             }}
             label="Nombre del Negocio"
             required={isFieldRequired('businessName')}
-            error={errors.businessName}
             placeholder="Buscar y seleccionar negocio"
+            error={errors.businessName}
           />
         </div>
 
@@ -234,23 +234,17 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
           additionalEmails={formData.additionalEmails || []}
           onPrimaryEmailChange={(email) => updateFormData('partnerEmail', email)}
           onAdditionalEmailsChange={(emails) => updateFormData('additionalEmails', emails)}
-          error={errors.partnerEmail}
           label="Correo del Aliado"
           placeholder="aliado@negocio.com"
           required={isFieldRequired('partnerEmail')}
+          error={errors.partnerEmail}
         />
 
-        <div className="group relative z-10">
-          <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-            <span>Categoría</span>
-            {isFieldRequired('category') ? (
-              <span className="text-red-500">*</span>
-            ) : (
-              <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
-            )}
-          </label>
+        <div className="relative z-10">
           <div className="bg-gray-50 p-1 rounded-xl border border-gray-200 relative">
             <CategorySelect
+              label="Categoría"
+              required={isFieldRequired('category')}
               selectedOption={
                 formData.category || formData.parentCategory
                   ? {
@@ -270,43 +264,32 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
                 updateFormData('subCategory1', option.sub1 || '')
                 updateFormData('subCategory2', option.sub2 || '')
               }}
+              error={errors.category}
             />
           </div>
-          {errors.category && <p className="text-red-500 text-xs mt-1.5 ml-1">{errors.category}</p>}
         </div>
 
-        <div className="group">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Duración de Campaña
-          </label>
-          <Input
-            value={formData.campaignDuration || '3'}
-            onChange={(e) => updateFormData('campaignDuration', e.target.value)}
-            placeholder="Ej: 2 meses"
-          />
-          <p className="text-xs text-gray-500 mt-1.5 ml-1">Periodo de canje a publicar en campaña</p>
-        </div>
+        <Input
+          label="Duración de Campaña"
+          required={isFieldRequired('campaignDuration')}
+          value={formData.campaignDuration || '3'}
+          onChange={(e) => updateFormData('campaignDuration', e.target.value)}
+          placeholder="Ej: 2 meses"
+          helperText="Periodo de canje a publicar en campaña"
+        />
 
-        <div className="group">
-          <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-            <span>Fecha de Inicio (Run At)</span>
-            {isFieldRequired('startDate') ? (
-              <span className="text-red-500">*</span>
-            ) : (
-              <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
-            )}
-          </label>
+        <div>
           <Input
+            label="Fecha de Inicio (Run At)"
+            required={isFieldRequired('startDate')}
             type="date"
             value={formData.startDate}
             onChange={(e) => handleStartDateChange(e.target.value)}
             disabled={calculatingDate}
-            error={errors.startDate}
             className={calculatingDate ? 'opacity-60 cursor-wait' : ''}
+            error={errors.startDate}
+            helperText={calculatingDate ? 'Calculando fecha disponible...' : undefined}
           />
-          {calculatingDate && (
-            <p className="text-xs text-gray-500 mt-1.5 ml-1">Calculando fecha disponible...</p>
-          )}
         </div>
 
         <div className="group hidden">
