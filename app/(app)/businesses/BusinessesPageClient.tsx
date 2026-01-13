@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { deleteBusiness, getOpportunities } from '@/app/actions/crm'
-import { getBusinessesPaginated, searchBusinesses } from '@/app/actions/businesses'
+import { getBusinessesPaginated, searchBusinesses, getBusinessCounts } from '@/app/actions/businesses'
 import { getBookingRequests } from '@/app/actions/booking-requests'
 import type { BookingRequest } from '@/types'
 import type { Business, Opportunity } from '@/types'
@@ -67,6 +67,7 @@ interface BusinessesPageClientProps {
   initialOpportunities?: Opportunity[]
   initialRequests?: BookingRequest[]
   initialTotal?: number
+  initialCounts?: Record<string, number>
 }
 
 export default function BusinessesPageClient({
@@ -74,6 +75,7 @@ export default function BusinessesPageClient({
   initialOpportunities,
   initialRequests,
   initialTotal = 0,
+  initialCounts,
 }: BusinessesPageClientProps = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -86,7 +88,7 @@ export default function BusinessesPageClient({
   // Get form config cache for prefetching
   const { prefetch: prefetchFormConfig } = useFormConfigCache()
   
-  // Use the reusable paginated search hook
+  // Use the reusable paginated search hook (now with server-side filtering)
   const {
     data: businesses,
     setData: setBusinesses,
@@ -102,13 +104,18 @@ export default function BusinessesPageClient({
     sortDirection,
     handleSort,
     loadPage,
+    filters,
+    updateFilter,
+    counts,
     PaginationControls,
     SearchIndicator,
   } = usePaginatedSearch<Business>({
     fetchPaginated: getBusinessesPaginated,
     searchFn: searchBusinesses,
+    fetchCounts: getBusinessCounts,
     initialData: initialBusinesses,
     initialTotal,
+    initialCounts,
     pageSize: 50,
     entityName: 'negocios',
   })
@@ -116,7 +123,12 @@ export default function BusinessesPageClient({
   // Additional state for opportunities and requests (initialized from server)
   const [opportunities, setOpportunities] = useState<Opportunity[]>(initialOpportunities || [])
   const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>(initialRequests || [])
-  const [opportunityFilter, setOpportunityFilter] = useState<'all' | 'with-open' | 'without-open'>('all')
+  
+  // Opportunity filter is now managed by the hook
+  const opportunityFilter = (filters.opportunityFilter as 'all' | 'with-open' | 'without-open') || 'all'
+  const setOpportunityFilter = useCallback((filter: 'all' | 'with-open' | 'without-open') => {
+    updateFilter('opportunityFilter', filter === 'all' ? undefined : filter)
+  }, [updateFilter])
   
   // Modal state
   const [businessModalOpen, setBusinessModalOpen] = useState(false)
@@ -219,14 +231,23 @@ export default function BusinessesPageClient({
 
   // Filter tabs with counts
   const filterTabs: FilterTab[] = useMemo(() => {
-    const baseBusinesses = displayBusinesses
-    const total = isSearching ? baseBusinesses.length : (initialTotal || baseBusinesses.length)
+    // When searching, use client-side counts
+    if (isSearching) {
+      const baseBusinesses = displayBusinesses
+      return [
+        { id: 'all', label: 'All', count: baseBusinesses.length },
+        { id: 'with-open', label: 'With Open Opportunity', count: baseBusinesses.filter(b => businessHasOpenOpportunity.get(b.id)).length },
+        { id: 'without-open', label: 'Without Open Opportunity', count: baseBusinesses.filter(b => !businessHasOpenOpportunity.get(b.id)).length },
+      ]
+    }
+    
+    // Use server-side counts
     return [
-      { id: 'all', label: 'All', count: total },
-      { id: 'with-open', label: 'With Open Opportunity', count: baseBusinesses.filter(b => businessHasOpenOpportunity.get(b.id)).length },
-      { id: 'without-open', label: 'Without Open Opportunity', count: baseBusinesses.filter(b => !businessHasOpenOpportunity.get(b.id)).length },
+      { id: 'all', label: 'All', count: counts.all ?? initialTotal },
+      { id: 'with-open', label: 'With Open Opportunity', count: counts['with-open'] ?? 0 },
+      { id: 'without-open', label: 'Without Open Opportunity', count: counts['without-open'] ?? 0 },
     ]
-  }, [displayBusinesses, businessHasOpenOpportunity, initialTotal, isSearching])
+  }, [displayBusinesses, businessHasOpenOpportunity, initialTotal, isSearching, counts])
 
   // Get sort value for a business
   const getSortValue = useCallback((business: Business, column: string): string | number | null => {
@@ -257,11 +278,13 @@ export default function BusinessesPageClient({
   const filteredBusinesses = useMemo(() => {
     let filtered = displayBusinesses
 
-    // Opportunity filter (client-side)
-    if (opportunityFilter === 'with-open') {
-      filtered = filtered.filter(b => businessHasOpenOpportunity.get(b.id))
-    } else if (opportunityFilter === 'without-open') {
-      filtered = filtered.filter(b => !businessHasOpenOpportunity.get(b.id))
+    // Only apply client-side opportunity filter when searching (server doesn't filter search results by opportunity status)
+    if (isSearching) {
+      if (opportunityFilter === 'with-open') {
+        filtered = filtered.filter(b => businessHasOpenOpportunity.get(b.id))
+      } else if (opportunityFilter === 'without-open') {
+        filtered = filtered.filter(b => !businessHasOpenOpportunity.get(b.id))
+      }
     }
 
     // Client-side sort for search results

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import dynamic from 'next/dynamic'
-import { getLeadsPaginated, searchLeads, deleteLead } from '@/app/actions/leads'
+import { getLeadsPaginated, searchLeads, deleteLead, getLeadsCounts } from '@/app/actions/leads'
 import { LEAD_STAGE_LABELS } from '@/lib/constants'
 import type { Lead } from '@/types'
 import AddIcon from '@mui/icons-material/Add'
@@ -46,11 +46,13 @@ const COLUMNS: ColumnConfig[] = [
 interface LeadsPageClientProps {
   initialLeads?: Lead[]
   initialTotal?: number
+  initialCounts?: Record<string, number>
 }
 
 export default function LeadsPageClient({
   initialLeads,
   initialTotal = 0,
+  initialCounts,
 }: LeadsPageClientProps = {}) {
   const { role: userRole } = useUserRole()
   const isAdmin = userRole === 'admin'
@@ -58,7 +60,7 @@ export default function LeadsPageClient({
   // Get form config cache for prefetching
   const { prefetch: prefetchFormConfig } = useFormConfigCache()
   
-  // Use the reusable paginated search hook
+  // Use the reusable paginated search hook (now with server-side filtering)
   const {
     data: leads,
     setData: setLeads,
@@ -75,19 +77,27 @@ export default function LeadsPageClient({
     sortDirection,
     handleSort,
     loadPage,
+    filters,
+    updateFilter,
+    counts,
     PaginationControls,
     SearchIndicator,
   } = usePaginatedSearch<Lead>({
     fetchPaginated: getLeadsPaginated,
     searchFn: searchLeads,
+    fetchCounts: getLeadsCounts,
     initialData: initialLeads,
     initialTotal,
+    initialCounts,
     pageSize: 50,
     entityName: 'leads',
   })
 
-  // Stage filter state
-  const [stageFilter, setStageFilter] = useState<string>('all')
+  // Stage filter is now managed by the hook
+  const stageFilter = (filters.stage as string) || 'all'
+  const setStageFilter = useCallback((stage: string) => {
+    updateFilter('stage', stage === 'all' ? undefined : stage)
+  }, [updateFilter])
   
   // Modal state
   const [leadModalOpen, setLeadModalOpen] = useState(false)
@@ -98,18 +108,31 @@ export default function LeadsPageClient({
   // Determine which leads to display
   const displayLeads = searchResults !== null ? searchResults : leads
 
-  // Stage filter tabs with counts
+  // Stage filter tabs with server-side counts
   const filterTabs: FilterTab[] = useMemo(() => {
-    const baseLeads = displayLeads
+    // When searching, show counts from search results (client-side)
+    if (isSearching) {
+      const baseLeads = displayLeads
+      return [
+        { id: 'all', label: 'All', count: baseLeads.length },
+        ...Object.entries(LEAD_STAGE_LABELS).map(([key, label]) => ({
+          id: key,
+          label,
+          count: baseLeads.filter(l => l.stage === key).length
+        }))
+      ]
+    }
+    
+    // Otherwise, use server-side counts
     return [
-      { id: 'all', label: 'All', count: isSearching ? baseLeads.length : totalCount },
+      { id: 'all', label: 'All', count: counts.all ?? totalCount },
       ...Object.entries(LEAD_STAGE_LABELS).map(([key, label]) => ({
         id: key,
         label,
-        count: baseLeads.filter(l => l.stage === key).length
+        count: counts[key] ?? 0
       }))
     ]
-  }, [displayLeads, totalCount, isSearching])
+  }, [displayLeads, totalCount, isSearching, counts])
 
   // Get sort value for a lead
   const getSortValue = useCallback((lead: Lead, column: string): string | number | null => {
@@ -134,12 +157,14 @@ export default function LeadsPageClient({
     }
   }, [])
 
-  // Filter and sort leads (client-side for stage filter)
+  // Filter and sort leads
+  // Server-side filtering is used for paginated data
+  // Client-side filtering only needed for search results
   const filteredLeads = useMemo(() => {
     let filtered = displayLeads
 
-    // Stage filter
-    if (stageFilter !== 'all') {
+    // Only apply client-side stage filter when searching (server doesn't filter search results by stage)
+    if (isSearching && stageFilter !== 'all') {
       filtered = filtered.filter(l => l.stage === stageFilter)
     }
 

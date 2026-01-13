@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@clerk/nextjs/server'
 import { requirePageAccess } from '@/lib/auth/page-access'
-import { getBusinessesPaginated } from '@/app/actions/businesses'
+import { getBusinessesPaginated, getBusinessCounts } from '@/app/actions/businesses'
 import { getOpportunities } from '@/app/actions/crm'
 import { getBookingRequests } from '@/app/actions/booking-requests'
 import BusinessesPageClient from './BusinessesPageClient'
@@ -18,11 +18,12 @@ export default async function BusinessesPage() {
   await requirePageAccess('/businesses')
 
   // Parallel server-side data fetching
-  // Use paginated fetch for businesses (first 50 only - fast & cacheable)
-  const [businessesResult, opportunitiesResult, requestsResult] = await Promise.all([
+  // Use paginated fetch for businesses (first 50 only - fast & cacheable) + counts
+  const [businessesResult, opportunitiesResult, requestsResult, countsResult] = await Promise.all([
     getBusinessesPaginated({ page: 0, pageSize: 50 }),
     getOpportunities(),
     getBookingRequests(),
+    getBusinessCounts(),
   ])
 
   const initialBusinesses = businessesResult.success ? businessesResult.data || [] : []
@@ -31,6 +32,7 @@ export default async function BusinessesPage() {
     : 0
   const initialOpportunities = opportunitiesResult.success ? opportunitiesResult.data || [] : []
   const initialRequests = requestsResult.success ? requestsResult.data || [] : []
+  const initialCounts = countsResult.success ? countsResult.data : undefined
 
   return (
     <AppLayout title="Businesses">
@@ -39,6 +41,7 @@ export default async function BusinessesPage() {
         initialTotal={initialTotal}
         initialOpportunities={initialOpportunities}
         initialRequests={initialRequests}
+        initialCounts={initialCounts}
       />
     </AppLayout>
   )

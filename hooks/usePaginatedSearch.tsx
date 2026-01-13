@@ -22,6 +22,9 @@ interface SearchResult {
   error?: string
 }
 
+// Generic filter type - key-value pairs
+export type FilterParams = Record<string, string | number | boolean | undefined>
+
 interface UsePaginatedSearchOptions<T> {
   /** Function to fetch paginated data */
   fetchPaginated: (options: {
@@ -29,16 +32,22 @@ interface UsePaginatedSearchOptions<T> {
     pageSize?: number
     sortBy?: string
     sortDirection?: 'asc' | 'desc'
-  }) => Promise<PaginatedResult>
+  } & FilterParams) => Promise<PaginatedResult>
   
   /** Function to search data (server-side) */
-  searchFn: (query: string, options?: { limit?: number }) => Promise<SearchResult>
+  searchFn: (query: string, options?: { limit?: number } & FilterParams) => Promise<SearchResult>
+  
+  /** Function to fetch counts for filter tabs (optional) */
+  fetchCounts?: (filters?: FilterParams) => Promise<{ success: boolean; data?: Record<string, number>; error?: string }>
   
   /** Initial data from server-side rendering */
   initialData?: T[]
   
   /** Initial total count from server */
   initialTotal?: number
+  
+  /** Initial counts for filter tabs */
+  initialCounts?: Record<string, number>
   
   /** Items per page */
   pageSize?: number
@@ -117,6 +126,24 @@ interface UsePaginatedSearchReturn<T> {
   /** Handle sort column click */
   handleSort: (column: string) => void
   
+  /** Current filters */
+  filters: FilterParams
+  
+  /** Set filters (will trigger refetch) */
+  setFilters: (filters: FilterParams) => void
+  
+  /** Update a single filter (will trigger refetch) */
+  updateFilter: (key: string, value: string | number | boolean | undefined) => void
+  
+  /** Counts for filter tabs (from server) */
+  counts: Record<string, number>
+  
+  /** Refresh counts from server */
+  refreshCounts: () => Promise<void>
+  
+  /** Loading state for counts */
+  countsLoading: boolean
+  
   /** Pagination controls component */
   PaginationControls: React.FC
   
@@ -137,8 +164,10 @@ interface UsePaginatedSearchReturn<T> {
 export function usePaginatedSearch<T>({
   fetchPaginated,
   searchFn,
+  fetchCounts,
   initialData,
   initialTotal = 0,
+  initialCounts,
   pageSize = 50,
   searchDebounceMs = 300,
   defaultSortBy = 'createdAt',
@@ -160,12 +189,36 @@ export function usePaginatedSearch<T>({
   // Sort state
   const [sortColumn, setSortColumn] = useState<string | null>(defaultSortBy)
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(defaultSortDirection)
+  
+  // Filter state
+  const [filters, setFiltersState] = useState<FilterParams>({})
+  
+  // Counts state
+  const [counts, setCounts] = useState<Record<string, number>>(initialCounts || {})
+  const [countsLoading, setCountsLoading] = useState(!initialCounts && !!fetchCounts)
 
   // Derived state
   const isSearching = searchQuery.trim().length >= 2
   const totalPages = Math.ceil(totalCount / pageSize)
   const canGoPrevious = currentPage > 0
   const canGoNext = currentPage < totalPages - 1
+
+  // Load counts from server
+  const refreshCounts = useCallback(async () => {
+    if (!fetchCounts) return
+    
+    setCountsLoading(true)
+    try {
+      const result = await fetchCounts(filters)
+      if (result.success && result.data) {
+        setCounts(result.data)
+      }
+    } catch (error) {
+      logger.error(`Failed to load counts for ${entityName}:`, error)
+    } finally {
+      setCountsLoading(false)
+    }
+  }, [fetchCounts, filters, entityName])
 
   // Load paginated data
   const loadPage = useCallback(async (page: number = 0) => {
@@ -176,6 +229,7 @@ export function usePaginatedSearch<T>({
         pageSize,
         sortBy: sortColumn || defaultSortBy,
         sortDirection,
+        ...filters, // Pass filters to server
       })
       if (result.success && result.data) {
         setData(result.data as T[])
@@ -188,7 +242,7 @@ export function usePaginatedSearch<T>({
     } finally {
       setLoading(false)
     }
-  }, [fetchPaginated, pageSize, sortColumn, sortDirection, defaultSortBy, entityName])
+  }, [fetchPaginated, pageSize, sortColumn, sortDirection, defaultSortBy, entityName, filters])
 
   // Reload current page
   const reload = useCallback(async () => {
@@ -259,12 +313,49 @@ export function usePaginatedSearch<T>({
     }
   }, [sortColumn, sortDirection, isSearching, loadPage])
 
+  // Set filters (will trigger refetch)
+  const setFilters = useCallback((newFilters: FilterParams) => {
+    setFiltersState(newFilters)
+    setCurrentPage(0) // Reset to first page when filters change
+  }, [])
+  
+  // Update single filter
+  const updateFilter = useCallback((key: string, value: string | number | boolean | undefined) => {
+    setFiltersState(prev => {
+      const newFilters = { ...prev }
+      if (value === undefined || value === '' || value === 'all') {
+        delete newFilters[key]
+      } else {
+        newFilters[key] = value
+      }
+      return newFilters
+    })
+    setCurrentPage(0) // Reset to first page when filters change
+  }, [])
+
   // Initial load if no initial data
   useEffect(() => {
     if (!initialData) {
       loadPage(0)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  
+  // Load counts on mount
+  useEffect(() => {
+    if (fetchCounts && !initialCounts) {
+      refreshCounts()
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  
+  // Refetch when filters change (after initial mount)
+  const isFirstRender = useRef(true)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    loadPage(0)
+  }, [filters]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pagination Controls Component
   const PaginationControls: React.FC = useCallback(() => {
@@ -343,6 +434,12 @@ export function usePaginatedSearch<T>({
     sortColumn,
     sortDirection,
     handleSort,
+    filters,
+    setFilters,
+    updateFilter,
+    counts,
+    refreshCounts,
+    countsLoading,
     PaginationControls,
     SearchIndicator,
   }

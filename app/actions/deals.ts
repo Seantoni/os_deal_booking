@@ -206,12 +206,14 @@ export async function getDeals() {
 
 /**
  * Get deals with pagination
+ * Supports filtering by responsibleId
  */
 export async function getDealsPaginated(options: {
   page?: number
   pageSize?: number
   sortBy?: string
   sortDirection?: 'asc' | 'desc'
+  responsibleId?: string // Filter by responsible (editor) ID
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -221,7 +223,7 @@ export async function getDealsPaginated(options: {
 
   try {
     const role = await getUserRole()
-    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc' } = options
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', responsibleId } = options
 
     // Build where clause based on role
     const whereClause: Prisma.DealWhereInput = {}
@@ -230,8 +232,17 @@ export async function getDealsPaginated(options: {
     } else if (role === 'ere') {
       whereClause.ereResponsibleId = userId
     }
+    
+    // Apply responsibleId filter if provided (and not 'all')
+    if (responsibleId && responsibleId !== 'all') {
+      if (responsibleId === 'unassigned') {
+        whereClause.responsibleId = null
+      } else {
+        whereClause.responsibleId = responsibleId
+      }
+    }
 
-    // Get total count
+    // Get total count (with filters applied)
     const total = await prisma.deal.count({ where: whereClause })
 
     // Build orderBy
@@ -299,6 +310,57 @@ export async function getDealsPaginated(options: {
     }
   } catch (error) {
     return handleServerActionError(error, 'getDealsPaginated')
+  }
+}
+
+/**
+ * Get deal counts by responsible (for filter tabs)
+ * Returns: all, unassigned, and counts per responsible user
+ */
+export async function getDealsCounts() {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    
+    // Build base where clause based on role
+    const baseWhere: Prisma.DealWhereInput = {}
+    if (role === 'editor') {
+      baseWhere.responsibleId = userId
+    } else if (role === 'ere') {
+      baseWhere.ereResponsibleId = userId
+    }
+
+    // Get all unique responsible IDs
+    const responsibles = await prisma.deal.groupBy({
+      by: ['responsibleId'],
+      where: baseWhere,
+      _count: { responsibleId: true },
+    })
+
+    // Build counts object
+    const data: Record<string, number> = {}
+    
+    // Get total count
+    data.all = await prisma.deal.count({ where: baseWhere })
+    
+    // Count unassigned
+    data.unassigned = await prisma.deal.count({ where: { ...baseWhere, responsibleId: null } })
+    
+    // Add count per responsible
+    responsibles.forEach(r => {
+      if (r.responsibleId) {
+        data[r.responsibleId] = r._count.responsibleId
+      }
+    })
+
+    return { success: true, data }
+  } catch (error) {
+    return handleServerActionError(error, 'getDealsCounts')
   }
 }
 

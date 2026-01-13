@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
-import { getOpportunitiesPaginated, searchOpportunities } from '@/app/actions/opportunities'
+import { getOpportunitiesPaginated, searchOpportunities, getOpportunityCounts } from '@/app/actions/opportunities'
 import { deleteOpportunity } from '@/app/actions/crm'
 import type { Opportunity } from '@/types'
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban'
@@ -65,12 +65,14 @@ interface OpportunitiesPageClientProps {
   initialOpportunities?: Opportunity[]
   initialBusinesses?: any[]
   initialTotal?: number
+  initialCounts?: Record<string, number>
 }
 
 export default function OpportunitiesPageClient({
   initialOpportunities,
   initialBusinesses,
   initialTotal = 0,
+  initialCounts,
 }: OpportunitiesPageClientProps = {}) {
   const searchParams = useSearchParams()
   const { role: userRole } = useUserRole()
@@ -82,7 +84,7 @@ export default function OpportunitiesPageClient({
   // Get form config cache for prefetching
   const { prefetch: prefetchFormConfig } = useFormConfigCache()
   
-  // Use the reusable paginated search hook
+  // Use the reusable paginated search hook (now with server-side filtering)
   const {
     data: opportunities,
     setData: setOpportunities,
@@ -99,13 +101,20 @@ export default function OpportunitiesPageClient({
     sortDirection,
     handleSort,
     loadPage,
+    filters,
+    updateFilter,
+    counts,
+    countsLoading,
+    refreshCounts,
     PaginationControls,
     SearchIndicator,
   } = usePaginatedSearch<Opportunity>({
     fetchPaginated: getOpportunitiesPaginated,
     searchFn: searchOpportunities,
+    fetchCounts: getOpportunityCounts,
     initialData: initialOpportunities,
     initialTotal,
+    initialCounts,
     pageSize: 50,
     entityName: 'oportunidades',
   })
@@ -113,7 +122,12 @@ export default function OpportunitiesPageClient({
   // View mode state - persist in localStorage
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('kanban')
   const [viewModeLoaded, setViewModeLoaded] = useState(false)
-  const [stageFilter, setStageFilter] = useState<string>('all')
+  
+  // Stage filter is now managed by the hook
+  const stageFilter = (filters.stage as string) || 'all'
+  const setStageFilter = useCallback((stage: string) => {
+    updateFilter('stage', stage === 'all' ? undefined : stage)
+  }, [updateFilter])
   
   // Modal state
   const [opportunityModalOpen, setOpportunityModalOpen] = useState(false)
@@ -204,18 +218,31 @@ export default function OpportunitiesPageClient({
   // Determine which opportunities to display
   const displayOpportunities = searchResults !== null ? searchResults : opportunities
 
-  // Filter tabs with counts
+  // Filter tabs with server-side counts
   const filterTabs: FilterTab[] = useMemo(() => {
-    const baseOpps = displayOpportunities
+    // When searching, show counts from search results (client-side)
+    if (isSearching) {
+      const baseOpps = displayOpportunities
+      return [
+        { id: 'all', label: 'All', count: baseOpps.length },
+        ...Object.entries(STAGE_LABELS).map(([key, label]) => ({
+          id: key,
+          label,
+          count: baseOpps.filter(o => o.stage === key).length
+        }))
+      ]
+    }
+    
+    // Otherwise, use server-side counts
     return [
-      { id: 'all', label: 'All', count: isSearching ? baseOpps.length : totalCount },
+      { id: 'all', label: 'All', count: counts.all ?? totalCount },
       ...Object.entries(STAGE_LABELS).map(([key, label]) => ({
         id: key,
         label,
-        count: baseOpps.filter(o => o.stage === key).length
+        count: counts[key] ?? 0
       }))
     ]
-  }, [displayOpportunities, totalCount, isSearching])
+  }, [displayOpportunities, totalCount, isSearching, counts])
 
   // Get sort value for an opportunity
   const getSortValue = useCallback((opportunity: Opportunity, column: string): string | number | Date | null => {
@@ -235,14 +262,18 @@ export default function OpportunitiesPageClient({
     }
   }, [])
 
-  // Filter and sort opportunities (client-side for stage filter)
+  // Filter and sort opportunities
+  // Server-side filtering is used for paginated data
+  // Client-side filtering only needed for search results
   const filteredOpportunities = useMemo(() => {
     let filtered = displayOpportunities
 
-    if (stageFilter !== 'all') {
+    // Only apply client-side stage filter when searching (server doesn't filter search results by stage)
+    if (isSearching && stageFilter !== 'all') {
       filtered = filtered.filter(o => o.stage === stageFilter)
     }
 
+    // Client-side sort for search results
     if (isSearching && sortColumn) {
       return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
     }

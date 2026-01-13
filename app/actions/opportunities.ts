@@ -110,12 +110,14 @@ export async function getOpportunities() {
 
 /**
  * Get opportunities with pagination (cacheable, <2MB per page)
+ * Supports filtering by stage
  */
 export async function getOpportunitiesPaginated(options: {
   page?: number
   pageSize?: number
   sortBy?: string
   sortDirection?: 'asc' | 'desc'
+  stage?: string // Filter by stage (e.g., 'iniciacion', 'reunion', etc.)
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -125,7 +127,7 @@ export async function getOpportunitiesPaginated(options: {
 
   try {
     const role = await getUserRole()
-    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc' } = options
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', stage } = options
 
     // Build where clause based on role
     const whereClause: Record<string, unknown> = {}
@@ -134,8 +136,13 @@ export async function getOpportunitiesPaginated(options: {
     } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: [], total: 0, page, pageSize }
     }
+    
+    // Apply stage filter if provided (and not 'all')
+    if (stage && stage !== 'all') {
+      whereClause.stage = stage
+    }
 
-    // Get total count
+    // Get total count (with filters applied)
     const total = await prisma.opportunity.count({ where: whereClause })
 
     // Build orderBy
@@ -181,6 +188,48 @@ export async function getOpportunitiesPaginated(options: {
     }
   } catch (error) {
     return handleServerActionError(error, 'getOpportunitiesPaginated')
+  }
+}
+
+/**
+ * Get opportunity counts by stage (for filter tabs)
+ * Returns counts for all, iniciacion, reunion, propuesta_enviada, propuesta_aprobada, won, lost
+ */
+export async function getOpportunityCounts() {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    
+    // Build base where clause based on role
+    const baseWhere: Record<string, unknown> = {}
+    if (role === 'sales') {
+      baseWhere.responsibleId = userId
+    } else if (role === 'editor' || role === 'ere') {
+      return { success: true, data: { all: 0, iniciacion: 0, reunion: 0, propuesta_enviada: 0, propuesta_aprobada: 0, won: 0, lost: 0 } }
+    }
+
+    // Get counts for each stage in parallel
+    const [all, iniciacion, reunion, propuesta_enviada, propuesta_aprobada, won, lost] = await Promise.all([
+      prisma.opportunity.count({ where: baseWhere }),
+      prisma.opportunity.count({ where: { ...baseWhere, stage: 'iniciacion' } }),
+      prisma.opportunity.count({ where: { ...baseWhere, stage: 'reunion' } }),
+      prisma.opportunity.count({ where: { ...baseWhere, stage: 'propuesta_enviada' } }),
+      prisma.opportunity.count({ where: { ...baseWhere, stage: 'propuesta_aprobada' } }),
+      prisma.opportunity.count({ where: { ...baseWhere, stage: 'won' } }),
+      prisma.opportunity.count({ where: { ...baseWhere, stage: 'lost' } }),
+    ])
+
+    return { 
+      success: true, 
+      data: { all, iniciacion, reunion, propuesta_enviada, propuesta_aprobada, won, lost }
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getOpportunityCounts')
   }
 }
 

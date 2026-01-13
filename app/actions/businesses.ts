@@ -115,12 +115,14 @@ export async function getBusinesses() {
 
 /**
  * Get businesses with pagination (cacheable, <2MB per page)
+ * Supports filtering by opportunity status (with-open, without-open)
  */
 export async function getBusinessesPaginated(options: {
   page?: number
   pageSize?: number
   sortBy?: string
   sortDirection?: 'asc' | 'desc'
+  opportunityFilter?: string // 'all' | 'with-open' | 'without-open'
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -130,7 +132,7 @@ export async function getBusinessesPaginated(options: {
 
   try {
     const role = await getUserRole()
-    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc' } = options
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', opportunityFilter } = options
 
     // Build where clause based on role
     const whereClause: Record<string, unknown> = {}
@@ -139,8 +141,25 @@ export async function getBusinessesPaginated(options: {
     } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: [], total: 0, page, pageSize }
     }
+    
+    // Apply opportunity filter if provided
+    if (opportunityFilter === 'with-open') {
+      // Businesses with at least one open opportunity (not won/lost)
+      whereClause.opportunities = {
+        some: {
+          stage: { notIn: ['won', 'lost'] }
+        }
+      }
+    } else if (opportunityFilter === 'without-open') {
+      // Businesses without any open opportunity
+      whereClause.opportunities = {
+        none: {
+          stage: { notIn: ['won', 'lost'] }
+        }
+      }
+    }
 
-    // Get total count
+    // Get total count (with filters applied)
     const total = await prisma.business.count({ where: whereClause })
 
     // Build orderBy
@@ -227,6 +246,58 @@ export async function getBusinessesPaginated(options: {
     }
   } catch (error) {
     return handleServerActionError(error, 'getBusinessesPaginated')
+  }
+}
+
+/**
+ * Get business counts by opportunity status (for filter tabs)
+ * Returns: all, with-open (has open opportunities), without-open (no open opportunities)
+ */
+export async function getBusinessCounts() {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    
+    // Build base where clause based on role
+    const baseWhere: Record<string, unknown> = {}
+    if (role === 'sales') {
+      baseWhere.ownerId = userId
+    } else if (role === 'editor' || role === 'ere') {
+      return { success: true, data: { all: 0, 'with-open': 0, 'without-open': 0 } }
+    }
+
+    // Get counts in parallel
+    const [all, withOpen, withoutOpen] = await Promise.all([
+      prisma.business.count({ where: baseWhere }),
+      prisma.business.count({ 
+        where: { 
+          ...baseWhere, 
+          opportunities: { 
+            some: { stage: { notIn: ['won', 'lost'] } } 
+          } 
+        } 
+      }),
+      prisma.business.count({ 
+        where: { 
+          ...baseWhere, 
+          opportunities: { 
+            none: { stage: { notIn: ['won', 'lost'] } } 
+          } 
+        } 
+      }),
+    ])
+
+    return { 
+      success: true, 
+      data: { all, 'with-open': withOpen, 'without-open': withoutOpen }
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getBusinessCounts')
   }
 }
 

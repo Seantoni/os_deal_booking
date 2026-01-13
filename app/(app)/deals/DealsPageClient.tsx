@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
-import { getDealsPaginated, searchDeals, deleteDeal } from '@/app/actions/deals'
+import { getDealsPaginated, searchDeals, deleteDeal, getDealsCounts } from '@/app/actions/deals'
 import type { Deal } from '@/types'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import toast from 'react-hot-toast'
@@ -55,11 +55,13 @@ const COLUMNS: ColumnConfig[] = [
 interface DealsPageClientProps {
   initialDeals?: Deal[]
   initialTotal?: number
+  initialCounts?: Record<string, number>
 }
 
 export default function DealsPageClient({
   initialDeals,
   initialTotal = 0,
+  initialCounts,
 }: DealsPageClientProps = {}) {
   const searchParams = useSearchParams()
   const { isAdmin } = useUserRole()
@@ -67,7 +69,7 @@ export default function DealsPageClient({
   // Get form config cache for prefetching
   const { prefetch: prefetchFormConfig } = useFormConfigCache()
   
-  // Use the reusable paginated search hook
+  // Use the reusable paginated search hook (now with server-side filtering)
   const {
     data: deals,
     setData: setDeals,
@@ -84,19 +86,27 @@ export default function DealsPageClient({
     sortDirection,
     handleSort,
     loadPage,
+    filters,
+    updateFilter,
+    counts,
     PaginationControls,
     SearchIndicator,
   } = usePaginatedSearch<Deal>({
     fetchPaginated: getDealsPaginated,
     searchFn: searchDeals,
+    fetchCounts: getDealsCounts,
     initialData: initialDeals,
     initialTotal,
+    initialCounts,
     pageSize: 50,
     entityName: 'ofertas',
   })
 
-  // Responsible filter state
-  const [responsibleFilter, setResponsibleFilter] = useState<string>('all')
+  // Responsible filter is now managed by the hook
+  const responsibleFilter = (filters.responsibleId as string) || 'all'
+  const setResponsibleFilter = useCallback((id: string) => {
+    updateFilter('responsibleId', id === 'all' ? undefined : id)
+  }, [updateFilter])
   
   // Modal state
   const [dealModalOpen, setDealModalOpen] = useState(false)
@@ -135,25 +145,39 @@ export default function DealsPageClient({
   // Determine which deals to display
   const displayDeals = searchResults !== null ? searchResults : deals
   
-  // Filter tabs with responsible counts
+  // Filter tabs with responsible counts (server-side when not searching)
   const filterTabs: FilterTab[] = useMemo(() => {
-    const baseDeals = displayDeals
-    const counts: Record<string, number> = { all: isSearching ? baseDeals.length : totalCount }
-    responsibleUsers.forEach(user => {
-      counts[user.clerkId] = baseDeals.filter(d => d.responsibleId === user.clerkId).length
-    })
-    counts['unassigned'] = baseDeals.filter(d => !d.responsibleId).length
+    // When searching, use client-side counts
+    if (isSearching) {
+      const baseDeals = displayDeals
+      const localCounts: Record<string, number> = { all: baseDeals.length }
+      responsibleUsers.forEach(user => {
+        localCounts[user.clerkId] = baseDeals.filter(d => d.responsibleId === user.clerkId).length
+      })
+      localCounts['unassigned'] = baseDeals.filter(d => !d.responsibleId).length
+      
+      return [
+        { id: 'all', label: 'All', count: localCounts.all },
+        { id: 'unassigned', label: 'Unassigned', count: localCounts['unassigned'] },
+        ...responsibleUsers.map(user => ({
+          id: user.clerkId,
+          label: user.name || user.email || 'Unknown',
+          count: localCounts[user.clerkId] || 0
+        }))
+      ]
+    }
     
+    // Use server-side counts
     return [
-      { id: 'all', label: 'All', count: counts.all },
-      { id: 'unassigned', label: 'Unassigned', count: counts['unassigned'] },
+      { id: 'all', label: 'All', count: counts.all ?? totalCount },
+      { id: 'unassigned', label: 'Unassigned', count: counts.unassigned ?? 0 },
       ...responsibleUsers.map(user => ({
         id: user.clerkId,
         label: user.name || user.email || 'Unknown',
-        count: counts[user.clerkId] || 0
+        count: counts[user.clerkId] ?? 0
       }))
     ]
-  }, [displayDeals, responsibleUsers, totalCount, isSearching])
+  }, [displayDeals, responsibleUsers, totalCount, isSearching, counts])
 
   // Get sort value for a deal
   const getSortValue = useCallback((deal: Deal, column: string): string | number | null => {
@@ -175,12 +199,14 @@ export default function DealsPageClient({
     }
   }, [])
 
-  // Filter and sort deals (client-side for responsible filter)
+  // Filter and sort deals
+  // Server-side filtering is used for paginated data
+  // Client-side filtering only needed for search results
   const filteredDeals = useMemo(() => {
     let filtered = displayDeals
 
-    // Responsible filter
-    if (responsibleFilter !== 'all') {
+    // Only apply client-side responsible filter when searching (server doesn't filter search results by responsible)
+    if (isSearching && responsibleFilter !== 'all') {
       if (responsibleFilter === 'unassigned') {
         filtered = filtered.filter(d => !d.responsibleId)
       } else {

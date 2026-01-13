@@ -70,12 +70,14 @@ export async function getLeads() {
 
 /**
  * Get leads with pagination
+ * Supports filtering by stage
  */
 export async function getLeadsPaginated(options: {
   page?: number
   pageSize?: number
   sortBy?: string
   sortDirection?: 'asc' | 'desc'
+  stage?: string // Filter by stage (e.g., 'por_asignar', 'asignado', 'convertido')
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -86,15 +88,20 @@ export async function getLeadsPaginated(options: {
   try {
     const role = await getUserRole()
     const isAdmin = role === 'admin'
-    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc' } = options
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', stage } = options
 
     // Build where clause based on role
-    let whereClause = {}
+    const whereClause: Record<string, unknown> = {}
     if (!isAdmin && role === 'sales') {
-      whereClause = { responsibleId: userId }
+      whereClause.responsibleId = userId
+    }
+    
+    // Apply stage filter if provided (and not 'all')
+    if (stage && stage !== 'all') {
+      whereClause.stage = stage
     }
 
-    // Get total count
+    // Get total count (with filters applied)
     const total = await prisma.lead.count({ where: whereClause })
 
     // Build orderBy
@@ -141,6 +148,46 @@ export async function getLeadsPaginated(options: {
     }
   } catch (error) {
     return handleServerActionError(error, 'getLeadsPaginated')
+  }
+}
+
+/**
+ * Get lead counts by stage (for filter tabs)
+ */
+export async function getLeadsCounts() {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    const isAdmin = role === 'admin'
+    
+    // Build base where clause based on role
+    const baseWhere: Record<string, unknown> = {}
+    if (!isAdmin && role === 'sales') {
+      baseWhere.responsibleId = userId
+    }
+
+    // Get counts for each stage in parallel
+    const stages = Object.values(LEAD_STAGES)
+    const countPromises = [
+      prisma.lead.count({ where: baseWhere }), // all
+      ...stages.map(stage => prisma.lead.count({ where: { ...baseWhere, stage } }))
+    ]
+    
+    const results = await Promise.all(countPromises)
+    
+    const data: Record<string, number> = { all: results[0] }
+    stages.forEach((stage, index) => {
+      data[stage] = results[index + 1]
+    })
+
+    return { success: true, data }
+  } catch (error) {
+    return handleServerActionError(error, 'getLeadsCounts')
   }
 }
 
