@@ -31,7 +31,7 @@ export default function EntityTable({
             sortDirection={sortDirection}
             onSort={onSort}
           />
-          <tbody className="divide-y divide-slate-100 text-sm">
+          <tbody className="divide-y divide-slate-100">
             {children}
           </tbody>
         </table>

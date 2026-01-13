@@ -17,69 +17,69 @@ export default function FiscalesStep({ formData, errors, updateFormData, isField
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <Input
+          <Input
           label="Razón Social"
           required={isFieldRequired('legalName')}
-          value={formData.legalName}
-          onChange={(e) => updateFormData('legalName', e.target.value)}
-          placeholder="Razón social legal"
+            value={formData.legalName}
+            onChange={(e) => updateFormData('legalName', e.target.value)}
+            placeholder="Razón social legal"
           error={errors.legalName}
         />
 
-        <Input
+          <Input
           label="RUC y DV"
           required={isFieldRequired('rucDv')}
-          value={formData.rucDv}
-          onChange={(e) => updateFormData('rucDv', e.target.value)}
-          placeholder="Identificación fiscal"
+            value={formData.rucDv}
+            onChange={(e) => updateFormData('rucDv', e.target.value)}
+            placeholder="Identificación fiscal"
           error={errors.rucDv}
         />
 
-        <Input
+          <Input
           label="Nombre en Cuenta Bancaria"
           required={isFieldRequired('bankAccountName')}
-          value={formData.bankAccountName}
-          onChange={(e) => updateFormData('bankAccountName', e.target.value)}
-          placeholder="Nombre del titular"
+            value={formData.bankAccountName}
+            onChange={(e) => updateFormData('bankAccountName', e.target.value)}
+            placeholder="Nombre del titular"
           error={errors.bankAccountName}
         />
 
-        <Input
+          <Input
           label="Banco"
           required={isFieldRequired('bank')}
-          value={formData.bank}
-          onChange={(e) => updateFormData('bank', e.target.value)}
-          placeholder="Nombre del banco"
+            value={formData.bank}
+            onChange={(e) => updateFormData('bank', e.target.value)}
+            placeholder="Nombre del banco"
           error={errors.bank}
         />
 
-        <Input
+          <Input
           label="Número de Cuenta"
           required={isFieldRequired('accountNumber')}
-          value={formData.accountNumber}
-          onChange={(e) => updateFormData('accountNumber', e.target.value)}
-          placeholder="Número de cuenta"
+            value={formData.accountNumber}
+            onChange={(e) => updateFormData('accountNumber', e.target.value)}
+            placeholder="Número de cuenta"
           error={errors.accountNumber}
         />
 
-        <Dropdown
+          <Dropdown
           label="Tipo de Cuenta"
           required={isFieldRequired('accountType')}
-          fullWidth
-          items={[
-            { value: 'Ahorros', label: 'Ahorros' },
-            { value: 'Corriente', label: 'Corriente' },
-          ]}
-          selectedLabel={
-            [
+            fullWidth
+            items={[
               { value: 'Ahorros', label: 'Ahorros' },
               { value: 'Corriente', label: 'Corriente' },
+            ]}
+            selectedLabel={
+                [
+                  { value: 'Ahorros', label: 'Ahorros' },
+                  { value: 'Corriente', label: 'Corriente' },
             ].find(o => o.value === formData.accountType)?.label || 'Seleccionar...'
-          }
-          placeholder="Seleccionar..."
-          onSelect={(value) => updateFormData('accountType', value)}
+            }
+            placeholder="Seleccionar..."
+            onSelect={(value) => updateFormData('accountType', value)}
           error={errors.accountType}
-        />
+          />
 
         <div className="md:col-span-2">
           <Input
@@ -92,32 +92,32 @@ export default function FiscalesStep({ formData, errors, updateFormData, isField
           />
         </div>
 
-        <Input
+          <Input
           label="Provincia"
           required={isFieldRequired('province')}
-          value={formData.province}
-          onChange={(e) => updateFormData('province', e.target.value)}
-          placeholder="Provincia"
+            value={formData.province}
+            onChange={(e) => updateFormData('province', e.target.value)}
+            placeholder="Provincia"
           error={errors.province}
         />
 
-        <Input
+          <Input
           label="Distrito"
           required={isFieldRequired('district')}
-          value={formData.district}
-          onChange={(e) => updateFormData('district', e.target.value)}
-          placeholder="Distrito"
+            value={formData.district}
+            onChange={(e) => updateFormData('district', e.target.value)}
+            placeholder="Distrito"
           error={errors.district}
         />
 
-        <Input
+          <Input
           label="Corregimiento"
           required={isFieldRequired('corregimiento')}
-          value={formData.corregimiento}
-          onChange={(e) => updateFormData('corregimiento', e.target.value)}
-          placeholder="Corregimiento"
+            value={formData.corregimiento}
+            onChange={(e) => updateFormData('corregimiento', e.target.value)}
+            placeholder="Corregimiento"
           error={errors.corregimiento}
-        />
+          />
       </div>
     </div>
   )

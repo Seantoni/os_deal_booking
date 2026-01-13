@@ -423,7 +423,7 @@ const formatCurrency = (value: number) => {
                     </div>
                   </div>
                 )}
-
+                
                 {snapshots.length <= 1 && (
                   <div className="bg-gray-50 rounded-lg p-4 text-center border border-gray-200">
                     <TrendingUpIcon className="text-gray-300 mx-auto mb-1" style={{ fontSize: 32 }} />

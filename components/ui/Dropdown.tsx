@@ -67,8 +67,8 @@ export function Dropdown({
           {required && <span className="text-red-500">*</span>}
         </span>
       )}
-      <div ref={ref} className={cn('relative inline-block text-left', fullWidth && 'w-full', className)}>
-        <button
+    <div ref={ref} className={cn('relative inline-block text-left', fullWidth && 'w-full', className)}>
+      <button
         type="button"
         onClick={() => setOpen(!open)}
         className={cn(

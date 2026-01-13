@@ -25,35 +25,35 @@ export default function DirectorioStep({ formData, errors, updateFormData, isFie
           A. Responsable de Canje (Operativo)
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Input
+            <Input
             label="Nombre"
             required={isFieldRequired('redemptionContactName')}
-            value={formData.redemptionContactName}
-            onChange={(e) => updateFormData('redemptionContactName', e.target.value)}
-            placeholder="Nombre del encargado"
-            size="sm"
+              value={formData.redemptionContactName}
+              onChange={(e) => updateFormData('redemptionContactName', e.target.value)}
+              placeholder="Nombre del encargado"
+              size="sm"
             error={errors.redemptionContactName}
           />
-          <Input
+            <Input
             label="Email"
             required={isFieldRequired('redemptionContactEmail')}
-            type="email"
-            value={formData.redemptionContactEmail}
-            onChange={(e) => updateFormData('redemptionContactEmail', e.target.value)}
-            placeholder="email@negocio.com"
-            error={errors.redemptionContactEmail}
-            size="sm"
-          />
-          <Input
+              type="email"
+              value={formData.redemptionContactEmail}
+              onChange={(e) => updateFormData('redemptionContactEmail', e.target.value)}
+              placeholder="email@negocio.com"
+              error={errors.redemptionContactEmail}
+              size="sm"
+            />
+            <Input
             label="Teléfono"
             required={isFieldRequired('redemptionContactPhone')}
-            type="tel"
-            value={formData.redemptionContactPhone}
-            onChange={(e) => updateFormData('redemptionContactPhone', e.target.value)}
-            placeholder="+507"
-            size="sm"
+              type="tel"
+              value={formData.redemptionContactPhone}
+              onChange={(e) => updateFormData('redemptionContactPhone', e.target.value)}
+              placeholder="+507"
+              size="sm"
             error={errors.redemptionContactPhone}
-          />
+            />
         </div>
       </div>
     </div>

@@ -536,7 +536,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
             <Button
               onClick={() => setShowNewRequestModal(true)}
               size="sm"
-              leftIcon={<AddIcon fontSize="small" />}
+              leftIcon={<AddIcon style={{ fontSize: 16 }} />}
             >
               Nueva Solicitud
             </Button>
@@ -627,7 +627,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
         ) : (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
+              <table className="w-full text-[13px] text-left">
                 <thead className="bg-gray-50 border-b border-gray-200 font-medium text-gray-500">
                   <tr>
                     {isAdmin && (
@@ -654,7 +654,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       <div className="flex items-center gap-1">
                         <span>Estado</span>
                         {sortColumn === 'status' && (
-                          sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                          sortDirection === 'asc' ? <ArrowUpwardIcon style={{ fontSize: 14 }} /> : <ArrowDownwardIcon style={{ fontSize: 14 }} />
                         )}
                       </div>
                     </th>
@@ -668,7 +668,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       <div className="flex items-center gap-1">
                         <span>Nombre</span>
                         {sortColumn === 'name' && (
-                          sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                          sortDirection === 'asc' ? <ArrowUpwardIcon style={{ fontSize: 14 }} /> : <ArrowDownwardIcon style={{ fontSize: 14 }} />
                         )}
                       </div>
                     </th>
@@ -679,7 +679,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       <div className="flex items-center gap-1">
                         <span>Correo</span>
                         {sortColumn === 'email' && (
-                          sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                          sortDirection === 'asc' ? <ArrowUpwardIcon style={{ fontSize: 14 }} /> : <ArrowDownwardIcon style={{ fontSize: 14 }} />
                         )}
                       </div>
                     </th>
@@ -690,7 +690,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       <div className="flex items-center gap-1">
                         <span>Fechas</span>
                         {sortColumn === 'startDate' && (
-                          sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                          sortDirection === 'asc' ? <ArrowUpwardIcon style={{ fontSize: 14 }} /> : <ArrowDownwardIcon style={{ fontSize: 14 }} />
                         )}
                       </div>
                     </th>
@@ -701,7 +701,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       <div className="flex items-center gap-1">
                         <span>Creado</span>
                         {sortColumn === 'createdAt' && (
-                          sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                          sortDirection === 'asc' ? <ArrowUpwardIcon style={{ fontSize: 14 }} /> : <ArrowDownwardIcon style={{ fontSize: 14 }} />
                         )}
                       </div>
                     </th>
@@ -712,7 +712,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       <div className="flex items-center gap-1">
                         <span>Días</span>
                         {sortColumn === 'days' && (
-                          sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                          sortDirection === 'asc' ? <ArrowUpwardIcon style={{ fontSize: 14 }} /> : <ArrowDownwardIcon style={{ fontSize: 14 }} />
                         )}
                       </div>
                     </th>
@@ -723,7 +723,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       <div className="flex items-center gap-1">
                         <span>Enviado</span>
                         {sortColumn === 'sent' && (
-                          sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                          sortDirection === 'asc' ? <ArrowUpwardIcon style={{ fontSize: 14 }} /> : <ArrowDownwardIcon style={{ fontSize: 14 }} />
                         )}
                       </div>
                     </th>
@@ -734,7 +734,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       <div className="flex items-center gap-1">
                         <span>Procesado</span>
                         {sortColumn === 'processed' && (
-                          sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                          sortDirection === 'asc' ? <ArrowUpwardIcon style={{ fontSize: 14 }} /> : <ArrowDownwardIcon style={{ fontSize: 14 }} />
                         )}
                       </div>
                     </th>
@@ -852,7 +852,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                             className="p-1.5"
                             title="Ver solicitud"
                           >
-                            <VisibilityIcon fontSize="small" />
+                            <VisibilityIcon style={{ fontSize: 16 }} />
                           </Button>
                           {/* Cancel button - visible to creator or admin, only for draft/pending */}
                           {(request.status === 'draft' || request.status === 'pending') && 
@@ -868,7 +868,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                               loading={cancellingId === request.id}
                               title="Cancelar solicitud"
                             >
-                              <BlockIcon fontSize="small" />
+                              <BlockIcon style={{ fontSize: 16 }} />
                             </Button>
                           )}
                     {request.status === 'draft' && (
@@ -882,7 +882,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                               className="p-1.5"
                         title="Editar solicitud"
                       >
-                        <EditIcon fontSize="small" />
+                        <EditIcon style={{ fontSize: 16 }} />
                       </Button>
                     )}
                           {(request.status === 'draft' || request.status === 'pending') && (
@@ -897,7 +897,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                               loading={resendingId === request.id}
                               title="Reenviar correo"
                             >
-                              <SendIcon fontSize="small" />
+                              <SendIcon style={{ fontSize: 16 }} />
                             </Button>
                           )}
                     {isAdmin && (
@@ -912,7 +912,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                         loading={deletingId === request.id}
                         title="Eliminar solicitud"
                       >
-                        <DeleteIcon fontSize="small" />
+                        <DeleteIcon style={{ fontSize: 16 }} />
                       </Button>
                     )}
                   </div>

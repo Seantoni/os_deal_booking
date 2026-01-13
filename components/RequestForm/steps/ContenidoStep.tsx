@@ -139,23 +139,23 @@ export default function ContenidoStep({ formData, errors, updateFormData, isFiel
           Información de Contacto
         </h3>
         
-        <Input
+          <Input
           label="Número, correo electrónico y/o app específico"
           required={isFieldRequired('contactDetails')}
-          value={formData.contactDetails}
-          onChange={(e) => updateFormData('contactDetails', e.target.value)}
-          placeholder="Detalles de contacto para canje"
+            value={formData.contactDetails}
+            onChange={(e) => updateFormData('contactDetails', e.target.value)}
+            placeholder="Detalles de contacto para canje"
           error={errors.contactDetails}
-        />
+          />
 
-        <Input
+          <Input
           label="Redes Sociales y Web"
           required={isFieldRequired('socialMedia')}
-          value={formData.socialMedia}
-          onChange={(e) => updateFormData('socialMedia', e.target.value)}
-          placeholder="Ej: @instagram_handle, www.sitio.com"
+            value={formData.socialMedia}
+            onChange={(e) => updateFormData('socialMedia', e.target.value)}
+            placeholder="Ej: @instagram_handle, www.sitio.com"
           error={errors.socialMedia}
-        />
+          />
       </div>
 
       {/* AI-Generated Content Section */}
@@ -243,44 +243,44 @@ export default function ContenidoStep({ formData, errors, updateFormData, isFiel
           Políticas y Términos
         </h3>
         
-        <Textarea
+          <Textarea
           label="Políticas de Cancelación"
           required={isFieldRequired('cancellationPolicy')}
-          value={formData.cancellationPolicy}
-          onChange={(e) => updateFormData('cancellationPolicy', e.target.value)}
-          rows={3}
-          placeholder="Políticas de reservación y cancelación..."
-          error={errors.cancellationPolicy}
-        />
+            value={formData.cancellationPolicy}
+            onChange={(e) => updateFormData('cancellationPolicy', e.target.value)}
+            rows={3}
+            placeholder="Políticas de reservación y cancelación..."
+            error={errors.cancellationPolicy}
+          />
 
-        <Dropdown
+          <Dropdown
           label="Validación de Mercado"
           required={isFieldRequired('marketValidation')}
-          fullWidth
-          items={[
-            { value: 'Sí', label: 'Sí (El paquete se ofrece regularmente por el Aliado)' },
-            { value: 'No', label: 'No' },
-          ]}
-          selectedLabel={
-            [
+            fullWidth
+            items={[
               { value: 'Sí', label: 'Sí (El paquete se ofrece regularmente por el Aliado)' },
               { value: 'No', label: 'No' },
+            ]}
+            selectedLabel={
+                [
+                  { value: 'Sí', label: 'Sí (El paquete se ofrece regularmente por el Aliado)' },
+                  { value: 'No', label: 'No' },
             ].find(o => o.value === formData.marketValidation)?.label || 'Seleccionar...'
-          }
-          placeholder="Seleccionar..."
-          onSelect={(value) => updateFormData('marketValidation', value)}
+            }
+            placeholder="Seleccionar..."
+            onSelect={(value) => updateFormData('marketValidation', value)}
           error={errors.marketValidation}
         />
 
-        <Textarea
+          <Textarea
           label="Comentarios Finales"
           required={isFieldRequired('additionalComments')}
-          value={formData.additionalComments}
-          onChange={(e) => updateFormData('additionalComments', e.target.value)}
-          rows={4}
-          placeholder="Comentarios adicionales del asesor comercial..."
-          error={errors.additionalComments}
-        />
+            value={formData.additionalComments}
+            onChange={(e) => updateFormData('additionalComments', e.target.value)}
+            rows={4}
+            placeholder="Comentarios adicionales del asesor comercial..."
+            error={errors.additionalComments}
+          />
       </div>
     </div>
   )

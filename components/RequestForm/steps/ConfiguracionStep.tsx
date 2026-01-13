@@ -269,12 +269,12 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
           </div>
         </div>
 
-        <Input
+          <Input
           label="Duración de Campaña"
           required={isFieldRequired('campaignDuration')}
-          value={formData.campaignDuration || '3'}
-          onChange={(e) => updateFormData('campaignDuration', e.target.value)}
-          placeholder="Ej: 2 meses"
+            value={formData.campaignDuration || '3'}
+            onChange={(e) => updateFormData('campaignDuration', e.target.value)}
+            placeholder="Ej: 2 meses"
           helperText="Periodo de canje a publicar en campaña"
         />
 

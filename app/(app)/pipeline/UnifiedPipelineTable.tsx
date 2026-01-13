@@ -284,7 +284,7 @@ export default function UnifiedPipelineTable({
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left">
+        <table className="w-full text-[13px] text-left">
           <thead className="bg-gray-50 border-b border-gray-200 font-medium text-gray-500">
             <tr>
               <th className="px-4 py-[5px] font-medium">Entidad / Nombre</th>
@@ -348,7 +348,7 @@ export default function UnifiedPipelineTable({
                     onClick={() => setMenuOpen(menuOpen === row.id ? null : row.id)}
                     className="p-1.5 text-gray-400 hover:text-gray-600 rounded hover:bg-gray-100"
                   >
-                    <MoreVertIcon fontSize="small" />
+                    <MoreVertIcon style={{ fontSize: 16 }} />
                   </button>
                   
                   {/* Context Menu */}
@@ -363,7 +363,7 @@ export default function UnifiedPipelineTable({
                           }}
                           className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                         >
-                          <EditIcon fontSize="small" /> Editar Oportunidad
+                          <EditIcon style={{ fontSize: 14 }} /> Editar Oportunidad
                         </button>
                       )}
                       {row.bookingRequest && (
@@ -375,7 +375,7 @@ export default function UnifiedPipelineTable({
                           }}
                           className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                         >
-                          <VisibilityIcon fontSize="small" /> Ver Solicitud
+                          <VisibilityIcon style={{ fontSize: 14 }} /> Ver Solicitud
                         </button>
                       )}
                     </div>

@@ -17,45 +17,45 @@ export default function OperatividadStep({ formData, errors, updateFormData, isF
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <Dropdown
+          <Dropdown
           label="Modalidad de Canje"
           required={isFieldRequired('redemptionMode')}
-          fullWidth
-          items={[
-            { value: 'Canje Simple', label: 'Canje Simple (Canje desde el día uno)' },
-            { value: 'Canje Diferido', label: 'Canje Diferido' },
-            { value: 'Otro', label: 'Otro' },
-          ]}
-          selectedLabel={
-            [
+            fullWidth
+            items={[
               { value: 'Canje Simple', label: 'Canje Simple (Canje desde el día uno)' },
               { value: 'Canje Diferido', label: 'Canje Diferido' },
               { value: 'Otro', label: 'Otro' },
+            ]}
+            selectedLabel={
+                [
+                  { value: 'Canje Simple', label: 'Canje Simple (Canje desde el día uno)' },
+                  { value: 'Canje Diferido', label: 'Canje Diferido' },
+                  { value: 'Otro', label: 'Otro' },
             ].find(o => o.value === formData.redemptionMode)?.label || 'Seleccionar...'
-          }
-          placeholder="Seleccionar..."
-          onSelect={(value) => updateFormData('redemptionMode', value)}
+            }
+            placeholder="Seleccionar..."
+            onSelect={(value) => updateFormData('redemptionMode', value)}
           error={errors.redemptionMode}
         />
 
-        <Dropdown
+          <Dropdown
           label="¿Esta Oferta es recurrente?"
           required={isFieldRequired('isRecurring')}
-          fullWidth
-          items={[
-            { value: 'No', label: 'No' },
-            { value: 'Sí', label: 'Sí' },
-          ]}
-          selectedLabel={
-            [
+            fullWidth
+            items={[
               { value: 'No', label: 'No' },
               { value: 'Sí', label: 'Sí' },
+            ]}
+            selectedLabel={
+                [
+                  { value: 'No', label: 'No' },
+                  { value: 'Sí', label: 'Sí' },
             ].find(o => o.value === formData.isRecurring)?.label || 'Seleccionar...'
-          }
-          placeholder="Seleccionar..."
-          onSelect={(value) => updateFormData('isRecurring', value)}
+            }
+            placeholder="Seleccionar..."
+            onSelect={(value) => updateFormData('isRecurring', value)}
           error={errors.isRecurring}
-        />
+          />
 
         {formData.isRecurring === 'Sí' && (
           <div className="md:col-span-2 animate-fadeIn">
@@ -71,30 +71,30 @@ export default function OperatividadStep({ formData, errors, updateFormData, isF
           </div>
         )}
 
-        <Dropdown
+          <Dropdown
           label="Tipo de Pago"
           required={isFieldRequired('paymentType')}
-          fullWidth
-          items={[
-            { value: '', label: 'Seleccionar...' },
-            { value: 'QR Mensual', label: 'QR Mensual' },
-            { value: 'Transferencia', label: 'Transferencia' },
-            { value: 'Yappy', label: 'Yappy' },
-            { value: 'Otro', label: 'Otro' },
-          ]}
-          selectedLabel={
-            [
+            fullWidth
+            items={[
               { value: '', label: 'Seleccionar...' },
               { value: 'QR Mensual', label: 'QR Mensual' },
               { value: 'Transferencia', label: 'Transferencia' },
               { value: 'Yappy', label: 'Yappy' },
               { value: 'Otro', label: 'Otro' },
-            ].find(opt => opt.value === formData.paymentType)?.label || 'Seleccionar...'
-          }
-          placeholder="Seleccionar..."
-          onSelect={(value) => updateFormData('paymentType', value)}
+            ]}
+            selectedLabel={
+              [
+                { value: '', label: 'Seleccionar...' },
+                { value: 'QR Mensual', label: 'QR Mensual' },
+                { value: 'Transferencia', label: 'Transferencia' },
+                { value: 'Yappy', label: 'Yappy' },
+                { value: 'Otro', label: 'Otro' },
+              ].find(opt => opt.value === formData.paymentType)?.label || 'Seleccionar...'
+            }
+            placeholder="Seleccionar..."
+            onSelect={(value) => updateFormData('paymentType', value)}
           error={errors.paymentType}
-        />
+          />
 
         <div className="md:col-span-2">
           <Textarea

@@ -17,73 +17,73 @@ export default function NegocioStep({ formData, errors, updateFormData, isFieldR
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <Dropdown
+          <Dropdown
           label="Impuestos"
           required={isFieldRequired('includesTaxes')}
-          fullWidth
-          items={[
-            { value: 'Sí', label: 'Sí (Incluye impuestos)' },
-            { value: 'No', label: 'No' },
-            { value: 'Exento', label: 'Exento' },
-          ]}
-          selectedLabel={
-            [
+            fullWidth
+            items={[
               { value: 'Sí', label: 'Sí (Incluye impuestos)' },
               { value: 'No', label: 'No' },
               { value: 'Exento', label: 'Exento' },
+            ]}
+            selectedLabel={
+                [
+                  { value: 'Sí', label: 'Sí (Incluye impuestos)' },
+                  { value: 'No', label: 'No' },
+                  { value: 'Exento', label: 'Exento' },
             ].find(o => o.value === formData.includesTaxes)?.label || 'Seleccionar...'
-          }
-          placeholder="Seleccionar..."
-          onSelect={(value) => updateFormData('includesTaxes', value)}
+            }
+            placeholder="Seleccionar..."
+            onSelect={(value) => updateFormData('includesTaxes', value)}
           error={errors.includesTaxes}
         />
 
-        <Dropdown
+          <Dropdown
           label="Válido en Feriados"
           required={isFieldRequired('validOnHolidays')}
-          fullWidth
-          items={[
-            { value: 'Sí', label: 'Sí' },
-            { value: 'No', label: 'No' },
-          ]}
-          selectedLabel={
-            [
+            fullWidth
+            items={[
               { value: 'Sí', label: 'Sí' },
               { value: 'No', label: 'No' },
+            ]}
+            selectedLabel={
+                [
+                  { value: 'Sí', label: 'Sí' },
+                  { value: 'No', label: 'No' },
             ].find(o => o.value === formData.validOnHolidays)?.label || 'Seleccionar...'
-          }
-          placeholder="Seleccionar..."
-          onSelect={(value) => updateFormData('validOnHolidays', value)}
+            }
+            placeholder="Seleccionar..."
+            onSelect={(value) => updateFormData('validOnHolidays', value)}
           error={errors.validOnHolidays}
         />
 
-        <Dropdown
+          <Dropdown
           label="¿Tiene Acuerdo de Exclusividad?"
           required={isFieldRequired('hasExclusivity')}
-          fullWidth
-          items={[
-            { value: 'No', label: 'No' },
-            { value: 'Sí', label: 'Sí' },
-          ]}
-          selectedLabel={
-            [
+            fullWidth
+            items={[
               { value: 'No', label: 'No' },
               { value: 'Sí', label: 'Sí' },
+            ]}
+            selectedLabel={
+                [
+                  { value: 'No', label: 'No' },
+                  { value: 'Sí', label: 'Sí' },
             ].find(o => o.value === formData.hasExclusivity)?.label || 'Seleccionar...'
-          }
-          placeholder="Seleccionar..."
-          onSelect={(value) => updateFormData('hasExclusivity', value)}
+            }
+            placeholder="Seleccionar..."
+            onSelect={(value) => updateFormData('hasExclusivity', value)}
           error={errors.hasExclusivity}
-        />
+          />
 
-        <Input
+          <Input
           label="Fechas Blackout"
           required={isFieldRequired('blackoutDates')}
-          value={formData.blackoutDates}
-          onChange={(e) => updateFormData('blackoutDates', e.target.value)}
-          placeholder="Fechas no válidas"
+            value={formData.blackoutDates}
+            onChange={(e) => updateFormData('blackoutDates', e.target.value)}
+            placeholder="Fechas no válidas"
           error={errors.blackoutDates}
-        />
+          />
 
         {formData.hasExclusivity === 'Sí' && (
           <div className="md:col-span-2 animate-fadeIn">
@@ -99,43 +99,43 @@ export default function NegocioStep({ formData, errors, updateFormData, isFieldR
           </div>
         )}
 
-        <Dropdown
+          <Dropdown
           label="Vouchers para Regalar"
           required={isFieldRequired('giftVouchers')}
-          fullWidth
-          items={[
-            { value: 'Sí', label: 'Sí' },
-            { value: 'No', label: 'No' },
-          ]}
-          selectedLabel={
-            [
+            fullWidth
+            items={[
               { value: 'Sí', label: 'Sí' },
               { value: 'No', label: 'No' },
+            ]}
+            selectedLabel={
+                [
+                  { value: 'Sí', label: 'Sí' },
+                  { value: 'No', label: 'No' },
             ].find(o => o.value === formData.giftVouchers)?.label || 'Seleccionar...'
-          }
-          placeholder="Seleccionar..."
-          onSelect={(value) => updateFormData('giftVouchers', value)}
+            }
+            placeholder="Seleccionar..."
+            onSelect={(value) => updateFormData('giftVouchers', value)}
           error={errors.giftVouchers}
         />
 
-        <Dropdown
+          <Dropdown
           label="¿Tiene otra sucursal que no es válida?"
           required={isFieldRequired('hasOtherBranches')}
-          fullWidth
-          items={[
-            { value: 'No', label: 'No' },
-            { value: 'Sí', label: 'Sí' },
-          ]}
-          selectedLabel={
-            [
+            fullWidth
+            items={[
               { value: 'No', label: 'No' },
               { value: 'Sí', label: 'Sí' },
+            ]}
+            selectedLabel={
+                [
+                  { value: 'No', label: 'No' },
+                  { value: 'Sí', label: 'Sí' },
             ].find(o => o.value === formData.hasOtherBranches)?.label || 'Seleccionar...'
-          }
-          placeholder="Seleccionar..."
-          onSelect={(value) => updateFormData('hasOtherBranches', value)}
+            }
+            placeholder="Seleccionar..."
+            onSelect={(value) => updateFormData('hasOtherBranches', value)}
           error={errors.hasOtherBranches}
-        />
+          />
 
         {formData.hasOtherBranches === 'Sí' && (
           <div className="md:col-span-2 bg-yellow-50 border border-yellow-200 rounded-xl p-4 animate-fadeIn">
@@ -145,24 +145,24 @@ export default function NegocioStep({ formData, errors, updateFormData, isFieldR
           </div>
         )}
 
-        <Input
+          <Input
           label="Vouchers por Persona"
           required={isFieldRequired('vouchersPerPerson')}
-          type="number"
-          value={formData.vouchersPerPerson}
-          onChange={(e) => updateFormData('vouchersPerPerson', e.target.value)}
-          placeholder="Límite de vouchers"
+            type="number"
+            value={formData.vouchersPerPerson}
+            onChange={(e) => updateFormData('vouchersPerPerson', e.target.value)}
+            placeholder="Límite de vouchers"
           error={errors.vouchersPerPerson}
         />
 
-        <Input
+          <Input
           label="Comisión"
           required={isFieldRequired('commission')}
-          value={formData.commission}
-          onChange={(e) => updateFormData('commission', e.target.value)}
-          placeholder="% de comisión"
+            value={formData.commission}
+            onChange={(e) => updateFormData('commission', e.target.value)}
+            placeholder="% de comisión"
           error={errors.commission}
-        />
+          />
       </div>
     </div>
   )

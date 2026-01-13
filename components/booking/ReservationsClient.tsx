@@ -167,7 +167,7 @@ return (
       {/* Table Container */}
       <div className="flex-1 overflow-auto p-4">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm text-left">
+          <table className="w-full text-[13px] text-left">
             <thead className="bg-gray-50 border-b border-gray-200 font-medium text-gray-500">
               <tr>
                 {isAdmin && (
