@@ -67,7 +67,7 @@ export async function getBusinesses() {
         })
 
         // Get custom field values for all businesses
-        const businessIds = businesses.map(b => b.id)
+        const businessIds = businesses.map((b: { id: string }) => b.id)
         const customFieldValues = businessIds.length > 0
           ? await prisma.customFieldValue.findMany({
               where: {
@@ -94,7 +94,7 @@ export async function getBusinesses() {
         }
 
         // Add custom fields to each business
-        return businesses.map(biz => ({
+        return businesses.map((biz: { id: string }) => ({
           ...biz,
           customFields: customFieldsByBusinessId.get(biz.id) || {},
         }))
@@ -110,6 +110,233 @@ export async function getBusinesses() {
     return { success: true, data: businesses }
   } catch (error) {
     return handleServerActionError(error, 'getBusinesses')
+  }
+}
+
+/**
+ * Get businesses with pagination (cacheable, <2MB per page)
+ */
+export async function getBusinessesPaginated(options: {
+  page?: number
+  pageSize?: number
+  sortBy?: string
+  sortDirection?: 'asc' | 'desc'
+} = {}) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc' } = options
+
+    // Build where clause based on role
+    const whereClause: Record<string, unknown> = {}
+    if (role === 'sales') {
+      whereClause.ownerId = userId
+    } else if (role === 'editor' || role === 'ere') {
+      return { success: true, data: [], total: 0, page, pageSize }
+    }
+
+    // Get total count
+    const total = await prisma.business.count({ where: whereClause })
+
+    // Build orderBy
+    const orderBy: Record<string, 'asc' | 'desc'> = {}
+    if (sortBy === 'name') {
+      orderBy.name = sortDirection
+    } else if (sortBy === 'contactName') {
+      orderBy.contactName = sortDirection
+    } else {
+      orderBy.createdAt = sortDirection
+    }
+
+    // Get paginated businesses
+    const businesses = await prisma.business.findMany({
+      where: whereClause,
+      include: {
+        category: {
+          select: {
+            id: true,
+            categoryKey: true,
+            parentCategory: true,
+            subCategory1: true,
+            subCategory2: true,
+          },
+        },
+        salesReps: {
+          include: {
+            salesRep: {
+              select: {
+                id: true,
+                clerkId: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy,
+      skip: page * pageSize,
+      take: pageSize,
+    })
+
+    // Get custom field values for this page of businesses
+    const businessIds = businesses.map((b: { id: string }) => b.id)
+    const customFieldValues = businessIds.length > 0
+      ? await prisma.customFieldValue.findMany({
+          where: {
+            entityType: 'business',
+            entityId: { in: businessIds },
+          },
+          include: {
+            customField: {
+              select: {
+                fieldKey: true,
+              },
+            },
+          },
+        })
+      : []
+
+    // Group custom field values by business ID
+    const customFieldsByBusinessId = new Map<string, Record<string, string | null>>()
+    for (const cfv of customFieldValues) {
+      if (!customFieldsByBusinessId.has(cfv.entityId)) {
+        customFieldsByBusinessId.set(cfv.entityId, {})
+      }
+      customFieldsByBusinessId.get(cfv.entityId)![cfv.customField.fieldKey] = cfv.value
+    }
+
+    // Add custom fields to each business
+    const businessesWithCustomFields = businesses.map((biz: { id: string }) => ({
+      ...biz,
+      customFields: customFieldsByBusinessId.get(biz.id) || {},
+    }))
+
+    return { 
+      success: true, 
+      data: businessesWithCustomFields, 
+      total, 
+      page, 
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getBusinessesPaginated')
+  }
+}
+
+/**
+ * Search businesses across ALL records (server-side search)
+ * Used when user types in search bar - searches name, contactName, contactEmail, contactPhone
+ */
+export async function searchBusinesses(query: string, options: {
+  limit?: number
+} = {}) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    const { limit = 100 } = options
+
+    if (!query || query.trim().length < 2) {
+      return { success: true, data: [] }
+    }
+
+    const searchTerm = query.trim()
+
+    // Build where clause based on role
+    const roleFilter: Record<string, unknown> = {}
+    if (role === 'sales') {
+      roleFilter.ownerId = userId
+    } else if (role === 'editor' || role === 'ere') {
+      return { success: true, data: [] }
+    }
+
+    // Search across multiple fields with OR
+    const businesses = await prisma.business.findMany({
+      where: {
+        ...roleFilter,
+        OR: [
+          { name: { contains: searchTerm, mode: 'insensitive' } },
+          { contactName: { contains: searchTerm, mode: 'insensitive' } },
+          { contactEmail: { contains: searchTerm, mode: 'insensitive' } },
+          { contactPhone: { contains: searchTerm, mode: 'insensitive' } },
+        ],
+      },
+      include: {
+        category: {
+          select: {
+            id: true,
+            categoryKey: true,
+            parentCategory: true,
+            subCategory1: true,
+            subCategory2: true,
+          },
+        },
+        salesReps: {
+          include: {
+            salesRep: {
+              select: {
+                id: true,
+                clerkId: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
+      take: limit,
+    })
+
+    // Get custom field values for search results
+    const businessIds = businesses.map((b: { id: string }) => b.id)
+    const customFieldValues = businessIds.length > 0
+      ? await prisma.customFieldValue.findMany({
+          where: {
+            entityType: 'business',
+            entityId: { in: businessIds },
+          },
+          include: {
+            customField: {
+              select: {
+                fieldKey: true,
+              },
+            },
+          },
+        })
+      : []
+
+    // Group custom field values by business ID
+    const customFieldsByBusinessId = new Map<string, Record<string, string | null>>()
+    for (const cfv of customFieldValues) {
+      if (!customFieldsByBusinessId.has(cfv.entityId)) {
+        customFieldsByBusinessId.set(cfv.entityId, {})
+      }
+      customFieldsByBusinessId.get(cfv.entityId)![cfv.customField.fieldKey] = cfv.value
+    }
+
+    // Add custom fields to each business
+    const businessesWithCustomFields = businesses.map((biz: { id: string }) => ({
+      ...biz,
+      customFields: customFieldsByBusinessId.get(biz.id) || {},
+    }))
+
+    return { success: true, data: businessesWithCustomFields }
+  } catch (error) {
+    return handleServerActionError(error, 'searchBusinesses')
   }
 }
 

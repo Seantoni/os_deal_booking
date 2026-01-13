@@ -184,20 +184,26 @@ export async function createOptionComment(
 
     // Send email notifications to mentioned users (async, don't wait)
     if (data.mentions && data.mentions.length > 0) {
-      sendMentionNotifications({
-        commentId: comment.id,
-        authorId: userId,
-        authorName: author?.name || author?.email || 'Someone',
-        mentionedUserIds: data.mentions,
-        content: data.content,
-        optionId,
-        optionType: option.optionType,
-        platform: option.platform,
-        businessName: option.campaign.bookingRequest.merchant || option.campaign.bookingRequest.name,
-        campaignId: option.campaignId,
-      }).catch(err => {
-        logger.error('Error sending mention notifications:', err)
-      })
+      // Check if email notifications are enabled
+      const { ENABLE_MENTION_NOTIFICATION_EMAILS } = await import('@/lib/email/config')
+      if (ENABLE_MENTION_NOTIFICATION_EMAILS) {
+        sendMentionNotifications({
+          commentId: comment.id,
+          authorId: userId,
+          authorName: author?.name || author?.email || 'Someone',
+          mentionedUserIds: data.mentions,
+          content: data.content,
+          optionId,
+          optionType: option.optionType,
+          platform: option.platform,
+          businessName: option.campaign.bookingRequest.merchant || option.campaign.bookingRequest.name,
+          campaignId: option.campaignId,
+        }).catch(err => {
+          logger.error('Error sending mention notifications:', err)
+        })
+      } else {
+        logger.info('Mention notification emails are disabled - skipping email send')
+      }
     }
 
     const commentWithAuthor: CommentWithAuthor = {

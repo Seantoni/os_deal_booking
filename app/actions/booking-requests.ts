@@ -649,6 +649,132 @@ export async function getBookingRequests() {
 }
 
 /**
+ * Get booking requests with pagination
+ */
+export async function getBookingRequestsPaginated(options: {
+  page?: number
+  pageSize?: number
+  sortBy?: string
+  sortDirection?: 'asc' | 'desc'
+  status?: string
+} = {}) {
+  const { userId } = await auth()
+  
+  if (!userId) {
+    return { success: false, error: 'Unauthorized' }
+  }
+
+  try {
+    const role = await getUserRole()
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', status } = options
+
+    // Build where clause based on role
+    const whereClause: Prisma.BookingRequestWhereInput = {}
+    if (role === 'sales') {
+      whereClause.userId = userId
+    } else if (role !== 'admin') {
+      return { success: true, data: [], total: 0, page, pageSize }
+    }
+
+    // Add status filter if provided
+    if (status && status !== 'all') {
+      whereClause.status = status
+    }
+
+    // Get total count
+    const total = await prisma.bookingRequest.count({ where: whereClause })
+
+    // Build orderBy
+    const orderBy: Record<string, 'asc' | 'desc'> = {}
+    if (sortBy === 'name') {
+      orderBy.name = sortDirection
+    } else if (sortBy === 'startDate') {
+      orderBy.startDate = sortDirection
+    } else if (sortBy === 'status') {
+      orderBy.status = sortDirection
+    } else {
+      orderBy.createdAt = sortDirection
+    }
+
+    // Get paginated requests
+    const requests = await prisma.bookingRequest.findMany({
+      where: whereClause,
+      orderBy,
+      skip: page * pageSize,
+      take: pageSize,
+    })
+
+    return { 
+      success: true, 
+      data: requests, 
+      total, 
+      page, 
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getBookingRequestsPaginated')
+  }
+}
+
+/**
+ * Search booking requests across ALL records (server-side search)
+ */
+export async function searchBookingRequests(query: string, options: {
+  limit?: number
+  status?: string
+} = {}) {
+  const { userId } = await auth()
+  
+  if (!userId) {
+    return { success: false, error: 'Unauthorized' }
+  }
+
+  try {
+    const role = await getUserRole()
+    const { limit = 100, status } = options
+
+    if (!query || query.trim().length < 2) {
+      return { success: true, data: [] }
+    }
+
+    const searchTerm = query.trim()
+
+    // Build where clause based on role
+    const roleFilter: Prisma.BookingRequestWhereInput = {}
+    if (role === 'sales') {
+      roleFilter.userId = userId
+    } else if (role !== 'admin') {
+      return { success: true, data: [] }
+    }
+
+    // Add status filter if provided
+    if (status && status !== 'all') {
+      roleFilter.status = status
+    }
+
+    // Search across multiple fields
+    const requests = await prisma.bookingRequest.findMany({
+      where: {
+        ...roleFilter,
+        OR: [
+          { name: { contains: searchTerm, mode: 'insensitive' } },
+          { merchant: { contains: searchTerm, mode: 'insensitive' } },
+          { businessEmail: { contains: searchTerm, mode: 'insensitive' } },
+          { parentCategory: { contains: searchTerm, mode: 'insensitive' } },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    })
+
+    return { success: true, data: requests }
+  } catch (error) {
+    return handleServerActionError(error, 'searchBookingRequests')
+  }
+}
+
+/**
  * Refresh booking requests data without full page refresh
  * This avoids Clerk API calls on booking request updates
  */

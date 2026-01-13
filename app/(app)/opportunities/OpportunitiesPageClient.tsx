@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
-import { getOpportunities, deleteOpportunity } from '@/app/actions/crm'
+import { getOpportunitiesPaginated, searchOpportunities } from '@/app/actions/opportunities'
+import { deleteOpportunity } from '@/app/actions/crm'
 import type { Opportunity } from '@/types'
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban'
 import TableChartIcon from '@mui/icons-material/TableChart'
@@ -22,7 +23,8 @@ import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useSharedData } from '@/hooks/useSharedData'
 import { useFormConfigCache } from '@/hooks/useFormConfigCache'
-import { useEntityPage, sortEntities } from '@/hooks/useEntityPage'
+import { usePaginatedSearch } from '@/hooks/usePaginatedSearch'
+import { sortEntities } from '@/hooks/useEntityPage'
 import { 
   EntityPageHeader, 
   EmptyTableState, 
@@ -49,15 +51,6 @@ const STAGE_LABELS: Record<string, string> = {
   lost: 'Lost',
 }
 
-const STAGE_COLORS: Record<string, string> = {
-  iniciacion: 'bg-gray-100 text-gray-800',
-  reunion: 'bg-blue-100 text-blue-800',
-  propuesta_enviada: 'bg-yellow-100 text-yellow-800',
-  propuesta_aprobada: 'bg-purple-100 text-purple-800',
-  won: 'bg-green-100 text-green-800',
-  lost: 'bg-red-100 text-red-800',
-}
-
 // Table columns configuration
 const COLUMNS: ColumnConfig[] = [
   { key: 'business', label: 'Negocio', sortable: true },
@@ -68,17 +61,16 @@ const COLUMNS: ColumnConfig[] = [
   { key: 'actions', label: '', align: 'right', width: 'w-28' },
 ]
 
-// Search fields for opportunities
-const SEARCH_FIELDS = ['business.name', 'notes', 'business.contactName', 'business.contactEmail']
-
 interface OpportunitiesPageClientProps {
   initialOpportunities?: Opportunity[]
   initialBusinesses?: any[]
+  initialTotal?: number
 }
 
 export default function OpportunitiesPageClient({
   initialOpportunities,
   initialBusinesses,
+  initialTotal = 0,
 }: OpportunitiesPageClientProps = {}) {
   const searchParams = useSearchParams()
   const { role: userRole } = useUserRole()
@@ -90,52 +82,38 @@ export default function OpportunitiesPageClient({
   // Get form config cache for prefetching
   const { prefetch: prefetchFormConfig } = useFormConfigCache()
   
-  // Use shared hook for common functionality
+  // Use the reusable paginated search hook
   const {
     data: opportunities,
     setData: setOpportunities,
+    searchResults,
+    setSearchResults,
     loading,
+    searchLoading,
     searchQuery,
-    setSearchQuery,
+    handleSearchChange,
+    isSearching,
+    currentPage,
+    totalCount,
     sortColumn,
     sortDirection,
     handleSort,
-    savedFilters,
-    activeFilterId,
-    handleFilterSelect,
-    handleAdvancedFiltersChange,
-    loadData,
-    loadSavedFilters,
-    applySearchFilter,
-    applyAdvancedFilters,
-  } = useEntityPage<Opportunity>({
-    entityType: 'opportunities',
-    fetchFn: getOpportunities,
-    searchFields: SEARCH_FIELDS,
-    initialData: initialOpportunities, // Server-prefetched data
+    loadPage,
+    PaginationControls,
+    SearchIndicator,
+  } = usePaginatedSearch<Opportunity>({
+    fetchPaginated: getOpportunitiesPaginated,
+    searchFn: searchOpportunities,
+    initialData: initialOpportunities,
+    initialTotal,
+    pageSize: 50,
+    entityName: 'oportunidades',
   })
 
   // View mode state - persist in localStorage
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('kanban')
   const [viewModeLoaded, setViewModeLoaded] = useState(false)
   const [stageFilter, setStageFilter] = useState<string>('all')
-  const [visibleCount, setVisibleCount] = useState(50)
-  
-  // Load persisted view mode on mount (client-side only)
-  useEffect(() => {
-    const saved = localStorage.getItem('opportunities-view-mode') as 'table' | 'kanban' | null
-    if (saved && (saved === 'table' || saved === 'kanban')) {
-      setViewMode(saved)
-    }
-    setViewModeLoaded(true)
-  }, [])
-  
-  // Persist view mode preference when it changes (after initial load)
-  useEffect(() => {
-    if (viewModeLoaded) {
-      localStorage.setItem('opportunities-view-mode', viewMode)
-    }
-  }, [viewMode, viewModeLoaded])
   
   // Modal state
   const [opportunityModalOpen, setOpportunityModalOpen] = useState(false)
@@ -148,13 +126,28 @@ export default function OpportunitiesPageClient({
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   
   const confirmDialog = useConfirmDialog()
-
-  // Initial tab for opportunity modal (from URL params like ?tab=chat)
   const [initialModalTab, setInitialModalTab] = useState<'details' | 'activity' | 'chat'>('details')
+
+  // Load persisted view mode on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('opportunities-view-mode') as 'table' | 'kanban' | null
+    if (saved && (saved === 'table' || saved === 'kanban')) {
+      setViewMode(saved)
+    }
+    setViewModeLoaded(true)
+  }, [])
+  
+  // Persist view mode preference
+  useEffect(() => {
+    if (viewModeLoaded) {
+      localStorage.setItem('opportunities-view-mode', viewMode)
+    }
+  }, [viewMode, viewModeLoaded])
 
   // Handle opening opportunity from URL query params or session storage
   useEffect(() => {
-    // Check for creating a new opportunity for a specific business
+    const displayOpps = searchResults || opportunities
+    
     const createForBusinessId = sessionStorage.getItem('createOpportunityForBusinessId')
     if (createForBusinessId) {
       sessionStorage.removeItem('createOpportunityForBusinessId')
@@ -165,16 +158,14 @@ export default function OpportunitiesPageClient({
       return
     }
 
-    if (opportunities.length > 0) {
-      // First check URL query params (e.g., ?open=opportunityId from Tasks page or Inbox)
+    if (displayOpps.length > 0) {
       const openFromUrl = searchParams.get('open')
       const tabFromUrl = searchParams.get('tab')
       
       if (openFromUrl) {
-        const opp = opportunities.find(o => o.id === openFromUrl)
+        const opp = displayOpps.find(o => o.id === openFromUrl)
         if (opp) {
           setSelectedOpportunity(opp)
-          // Set initial tab if provided (e.g., 'chat' from inbox)
           if (tabFromUrl === 'chat' || tabFromUrl === 'activity' || tabFromUrl === 'details') {
             setInitialModalTab(tabFromUrl)
           } else {
@@ -182,54 +173,49 @@ export default function OpportunitiesPageClient({
           }
           setOpportunityModalOpen(true)
         }
-        return // Don't check sessionStorage if URL param was present
+        return
       }
 
-      // Fallback to sessionStorage (e.g., from search)
       const openOpportunityId = sessionStorage.getItem('openOpportunityId')
       if (openOpportunityId) {
         sessionStorage.removeItem('openOpportunityId')
-        const opp = opportunities.find(o => o.id === openOpportunityId)
+        const opp = displayOpps.find(o => o.id === openOpportunityId)
         if (opp) {
           setSelectedOpportunity(opp)
-          setInitialModalTab('details') // Default to details from sessionStorage
+          setInitialModalTab('details')
           setOpportunityModalOpen(true)
         }
       }
     }
-  }, [opportunities, searchParams])
+  }, [opportunities, searchResults, searchParams])
 
   // Extract businesses from opportunities for preloading
   const businessesFromOpportunities = useMemo(() => {
+    const displayOpps = searchResults || opportunities
     const businessMap = new Map<string, any>()
-    opportunities.forEach(opp => {
+    displayOpps.forEach(opp => {
       if (opp.business && !businessMap.has(opp.business.id)) {
         businessMap.set(opp.business.id, opp.business)
       }
     })
     return Array.from(businessMap.values())
-  }, [opportunities])
+  }, [opportunities, searchResults])
 
-  // Static filter tabs (shown immediately, no loading flash)
-  const staticFilterTabs: FilterTab[] = useMemo(() => [
-    { id: 'all', label: 'All' },
-    ...Object.entries(STAGE_LABELS).map(([key, label]) => ({
-      id: key,
-      label,
-    }))
-  ], [])
-  
-  // Dynamic filter tabs with counts (shown after data loads)
+  // Determine which opportunities to display
+  const displayOpportunities = searchResults !== null ? searchResults : opportunities
+
+  // Filter tabs with counts
   const filterTabs: FilterTab[] = useMemo(() => {
+    const baseOpps = displayOpportunities
     return [
-      { id: 'all', label: 'All', count: opportunities.length },
+      { id: 'all', label: 'All', count: isSearching ? baseOpps.length : totalCount },
       ...Object.entries(STAGE_LABELS).map(([key, label]) => ({
         id: key,
         label,
-        count: opportunities.filter(o => o.stage === key).length
-    }))
+        count: baseOpps.filter(o => o.stage === key).length
+      }))
     ]
-  }, [opportunities, staticFilterTabs])
+  }, [displayOpportunities, totalCount, isSearching])
 
   // Get sort value for an opportunity
   const getSortValue = useCallback((opportunity: Opportunity, column: string): string | number | Date | null => {
@@ -249,29 +235,20 @@ export default function OpportunitiesPageClient({
     }
   }, [])
 
-  // Filter and sort opportunities
+  // Filter and sort opportunities (client-side for stage filter)
   const filteredOpportunities = useMemo(() => {
-    let filtered = opportunities
+    let filtered = displayOpportunities
 
-    // Stage filter
     if (stageFilter !== 'all') {
       filtered = filtered.filter(o => o.stage === stageFilter)
     }
 
-    // Apply search filter
-    filtered = applySearchFilter(filtered)
+    if (isSearching && sortColumn) {
+      return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
+    }
 
-    // Apply advanced filters
-    filtered = applyAdvancedFilters(filtered)
-
-    // Sort
-    return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
-  }, [opportunities, stageFilter, applySearchFilter, applyAdvancedFilters, sortColumn, sortDirection, getSortValue])
-
-  const visibleOpportunities = useMemo(
-    () => filteredOpportunities.slice(0, visibleCount),
-    [filteredOpportunities, visibleCount]
-  )
+    return filtered
+  }, [displayOpportunities, stageFilter, isSearching, sortColumn, sortDirection, getSortValue])
 
   // Prefetch form config when hovering over a row
   const handleRowHover = useCallback(() => {
@@ -282,7 +259,6 @@ export default function OpportunitiesPageClient({
     setSelectedOpportunity(opportunity)
     setOpportunityModalOpen(true)
   }
-
 
   async function handleDeleteOpportunity(opportunityId: string) {
     const confirmed = await confirmDialog.confirm({
@@ -295,13 +271,15 @@ export default function OpportunitiesPageClient({
 
     if (!confirmed) return
 
-    // Optimistic update
     setOpportunities(prev => prev.filter(o => o.id !== opportunityId))
+    if (searchResults) {
+      setSearchResults(prev => prev?.filter(o => o.id !== opportunityId) || null)
+    }
     
     const result = await deleteOpportunity(opportunityId)
     if (!result.success) {
       toast.error(result.error || 'Error al eliminar la oportunidad')
-      loadData()
+      loadPage(currentPage)
     } else {
       toast.success('Oportunidad eliminada exitosamente')
     }
@@ -322,12 +300,8 @@ export default function OpportunitiesPageClient({
     if (business.category) {
       params.categoryId = business.category.id
       params.parentCategory = business.category.parentCategory
-      if (business.category.subCategory1) {
-        params.subCategory1 = business.category.subCategory1
-      }
-      if (business.category.subCategory2) {
-        params.subCategory2 = business.category.subCategory2
-      }
+      if (business.category.subCategory1) params.subCategory1 = business.category.subCategory1
+      if (business.category.subCategory2) params.subCategory2 = business.category.subCategory2
     }
 
     if (business.razonSocial) params.legalName = business.razonSocial
@@ -375,26 +349,20 @@ export default function OpportunitiesPageClient({
     toast.success(`Exported ${filteredOpportunities.length} opportunities`)
   }
 
-  // CSV Upload expected headers (matching download format)
   const csvUploadHeaders = ['ID', 'Negocio', 'Etapa', 'Fecha Inicio', 'Fecha Cierre', 'Notas', 'Responsable', 'Motivo de Pérdida', 'Tiene Solicitud', 'Fecha Creación']
 
-  // CSV Upload preview handler
   async function handleUploadPreview(rows: ParsedCsvRow[]): Promise<CsvUploadPreview> {
     let toCreate = 0
     let toUpdate = 0
     let skipped = 0
     const errors: string[] = []
 
-    // Get existing opportunity IDs for validation
     const existingIds = new Set(opportunities.map(o => o.id))
-    
-    // Get business names for validation
     const businessNames = new Set(businessesFromOpportunities.map(b => b.name.toLowerCase()))
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
       const rowNum = i + 2
-
       const id = row['ID']?.trim()
       const businessName = row['Negocio']?.trim()
 
@@ -406,7 +374,6 @@ export default function OpportunitiesPageClient({
           skipped++
         }
       } else if (businessName) {
-        // Check if business exists
         if (!businessNames.has(businessName.toLowerCase())) {
           errors.push(`Fila ${rowNum}: Negocio "${businessName}" no encontrado`)
           skipped++
@@ -422,9 +389,7 @@ export default function OpportunitiesPageClient({
     return { toCreate, toUpdate, skipped, errors, rows }
   }
 
-  // CSV Upload confirm handler
   async function handleUploadConfirm(rows: ParsedCsvRow[]): Promise<CsvUploadResult> {
-    // Map CSV rows to BulkOpportunityRow
     const opportunityRows: BulkOpportunityRow[] = rows.map(row => ({
       id: row['ID']?.trim() || undefined,
       business: row['Negocio']?.trim(),
@@ -440,8 +405,7 @@ export default function OpportunitiesPageClient({
     const result = await bulkUpsertOpportunities(opportunityRows)
     
     if (result.success && result.data) {
-      // Reload data after successful import
-      loadData()
+      loadPage(currentPage)
       return result.data
     }
     
@@ -476,7 +440,7 @@ export default function OpportunitiesPageClient({
     </div>
   )
 
-  // Right side content for header (admin only CSV download/upload)
+  // Right side content for header
   const headerRightContent = isAdmin ? (
     <div className="flex items-center gap-2">
       <Button
@@ -500,22 +464,19 @@ export default function OpportunitiesPageClient({
     </div>
   ) : null
 
+  const isLoading = loading || searchLoading
+
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header with Search and Filters */}
       <EntityPageHeader
         entityType="opportunities"
-        searchPlaceholder="Buscar oportunidades..."
+        searchPlaceholder="Buscar en todas las oportunidades..."
         searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+        onSearchChange={handleSearchChange}
         filterTabs={filterTabs}
         activeFilter={stageFilter}
         onFilterChange={setStageFilter}
-        savedFilters={savedFilters}
-        activeFilterId={activeFilterId}
-        onFilterSelect={handleFilterSelect}
-        onAdvancedFiltersChange={handleAdvancedFiltersChange}
-        onSavedFiltersChange={loadSavedFilters}
         isAdmin={isAdmin}
         beforeFilters={viewToggle}
         rightContent={headerRightContent}
@@ -523,8 +484,11 @@ export default function OpportunitiesPageClient({
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
-        {loading ? (
-          <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200">Cargando...</div>
+        {isLoading ? (
+          <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200 flex items-center gap-2">
+            <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+            {searchLoading ? 'Buscando...' : 'Cargando...'}
+          </div>
         ) : filteredOpportunities.length === 0 ? (
           <EmptyTableState
             icon={<FilterListIcon className="w-full h-full" />}
@@ -539,20 +503,22 @@ export default function OpportunitiesPageClient({
           <div className="h-full overflow-x-auto pb-2">
             <OpportunityKanban
               opportunities={filteredOpportunities}
-              onUpdate={loadData}
+              onUpdate={() => loadPage(currentPage)}
               onCreateRequest={handleCreateRequest}
               onCardClick={handleEditOpportunity}
             />
           </div>
         ) : (
           <div className="overflow-x-auto">
+            <SearchIndicator />
+
             <EntityTable
               columns={COLUMNS}
               sortColumn={sortColumn}
               sortDirection={sortDirection}
               onSort={handleSort}
             >
-              {visibleOpportunities.map((opportunity, index) => (
+              {filteredOpportunities.map((opportunity, index) => (
                 <TableRow
                   key={opportunity.id}
                   index={index}
@@ -609,17 +575,8 @@ export default function OpportunitiesPageClient({
                 </TableRow>
               ))}
             </EntityTable>
-            {visibleCount < filteredOpportunities.length && (
-              <div className="p-4 border-t border-gray-100 text-center">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setVisibleCount((c) => c + 50)}
-                >
-                  Load More
-                </Button>
-              </div>
-            )}
+            
+            <PaginationControls />
           </div>
         )}
       </div>
@@ -631,25 +588,28 @@ export default function OpportunitiesPageClient({
           setOpportunityModalOpen(false)
           setSelectedOpportunity(null)
           setInitialBusinessId(undefined)
-          setInitialModalTab('details') // Reset to default when closing
+          setInitialModalTab('details')
         }}
         opportunity={selectedOpportunity}
         onSuccess={(newOpportunity) => {
           if (selectedOpportunity) {
             setOpportunities(prev => prev.map(o => o.id === selectedOpportunity.id ? newOpportunity : o))
+            if (searchResults) {
+              setSearchResults(prev => prev?.map(o => o.id === selectedOpportunity.id ? newOpportunity : o) || null)
+            }
           } else {
             setOpportunities(prev => [newOpportunity, ...prev])
           }
-          loadData()
+          if (!isSearching) {
+            loadPage(currentPage)
+          }
         }}
         initialTab={initialModalTab}
         initialBusinessId={initialBusinessId}
-        // Pass preloaded data to skip fetching
         preloadedBusinesses={businessesFromOpportunities}
         preloadedCategories={categories}
         preloadedUsers={users}
       />
-
 
       {/* New Request Modal */}
       <NewRequestModal

@@ -27,5 +27,12 @@ export const EMAIL_CONFIG = {
   replyTo: ENV.EMAIL_REPLY_TO || getFromEmail(),
 }
 
+/**
+ * Feature flag to enable/disable mention notification emails
+ * Set to false to disable email sending for mentions in modals
+ * TODO: Make this configurable via environment variable or settings in the future
+ */
+export const ENABLE_MENTION_NOTIFICATION_EMAILS = false
+
 export { resend }
 

@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { getBusinesses, deleteBusiness, getOpportunities } from '@/app/actions/crm'
+import { deleteBusiness, getOpportunities } from '@/app/actions/crm'
+import { getBusinessesPaginated, searchBusinesses } from '@/app/actions/businesses'
 import { getBookingRequests } from '@/app/actions/booking-requests'
 import type { BookingRequest } from '@/types'
 import type { Business, Opportunity } from '@/types'
@@ -35,7 +36,8 @@ import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useSharedData } from '@/hooks/useSharedData'
 import { useFormConfigCache } from '@/hooks/useFormConfigCache'
-import { useEntityPage, sortEntities } from '@/hooks/useEntityPage'
+import { usePaginatedSearch } from '@/hooks/usePaginatedSearch'
+import { sortEntities } from '@/hooks/useEntityPage'
 import { logger } from '@/lib/logger'
 import { 
   EntityPageHeader, 
@@ -44,7 +46,7 @@ import {
   type ColumnConfig,
 } from '@/components/shared'
 import { Button } from '@/components/ui'
-import { EntityTable, CellStack, TableRow, TableCell } from '@/components/shared/table'
+import { EntityTable, TableRow, TableCell } from '@/components/shared/table'
 
 // Table columns configuration
 const COLUMNS: ColumnConfig[] = [
@@ -60,19 +62,18 @@ const COLUMNS: ColumnConfig[] = [
   { key: 'actions', label: '', width: 'w-20' },
 ]
 
-// Search fields for businesses
-const SEARCH_FIELDS = ['name', 'contactName', 'contactEmail', 'contactPhone']
-
 interface BusinessesPageClientProps {
   initialBusinesses?: Business[]
   initialOpportunities?: Opportunity[]
   initialRequests?: BookingRequest[]
+  initialTotal?: number
 }
 
 export default function BusinessesPageClient({
   initialBusinesses,
   initialOpportunities,
   initialRequests,
+  initialTotal = 0,
 }: BusinessesPageClientProps = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -83,39 +84,39 @@ export default function BusinessesPageClient({
   const { categories, users } = useSharedData()
   
   // Get form config cache for prefetching
-  const { prefetch: prefetchFormConfig, getConfig: getCachedFormConfig } = useFormConfigCache()
+  const { prefetch: prefetchFormConfig } = useFormConfigCache()
   
-  // Use shared hook for common functionality
+  // Use the reusable paginated search hook
   const {
     data: businesses,
     setData: setBusinesses,
+    searchResults,
+    setSearchResults,
     loading,
+    searchLoading,
     searchQuery,
-    setSearchQuery,
+    handleSearchChange,
+    isSearching,
+    currentPage,
     sortColumn,
     sortDirection,
     handleSort,
-    savedFilters,
-    activeFilterId,
-    handleFilterSelect,
-    handleAdvancedFiltersChange,
-    loadData,
-    loadSavedFilters,
-    applySearchFilter,
-    applyAdvancedFilters,
-  } = useEntityPage<Business>({
-    entityType: 'businesses',
-    fetchFn: getBusinesses,
-    searchFields: SEARCH_FIELDS,
-    defaultSortDirection: 'asc',
-    initialData: initialBusinesses, // Server-prefetched data
+    loadPage,
+    PaginationControls,
+    SearchIndicator,
+  } = usePaginatedSearch<Business>({
+    fetchPaginated: getBusinessesPaginated,
+    searchFn: searchBusinesses,
+    initialData: initialBusinesses,
+    initialTotal,
+    pageSize: 50,
+    entityName: 'negocios',
   })
 
   // Additional state for opportunities and requests (initialized from server)
   const [opportunities, setOpportunities] = useState<Opportunity[]>(initialOpportunities || [])
   const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>(initialRequests || [])
   const [opportunityFilter, setOpportunityFilter] = useState<'all' | 'with-open' | 'without-open'>('all')
-  const [visibleCount, setVisibleCount] = useState(50)
   
   // Modal state
   const [businessModalOpen, setBusinessModalOpen] = useState(false)
@@ -128,12 +129,12 @@ export default function BusinessesPageClient({
 
   // Handle opening business from URL query params or sessionStorage
   useEffect(() => {
-    // First check sessionStorage (e.g., from opportunity modal)
     const openBusinessId = sessionStorage.getItem('openBusinessId')
     if (openBusinessId) {
       sessionStorage.removeItem('openBusinessId')
-      if (businesses.length > 0) {
-        const business = businesses.find(b => b.id === openBusinessId)
+      const allBusinesses = searchResults || businesses
+      if (allBusinesses.length > 0) {
+        const business = allBusinesses.find(b => b.id === openBusinessId)
         if (business) {
           setSelectedBusiness(business)
           setBusinessModalOpen(true)
@@ -142,21 +143,21 @@ export default function BusinessesPageClient({
       }
     }
 
-    // Then check URL query params (e.g., from search)
     const openFromUrl = searchParams.get('open')
-    if (openFromUrl && businesses.length > 0) {
-      const business = businesses.find(b => b.id === openFromUrl)
-      if (business) {
-        setSelectedBusiness(business)
-        setBusinessModalOpen(true)
+    if (openFromUrl) {
+      const allBusinesses = searchResults || businesses
+      if (allBusinesses.length > 0) {
+        const business = allBusinesses.find(b => b.id === openFromUrl)
+        if (business) {
+          setSelectedBusiness(business)
+          setBusinessModalOpen(true)
+        }
       }
     }
-  }, [searchParams, businesses])
+  }, [searchParams, businesses, searchResults])
 
   // Load opportunities and booking requests alongside businesses
-  // Skip if we have server-prefetched data
   useEffect(() => {
-    // If we have initial data from server, no need to fetch
     if (initialOpportunities?.length || initialRequests?.length) {
       return
     }
@@ -197,7 +198,6 @@ export default function BusinessesPageClient({
     const map = new Map<string, number>()
     bookingRequests.forEach(req => {
       if (req.status === 'pending' && req.merchant) {
-        // Match by merchant name (case-insensitive)
         const merchantLower = req.merchant.toLowerCase()
         map.set(merchantLower, (map.get(merchantLower) || 0) + 1)
       }
@@ -205,7 +205,7 @@ export default function BusinessesPageClient({
     return map
   }, [bookingRequests])
 
-  // Helper to check if business has open opportunity (for filter tabs)
+  // Helper to check if business has open opportunity
   const businessHasOpenOpportunity = useMemo(() => {
     const map = new Map<string, boolean>()
     businessOpenOpportunityCount.forEach((count, businessId) => {
@@ -214,23 +214,19 @@ export default function BusinessesPageClient({
     return map
   }, [businessOpenOpportunityCount])
 
-  // Static filter tabs (shown immediately)
-  const staticFilterTabs: FilterTab[] = useMemo(() => [
-    { id: 'all', label: 'All' },
-    { id: 'with-open', label: 'With Open Opportunity' },
-    { id: 'without-open', label: 'Without Open Opportunity' },
-  ], [])
-  
-  // Filter tabs with counts (dynamic after load)
+  // Determine which businesses to display
+  const displayBusinesses = searchResults !== null ? searchResults : businesses
+
+  // Filter tabs with counts
   const filterTabs: FilterTab[] = useMemo(() => {
-    if (businesses.length === 0) return staticFilterTabs
-    
+    const baseBusinesses = displayBusinesses
+    const total = isSearching ? baseBusinesses.length : (initialTotal || baseBusinesses.length)
     return [
-    { id: 'all', label: 'All', count: businesses.length },
-    { id: 'with-open', label: 'With Open Opportunity', count: businesses.filter(b => businessHasOpenOpportunity.get(b.id)).length },
-    { id: 'without-open', label: 'Without Open Opportunity', count: businesses.filter(b => !businessHasOpenOpportunity.get(b.id)).length },
+      { id: 'all', label: 'All', count: total },
+      { id: 'with-open', label: 'With Open Opportunity', count: baseBusinesses.filter(b => businessHasOpenOpportunity.get(b.id)).length },
+      { id: 'without-open', label: 'Without Open Opportunity', count: baseBusinesses.filter(b => !businessHasOpenOpportunity.get(b.id)).length },
     ]
-  }, [businesses, businessHasOpenOpportunity, staticFilterTabs])
+  }, [displayBusinesses, businessHasOpenOpportunity, initialTotal, isSearching])
 
   // Get sort value for a business
   const getSortValue = useCallback((business: Business, column: string): string | number | null => {
@@ -257,28 +253,24 @@ export default function BusinessesPageClient({
     }
   }, [businessOpenOpportunityCount, businessPendingRequestCount])
 
-  // Filter and sort businesses
+  // Filter and sort businesses (client-side for opportunity filter)
   const filteredBusinesses = useMemo(() => {
-    let filtered = businesses
+    let filtered = displayBusinesses
 
-    // Opportunity filter
+    // Opportunity filter (client-side)
     if (opportunityFilter === 'with-open') {
       filtered = filtered.filter(b => businessHasOpenOpportunity.get(b.id))
     } else if (opportunityFilter === 'without-open') {
       filtered = filtered.filter(b => !businessHasOpenOpportunity.get(b.id))
     }
 
-    // Apply search filter
-    filtered = applySearchFilter(filtered)
+    // Client-side sort for search results
+    if (isSearching && sortColumn) {
+      return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
+    }
 
-    // Apply advanced filters
-    filtered = applyAdvancedFilters(filtered)
-
-    // Sort
-    return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
-  }, [businesses, opportunityFilter, businessHasOpenOpportunity, applySearchFilter, applyAdvancedFilters, sortColumn, sortDirection, getSortValue])
-
-  const visibleBusinesses = useMemo(() => filteredBusinesses.slice(0, visibleCount), [filteredBusinesses, visibleCount])
+    return filtered
+  }, [displayBusinesses, opportunityFilter, businessHasOpenOpportunity, isSearching, sortColumn, sortDirection, getSortValue])
 
   // Prefetch form config when hovering over "New Business" button
   const handleNewBusinessHover = useCallback(() => {
@@ -295,7 +287,6 @@ export default function BusinessesPageClient({
     setBusinessModalOpen(true)
   }
   
-  // Prefetch form config when hovering over a row
   const handleRowHover = useCallback(() => {
     prefetchFormConfig('business')
   }, [prefetchFormConfig])
@@ -311,13 +302,15 @@ export default function BusinessesPageClient({
 
     if (!confirmed) return
 
-    // Optimistic update
     setBusinesses(prev => prev.filter(b => b.id !== businessId))
+    if (searchResults) {
+      setSearchResults(prev => prev?.filter(b => b.id !== businessId) || null)
+    }
     
     const result = await deleteBusiness(businessId)
     if (!result.success) {
       toast.error(result.error || 'Failed to delete business')
-      loadData()
+      loadPage(currentPage)
     } else {
       toast.success('Business deleted successfully')
     }
@@ -333,34 +326,26 @@ export default function BusinessesPageClient({
     toast.success(`Exported ${count} businesses`)
   }
 
-  // CSV Upload preview handler
   async function handleUploadPreview(rows: ParsedCsvRow[]): Promise<CsvUploadPreview> {
     return previewBusinessImport(rows, businesses)
   }
 
-  // CSV Upload confirm handler
   async function handleUploadConfirm(rows: ParsedCsvRow[]): Promise<CsvUploadResult> {
     const result = await confirmBusinessImport(rows)
     if (result.created > 0 || result.updated > 0) {
-      loadData() // Reload data after successful import
+      loadPage(currentPage)
     }
     return result
   }
 
   function handleCreateRequest(business: Business) {
-    // Build query parameters with business data (matching OpportunityFormModal behavior)
     const params = new URLSearchParams()
-    
-    // Flag to trigger pre-fill logic in EnhancedBookingForm
     params.set('fromOpportunity', 'business')
-    
-    // Basic business info
     params.set('businessName', business.name)
     params.set('businessEmail', business.contactEmail)
     params.set('contactName', business.contactName || '')
     params.set('contactPhone', business.contactPhone || '')
     
-    // Category info
     if (business.category) {
       params.set('categoryId', business.category.id)
       params.set('parentCategory', business.category.parentCategory)
@@ -368,30 +353,22 @@ export default function BusinessesPageClient({
       if (business.category.subCategory2) params.set('subCategory2', business.category.subCategory2)
     }
     
-    // Legal/Tax info
     if (business.razonSocial) params.set('legalName', business.razonSocial)
     if (business.ruc) params.set('ruc', business.ruc)
-    
-    // Location info
     if (business.province) params.set('province', business.province)
     if (business.district) params.set('district', business.district)
     if (business.corregimiento) params.set('corregimiento', business.corregimiento)
     if (business.address) params.set('address', business.address)
     if (business.neighborhood) params.set('neighborhood', business.neighborhood)
-    
-    // Bank/Payment info
     if (business.bank) params.set('bank', business.bank)
     if (business.beneficiaryName) params.set('bankAccountName', business.beneficiaryName)
     if (business.accountNumber) params.set('accountNumber', business.accountNumber)
     if (business.accountType) params.set('accountType', business.accountType)
     if (business.paymentPlan) params.set('paymentPlan', business.paymentPlan)
-    
-    // Additional info
     if (business.description) params.set('description', business.description)
     if (business.website) params.set('website', business.website)
     if (business.instagram) params.set('instagram', business.instagram)
     
-    // Payment contact emails
     if (business.emailPaymentContacts) {
       const paymentEmails = business.emailPaymentContacts.split(/[;,\s]+/).filter(Boolean)
       if (paymentEmails.length > 0) {
@@ -438,30 +415,30 @@ export default function BusinessesPageClient({
     </div>
   )
 
+  const isLoading = loading || searchLoading
+
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header with Search and Filters */}
       <EntityPageHeader
         entityType="businesses"
-        searchPlaceholder="Search businesses..."
+        searchPlaceholder="Buscar en todos los negocios..."
         searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+        onSearchChange={handleSearchChange}
         filterTabs={filterTabs}
         activeFilter={opportunityFilter}
         onFilterChange={(id) => setOpportunityFilter(id as 'all' | 'with-open' | 'without-open')}
-        savedFilters={savedFilters}
-        activeFilterId={activeFilterId}
-        onFilterSelect={handleFilterSelect}
-        onAdvancedFiltersChange={handleAdvancedFiltersChange}
-        onSavedFiltersChange={loadSavedFilters}
         isAdmin={isAdmin}
         rightContent={headerRightContent}
       />
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
-        {loading ? (
-          <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200">Cargando...</div>
+        {isLoading ? (
+          <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200 flex items-center gap-2">
+            <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+            {searchLoading ? 'Buscando...' : 'Cargando...'}
+          </div>
         ) : filteredBusinesses.length === 0 ? (
           <EmptyTableState
             icon={<FilterListIcon className="w-full h-full" />}
@@ -474,13 +451,16 @@ export default function BusinessesPageClient({
           />
         ) : (
           <div className="overflow-x-auto">
+            {/* Search indicator from hook */}
+            <SearchIndicator />
+            
             <EntityTable
               columns={COLUMNS}
               sortColumn={sortColumn}
               sortDirection={sortDirection}
               onSort={handleSort}
             >
-              {visibleBusinesses.map((business, index) => (
+              {filteredBusinesses.map((business, index) => (
                 <TableRow
                   key={business.id}
                   index={index}
@@ -583,17 +563,9 @@ export default function BusinessesPageClient({
                 </TableRow>
               ))}
             </EntityTable>
-            {visibleCount < filteredBusinesses.length && (
-              <div className="p-4 border-t border-gray-100 text-center">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setVisibleCount((c) => c + 50)}
-                >
-                  Load More
-                </Button>
-              </div>
-            )}
+            
+            {/* Pagination controls from hook */}
+            <PaginationControls />
           </div>
         )}
       </div>
@@ -609,12 +581,16 @@ export default function BusinessesPageClient({
         onSuccess={(newBusiness) => {
           if (selectedBusiness) {
             setBusinesses(prev => prev.map(b => b.id === selectedBusiness.id ? newBusiness : b))
+            if (searchResults) {
+              setSearchResults(prev => prev?.map(b => b.id === selectedBusiness.id ? newBusiness : b) || null)
+            }
           } else {
             setBusinesses(prev => [newBusiness, ...prev])
           }
-          loadData()
+          if (!isSearching) {
+            loadPage(currentPage)
+          }
         }}
-        // Pass preloaded data to skip fetching
         preloadedCategories={categories}
         preloadedUsers={users}
       />
@@ -629,11 +605,10 @@ export default function BusinessesPageClient({
           }}
           opportunity={null}
           initialBusinessId={selectedBusinessForOpportunity.id}
-          onSuccess={(newOpportunity) => {
+          onSuccess={() => {
             toast.success('Opportunity created successfully')
             setOpportunityModalOpen(false)
             setSelectedBusinessForOpportunity(null)
-            // Reload opportunities to update the "Open" badge
             getOpportunities().then(result => {
               if (result.success && result.data) {
                 setOpportunities(result.data)

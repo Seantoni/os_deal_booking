@@ -453,8 +453,11 @@ const formatCurrency = (value: number) => {
                 <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                   <div className="h-44 flex items-end gap-[2px]">
                     {dailyStats.launchesPerDay.map((day, index) => {
-                      const maxCount = Math.max(...dailyStats.launchesPerDay.map(d => d.count), 1)
-                      const heightPx = Math.max((day.count / maxCount) * 140, day.count > 0 ? 8 : 2) // 140px max for bars
+                      // First day is when we started collecting data, so show 0
+                      const adjustedCount = index === 0 ? 0 : day.count
+                      const adjustedData = dailyStats.launchesPerDay.map((d, i) => i === 0 ? 0 : d.count)
+                      const maxCount = Math.max(...adjustedData, 1)
+                      const heightPx = Math.max((adjustedCount / maxCount) * 140, adjustedCount > 0 ? 8 : 2) // 140px max for bars
                       // Parse date as local timezone
                       const dateParts = day.date.split('-')
                       const date = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]))
@@ -464,21 +467,21 @@ const formatCurrency = (value: number) => {
                       return (
                         <div key={day.date} className="flex-1 min-w-[4px] flex flex-col justify-end items-center group relative">
                           {/* Value label on hover */}
-                          {day.count > 0 && (
+                          {adjustedCount > 0 && (
                             <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap z-10">
-                              {day.count}
+                              {adjustedCount}
                             </div>
                           )}
                           <div 
                             className={`w-full rounded-t transition-all cursor-pointer ${
                               isToday 
                                 ? 'bg-gradient-to-t from-green-600 to-green-400' 
-                                : day.count > 0 
+                                : adjustedCount > 0 
                                   ? 'bg-gradient-to-t from-blue-500 to-blue-300'
                                   : 'bg-gray-200'
                             } hover:opacity-80`}
                             style={{ height: `${heightPx}px` }}
-                            title={`${day.date}: ${day.count} ofertas`}
+                            title={`${day.date}: ${adjustedCount} ofertas${index === 0 ? ' (inicio de tracking)' : ''}`}
                           />
                         </div>
                       )
@@ -495,7 +498,7 @@ const formatCurrency = (value: number) => {
                     })}
                   </div>
                   <div className="mt-2 text-xs text-gray-500 text-center">
-                    Total: {dailyStats.launchesPerDay.reduce((sum, d) => sum + d.count, 0)} ofertas en {dailyStats.launchesPerDay.length} días
+                    Total: {dailyStats.launchesPerDay.reduce((sum, d, i) => sum + (i === 0 ? 0 : d.count), 0)} ofertas en {dailyStats.launchesPerDay.length - 1} días
                   </div>
                 </div>
               </div>
@@ -506,8 +509,11 @@ const formatCurrency = (value: number) => {
                 <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                   <div className="h-44 flex items-end gap-[2px]">
                     {dailyStats.salesPerDay.map((day, index) => {
-                      const maxSales = Math.max(...dailyStats.salesPerDay.map(d => d.totalSold), 1)
-                      const heightPx = Math.max((day.totalSold / maxSales) * 140, day.totalSold > 0 ? 8 : 2) // 140px max for bars
+                      // First day is when we started collecting data, so show 0
+                      const adjustedSales = index === 0 ? 0 : day.totalSold
+                      const adjustedData = dailyStats.salesPerDay.map((d, i) => i === 0 ? 0 : d.totalSold)
+                      const maxSales = Math.max(...adjustedData, 1)
+                      const heightPx = Math.max((adjustedSales / maxSales) * 140, adjustedSales > 0 ? 8 : 2) // 140px max for bars
                       // Parse date as local timezone
                       const dateParts = day.date.split('-')
                       const date = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]))
@@ -517,21 +523,21 @@ const formatCurrency = (value: number) => {
                       return (
                         <div key={day.date} className="flex-1 min-w-[4px] flex flex-col justify-end items-center group relative">
                           {/* Value label on hover */}
-                          {day.totalSold > 0 && (
+                          {adjustedSales > 0 && (
                             <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap z-10">
-                              {day.totalSold.toLocaleString()}
+                              {adjustedSales.toLocaleString()}
                             </div>
                           )}
                           <div 
                             className={`w-full rounded-t transition-all cursor-pointer ${
                               isToday 
                                 ? 'bg-gradient-to-t from-orange-600 to-orange-400' 
-                                : day.totalSold > 0
+                                : adjustedSales > 0
                                   ? 'bg-gradient-to-t from-purple-500 to-purple-300'
                                   : 'bg-gray-200'
                             } hover:opacity-80`}
                             style={{ height: `${heightPx}px` }}
-                            title={`${day.date}: ${day.totalSold.toLocaleString()} ventas (${day.dealsCount} ofertas)`}
+                            title={`${day.date}: ${adjustedSales.toLocaleString()} ventas${index === 0 ? ' (inicio de tracking)' : ` (${day.dealsCount} ofertas)`}`}
                           />
                         </div>
                       )
@@ -548,7 +554,7 @@ const formatCurrency = (value: number) => {
                     })}
                   </div>
                   <div className="mt-2 text-xs text-gray-500 text-center">
-                    Total: {dailyStats.salesPerDay.reduce((sum, d) => sum + d.totalSold, 0).toLocaleString()} ventas
+                    Total: {dailyStats.salesPerDay.reduce((sum, d, i) => sum + (i === 0 ? 0 : d.totalSold), 0).toLocaleString()} ventas
                   </div>
                 </div>
               </div>

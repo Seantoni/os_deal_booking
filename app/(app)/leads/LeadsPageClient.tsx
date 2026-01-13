@@ -2,8 +2,8 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import dynamic from 'next/dynamic'
-import { getLeads, deleteLead } from '@/app/actions/leads'
-import { LEAD_STAGE_LABELS, LEAD_STAGE_COLORS } from '@/lib/constants'
+import { getLeadsPaginated, searchLeads, deleteLead } from '@/app/actions/leads'
+import { LEAD_STAGE_LABELS } from '@/lib/constants'
 import type { Lead } from '@/types'
 import AddIcon from '@mui/icons-material/Add'
 import FilterListIcon from '@mui/icons-material/FilterList'
@@ -13,8 +13,8 @@ import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useFormConfigCache } from '@/hooks/useFormConfigCache'
-import { useEntityPage, sortEntities } from '@/hooks/useEntityPage'
-import { logger } from '@/lib/logger'
+import { usePaginatedSearch } from '@/hooks/usePaginatedSearch'
+import { sortEntities } from '@/hooks/useEntityPage'
 import { 
   EntityPageHeader, 
   EmptyTableState, 
@@ -22,7 +22,7 @@ import {
   type ColumnConfig,
 } from '@/components/shared'
 import { Button } from '@/components/ui'
-import { EntityTable, CellStack, StatusPill, TableRow, TableCell } from '@/components/shared/table'
+import { EntityTable, StatusPill, TableRow, TableCell } from '@/components/shared/table'
 
 // Lazy load the modal
 const LeadFormModal = dynamic(() => import('@/components/crm/lead/LeadFormModal'), {
@@ -43,45 +43,47 @@ const COLUMNS: ColumnConfig[] = [
   { key: 'actions', label: '', width: 'w-10' },
 ]
 
-// Search fields for leads
-const SEARCH_FIELDS = ['name', 'contactName', 'contactEmail', 'contactPhone', 'source']
+interface LeadsPageClientProps {
+  initialLeads?: Lead[]
+  initialTotal?: number
+}
 
-export default function LeadsPageClient() {
+export default function LeadsPageClient({
+  initialLeads,
+  initialTotal = 0,
+}: LeadsPageClientProps = {}) {
   const { role: userRole } = useUserRole()
   const isAdmin = userRole === 'admin'
   
   // Get form config cache for prefetching
   const { prefetch: prefetchFormConfig } = useFormConfigCache()
   
-  // Use shared hook for common functionality
+  // Use the reusable paginated search hook
   const {
     data: leads,
     setData: setLeads,
+    searchResults,
+    setSearchResults,
     loading,
+    searchLoading,
     searchQuery,
-    setSearchQuery,
+    handleSearchChange,
+    isSearching,
+    currentPage,
+    totalCount,
     sortColumn,
     sortDirection,
     handleSort,
-    savedFilters,
-    activeFilterId,
-    handleFilterSelect,
-    handleAdvancedFiltersChange,
-    loadData,
-    loadSavedFilters,
-    applySearchFilter,
-    applyAdvancedFilters,
-  } = useEntityPage<Lead>({
-    entityType: 'leads',
-    fetchFn: async () => {
-      const result = await getLeads()
-      if (result.success && result.data) {
-        return { success: true, data: result.data as Lead[] }
-      }
-      return result as { success: boolean; data?: Lead[]; error?: string }
-    },
-    searchFields: SEARCH_FIELDS,
-    defaultSortDirection: 'desc',
+    loadPage,
+    PaginationControls,
+    SearchIndicator,
+  } = usePaginatedSearch<Lead>({
+    fetchPaginated: getLeadsPaginated,
+    searchFn: searchLeads,
+    initialData: initialLeads,
+    initialTotal,
+    pageSize: 50,
+    entityName: 'leads',
   })
 
   // Stage filter state
@@ -90,50 +92,24 @@ export default function LeadsPageClient() {
   // Modal state
   const [leadModalOpen, setLeadModalOpen] = useState(false)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
-  const [visibleCount, setVisibleCount] = useState(50)
   
   const confirmDialog = useConfirmDialog()
 
-  // Get unique responsible users for filtering
-  const responsibleUsers = useMemo(() => {
-    const users = new Map<string, { clerkId: string; name: string | null; email: string | null }>()
-    leads.forEach(lead => {
-      if (lead.responsible) {
-        users.set(lead.responsible.clerkId, {
-          clerkId: lead.responsible.clerkId,
-          name: lead.responsible.name,
-          email: lead.responsible.email,
-        })
-      }
-    })
-    return Array.from(users.values())
-  }, [leads])
+  // Determine which leads to display
+  const displayLeads = searchResults !== null ? searchResults : leads
 
-  // Static filter tabs (shown immediately)
-  const staticFilterTabs: FilterTab[] = useMemo(() => [
-    { id: 'all', label: 'All' },
-    ...Object.entries(LEAD_STAGE_LABELS).map(([key, label]) => ({
-      id: key,
-      label,
-    }))
-  ], [])
-  
-  // Stage filter tabs with counts (dynamic after load)
+  // Stage filter tabs with counts
   const filterTabs: FilterTab[] = useMemo(() => {
-    const counts: Record<string, number> = { all: leads.length }
-    Object.keys(LEAD_STAGE_LABELS).forEach(stage => {
-      counts[stage] = leads.filter(l => l.stage === stage).length
-    })
-    
+    const baseLeads = displayLeads
     return [
-      { id: 'all', label: 'All', count: counts.all },
+      { id: 'all', label: 'All', count: isSearching ? baseLeads.length : totalCount },
       ...Object.entries(LEAD_STAGE_LABELS).map(([key, label]) => ({
         id: key,
         label,
-        count: counts[key] || 0
+        count: baseLeads.filter(l => l.stage === key).length
       }))
     ]
-  }, [leads, staticFilterTabs])
+  }, [displayLeads, totalCount, isSearching])
 
   // Get sort value for a lead
   const getSortValue = useCallback((lead: Lead, column: string): string | number | null => {
@@ -158,26 +134,22 @@ export default function LeadsPageClient() {
     }
   }, [])
 
-  // Filter and sort leads
+  // Filter and sort leads (client-side for stage filter)
   const filteredLeads = useMemo(() => {
-    let filtered = leads
+    let filtered = displayLeads
 
     // Stage filter
     if (stageFilter !== 'all') {
       filtered = filtered.filter(l => l.stage === stageFilter)
     }
 
-    // Apply search filter
-    filtered = applySearchFilter(filtered)
+    // Client-side sort for search results
+    if (isSearching && sortColumn) {
+      return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
+    }
 
-    // Apply advanced filters
-    filtered = applyAdvancedFilters(filtered)
-
-    // Sort
-    return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
-  }, [leads, stageFilter, applySearchFilter, applyAdvancedFilters, sortColumn, sortDirection, getSortValue])
-
-  const visibleLeads = useMemo(() => filteredLeads.slice(0, visibleCount), [filteredLeads, visibleCount])
+    return filtered
+  }, [displayLeads, stageFilter, isSearching, sortColumn, sortDirection, getSortValue])
 
   // Prefetch form config when hovering over a row
   const handleRowHover = useCallback(() => {
@@ -207,11 +179,14 @@ export default function LeadsPageClient() {
 
     // Optimistic update
     setLeads(prev => prev.filter(l => l.id !== leadId))
+    if (searchResults) {
+      setSearchResults(prev => prev?.filter(l => l.id !== leadId) || null)
+    }
     
     const result = await deleteLead(leadId)
     if (!result.success) {
       toast.error(result.error || 'Error al eliminar el lead')
-      loadData()
+      loadPage(currentPage)
     } else {
       toast.success('Lead eliminado exitosamente')
     }
@@ -231,30 +206,30 @@ export default function LeadsPageClient() {
     </Button>
   )
 
+  const isLoading = loading || searchLoading
+
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header with Search and Filters */}
       <EntityPageHeader
         entityType="leads"
-        searchPlaceholder="Buscar leads..."
+        searchPlaceholder="Buscar en todos los leads..."
         searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+        onSearchChange={handleSearchChange}
         filterTabs={filterTabs}
         activeFilter={stageFilter}
         onFilterChange={setStageFilter}
-        savedFilters={savedFilters}
-        activeFilterId={activeFilterId}
-        onFilterSelect={handleFilterSelect}
-        onAdvancedFiltersChange={handleAdvancedFiltersChange}
-        onSavedFiltersChange={loadSavedFilters}
         isAdmin={isAdmin}
         rightContent={headerRightContent}
       />
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-4">
-        {loading ? (
-          <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200">Cargando...</div>
+        {isLoading ? (
+          <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200 flex items-center gap-2">
+            <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+            {searchLoading ? 'Buscando...' : 'Cargando...'}
+          </div>
         ) : filteredLeads.length === 0 ? (
           <EmptyTableState
             icon={<FilterListIcon className="w-full h-full" />}
@@ -267,13 +242,15 @@ export default function LeadsPageClient() {
           />
         ) : (
           <div className="overflow-x-auto">
+            <SearchIndicator />
+            
             <EntityTable
               columns={COLUMNS}
               sortColumn={sortColumn}
               sortDirection={sortDirection}
               onSort={handleSort}
             >
-              {visibleLeads.map((lead, index) => (
+              {filteredLeads.map((lead, index) => (
                 <TableRow
                   key={lead.id}
                   index={index}
@@ -339,17 +316,8 @@ export default function LeadsPageClient() {
                 </TableRow>
               ))}
             </EntityTable>
-            {visibleCount < filteredLeads.length && (
-              <div className="p-4 border-t border-gray-100 text-center">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setVisibleCount((c) => c + 50)}
-                >
-                  Load More
-                </Button>
-              </div>
-            )}
+            
+            <PaginationControls />
           </div>
         )}
       </div>
@@ -365,10 +333,15 @@ export default function LeadsPageClient() {
         onSuccess={(newLead) => {
           if (selectedLead) {
             setLeads(prev => prev.map(l => l.id === selectedLead.id ? newLead : l))
+            if (searchResults) {
+              setSearchResults(prev => prev?.map(l => l.id === selectedLead.id ? newLead : l) || null)
+            }
           } else {
             setLeads(prev => [newLead, ...prev])
           }
-          loadData()
+          if (!isSearching) {
+            loadPage(currentPage)
+          }
         }}
       />
 

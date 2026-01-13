@@ -205,6 +205,197 @@ export async function getDeals() {
 }
 
 /**
+ * Get deals with pagination
+ */
+export async function getDealsPaginated(options: {
+  page?: number
+  pageSize?: number
+  sortBy?: string
+  sortDirection?: 'asc' | 'desc'
+} = {}) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc' } = options
+
+    // Build where clause based on role
+    const whereClause: Prisma.DealWhereInput = {}
+    if (role === 'editor') {
+      whereClause.responsibleId = userId
+    } else if (role === 'ere') {
+      whereClause.ereResponsibleId = userId
+    }
+
+    // Get total count
+    const total = await prisma.deal.count({ where: whereClause })
+
+    // Build orderBy
+    const orderBy: Record<string, 'asc' | 'desc'> = {}
+    orderBy.createdAt = sortDirection
+
+    // Get paginated deals
+    const deals = await prisma.deal.findMany({
+      where: whereClause,
+      include: {
+        bookingRequest: {
+          select: {
+            id: true,
+            name: true,
+            businessEmail: true,
+            startDate: true,
+            endDate: true,
+            status: true,
+            parentCategory: true,
+            subCategory1: true,
+            subCategory2: true,
+            processedAt: true,
+            opportunityId: true,
+            merchant: true,
+            sourceType: true,
+          },
+        },
+      },
+      orderBy,
+      skip: page * pageSize,
+      take: pageSize,
+    })
+
+    // Get user info for responsible fields
+    const userIds = [
+      ...deals.map((d: { responsibleId: string | null }) => d.responsibleId).filter((id): id is string => id !== null),
+      ...deals.map((d: { ereResponsibleId: string | null }) => d.ereResponsibleId).filter((id): id is string => id !== null),
+    ]
+    const uniqueUserIds = [...new Set(userIds)]
+    
+    const users = uniqueUserIds.length > 0
+      ? await prisma.userProfile.findMany({
+          where: { clerkId: { in: uniqueUserIds } },
+          select: { clerkId: true, name: true, email: true },
+        })
+      : []
+
+    const dealsWithUsers = deals.map((deal: { responsibleId: string | null; ereResponsibleId: string | null }) => ({
+      ...deal,
+      responsible: deal.responsibleId 
+        ? users.find((u: { clerkId: string }) => u.clerkId === deal.responsibleId) || null
+        : null,
+      ereResponsible: deal.ereResponsibleId
+        ? users.find((u: { clerkId: string }) => u.clerkId === deal.ereResponsibleId) || null
+        : null,
+    }))
+
+    return { 
+      success: true, 
+      data: dealsWithUsers, 
+      total, 
+      page, 
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getDealsPaginated')
+  }
+}
+
+/**
+ * Search deals across ALL records (server-side search)
+ */
+export async function searchDeals(query: string, options: {
+  limit?: number
+} = {}) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    const { limit = 100 } = options
+
+    if (!query || query.trim().length < 2) {
+      return { success: true, data: [] }
+    }
+
+    const searchTerm = query.trim()
+
+    // Build where clause based on role
+    const roleFilter: Prisma.DealWhereInput = {}
+    if (role === 'editor') {
+      roleFilter.responsibleId = userId
+    } else if (role === 'ere') {
+      roleFilter.ereResponsibleId = userId
+    }
+
+    // Search across booking request fields
+    const deals = await prisma.deal.findMany({
+      where: {
+        ...roleFilter,
+        OR: [
+          { bookingRequest: { name: { contains: searchTerm, mode: 'insensitive' } } },
+          { bookingRequest: { merchant: { contains: searchTerm, mode: 'insensitive' } } },
+          { bookingRequest: { businessEmail: { contains: searchTerm, mode: 'insensitive' } } },
+        ],
+      },
+      include: {
+        bookingRequest: {
+          select: {
+            id: true,
+            name: true,
+            businessEmail: true,
+            startDate: true,
+            endDate: true,
+            status: true,
+            parentCategory: true,
+            subCategory1: true,
+            subCategory2: true,
+            processedAt: true,
+            opportunityId: true,
+            merchant: true,
+            sourceType: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    })
+
+    // Get user info for responsible fields
+    const userIds = [
+      ...deals.map((d: { responsibleId: string | null }) => d.responsibleId).filter((id): id is string => id !== null),
+      ...deals.map((d: { ereResponsibleId: string | null }) => d.ereResponsibleId).filter((id): id is string => id !== null),
+    ]
+    const uniqueUserIds = [...new Set(userIds)]
+    
+    const users = uniqueUserIds.length > 0
+      ? await prisma.userProfile.findMany({
+          where: { clerkId: { in: uniqueUserIds } },
+          select: { clerkId: true, name: true, email: true },
+        })
+      : []
+
+    const dealsWithUsers = deals.map((deal: { responsibleId: string | null; ereResponsibleId: string | null }) => ({
+      ...deal,
+      responsible: deal.responsibleId 
+        ? users.find((u: { clerkId: string }) => u.clerkId === deal.responsibleId) || null
+        : null,
+      ereResponsible: deal.ereResponsibleId
+        ? users.find((u: { clerkId: string }) => u.clerkId === deal.ereResponsibleId) || null
+        : null,
+    }))
+
+    return { success: true, data: dealsWithUsers }
+  } catch (error) {
+    return handleServerActionError(error, 'searchDeals')
+  }
+}
+
+/**
  * Get a deal by booking request ID
  */
 export async function getDealByBookingRequestId(bookingRequestId: string) {

@@ -69,6 +69,155 @@ export async function getLeads() {
 }
 
 /**
+ * Get leads with pagination
+ */
+export async function getLeadsPaginated(options: {
+  page?: number
+  pageSize?: number
+  sortBy?: string
+  sortDirection?: 'asc' | 'desc'
+} = {}) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    const isAdmin = role === 'admin'
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc' } = options
+
+    // Build where clause based on role
+    let whereClause = {}
+    if (!isAdmin && role === 'sales') {
+      whereClause = { responsibleId: userId }
+    }
+
+    // Get total count
+    const total = await prisma.lead.count({ where: whereClause })
+
+    // Build orderBy
+    const orderBy: Record<string, 'asc' | 'desc'> = {}
+    orderBy[sortBy === 'name' ? 'name' : 'createdAt'] = sortDirection
+
+    // Get paginated leads
+    const leads = await prisma.lead.findMany({
+      where: whereClause,
+      include: {
+        category: true,
+        business: {
+          select: { id: true, name: true },
+        },
+      },
+      orderBy,
+      skip: page * pageSize,
+      take: pageSize,
+    })
+
+    // Fetch responsible users
+    const responsibleIds = [...new Set(leads.filter(l => l.responsibleId).map(l => l.responsibleId!))]
+    const responsibleUsers = responsibleIds.length > 0
+      ? await prisma.userProfile.findMany({
+          where: { clerkId: { in: responsibleIds } },
+          select: { clerkId: true, name: true, email: true },
+        })
+      : []
+
+    const responsibleMap = new Map(responsibleUsers.map(u => [u.clerkId, u]))
+
+    const leadsWithResponsible = leads.map(lead => ({
+      ...lead,
+      responsible: lead.responsibleId ? responsibleMap.get(lead.responsibleId) || null : null,
+    }))
+
+    return { 
+      success: true, 
+      data: leadsWithResponsible, 
+      total, 
+      page, 
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getLeadsPaginated')
+  }
+}
+
+/**
+ * Search leads across ALL records (server-side search)
+ */
+export async function searchLeads(query: string, options: {
+  limit?: number
+} = {}) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    const isAdmin = role === 'admin'
+    const { limit = 100 } = options
+
+    if (!query || query.trim().length < 2) {
+      return { success: true, data: [] }
+    }
+
+    const searchTerm = query.trim()
+
+    // Build where clause based on role
+    let roleFilter = {}
+    if (!isAdmin && role === 'sales') {
+      roleFilter = { responsibleId: userId }
+    }
+
+    // Search across multiple fields
+    const leads = await prisma.lead.findMany({
+      where: {
+        ...roleFilter,
+        OR: [
+          { name: { contains: searchTerm, mode: 'insensitive' } },
+          { contactName: { contains: searchTerm, mode: 'insensitive' } },
+          { contactEmail: { contains: searchTerm, mode: 'insensitive' } },
+          { contactPhone: { contains: searchTerm, mode: 'insensitive' } },
+          { source: { contains: searchTerm, mode: 'insensitive' } },
+        ],
+      },
+      include: {
+        category: true,
+        business: {
+          select: { id: true, name: true },
+        },
+      },
+      orderBy: { name: 'asc' },
+      take: limit,
+    })
+
+    // Fetch responsible users
+    const responsibleIds = [...new Set(leads.filter(l => l.responsibleId).map(l => l.responsibleId!))]
+    const responsibleUsers = responsibleIds.length > 0
+      ? await prisma.userProfile.findMany({
+          where: { clerkId: { in: responsibleIds } },
+          select: { clerkId: true, name: true, email: true },
+        })
+      : []
+
+    const responsibleMap = new Map(responsibleUsers.map(u => [u.clerkId, u]))
+
+    const leadsWithResponsible = leads.map(lead => ({
+      ...lead,
+      responsible: lead.responsibleId ? responsibleMap.get(lead.responsibleId) || null : null,
+    }))
+
+    return { success: true, data: leadsWithResponsible }
+  } catch (error) {
+    return handleServerActionError(error, 'searchLeads')
+  }
+}
+
+/**
  * Get a single lead by ID
  */
 export async function getLead(id: string) {

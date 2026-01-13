@@ -109,6 +109,150 @@ export async function getOpportunities() {
 }
 
 /**
+ * Get opportunities with pagination (cacheable, <2MB per page)
+ */
+export async function getOpportunitiesPaginated(options: {
+  page?: number
+  pageSize?: number
+  sortBy?: string
+  sortDirection?: 'asc' | 'desc'
+} = {}) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc' } = options
+
+    // Build where clause based on role
+    const whereClause: Record<string, unknown> = {}
+    if (role === 'sales') {
+      whereClause.responsibleId = userId
+    } else if (role === 'editor' || role === 'ere') {
+      return { success: true, data: [], total: 0, page, pageSize }
+    }
+
+    // Get total count
+    const total = await prisma.opportunity.count({ where: whereClause })
+
+    // Build orderBy
+    const orderBy: Record<string, 'asc' | 'desc'> = {}
+    if (sortBy === 'startDate') {
+      orderBy.startDate = sortDirection
+    } else if (sortBy === 'closeDate') {
+      orderBy.closeDate = sortDirection
+    } else {
+      orderBy.createdAt = sortDirection
+    }
+
+    // Get paginated opportunities
+    const opportunities = await prisma.opportunity.findMany({
+      where: whereClause,
+      include: {
+        business: {
+          include: {
+            category: {
+              select: {
+                id: true,
+                categoryKey: true,
+                parentCategory: true,
+                subCategory1: true,
+                subCategory2: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy,
+      skip: page * pageSize,
+      take: pageSize,
+    })
+
+    return { 
+      success: true, 
+      data: opportunities, 
+      total, 
+      page, 
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getOpportunitiesPaginated')
+  }
+}
+
+/**
+ * Search opportunities across ALL records (server-side search)
+ */
+export async function searchOpportunities(query: string, options: {
+  limit?: number
+} = {}) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    const { limit = 100 } = options
+
+    if (!query || query.trim().length < 2) {
+      return { success: true, data: [] }
+    }
+
+    const searchTerm = query.trim()
+
+    // Build where clause based on role
+    const roleFilter: Record<string, unknown> = {}
+    if (role === 'sales') {
+      roleFilter.responsibleId = userId
+    } else if (role === 'editor' || role === 'ere') {
+      return { success: true, data: [] }
+    }
+
+    // Search across business name, contact, and notes
+    const opportunities = await prisma.opportunity.findMany({
+      where: {
+        ...roleFilter,
+        OR: [
+          { business: { name: { contains: searchTerm, mode: 'insensitive' } } },
+          { business: { contactName: { contains: searchTerm, mode: 'insensitive' } } },
+          { business: { contactEmail: { contains: searchTerm, mode: 'insensitive' } } },
+          { notes: { contains: searchTerm, mode: 'insensitive' } },
+        ],
+      },
+      include: {
+        business: {
+          include: {
+            category: {
+              select: {
+                id: true,
+                categoryKey: true,
+                parentCategory: true,
+                subCategory1: true,
+                subCategory2: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: limit,
+    })
+
+    return { success: true, data: opportunities }
+  } catch (error) {
+    return handleServerActionError(error, 'searchOpportunities')
+  }
+}
+
+/**
  * Get opportunities by business ID
  */
 export async function getOpportunitiesByBusiness(businessId: string) {
@@ -143,251 +287,6 @@ export async function getOpportunitiesByBusiness(businessId: string) {
     return { success: true, data: opportunities }
   } catch (error) {
     return handleServerActionError(error, 'getOpportunitiesByBusiness')
-  }
-}
-
-/**
- * Get pipeline data: all opportunities with their linked booking requests
- * Returns unified data for the pipeline view
- */
-export async function getPipelineData() {
-  const authResult = await requireAuth()
-  if (!('userId' in authResult)) {
-    return authResult
-  }
-  const { userId } = authResult
-
-  try {
-    const role = await getUserRole()
-    const cacheKey = `pipeline-data-${userId}-${role}`
-
-    const getCachedPipelineData = unstable_cache(
-      async () => {
-        // Build where clause based on role
-        const whereClause: Record<string, unknown> = {}
-        
-        if (role === 'sales') {
-          // Sales only see opportunities where they are the responsible person
-          whereClause.responsibleId = userId
-        } else if (role === 'editor' || role === 'ere') {
-          // Editors and ERE don't have access to pipeline
-          return []
-        }
-        // Admin sees all (no where clause)
-
-        // Get all opportunities with business data
-        const opportunities = await prisma.opportunity.findMany({
-          where: whereClause,
-          include: {
-            business: {
-              include: {
-                category: {
-                  select: {
-                    id: true,
-                    categoryKey: true,
-                    parentCategory: true,
-                    subCategory1: true,
-                    subCategory2: true,
-                  },
-                },
-              },
-            },
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-        })
-
-        // Get all booking requests that are linked to opportunities
-        const opportunityIdsWithRequests = opportunities
-          .filter(opp => opp.bookingRequestId)
-          .map(opp => opp.bookingRequestId!)
-        
-        const linkedRequests = opportunityIdsWithRequests.length > 0
-          ? await prisma.bookingRequest.findMany({
-              where: {
-                id: {
-                  in: opportunityIdsWithRequests,
-                },
-              },
-              orderBy: {
-                createdAt: 'desc',
-              },
-            })
-          : []
-
-        // Get standalone booking requests (not linked to any opportunity)
-        const standaloneWhere: Record<string, unknown> = {
-          opportunityId: null,
-        }
-        if (role === 'sales') {
-          standaloneWhere.userId = userId
-        }
-
-        const standaloneRequests = await prisma.bookingRequest.findMany({
-          where: standaloneWhere,
-          orderBy: {
-            createdAt: 'desc',
-          },
-        })
-
-        // Combine all requests
-        const allRequests = [...linkedRequests, ...standaloneRequests]
-
-        // Create a map of bookingRequestId -> bookingRequest
-        const requestMap = new Map<string, typeof allRequests[0]>()
-        allRequests.forEach(req => {
-          requestMap.set(req.id, req)
-        })
-
-        // Combine opportunities with their requests
-        const opportunityItems = opportunities.map(opp => ({
-          opportunity: opp,
-          bookingRequest: opp.bookingRequestId ? requestMap.get(opp.bookingRequestId) || null : null,
-        }))
-
-        // Create pipeline items for standalone requests
-        const standaloneItems = standaloneRequests.map(req => ({
-          opportunity: null,
-          bookingRequest: req,
-        }))
-
-        // Merge and sort pipeline data
-        const pipelineData = [...opportunityItems, ...standaloneItems].sort((a, b) => {
-          const dateA = a.opportunity?.createdAt || a.bookingRequest?.createdAt || new Date(0)
-          const dateB = b.opportunity?.createdAt || b.bookingRequest?.createdAt || new Date(0)
-          return dateB.getTime() - dateA.getTime()
-        })
-
-        // Get all deals (only for booked requests)
-        const bookedRequestIds = allRequests
-          .filter(req => req.status === 'booked')
-          .map(req => req.id)
-        
-        const deals = bookedRequestIds.length > 0
-          ? await prisma.deal.findMany({
-              where: {
-                bookingRequestId: {
-                  in: bookedRequestIds,
-                },
-              },
-              include: {
-                bookingRequest: {
-                  select: {
-                    id: true,
-                    name: true,
-                    businessEmail: true,
-                    startDate: true,
-                    endDate: true,
-                    status: true,
-                    parentCategory: true,
-                    subCategory1: true,
-                    subCategory2: true,
-                    processedAt: true,
-                    opportunityId: true,
-                  },
-                },
-              },
-              orderBy: {
-                createdAt: 'desc',
-              },
-            })
-          : []
-
-        // Get opportunities for deals to find responsibleId
-        const dealOpportunityIds = deals
-          .map(d => d.bookingRequest.opportunityId)
-          .filter((id): id is string => id !== null)
-        
-        const dealOpportunities = dealOpportunityIds.length > 0
-          ? await prisma.opportunity.findMany({
-              where: { id: { in: dealOpportunityIds } },
-              select: {
-                id: true,
-                responsibleId: true,
-                businessId: true,
-                business: {
-                  include: {
-                    category: {
-                      select: {
-                        id: true,
-                        categoryKey: true,
-                        parentCategory: true,
-                        subCategory1: true,
-                        subCategory2: true,
-                      },
-                    },
-                  },
-                },
-              },
-            })
-          : []
-
-        const dealOpportunityMap = new Map(dealOpportunities.map(o => [o.id, o]))
-
-        // Add deals to pipeline data
-        const dealsWithOpportunity = deals.map(deal => {
-          const opportunity = deal.bookingRequest.opportunityId
-            ? dealOpportunityMap.get(deal.bookingRequest.opportunityId)
-            : null
-          
-          return {
-            deal,
-            opportunity,
-            bookingRequest: deal.bookingRequest,
-          }
-        })
-
-        // Get pre-booked events (events with status 'pre-booked' that don't have booking requests)
-        // These are events created directly by admin on the calendar
-        const preBookedEventsWhere: Record<string, unknown> = {
-          status: 'pre-booked',
-          bookingRequestId: null,
-        }
-        if (role === 'sales') {
-          preBookedEventsWhere.userId = userId
-        }
-
-        const preBookedEvents = await prisma.event.findMany({
-          where: preBookedEventsWhere,
-          orderBy: {
-            createdAt: 'desc',
-          },
-        })
-
-        // Format pre-booked events to match the expected structure
-        const formattedPreBookedEvents = preBookedEvents.map(event => ({
-          event: {
-            id: event.id,
-            name: event.name,
-            startDate: event.startDate,
-            endDate: event.endDate,
-            status: event.status,
-            merchant: event.merchant,
-            parentCategory: event.parentCategory,
-            subCategory1: event.subCategory1,
-            subCategory2: event.subCategory2,
-            createdAt: event.createdAt,
-          },
-        }))
-
-        return {
-          opportunities: pipelineData,
-          deals: dealsWithOpportunity,
-          preBookedEvents: formattedPreBookedEvents,
-        }
-      },
-      [cacheKey],
-      {
-        tags: ['opportunities', 'booking-requests', 'deals', 'events'],
-        revalidate: CACHE_REVALIDATE_SECONDS,
-      }
-    )
-
-    const data = await getCachedPipelineData()
-    return { success: true, data }
-  } catch (error) {
-    return handleServerActionError(error, 'getPipelineData')
   }
 }
 

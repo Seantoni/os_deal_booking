@@ -200,17 +200,23 @@ export async function createOpportunityComment(
 
     // Send email notifications to mentioned users (async, don't wait)
     if (data.mentions && data.mentions.length > 0) {
-      sendOpportunityMentionNotifications({
-        commentId: comment.id,
-        authorId: userId,
-        authorName: author?.name || author?.email || 'Alguien',
-        mentionedUserIds: data.mentions,
-        content: data.content,
-        opportunityId,
-        businessName: opportunity.business.name,
-      }).catch(err => {
-        logger.error('Error sending opportunity mention notifications:', err)
-      })
+      // Check if email notifications are enabled
+      const { ENABLE_MENTION_NOTIFICATION_EMAILS } = await import('@/lib/email/config')
+      if (ENABLE_MENTION_NOTIFICATION_EMAILS) {
+        sendOpportunityMentionNotifications({
+          commentId: comment.id,
+          authorId: userId,
+          authorName: author?.name || author?.email || 'Alguien',
+          mentionedUserIds: data.mentions,
+          content: data.content,
+          opportunityId,
+          businessName: opportunity.business.name,
+        }).catch(err => {
+          logger.error('Error sending opportunity mention notifications:', err)
+        })
+      } else {
+        logger.info('Mention notification emails are disabled - skipping email send')
+      }
     }
 
     const commentWithAuthor: OpportunityCommentWithAuthor = {
