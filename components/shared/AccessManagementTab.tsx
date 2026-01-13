@@ -10,7 +10,7 @@ import {
   inviteUser,
 } from '@/app/actions/access-control'
 import { getAllUserProfiles, updateUserRole } from '@/app/actions/users'
-import type { UserRole } from '@/lib/auth/roles'
+import type { UserRole } from '@/lib/constants'
 import { USER_ROLE_OPTIONS } from '@/lib/constants'
 import toast from 'react-hot-toast'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
-import { getUserRole, type UserRole } from './roles'
+import { getUserRole } from './roles'
+import type { UserRole } from '@/lib/constants'
 
 /**
  * Define which roles can access which pages

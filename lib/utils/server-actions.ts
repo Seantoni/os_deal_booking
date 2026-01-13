@@ -4,7 +4,8 @@
  */
 
 import { auth } from '@clerk/nextjs/server'
-import { getUserRole as _getUserRole, type UserRole } from '@/lib/auth/roles'
+import { getUserRole as _getUserRole } from '@/lib/auth/roles'
+import type { UserRole } from '@/lib/constants'
 
 // Re-export getUserRole for use in other actions
 export const getUserRole = _getUserRole

@@ -11,8 +11,10 @@ export {
   isEditor,
   getUserRole,
   requireAdmin,
-  type UserRole,
 } from './roles'
+
+// Re-export UserRole type from constants
+export type { UserRole } from '@/lib/constants'
 
 // Page access control
 export {

@@ -5,9 +5,6 @@ import { auth, currentUser } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 import type { UserRole } from '@/lib/constants'
 
-// Re-export for backward compatibility
-export type { UserRole }
-
 /**
  * Internal function to get or create user profile
  * This is wrapped with React's cache() to memoize per request

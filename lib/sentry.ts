@@ -315,8 +315,9 @@ export function setUser(user: {
     id: user.id,
     email: user.email,
     username: user.username,
-    role: user.role,
-  } as Sentry.User)
+    // Role is stored as extra data since Sentry.User doesn't have a role field
+    ...user.role ? { role: user.role } : {},
+  })
 }
 
 /**

@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
 import { invalidateUserCache } from '@/lib/cache'
 import { isAdmin } from '@/lib/auth/roles'
-import type { UserRole } from '@/lib/auth/roles'
+import type { UserRole } from '@/lib/constants'
 
 /**
  * Get all user profiles (admin only)

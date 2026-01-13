@@ -26,7 +26,7 @@
     "@mui/material": "^7.3.5",
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
-    "@sentry/nextjs": "^10.32.1",
+    "@sentry/nextjs": "^10.33.0",
     "@sparticuz/chromium": "^143.0.0",
     "@thednp/dommatrix": "^2.0.12",
     "@vercel/analytics": "^1.6.1",
