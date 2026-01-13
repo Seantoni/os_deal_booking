@@ -255,16 +255,16 @@ export async function searchOpportunities(query: string, options: {
 
     const searchTerm = query.trim()
 
-    // Build where clause based on role
+        // Build where clause based on role
     const roleFilter: Record<string, unknown> = {}
-    if (role === 'sales') {
+        if (role === 'sales') {
       roleFilter.responsibleId = userId
-    } else if (role === 'editor' || role === 'ere') {
+        } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: [] }
-    }
+        }
 
     // Search across business name, contact, and notes
-    const opportunities = await prisma.opportunity.findMany({
+        const opportunities = await prisma.opportunity.findMany({
       where: {
         ...roleFilter,
         OR: [
@@ -274,24 +274,24 @@ export async function searchOpportunities(query: string, options: {
           { notes: { contains: searchTerm, mode: 'insensitive' } },
         ],
       },
-      include: {
-        business: {
           include: {
-            category: {
-              select: {
-                id: true,
-                categoryKey: true,
-                parentCategory: true,
-                subCategory1: true,
-                subCategory2: true,
+            business: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    categoryKey: true,
+                    parentCategory: true,
+                    subCategory1: true,
+                    subCategory2: true,
+                  },
+                },
               },
             },
           },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+          orderBy: {
+            createdAt: 'desc',
+          },
       take: limit,
     })
 
@@ -313,25 +313,25 @@ export async function getOpportunitiesByBusiness(businessId: string) {
   try {
     const opportunities = await prisma.opportunity.findMany({
       where: { businessId },
-      include: {
-        business: {
-          include: {
-            category: {
-              select: {
-                id: true,
-                categoryKey: true,
-                parentCategory: true,
-                subCategory1: true,
-                subCategory2: true,
+              include: {
+                business: {
+                  include: {
+                    category: {
+                      select: {
+                        id: true,
+                        categoryKey: true,
+                        parentCategory: true,
+                        subCategory1: true,
+                        subCategory2: true,
+                      },
+                    },
+                  },
+                },
               },
-            },
+          orderBy: {
+            createdAt: 'desc',
           },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    })
+        })
 
     return { success: true, data: opportunities }
   } catch (error) {

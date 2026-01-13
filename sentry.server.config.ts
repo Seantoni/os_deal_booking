@@ -9,13 +9,18 @@ import * as Sentry from '@sentry/nextjs'
 Sentry.init({
   dsn: process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN,
 
-  // Adjust this value in production, or use tracesSampler for greater control
+  // Performance monitoring - sample 100% of transactions
   tracesSampleRate: 1.0,
 
   // Capture 100% of errors
   sampleRate: 1.0,
 
-  // Setting this option to true will print useful information to the console while you're setting up Sentry
+  // Enable structured logging
+  _experiments: {
+    enableLogs: true,
+  },
+
+  // Debug mode (set to true when troubleshooting)
   debug: false,
 
   // Environment based on NODE_ENV
@@ -26,8 +31,10 @@ Sentry.init({
 
   // Integrations
   integrations: [
-    // Add profiling if needed
-    // Sentry.nodeProfilingIntegration(),
+    // Capture console.warn and console.error as logs
+    Sentry.consoleLoggingIntegration({ 
+      levels: ['warn', 'error'] 
+    }),
   ],
 
   // Filter out non-critical errors

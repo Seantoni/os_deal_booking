@@ -225,14 +225,14 @@ export default function OpportunitiesPageClient({
       const baseOpps = displayOpportunities
       return [
         { id: 'all', label: 'All', count: baseOpps.length },
-        ...Object.entries(STAGE_LABELS).map(([key, label]) => ({
-          id: key,
-          label,
+    ...Object.entries(STAGE_LABELS).map(([key, label]) => ({
+      id: key,
+      label,
           count: baseOpps.filter(o => o.stage === key).length
-        }))
+    }))
       ]
     }
-    
+  
     // Otherwise, use server-side counts
     return [
       { id: 'all', label: 'All', count: counts.all ?? totalCount },
@@ -240,7 +240,7 @@ export default function OpportunitiesPageClient({
         id: key,
         label,
         count: counts[key] ?? 0
-      }))
+    }))
     ]
   }, [displayOpportunities, totalCount, isSearching, counts])
 
@@ -275,7 +275,7 @@ export default function OpportunitiesPageClient({
 
     // Client-side sort for search results
     if (isSearching && sortColumn) {
-      return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
+    return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
     }
 
     return filtered

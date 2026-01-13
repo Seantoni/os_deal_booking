@@ -169,14 +169,14 @@ export default function PipelinePageClient({
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-3">
-        <div className="max-w-md w-full">
-          <Input
-            value={searchQuery}
+          <div className="max-w-md w-full">
+            <Input
+              value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Buscar en todo el pipeline..."
-            size="sm"
-            leftIcon={<SearchIcon className="w-4 h-4" />}
-          />
+              size="sm"
+              leftIcon={<SearchIcon className="w-4 h-4" />}
+            />
         </div>
       </div>
 
@@ -186,7 +186,7 @@ export default function PipelinePageClient({
           <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200 flex items-center gap-2">
             <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
             {searchLoading ? 'Buscando...' : 'Cargando...'}
-          </div>
+              </div>
         ) : (
           <>
             {/* Search indicator */}
@@ -219,26 +219,26 @@ export default function PipelinePageClient({
                   Mostrando {currentPage * pageSize + 1}-{Math.min((currentPage + 1) * pageSize, totalCount)} de {totalCount} items
                 </span>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
+                <Button
+                  variant="secondary"
+                  size="sm"
                     onClick={() => loadPage(currentPage - 1)}
                     disabled={!canGoPrevious || loading}
-                  >
+                >
                     ← Anterior
-                  </Button>
+                </Button>
                   <span className="text-sm text-gray-600 px-2">
                     Página {currentPage + 1} de {totalPages}
                   </span>
-                  <Button
-                    variant="secondary"
-                    size="sm"
+                <Button
+                  variant="secondary"
+                  size="sm"
                     onClick={() => loadPage(currentPage + 1)}
                     disabled={!canGoNext || loading}
-                  >
+                >
                     Siguiente →
-                  </Button>
-                </div>
+                </Button>
+              </div>
               </div>
             )}
           </>

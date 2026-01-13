@@ -151,11 +151,11 @@ export default function DealsPageClient({
     if (isSearching) {
       const baseDeals = displayDeals
       const localCounts: Record<string, number> = { all: baseDeals.length }
-      responsibleUsers.forEach(user => {
+    responsibleUsers.forEach(user => {
         localCounts[user.clerkId] = baseDeals.filter(d => d.responsibleId === user.clerkId).length
-      })
+    })
       localCounts['unassigned'] = baseDeals.filter(d => !d.responsibleId).length
-      
+    
       return [
         { id: 'all', label: 'All', count: localCounts.all },
         { id: 'unassigned', label: 'Unassigned', count: localCounts['unassigned'] },
@@ -216,7 +216,7 @@ export default function DealsPageClient({
 
     // Client-side sort for search results
     if (isSearching && sortColumn) {
-      return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
+    return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
     }
 
     return filtered
@@ -306,76 +306,76 @@ export default function DealsPageClient({
             <SearchIndicator />
             
             <EntityTable
-              columns={COLUMNS}
-              sortColumn={sortColumn}
-              sortDirection={sortDirection}
-              onSort={handleSort}
-            >
+            columns={COLUMNS}
+            sortColumn={sortColumn}
+            sortDirection={sortDirection}
+            onSort={handleSort}
+          >
               {filteredDeals.map((deal, index) => (
-                <TableRow
-                  key={deal.id}
-                  index={index}
-                  onClick={() => handleEditDeal(deal)}
-                  onMouseEnter={handleRowHover}
+              <TableRow
+                key={deal.id}
+                index={index}
+                onClick={() => handleEditDeal(deal)}
+                onMouseEnter={handleRowHover}
+              >
+                <TableCell>
+                  <span className="text-[13px] font-medium text-gray-900">
+                    {deal.bookingRequest.name}
+                  </span>
+                </TableCell>
+                <TableCell className="text-[13px] text-gray-600">
+                  {new Date(deal.bookingRequest.startDate).toLocaleDateString('en-US', {
+                    timeZone: PANAMA_TIMEZONE,
+                    month: 'short',
+                    day: 'numeric'
+                  })} — {new Date(deal.bookingRequest.endDate).toLocaleDateString('en-US', {
+                    timeZone: PANAMA_TIMEZONE,
+                    month: 'short',
+                    day: 'numeric'
+                  })}
+                </TableCell>
+                <TableCell className="text-[13px] text-gray-600">
+                  {deal.opportunityResponsible?.name || deal.opportunityResponsible?.email || <span className="text-gray-400">-</span>}
+                </TableCell>
+                <TableCell className="text-[13px] text-gray-600">
+                  {deal.responsible?.name || deal.responsible?.email || <span className="text-gray-400 italic">Unassigned</span>}
+                </TableCell>
+                <TableCell className="text-[13px] text-gray-600">
+                  {deal.ereResponsible?.name || deal.ereResponsible?.email || <span className="text-gray-400 italic">Unassigned</span>}
+                </TableCell>
+                <TableCell className="text-[13px] text-gray-600">
+                  {deal.bookingRequest.processedAt 
+                    ? new Date(deal.bookingRequest.processedAt).toLocaleDateString('en-US', {
+                        timeZone: PANAMA_TIMEZONE,
+                        month: 'short',
+                        day: 'numeric'
+                      })
+                    : '-'}
+                </TableCell>
+                <TableCell>
+                  <StatusPill
+                    label={STATUS_LABELS[deal.status || 'pendiente_por_asignar']}
+                    tone={
+                      deal.status === 'borrador_aprobado'
+                        ? 'success'
+                        : deal.status === 'borrador_enviado'
+                          ? 'info'
+                          : 'neutral'
+                    }
+                  />
+                </TableCell>
+                <TableCell
+                  align="right"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <TableCell>
-                    <span className="text-[13px] font-medium text-gray-900">
-                      {deal.bookingRequest.name}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-[13px] text-gray-600">
-                    {new Date(deal.bookingRequest.startDate).toLocaleDateString('en-US', {
-                      timeZone: PANAMA_TIMEZONE,
-                      month: 'short',
-                      day: 'numeric'
-                    })} — {new Date(deal.bookingRequest.endDate).toLocaleDateString('en-US', {
-                      timeZone: PANAMA_TIMEZONE,
-                      month: 'short',
-                      day: 'numeric'
-                    })}
-                  </TableCell>
-                  <TableCell className="text-[13px] text-gray-600">
-                    {deal.opportunityResponsible?.name || deal.opportunityResponsible?.email || <span className="text-gray-400">-</span>}
-                  </TableCell>
-                  <TableCell className="text-[13px] text-gray-600">
-                    {deal.responsible?.name || deal.responsible?.email || <span className="text-gray-400 italic">Unassigned</span>}
-                  </TableCell>
-                  <TableCell className="text-[13px] text-gray-600">
-                    {deal.ereResponsible?.name || deal.ereResponsible?.email || <span className="text-gray-400 italic">Unassigned</span>}
-                  </TableCell>
-                  <TableCell className="text-[13px] text-gray-600">
-                    {deal.bookingRequest.processedAt 
-                      ? new Date(deal.bookingRequest.processedAt).toLocaleDateString('en-US', {
-                          timeZone: PANAMA_TIMEZONE,
-                          month: 'short',
-                          day: 'numeric'
-                        })
-                      : '-'}
-                  </TableCell>
-                  <TableCell>
-                    <StatusPill
-                      label={STATUS_LABELS[deal.status || 'pendiente_por_asignar']}
-                      tone={
-                        deal.status === 'borrador_aprobado'
-                          ? 'success'
-                          : deal.status === 'borrador_enviado'
-                            ? 'info'
-                            : 'neutral'
-                      }
-                    />
-                  </TableCell>
-                  <TableCell
-                    align="right"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {/* Actions removed - row click opens edit modal */}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </EntityTable>
+                  {/* Actions removed - row click opens edit modal */}
+                </TableCell>
+              </TableRow>
+            ))}
+          </EntityTable>
             
             <PaginationControls />
-          </div>
+            </div>
         )}
       </div>
 

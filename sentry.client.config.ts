@@ -9,27 +9,37 @@ import * as Sentry from '@sentry/nextjs'
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
   
-  // Adjust this value in production, or use tracesSampler for greater control
+  // Performance monitoring - sample 100% of transactions
   tracesSampleRate: 1.0,
   
   // Capture 100% of errors in production
-  // Adjust based on volume
   sampleRate: 1.0,
 
-  // Setting this option to true will print useful information to the console while you're setting up Sentry
+  // Enable structured logging
+  _experiments: {
+    enableLogs: true,
+  },
+
+  // Debug mode (set to true when troubleshooting)
   debug: false,
 
-  // Replay configuration for session replay (optional)
-  replaysOnErrorSampleRate: 1.0,
-  replaysSessionSampleRate: 0.1,
+  // Session Replay configuration
+  replaysOnErrorSampleRate: 1.0, // Capture 100% of sessions with errors
+  replaysSessionSampleRate: 0.1, // Capture 10% of all sessions
 
-  // Integration configuration
+  // Integrations
   integrations: [
+    // Session replay for debugging user issues
     Sentry.replayIntegration({
       maskAllText: true,
       blockAllMedia: true,
     }),
+    // Browser performance tracing
     Sentry.browserTracingIntegration(),
+    // Capture console.warn and console.error as logs
+    Sentry.consoleLoggingIntegration({ 
+      levels: ['warn', 'error'] 
+    }),
   ],
 
   // Environment based on NODE_ENV

@@ -18,9 +18,12 @@
  * Set LOG_LEVEL environment variable to control output:
  *   LOG_LEVEL=debug npm run dev
  *   LOG_LEVEL=error npm run build
+ * 
+ * For Sentry-specific tracing and spans, use:
+ *   import { traceServerAction, traceApiCall, captureError } from '@/lib/sentry'
  */
 
-import * as Sentry from '@sentry/nextjs'
+import { captureError, sentryLogger } from '@/lib/sentry'
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
@@ -49,6 +52,18 @@ function extractError(args: unknown[]): Error | undefined {
 }
 
 /**
+ * Convert args to a data object for Sentry
+ */
+function argsToData(args: unknown[]): Record<string, unknown> | undefined {
+  const nonErrorArgs = args.filter(arg => !(arg instanceof Error))
+  if (nonErrorArgs.length === 0) return undefined
+  if (nonErrorArgs.length === 1 && typeof nonErrorArgs[0] === 'object') {
+    return nonErrorArgs[0] as Record<string, unknown>
+  }
+  return { args: nonErrorArgs }
+}
+
+/**
  * Centralized logger with log levels and Sentry integration
  */
 export const logger = {
@@ -60,6 +75,8 @@ export const logger = {
     if (shouldLog('debug')) {
       console.log(`[DEBUG] ${msg}`, ...args)
     }
+    // Also send to Sentry as breadcrumb for context
+    sentryLogger.debug(msg, argsToData(args))
   },
 
   /**
@@ -70,6 +87,8 @@ export const logger = {
     if (shouldLog('info')) {
       console.info(`[INFO] ${msg}`, ...args)
     }
+    // Send to Sentry as breadcrumb
+    sentryLogger.info(msg, argsToData(args))
   },
 
   /**
@@ -81,14 +100,8 @@ export const logger = {
     if (shouldLog('warn')) {
       console.warn(`[WARN] ${msg}`, ...args)
     }
-    
-    // Add warning as Sentry breadcrumb for context
-    Sentry.addBreadcrumb({
-      category: 'warning',
-      message: msg,
-      level: 'warning',
-      data: args.length > 0 ? { args } : undefined,
-    })
+    // Send to Sentry
+    sentryLogger.warn(msg, argsToData(args))
   },
 
   /**
@@ -105,18 +118,13 @@ export const logger = {
     
     if (error) {
       // Capture the actual error with context
-      Sentry.captureException(error, {
-        extra: {
-          message: msg,
-          args: args.filter(arg => !(arg instanceof Error)),
-        },
+      captureError(error, {
+        message: msg,
+        ...argsToData(args),
       })
     } else {
-      // Capture as a message if no error object
-      Sentry.captureMessage(msg, {
-        level: 'error',
-        extra: args.length > 0 ? { args } : undefined,
-      })
+      // Send as error message to Sentry
+      sentryLogger.error(msg, argsToData(args))
     }
   },
 }
@@ -147,10 +155,13 @@ export function logServerActionError(
   const errorMessage = error instanceof Error ? error.message : String(error)
   logger.error(`Server action "${actionName}" failed: ${errorMessage}`, error)
   
+  // Set additional context for Sentry
   if (context) {
-    Sentry.setContext('serverAction', {
-      actionName,
-      ...context,
+    import('@/lib/sentry').then(({ setContext }) => {
+      setContext('serverAction', {
+        actionName,
+        ...context,
+      })
     })
   }
 }
