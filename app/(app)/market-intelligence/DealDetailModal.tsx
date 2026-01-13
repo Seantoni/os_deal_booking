@@ -133,6 +133,7 @@ const formatCurrency = (value: number) => {
   
   // Get max values for scaling
   const maxTotalSold = Math.max(...chartData.map(s => s.totalSold), 1)
+  const maxDailySales = Math.max(...chartData.map(s => s.salesSinceLast), 1)
   
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -350,6 +351,79 @@ const formatCurrency = (value: number) => {
                   </div>
                 )}
                 
+                {/* Daily Sales Chart */}
+                {snapshots.length > 1 && chartData.length > 0 && (
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                      <h4 className="text-xs font-semibold text-gray-700">Daily Sales</h4>
+                      <div className="flex items-center gap-3 text-[10px] text-gray-400">
+                        <span>max: {maxDailySales}</span>
+                        <span>•</span>
+                        <span>avg: {Math.round(chartData.reduce((sum, d) => sum + d.salesSinceLast, 0) / chartData.filter(d => d.hasData).length || 0)}/day</span>
+                      </div>
+                    </div>
+                    
+                    <div className="p-3">
+                      <div className="h-24 flex items-end gap-[1px]">
+                        {chartData.map((snapshot, index) => {
+                          const height = maxDailySales > 0 ? (snapshot.salesSinceLast / maxDailySales) * 100 : 0
+                          const isToday = index === chartData.length - 1
+                          const barWidth = Math.max(100 / chartData.length, 3)
+                          
+                          return (
+                            <div 
+                              key={`daily-${snapshot.id}`}
+                              className="flex flex-col items-center group relative"
+                              style={{ 
+                                width: `${barWidth}%`,
+                                minWidth: '3px',
+                                height: '100%',
+                                display: 'flex',
+                                justifyContent: 'flex-end'
+                              }}
+                            >
+                              <div 
+                                className={`w-full rounded-sm transition-all cursor-pointer ${
+                                  !snapshot.hasData || snapshot.salesSinceLast === 0
+                                    ? 'bg-gray-200'
+                                    : isToday 
+                                      ? 'bg-green-500' 
+                                      : 'bg-emerald-400'
+                                } hover:opacity-70`}
+                                style={{ 
+                                  height: `${Math.max(height, snapshot.salesSinceLast > 0 ? 8 : 2)}%`,
+                                  minHeight: '2px'
+                                }}
+                              />
+                              
+                              {/* Tooltip on hover */}
+                              <div className="absolute bottom-full mb-2 hidden group-hover:block z-10">
+                                <div className="bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap shadow-lg">
+                                  <div className="flex items-baseline gap-1.5">
+                                    {snapshot.salesSinceLast > 0 ? (
+                                      <span className="font-bold text-green-400">+{snapshot.salesSinceLast}</span>
+                                    ) : (
+                                      <span className="text-gray-400">0 sales</span>
+                                    )}
+                                  </div>
+                                  {!snapshot.hasData && <p className="text-gray-400">no data</p>}
+                                  <p className="text-gray-400">{formatShortDate(snapshot.scannedAt)}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      
+                      {/* X-axis summary */}
+                      <div className="flex justify-between mt-1.5 text-[10px] text-gray-400">
+                        <span>{formatShortDate(chartData[0].scannedAt)}</span>
+                        <span>{formatShortDate(chartData[chartData.length - 1].scannedAt)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {snapshots.length <= 1 && (
                   <div className="bg-gray-50 rounded-lg p-4 text-center border border-gray-200">
                     <TrendingUpIcon className="text-gray-300 mx-auto mb-1" style={{ fontSize: 32 }} />
