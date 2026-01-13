@@ -3,12 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
 import type { UserRole } from '@/types'
+import { CACHE_CLIENT_USER_ROLE_MS, CACHE_CLIENT_USER_ROLE_REVALIDATE_MS } from '@/lib/constants/cache'
 
 const CACHE_KEY = 'user-role-cache'
 const CACHE_TIMESTAMP_KEY = 'user-role-cache-timestamp'
 const CACHE_USER_ID_KEY = 'user-role-cache-user-id'
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes in milliseconds
-const REVALIDATION_INTERVAL = 5 * 60 * 1000 // Revalidate every 5 minutes
 
 function clearCache() {
   if (typeof window === 'undefined') {
@@ -44,7 +43,7 @@ function getCachedRole(userId: string | null): { role: UserRole | null; isValid:
     }
 
     const age = Date.now() - parseInt(timestamp, 10)
-    if (age > CACHE_DURATION) {
+    if (age > CACHE_CLIENT_USER_ROLE_MS) {
       // Cache expired
       clearCache()
       return { role: null, isValid: false }
@@ -204,7 +203,7 @@ export function useUserRole() {
     // Set up periodic revalidation every 5 minutes
     revalidationIntervalRef.current = setInterval(() => {
       fetchRoleFromServer()
-    }, REVALIDATION_INTERVAL)
+    }, CACHE_CLIENT_USER_ROLE_REVALIDATE_MS)
 
     // Cleanup interval on unmount
     return () => {

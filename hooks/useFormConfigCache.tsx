@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from 'react'
 import { getFormConfiguration } from '@/app/actions/form-config'
 import type { FormEntityType, FormSectionWithDefinitions } from '@/types'
+import { CACHE_CLIENT_FORM_CONFIG_MS } from '@/lib/constants/cache'
 
 interface FormConfigCacheEntry {
   sections: FormSectionWithDefinitions[]
@@ -20,9 +21,6 @@ interface FormConfigCacheContextValue {
 
 const FormConfigCacheContext = createContext<FormConfigCacheContextValue | null>(null)
 
-// Cache duration: 5 minutes
-const CACHE_DURATION_MS = 5 * 60 * 1000
-
 interface FormConfigCacheProviderProps {
   children: ReactNode
 }
@@ -38,7 +36,7 @@ export function FormConfigCacheProvider({ children }: FormConfigCacheProviderPro
     
     // Check if cache is still valid
     const age = Date.now() - entry.fetchedAt
-    if (age > CACHE_DURATION_MS) {
+    if (age > CACHE_CLIENT_FORM_CONFIG_MS) {
       return null
     }
     

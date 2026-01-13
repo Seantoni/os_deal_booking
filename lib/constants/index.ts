@@ -12,4 +12,5 @@ export * from './booking-request-statuses'
 export * from './user-roles'
 export * from './time'
 export * from './limits'
+export * from './cache'
 

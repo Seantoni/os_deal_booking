@@ -1,11 +1,10 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { logger } from '@/lib/logger'
+import { CACHE_ACCESS_CHECK_SECONDS } from '@/lib/constants/cache'
 
 // Cookie name for caching access check result
 const ACCESS_COOKIE_NAME = 'os_access_verified'
-// Cache duration: 5 minutes (in seconds)
-const ACCESS_CACHE_SECONDS = 300
 
 const isPublicRoute = createRouteMatcher([
   // Auth routes
@@ -46,7 +45,7 @@ export default clerkMiddleware(async (auth, request) => {
       const now = Date.now()
       
       // Validate: same user and not expired (5 min cache)
-      if (cachedUserId === userId && !isNaN(cacheTime) && (now - cacheTime) < ACCESS_CACHE_SECONDS * 1000) {
+      if (cachedUserId === userId && !isNaN(cacheTime) && (now - cacheTime) < CACHE_ACCESS_CHECK_SECONDS * 1000) {
         logger.debug('[middleware] Access granted from cache for userId:', userId)
         return NextResponse.next()
       }
@@ -89,7 +88,7 @@ export default clerkMiddleware(async (auth, request) => {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: ACCESS_CACHE_SECONDS,
+        maxAge: CACHE_ACCESS_CHECK_SECONDS,
         path: '/',
       })
 
