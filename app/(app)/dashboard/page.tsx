@@ -24,7 +24,7 @@ export default async function DashboardPage() {
   ])
 
   const initialData = {
-    stats: statsResult.success && 'data' in statsResult ? statsResult.data : null,
+    stats: statsResult.success && 'data' in statsResult && statsResult.data ? statsResult.data : null,
     inboxItems: inboxResult.success && inboxResult.data ? inboxResult.data : [],
     pendingBookings: pendingResult.success && pendingResult.data ? pendingResult.data : [],
   }
