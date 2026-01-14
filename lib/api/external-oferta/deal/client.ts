@@ -1,18 +1,17 @@
 /**
- * External Oferta API Client
+ * External Oferta Deal API Client
  * 
- * Sends deal data to the external OfertaSimple API when a booking is completed
+ * Sends deal data to the external OfertaSimple API
  */
 
-import { logApiCall } from './logger'
+import { logApiCall } from '../shared/logger'
+import { formatValidationError } from '../shared/http'
+import { EXTERNAL_DEAL_API_URL, EXTERNAL_API_TOKEN, DEFAULT_SECTION_MAPPINGS } from '../shared/constants'
 import { mapBookingFormToApi } from './mapper'
-import type { ExternalOfertaDealRequest, ExternalOfertaDealResponse, ExternalOfertaPriceOption } from './types'
+import type { ExternalOfertaDealRequest, ExternalOfertaDealResponse, ExternalOfertaPriceOption, SendDealResult } from './types'
 import type { BookingFormData } from '@/components/RequestForm/types'
 import type { Prisma } from '@prisma/client'
 import { formatDateForPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
-
-const EXTERNAL_API_URL = process.env.EXTERNAL_OFERTA_API_URL || 'https://ofertasimple.com/external/api/deals'
-const EXTERNAL_API_TOKEN = process.env.EXTERNAL_OFERTA_API_TOKEN
 
 /**
  * Generate a URL-safe slug from a business name
@@ -48,27 +47,6 @@ function formatOfertaSimpleBoundary(date: Date, boundary: 'start' | 'end'): stri
   const ymd = formatDateForPanama(date) // YYYY-MM-DD in Panama
   const time = boundary === 'start' ? '00:00:00' : '23:59:59'
   return `${ymd}T${time}-05:00`
-}
-
-// Default external API section mappings (used if settings not available)
-const DEFAULT_SECTION_MAPPINGS: Record<string, string> = {
-  'HOTELES': 'Hoteles',
-  'RESTAURANTES': 'Restaurantes',
-  'SHOWS Y EVENTOS': 'Shows y Eventos',
-  'SERVICIOS': 'Servicios',
-  'BIENESTAR Y BELLEZA': 'Bienestar y Belleza',
-  'ACTIVIDADES': 'Actividades',
-  'CURSOS': 'Cursos',
-  'PRODUCTOS': 'Productos',
-  'SPA & DAY SPA': 'Bienestar y Belleza',
-  'GIMNASIOS & FITNESS': 'Servicios',
-  'MÉDICO ESTÉTICO': 'Bienestar y Belleza',
-  'DENTAL & ESTÉTICA DENTAL': 'Bienestar y Belleza',
-  'LABORATORIOS Y SALUD CLÍNICA': 'Servicios',
-  'TURISMO & TOURS': 'Actividades',
-  'MASCOTAS:Veterinaria': 'Servicios',
-  'MASCOTAS:Grooming': 'Servicios',
-  'MASCOTAS:Productos': 'Productos',
 }
 
 /**
@@ -164,69 +142,6 @@ interface BookingRequestData {
   subCategory3?: string | null
 }
 
-interface SendDealResult {
-  success: boolean
-  externalId?: number
-  error?: string
-  logId?: string
-}
-
-function safeStringify(value: unknown, maxLen: number = 1500): string {
-  try {
-    const s = JSON.stringify(value)
-    return s.length > maxLen ? s.slice(0, maxLen) + '…' : s
-  } catch {
-    return String(value)
-  }
-}
-
-interface ApiErrorResponse {
-  errors?: unknown
-  error?: { errors?: unknown } | string
-  validation?: unknown
-  detail?: unknown
-  details?: unknown
-  data?: { errors?: unknown }
-  message?: string
-}
-
-function formatValidationError(responseData: unknown, responseText: string): string {
-  const data = (responseData ?? {}) as ApiErrorResponse
-
-  const candidates = [
-    data?.errors,
-    typeof data?.error === 'object' ? data?.error?.errors : undefined,
-    data?.validation,
-    data?.detail,
-    data?.details,
-    data?.data?.errors,
-    data?.message,
-    data?.error,
-  ]
-
-  const first = candidates.find((v) => v !== undefined && v !== null)
-
-  if (Array.isArray(first)) {
-    return `Validation failed: ${first.map(String).join(', ')}`
-  }
-
-  if (first && typeof first === 'object') {
-    const entries = Object.entries(first as Record<string, unknown>)
-    const formatted = entries
-      .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.map(String).join(', ') : String(v)}`)
-      .join('; ')
-    return `Validation failed: ${formatted || safeStringify(first)}`
-  }
-
-  if (typeof first === 'string' && first.trim() && first.trim().toLowerCase() !== 'validation failed') {
-    return `Validation failed: ${first}`
-  }
-
-  // Last resort: include a snippet of the raw body so we can see what the API returned.
-  const rawSnippet = responseText.length > 1000 ? responseText.slice(0, 1000) + '…' : responseText
-  return `Validation failed (raw): ${rawSnippet || safeStringify(data)}`
-}
-
 interface PriceOptionWithTitle {
   title?: string
   description?: string | null
@@ -255,6 +170,10 @@ function normalizePayloadForExternalApi(payload: ExternalOfertaDealRequest): Ext
   }
 }
 
+/**
+ * Send deal payload directly to external API
+ * Low-level function that handles the HTTP request
+ */
 export async function sendExternalDealPayload(
   payload: ExternalOfertaDealRequest,
   options?: {
@@ -266,7 +185,7 @@ export async function sendExternalDealPayload(
   }
 ): Promise<SendDealResult & { responseStatusCode?: number; responseRaw?: string }> {
   const startTime = Date.now()
-  const endpoint = options?.endpoint || EXTERNAL_API_URL
+  const endpoint = options?.endpoint || EXTERNAL_DEAL_API_URL
 
   if (!EXTERNAL_API_TOKEN) {
     const error = 'API token not configured'
@@ -553,7 +472,7 @@ export async function sendDealToExternalApi(
     
     // Log to database
     const logId = await logApiCall({
-      endpoint: EXTERNAL_API_URL,
+      endpoint: EXTERNAL_DEAL_API_URL,
       method: 'POST',
       requestBody: payload,
       bookingRequestId: bookingRequest.id,
@@ -574,7 +493,7 @@ export async function sendDealToExternalApi(
 
   try {
     const result = await sendExternalDealPayload(payloadToSend, {
-      endpoint: EXTERNAL_API_URL,
+      endpoint: EXTERNAL_DEAL_API_URL,
       bookingRequestId: bookingRequest.id,
       userId: options?.userId,
       triggeredBy: options?.triggeredBy || 'system',
@@ -584,7 +503,7 @@ export async function sendDealToExternalApi(
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     console.error('[External API] Request failed:', error)
     const logId = await logApiCall({
-      endpoint: EXTERNAL_API_URL,
+      endpoint: EXTERNAL_DEAL_API_URL,
       method: 'POST',
       requestBody: payloadToSend,
       bookingRequestId: bookingRequest.id,
@@ -596,4 +515,3 @@ export async function sendDealToExternalApi(
     return { success: false, error: errorMessage, logId }
   }
 }
-

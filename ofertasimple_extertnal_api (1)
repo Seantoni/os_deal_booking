@@ -1,0 +1,838 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Oferta API",
+        "description": "External API for deals management",
+        "version": "1.0.0"
+    },
+    "paths": {
+        "/external/api/deals": {
+            "post": {
+                "tags": [
+                    "Deals"
+                ],
+                "summary": "Create a new deal",
+                "operationId": "post_api_deals_create",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "nameEs",
+                                    "slug",
+                                    "emailSubject",
+                                    "summaryEs",
+                                    "expiresOn",
+                                    "categoryId"
+                                ],
+                                "properties": {
+                                    "nameEs": {
+                                        "description": "Offer name in Spanish",
+                                        "type": "string"
+                                    },
+                                    "slug": {
+                                        "description": "URL slug",
+                                        "type": "string"
+                                    },
+                                    "emailSubject": {
+                                        "description": "Newsletter subject",
+                                        "type": "string"
+                                    },
+                                    "summaryEs": {
+                                        "description": "Summary in Spanish",
+                                        "type": "string"
+                                    },
+                                    "expiresOn": {
+                                        "description": "Expiration date",
+                                        "type": "string"
+                                    },
+                                    "categoryId": {
+                                        "description": "Category identifier",
+                                        "type": "integer"
+                                    },
+                                    "vendorId": {
+                                        "description": "Vendor ID (vendorId or vendorName required)",
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "vendorName": {
+                                        "description": "Vendor name (vendorId or vendorName required)",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "shortTitle": {
+                                        "description": "Short title of the offer",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "tags": {
+                                        "description": "Tags associated with the offer",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "segments": {
+                                        "description": "Market segments for the offer",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "voucherSubject": {
+                                        "description": "Subject line for the voucher email",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "emailBusinessName": {
+                                        "description": "Business name used in emails",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "emailTitle": {
+                                        "description": "Title used in the email",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "goodToKnowEs": {
+                                        "description": "Important information in Spanish",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "websitesEs": {
+                                        "description": "Websites related to the offer in Spanish",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "howToUseEs": {
+                                        "description": "Instructions on how to use in Spanish",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "noteworthy": {
+                                        "description": "Noteworthy points about the offer",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "reviewsEs": {
+                                        "description": "Reviews in Spanish",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "vendorAddress": {
+                                        "description": "Address of the vendor",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "appLocation": {
+                                        "description": "Location identifier for the app",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "banner1Line1": {
+                                        "description": "First line of the first banner",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "paymentDetails": {
+                                        "description": "Details about payment terms",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "url": {
+                                        "description": "External URL for the offer",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "creditCardRestrictions": {
+                                        "description": "Restrictions for specific credit cards",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "specialCategoryNameEs": {
+                                        "description": "Name of the special category in Spanish",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "commonRedeemCode": {
+                                        "description": "Common code used for redemption",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "category1Id": {
+                                        "description": "Secondary category 1 identifier",
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "category2Id": {
+                                        "description": "Secondary category 2 identifier",
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "category3Id": {
+                                        "description": "Secondary category 3 identifier",
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "images": {
+                                        "description": "Main carousel images (URLs or base64)",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "nullable": true
+                                    },
+                                    "verticalVideos": {
+                                        "description": "Vertical videos URLs",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "nullable": true
+                                    },
+                                    "dealImage": {
+                                        "description": "Main banner image URL (1242x362)",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "dealImageMail": {
+                                        "description": "Mail banner image URL (688x418)",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "dealImageBanner": {
+                                        "description": "Degusta banner image URL (344x209)",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "vendorLogo": {
+                                        "description": "Vendor logo image URL",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "section": {
+                                        "description": "Section where the offer belongs",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "osSalesId": {
+                                        "description": "Sales identifier from OS system",
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "emeraldPearl": {
+                                        "description": "Emerald Pearl status or identifier",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "contractState": {
+                                        "description": "Current state of the contract",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "dealStrength": {
+                                        "description": "Score representing deal strength",
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "nextDayStrength": {
+                                        "description": "Score representing deal strength for the next day",
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "runAt": {
+                                        "description": "Start date and time of the offer",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "endAt": {
+                                        "description": "End date and time of the offer",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "firstPaymentDate": {
+                                        "description": "Date of the first payment",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "lastPaymentDate": {
+                                        "description": "Date of the last payment",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "topSeller": {
+                                        "description": "Whether the offer is a top seller",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "bsetOfOs": {
+                                        "description": "Whether the offer is \"Best of OS\"",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "stValentine": {
+                                        "description": "Whether the offer is for St. Valentine",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "justMama": {
+                                        "description": "Whether the offer is for \"Just Mama\"",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "christmas": {
+                                        "description": "Whether the offer is for Christmas",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "celebrate": {
+                                        "description": "Whether the offer is for celebration",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "exploreGamboa": {
+                                        "description": "Whether the offer is for \"Explore Gamboa\"",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "cyberMonday": {
+                                        "description": "Whether the offer is for Cyber Monday",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "backToSchool": {
+                                        "description": "Whether the offer is for Back to School",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "newFlag": {
+                                        "description": "Whether to show a \"New\" flag",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "limitedTime": {
+                                        "description": "Whether the offer is for a limited time",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "westinWeek": {
+                                        "description": "Whether the offer is for Westin Week",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "special": {
+                                        "description": "Whether the offer is marked as special",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "couponEnabled": {
+                                        "description": "Whether coupons are enabled for this offer",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "secretDeal": {
+                                        "description": "Whether the offer is a secret deal",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "singleImageTile": {
+                                        "description": "Whether to use a single image tile in UI",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "blockReferal": {
+                                        "description": "Whether to block referral bonuses",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "isActive": {
+                                        "description": "Whether the offer is active",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "limitedQuantity": {
+                                        "description": "Whether the quantity is limited",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "isHideRemainingTime": {
+                                        "description": "Whether to hide the remaining time countdown",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "f2x1": {
+                                        "description": "Whether it is a 2x1 offer",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "hideIfHasSGCards": {
+                                        "description": "Whether to hide if the user has SG cards",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "onlyOnWeb": {
+                                        "description": "Whether the offer is only available on web",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "appOnly": {
+                                        "description": "Whether the offer is only available on app",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "simpleGoOnly": {
+                                        "description": "Whether the offer is only available on SimpleGo",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "isSelfRedeemVoucher": {
+                                        "description": "Whether the voucher is self-redeemable",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "ofertasimpleGiftcardOffer": {
+                                        "description": "Whether it is an OfertaSimple gift card offer",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "emailReminder": {
+                                        "description": "Whether email reminders are enabled",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "emailReminder15": {
+                                        "description": "Whether email reminder at 15 days is enabled",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "emailReminder45": {
+                                        "description": "Whether email reminder at 45 days is enabled",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "buyButtonUrl": {
+                                        "description": "Custom URL for the buy button",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "buyButtonTitle": {
+                                        "description": "Custom title for the buy button",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "buyNow": {
+                                        "description": "Whether to show \"Buy Now\" button",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "addToCart": {
+                                        "description": "Whether to show \"Add to Cart\" button",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "gift": {
+                                        "description": "Whether the offer can be gifted",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "notifyMe": {
+                                        "description": "Whether to show \"Notify Me\" button",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "showDiscount": {
+                                        "description": "Whether to show the discount percentage",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "qrCodes": {
+                                        "description": "Whether to use QR codes for redemption",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "barcode": {
+                                        "description": "Whether to use barcodes for redemption",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "useStoredRedeemCode": {
+                                        "description": "Whether to use a stored redeem code",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "isBooking": {
+                                        "description": "Whether the offer requires booking",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "bookingLat": {
+                                        "description": "Latitude for booking location",
+                                        "type": "number",
+                                        "format": "float",
+                                        "nullable": true
+                                    },
+                                    "bookingLng": {
+                                        "description": "Longitude for booking location",
+                                        "type": "number",
+                                        "format": "float",
+                                        "nullable": true
+                                    },
+                                    "bookingAddress": {
+                                        "description": "Address for booking location",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "bookingRegistrationInformation": {
+                                        "description": "Information required for booking registration",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "bookingEmailHtml": {
+                                        "description": "HTML content for the booking email",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "priceOptions": {
+                                        "description": "List of price options for the offer",
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "title": {
+                                                    "description": "Title of the price option",
+                                                    "type": "string"
+                                                },
+                                                "price": {
+                                                    "description": "Selling price",
+                                                    "type": "number",
+                                                    "format": "float"
+                                                },
+                                                "value": {
+                                                    "description": "Original value/price before discount",
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "nullable": true
+                                                },
+                                                "maximumQuantity": {
+                                                    "description": "Maximum total quantity available",
+                                                    "type": "integer",
+                                                    "nullable": true
+                                                },
+                                                "limitByUser": {
+                                                    "description": "Maximum quantity per user",
+                                                    "type": "integer",
+                                                    "nullable": true
+                                                },
+                                                "limitPerDay": {
+                                                    "description": "Maximum quantity per day",
+                                                    "type": "integer",
+                                                    "nullable": true
+                                                },
+                                                "giftLimitPerUser": {
+                                                    "description": "Maximum gift quantity per user",
+                                                    "type": "integer",
+                                                    "nullable": true
+                                                },
+                                                "oufferMargin": {
+                                                    "description": "Offer margin",
+                                                    "type": "integer",
+                                                    "nullable": true
+                                                },
+                                                "endAt": {
+                                                    "description": "End date and time for this option",
+                                                    "type": "string",
+                                                    "nullable": true
+                                                },
+                                                "expiresIn": {
+                                                    "description": "Expiration seconds after creation of the voucher for this option",
+                                                    "type": "integer",
+                                                    "nullable": true
+                                                },
+                                                "description": {
+                                                    "description": "Description of the price option",
+                                                    "type": "string",
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Deal created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "id": {
+                                            "type": "integer"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid JSON"
+                    },
+                    "422": {
+                        "description": "Validation failed"
+                    }
+                }
+            }
+        },
+        "/external/api/vendors": {
+            "post": {
+                "tags": [
+                    "Vendors"
+                ],
+                "summary": "Create a new vendor",
+                "operationId": "post_api_vendors_create",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "email",
+                                    "salesType"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "description": "Vendor name",
+                                        "type": "string"
+                                    },
+                                    "email": {
+                                        "description": "Vendor email (must be unique)",
+                                        "type": "string"
+                                    },
+                                    "password": {
+                                        "description": "Vendor password",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "address": {
+                                        "description": "Vendor address",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "phoneNumber": {
+                                        "description": "Phone number",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "website": {
+                                        "description": "Website URL",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "websiteTitle": {
+                                        "description": "Website title",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "managerName": {
+                                        "description": "Manager name",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "emailContact": {
+                                        "description": "Contact email",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "razonSocial": {
+                                        "description": "Business name (razon social)",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "ruc": {
+                                        "description": "Tax ID (RUC)",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "lat": {
+                                        "description": "Latitude for vendor location",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "lng": {
+                                        "description": "Longitude for vendor location",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "mapSearchString": {
+                                        "description": "Map search string",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "mapUrl": {
+                                        "description": "Map URL",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "account": {
+                                        "description": "Bank account number",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "accountType": {
+                                        "description": "Account type (Cuenta Corriente, Cuenta de Ahorros, etc.)",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "beneficiaryName": {
+                                        "description": "Beneficiary name",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "bankId": {
+                                        "description": "Bank ID",
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "neighborhoodId": {
+                                        "description": "Neighborhood ID",
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "osSalesId": {
+                                        "description": "OS Sales team member ID",
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "osAccountId": {
+                                        "description": "OS Account manager ID",
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "osMerchantId": {
+                                        "description": "OS Merchant ID",
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "osInsideSalesId": {
+                                        "description": "OS Inside Sales ID",
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "parentCompanyId": {
+                                        "description": "Parent company vendor ID",
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "salesType": {
+                                        "description": "Sales type (0=Regular, 1=Inside, 2=Recurring, 3=OSP)",
+                                        "type": "integer"
+                                    },
+                                    "paymentPlan": {
+                                        "description": "Payment plan (QR - Daily, QR - Weekly, etc.)",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "commentNotificationEnabled": {
+                                        "description": "Whether comment notifications are enabled",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "noRefund": {
+                                        "description": "Whether refunds are disabled",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "mergeVendors": {
+                                        "description": "Whether to merge sub-vendors",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "credentialsSent": {
+                                        "description": "Whether credentials have been sent",
+                                        "type": "boolean",
+                                        "nullable": true
+                                    },
+                                    "flaggedReason": {
+                                        "description": "Flagged reason (0=None, 1=Reasignar, 2=Sacar, 3=Otro)",
+                                        "type": "integer",
+                                        "nullable": true
+                                    },
+                                    "flaggedComment": {
+                                        "description": "Flagged comment",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "logo": {
+                                        "description": "Logo filename or URL",
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "pdf": {
+                                        "description": "PDF filename",
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Vendor created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "id": {
+                                            "type": "integer"
+                                        },
+                                        "status": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid JSON"
+                    },
+                    "422": {
+                        "description": "Validation failed"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "Bearer": {
+                "type": "http",
+                "bearerFormat": "JWT",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "security": [
+        {
+            "Bearer": []
+        }
+    ],
+    "tags": [
+        {
+            "name": "Deals"
+        },
+        {
+            "name": "Vendors"
+        }
+    ]
+}

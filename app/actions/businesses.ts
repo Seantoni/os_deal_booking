@@ -7,6 +7,8 @@ import { invalidateEntity } from '@/lib/cache'
 import { getUserRole, isAdmin } from '@/lib/auth/roles'
 import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
 import { logActivity } from '@/lib/activity-log'
+import { sendVendorToExternalApi } from '@/lib/api/external-oferta'
+import type { Business } from '@/types/business'
 
 /**
  * Get all businesses (cached)
@@ -614,16 +616,71 @@ export async function createBusiness(formData: FormData) {
       },
     })
 
+    // Send to external vendor API (non-blocking, don't fail if API fails)
+    // This creates the vendor in the external OfertaSimple system
+    let vendorApiResult: { success: boolean; externalVendorId?: number; error?: string; logId?: string } | null = null
+    try {
+      // Convert Prisma result to Business type for the mapper
+      // Use unknown intermediate cast as Prisma types have different shapes
+      const businessForApi = business as unknown as Business
+      vendorApiResult = await sendVendorToExternalApi(businessForApi, {
+        userId,
+        triggeredBy: 'manual',
+      })
+      if (!vendorApiResult.success) {
+        console.warn(`[createBusiness] Vendor API failed for business ${business.id}:`, vendorApiResult.error)
+      }
+    } catch (vendorError) {
+      // Don't fail business creation if vendor API fails
+      console.error('[createBusiness] Vendor API error:', vendorError)
+    }
+
     // Log activity
     await logActivity({
       action: 'CREATE',
       entityType: 'Business',
       entityId: business.id,
       entityName: business.name,
+      details: vendorApiResult ? {
+        metadata: {
+          vendorApiSuccess: vendorApiResult.success,
+          externalVendorId: vendorApiResult.externalVendorId,
+          vendorApiError: vendorApiResult.error,
+        },
+      } : undefined,
     })
 
     invalidateEntity('businesses')
-    return { success: true, data: business }
+    
+    // Refetch business to get updated osAdminVendorId if vendor was created
+    const updatedBusiness = vendorApiResult?.success && vendorApiResult.externalVendorId
+      ? await prisma.business.findUnique({
+          where: { id: business.id },
+          include: {
+            category: {
+              select: {
+                id: true,
+                categoryKey: true,
+                parentCategory: true,
+                subCategory1: true,
+                subCategory2: true,
+              },
+            },
+            salesReps: true,
+          },
+        })
+      : business
+
+    return { 
+      success: true, 
+      data: (updatedBusiness || business) as unknown as Business,
+      vendorApiResult: vendorApiResult ? {
+        success: vendorApiResult.success,
+        externalVendorId: vendorApiResult.externalVendorId,
+        error: vendorApiResult.error,
+        logId: vendorApiResult.logId,
+      } : undefined,
+    }
   } catch (error) {
     return handleServerActionError(error, 'createBusiness')
   }

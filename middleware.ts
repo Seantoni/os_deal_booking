@@ -2,6 +2,7 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { logger } from '@/lib/logger'
 import { CACHE_ACCESS_CHECK_SECONDS } from '@/lib/constants/cache'
+import { generalLimiter, checkRateLimit, rateLimitResponse, getClientIp, isRateLimitConfigured } from '@/lib/rate-limit'
 
 // Cookie name for caching access check result
 const ACCESS_COOKIE_NAME = 'os_access_verified'
@@ -24,9 +25,22 @@ const isPublicRoute = createRouteMatcher([
 
 export default clerkMiddleware(async (auth, request) => {
   const isPublic = isPublicRoute(request)
+  const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
 
   // Logging only in development
-  logger.debug('[middleware] path:', request.nextUrl.pathname, 'public:', isPublic)
+  logger.debug('[middleware] path:', request.nextUrl.pathname, 'public:', isPublic, 'api:', isApiRoute)
+
+  // Apply general rate limiting for all API routes (if configured)
+  if (isApiRoute && isRateLimitConfigured()) {
+    // Use IP for public routes, will use userId for auth routes after auth check
+    const ip = getClientIp(request)
+    const rateLimitResult = await checkRateLimit(generalLimiter, ip)
+    
+    if (!rateLimitResult.success) {
+      logger.warn('[middleware] General rate limit exceeded for IP:', ip)
+      return rateLimitResponse(rateLimitResult.reset)
+    }
+  }
 
   if (!isPublic) {
     const session = await auth()

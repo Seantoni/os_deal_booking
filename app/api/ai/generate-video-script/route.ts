@@ -1,6 +1,8 @@
 import { NextResponse, NextRequest } from 'next/server'
+import { auth } from '@clerk/nextjs/server'
 import { getOpenAIClient } from '@/lib/openai'
 import { logger } from '@/lib/logger'
+import { aiLimiter, applyRateLimit, getClientIp } from '@/lib/rate-limit'
 
 interface VideoScriptInput {
   businessName: string
@@ -59,6 +61,16 @@ Devuelve el guion en texto corrido, párrafos cortos y naturales. Sin marcadores
 
 export async function POST(request: NextRequest) {
   try {
+    // Apply AI rate limiting (20 req/min)
+    const { userId } = await auth()
+    const identifier = userId || getClientIp(request)
+    const rateLimitResult = await applyRateLimit(
+      aiLimiter,
+      identifier,
+      'Demasiadas solicitudes de IA. Espera un momento antes de generar más contenido.'
+    )
+    if (rateLimitResult) return rateLimitResult
+
     const body = await request.json()
     const { formData } = body as { formData: VideoScriptInput }
 

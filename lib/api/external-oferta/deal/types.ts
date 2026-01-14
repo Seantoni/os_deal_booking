@@ -1,5 +1,5 @@
 /**
- * Types for External Oferta API
+ * Types for External Oferta Deal API
  * Based on OpenAPI schema from doc.json
  */
 
@@ -136,3 +136,9 @@ export interface ExternalOfertaDealResponse {
   status: string
 }
 
+export interface SendDealResult {
+  success: boolean
+  externalId?: number
+  error?: string
+  logId?: string
+}

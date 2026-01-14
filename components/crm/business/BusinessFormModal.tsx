@@ -20,6 +20,8 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenIcon from '@mui/icons-material/LockOpen'
+import { useConfirmDialog } from '@/hooks/useConfirmDialog'
+import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useBusinessForm } from './useBusinessForm'
 import ReferenceInfoBar from '@/components/shared/ReferenceInfoBar'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
@@ -71,6 +73,75 @@ export default function BusinessFormModal({
     data?: Business
     error?: string
     existingBusiness?: Record<string, unknown> & { name: string; owner?: { name: string | null; email: string | null } | null }
+    vendorApiResult?: {
+      success: boolean
+      externalVendorId?: number
+      error?: string
+      logId?: string
+    }
+  }
+  
+  // Confirm dialog for pre-confirmation and vendor API result
+  const vendorConfirmDialog = useConfirmDialog()
+  const vendorResultDialog = useConfirmDialog()
+  
+  // Show pre-confirmation dialog before creating vendor
+  const confirmVendorCreation = async (): Promise<boolean> => {
+    return await vendorConfirmDialog.confirm({
+      title: 'Crear Vendor en OfertaSimple',
+      message: 'Al crear este negocio, se enviará automáticamente un nuevo vendor a OfertaSimple.\n\n¿Desea continuar?',
+      confirmText: 'Sí, crear negocio y vendor',
+      cancelText: 'Cancelar',
+      confirmVariant: 'primary',
+    })
+  }
+  
+  // Show vendor API result dialog (awaited before closing modal)
+  const showVendorResultDialog = async (vendorResult: CreateResult['vendorApiResult']) => {
+    if (!vendorResult) return
+    
+    const isOk = vendorResult.success === true
+    
+    // Build message as JSX for proper line breaks
+    const messageContent = (
+      <div className="text-left space-y-2">
+        <p className={isOk ? 'text-green-700 font-medium' : 'text-red-700 font-medium'}>
+          {isOk 
+            ? '✅ Vendor creado exitosamente en OfertaSimple.' 
+            : '❌ Error al crear vendor en OfertaSimple.'}
+        </p>
+        
+        {vendorResult.success && vendorResult.externalVendorId && (
+          <p className="text-gray-700">
+            <span className="font-medium">ID del Vendor:</span> {vendorResult.externalVendorId}
+          </p>
+        )}
+        
+        {!vendorResult.success && vendorResult.error && (
+          <p className="text-gray-700 text-sm">
+            <span className="font-medium">Error:</span> {vendorResult.error}
+          </p>
+        )}
+        
+        {vendorResult.logId && (
+          <p className="text-gray-500 text-xs">
+            ID de Log: {vendorResult.logId}
+          </p>
+        )}
+        
+        <p className="text-gray-500 text-xs pt-2 border-t border-gray-200">
+          Puede ver más detalles en Settings → API Logs.
+        </p>
+      </div>
+    )
+    
+    await vendorResultDialog.confirm({
+      title: isOk ? 'Vendor Creado' : 'Error al Crear Vendor',
+      message: messageContent,
+      confirmText: 'Entendido',
+      cancelText: '',
+      confirmVariant: isOk ? 'success' : 'danger',
+    })
   }
   const router = useRouter()
   const { user } = useUser()
@@ -156,10 +227,15 @@ export default function BusinessFormModal({
     preloadedInitialized: cachedInitialized,
   })
 
+  // State to track pending vendor result for showing dialog after action completes
+  const [pendingVendorResult, setPendingVendorResult] = useState<CreateResult['vendorApiResult'] | null>(null)
+  
   // React 19: useActionState for save/update business action
   const [saveState, saveAction, isSavePending] = useActionState<FormActionState, FormData>(
     async (_prevState, formData) => {
       try {
+        const isNewBusiness = !business
+        
         const result: CreateResult = business
           ? await updateBusiness(business.id, formData)
           : await createBusiness(formData)
@@ -170,6 +246,12 @@ export default function BusinessFormModal({
           if (!customFieldResult.success) {
             console.warn('Failed to save custom fields:', customFieldResult.error)
           }
+          
+          // Store vendor result to show dialog after action completes
+          if (isNewBusiness && result.vendorApiResult) {
+            setPendingVendorResult(result.vendorApiResult)
+          }
+          
           onSuccess(result.data)
           onClose()
           return { success: true, error: null }
@@ -194,6 +276,15 @@ export default function BusinessFormModal({
     },
     { success: false, error: null }
   )
+  
+  // Show vendor result dialog when pendingVendorResult is set
+  useEffect(() => {
+    if (pendingVendorResult) {
+      showVendorResultDialog(pendingVendorResult).then(() => {
+        setPendingVendorResult(null)
+      })
+    }
+  }, [pendingVendorResult])
 
   // State to hold the newly created business for opening opportunity modal
   const [createdBusiness, setCreatedBusiness] = useState<Business | null>(null)
@@ -230,6 +321,11 @@ export default function BusinessFormModal({
         const customFieldResult = await dynamicForm.saveCustomFields(businessResult.data.id)
         if (!customFieldResult.success) {
           console.warn('Failed to save custom fields:', customFieldResult.error)
+        }
+        
+        // Store vendor result to show dialog after action completes
+        if (businessResult.vendorApiResult) {
+          setPendingVendorResult(businessResult.vendorApiResult)
         }
 
         const opportunityFormData = new FormData()
@@ -415,9 +511,19 @@ export default function BusinessFormModal({
   }
 
   // React 19: Handler that triggers the save action
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+    
+    // For new businesses, ask confirmation before creating vendor
+    const isNewBusiness = !business
+    if (isNewBusiness) {
+      const confirmed = await confirmVendorCreation()
+      if (!confirmed) {
+        return // User cancelled
+      }
+    }
+    
     startTransition(() => {
       const formData = buildFormData()
       saveAction(formData)
@@ -425,9 +531,16 @@ export default function BusinessFormModal({
   }
 
   // React 19: Handler that triggers the create business & opportunity action
-  function handleCreateBusinessAndOpportunity(e: React.FormEvent) {
+  async function handleCreateBusinessAndOpportunity(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+    
+    // Ask confirmation before creating vendor (always new business in this flow)
+    const confirmed = await confirmVendorCreation()
+    if (!confirmed) {
+      return // User cancelled
+    }
+    
     startTransition(() => {
       const formData = buildFormData()
       createWithOppAction(formData)
@@ -728,6 +841,32 @@ export default function BusinessFormModal({
         />
       </Suspense>
     )}
+
+    {/* Pre-confirmation dialog for vendor creation - z-80 to be above ModalShell (z-70) */}
+    <ConfirmDialog
+      isOpen={vendorConfirmDialog.isOpen}
+      title={vendorConfirmDialog.options.title}
+      message={vendorConfirmDialog.options.message}
+      confirmText={vendorConfirmDialog.options.confirmText}
+      cancelText={vendorConfirmDialog.options.cancelText}
+      confirmVariant={vendorConfirmDialog.options.confirmVariant}
+      onConfirm={vendorConfirmDialog.handleConfirm}
+      onCancel={vendorConfirmDialog.handleCancel}
+      zIndex={80}
+    />
+    
+    {/* Vendor API result dialog - z-80 to be above ModalShell (z-70) */}
+    <ConfirmDialog
+      isOpen={vendorResultDialog.isOpen}
+      title={vendorResultDialog.options.title}
+      message={vendorResultDialog.options.message}
+      confirmText={vendorResultDialog.options.confirmText}
+      cancelText={vendorResultDialog.options.cancelText}
+      confirmVariant={vendorResultDialog.options.confirmVariant}
+      onConfirm={vendorResultDialog.handleConfirm}
+      onCancel={vendorResultDialog.handleCancel}
+      zIndex={80}
+    />
   </>
   )
 }

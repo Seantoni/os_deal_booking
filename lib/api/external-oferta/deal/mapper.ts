@@ -157,7 +157,7 @@ export function mapBookingFormToApi(
     // Email/Marketing
     emailBusinessName: formData.businessName || null,
     // emailTitle: TODO - may need new field
-    // voucherSu    bject: TODO - may need new field
+    // voucherSubject: TODO - may need new field
 
     // Address/Location
     vendorAddress: formData.addressAndHours || null,
@@ -210,7 +210,7 @@ export function mapBookingFormToApi(
 /**
  * Validate that required fields are present
  */
-export function validateApiRequest(request: ExternalOfertaDealRequest): {
+export function validateDealRequest(request: ExternalOfertaDealRequest): {
   valid: boolean
   errors: string[]
 } {
@@ -231,4 +231,3 @@ export function validateApiRequest(request: ExternalOfertaDealRequest): {
     errors,
   }
 }
-

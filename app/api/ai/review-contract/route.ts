@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { getOpenAIClient } from '@/lib/openai'
 import { logger } from '@/lib/logger'
+import { aiLimiter, applyRateLimit } from '@/lib/rate-limit'
 
 const RESTAURANT_REVIEW_PROMPT = `Role: You are a contract reviewer specialized in restaurant promotions for e-commerce platforms. Your task is to evaluate if a proposed deal meets success criteria based on industry data and platform performance.
 
@@ -85,6 +86,14 @@ export async function POST(req: Request) {
     if (!userId) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
+
+    // Apply AI rate limiting (20 req/min)
+    const rateLimitResult = await applyRateLimit(
+      aiLimiter,
+      userId,
+      'Demasiadas solicitudes de IA. Espera un momento antes de generar más contenido.'
+    )
+    if (rateLimitResult) return rateLimitResult
 
     const formData = await req.json()
     

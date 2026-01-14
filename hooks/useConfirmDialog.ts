@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, type ReactNode } from 'react'
 
 interface ConfirmDialogOptions {
   title?: string
-  message: string
+  message: string | ReactNode
   confirmText?: string
   cancelText?: string
   confirmVariant?: 'danger' | 'primary' | 'success'

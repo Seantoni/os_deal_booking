@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { verifyApprovalToken } from '@/lib/tokens'
 import { getAppBaseUrl } from '@/lib/config/env'
 import { logger } from '@/lib/logger'
+import { applyPublicRateLimit } from '@/lib/rate-limit'
 
 function getBaseUrl(request: NextRequest): string {
   // Prefer configured base URL (validated in production)
@@ -17,6 +18,13 @@ function getBaseUrl(request: NextRequest): string {
 }
 
 export async function GET(request: NextRequest) {
+  // Apply IP-based rate limiting for public routes (10 req/min)
+  const rateLimitResult = await applyPublicRateLimit(
+    request,
+    'Demasiadas solicitudes. Por favor espera un momento.'
+  )
+  if (rateLimitResult) return rateLimitResult
+
   const searchParams = request.nextUrl.searchParams
   const token = searchParams.get('token')
 

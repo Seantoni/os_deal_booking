@@ -1,26 +1,26 @@
 /**
  * External API Request Logger
  * 
- * Tracks all requests made to the external Oferta API
+ * Tracks all requests made to the external Oferta API (deals and vendors)
  */
 
 import { prisma } from '@/lib/prisma'
-import type { ExternalOfertaDealRequest, ExternalOfertaDealResponse } from './types'
 import type { Prisma } from '@prisma/client'
+import type { TriggerType } from './http'
 
 interface LogRequestParams {
   endpoint: string
   method?: string
-  requestBody: ExternalOfertaDealRequest
+  requestBody: unknown
   bookingRequestId?: string
   userId?: string
-  triggeredBy?: 'manual' | 'cron' | 'webhook' | 'system'
+  triggeredBy?: TriggerType
 }
 
 interface LogResponseParams {
   requestId: string
   statusCode: number
-  responseBody?: ExternalOfertaDealResponse | Record<string, unknown>
+  responseBody?: Record<string, unknown>
   responseRaw?: string
   success: boolean
   errorMessage?: string
@@ -93,7 +93,7 @@ export async function logApiCall(
   params: LogRequestParams & {
     response: {
       statusCode: number
-      body?: ExternalOfertaDealResponse | Record<string, unknown>
+      body?: Record<string, unknown>
       raw?: string
       success: boolean
       errorMessage?: string
@@ -109,20 +109,32 @@ export async function logApiCall(
     'User-Agent': 'OfertaSimpleBooking/1.0',
   }
   
-  // Log full request body structure for debugging
+  // Log full request body structure for debugging on failure
   if (!response.success) {
-    console.error('[External API Logger] Request body structure:', {
-      nameEs: requestBody.nameEs,
-      slug: requestBody.slug,
-      emailSubject: requestBody.emailSubject,
-      summaryEs: requestBody.summaryEs,
-      expiresOn: requestBody.expiresOn,
-      categoryId: requestBody.categoryId,
-      vendorName: requestBody.vendorName,
-      priceOptions: requestBody.priceOptions,
-      priceOptionsType: typeof requestBody.priceOptions,
-      priceOptionsIsArray: Array.isArray(requestBody.priceOptions),
-    })
+    // Detect request type from endpoint
+    const isDealRequest = endpoint.includes('/deals')
+    const isVendorRequest = endpoint.includes('/vendors')
+    
+    if (isDealRequest) {
+      const body = requestBody as Record<string, unknown>
+      console.error('[External API Logger] Deal request failed:', {
+        nameEs: body.nameEs,
+        slug: body.slug,
+        expiresOn: body.expiresOn,
+        categoryId: body.categoryId,
+        vendorName: body.vendorName,
+        priceOptionsCount: Array.isArray(body.priceOptions) ? body.priceOptions.length : 0,
+      })
+    } else if (isVendorRequest) {
+      const body = requestBody as Record<string, unknown>
+      console.error('[External API Logger] Vendor request failed:', {
+        name: body.name,
+        email: body.email,
+        salesType: body.salesType,
+      })
+    } else {
+      console.error('[External API Logger] Unknown request type failed:', { endpoint })
+    }
   }
   
   const record = await prisma.externalApiRequest.create({
@@ -225,4 +237,3 @@ export async function getApiRequestStats(days: number = 30) {
     successRate: total > 0 ? (successful / total * 100).toFixed(1) + '%' : 'N/A',
   }
 }
-

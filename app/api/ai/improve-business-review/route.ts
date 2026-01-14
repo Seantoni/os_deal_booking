@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { getOpenAIClient } from '@/lib/openai'
 import { logger } from '@/lib/logger'
+import { aiLimiter, applyRateLimit } from '@/lib/rate-limit'
 
 export async function POST(req: Request) {
   try {
@@ -10,6 +11,14 @@ export async function POST(req: Request) {
     if (!userId) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
+
+    // Apply AI rate limiting (20 req/min)
+    const rateLimitResult = await applyRateLimit(
+      aiLimiter,
+      userId,
+      'Demasiadas solicitudes de IA. Espera un momento antes de generar más contenido.'
+    )
+    if (rateLimitResult) return rateLimitResult
 
     const { text, businessName, searchInternet, addressAndHours } = await req.json()
 

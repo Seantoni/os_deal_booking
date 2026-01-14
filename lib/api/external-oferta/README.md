@@ -1,91 +1,136 @@
 # External Oferta API Integration
 
-This module provides mapping between our internal `BookingFormData` structure and the External Oferta API format.
+This module handles all communication with the external OfertaSimple API for deals and vendors.
 
-## Architecture
-
-**Why a mapping layer?**
-- ✅ Keeps internal data model independent from external API
-- ✅ Handles field transformations (string→boolean, combining fields, etc.)
-- ✅ Easy to adapt when API changes
-- ✅ Preserves internal-only fields
-- ✅ Can support multiple APIs in the future
-
-## Structure
+## 📁 Structure
 
 ```
 lib/api/external-oferta/
-├── types.ts       # API request/response TypeScript types
-├── mapper.ts      # Transformation logic (BookingFormData → API format)
-├── index.ts       # Public exports
-└── README.md      # This file
+├── index.ts              # Main entry point (re-exports all modules)
+├── README.md             # This file
+├── shared/               # Shared utilities
+│   ├── index.ts          # Re-exports shared modules
+│   ├── constants.ts      # API URLs, tokens, section mappings
+│   ├── http.ts           # HTTP utilities (error formatting)
+│   └── logger.ts         # Database logging for all API calls
+├── deal/                 # Deal creation API
+│   ├── index.ts          # Re-exports deal modules
+│   ├── types.ts          # Deal request/response types
+│   ├── mapper.ts         # BookingFormData → Deal API mapping
+│   └── client.ts         # Deal API client functions
+└── vendor/               # Vendor creation API
+    ├── index.ts          # Re-exports vendor modules
+    ├── types.ts          # Vendor request/response types
+    ├── mapper.ts         # Business → Vendor API mapping
+    └── client.ts         # Vendor API client functions
 ```
 
-## Usage
+## 🔧 Usage
+
+### Importing
 
 ```typescript
-import { mapBookingFormToApi, validateApiRequest } from '@/lib/api/external-oferta'
-import type { BookingFormData } from '@/components/RequestForm/types'
+// Import everything from main module (recommended)
+import { 
+  sendDealToExternalApi, 
+  sendVendorToExternalApi,
+  getRecentApiRequests,
+  type ExternalOfertaDealRequest,
+  type ExternalOfertaVendorRequest
+} from '@/lib/api/external-oferta'
 
-// Transform internal form data to API format
-const apiRequest = mapBookingFormToApi(formData, {
-  categoryId: 123,      // TODO: Map from category string
-  vendorId: 456,        // TODO: Map from business
-  expiresOn: '2025-12-31', // TODO: Map from endDate
-  slug: 'offer-slug'    // TODO: Auto-generate from nameEs
-})
-
-// Validate before sending
-const validation = validateApiRequest(apiRequest)
-if (!validation.valid) {
-  console.error('Validation errors:', validation.errors)
-  return
-}
-
-// Send to API
-const response = await fetch('/external/api/deals', {
-  method: 'POST',
-  body: JSON.stringify(apiRequest)
-})
+// Or import from specific submodules for smaller bundles
+import { sendDealToExternalApi } from '@/lib/api/external-oferta/deal'
+import { sendVendorToExternalApi } from '@/lib/api/external-oferta/vendor'
+import { getRecentApiRequests } from '@/lib/api/external-oferta/shared'
 ```
 
-## Key Mappings
+### Sending a Deal
 
-| Internal Field | API Field | Notes |
-|---------------|-----------|-------|
-| `pricingOptions[0].title` | `nameEs` | Offer name (subtitle on deal page) |
-| `businessName` | `vendorName` | Business/merchant name |
-| `aboutOffer` | `summaryEs` | Summary description |
-| `goodToKnow` | `goodToKnowEs` | Important information |
-| `whatWeLike` | `noteworthy` | Highlights |
-| `businessReview` | `reviewsEs` | Reviews |
-| `paymentInstructions` | `paymentDetails` | Payment terms |
-| `addressAndHours` | `vendorAddress` | Business address |
-| `dealImages[]` | `images[]` | Carousel images |
-| `pricingOptions[]` | `priceOptions[]` | Pricing structure |
+```typescript
+import { sendDealToExternalApi } from '@/lib/api/external-oferta'
 
-## TODO Items
+const result = await sendDealToExternalApi(bookingRequest, {
+  userId: 'user_123',
+  triggeredBy: 'manual',
+})
 
-The mapper currently has placeholder values for:
+if (result.success) {
+  console.log('Deal created with ID:', result.externalId)
+} else {
+  console.error('Deal creation failed:', result.error)
+}
+```
 
-1. **Category mapping** - Need to map `parentCategory`/`subCategory1` → `categoryId`
-2. **Vendor mapping** - Need to resolve `businessName` → `vendorId` (or use `vendorName`)
-3. **Date mapping** - Need to map `startDate`/`endDate` → `runAt`/`expiresOn`/`endAt`
-4. **Slug generation** - Need to auto-generate from `nameEs`
-5. **Missing fields** - Need to add form fields for:
-   - `emailSubject` (required)
-   - `voucherSubject`
-   - `shortTitle`
-   - `vendorLogo`
-   - `commonRedeemCode`
-   - `creditCardRestrictions`
-   - Per-option fields: `limitByUser`, `endAt`, `expiresIn`
+### Creating a Vendor
 
-## Next Steps
+```typescript
+import { sendVendorToExternalApi } from '@/lib/api/external-oferta'
 
-1. ✅ Create mapping structure
-2. ⏳ Add missing required fields to form
-3. ⏳ Implement category/vendor/date mappings
-4. ⏳ Create API client function
-5. ⏳ Add webhook handlers for API responses
+const result = await sendVendorToExternalApi(business, {
+  userId: 'user_123',
+  triggeredBy: 'manual',
+})
 
+if (result.success) {
+  console.log('Vendor created with ID:', result.externalVendorId)
+  // Note: Business.osAdminVendorId is automatically updated on success
+} else {
+  console.error('Vendor creation failed:', result.error)
+}
+```
+
+### Querying API Logs
+
+```typescript
+import { getRecentApiRequests, getApiRequestStats } from '@/lib/api/external-oferta'
+
+// Get recent requests
+const logs = await getRecentApiRequests({ limit: 50, failedOnly: true })
+
+// Get statistics
+const stats = await getApiRequestStats(30) // Last 30 days
+console.log(`Success rate: ${stats.successRate}`)
+```
+
+## 🔑 Environment Variables
+
+```bash
+# Required
+EXTERNAL_OFERTA_API_TOKEN=your_api_token
+
+# Optional (defaults provided)
+EXTERNAL_OFERTA_API_URL=https://ofertasimple.com/external/api/deals
+EXTERNAL_OFERTA_VENDOR_API_URL=https://ofertasimple.com/external/api/vendors
+```
+
+## 📊 API Logging
+
+All API requests are automatically logged to the `ExternalApiRequest` table:
+- Request body (sanitized, no auth tokens)
+- Response body and status
+- Duration, timestamps
+- Success/failure status
+- External IDs returned by the API
+
+View logs in **Settings → API Logs** tab.
+
+## 🏷️ Type Reference
+
+### Deal Types
+- `ExternalOfertaDealRequest` - Request payload for creating deals
+- `ExternalOfertaDealResponse` - Response from deal creation API
+- `ExternalOfertaPriceOption` - Price option structure
+- `SendDealResult` - Result of deal creation attempt
+
+### Vendor Types
+- `ExternalOfertaVendorRequest` - Request payload for creating vendors
+- `ExternalOfertaVendorResponse` - Response from vendor creation API
+- `SendVendorResult` - Result of vendor creation attempt
+- `VENDOR_SALES_TYPE` - Enum for sales type values (Regular, Inside, Recurring, OSP)
+
+## 🚀 API Routes
+
+- `POST /api/external-oferta/resend` - Resend a failed deal request
+- `GET /api/external-oferta/logs` - Get API logs (admin only)
+- `POST /api/external-oferta/test` - Test endpoint (development only)

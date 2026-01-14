@@ -104,14 +104,15 @@ export default function ConfirmDialog({
 
   return (
     <div className="fixed inset-0 overflow-y-auto" style={{ zIndex }}>
-      {/* Backdrop - light gray to match other modals */}
+      {/* Backdrop - needs explicit z-index to layer correctly */}
       <div
-        className="fixed inset-0 bg-gray-900/20 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm transition-opacity"
+        style={{ zIndex }}
         onClick={() => !loading && onCancel()}
       />
 
-      {/* Dialog */}
-      <div className="flex min-h-full items-center justify-center p-4">
+      {/* Dialog - needs higher z-index than backdrop */}
+      <div className="fixed inset-0 flex min-h-full items-center justify-center p-4" style={{ zIndex: zIndex + 1 }}>
         <div className="relative w-full max-w-md transform overflow-hidden rounded-xl bg-white shadow-2xl transition-all">
           {/* Close button */}
           <div className="absolute top-3 right-3">
@@ -144,13 +145,15 @@ export default function ConfirmDialog({
 
           {/* Footer */}
           <div className="flex justify-center gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
-            <Button
-              onClick={onCancel}
-              variant="secondary"
-              disabled={loading}
-            >
-              {cancelText}
-            </Button>
+            {cancelText && (
+              <Button
+                onClick={onCancel}
+                variant="secondary"
+                disabled={loading}
+              >
+                {cancelText}
+              </Button>
+            )}
             <Button
               onClick={onConfirm}
               variant={getButtonVariant()}

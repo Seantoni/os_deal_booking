@@ -2,13 +2,24 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@clerk/nextjs/server'
 import { requireAdmin } from '@/lib/auth/roles'
-import type { ExternalOfertaDealRequest } from '@/lib/api/external-oferta/types'
-import { sendExternalDealPayload } from '@/lib/api/external-oferta/client'
+import type { ExternalOfertaDealRequest } from '@/lib/api/external-oferta'
+import { sendExternalDealPayload } from '@/lib/api/external-oferta'
+import { externalApiLimiter, applyRateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
   try {
     await requireAdmin()
     const { userId } = await auth()
+
+    // Apply strict rate limiting (5 req/min) for external API calls
+    if (userId) {
+      const rateLimitResult = await applyRateLimit(
+        externalApiLimiter, 
+        userId,
+        'Demasiadas solicitudes a la API externa. Espera un momento antes de reintentar.'
+      )
+      if (rateLimitResult) return rateLimitResult
+    }
 
     const body = await request.json().catch(() => null)
     const logId = body?.logId as string | undefined

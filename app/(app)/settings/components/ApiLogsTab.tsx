@@ -228,6 +228,38 @@ export default function ApiLogsTab() {
     return 'text-gray-600'
   }
 
+  /**
+   * Determine request type from endpoint URL
+   */
+  const getRequestType = (endpoint: string): 'deal' | 'vendor' | 'unknown' => {
+    if (endpoint.includes('/vendors')) return 'vendor'
+    if (endpoint.includes('/deals')) return 'deal'
+    return 'unknown'
+  }
+
+  const getTypeBadge = (endpoint: string) => {
+    const type = getRequestType(endpoint)
+    if (type === 'vendor') {
+      return (
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-800">
+          Vendor
+        </span>
+      )
+    }
+    if (type === 'deal') {
+      return (
+        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-800">
+          Deal
+        </span>
+      )
+    }
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-800">
+        Other
+      </span>
+    )
+  }
+
   return (
     <div className="space-y-4">
       {/* Stats Cards */}
@@ -279,6 +311,9 @@ export default function ApiLogsTab() {
                   Time
                 </th>
                 <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+                  Type
+                </th>
+                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
@@ -288,13 +323,10 @@ export default function ApiLogsTab() {
                   Method
                 </th>
                 <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
-                  Endpoint
-                </th>
-                <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
                   External ID
                 </th>
                 <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
-                  Booking Request
+                  Related Entity
                 </th>
                 <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
                   Triggered By
@@ -327,60 +359,69 @@ export default function ApiLogsTab() {
                   </td>
                 </tr>
               ) : (
-                logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 text-[10px] text-gray-500">
-                      {formatCompactDateTime(log.createdAt)}
-                    </td>
-                    <td className="px-3 py-2">
-                      {getStatusBadge(log)}
-                    </td>
-                    <td className={`px-3 py-2 text-[10px] font-medium ${getStatusCodeColor(log.statusCode)}`}>
-                      {log.statusCode || '-'}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800">
-                        {log.method}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-[10px] text-gray-600 max-w-xs truncate" title={log.endpoint}>
-                      {log.endpoint}
-                    </td>
-                    <td className="px-3 py-2 text-[10px] text-gray-600">
-                      {log.externalId ? `#${log.externalId}` : '-'}
-                    </td>
-                    <td className="px-3 py-2 text-[10px] text-gray-600 max-w-xs truncate">
-                      {log.bookingRequest ? (
-                        <span title={log.bookingRequest.businessEmail || undefined}>
-                          {log.bookingRequest.name}
+                logs.map((log) => {
+                  const requestType = getRequestType(log.endpoint)
+                  return (
+                    <tr key={log.id} className="hover:bg-gray-50">
+                      <td className="px-3 py-2 text-[10px] text-gray-500">
+                        {formatCompactDateTime(log.createdAt)}
+                      </td>
+                      <td className="px-3 py-2">
+                        {getTypeBadge(log.endpoint)}
+                      </td>
+                      <td className="px-3 py-2">
+                        {getStatusBadge(log)}
+                      </td>
+                      <td className={`px-3 py-2 text-[10px] font-medium ${getStatusCodeColor(log.statusCode)}`}>
+                        {log.statusCode || '-'}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800">
+                          {log.method}
                         </span>
-                      ) : (
-                        '-'
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-[10px] text-gray-500">
-                      {log.triggeredBy || '-'}
-                    </td>
-                    <td className="px-3 py-2 text-right text-[10px] text-gray-500">
-                      {log.durationMs ? `${log.durationMs}ms` : '-'}
-                    </td>
-                    <td className="px-3 py-2 text-[10px] text-red-600 max-w-xs truncate" title={log.errorMessage || undefined}>
-                      {log.errorMessage || '-'}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      {!log.success && (
-                        <Button
-                          size="xs"
-                          variant="secondary"
-                          disabled={loading || resendingId === log.id}
-                          onClick={() => beginResend(log.id)}
-                        >
-                          {resendingId === log.id ? 'Resending…' : 'Resend'}
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="px-3 py-2 text-[10px] text-gray-600">
+                        {log.externalId ? (
+                          <span className="font-medium">
+                            {requestType === 'vendor' ? 'Vendor' : 'Deal'} #{log.externalId}
+                          </span>
+                        ) : '-'}
+                      </td>
+                      <td className="px-3 py-2 text-[10px] text-gray-600 max-w-xs truncate">
+                        {log.bookingRequest ? (
+                          <span title={log.bookingRequest.businessEmail || undefined}>
+                            {log.bookingRequest.name}
+                          </span>
+                        ) : requestType === 'vendor' ? (
+                          <span className="text-gray-400 italic">Business creation</span>
+                        ) : (
+                          '-'
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-[10px] text-gray-500">
+                        {log.triggeredBy || '-'}
+                      </td>
+                      <td className="px-3 py-2 text-right text-[10px] text-gray-500">
+                        {log.durationMs ? `${log.durationMs}ms` : '-'}
+                      </td>
+                      <td className="px-3 py-2 text-[10px] text-red-600 max-w-xs truncate" title={log.errorMessage || undefined}>
+                        {log.errorMessage || '-'}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        {!log.success && requestType === 'deal' && (
+                          <Button
+                            size="xs"
+                            variant="secondary"
+                            disabled={loading || resendingId === log.id}
+                            onClick={() => beginResend(log.id)}
+                          >
+                            {resendingId === log.id ? 'Resending…' : 'Resend'}
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>
