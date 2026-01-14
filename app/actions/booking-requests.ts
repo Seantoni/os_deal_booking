@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { unstable_cache } from 'next/cache'
 import { requireAuth, handleServerActionError, buildRoleBasedWhereClause } from '@/lib/utils/server-actions'
-import { invalidateEntity, invalidateEntities } from '@/lib/cache'
+import { invalidateEntity, invalidateEntities, invalidateDashboard } from '@/lib/cache'
 import { getUserRole } from '@/lib/auth/roles'
 import { resend, EMAIL_CONFIG } from '@/lib/email/config'
 import { renderBookingRequestEmail } from '@/lib/email/templates/booking-request'
@@ -1115,6 +1115,10 @@ export async function updateBookingRequestStatus(
     }
 
     invalidateEntity('booking-requests')
+    // Status changes affect dashboard booking stats
+    if (currentRequest?.status !== status) {
+      invalidateDashboard()
+    }
     return { success: true, data: bookingRequest }
   } catch (error) {
     logger.error('Error updating booking request status:', error)

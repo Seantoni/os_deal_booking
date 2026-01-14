@@ -620,7 +620,9 @@ export async function bookEvent(eventId: string) {
       }
     }
 
-    invalidateEntities(['events', 'booking-requests', 'deals', 'marketing-campaigns'])
+    // Invalidate only affected entities - deals and marketing-campaigns don't need refresh here
+    // since the deal was just created and marketing-campaigns are unrelated
+    invalidateEntities(['events', 'booking-requests'])
 
     // Log activity
     await logActivity({

@@ -5,7 +5,7 @@ import { Prisma } from '@prisma/client'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
 import { getUserRole, isAdmin as checkIsAdmin } from '@/lib/auth/roles'
 import { currentUser } from '@clerk/nextjs/server'
-import { invalidateEntities } from '@/lib/cache'
+import { invalidateEntity } from '@/lib/cache'
 import { parseFieldComments, type FieldComment } from '@/types'
 import { randomUUID } from 'crypto'
 
@@ -92,7 +92,8 @@ export async function addFieldComment(
       },
     })
 
-    invalidateEntities(['booking-requests', 'deals'])
+    // Only invalidate booking-requests - comments are stored there, deals don't need refresh
+    invalidateEntity('booking-requests')
 
     return { success: true, data: newComment }
   } catch (error) {
@@ -167,7 +168,8 @@ export async function updateFieldComment(
       },
     })
 
-    invalidateEntities(['booking-requests', 'deals'])
+    // Only invalidate booking-requests - comments are stored there, deals don't need refresh
+    invalidateEntity('booking-requests')
 
     return { success: true, data: updatedComment }
   } catch (error) {
@@ -219,7 +221,8 @@ export async function deleteFieldComment(
       },
     })
 
-    invalidateEntities(['booking-requests', 'deals'])
+    // Only invalidate booking-requests - comments are stored there, deals don't need refresh
+    invalidateEntity('booking-requests')
 
     return { success: true }
   } catch (error) {

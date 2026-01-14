@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
-import { invalidateEntity } from '@/lib/cache'
+import { invalidateEntity, invalidateDashboard } from '@/lib/cache'
 import { getUserRole, isAdmin } from '@/lib/auth/roles'
 import type { Task } from '@/types'
 
@@ -294,6 +294,8 @@ export async function toggleTaskComplete(taskId: string): Promise<{
 
     invalidateEntity('opportunities')
     invalidateEntity('tasks')
+    // Task completion affects dashboard stats
+    invalidateDashboard()
     return { success: true, data: { ...task, category: task.category as 'meeting' | 'todo' } }
   } catch (error) {
     return handleServerActionError(error, 'toggleTaskComplete')

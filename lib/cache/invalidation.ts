@@ -2,18 +2,23 @@
  * Centralized Cache Invalidation
  * 
  * Provides a single source of truth for cache invalidation across the application.
- * Uses tags as the primary invalidation mechanism with optional path revalidation
- * for immediate UI updates.
+ * Uses tags as the primary invalidation mechanism. Path revalidation is opt-in
+ * for critical immediate UI updates only.
+ * 
+ * IMPORTANT: Cache Invalidation Discipline
+ * - Always use the most specific entity tag possible
+ * - Use granular invalidation (invalidateEntityById) for single-entity updates
+ * - Only use cascadeInvalidates for truly dependent data (not for UI convenience)
+ * - Avoid invalidateEntities with many entities - prefer explicit single invalidations
  * 
  * Usage:
- *   import { invalidateEntity } from '@/lib/cache'
+ *   import { invalidateEntity, invalidateEntityById } from '@/lib/cache'
  *   
  *   // After updating a deal:
  *   invalidateEntity('deals')
  *   
- *   // After updating something that affects multiple entities:
- *   invalidateEntity('deals')
- *   invalidateEntity('opportunities')
+ *   // After updating a specific business (more efficient):
+ *   invalidateEntityById('businesses', businessId)
  */
 
 import { revalidatePath, revalidateTag } from 'next/cache'
@@ -30,19 +35,23 @@ const safeRevalidatePath = revalidatePath as (path: string) => void
 /**
  * Cache entity configuration
  * - tags: Cache tags to invalidate (primary mechanism)
- * - paths: Paths to revalidate for immediate UI updates (use sparingly)
+ * - paths: Paths to revalidate for immediate UI updates (opt-in, use sparingly)
  * - cascadeInvalidates: Other entities that should be invalidated when this one changes
+ *   NOTE: Use sparingly! Only for truly dependent data. Dashboard/Pipeline should be
+ *   invalidated explicitly when their aggregated data actually changes.
  */
 export const CACHE_ENTITIES = {
   deals: {
     tags: ['deals'],
-    paths: ['/deals', '/pipeline'],
-    cascadeInvalidates: ['dashboard'],
+    paths: ['/deals'],
+    // Cascade to pipeline since it displays deals
+    cascadeInvalidates: ['pipeline'],
   },
   opportunities: {
     tags: ['opportunities'],
-    paths: ['/opportunities', '/pipeline'],
-    cascadeInvalidates: ['dashboard'],
+    paths: ['/opportunities'],
+    // Cascade to pipeline since it displays opportunities
+    cascadeInvalidates: ['pipeline'],
   },
   businesses: {
     tags: ['businesses'],
@@ -57,11 +66,18 @@ export const CACHE_ENTITIES = {
   'booking-requests': {
     tags: ['booking-requests'],
     paths: ['/booking-requests'],
-    cascadeInvalidates: ['events', 'dashboard'],
+    // Cascade to pipeline since it displays booking requests
+    cascadeInvalidates: ['pipeline'],
   },
   events: {
     tags: ['events'],
     paths: ['/events'],
+    // Cascade to pipeline for pre-booked events
+    cascadeInvalidates: ['pipeline'],
+  },
+  pipeline: {
+    tags: ['pipeline'],
+    paths: ['/pipeline'],
     cascadeInvalidates: [],
   },
   categories: {
@@ -107,7 +123,9 @@ export const CACHE_ENTITIES = {
   tasks: {
     tags: ['tasks'],
     paths: ['/tasks'],
-    cascadeInvalidates: ['opportunities'],
+    // Tasks don't cascade to opportunities - they're independent
+    // If opportunity data needs refreshing, invalidate it explicitly
+    cascadeInvalidates: [],
   },
   'marketing-campaigns': {
     tags: ['marketing-campaigns'],
@@ -123,33 +141,38 @@ export type CacheEntity = keyof typeof CACHE_ENTITIES
 // ============================================================================
 
 /**
- * Invalidate cache for a specific entity
+ * Invalidate cache for a specific entity (collection-level)
  * 
  * @param entity - The entity type to invalidate
  * @param options - Optional configuration
  * @param options.cascade - Whether to cascade invalidation to dependent entities (default: true)
- * @param options.skipPaths - Skip path revalidation (useful when calling from other invalidations)
+ * @param options.includePaths - Whether to include path revalidation (default: false for efficiency)
  * @param options.additionalPaths - Additional paths to revalidate (e.g., specific entity pages)
  * 
  * @example
- * // Basic usage
+ * // Basic usage (tag-only, most efficient)
  * invalidateEntity('deals')
  * 
- * // With additional path for specific entity
+ * // With path revalidation for immediate UI update
+ * invalidateEntity('deals', { includePaths: true })
+ * 
+ * // With additional path for specific entity page
  * invalidateEntity('deals', { additionalPaths: [`/deals/${dealId}/draft`] })
  * 
- * // Without cascade (to prevent infinite loops in cascade chains)
+ * // Without cascade (to prevent infinite loops or when you know cascade isn't needed)
  * invalidateEntity('dashboard', { cascade: false })
  */
 export function invalidateEntity(
   entity: CacheEntity,
   options: {
     cascade?: boolean
-    skipPaths?: boolean
+    includePaths?: boolean
     additionalPaths?: string[]
   } = {}
 ): void {
-  const { cascade = true, skipPaths = false, additionalPaths = [] } = options
+  // Default: tag-only invalidation (most efficient)
+  // Path revalidation is opt-in for critical immediate UI updates
+  const { cascade = true, includePaths = false, additionalPaths = [] } = options
   const config = CACHE_ENTITIES[entity]
 
   // 1. Invalidate tags (primary mechanism)
@@ -157,43 +180,104 @@ export function invalidateEntity(
     safeRevalidateTag(tag)
   }
 
-  // 2. Revalidate paths for immediate UI updates (if not skipped)
-  if (!skipPaths) {
+  // 2. Revalidate paths only if explicitly requested (opt-in)
+  if (includePaths) {
     for (const path of config.paths) {
       safeRevalidatePath(path)
     }
-    for (const path of additionalPaths) {
-      safeRevalidatePath(path)
-    }
+  }
+  
+  // Always revalidate additional paths if provided
+  for (const path of additionalPaths) {
+    safeRevalidatePath(path)
   }
 
   // 3. Cascade to dependent entities (without further cascading to prevent loops)
   if (cascade && config.cascadeInvalidates.length > 0) {
     for (const dependentEntity of config.cascadeInvalidates) {
-      invalidateEntity(dependentEntity as CacheEntity, { cascade: false, skipPaths: true })
+      invalidateEntity(dependentEntity as CacheEntity, { cascade: false, includePaths: false })
     }
+  }
+}
+
+/**
+ * Invalidate cache for a specific entity instance (granular invalidation)
+ * 
+ * This invalidates both the entity-specific tag and the collection tag.
+ * Use this for single-entity updates to minimize cache invalidation scope.
+ * 
+ * @param entity - The entity type
+ * @param id - The specific entity ID
+ * @param options - Optional configuration
+ * 
+ * @example
+ * // After updating a specific business
+ * invalidateEntityById('businesses', businessId)
+ * 
+ * // With collection invalidation (when list views also need refresh)
+ * invalidateEntityById('opportunities', oppId, { includeCollection: true })
+ */
+export function invalidateEntityById(
+  entity: CacheEntity,
+  id: string,
+  options: {
+    includeCollection?: boolean
+    cascade?: boolean
+    includePaths?: boolean
+    additionalPaths?: string[]
+  } = {}
+): void {
+  const { includeCollection = true, cascade = true, includePaths = false, additionalPaths = [] } = options
+  
+  // 1. Invalidate entity-specific tag
+  safeRevalidateTag(`${entity}-${id}`)
+  
+  // 2. Optionally invalidate the collection tag
+  if (includeCollection) {
+    invalidateEntity(entity, { cascade, includePaths, additionalPaths })
   }
 }
 
 /**
  * Invalidate multiple entities at once
  * 
+ * CAUTION: Use sparingly! Prefer explicit single invalidations when possible.
+ * Only use when you truly need to invalidate multiple unrelated entities.
+ * 
  * @param entities - Array of entities to invalidate
  * @param options - Optional configuration (applied to all entities)
  * 
  * @example
- * invalidateEntities(['deals', 'opportunities', 'dashboard'])
+ * // Only when truly needed (e.g., bulk import affecting multiple entity types)
+ * invalidateEntities(['deals', 'opportunities'])
  */
 export function invalidateEntities(
   entities: CacheEntity[],
   options: {
     cascade?: boolean
-    skipPaths?: boolean
+    includePaths?: boolean
   } = {}
 ): void {
   for (const entity of entities) {
     invalidateEntity(entity, options)
   }
+}
+
+/**
+ * Invalidate dashboard cache
+ * 
+ * Call this explicitly when aggregated stats change:
+ * - Opportunity stage changes (won/lost)
+ * - Task completions
+ * - Booking request status changes
+ * 
+ * @example
+ * // After marking opportunity as won
+ * invalidateEntity('opportunities')
+ * invalidateDashboard()
+ */
+export function invalidateDashboard(): void {
+  safeRevalidateTag('dashboard')
 }
 
 /**
@@ -236,4 +320,3 @@ export function invalidateCustomFieldCache(entityType: string): void {
   safeRevalidateTag(`custom-fields-${entityType}`)
   safeRevalidateTag('custom-fields')
 }
-

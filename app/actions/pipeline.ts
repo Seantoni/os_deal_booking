@@ -181,7 +181,9 @@ export async function getPipelineData() {
       },
       [cacheKey],
       {
-        tags: ['pipeline', 'opportunities', 'booking-requests', 'deals', 'events'],
+        // Pipeline-specific tag - invalidate explicitly when pipeline data changes
+        // Individual entity tags removed to avoid cascade over-invalidation
+        tags: ['pipeline'],
         revalidate: CACHE_REVALIDATE_SECONDS,
       }
     )

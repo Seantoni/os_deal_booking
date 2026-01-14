@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { unstable_cache } from 'next/cache'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
-import { invalidateEntity } from '@/lib/cache'
+import { invalidateEntity, invalidateDashboard } from '@/lib/cache'
 import { getUserRole, isAdmin } from '@/lib/auth/roles'
 import type { OpportunityStage } from '@/types'
 import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
@@ -610,6 +610,14 @@ export async function updateOpportunity(opportunityId: string, formData: FormDat
     })
 
     invalidateEntity('opportunities')
+    
+    // Invalidate dashboard when opportunity stage changes to won/lost (affects stats)
+    if (currentOpportunity && currentOpportunity.stage !== stage) {
+      if (stage === 'won' || stage === 'lost' || currentOpportunity.stage === 'won' || currentOpportunity.stage === 'lost') {
+        invalidateDashboard()
+      }
+    }
+    
     return { success: true, data: opportunity }
   } catch (error) {
     return handleServerActionError(error, 'updateOpportunity')

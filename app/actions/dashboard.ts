@@ -278,7 +278,9 @@ export async function getDashboardStats(filters: DashboardFilters = {}) {
     },
     cacheKey,
     {
-      tags: ['dashboard', 'opportunities', 'tasks', 'booking-requests'],
+      // Only use 'dashboard' tag - explicit invalidation only when aggregate stats change
+      // Avoids over-invalidation from opportunities/tasks/booking-requests changes
+      tags: ['dashboard'],
       revalidate: CACHE_REVALIDATE_DASHBOARD_SECONDS,
     }
   )
