@@ -70,7 +70,7 @@ export async function getFormConfiguration(entityType: FormEntityType): Promise<
           entityType: field.entityType as FormEntityType,
           width: field.width as FieldWidth,
           fieldSource: field.fieldSource as 'builtin' | 'custom',
-          canEditAfterCreation: (field as any).canEditAfterCreation ?? false, // TypeScript cache issue - field exists at runtime
+          canEditAfterCreation: field.canEditAfterCreation ?? false,
           definition: builtinDef,
           customFieldLabel: customField?.label,
           customFieldType: customField?.fieldType,
@@ -152,7 +152,7 @@ export async function initializeFormConfiguration(entityType: FormEntityType): P
                 isReadonly: false,
                 canEditAfterCreation,
                 width: 'full',
-              } as any, // TypeScript cache issue - field exists at runtime
+              },
             })
           }
         }
@@ -196,7 +196,7 @@ export async function initializeFormConfiguration(entityType: FormEntityType): P
               isReadonly: false,
               canEditAfterCreation: false,
               width: 'full',
-            } as any, // TypeScript cache issue - field exists at runtime
+            },
           })
         }
       }
@@ -538,7 +538,7 @@ export async function addCustomFieldToFormConfig(
         isReadonly: false,
         canEditAfterCreation: false,
         width: 'full',
-      } as any, // Temporary: Prisma types will be correct after migration
+      },
     })
 
     invalidateEntity('form-config')
@@ -699,7 +699,7 @@ export async function resetFormConfiguration(entityType: FormEntityType): Promis
               isReadonly: false,
               canEditAfterCreation: false,
               width: 'full',
-            } as any, // TypeScript cache issue - field exists at runtime
+            },
           })
         }
       }
@@ -790,7 +790,7 @@ export async function syncBuiltinFieldsToFormConfig(entityType: FormEntityType):
               isReadonly: false,
               canEditAfterCreation,
               width: 'full',
-            } as any, // Temporary: Prisma types will be correct after migration
+            },
           })
 
           addedCount++

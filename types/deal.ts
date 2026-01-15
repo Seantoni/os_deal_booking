@@ -4,6 +4,18 @@
  */
 import type { DealStatus } from '@/lib/constants'
 
+/**
+ * Pricing option for deals and booking requests
+ */
+export interface PricingOption {
+  title?: string
+  description?: string
+  price?: string | number
+  realValue?: string | number
+  quantity?: string | number
+  imageUrl?: string
+}
+
 export type Deal = {
   id: string
   bookingRequestId: string
@@ -40,7 +52,7 @@ export type Deal = {
     addressAndHours: string | null
     bank: string | null
     accountNumber: string | null
-    pricingOptions: any | null
+    pricingOptions: PricingOption[] | null
   }
   responsible?: {
     id: string

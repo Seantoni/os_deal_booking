@@ -264,7 +264,7 @@ export default function BusinessesPageClient({
         return (business.category?.parentCategory || '').toLowerCase()
       case 'netRev360':
         if (business.sourceType !== 'api') return null
-        return (business as any)?.metrics?.net_rev_360_days ?? null
+        return business.metrics?.net_rev_360_days ?? null
       case 'openOpps':
         return businessOpenOpportunityCount.get(business.id) || 0
       case 'pendingReqs':
@@ -515,10 +515,10 @@ export default function BusinessesPageClient({
                     )}
                   </TableCell>
                   <TableCell align="right">
-                    {business.sourceType === 'api' && (business as any)?.metrics?.net_rev_360_days !== undefined ? (
+                    {business.sourceType === 'api' && business.metrics?.net_rev_360_days !== undefined ? (
                       <span className="text-xs font-semibold text-gray-900">
                         {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(
-                          (business as any)?.metrics?.net_rev_360_days ?? 0
+                          business.metrics?.net_rev_360_days ?? 0
                         )}
                       </span>
                     ) : (

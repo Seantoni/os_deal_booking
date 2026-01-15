@@ -4,6 +4,16 @@ import { requirePageAccess } from '@/lib/auth/page-access'
 import { getBookingRequest } from '@/app/actions/booking'
 import EnhancedBookingForm from '@/components/RequestForm'
 import PageContent from '@/components/common/PageContent'
+import type { PricingOption } from '@/types/deal'
+
+/**
+ * Additional info structure for template-based fields
+ */
+interface AdditionalInfo {
+  templateName?: string
+  templateDisplayName?: string
+  fields?: Record<string, string>
+}
 
 interface EditBookingRequestPageProps {
   params: Promise<{ id: string }>
@@ -44,22 +54,20 @@ export default async function EditBookingRequestPage({ params }: EditBookingRequ
     return `${year}-${month}-${day}`
   }
 
-  // Parse additional emails from database (stored as JSON)
-  // Type assertion: Prisma types may need IDE restart to fully update
-  const storedEmails = (bookingRequest as any).additionalEmails
-  const additionalEmails = storedEmails && Array.isArray(storedEmails)
-    ? (storedEmails as string[])
-    : []
+  // BookingRequest from Prisma has many dynamic JSON fields.
+  // We use a typed accessor pattern to safely access known JSON structures.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const br = bookingRequest as Record<string, any>
 
-  // Parse additionalInfo from database (stored as JSON)
-  const storedAdditionalInfo = (bookingRequest as any).additionalInfo as {
-    templateName?: string
-    templateDisplayName?: string
-    fields?: Record<string, string>
-  } | null
+  // Parse additional emails from database (stored as JSON array)
+  const rawEmails = br.additionalEmails
+  const additionalEmails: string[] = Array.isArray(rawEmails) ? rawEmails : []
 
-  // Prisma types may not include all dynamic columns; use a relaxed alias
-  const br = bookingRequest as any
+  // Parse additionalInfo from database (stored as JSON object)
+  const storedAdditionalInfo: AdditionalInfo | null = 
+    br.additionalInfo && typeof br.additionalInfo === 'object' 
+      ? br.additionalInfo 
+      : null
 
   // Build initial form data from booking request
   const initialFormData = {
@@ -107,7 +115,7 @@ export default async function EditBookingRequestPage({ params }: EditBookingRequ
     contactDetails: br.contactDetails || '',
     socialMedia: br.socialMedia || '',
     businessReview: br.businessReview || '',
-    pricingOptions: (br.pricingOptions || []).map((opt: any) => ({
+    pricingOptions: (br.pricingOptions || []).map((opt: PricingOption) => ({
       title: opt?.title ?? '',
       description: opt?.description ?? '',
       price: opt?.price ?? '',

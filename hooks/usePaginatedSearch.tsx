@@ -6,9 +6,11 @@ import { logger } from '@/lib/logger'
 import toast from 'react-hot-toast'
 
 // Generic result types that work with server actions
+// Note: We use loose typing here because server actions may return
+// data with additional fields beyond what T specifies
 interface PaginatedResult {
   success: boolean
-  data?: any[]
+  data?: unknown[]
   total?: number
   page?: number
   pageSize?: number
@@ -18,7 +20,7 @@ interface PaginatedResult {
 
 interface SearchResult {
   success: boolean
-  data?: any[]
+  data?: unknown[]
   error?: string
 }
 
@@ -233,7 +235,7 @@ export function usePaginatedSearch<T>({
       })
       if (result.success && result.data) {
         setData(result.data as T[])
-        setTotalCount((result as { total?: number }).total || 0)
+        setTotalCount(result.total || 0)
         setCurrentPage(page)
       }
     } catch (error) {

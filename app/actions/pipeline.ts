@@ -5,6 +5,45 @@ import { unstable_cache } from 'next/cache'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
 import { getUserRole } from '@/lib/auth/roles'
 import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
+import type { Prisma } from '@prisma/client'
+
+// Pipeline data types
+type PipelineOpportunity = Prisma.OpportunityGetPayload<{
+  include: {
+    business: {
+      include: {
+        category: {
+          select: { id: true; categoryKey: true; parentCategory: true; subCategory1: true; subCategory2: true }
+        }
+      }
+    }
+  }
+}>
+
+type PipelineBookingRequest = Prisma.BookingRequestGetPayload<object>
+
+type PipelineEvent = {
+  id: string
+  name: string
+  startDate: Date
+  endDate: Date
+  status: string
+  merchant: string | null
+  parentCategory: string | null
+  subCategory1: string | null
+  subCategory2: string | null
+  createdAt: Date
+}
+
+type PipelineItemData =
+  | { opportunity: PipelineOpportunity | null; bookingRequest: PipelineBookingRequest | null }
+  | { event: PipelineEvent }
+
+type UnifiedPipelineItem = {
+  type: 'opportunity' | 'request' | 'event'
+  createdAt: Date
+  data: PipelineItemData
+}
 
 /**
  * Get pipeline data: all opportunities with their linked booking requests
@@ -280,13 +319,7 @@ export async function getPipelineDataPaginated(options: {
     const requestMap = new Map(linkedRequests.map(req => [req.id, req]))
 
     // Create combined items with unified timestamp for sorting
-    type UnifiedItem = {
-      type: 'opportunity' | 'request' | 'event'
-      createdAt: Date
-      data: any
-    }
-
-    const allItems: UnifiedItem[] = []
+    const allItems: UnifiedPipelineItem[] = []
 
     // Add opportunities (with their linked requests)
     opportunities.forEach(opp => {
@@ -334,14 +367,16 @@ export async function getPipelineDataPaginated(options: {
     const paginatedItems = allItems.slice(page * pageSize, (page + 1) * pageSize)
 
     // Separate back into categories
-    const pipelineData: { opportunity: any; bookingRequest: any }[] = []
-    const formattedPreBookedEvents: { event: any }[] = []
+    const pipelineData: { opportunity: PipelineOpportunity | null; bookingRequest: PipelineBookingRequest | null }[] = []
+    const formattedPreBookedEvents: { event: PipelineEvent }[] = []
 
     paginatedItems.forEach(item => {
       if (item.type === 'opportunity' || item.type === 'request') {
-        pipelineData.push(item.data)
+        const data = item.data as { opportunity: PipelineOpportunity | null; bookingRequest: PipelineBookingRequest | null }
+        pipelineData.push(data)
       } else if (item.type === 'event') {
-        formattedPreBookedEvents.push(item.data)
+        const data = item.data as { event: PipelineEvent }
+        formattedPreBookedEvents.push(data)
       }
     })
 

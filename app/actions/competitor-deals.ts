@@ -20,6 +20,7 @@ type WhereInput = {
 interface SnapshotForCalc {
   totalSold: number
   scannedAt: Date
+  offerPrice?: number
 }
 
 // Type for groupBy result
@@ -51,6 +52,7 @@ export interface CompetitorDealWithStats {
   salesToday: number
   salesThisWeek: number
   salesThisMonth: number
+  grossRevenue: number
 }
 
 export interface DealSnapshot {
@@ -97,7 +99,7 @@ const VALID_DB_SORT_FIELDS = new Set([
 ])
 
 // Computed fields that require in-memory sorting after stats calculation
-const COMPUTED_SORT_FIELDS = new Set(['salesToday', 'salesThisWeek', 'salesThisMonth'])
+const COMPUTED_SORT_FIELDS = new Set(['salesToday', 'salesThisWeek', 'salesThisMonth', 'grossRevenue'])
 
 /**
  * Get competitor deals with pagination, filtering, and calculated stats
@@ -189,8 +191,8 @@ export async function getCompetitorDeals(params: GetDealsParams = {}): Promise<G
       
       if (snapshots.length >= 2) {
         // Find the snapshot closest to each period start
-        const findClosestBefore = (date: Date): SnapshotForCalc | null => {
-          const before = snapshots.filter((s: SnapshotForCalc) => s.scannedAt <= date)
+        const findClosestBefore = (date: Date) => {
+          const before = snapshots.filter(s => s.scannedAt <= date)
           return before.length > 0 ? before[before.length - 1] : null
         }
         
@@ -210,6 +212,7 @@ export async function getCompetitorDeals(params: GetDealsParams = {}): Promise<G
         }
       }
       
+      const offerPriceNum = Number(deal.offerPrice)
       return {
         id: deal.id,
         sourceUrl: deal.sourceUrl,
@@ -217,7 +220,7 @@ export async function getCompetitorDeals(params: GetDealsParams = {}): Promise<G
         merchantName: deal.merchantName,
         dealTitle: deal.dealTitle,
         originalPrice: Number(deal.originalPrice),
-        offerPrice: Number(deal.offerPrice),
+        offerPrice: offerPriceNum,
         discountPercent: deal.discountPercent,
         totalSold: deal.totalSold,
         imageUrl: deal.imageUrl,
@@ -230,6 +233,7 @@ export async function getCompetitorDeals(params: GetDealsParams = {}): Promise<G
         salesToday: Math.max(0, salesToday),
         salesThisWeek: Math.max(0, salesThisWeek),
         salesThisMonth: Math.max(0, salesThisMonth),
+        grossRevenue: deal.totalSold * offerPriceNum,
       }
     })
   )
@@ -296,15 +300,15 @@ export async function getCompetitorDeal(dealId: string): Promise<{
   let salesThisMonth = 0
   
   if (snapshots.length >= 2) {
-    const findClosestBefore = (date: Date): SnapshotForCalc | null => {
-      const before = snapshots.filter((s: SnapshotForCalc) => s.scannedAt <= date)
+    const findClosestBefore = (date: Date) => {
+      const before = snapshots.filter(s => s.scannedAt <= date)
       return before.length > 0 ? before[before.length - 1] : null
     }
     
     const todaySnapshot = findClosestBefore(todayStart)
     const weekSnapshot = findClosestBefore(weekStart)
     const monthSnapshot = findClosestBefore(monthStart)
-    const latestSnapshot = snapshots[snapshots.length - 1] as SnapshotForCalc
+    const latestSnapshot = snapshots[snapshots.length - 1]
     
     if (todaySnapshot && latestSnapshot) {
       salesToday = latestSnapshot.totalSold - todaySnapshot.totalSold
@@ -317,6 +321,7 @@ export async function getCompetitorDeal(dealId: string): Promise<{
     }
   }
   
+  const offerPriceNum = Number(deal.offerPrice)
   const dealWithStats: CompetitorDealWithStats = {
     id: deal.id,
     sourceUrl: deal.sourceUrl,
@@ -324,7 +329,7 @@ export async function getCompetitorDeal(dealId: string): Promise<{
     merchantName: deal.merchantName,
     dealTitle: deal.dealTitle,
     originalPrice: Number(deal.originalPrice),
-    offerPrice: Number(deal.offerPrice),
+    offerPrice: offerPriceNum,
     discountPercent: deal.discountPercent,
     totalSold: deal.totalSold,
     imageUrl: deal.imageUrl,
@@ -337,6 +342,7 @@ export async function getCompetitorDeal(dealId: string): Promise<{
     salesToday: Math.max(0, salesToday),
     salesThisWeek: Math.max(0, salesThisWeek),
     salesThisMonth: Math.max(0, salesThisMonth),
+    grossRevenue: deal.totalSold * offerPriceNum,
   }
   
   const formattedSnapshots: DealSnapshot[] = snapshots.map((s: CompetitorDealSnapshot) => ({
@@ -511,15 +517,16 @@ export async function getCompetitorDealStats(): Promise<{
 
 /**
  * Get daily statistics for charts
- * Returns deals launched per day and sales per day for the last N days
+ * Returns deals launched per day, sales per day, and gross revenue per day for the last N days
  */
 export async function getCompetitorDealsDailyStats(days: number = 30, sourceSite?: string): Promise<{
   launchesPerDay: Array<{ date: string; count: number }>
   salesPerDay: Array<{ date: string; totalSold: number; dealsCount: number }>
+  revenuePerDay: Array<{ date: string; grossRevenue: number; dealsCount: number }>
 }> {
   const isAdmin = await checkAdminAccess()
   if (!isAdmin) {
-    return { launchesPerDay: [], salesPerDay: [] }
+    return { launchesPerDay: [], salesPerDay: [], revenuePerDay: [] }
   }
 
   // Use local timezone dates
@@ -583,6 +590,7 @@ export async function getCompetitorDealsDailyStats(days: number = 30, sourceSite
       dealId: true,
       scannedAt: true,
       totalSold: true,
+      offerPrice: true,
     },
     orderBy: {
       scannedAt: 'asc',
@@ -598,13 +606,15 @@ export async function getCompetitorDealsDailyStats(days: number = 30, sourceSite
     dealSnapshots.get(snapshot.dealId)!.push({
       totalSold: snapshot.totalSold,
       scannedAt: snapshot.scannedAt,
+      offerPrice: Number(snapshot.offerPrice),
     })
   }
 
-  // Calculate sales per day
+  // Calculate sales and revenue per day
   const salesMap = new Map<string, { totalSold: number; dealsCount: Set<string> }>()
+  const revenueMap = new Map<string, { grossRevenue: number; dealsCount: Set<string> }>()
   
-  // For each day, calculate the delta in sales
+  // For each day, calculate the delta in sales and revenue
   for (let i = 0; i <= days; i++) {
     const date = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + i)
     const dateKey = getDateKey(date)
@@ -612,7 +622,9 @@ export async function getCompetitorDealsDailyStats(days: number = 30, sourceSite
     const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999)
 
     let daySales = 0
-    const activeDeals = new Set<string>()
+    let dayRevenue = 0
+    const activeSalesDeals = new Set<string>()
+    const activeRevenueDeals = new Set<string>()
 
     // For each deal, find snapshots before and after this day
     for (const [dealId, dealSnaps] of dealSnapshots.entries()) {
@@ -621,23 +633,35 @@ export async function getCompetitorDealsDailyStats(days: number = 30, sourceSite
       
       const beforeSold = beforeDay.length > 0 ? beforeDay[beforeDay.length - 1].totalSold : 0
       const afterSold = afterDay.length > 0 ? afterDay[afterDay.length - 1].totalSold : 0
+      const offerPrice = afterDay.length > 0 ? (afterDay[afterDay.length - 1].offerPrice || 0) : 0
       
       const delta = afterSold - beforeSold
       if (delta > 0) {
         daySales += delta
-        activeDeals.add(dealId)
+        activeSalesDeals.add(dealId)
+        
+        // Calculate revenue for this deal's sales
+        const revenue = delta * offerPrice
+        dayRevenue += revenue
+        activeRevenueDeals.add(dealId)
       }
     }
 
     salesMap.set(dateKey, {
       totalSold: daySales,
-      dealsCount: activeDeals,
+      dealsCount: activeSalesDeals,
+    })
+    
+    revenueMap.set(dateKey, {
+      grossRevenue: dayRevenue,
+      dealsCount: activeRevenueDeals,
     })
   }
 
   // Build arrays for all days in range
   const launchesPerDay: Array<{ date: string; count: number }> = []
   const salesPerDay: Array<{ date: string; totalSold: number; dealsCount: number }> = []
+  const revenuePerDay: Array<{ date: string; grossRevenue: number; dealsCount: number }> = []
 
   for (let i = 0; i <= days; i++) {
     const date = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + i)
@@ -654,8 +678,15 @@ export async function getCompetitorDealsDailyStats(days: number = 30, sourceSite
       totalSold: sales.totalSold,
       dealsCount: sales.dealsCount.size,
     })
+    
+    const revenue = revenueMap.get(dateKey) || { grossRevenue: 0, dealsCount: new Set<string>() }
+    revenuePerDay.push({
+      date: dateKey,
+      grossRevenue: revenue.grossRevenue,
+      dealsCount: revenue.dealsCount.size,
+    })
   }
 
-  return { launchesPerDay, salesPerDay }
+  return { launchesPerDay, salesPerDay, revenuePerDay }
 }
 
