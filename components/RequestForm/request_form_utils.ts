@@ -4,6 +4,44 @@ import { isValidEmail } from '@/lib/utils/validation'
 import { FIELD_TEMPLATES, getTemplateName } from './config'
 import { REQUEST_FORM_STEPS } from '@/lib/config/request-form-fields'
 
+/**
+ * Build a map of field keys to human-readable labels from all form steps
+ */
+const buildFieldLabelMap = (): Map<string, string> => {
+  const map = new Map<string, string>()
+  REQUEST_FORM_STEPS.forEach(step => {
+    step.fields.forEach(field => {
+      map.set(field.key, field.label)
+    })
+  })
+  return map
+}
+
+const FIELD_LABEL_MAP = buildFieldLabelMap()
+
+/**
+ * Get human-readable label for a field key
+ */
+export const getFieldLabel = (fieldKey: string): string => {
+  // Handle pricing option indexed keys like "pricingOptions.0.title"
+  const pricingMatch = fieldKey.match(/^pricingOptions\.(\d+)\.(\w+)$/)
+  if (pricingMatch) {
+    const optionIndex = parseInt(pricingMatch[1]) + 1
+    const fieldName = pricingMatch[2]
+    const baseLabel = FIELD_LABEL_MAP.get(`pricingOptions.${fieldName}`) || fieldName
+    return `Opción ${optionIndex}: ${baseLabel}`
+  }
+  
+  return FIELD_LABEL_MAP.get(fieldKey) || fieldKey
+}
+
+/**
+ * Get array of human-readable labels for error fields
+ */
+export const getErrorFieldLabels = (errors: Record<string, string>): string[] => {
+  return Object.keys(errors).map(key => getFieldLabel(key))
+}
+
 // Map form step keys to REQUEST_FORM_STEPS keys (they differ slightly)
 const STEP_KEY_MAP: Record<string, string> = {
   'configuracion': 'configuracion',
@@ -40,6 +78,8 @@ export const validateStep = (
 
   const shouldValidateField = (fieldKey: string): boolean => {
     if (!stepDef) return false
+    // Skip nested/array sub-fields (e.g., pricingOptions.title) - these are handled by step-specific validation
+    if (fieldKey.includes('.')) return false
     const def = stepDef.fields.find((f) => f.key === fieldKey)
     if (!def) return false
     if (def.categorySpecific && def.template) {

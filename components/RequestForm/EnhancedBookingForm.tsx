@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { saveBookingRequestDraft, sendBookingRequest, getBookingRequest } from '@/app/actions/booking'
 import type { BookingFormData } from './types'
 import { STEPS, INITIAL_FORM_DATA, getStepKeyByIndex, getStepIndexByKey, getStepIdByKey } from './constants'
-import { validateStep, buildFormDataForSubmit } from './request_form_utils'
+import { validateStep, buildFormDataForSubmit, getErrorFieldLabels } from './request_form_utils'
 import ProgressBar from './components/ProgressBar'
 import NavigationButtons from './components/NavigationButtons'
 import CategoryAvailabilityList from './components/CategoryAvailabilityList'
@@ -535,11 +535,11 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     }
   }
 
-  const handleValidateStep = (stepKey: string): boolean => {
+  const handleValidateStep = (stepKey: string): Record<string, string> => {
     const stepId = getStepIdByKey(stepKey) || 1
     const newErrors = validateStep(stepId, formData, requiredFields, stepKey)
     setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    return newErrors
   }
 
   const totalSteps = availableSteps.length
@@ -564,14 +564,74 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     }, 50)
   }, [])
 
+  // Scroll to the first field with an error
+  const scrollToFirstError = useCallback((errorKeys: string[]) => {
+    if (errorKeys.length === 0) return
+    
+    setTimeout(() => {
+      // Try to find the first error field by name attribute or data-field attribute
+      for (const key of errorKeys) {
+        // Handle indexed keys like pricingOptions.0.title -> pricingOptions-0-title
+        const sanitizedKey = key.replace(/\./g, '-')
+        
+        // Try multiple selectors to find the field
+        const selectors = [
+          `[name="${key}"]`,
+          `[data-field="${key}"]`,
+          `[id="${key}"]`,
+          `[name="${sanitizedKey}"]`,
+          `[data-field="${sanitizedKey}"]`,
+          `[id="${sanitizedKey}"]`,
+        ]
+        
+        for (const selector of selectors) {
+          const element = document.querySelector(selector)
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            // Focus the element if it's focusable
+            if (element instanceof HTMLInputElement || 
+                element instanceof HTMLTextAreaElement || 
+                element instanceof HTMLSelectElement) {
+              element.focus()
+            }
+            return
+          }
+        }
+      }
+      
+      // Fallback: scroll to first element with error styling
+      const errorElement = document.querySelector('.border-red-500, .ring-red-500, [aria-invalid="true"]')
+      if (errorElement) {
+        errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 100)
+  }, [])
+
   const handleNext = () => {
-    if (handleValidateStep(currentStepKey)) {
+    const validationErrors = handleValidateStep(currentStepKey)
+    const errorKeys = Object.keys(validationErrors)
+    
+    if (errorKeys.length === 0) {
       const nextIndex = currentStepIndex + 1
       if (nextIndex < availableSteps.length) {
         const nextStepKey = availableSteps[nextIndex].key
         setCurrentStepKey(nextStepKey)
         scrollToTop()
       }
+    } else {
+      // Show toast with specific field names
+      const fieldLabels = getErrorFieldLabels(validationErrors)
+      const maxLabelsToShow = 3
+      const displayLabels = fieldLabels.slice(0, maxLabelsToShow)
+      const remaining = fieldLabels.length - maxLabelsToShow
+      
+      let message = `Campos faltantes: ${displayLabels.join(', ')}`
+      if (remaining > 0) {
+        message += ` y ${remaining} más`
+      }
+      
+      toast.error(message, { duration: 5000 })
+      scrollToFirstError(errorKeys)
     }
   }
 
@@ -607,8 +667,26 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
 
   // React 19: Handler that shows confirmation dialog before submit
   const handleSubmit = () => {
-    if (!formData.businessName || !formData.partnerEmail || !formData.startDate || !formData.endDate) {
-      toast.error('Por favor complete todos los campos requeridos')
+    // Check essential fields before submission
+    const missingFields: string[] = []
+    if (!formData.businessName) missingFields.push('businessName')
+    if (!formData.partnerEmail) missingFields.push('partnerEmail')
+    if (!formData.startDate) missingFields.push('startDate')
+    if (!formData.endDate) missingFields.push('endDate')
+    
+    if (missingFields.length > 0) {
+      const fieldLabels = missingFields.map(key => {
+        const labels: Record<string, string> = {
+          businessName: 'Nombre del Negocio',
+          partnerEmail: 'Correo del Aliado',
+          startDate: 'Fecha de Inicio',
+          endDate: 'Fecha Final'
+        }
+        return labels[key] || key
+      })
+      
+      toast.error(`Campos faltantes: ${fieldLabels.join(', ')}`, { duration: 5000 })
+      scrollToFirstError(missingFields)
       return
     }
     
