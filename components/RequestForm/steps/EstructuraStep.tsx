@@ -741,8 +741,13 @@ export default function EstructuraStep({
               <CollectionsIcon className="text-purple-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">Galería de Imágenes</h3>
-              <p className="text-sm text-gray-500">Agrega imágenes generales de la oferta (opcional)</p>
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-1.5">
+                Galería de Imágenes
+                {isFieldRequired('dealImages') && <span className="text-red-500">*</span>}
+              </h3>
+              <p className="text-sm text-gray-500">
+                Agrega imágenes generales de la oferta {!isFieldRequired('dealImages') && '(opcional)'}
+              </p>
             </div>
           </div>
         </div>
