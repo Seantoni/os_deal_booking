@@ -114,6 +114,12 @@ export const REQUEST_FORM_STEPS: RequestFormStep[] = [
       { key: 'contactDetails', label: 'Detalles de Contacto', type: 'textarea' },
       { key: 'socialMedia', label: 'Redes Sociales', type: 'textarea' },
       { key: 'businessReview', label: 'Reseña del Negocio', type: 'textarea' },
+      // AI-Generated Content Fields
+      { key: 'shortTitle', label: 'Título de Oferta (IA)', type: 'text' },
+      { key: 'whatWeLike', label: 'Lo que nos gusta (IA)', type: 'textarea' },
+      { key: 'aboutCompany', label: 'La empresa (IA)', type: 'textarea' },
+      { key: 'aboutOffer', label: 'Acerca de esta oferta (IA)', type: 'textarea' },
+      { key: 'goodToKnow', label: 'Lo que conviene saber (IA)', type: 'textarea' },
     ],
   },
   {
