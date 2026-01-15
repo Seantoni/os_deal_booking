@@ -751,7 +751,7 @@ export default function BookingRequestViewModal({
               <button
                 onClick={() => {
                   if (requestId) {
-                    window.open(`/dealdraft/${requestId}`, '_blank')
+                    window.open(`/deals/draft/${requestId}`, '_blank')
                   }
                 }}
                 disabled={loading || !requestData}

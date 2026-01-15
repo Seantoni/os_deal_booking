@@ -21,11 +21,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "OS Deals Booking",
   description: "OfertaSimple booking and reservation management system",
-  icons: {
-    icon: '/icon.png',
-    shortcut: '/icon.png',
-    apple: '/icon.png',
-  },
+  // icon.png in app/ directory is automatically used by Next.js
 };
 
 export const viewport: Viewport = {
