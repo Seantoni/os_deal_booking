@@ -22,12 +22,18 @@ async function _getUserProfileInternal() {
 
   // Check if user has a pending invitation with role assignment
   let assignedRole: UserRole = 'sales' // Default role
+  let invitedName: string | null = null
+  
   if (userEmail) {
     try {
       const { processInvitationOnSignup } = await import('@/app/actions/access-control')
       const invitationResult = await processInvitationOnSignup(userId, userEmail)
       if (invitationResult.success && invitationResult.role) {
         assignedRole = invitationResult.role as UserRole
+        // Use name from invitation if available
+        if ('name' in invitationResult && invitationResult.name) {
+          invitedName = invitationResult.name as string
+        }
       }
     } catch (error) {
       // If invitation processing fails, use default role
@@ -35,17 +41,21 @@ async function _getUserProfileInternal() {
     }
   }
 
+  // Determine the best name to use: Clerk data > invitation data > null
+  const clerkName = user?.fullName || user?.firstName || null
+  const userName = clerkName || invitedName
+
   const profile = await prisma.userProfile.upsert({
     where: { clerkId: userId },
     update: {
       // Do not override role on existing users; only refresh name/email
       email: userEmail ?? undefined,
-      name: (user?.fullName || user?.firstName) ?? undefined,
+      name: userName ?? undefined,
     },
     create: {
       clerkId: userId,
       email: userEmail,
-      name: user?.fullName || user?.firstName || null,
+      name: userName,
       role: assignedRole,
     },
   })

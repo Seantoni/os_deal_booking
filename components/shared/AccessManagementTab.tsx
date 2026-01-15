@@ -9,7 +9,7 @@ import {
   getAccessAuditLogs,
   inviteUser,
 } from '@/app/actions/access-control'
-import { getAllUserProfiles, updateUserRole } from '@/app/actions/users'
+import { getAllUserProfiles, updateUserRole, previewUserSync, applyUserSync, type SyncPreview } from '@/app/actions/users'
 import type { UserRole } from '@/lib/constants'
 import { USER_ROLE_OPTIONS } from '@/lib/constants'
 import toast from 'react-hot-toast'
@@ -26,6 +26,7 @@ type UserProfile = {
   email: string | null
   name: string | null
   role: string
+  isActive: boolean
   createdAt: Date
   updatedAt: Date
 }
@@ -42,6 +43,8 @@ import SaveIcon from '@mui/icons-material/Save'
 import CloseIcon from '@mui/icons-material/Close'
 import MailIcon from '@mui/icons-material/Mail'
 import PendingIcon from '@mui/icons-material/Pending'
+import SyncIcon from '@mui/icons-material/Sync'
+import PersonOffIcon from '@mui/icons-material/PersonOff'
 import { Button, Alert, Select, Input, Textarea } from '@/components/ui'
 
 type AccessAuditLogWithEmail = AccessAuditLog
@@ -58,6 +61,8 @@ export default function AccessManagementTab() {
   const [newEmailNotes, setNewEmailNotes] = useState('')
   const [showInviteForm, setShowInviteForm] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteFirstName, setInviteFirstName] = useState('')
+  const [inviteLastName, setInviteLastName] = useState('')
   const [inviteRole, setInviteRole] = useState<UserRole>('sales')
   const [inviteNotes, setInviteNotes] = useState('')
   const [inviting, setInviting] = useState(false)
@@ -70,6 +75,9 @@ export default function AccessManagementTab() {
   const [currentPage, setCurrentPage] = useState(1)
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
   const [editingRole, setEditingRole] = useState<UserRole>('sales')
+  const [syncPreview, setSyncPreview] = useState<SyncPreview | null>(null)
+  const [loadingSyncPreview, setLoadingSyncPreview] = useState(false)
+  const [applyingSync, setApplyingSync] = useState(false)
   const emailsPerPage = 50
 
   // Load allowed emails and user profiles on mount
@@ -136,6 +144,58 @@ export default function AccessManagementTab() {
     setEditingRole('sales')
   }
 
+  async function handlePreviewSync() {
+    try {
+      setLoadingSyncPreview(true)
+      setError(null)
+      const result = await previewUserSync()
+      if (result.success && result.data) {
+        setSyncPreview(result.data)
+      } else {
+        setError(result.error || 'Error al obtener vista previa de sincronización')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al obtener vista previa de sincronización')
+    } finally {
+      setLoadingSyncPreview(false)
+    }
+  }
+
+  async function handleApplySync() {
+    try {
+      setApplyingSync(true)
+      setError(null)
+      const result = await applyUserSync()
+      if (result.success && result.data) {
+        const { created, updated, deactivated, reactivated } = result.data
+        const messages = []
+        if (created > 0) messages.push(`${created} creados`)
+        if (updated > 0) messages.push(`${updated} actualizados`)
+        if (deactivated > 0) messages.push(`${deactivated} desactivados`)
+        if (reactivated > 0) messages.push(`${reactivated} reactivados`)
+        
+        if (messages.length > 0) {
+          toast.success(`Sincronización completada: ${messages.join(', ')}`)
+        } else {
+          toast.success('Sincronización completada: sin cambios')
+        }
+        
+        setSyncPreview(null)
+        await loadUserProfiles()
+      } else {
+        setError(result.error || 'Error al aplicar sincronización')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al aplicar sincronización')
+    } finally {
+      setApplyingSync(false)
+    }
+  }
+
+  function handleCancelSync() {
+    setSyncPreview(null)
+  }
+
   async function handleAddEmail() {
     if (!newEmail.trim()) {
       setError('Por favor ingrese una dirección de correo')
@@ -162,6 +222,11 @@ export default function AccessManagementTab() {
   }
 
   async function handleInviteUser() {
+    if (!inviteFirstName.trim() || !inviteLastName.trim()) {
+      setError('Por favor ingrese el nombre y apellido')
+      toast.error('Por favor ingrese el nombre y apellido')
+      return
+    }
     if (!inviteEmail.trim()) {
       setError('Por favor ingrese una dirección de correo')
       toast.error('Por favor ingrese una dirección de correo')
@@ -172,11 +237,17 @@ export default function AccessManagementTab() {
       setInviting(true)
       setError(null)
       setSuccess(null)
-      const result = await inviteUser(inviteEmail.trim(), inviteRole, inviteNotes.trim() || undefined)
+      const result = await inviteUser(inviteEmail.trim(), inviteRole, {
+        notes: inviteNotes.trim() || undefined,
+        firstName: inviteFirstName.trim() || undefined,
+        lastName: inviteLastName.trim() || undefined,
+      })
       
       if (result.success) {
         toast.success(`Invitación enviada exitosamente a ${inviteEmail.trim()}`)
         setInviteEmail('')
+        setInviteFirstName('')
+        setInviteLastName('')
         setInviteRole('sales')
         setInviteNotes('')
         setShowInviteForm(false)
@@ -389,6 +460,22 @@ export default function AccessManagementTab() {
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Invite User</h3>
           <p className="text-sm text-gray-600 mb-4">Envíe un correo de invitación a través de Clerk. El usuario recibirá un enlace de registro e instrucciones.</p>
           <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                type="text"
+                label="Nombre *"
+                value={inviteFirstName}
+                onChange={(e) => setInviteFirstName(e.target.value)}
+                placeholder="Juan"
+              />
+              <Input
+                type="text"
+                label="Apellido *"
+                value={inviteLastName}
+                onChange={(e) => setInviteLastName(e.target.value)}
+                placeholder="Pérez"
+              />
+            </div>
             <Input
               type="email"
               label="Dirección de Correo *"
@@ -424,6 +511,8 @@ export default function AccessManagementTab() {
                 onClick={() => {
                   setShowInviteForm(false)
                   setInviteEmail('')
+                  setInviteFirstName('')
+                  setInviteLastName('')
                   setInviteRole('sales')
                   setInviteNotes('')
                 }}
@@ -675,7 +764,136 @@ export default function AccessManagementTab() {
             <h3 className="text-lg font-semibold text-gray-900">User Profiles</h3>
             <p className="text-sm text-gray-600 mt-1">Manage user roles and permissions</p>
           </div>
+          <Button
+            onClick={handlePreviewSync}
+            variant="secondary"
+            size="sm"
+            leftIcon={<SyncIcon style={{ fontSize: 16 }} />}
+            disabled={loadingSyncPreview}
+          >
+            {loadingSyncPreview ? 'Cargando...' : 'Sync desde Clerk'}
+          </Button>
         </div>
+
+        {/* Sync Preview Panel */}
+        {syncPreview && (
+          <div className="px-6 py-4 bg-blue-50 border-b border-blue-200">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <h4 className="font-semibold text-blue-900">Vista previa de sincronización</h4>
+                <p className="text-sm text-blue-700 mt-1">
+                  Los siguientes cambios se aplicarán al confirmar:
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleApplySync}
+                  size="sm"
+                  disabled={applyingSync || (
+                    syncPreview.toCreate.length === 0 && 
+                    syncPreview.toUpdate.length === 0 && 
+                    syncPreview.toDeactivate.length === 0 &&
+                    syncPreview.toReactivate.length === 0
+                  )}
+                >
+                  {applyingSync ? 'Aplicando...' : 'Aplicar cambios'}
+                </Button>
+                <Button
+                  onClick={handleCancelSync}
+                  variant="secondary"
+                  size="sm"
+                  disabled={applyingSync}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              {/* To Create */}
+              <div className="bg-green-100 rounded-lg p-3">
+                <div className="font-semibold text-green-800 flex items-center gap-1">
+                  <AddIcon style={{ fontSize: 16 }} />
+                  Crear ({syncPreview.toCreate.length})
+                </div>
+                {syncPreview.toCreate.length > 0 ? (
+                  <ul className="mt-2 space-y-1 text-green-700 text-xs">
+                    {syncPreview.toCreate.slice(0, 5).map((u) => (
+                      <li key={u.clerkId} className="truncate">{u.email || u.name || u.clerkId}</li>
+                    ))}
+                    {syncPreview.toCreate.length > 5 && (
+                      <li className="text-green-600">+{syncPreview.toCreate.length - 5} más</li>
+                    )}
+                  </ul>
+                ) : (
+                  <p className="text-green-600 text-xs mt-1">Sin cambios</p>
+                )}
+              </div>
+
+              {/* To Update */}
+              <div className="bg-blue-100 rounded-lg p-3">
+                <div className="font-semibold text-blue-800 flex items-center gap-1">
+                  <EditIcon style={{ fontSize: 16 }} />
+                  Actualizar ({syncPreview.toUpdate.length})
+                </div>
+                {syncPreview.toUpdate.length > 0 ? (
+                  <ul className="mt-2 space-y-1 text-blue-700 text-xs">
+                    {syncPreview.toUpdate.slice(0, 5).map((u) => (
+                      <li key={u.clerkId} className="truncate" title={u.changes.join(', ')}>
+                        {u.email || u.name || u.clerkId}
+                      </li>
+                    ))}
+                    {syncPreview.toUpdate.length > 5 && (
+                      <li className="text-blue-600">+{syncPreview.toUpdate.length - 5} más</li>
+                    )}
+                  </ul>
+                ) : (
+                  <p className="text-blue-600 text-xs mt-1">Sin cambios</p>
+                )}
+              </div>
+
+              {/* To Deactivate */}
+              <div className="bg-red-100 rounded-lg p-3">
+                <div className="font-semibold text-red-800 flex items-center gap-1">
+                  <PersonOffIcon style={{ fontSize: 16 }} />
+                  Desactivar ({syncPreview.toDeactivate.length})
+                </div>
+                {syncPreview.toDeactivate.length > 0 ? (
+                  <ul className="mt-2 space-y-1 text-red-700 text-xs">
+                    {syncPreview.toDeactivate.slice(0, 5).map((u) => (
+                      <li key={u.clerkId} className="truncate">{u.email || u.name || u.clerkId}</li>
+                    ))}
+                    {syncPreview.toDeactivate.length > 5 && (
+                      <li className="text-red-600">+{syncPreview.toDeactivate.length - 5} más</li>
+                    )}
+                  </ul>
+                ) : (
+                  <p className="text-red-600 text-xs mt-1">Sin cambios</p>
+                )}
+              </div>
+
+              {/* To Reactivate */}
+              <div className="bg-amber-100 rounded-lg p-3">
+                <div className="font-semibold text-amber-800 flex items-center gap-1">
+                  <RestoreIcon style={{ fontSize: 16 }} />
+                  Reactivar ({syncPreview.toReactivate.length})
+                </div>
+                {syncPreview.toReactivate.length > 0 ? (
+                  <ul className="mt-2 space-y-1 text-amber-700 text-xs">
+                    {syncPreview.toReactivate.slice(0, 5).map((u) => (
+                      <li key={u.clerkId} className="truncate">{u.email || u.name || u.clerkId}</li>
+                    ))}
+                    {syncPreview.toReactivate.length > 5 && (
+                      <li className="text-amber-600">+{syncPreview.toReactivate.length - 5} más</li>
+                    )}
+                  </ul>
+                ) : (
+                  <p className="text-amber-600 text-xs mt-1">Sin cambios</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* User Search */}
         <div className="px-6 py-4 border-b border-gray-200">
@@ -706,17 +924,27 @@ export default function AccessManagementTab() {
                   <th className="text-left py-3 px-6 text-sm font-semibold text-gray-700">Nombre</th>
                   <th className="text-left py-3 px-6 text-sm font-semibold text-gray-700">Correo</th>
                   <th className="text-left py-3 px-6 text-sm font-semibold text-gray-700">Rol</th>
+                  <th className="text-left py-3 px-6 text-sm font-semibold text-gray-700">Estado</th>
                   <th className="text-left py-3 px-6 text-sm font-semibold text-gray-700">Creado</th>
                   <th className="text-right py-3 px-6 text-sm font-semibold text-gray-700">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
+                  <tr key={user.id} className={`hover:bg-gray-50 ${!user.isActive ? 'bg-gray-50 opacity-60' : ''}`}>
                     <td className="py-3 px-6 text-sm text-gray-900">
                       <div className="flex items-center gap-2">
-                        <PersonIcon className="text-gray-400" fontSize="small" />
-                        <span className="font-medium">{user.name || 'N/A'}</span>
+                        {user.isActive ? (
+                          <PersonIcon className="text-gray-400" fontSize="small" />
+                        ) : (
+                          <PersonOffIcon className="text-red-400" fontSize="small" />
+                        )}
+                        <span className={`font-medium ${!user.isActive ? 'line-through text-gray-500' : ''}`}>
+                          {user.name || 'N/A'}
+                        </span>
+                        {!user.isActive && (
+                          <span className="text-xs px-1.5 py-0.5 bg-red-100 text-red-600 rounded">Inactivo</span>
+                        )}
                       </div>
                     </td>
                     <td className="py-3 px-6 text-sm text-gray-600">{user.email || 'N/A'}</td>
@@ -737,6 +965,19 @@ export default function AccessManagementTab() {
                       ) : (
                         <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getRoleBadgeColor(user.role)}`}>
                           {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-6 text-sm">
+                      {user.isActive ? (
+                        <span className="inline-flex items-center gap-1 text-green-600">
+                          <CheckCircleIcon style={{ fontSize: 14 }} />
+                          <span className="text-xs">Activo</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-red-500">
+                          <CancelIcon style={{ fontSize: 14 }} />
+                          <span className="text-xs">Inactivo</span>
                         </span>
                       )}
                     </td>

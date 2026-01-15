@@ -390,7 +390,12 @@ export async function grandfatherExistingUsers() {
  * 2. Send Clerk invitation email
  * 3. Store invitation details with role assignment
  */
-export async function inviteUser(email: string, role: UserRole, notes?: string) {
+export async function inviteUser(
+  email: string, 
+  role: UserRole, 
+  options?: { notes?: string; firstName?: string; lastName?: string }
+) {
+  const { notes, firstName, lastName } = options || {}
   await requireAdmin()
   
   const { userId } = await auth()
@@ -428,6 +433,8 @@ export async function inviteUser(email: string, role: UserRole, notes?: string) 
           invitedAt: new Date(),
           invitedBy: userId,
           updatedAt: new Date(),
+          firstName: firstName || null,
+          lastName: lastName || null,
         },
       })
       
@@ -553,6 +560,8 @@ export async function inviteUser(email: string, role: UserRole, notes?: string) 
         invitationStatus: 'pending',
         invitedAt: new Date(),
         invitedBy: userId,
+        firstName: firstName || null,
+        lastName: lastName || null,
       },
     })
     
@@ -641,17 +650,23 @@ export async function processInvitationOnSignup(clerkId: string, email: string) 
     })
     
     if (invitation && invitation.invitationStatus === 'pending' && invitation.invitedRole) {
-      // Update UserProfile with the invited role
+      // Build name from invitation data
+      const invitedName = [invitation.firstName, invitation.lastName].filter(Boolean).join(' ') || null
+      
+      // Update UserProfile with the invited role and name
       await prisma.userProfile.upsert({
         where: { clerkId },
         create: {
           clerkId,
           email: normalizedEmail,
           role: invitation.invitedRole,
+          name: invitedName,
         },
         update: {
           role: invitation.invitedRole,
           email: normalizedEmail,
+          // Only update name if we have invitation data and user doesn't have a name yet
+          ...(invitedName ? { name: invitedName } : {}),
         },
       })
       
@@ -676,7 +691,7 @@ export async function processInvitationOnSignup(clerkId: string, email: string) 
       })
       
       logger.info(`[access-control] Invitation accepted for ${normalizedEmail}, role assigned: ${invitation.invitedRole}`)
-      return { success: true, role: invitation.invitedRole }
+      return { success: true, role: invitation.invitedRole, name: invitedName }
     }
     
     return { success: false, message: 'No pending invitation found' }
