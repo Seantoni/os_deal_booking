@@ -52,7 +52,7 @@ export async function getBusinesses() {
             },
             salesReps: {
               include: {
-                salesRep: {
+                userProfile: {
                   select: {
                     id: true,
                     clerkId: true,
@@ -203,7 +203,7 @@ export async function getBusinessesPaginated(options: {
         },
         salesReps: {
           include: {
-            salesRep: {
+            userProfile: {
               select: {
                 id: true,
                 clerkId: true,
@@ -380,7 +380,7 @@ export async function updateBusinessFocus(
         },
         salesReps: {
           include: {
-            salesRep: {
+            userProfile: {
               select: {
                 id: true,
                 clerkId: true,
@@ -477,7 +477,7 @@ export async function searchBusinesses(query: string, options: {
         },
         salesReps: {
           include: {
-            salesRep: {
+            userProfile: {
               select: {
                 id: true,
                 clerkId: true,
@@ -557,7 +557,7 @@ export async function getBusiness(businessId: string) {
         },
         salesReps: {
           include: {
-            salesRep: {
+            userProfile: {
               select: {
                 id: true,
                 clerkId: true,

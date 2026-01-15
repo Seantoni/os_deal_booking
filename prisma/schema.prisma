@@ -77,10 +77,10 @@ model BookingRequest {
   whatWeLike             String?
   shortTitle             String?
   offerMargin            String?
-  public_request_links   public_request_links?   @relation(fields: [publicLinkToken], references: [token])
-  deals                  deals?
-  external_api_requests  external_api_requests[]
-  marketing_campaigns    marketing_campaigns?
+  publicRequestLink      PublicRequestLink?      @relation(fields: [publicLinkToken], references: [token])
+  deal                   Deal?
+  externalApiRequests    ExternalApiRequest[]
+  marketingCampaign      MarketingCampaign?
 
   @@index([businessEmail])
   @@index([dealId])
@@ -125,15 +125,15 @@ model Event {
 }
 
 model UserProfile {
-  id                  String                @id
-  clerkId             String                @unique
-  email               String?
-  name                String?
-  role                String                @default("sales")
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime
-  isActive            Boolean               @default(true)
-  business_sales_reps business_sales_reps[]
+  id              String             @id @default(cuid())
+  clerkId         String             @unique
+  email           String?
+  name            String?
+  role            String             @default("sales")
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  isActive        Boolean            @default(true)
+  businessReps    BusinessSalesRep[]
 
   @@index([clerkId])
   @@index([email])
@@ -141,23 +141,24 @@ model UserProfile {
   @@index([role])
 }
 
-model access_audit_logs {
-  id             String          @id
+model AccessAuditLog {
+  id             String        @id @default(cuid())
   email          String
   action         String
   performedBy    String
-  performedAt    DateTime        @default(now())
+  performedAt    DateTime      @default(now())
   notes          String?
   allowedEmailId String?
-  allowed_emails allowed_emails? @relation(fields: [allowedEmailId], references: [id])
+  allowedEmail   AllowedEmail? @relation(fields: [allowedEmailId], references: [id])
 
   @@index([action])
   @@index([email])
   @@index([performedAt])
+  @@map("access_audit_logs")
 }
 
-model activity_logs {
-  id         String   @id
+model ActivityLog {
+  id         String   @id @default(cuid())
   userId     String
   userName   String?
   userEmail  String?
@@ -174,15 +175,16 @@ model activity_logs {
   @@index([createdAt])
   @@index([entityType, entityId])
   @@index([userId])
+  @@map("activity_logs")
 }
 
-model allowed_emails {
-  id                String              @id
+model AllowedEmail {
+  id                String              @id @default(cuid())
   email             String              @unique
   isActive          Boolean             @default(true)
   notes             String?
   createdAt         DateTime            @default(now())
-  updatedAt         DateTime
+  updatedAt         DateTime            @updatedAt
   createdBy         String
   clerkInvitationId String?
   invitationStatus  String?
@@ -191,43 +193,45 @@ model allowed_emails {
   invitedRole       String?
   firstName         String?
   lastName          String?
-  access_audit_logs access_audit_logs[]
+  auditLogs         AccessAuditLog[]
 
   @@index([email])
   @@index([invitationStatus])
   @@index([isActive])
+  @@map("allowed_emails")
 }
 
-model business_sales_reps {
-  id          String      @id
+model BusinessSalesRep {
+  id          String      @id @default(cuid())
   businessId  String
   salesRepId  String
   createdAt   DateTime    @default(now())
-  businesses  businesses  @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  UserProfile UserProfile @relation(fields: [salesRepId], references: [clerkId], onDelete: Cascade)
+  business    Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  userProfile UserProfile @relation(fields: [salesRepId], references: [clerkId], onDelete: Cascade)
 
   @@unique([businessId, salesRepId])
   @@index([businessId])
   @@index([salesRepId])
+  @@map("business_sales_reps")
 }
 
-model businesses {
-  id                   String                @id
+model Business {
+  id                   String              @id @default(cuid())
   name                 String
   contactName          String
   contactPhone         String
   contactEmail         String
   categoryId           String?
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
   description          String?
   instagram            String?
   ownerId              String?
   salesTeam            String?
   tier                 Int?
   website              String?
-  leadId               String?               @unique
-  sourceType           String                @default("manual")
+  leadId               String?             @unique
+  sourceType           String              @default("manual")
   metrics              Json?
   accountManager       String?
   accountNumber        String?
@@ -250,72 +254,75 @@ model businesses {
   osAdminVendorId      String?
   focusPeriod          String?
   focusSetAt           DateTime?
-  business_sales_reps  business_sales_reps[]
-  categories           categories?           @relation(fields: [categoryId], references: [id])
-  leads                leads?
-  opportunities        opportunities[]
+  salesReps            BusinessSalesRep[]
+  category             Category?           @relation(fields: [categoryId], references: [id])
+  lead                 Lead?
+  opportunities        Opportunity[]
 
   @@index([categoryId])
   @@index([leadId])
   @@index([name])
   @@index([ownerId])
+  @@map("businesses")
 }
 
-model categories {
-  id             String       @id
+model Category {
+  id             String     @id @default(cuid())
   parentCategory String
   subCategory1   String?
   subCategory2   String?
   subCategory3   String?
-  categoryKey    String       @unique
-  maxDuration    Int          @default(5)
-  isActive       Boolean      @default(true)
-  displayOrder   Int          @default(0)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime
+  categoryKey    String     @unique
+  maxDuration    Int        @default(5)
+  isActive       Boolean    @default(true)
+  displayOrder   Int        @default(0)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
   subCategory4   String?
-  businesses     businesses[]
-  leads          leads[]
+  businesses     Business[]
+  leads          Lead[]
 
   @@index([categoryKey])
   @@index([displayOrder])
   @@index([isActive])
   @@index([parentCategory])
+  @@map("categories")
 }
 
-model competitor_deal_snapshots {
-  id               String           @id
-  dealId           String
-  totalSold        Int
-  offerPrice       Decimal          @db.Decimal(10, 2)
-  originalPrice    Decimal          @db.Decimal(10, 2)
-  scannedAt        DateTime         @default(now())
-  competitor_deals competitor_deals @relation(fields: [dealId], references: [id], onDelete: Cascade)
+model CompetitorDealSnapshot {
+  id            String         @id @default(cuid())
+  dealId        String
+  totalSold     Int
+  offerPrice    Decimal        @db.Decimal(10, 2)
+  originalPrice Decimal        @db.Decimal(10, 2)
+  scannedAt     DateTime       @default(now())
+  deal          CompetitorDeal @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   @@index([dealId])
   @@index([scannedAt])
+  @@map("competitor_deal_snapshots")
 }
 
-model competitor_deals {
-  id                        String                      @id
-  sourceUrl                 String                      @unique
-  sourceSite                String
-  merchantName              String
-  dealTitle                 String
-  originalPrice             Decimal                     @db.Decimal(10, 2)
-  offerPrice                Decimal                     @db.Decimal(10, 2)
-  discountPercent           Int
-  totalSold                 Int                         @default(0)
-  imageUrl                  String?
-  status                    String                      @default("active")
-  isTracking                Boolean                     @default(true)
-  firstSeenAt               DateTime                    @default(now())
-  lastScannedAt             DateTime                    @default(now())
-  expiresAt                 DateTime?
-  createdAt                 DateTime                    @default(now())
-  updatedAt                 DateTime
-  tag                       String?
-  competitor_deal_snapshots competitor_deal_snapshots[]
+model CompetitorDeal {
+  id              String                    @id @default(cuid())
+  sourceUrl       String                    @unique
+  sourceSite      String
+  merchantName    String
+  dealTitle       String
+  originalPrice   Decimal                   @db.Decimal(10, 2)
+  offerPrice      Decimal                   @db.Decimal(10, 2)
+  discountPercent Int
+  totalSold       Int                       @default(0)
+  imageUrl        String?
+  status          String                    @default("active")
+  isTracking      Boolean                   @default(true)
+  firstSeenAt     DateTime                  @default(now())
+  lastScannedAt   DateTime                  @default(now())
+  expiresAt       DateTime?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  tag             String?
+  snapshots       CompetitorDealSnapshot[]
 
   @@index([firstSeenAt])
   @@index([isTracking])
@@ -323,70 +330,74 @@ model competitor_deals {
   @@index([merchantName])
   @@index([sourceSite])
   @@index([status])
+  @@map("competitor_deals")
 }
 
-model custom_field_values {
-  id            String        @id
+model CustomFieldValue {
+  id            String      @id @default(cuid())
   customFieldId String
   entityId      String
   entityType    String
   value         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime
-  custom_fields custom_fields @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  customField   CustomField @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
 
   @@unique([customFieldId, entityId])
   @@index([customFieldId])
   @@index([entityId])
   @@index([entityType])
+  @@map("custom_field_values")
 }
 
-model custom_fields {
-  id                  String                @id
-  fieldKey            String                @unique
-  label               String
-  fieldType           String
-  entityType          String
-  isRequired          Boolean               @default(false)
-  placeholder         String?
-  defaultValue        String?
-  helpText            String?
-  options             Json?
-  displayOrder        Int                   @default(0)
-  showInTable         Boolean               @default(false)
-  isActive            Boolean               @default(true)
-  createdBy           String
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime
-  custom_field_values custom_field_values[]
+model CustomField {
+  id           String             @id @default(cuid())
+  fieldKey     String             @unique
+  label        String
+  fieldType    String
+  entityType   String
+  isRequired   Boolean            @default(false)
+  placeholder  String?
+  defaultValue String?
+  helpText     String?
+  options      Json?
+  displayOrder Int                @default(0)
+  showInTable  Boolean            @default(false)
+  isActive     Boolean            @default(true)
+  createdBy    String
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  values       CustomFieldValue[]
 
   @@index([displayOrder])
   @@index([entityType])
   @@index([fieldKey])
   @@index([isActive])
+  @@map("custom_fields")
 }
 
-model deals {
-  id               String         @id
+model Deal {
+  id               String         @id @default(cuid())
   bookingRequestId String         @unique
   responsibleId    String?
   createdAt        DateTime       @default(now())
-  updatedAt        DateTime
+  updatedAt        DateTime       @updatedAt
   status           String         @default("pendiente_por_asignar")
   opportunityId    String?        @unique
   ereResponsibleId String?
-  BookingRequest   BookingRequest @relation(fields: [bookingRequestId], references: [id], onDelete: Cascade)
-  opportunities    opportunities? @relation(fields: [opportunityId], references: [id])
+  bookingRequest   BookingRequest @relation(fields: [bookingRequestId], references: [id], onDelete: Cascade)
+  opportunity      Opportunity?   @relation(fields: [opportunityId], references: [id])
 
   @@index([bookingRequestId])
   @@index([ereResponsibleId])
   @@index([opportunityId])
   @@index([responsibleId])
   @@index([status])
+  @@map("deals")
 }
 
-model external_api_requests {
-  id               String          @id
+model ExternalApiRequest {
+  id               String          @id @default(cuid())
   endpoint         String
   method           String          @default("POST")
   requestBody      Json?
@@ -402,7 +413,7 @@ model external_api_requests {
   triggeredBy      String?
   durationMs       Int?
   createdAt        DateTime        @default(now())
-  BookingRequest   BookingRequest? @relation(fields: [bookingRequestId], references: [id])
+  bookingRequest   BookingRequest? @relation(fields: [bookingRequestId], references: [id])
 
   @@index([bookingRequestId])
   @@index([createdAt])
@@ -410,133 +421,139 @@ model external_api_requests {
   @@index([statusCode])
   @@index([success])
   @@index([userId])
+  @@map("external_api_requests")
 }
 
-model form_field_configs {
-  id                   String        @id
+model FormFieldConfig {
+  id                   String      @id @default(cuid())
   entityType           String
   sectionId            String
   fieldKey             String
-  fieldSource          String        @default("builtin")
-  displayOrder         Int           @default(0)
-  isVisible            Boolean       @default(true)
-  isRequired           Boolean       @default(false)
-  isReadonly           Boolean       @default(false)
-  width                String        @default("full")
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime
-  canEditAfterCreation Boolean       @default(false)
-  form_sections        form_sections @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  fieldSource          String      @default("builtin")
+  displayOrder         Int         @default(0)
+  isVisible            Boolean     @default(true)
+  isRequired           Boolean     @default(false)
+  isReadonly           Boolean     @default(false)
+  width                String      @default("full")
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  canEditAfterCreation Boolean     @default(false)
+  section              FormSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
 
   @@unique([entityType, fieldKey])
   @@index([displayOrder])
   @@index([entityType])
   @@index([fieldKey])
   @@index([sectionId])
+  @@map("form_field_configs")
 }
 
-model form_sections {
-  id                 String               @id
-  entityType         String
-  name               String
-  displayOrder       Int                  @default(0)
-  isCollapsed        Boolean              @default(false)
-  isActive           Boolean              @default(true)
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime
-  form_field_configs form_field_configs[]
+model FormSection {
+  id           String            @id @default(cuid())
+  entityType   String
+  name         String
+  displayOrder Int               @default(0)
+  isCollapsed  Boolean           @default(false)
+  isActive     Boolean           @default(true)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  fields       FormFieldConfig[]
 
   @@index([displayOrder])
   @@index([entityType])
   @@index([isActive])
+  @@map("form_sections")
 }
 
-model leads {
-  id            String      @id
+model Lead {
+  id            String    @id @default(cuid())
   name          String
   contactName   String
   contactPhone  String
   contactEmail  String
   categoryId    String?
   responsibleId String?
-  stage         String      @default("por_asignar")
+  stage         String    @default("por_asignar")
   website       String?
   instagram     String?
   description   String?
   source        String?
   notes         String?
-  businessId    String?     @unique
+  businessId    String?   @unique
   convertedAt   DateTime?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime
-  businesses    businesses? @relation(fields: [businessId], references: [id])
-  categories    categories? @relation(fields: [categoryId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  business      Business? @relation(fields: [businessId], references: [id])
+  category      Category? @relation(fields: [categoryId], references: [id])
 
   @@index([businessId])
   @@index([categoryId])
   @@index([name])
   @@index([responsibleId])
   @@index([stage])
+  @@map("leads")
 }
 
-model marketing_campaigns {
-  id                String              @id
-  bookingRequestId  String              @unique
-  doMarketing       Boolean             @default(true)
-  skipReason        String?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime
-  createdBy         String?
-  generatedCopy     String?
-  videoScript       String?
-  BookingRequest    BookingRequest      @relation(fields: [bookingRequestId], references: [id], onDelete: Cascade)
-  marketing_options marketing_options[]
+model MarketingCampaign {
+  id               String            @id @default(cuid())
+  bookingRequestId String            @unique
+  doMarketing      Boolean           @default(true)
+  skipReason       String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  createdBy        String?
+  generatedCopy    String?
+  videoScript      String?
+  bookingRequest   BookingRequest    @relation(fields: [bookingRequestId], references: [id], onDelete: Cascade)
+  options          MarketingOption[]
 
   @@index([bookingRequestId])
   @@index([doMarketing])
+  @@map("marketing_campaigns")
 }
 
-model marketing_option_comments {
-  id                String            @id
-  optionId          String
-  userId            String
-  content           String
-  mentions          Json?
-  reactions         Json?
-  attachments       Json?
-  isEdited          Boolean           @default(false)
-  editedAt          DateTime?
-  isDeleted         Boolean           @default(false)
-  deletedAt         DateTime?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime
-  readBy            Json?
-  dismissedBy       Json?
-  marketing_options marketing_options @relation(fields: [optionId], references: [id], onDelete: Cascade)
+model MarketingOptionComment {
+  id          String          @id @default(cuid())
+  optionId    String
+  userId      String
+  content     String
+  mentions    Json?
+  reactions   Json?
+  attachments Json?
+  isEdited    Boolean         @default(false)
+  editedAt    DateTime?
+  isDeleted   Boolean         @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  readBy      Json?
+  dismissedBy Json?
+  option      MarketingOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
 
   @@index([optionId, createdAt])
   @@index([userId])
+  @@map("marketing_option_comments")
 }
 
-model marketing_options {
-  id                        String                      @id
-  campaignId                String
-  platform                  String
-  optionType                String
-  isPlanned                 Boolean                     @default(false)
-  isCompleted               Boolean                     @default(false)
-  dueDate                   DateTime?
-  completedAt               DateTime?
-  completedBy               String?
-  notes                     String?
-  mediaUrls                 Json?
-  createdAt                 DateTime                    @default(now())
-  updatedAt                 DateTime
-  notesUpdatedAt            DateTime?
-  notesUpdatedBy            String?
-  responsibleId             String?
-  marketing_option_comments marketing_option_comments[]
-  marketing_campaigns       marketing_campaigns         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+model MarketingOption {
+  id             String                    @id @default(cuid())
+  campaignId     String
+  platform       String
+  optionType     String
+  isPlanned      Boolean                   @default(false)
+  isCompleted    Boolean                   @default(false)
+  dueDate        DateTime?
+  completedAt    DateTime?
+  completedBy    String?
+  notes          String?
+  mediaUrls      Json?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  notesUpdatedAt DateTime?
+  notesUpdatedBy String?
+  responsibleId  String?
+  comments       MarketingOptionComment[]
+  campaign       MarketingCampaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
   @@unique([campaignId, platform, optionType])
   @@index([campaignId])
@@ -544,30 +561,31 @@ model marketing_options {
   @@index([isPlanned])
   @@index([platform])
   @@index([responsibleId])
+  @@map("marketing_options")
 }
 
-model opportunities {
-  id                   String                 @id
+model Opportunity {
+  id                   String               @id @default(cuid())
   businessId           String
-  stage                String                 @default("iniciacion")
+  stage                String               @default("iniciacion")
   startDate            DateTime
   closeDate            DateTime?
   notes                String?
   userId               String
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
   lastActivityDate     DateTime?
   nextActivityDate     DateTime?
   responsibleId        String?
-  hasRequest           Boolean                @default(false)
+  hasRequest           Boolean              @default(false)
   bookingRequestId     String?
-  dealId               String?                @unique
+  dealId               String?              @unique
   lostReason           String?
   name                 String?
-  deals                deals?
-  businesses           businesses             @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  opportunity_comments opportunity_comments[]
-  tasks                tasks[]
+  deal                 Deal?
+  business             Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  comments             OpportunityComment[]
+  tasks                Task[]
 
   @@index([bookingRequestId])
   @@index([businessId])
@@ -575,57 +593,61 @@ model opportunities {
   @@index([responsibleId])
   @@index([stage])
   @@index([userId])
+  @@map("opportunities")
 }
 
-model opportunity_comments {
-  id            String        @id
+model OpportunityComment {
+  id            String      @id @default(cuid())
   opportunityId String
   userId        String
   content       String
   mentions      Json?
   reactions     Json?
-  isEdited      Boolean       @default(false)
+  isEdited      Boolean     @default(false)
   editedAt      DateTime?
-  isDeleted     Boolean       @default(false)
+  isDeleted     Boolean     @default(false)
   deletedAt     DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
   readBy        Json?
   dismissedBy   Json?
-  opportunities opportunities @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
   @@index([opportunityId, createdAt])
   @@index([userId])
+  @@map("opportunity_comments")
 }
 
-model public_request_links {
-  id             String          @id
+model PublicRequestLink {
+  id             String          @id @default(cuid())
   token          String          @unique
   createdBy      String
   recipientEmail String
   isUsed         Boolean         @default(false)
   usedAt         DateTime?
   createdAt      DateTime        @default(now())
-  updatedAt      DateTime
-  BookingRequest BookingRequest?
+  updatedAt      DateTime        @updatedAt
+  bookingRequest BookingRequest?
 
   @@index([createdBy])
   @@index([isUsed])
   @@index([recipientEmail])
   @@index([token])
+  @@map("public_request_links")
 }
 
-model saved_filters {
-  id         String   @id
+model SavedFilter {
+  id         String   @id @default(cuid())
   name       String
   entityType String
   filters    Json
   createdBy  String
   createdAt  DateTime @default(now())
-  updatedAt  DateTime
+  updatedAt  DateTime @updatedAt
 
   @@index([createdBy])
   @@index([entityType])
+  @@map("saved_filters")
 }
 
 model settings {
@@ -645,19 +667,20 @@ model settings {
   externalApiSectionMappings Json?
 }
 
-model tasks {
-  id            String        @id
+model Task {
+  id            String      @id @default(cuid())
   opportunityId String
   category      String
   title         String
   date          DateTime
-  completed     Boolean       @default(false)
+  completed     Boolean     @default(false)
   notes         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime
-  opportunities opportunities @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
   @@index([category])
   @@index([date])
   @@index([opportunityId])
+  @@map("tasks")
 }
