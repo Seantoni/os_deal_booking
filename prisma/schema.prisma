@@ -7,7 +7,7 @@ datasource db {
 }
 
 model BookingRequest {
-  id                     String                  @id
+  id                     String                  @id @default(cuid())
   name                   String
   category               String?
   parentCategory         String?
@@ -21,7 +21,7 @@ model BookingRequest {
   status                 String                  @default("draft")
   userId                 String
   createdAt              DateTime                @default(now())
-  updatedAt              DateTime
+  updatedAt              DateTime                @updatedAt
   eventId                String?
   processedAt            DateTime?
   processedBy            String?
@@ -94,14 +94,14 @@ model BookingRequest {
 }
 
 model Event {
-  id               String   @id
+  id               String   @id @default(cuid())
   name             String
   description      String?
   startDate        DateTime
   endDate          DateTime
   userId           String
   createdAt        DateTime @default(now())
-  updatedAt        DateTime
+  updatedAt        DateTime @updatedAt
   category         String?
   merchant         String?
   parentCategory   String?
@@ -650,7 +650,7 @@ model SavedFilter {
   @@map("saved_filters")
 }
 
-model settings {
+model Setting {
   id                         String   @id @default("default")
   minDailyLaunches           Int      @default(5)
   maxDailyLaunches           Int      @default(13)
@@ -659,12 +659,14 @@ model settings {
   businessExceptions         Json
   customCategories           Json
   createdAt                  DateTime @default(now())
-  updatedAt                  DateTime
+  updatedAt                  DateTime @updatedAt
   updatedBy                  String?
   additionalInfoMappings     Json?
   requestFormFields          Json?
   hiddenCategoryPaths        Json?
   externalApiSectionMappings Json?
+
+  @@map("settings")
 }
 
 model Task {

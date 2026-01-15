@@ -13,7 +13,7 @@ async function migrateSettingsToDB() {
 
   try {
     // Check if settings already exist
-    const existing = await prisma.settings.findUnique({
+    const existing = await prisma.setting.findUnique({
       where: { id: 'default' },
     })
 
@@ -23,7 +23,7 @@ async function migrateSettingsToDB() {
     }
 
     // Create default settings in database
-    await prisma.settings.create({
+    await prisma.setting.create({
       data: {
         id: 'default',
         minDailyLaunches: DEFAULT_SETTINGS.minDailyLaunches,

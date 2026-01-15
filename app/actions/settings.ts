@@ -4,10 +4,10 @@ import type { BookingSettings, RequestFormFieldsConfig } from '@/types'
 import { DEFAULT_SETTINGS } from '@/lib/settings'
 import { logger } from '@/lib/logger'
 import { getDefaultRequestFormFieldsConfig } from '@/lib/config/request-form-fields'
-import type { Prisma, Settings } from '@prisma/client'
+import type { Prisma, Setting } from '@prisma/client'
 
-// Extended Settings type that includes all JSON fields
-type SettingsWithJsonFields = Settings & {
+// Extended Setting type that includes all JSON fields
+type SettingsWithJsonFields = Setting & {
   additionalInfoMappings?: Record<string, string> | null
   hiddenCategoryPaths?: Record<string, boolean> | null
   requestFormFields?: RequestFormFieldsConfig | null
@@ -19,7 +19,7 @@ type SettingsWithJsonFields = Settings & {
  */
 export async function getSettingsFromDB(): Promise<ServerActionResponse<BookingSettings>> {
   try {
-    const settings = await prisma.settings.findUnique({
+    const settings = await prisma.setting.findUnique({
       where: { id: 'default' },
     })
 
@@ -74,9 +74,9 @@ export async function saveSettingsToDB(
   }
 
   try {
-    // Verify prisma.settings exists
-    if (!prisma.settings) {
-      logger.error('prisma.settings is undefined. Prisma client may need regeneration.')
+    // Verify prisma.setting exists
+    if (!prisma.setting) {
+      logger.error('prisma.setting is undefined. Prisma client may need regeneration.')
       return { success: false, error: 'Database client not initialized. Please restart the server.' }
     }
 
@@ -96,7 +96,7 @@ export async function saveSettingsToDB(
       updatedAt: new Date(),
     }
 
-    await prisma.settings.upsert({
+    await prisma.setting.upsert({
       where: { id: 'default' },
       update: settingsUpdateData,
       create: {
@@ -121,9 +121,9 @@ export async function resetSettingsToDefaults(): Promise<ServerActionResponse<vo
   }
 
   try {
-    // Verify prisma.settings exists
-    if (!prisma.settings) {
-      logger.error('prisma.settings is undefined. Prisma client may need regeneration.')
+    // Verify prisma.setting exists
+    if (!prisma.setting) {
+      logger.error('prisma.setting is undefined. Prisma client may need regeneration.')
       return { success: false, error: 'Database client not initialized. Please restart the server.' }
     }
 
@@ -143,7 +143,7 @@ export async function resetSettingsToDefaults(): Promise<ServerActionResponse<vo
       updatedAt: new Date(),
     }
 
-    await prisma.settings.upsert({
+    await prisma.setting.upsert({
       where: { id: 'default' },
       update: defaultSettingsData,
       create: {
