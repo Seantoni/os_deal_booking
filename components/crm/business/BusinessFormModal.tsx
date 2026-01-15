@@ -20,6 +20,8 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenIcon from '@mui/icons-material/LockOpen'
+import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
+import { getActiveFocus, getFocusInfo, FOCUS_PERIOD_LABELS, type FocusPeriod } from '@/lib/utils/focus-period'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useBusinessForm } from './useBusinessForm'
@@ -32,6 +34,7 @@ import FormModalSkeleton from '@/components/common/FormModalSkeleton'
 // Lazy load nested modals - only loaded when opened
 const OpportunityFormModal = lazy(() => import('../opportunity/OpportunityFormModal'))
 const BookingRequestViewModal = lazy(() => import('@/components/booking/request-view/BookingRequestViewModal'))
+const FocusPeriodModal = lazy(() => import('./FocusPeriodModal'))
 
 // Lazy load sections only shown for existing businesses
 const OpportunitiesSection = lazy(() => import('./OpportunitiesSection'))
@@ -148,12 +151,16 @@ export default function BusinessFormModal({
   const { isAdmin } = useUserRole()
   const [error, setError] = useState('')
   const [opportunityModalOpen, setOpportunityModalOpen] = useState(false)
+  const [focusModalOpen, setFocusModalOpen] = useState(false)
 
   // React 19: useTransition for non-blocking UI during form actions
   const [isPending, startTransition] = useTransition()
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null)
   const [requestViewModalOpen, setRequestViewModalOpen] = useState(false)
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
+  // Track local focus state for immediate UI updates
+  const [localFocusPeriod, setLocalFocusPeriod] = useState<FocusPeriod | null>(null)
+  const [localFocusSetAt, setLocalFocusSetAt] = useState<Date | string | null>(null)
   // Track unlocked state for fields with canEditAfterCreation
   const [unlockedFields, setUnlockedFields] = useState<Record<string, boolean>>({})
 
@@ -216,6 +223,11 @@ export default function BusinessFormModal({
       osAdminVendorId: business.osAdminVendorId || null,
     }
   }, [business])
+
+  // Get current focus info (either from local state or business prop)
+  const currentFocusPeriod = localFocusPeriod !== null ? localFocusPeriod : (business?.focusPeriod as FocusPeriod | null)
+  const currentFocusSetAt = localFocusSetAt !== null ? localFocusSetAt : business?.focusSetAt
+  const focusInfo = getFocusInfo({ focusPeriod: currentFocusPeriod, focusSetAt: currentFocusSetAt })
 
   // Dynamic form hook - pass preloaded sections from cache
   const dynamicForm = useDynamicForm({
@@ -728,8 +740,8 @@ export default function BusinessFormModal({
                   <ReferenceInfoBar.TextItem
                     label="Vendor ID"
                     value={allFormValues.osAdminVendorId || ''}
-                    onChange={(val) => dynamicForm.setValue('osAdminVendorId', val)}
                     placeholder="OS Admin ID"
+                    readOnly
                   />
                   <ReferenceInfoBar.UserSelectItem
                     label="Propietario"
@@ -745,6 +757,25 @@ export default function BusinessFormModal({
                     onChange={setSalesTeam}
                     placeholder="Seleccionar equipo..."
                   />
+                  {/* Focus Period - only show for existing businesses */}
+                  {business && (
+                    <ReferenceInfoBar.Item
+                      icon={<CenterFocusStrongIcon style={{ fontSize: 14 }} className={focusInfo.isActive ? 'text-amber-500' : 'text-gray-400'} />}
+                      label="Foco"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setFocusModalOpen(true)}
+                        className={`text-xs px-2 py-0.5 rounded border transition-colors ${
+                          focusInfo.isActive
+                            ? 'bg-amber-100 border-amber-300 text-amber-700 hover:bg-amber-200'
+                            : 'bg-gray-100 border-gray-300 text-gray-500 hover:bg-gray-200'
+                        }`}
+                      >
+                        {focusInfo.isActive ? focusInfo.label : 'Sin foco'}
+                      </button>
+                    </ReferenceInfoBar.Item>
+                  )}
                 </ReferenceInfoBar>
 
                 {/* Dynamic Sections from Form Config */}
@@ -838,6 +869,26 @@ export default function BusinessFormModal({
           }}
           requestId={selectedRequestId}
           hideBackdrop={true}
+        />
+      </Suspense>
+    )}
+
+    {/* Focus Period Modal */}
+    {focusModalOpen && business && (
+      <Suspense fallback={null}>
+        <FocusPeriodModal
+          isOpen={focusModalOpen}
+          onClose={() => setFocusModalOpen(false)}
+          businessId={business.id}
+          businessName={business.name}
+          currentFocusPeriod={currentFocusPeriod}
+          currentFocusSetAt={currentFocusSetAt}
+          onSuccess={(updatedFocus) => {
+            // Update local state for immediate UI feedback
+            setLocalFocusPeriod(updatedFocus)
+            setLocalFocusSetAt(updatedFocus ? new Date() : null)
+            setFocusModalOpen(false)
+          }}
         />
       </Suspense>
     )}

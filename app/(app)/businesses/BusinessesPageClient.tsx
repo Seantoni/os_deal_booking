@@ -15,6 +15,7 @@ import HandshakeIcon from '@mui/icons-material/Handshake'
 import DescriptionIcon from '@mui/icons-material/Description'
 import DownloadIcon from '@mui/icons-material/Download'
 import UploadIcon from '@mui/icons-material/Upload'
+import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
 import type { ParsedCsvRow } from '@/lib/utils/csv-export'
 import CsvUploadModal, { type CsvUploadPreview, type CsvUploadResult } from '@/components/common/CsvUploadModal'
 import { exportBusinessesToCsv } from './csv-export'
@@ -30,7 +31,13 @@ const OpportunityFormModal = dynamic(() => import('@/components/crm/opportunity/
   loading: () => null,
   ssr: false,
 })
+
+const FocusPeriodModal = dynamic(() => import('@/components/crm/business/FocusPeriodModal'), {
+  loading: () => null,
+  ssr: false,
+})
 import toast from 'react-hot-toast'
+import { getActiveFocus, FOCUS_PERIOD_LABELS, type FocusPeriod } from '@/lib/utils/focus-period'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useUserRole } from '@/hooks/useUserRole'
@@ -130,12 +137,20 @@ export default function BusinessesPageClient({
     updateFilter('opportunityFilter', filter === 'all' ? undefined : filter)
   }, [updateFilter])
   
+  // Focus filter is also managed by the hook
+  const focusFilter = (filters.focusFilter as 'all' | 'with-focus') || 'all'
+  const setFocusFilter = useCallback((filter: 'all' | 'with-focus') => {
+    updateFilter('focusFilter', filter === 'all' ? undefined : filter)
+  }, [updateFilter])
+  
   // Modal state
   const [businessModalOpen, setBusinessModalOpen] = useState(false)
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null)
   const [opportunityModalOpen, setOpportunityModalOpen] = useState(false)
   const [selectedBusinessForOpportunity, setSelectedBusinessForOpportunity] = useState<Business | null>(null)
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
+  const [focusModalOpen, setFocusModalOpen] = useState(false)
+  const [selectedBusinessForFocus, setSelectedBusinessForFocus] = useState<Business | null>(null)
   
   const confirmDialog = useConfirmDialog()
 
@@ -229,6 +244,18 @@ export default function BusinessesPageClient({
   // Determine which businesses to display
   const displayBusinesses = searchResults !== null ? searchResults : businesses
 
+  // Helper to check if business has active focus
+  const businessActiveFocus = useMemo(() => {
+    const map = new Map<string, FocusPeriod>()
+    displayBusinesses.forEach(business => {
+      const activeFocus = getActiveFocus(business)
+      if (activeFocus) {
+        map.set(business.id, activeFocus)
+      }
+    })
+    return map
+  }, [displayBusinesses])
+
   // Filter tabs with counts
   const filterTabs: FilterTab[] = useMemo(() => {
     // When searching, use client-side counts
@@ -236,6 +263,7 @@ export default function BusinessesPageClient({
       const baseBusinesses = displayBusinesses
       return [
         { id: 'all', label: 'All', count: baseBusinesses.length },
+        { id: 'with-focus', label: 'Con Foco', count: baseBusinesses.filter(b => businessActiveFocus.has(b.id)).length },
         { id: 'with-open', label: 'With Open Opportunity', count: baseBusinesses.filter(b => businessHasOpenOpportunity.get(b.id)).length },
         { id: 'without-open', label: 'Without Open Opportunity', count: baseBusinesses.filter(b => !businessHasOpenOpportunity.get(b.id)).length },
       ]
@@ -244,10 +272,11 @@ export default function BusinessesPageClient({
     // Use server-side counts
     return [
       { id: 'all', label: 'All', count: counts.all ?? initialTotal },
+      { id: 'with-focus', label: 'Con Foco', count: counts['with-focus'] ?? 0 },
       { id: 'with-open', label: 'With Open Opportunity', count: counts['with-open'] ?? 0 },
       { id: 'without-open', label: 'Without Open Opportunity', count: counts['without-open'] ?? 0 },
     ]
-  }, [displayBusinesses, businessHasOpenOpportunity, initialTotal, isSearching, counts])
+  }, [displayBusinesses, businessHasOpenOpportunity, businessActiveFocus, initialTotal, isSearching, counts])
 
   // Get sort value for a business
   const getSortValue = useCallback((business: Business, column: string): string | number | null => {
@@ -274,16 +303,22 @@ export default function BusinessesPageClient({
     }
   }, [businessOpenOpportunityCount, businessPendingRequestCount])
 
-  // Filter and sort businesses (client-side for opportunity filter)
+  // Filter and sort businesses (client-side for filters when searching)
   const filteredBusinesses = useMemo(() => {
     let filtered = displayBusinesses
 
-    // Only apply client-side opportunity filter when searching (server doesn't filter search results by opportunity status)
+    // Only apply client-side filters when searching (server doesn't filter search results)
     if (isSearching) {
+      // Apply opportunity filter
       if (opportunityFilter === 'with-open') {
         filtered = filtered.filter(b => businessHasOpenOpportunity.get(b.id))
       } else if (opportunityFilter === 'without-open') {
         filtered = filtered.filter(b => !businessHasOpenOpportunity.get(b.id))
+      }
+      
+      // Apply focus filter
+      if (focusFilter === 'with-focus') {
+        filtered = filtered.filter(b => businessActiveFocus.has(b.id))
       }
     }
 
@@ -293,7 +328,7 @@ export default function BusinessesPageClient({
     }
 
     return filtered
-  }, [displayBusinesses, opportunityFilter, businessHasOpenOpportunity, isSearching, sortColumn, sortDirection, getSortValue])
+  }, [displayBusinesses, opportunityFilter, focusFilter, businessHasOpenOpportunity, businessActiveFocus, isSearching, sortColumn, sortDirection, getSortValue])
 
   // Prefetch form config when hovering over "New Business" button
   const handleNewBusinessHover = useCallback(() => {
@@ -342,6 +377,11 @@ export default function BusinessesPageClient({
   function handleCreateOpportunity(business: Business) {
     setSelectedBusinessForOpportunity(business)
     setOpportunityModalOpen(true)
+  }
+
+  function handleSetFocus(business: Business) {
+    setSelectedBusinessForFocus(business)
+    setFocusModalOpen(true)
   }
 
   function handleDownloadCsv() {
@@ -449,8 +489,16 @@ export default function BusinessesPageClient({
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
         filterTabs={filterTabs}
-        activeFilter={opportunityFilter}
-        onFilterChange={(id) => setOpportunityFilter(id as 'all' | 'with-open' | 'without-open')}
+        activeFilter={focusFilter === 'with-focus' ? 'with-focus' : opportunityFilter}
+        onFilterChange={(id) => {
+          if (id === 'with-focus') {
+            setFocusFilter('with-focus')
+            setOpportunityFilter('all') // Clear opportunity filter when focus filter is active
+          } else {
+            setFocusFilter('all') // Clear focus filter when opportunity filter is selected
+            setOpportunityFilter(id as 'all' | 'with-open' | 'without-open')
+          }
+        }}
         isAdmin={isAdmin}
         rightContent={headerRightContent}
       />
@@ -467,7 +515,7 @@ export default function BusinessesPageClient({
             icon={<FilterListIcon className="w-full h-full" />}
             title="No se encontraron negocios"
             description={
-              searchQuery || opportunityFilter !== 'all' 
+              searchQuery || opportunityFilter !== 'all' || focusFilter !== 'all'
                 ? 'Intente ajustar su búsqueda o filtros' 
                 : 'Comience creando un nuevo negocio'
             }
@@ -483,17 +531,31 @@ export default function BusinessesPageClient({
               sortDirection={sortDirection}
               onSort={handleSort}
             >
-              {filteredBusinesses.map((business, index) => (
+              {filteredBusinesses.map((business, index) => {
+                const activeFocus = businessActiveFocus.get(business.id)
+                return (
                 <TableRow
                   key={business.id}
                   index={index}
                   onClick={() => handleEditBusiness(business)}
                   onMouseEnter={handleRowHover}
+                  className={activeFocus ? 'bg-amber-50/50 hover:bg-amber-50' : undefined}
                 >
                   <TableCell>
-                    <span className="font-medium text-gray-900 text-[13px]">
-                      {business.name}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900 text-[13px]">
+                        {business.name}
+                      </span>
+                      {activeFocus && (
+                        <span 
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-medium"
+                          title={`Foco: ${FOCUS_PERIOD_LABELS[activeFocus]}`}
+                        >
+                          <CenterFocusStrongIcon style={{ fontSize: 12 }} />
+                          {FOCUS_PERIOD_LABELS[activeFocus].charAt(0)}
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-[13px] text-gray-600">
                     {business.contactName || <span className="text-gray-400">-</span>}
@@ -561,6 +623,17 @@ export default function BusinessesPageClient({
                   <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
                       <button
+                        onClick={() => handleSetFocus(business)}
+                        className={`p-1.5 rounded transition-colors ${
+                          activeFocus 
+                            ? 'bg-amber-100 text-amber-600 hover:bg-amber-200' 
+                            : 'hover:bg-amber-50 text-gray-400 hover:text-amber-600'
+                        }`}
+                        title={activeFocus ? `Foco: ${FOCUS_PERIOD_LABELS[activeFocus]}` : 'Establecer Foco'}
+                      >
+                        <CenterFocusStrongIcon style={{ fontSize: 18 }} />
+                      </button>
+                      <button
                         onClick={() => handleCreateOpportunity(business)}
                         className="p-1.5 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
                         title="Create Opportunity"
@@ -584,7 +657,7 @@ export default function BusinessesPageClient({
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              )})}
             </EntityTable>
             
             {/* Pagination controls from hook */}
@@ -641,6 +714,39 @@ export default function BusinessesPageClient({
           preloadedBusinesses={businesses}
           preloadedCategories={categories}
           preloadedUsers={users}
+        />
+      )}
+
+      {/* Focus Period Modal */}
+      {focusModalOpen && selectedBusinessForFocus && (
+        <FocusPeriodModal
+          isOpen={focusModalOpen}
+          onClose={() => {
+            setFocusModalOpen(false)
+            setSelectedBusinessForFocus(null)
+          }}
+          businessId={selectedBusinessForFocus.id}
+          businessName={selectedBusinessForFocus.name}
+          currentFocusPeriod={selectedBusinessForFocus.focusPeriod}
+          currentFocusSetAt={selectedBusinessForFocus.focusSetAt}
+          onSuccess={(updatedFocus) => {
+            // Update the business in state
+            const businessId = selectedBusinessForFocus.id
+            setBusinesses(prev => prev.map(b => 
+              b.id === businessId 
+                ? { ...b, focusPeriod: updatedFocus, focusSetAt: updatedFocus ? new Date().toISOString() : null }
+                : b
+            ))
+            if (searchResults) {
+              setSearchResults(prev => prev?.map(b => 
+                b.id === businessId 
+                  ? { ...b, focusPeriod: updatedFocus, focusSetAt: updatedFocus ? new Date().toISOString() : null }
+                  : b
+              ) || null)
+            }
+            setFocusModalOpen(false)
+            setSelectedBusinessForFocus(null)
+          }}
         />
       )}
 

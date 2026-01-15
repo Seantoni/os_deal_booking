@@ -125,6 +125,7 @@ export async function getBusinessesPaginated(options: {
   sortBy?: string
   sortDirection?: 'asc' | 'desc'
   opportunityFilter?: string // 'all' | 'with-open' | 'without-open'
+  focusFilter?: string // 'all' | 'with-focus'
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -134,7 +135,7 @@ export async function getBusinessesPaginated(options: {
 
   try {
     const role = await getUserRole()
-    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', opportunityFilter } = options
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', opportunityFilter, focusFilter } = options
 
     // Build where clause based on role
     const whereClause: Record<string, unknown> = {}
@@ -160,18 +161,31 @@ export async function getBusinessesPaginated(options: {
         }
       }
     }
+    
+    // Apply focus filter if provided
+    if (focusFilter === 'with-focus') {
+      // Businesses with active focus (not null and not expired)
+      // We check for non-null focusPeriod here; expiration is handled client-side
+      whereClause.focusPeriod = { not: null }
+    }
 
     // Get total count (with filters applied)
     const total = await prisma.business.count({ where: whereClause })
 
-    // Build orderBy
-    const orderBy: Record<string, 'asc' | 'desc'> = {}
+    // Build orderBy - focused businesses first, then by specified sort
+    // Note: In PostgreSQL, ASC puts NULLs LAST, DESC puts NULLs FIRST
+    const orderByArray: Record<string, 'asc' | 'desc'>[] = []
+    
+    // Sort focused businesses first (those with focusPeriod) - asc puts non-null first (NULLs last)
+    orderByArray.push({ focusPeriod: 'asc' })
+    
+    // Then apply user's sort
     if (sortBy === 'name') {
-      orderBy.name = sortDirection
+      orderByArray.push({ name: sortDirection })
     } else if (sortBy === 'contactName') {
-      orderBy.contactName = sortDirection
+      orderByArray.push({ contactName: sortDirection })
     } else {
-      orderBy.createdAt = sortDirection
+      orderByArray.push({ createdAt: sortDirection })
     }
 
     // Get paginated businesses
@@ -200,7 +214,7 @@ export async function getBusinessesPaginated(options: {
           },
         },
       },
-      orderBy,
+      orderBy: orderByArray,
       skip: page * pageSize,
       take: pageSize,
     })
@@ -270,11 +284,11 @@ export async function getBusinessCounts() {
     if (role === 'sales') {
       baseWhere.ownerId = userId
     } else if (role === 'editor' || role === 'ere') {
-      return { success: true, data: { all: 0, 'with-open': 0, 'without-open': 0 } }
+      return { success: true, data: { all: 0, 'with-open': 0, 'without-open': 0, 'with-focus': 0 } }
     }
 
     // Get counts in parallel
-    const [all, withOpen, withoutOpen] = await Promise.all([
+    const [all, withOpen, withoutOpen, withFocus] = await Promise.all([
       prisma.business.count({ where: baseWhere }),
       prisma.business.count({ 
         where: { 
@@ -292,14 +306,120 @@ export async function getBusinessCounts() {
           } 
         } 
       }),
+      prisma.business.count({ 
+        where: { 
+          ...baseWhere, 
+          focusPeriod: { not: null }
+        } 
+      }),
     ])
 
     return { 
       success: true, 
-      data: { all, 'with-open': withOpen, 'without-open': withoutOpen }
+      data: { all, 'with-open': withOpen, 'without-open': withoutOpen, 'with-focus': withFocus }
     }
   } catch (error) {
     return handleServerActionError(error, 'getBusinessCounts')
+  }
+}
+
+/**
+ * Update business focus period
+ * Only assigned sales rep or admin can update focus
+ */
+export async function updateBusinessFocus(
+  businessId: string, 
+  focusPeriod: 'month' | 'quarter' | 'year' | null
+) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    // Get business with salesReps to check permissions
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      include: {
+        salesReps: {
+          select: { salesRepId: true }
+        }
+      }
+    })
+
+    if (!business) {
+      return { success: false, error: 'Business not found' }
+    }
+
+    // Check permissions: must be admin or assigned sales rep
+    const admin = await isAdmin()
+    const isAssignedRep = business.salesReps.some(rep => rep.salesRepId === userId)
+    const isOwner = business.ownerId === userId
+
+    if (!admin && !isAssignedRep && !isOwner) {
+      return { success: false, error: 'No tienes permiso para modificar el foco de este negocio' }
+    }
+
+    // Update focus
+    const updated = await prisma.business.update({
+      where: { id: businessId },
+      data: {
+        focusPeriod: focusPeriod,
+        focusSetAt: focusPeriod ? new Date() : null, // Set timestamp when focus is set, null when cleared
+      },
+      include: {
+        category: {
+          select: {
+            id: true,
+            categoryKey: true,
+            parentCategory: true,
+            subCategory1: true,
+            subCategory2: true,
+          },
+        },
+        salesReps: {
+          include: {
+            salesRep: {
+              select: {
+                id: true,
+                clerkId: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    // Log activity
+    const focusLabel = focusPeriod 
+      ? { month: 'Mes', quarter: 'Trimestre', year: 'Año' }[focusPeriod] 
+      : null
+    await logActivity({
+      action: 'UPDATE',
+      entityType: 'Business',
+      entityId: businessId,
+      entityName: business.name,
+      details: {
+        changedFields: ['focusPeriod', 'focusSetAt'],
+        changes: {
+          focusPeriod: { from: business.focusPeriod, to: focusPeriod },
+        },
+        metadata: {
+          focusAction: focusPeriod ? 'set' : 'cleared',
+          focusLabel: focusLabel,
+        },
+      },
+    })
+
+    // Invalidate cache
+    invalidateEntity('businesses')
+
+    return { success: true, data: updated }
+  } catch (error) {
+    return handleServerActionError(error, 'updateBusinessFocus')
   }
 }
 

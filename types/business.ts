@@ -49,6 +49,9 @@ export type Business = {
   osAsesor?: string | null
   // External IDs
   osAdminVendorId?: string | null
+  // Focus state
+  focusPeriod?: string | null
+  focusSetAt?: Date | string | null
   // Relations
   category?: {
     id: string

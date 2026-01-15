@@ -352,6 +352,10 @@ model Business {
   // External IDs
   osAdminVendorId    String? // OS Admin Vendor ID for reference
 
+  // Focus state - for sales team prioritization
+  focusPeriod        String?   // 'month' | 'quarter' | 'year' | null
+  focusSetAt         DateTime? // When the focus was set (for expiration calculation)
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
