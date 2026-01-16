@@ -44,6 +44,7 @@ import { useUserRole } from '@/hooks/useUserRole'
 import { useSharedData } from '@/hooks/useSharedData'
 import { useFormConfigCache } from '@/hooks/useFormConfigCache'
 import { usePaginatedSearch } from '@/hooks/usePaginatedSearch'
+import { useAdvancedFilters } from '@/hooks/useAdvancedFilters'
 import { sortEntities } from '@/hooks/useEntityPage'
 import { logger } from '@/lib/logger'
 import { 
@@ -94,6 +95,9 @@ export default function BusinessesPageClient({
   
   // Get form config cache for prefetching
   const { prefetch: prefetchFormConfig } = useFormConfigCache()
+  
+  // Advanced filters hook
+  const { headerProps: advancedFilterProps, filterRules, applyFiltersToData } = useAdvancedFilters<Business>('businesses')
   
   // Use the reusable paginated search hook (now with server-side filtering)
   const {
@@ -322,13 +326,16 @@ export default function BusinessesPageClient({
       }
     }
 
+    // Apply advanced filters (always, both for paginated and search results)
+    filtered = applyFiltersToData(filtered)
+
     // Client-side sort for search results
     if (isSearching && sortColumn) {
       return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
     }
 
     return filtered
-  }, [displayBusinesses, opportunityFilter, focusFilter, businessHasOpenOpportunity, businessActiveFocus, isSearching, sortColumn, sortDirection, getSortValue])
+  }, [displayBusinesses, opportunityFilter, focusFilter, businessHasOpenOpportunity, businessActiveFocus, isSearching, sortColumn, sortDirection, getSortValue, applyFiltersToData])
 
   // Prefetch form config when hovering over "New Business" button
   const handleNewBusinessHover = useCallback(() => {
@@ -501,6 +508,7 @@ export default function BusinessesPageClient({
         }}
         isAdmin={isAdmin}
         rightContent={headerRightContent}
+        {...advancedFilterProps}
       />
 
       {/* Content */}
@@ -515,7 +523,7 @@ export default function BusinessesPageClient({
             icon={<FilterListIcon className="w-full h-full" />}
             title="No se encontraron negocios"
             description={
-              searchQuery || opportunityFilter !== 'all' || focusFilter !== 'all'
+              searchQuery || opportunityFilter !== 'all' || focusFilter !== 'all' || filterRules.length > 0
                 ? 'Intente ajustar su búsqueda o filtros' 
                 : 'Comience creando un nuevo negocio'
             }

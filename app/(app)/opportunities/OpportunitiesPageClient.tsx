@@ -24,6 +24,7 @@ import { useUserRole } from '@/hooks/useUserRole'
 import { useSharedData } from '@/hooks/useSharedData'
 import { useFormConfigCache } from '@/hooks/useFormConfigCache'
 import { usePaginatedSearch } from '@/hooks/usePaginatedSearch'
+import { useAdvancedFilters } from '@/hooks/useAdvancedFilters'
 import { sortEntities } from '@/hooks/useEntityPage'
 import { 
   EntityPageHeader, 
@@ -83,6 +84,9 @@ export default function OpportunitiesPageClient({
   
   // Get form config cache for prefetching
   const { prefetch: prefetchFormConfig } = useFormConfigCache()
+  
+  // Advanced filters hook
+  const { headerProps: advancedFilterProps, filterRules, applyFiltersToData } = useAdvancedFilters<Opportunity>('opportunities')
   
   // Use the reusable paginated search hook (now with server-side filtering)
   const {
@@ -273,13 +277,16 @@ export default function OpportunitiesPageClient({
       filtered = filtered.filter(o => o.stage === stageFilter)
     }
 
+    // Apply advanced filters (always, both for paginated and search results)
+    filtered = applyFiltersToData(filtered)
+
     // Client-side sort for search results
     if (isSearching && sortColumn) {
-    return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
+      return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
     }
 
     return filtered
-  }, [displayOpportunities, stageFilter, isSearching, sortColumn, sortDirection, getSortValue])
+  }, [displayOpportunities, stageFilter, isSearching, sortColumn, sortDirection, getSortValue, applyFiltersToData])
 
   // Prefetch form config when hovering over a row
   const handleRowHover = useCallback(() => {
@@ -511,6 +518,7 @@ export default function OpportunitiesPageClient({
         isAdmin={isAdmin}
         beforeFilters={viewToggle}
         rightContent={headerRightContent}
+        {...advancedFilterProps}
       />
 
       {/* Content */}
@@ -525,7 +533,7 @@ export default function OpportunitiesPageClient({
             icon={<FilterListIcon className="w-full h-full" />}
             title="No se encontraron oportunidades"
             description={
-              searchQuery || stageFilter !== 'all' 
+              searchQuery || stageFilter !== 'all' || filterRules.length > 0
                 ? 'Intente ajustar su búsqueda o filtros' 
                 : 'Comience creando una nueva oportunidad'
             }
