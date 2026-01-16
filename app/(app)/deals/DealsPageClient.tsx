@@ -11,6 +11,7 @@ import toast from 'react-hot-toast'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useFormConfigCache } from '@/hooks/useFormConfigCache'
 import { usePaginatedSearch } from '@/hooks/usePaginatedSearch'
+import { useAdvancedFilters } from '@/hooks/useAdvancedFilters'
 import { sortEntities } from '@/hooks/useEntityPage'
 import { 
   EntityPageHeader, 
@@ -68,6 +69,9 @@ export default function DealsPageClient({
   
   // Get form config cache for prefetching
   const { prefetch: prefetchFormConfig } = useFormConfigCache()
+  
+  // Advanced filters hook
+  const { headerProps: advancedFilterProps, filterRules, applyFiltersToData } = useAdvancedFilters<Deal>('deals')
   
   // Use the reusable paginated search hook (now with server-side filtering)
   const {
@@ -214,13 +218,16 @@ export default function DealsPageClient({
       }
     }
 
+    // Apply advanced filters (always, both for paginated and search results)
+    filtered = applyFiltersToData(filtered)
+
     // Client-side sort for search results
     if (isSearching && sortColumn) {
-    return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
+      return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
     }
 
     return filtered
-  }, [displayDeals, responsibleFilter, isSearching, sortColumn, sortDirection, getSortValue])
+  }, [displayDeals, responsibleFilter, isSearching, sortColumn, sortDirection, getSortValue, applyFiltersToData])
 
   // Prefetch form config when hovering over a row
   const handleRowHover = useCallback(() => {
@@ -278,6 +285,7 @@ export default function DealsPageClient({
         activeFilter={responsibleFilter}
         onFilterChange={setResponsibleFilter}
         isAdmin={isAdmin}
+        {...advancedFilterProps}
       />
 
       {/* Content */}
@@ -291,12 +299,12 @@ export default function DealsPageClient({
           <EmptyTableState
             icon={<FilterListIcon className="w-full h-full" />}
             title={
-              searchQuery || responsibleFilter !== 'all' 
+              searchQuery || responsibleFilter !== 'all' || filterRules.length > 0
                 ? 'No hay ofertas que coincidan con sus filtros' 
                 : 'Aún no hay ofertas'
             }
             description={
-              searchQuery || responsibleFilter !== 'all'
+              searchQuery || responsibleFilter !== 'all' || filterRules.length > 0
                 ? 'Intente ajustar su búsqueda o filtros'
                 : 'Las ofertas aparecerán aquí una vez que las solicitudes de booking sean marcadas como reservadas'
             }

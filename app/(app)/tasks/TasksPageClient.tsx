@@ -361,18 +361,12 @@ export default function TasksPageClient() {
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header with Search and Filters */}
       <EntityPageHeader
-        entityType="opportunities"
         searchPlaceholder="Buscar tareas..."
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         filterTabs={filterTabs}
         activeFilter={activeFilter}
         onFilterChange={(id) => setActiveFilter(id as FilterType)}
-        savedFilters={[]}
-        activeFilterId={null}
-        onFilterSelect={() => {}}
-        onAdvancedFiltersChange={() => {}}
-        onSavedFiltersChange={() => {}}
         isAdmin={isAdmin}
       />
 
