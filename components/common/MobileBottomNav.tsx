@@ -8,6 +8,7 @@ import DashboardIcon from '@mui/icons-material/Dashboard'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import DescriptionIcon from '@mui/icons-material/Description'
 import AssignmentIcon from '@mui/icons-material/Assignment'
+import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import ListAltIcon from '@mui/icons-material/ListAlt'
@@ -56,6 +57,7 @@ const adminSecondaryNav: NavItem[] = [
   { name: 'Reservaciones', href: '/reservations', Icon: ListAltIcon },
   { name: 'Leads', href: '/leads', Icon: PersonAddIcon },
   { name: 'Inteligencia', href: '/market-intelligence', Icon: TrendingUpIcon },
+  { name: 'Asignaciones', href: '/assignments', Icon: AssignmentReturnIcon },
   { name: 'Configuración', href: '/settings', Icon: SettingsIcon },
 ]
 

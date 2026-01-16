@@ -254,6 +254,13 @@ model Business {
   osAdminVendorId      String?
   focusPeriod          String?
   focusSetAt           DateTime?
+  // Reassignment tracking
+  reassignmentStatus      String?   // null (normal), 'pending_reassign', 'pending_removal'
+  reassignmentType        String?   // 'reasignar' or 'sacar'
+  reassignmentRequestedBy String?   // clerkId of who requested
+  reassignmentRequestedAt DateTime?
+  reassignmentReason      String?   // required notes explaining the request
+  reassignmentPreviousOwner String? // to restore if cancelled
   salesReps            BusinessSalesRep[]
   category             Category?           @relation(fields: [categoryId], references: [id])
   lead                 Lead?
@@ -263,6 +270,7 @@ model Business {
   @@index([leadId])
   @@index([name])
   @@index([ownerId])
+  @@index([reassignmentStatus])
   @@map("businesses")
 }
 

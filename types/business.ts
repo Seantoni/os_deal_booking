@@ -52,6 +52,19 @@ export type Business = {
   // Focus state
   focusPeriod?: string | null
   focusSetAt?: Date | string | null
+  // Reassignment tracking
+  reassignmentStatus?: string | null // null (normal), 'pending_reassign', 'pending_removal'
+  reassignmentType?: 'reasignar' | 'sacar' | null
+  reassignmentRequestedBy?: string | null // clerkId of who requested
+  reassignmentRequestedAt?: Date | string | null
+  reassignmentReason?: string | null
+  reassignmentPreviousOwner?: string | null // to restore if cancelled
+  reassignmentRequester?: {
+    id: string
+    clerkId: string
+    name: string | null
+    email: string | null
+  } | null
   // Relations
   category?: {
     id: string

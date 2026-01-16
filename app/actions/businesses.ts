@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { unstable_cache } from 'next/cache'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
 import { invalidateEntity } from '@/lib/cache'
@@ -9,6 +10,11 @@ import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
 import { logActivity } from '@/lib/activity-log'
 import { sendVendorToExternalApi } from '@/lib/api/external-oferta'
 import type { Business } from '@/types/business'
+
+// Extended where clause type to include reassignment fields not yet in Prisma schema
+type BusinessWhereClause = Prisma.BusinessWhereInput & {
+  reassignmentStatus?: null | string
+}
 
 /**
  * Get all businesses (cached)
@@ -27,11 +33,13 @@ export async function getBusinesses() {
     const getCachedBusinesses = unstable_cache(
       async () => {
         // Build where clause based on role
-        const whereClause: Record<string, unknown> = {}
+        const whereClause: BusinessWhereClause = {}
         
         if (role === 'sales') {
           // Sales only see businesses where they are the owner
           whereClause.ownerId = userId
+          // Filter out businesses pending reassignment
+          whereClause.reassignmentStatus = null
         } else if (role === 'editor' || role === 'ere') {
           // Editors and ERE don't have access to businesses
           return []
@@ -138,12 +146,16 @@ export async function getBusinessesPaginated(options: {
     const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', opportunityFilter, focusFilter } = options
 
     // Build where clause based on role
-    const whereClause: Record<string, unknown> = {}
+    const whereClause: BusinessWhereClause = {}
     if (role === 'sales') {
       whereClause.ownerId = userId
+      // Filter out businesses pending reassignment for sales reps
+      // Sales reps should not see businesses that have been flagged for reassignment
+      whereClause.reassignmentStatus = null
     } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: [], total: 0, page, pageSize }
     }
+    // Admin sees all businesses (no reassignmentStatus filter)
     
     // Apply opportunity filter if provided
     if (opportunityFilter === 'with-open') {
@@ -447,9 +459,11 @@ export async function searchBusinesses(query: string, options: {
     const searchTerm = query.trim()
 
     // Build where clause based on role
-    const roleFilter: Record<string, unknown> = {}
+    const roleFilter: BusinessWhereClause = {}
     if (role === 'sales') {
       roleFilter.ownerId = userId
+      // Filter out businesses pending reassignment
+      roleFilter.reassignmentStatus = null
     } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: [] }
     }

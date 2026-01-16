@@ -13,6 +13,7 @@ import BusinessIcon from '@mui/icons-material/Business'
 import HandshakeIcon from '@mui/icons-material/Handshake'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
 import AssignmentIcon from '@mui/icons-material/Assignment'
+import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import HistoryIcon from '@mui/icons-material/History'
@@ -48,6 +49,10 @@ const adminSidebarConfig = {
     { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
     { name: 'Marketing', href: '/marketing', Icon: CampaignIcon },
   ],
+  // Admin-only management
+  adminItems: [
+    { name: 'Asignaciones', href: '/assignments', Icon: AssignmentReturnIcon },
+  ],
   bottomItems: [
     { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
     { name: 'Actividad', href: '/activity-log', Icon: HistoryIcon },
@@ -69,27 +74,30 @@ const salesSidebarConfig = {
   acquireItems: [
     { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
   ],
+  adminItems: [] as SidebarItem[],
   bottomItems: [
     { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
   ],
 }
 
 const editorSidebarConfig = {
-  monitorItems: [],
-  workItems: [],
+  monitorItems: [] as SidebarItem[],
+  workItems: [] as SidebarItem[],
   acquireItems: [
     { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
   ],
-  bottomItems: [],
+  adminItems: [] as SidebarItem[],
+  bottomItems: [] as SidebarItem[],
 }
 
 const marketingSidebarConfig = {
-  monitorItems: [],
-  workItems: [],
+  monitorItems: [] as SidebarItem[],
+  workItems: [] as SidebarItem[],
   acquireItems: [
     { name: 'Marketing', href: '/marketing', Icon: CampaignIcon },
   ],
-  bottomItems: [],
+  adminItems: [] as SidebarItem[],
+  bottomItems: [] as SidebarItem[],
 }
 
 export default function HamburgerMenu() {
@@ -107,10 +115,11 @@ export default function HamburgerMenu() {
     // Return empty config while loading or if role is not set
     if (loading || !role || role === null) {
       return {
-        monitorItems: [],
-        workItems: [],
-        acquireItems: [],
-        bottomItems: [],
+        monitorItems: [] as SidebarItem[],
+        workItems: [] as SidebarItem[],
+        acquireItems: [] as SidebarItem[],
+        adminItems: [] as SidebarItem[],
+        bottomItems: [] as SidebarItem[],
       }
     }
     
@@ -130,10 +139,11 @@ export default function HamburgerMenu() {
       default:
         // If role doesn't match any known role, return empty config
         return {
-          monitorItems: [],
-          workItems: [],
-          acquireItems: [],
-          bottomItems: [],
+          monitorItems: [] as SidebarItem[],
+          workItems: [] as SidebarItem[],
+          acquireItems: [] as SidebarItem[],
+          adminItems: [] as SidebarItem[],
+          bottomItems: [] as SidebarItem[],
         }
     }
   }, [role, loading])
@@ -270,6 +280,44 @@ export default function HamburgerMenu() {
                           <Icon style={{ fontSize: '1.1rem' }} className={isActive ? 'text-orange-600' : ''} />
                           <span className={`text-[10px] font-medium mt-1 leading-tight truncate w-full text-center ${
                             isActive ? 'text-orange-600' : 'text-slate-500 group-hover:text-slate-700'
+                          }`}>
+                            {item.name}
+                          </span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Separator */}
+                {sidebarConfig.acquireItems.length > 0 && sidebarConfig.adminItems.length > 0 && (
+                  <div className="h-px bg-slate-200/60 mx-2" />
+                )}
+
+                {/* Admin-only (Assignments, etc.) */}
+                {sidebarConfig.adminItems.length > 0 && (
+                  <div className="space-y-1">
+                    {sidebarConfig.adminItems.map((item) => {
+                      const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+                      const Icon = item.Icon
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => {
+                            if (isCalendarPage) {
+                              setIsOpen(false)
+                            }
+                          }}
+                          className={`group flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-all duration-200 ${
+                            isActive 
+                              ? 'bg-purple-100 text-purple-600' 
+                              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                          }`}
+                        >
+                          <Icon style={{ fontSize: '1.1rem' }} className={isActive ? 'text-purple-600' : ''} />
+                          <span className={`text-[10px] font-medium mt-1 leading-tight truncate w-full text-center ${
+                            isActive ? 'text-purple-600' : 'text-slate-500 group-hover:text-slate-700'
                           }`}>
                             {item.name}
                           </span>

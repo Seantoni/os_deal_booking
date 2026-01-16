@@ -223,7 +223,7 @@ export default function DealsPageClient({
 
     // Client-side sort for search results
     if (isSearching && sortColumn) {
-      return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
+    return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
     }
 
     return filtered

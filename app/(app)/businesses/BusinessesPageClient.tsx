@@ -16,6 +16,7 @@ import DescriptionIcon from '@mui/icons-material/Description'
 import DownloadIcon from '@mui/icons-material/Download'
 import UploadIcon from '@mui/icons-material/Upload'
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
+import MoreVertIcon from '@mui/icons-material/MoreVert'
 import type { ParsedCsvRow } from '@/lib/utils/csv-export'
 import CsvUploadModal, { type CsvUploadPreview, type CsvUploadResult } from '@/components/common/CsvUploadModal'
 import { exportBusinessesToCsv } from './csv-export'
@@ -33,6 +34,11 @@ const OpportunityFormModal = dynamic(() => import('@/components/crm/opportunity/
 })
 
 const FocusPeriodModal = dynamic(() => import('@/components/crm/business/FocusPeriodModal'), {
+  loading: () => null,
+  ssr: false,
+})
+
+const ReassignmentModal = dynamic(() => import('@/components/crm/business/ReassignmentModal'), {
   loading: () => null,
   ssr: false,
 })
@@ -155,6 +161,9 @@ export default function BusinessesPageClient({
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [focusModalOpen, setFocusModalOpen] = useState(false)
   const [selectedBusinessForFocus, setSelectedBusinessForFocus] = useState<Business | null>(null)
+  const [reassignmentModalOpen, setReassignmentModalOpen] = useState(false)
+  const [selectedBusinessForReassignment, setSelectedBusinessForReassignment] = useState<Business | null>(null)
+  const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null) // Track which row has open menu
   
   const confirmDialog = useConfirmDialog()
 
@@ -186,6 +195,19 @@ export default function BusinessesPageClient({
       }
     }
   }, [searchParams, businesses, searchResults])
+
+  // Close action menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (actionMenuOpen && !(event.target as Element).closest('.relative')) {
+        setActionMenuOpen(null)
+      }
+    }
+    if (actionMenuOpen) {
+      document.addEventListener('click', handleClickOutside)
+    }
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [actionMenuOpen])
 
   // Load opportunities and booking requests alongside businesses
   useEffect(() => {
@@ -662,6 +684,30 @@ export default function BusinessesPageClient({
                       >
                         <OpenInNewIcon style={{ fontSize: 18 }} />
                       </button>
+                      {/* Action Menu (Acción) */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setActionMenuOpen(actionMenuOpen === business.id ? null : business.id)}
+                          className="p-1.5 rounded hover:bg-purple-50 text-gray-400 hover:text-purple-600 transition-colors"
+                          title="Acción"
+                        >
+                          <MoreVertIcon style={{ fontSize: 18 }} />
+                        </button>
+                        {actionMenuOpen === business.id && (
+                          <div className="absolute right-0 top-full mt-1 z-50 w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+                            <button
+                              onClick={() => {
+                                setSelectedBusinessForReassignment(business)
+                                setReassignmentModalOpen(true)
+                                setActionMenuOpen(null)
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
+                            >
+                              Reasignar / Sacar
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -754,6 +800,26 @@ export default function BusinessesPageClient({
             }
             setFocusModalOpen(false)
             setSelectedBusinessForFocus(null)
+          }}
+        />
+      )}
+
+      {/* Reassignment Modal */}
+      {reassignmentModalOpen && selectedBusinessForReassignment && (
+        <ReassignmentModal
+          isOpen={reassignmentModalOpen}
+          onClose={() => {
+            setReassignmentModalOpen(false)
+            setSelectedBusinessForReassignment(null)
+          }}
+          businessId={selectedBusinessForReassignment.id}
+          businessName={selectedBusinessForReassignment.name}
+          onSuccess={() => {
+            // Business will be filtered out since it now has reassignmentStatus
+            // Reload to reflect the change
+            if (!isSearching) {
+              loadPage(currentPage)
+            }
           }}
         />
       )}
