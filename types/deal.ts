@@ -1,10 +1,11 @@
-/*  this is a test to see if stage is saved
+/*  this is a test to see if stage is saved 2
 /**
  * Deal type definition
  * Represents a deal created from a booked booking request
  */
 import type { DealStatus } from '@/lib/constants'
 
+/*test 2
 /**
  * Pricing option for deals and booking requests
  */
