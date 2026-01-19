@@ -8,6 +8,7 @@ import {
   reactivateAccess,
   getAccessAuditLogs,
   inviteUser,
+  resendInvitation,
 } from '@/app/actions/access-control'
 import { getAllUserProfiles, updateUserRole, previewUserSync, applyUserSync, type SyncPreview } from '@/app/actions/users'
 import type { UserRole } from '@/lib/constants'
@@ -45,6 +46,7 @@ import MailIcon from '@mui/icons-material/Mail'
 import PendingIcon from '@mui/icons-material/Pending'
 import SyncIcon from '@mui/icons-material/Sync'
 import PersonOffIcon from '@mui/icons-material/PersonOff'
+import ReplayIcon from '@mui/icons-material/Replay'
 import { Button, Alert, Select, Input, Textarea } from '@/components/ui'
 
 type AccessAuditLogWithEmail = AccessAuditLog
@@ -78,6 +80,7 @@ export default function AccessManagementTab() {
   const [syncPreview, setSyncPreview] = useState<SyncPreview | null>(null)
   const [loadingSyncPreview, setLoadingSyncPreview] = useState(false)
   const [applyingSync, setApplyingSync] = useState(false)
+  const [resendingEmail, setResendingEmail] = useState<string | null>(null)
   const emailsPerPage = 50
 
   // Load allowed emails and user profiles on mount
@@ -265,6 +268,28 @@ export default function AccessManagementTab() {
       toast.error(errorMessage)
     } finally {
       setInviting(false)
+    }
+  }
+
+  async function handleResendInvitation(email: string) {
+    try {
+      setResendingEmail(email)
+      setError(null)
+      const result = await resendInvitation(email)
+      
+      if (result.success) {
+        toast.success(`Invitación reenviada exitosamente a ${email}`)
+        await loadAllowedEmails()
+      } else {
+        setError(result.error || 'Error al reenviar la invitación')
+        toast.error(result.error || 'Error al reenviar la invitación')
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al reenviar la invitación'
+      setError(errorMessage)
+      toast.error(errorMessage)
+    } finally {
+      setResendingEmail(null)
     }
   }
 
@@ -706,6 +731,20 @@ export default function AccessManagementTab() {
                       <td className="py-3 px-4 text-sm text-gray-600">{email.notes || '-'}</td>
                       <td className="py-3 px-4 text-sm text-right">
                         <div className="flex justify-end gap-2">
+                          {email.invitationStatus === 'pending' && (
+                            <button
+                              onClick={() => handleResendInvitation(email.email)}
+                              disabled={resendingEmail === email.email}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Reenviar Invitación"
+                            >
+                              {resendingEmail === email.email ? (
+                                <SyncIcon fontSize="small" className="animate-spin" />
+                              ) : (
+                                <ReplayIcon fontSize="small" />
+                              )}
+                            </button>
+                          )}
                           {email.isActive ? (
                             <button
                               onClick={() => handleRevokeAccess(email.email)}

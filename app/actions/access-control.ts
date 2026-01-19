@@ -657,6 +657,141 @@ export async function inviteUser(
 }
 
 /**
+ * Resend an invitation - revokes existing Clerk invitation and creates a new one
+ * Useful when the original invitation expired or there's a stale invitation in Clerk
+ */
+export async function resendInvitation(
+  email: string
+): Promise<{ success: boolean; invitationId?: string; error?: string }> {
+  try {
+    await requireAdmin()
+  } catch {
+    return { success: false, error: 'No autorizado - se requiere rol de administrador' }
+  }
+  
+  const { userId } = await auth()
+  if (!userId) {
+    return { success: false, error: 'No autorizado' }
+  }
+  
+  let normalizedEmail: string
+  try {
+    normalizedEmail = validateAndNormalizeEmail(email)
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Email inválido' }
+  }
+  
+  // Find existing record
+  const existing = await prisma.allowedEmail.findUnique({
+    where: { email: normalizedEmail },
+  })
+  
+  if (!existing) {
+    return { success: false, error: 'No se encontró una invitación para este correo' }
+  }
+  
+  if (existing.invitationStatus === 'accepted') {
+    return { success: false, error: 'Esta invitación ya fue aceptada' }
+  }
+  
+  try {
+    const clerk = await clerkClient()
+    
+    // Check if user already exists in Clerk
+    try {
+      const users = await clerk.users.getUserList({ emailAddress: [normalizedEmail] })
+      if (users.data && users.data.length > 0) {
+        return { success: false, error: 'Este correo ya está registrado como usuario en el sistema' }
+      }
+    } catch {
+      // Continue - user might not exist
+    }
+    
+    // Try to revoke existing Clerk invitation if we have one
+    if (existing.clerkInvitationId) {
+      try {
+        await clerk.invitations.revokeInvitation(existing.clerkInvitationId)
+        logger.info(`[access-control] Revoked existing invitation ${existing.clerkInvitationId} for ${normalizedEmail}`)
+      } catch (revokeErr) {
+        // Log but continue - invitation might already be revoked or expired
+        logger.warn(`[access-control] Could not revoke invitation ${existing.clerkInvitationId}:`, revokeErr)
+      }
+    }
+    
+    // Also try to revoke any pending invitations in Clerk by email (in case ID is stale)
+    try {
+      const pendingInvitations = await clerk.invitations.getInvitationList({ 
+        status: 'pending',
+      })
+      const matchingInvitation = pendingInvitations.data?.find(
+        inv => inv.emailAddress.toLowerCase() === normalizedEmail.toLowerCase()
+      )
+      if (matchingInvitation && matchingInvitation.id !== existing.clerkInvitationId) {
+        await clerk.invitations.revokeInvitation(matchingInvitation.id)
+        logger.info(`[access-control] Revoked stale invitation ${matchingInvitation.id} for ${normalizedEmail}`)
+      }
+    } catch {
+      // Continue - this is a best-effort cleanup
+    }
+    
+    // Make sure email is in Clerk allowlist
+    const clerkResult = await addToClerkAllowlist(normalizedEmail)
+    if (!clerkResult.success) {
+      logger.warn('[access-control] Failed to sync to Clerk allowlist:', clerkResult.error)
+    }
+    
+    // Create new invitation
+    const invitation = await clerk.invitations.createInvitation({
+      emailAddress: normalizedEmail,
+    })
+    
+    // Update our record with new invitation ID
+    await prisma.allowedEmail.update({
+      where: { email: normalizedEmail },
+      data: {
+        clerkInvitationId: invitation.id,
+        invitationStatus: 'pending',
+        invitedAt: new Date(),
+        invitedBy: userId,
+        updatedAt: new Date(),
+      },
+    })
+    
+    // Create audit log
+    await prisma.accessAuditLog.create({
+      data: {
+        email: normalizedEmail,
+        action: 'invitation_resent',
+        performedBy: userId,
+        notes: `Invitation resent. Role: ${existing.invitedRole || 'unknown'}`,
+        allowedEmailId: existing.id,
+      },
+    })
+    
+    invalidateEntity('access-control')
+    return { success: true, invitationId: invitation.id }
+  } catch (err) {
+    const clerkError = err as ClerkError
+    logger.error('[access-control] Error resending invitation:', clerkError)
+    
+    let errorMessage = 'Error al reenviar la invitación'
+    if (clerkError.clerkError) {
+      if (clerkError.errors && Array.isArray(clerkError.errors) && clerkError.errors.length > 0) {
+        errorMessage = clerkError.errors.map((e) => e.message || e.longMessage || '').filter(Boolean).join('. ') || errorMessage
+      } else if (clerkError.longMessage) {
+        errorMessage = clerkError.longMessage
+      } else if (clerkError.message) {
+        errorMessage = clerkError.message
+      }
+    } else if (clerkError.message) {
+      errorMessage = clerkError.message
+    }
+    
+    return { success: false, error: errorMessage }
+  }
+}
+
+/**
  * Check if a user has a pending invitation and assign role on signup
  * This should be called after a user signs up via Clerk
  */
