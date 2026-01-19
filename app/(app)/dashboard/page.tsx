@@ -5,6 +5,7 @@ import DashboardClient from '@/components/dashboard/DashboardClient'
 import AppLayout from '@/components/common/AppLayout'
 import { getDashboardStats, getPendingBookings } from '@/app/actions/dashboard'
 import { getInboxItems } from '@/app/actions/inbox'
+import { getPendingComments } from '@/app/actions/comments'
 
 export default async function DashboardPage() {
   const { userId } = await auth()
@@ -17,16 +18,18 @@ export default async function DashboardPage() {
   await requirePageAccess('/dashboard')
 
   // Fetch initial data on server to avoid blank flash
-  const [statsResult, inboxResult, pendingResult] = await Promise.all([
+  const [statsResult, inboxResult, pendingResult, pendingCommentsResult] = await Promise.all([
     getDashboardStats({}),
     getInboxItems(),
     getPendingBookings(),
+    getPendingComments(),
   ])
 
   const initialData = {
     stats: statsResult.success && 'data' in statsResult && statsResult.data ? statsResult.data : null,
     inboxItems: inboxResult.success && inboxResult.data ? inboxResult.data : [],
     pendingBookings: pendingResult.success && pendingResult.data ? pendingResult.data : [],
+    pendingComments: pendingCommentsResult.success && pendingCommentsResult.data ? pendingCommentsResult.data : [],
   }
 
   return (
