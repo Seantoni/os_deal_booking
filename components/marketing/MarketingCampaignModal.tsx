@@ -172,22 +172,15 @@ export default function MarketingCampaignModal({
     }
   }, [initialOptionId, loading, optionsByPlatform])
 
-  // Sync copy input with campaign data when it loads
-  useState(() => {
-    if (campaign?.generatedCopy && !copyDirty) {
+  // Sync copy and script inputs when campaign data loads
+  useEffect(() => {
+    if (campaign && !copyDirty && campaign.generatedCopy) {
       setCopyInput(campaign.generatedCopy)
     }
-  })
-
-  // Update copy input when campaign loads
-  if (campaign?.generatedCopy && copyInput === '' && !copyDirty) {
-    setCopyInput(campaign.generatedCopy)
-  }
-
-  // Update script input when campaign loads
-  if (campaign?.videoScript && scriptInput === '' && !scriptDirty) {
-    setScriptInput(campaign.videoScript)
-  }
+    if (campaign && !scriptDirty && campaign.videoScript) {
+      setScriptInput(campaign.videoScript)
+    }
+  }, [campaign?.id, campaign?.generatedCopy, campaign?.videoScript]) // Only run when campaign data changes
 
   const togglePlatform = (platform: string, event: React.MouseEvent) => {
     // Prevent scroll position from jumping when expanding/collapsing
