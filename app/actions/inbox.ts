@@ -2,7 +2,6 @@
 
 import { prisma } from '@/lib/prisma'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
-import { getUserRole } from '@/lib/auth/roles'
 
 // Types
 export interface InboxItem {
@@ -31,8 +30,7 @@ interface AuthorProfile {
 /**
  * Get inbox items for the current user (OPTIMIZED)
  * 
- * Admins: See ALL comments (not their own)
- * Others: See comments where they are mentioned OR are responsible for the opportunity
+ * All users (including Admin): See comments where they are mentioned OR are responsible for the opportunity
  * 
  * Filtered by: user hasn't responded
  */
@@ -48,8 +46,7 @@ export async function getInboxItems(): Promise<{
   const { userId } = authResult
 
   try {
-    const userRole = await getUserRole()
-    const isAdmin = userRole === 'admin'
+    // Note: We intentionally don't check role here - inbox is always user-centric
 
     // ============================================
     // BATCH FETCH: User's responses (to filter out answered comments)
@@ -109,96 +106,52 @@ export async function getInboxItems(): Promise<{
     // FETCH: Opportunity comments
     // ============================================
     
-    let oppComments: Array<{
-      id: string
-      userId: string
-      content: string
-      mentions: unknown
-      dismissedBy: unknown
-      createdAt: Date
-      opportunityId: string
-      opportunity: {
-        id: string
-        responsibleId: string | null
-        userId: string
-        business: { name: string } | null
-      }
-    }>
+    // Get opportunities where user is responsible/creator
 
-    if (isAdmin) {
-      // Admin sees all comments (not their own)
-      oppComments = await prisma.opportunityComment.findMany({
-        where: {
-          isDeleted: false,
-          userId: { not: userId },
-        },
-        select: {
-          id: true,
-          userId: true,
-          content: true,
-          mentions: true,
-          dismissedBy: true,
-          createdAt: true,
-          opportunityId: true,
-          opportunity: {
-            select: {
-              id: true,
-              responsibleId: true,
-              userId: true,
-              business: { select: { name: true } },
-            },
+    const userOppIds = await prisma.opportunity.findMany({
+      where: {
+        OR: [{ responsibleId: userId }, { userId: userId }],
+      },
+      select: { id: true },
+    })
+    const userOppIdSet = new Set(userOppIds.map(o => o.id))
+
+    // Get all comments from others
+    const allOppComments = await prisma.opportunityComment.findMany({
+      where: {
+        isDeleted: false,
+        userId: { not: userId },
+      },
+      select: {
+        id: true,
+        userId: true,
+        content: true,
+        mentions: true,
+        dismissedBy: true,
+        createdAt: true,
+        opportunityId: true,
+        opportunity: {
+          select: {
+            id: true,
+            responsibleId: true,
+            userId: true,
+            business: { select: { name: true } },
           },
         },
-        orderBy: { createdAt: 'asc' },
-      })
-    } else {
-      // Non-admin: comments where user is responsible, creator, OR mentioned
-      // First get opportunities where user is responsible/creator
-      const userOppIds = await prisma.opportunity.findMany({
-        where: {
-          OR: [{ responsibleId: userId }, { userId: userId }],
-        },
-        select: { id: true },
-      })
-      const userOppIdSet = new Set(userOppIds.map(o => o.id))
+      },
+      orderBy: { createdAt: 'asc' },
+    })
 
-      // Get all comments from others
-      const allOppComments = await prisma.opportunityComment.findMany({
-        where: {
-          isDeleted: false,
-          userId: { not: userId },
-        },
-        select: {
-          id: true,
-          userId: true,
-          content: true,
-          mentions: true,
-          dismissedBy: true,
-          createdAt: true,
-          opportunityId: true,
-          opportunity: {
-            select: {
-              id: true,
-              responsibleId: true,
-              userId: true,
-              business: { select: { name: true } },
-            },
-          },
-        },
-        orderBy: { createdAt: 'asc' },
-      })
-
-      // Filter: user is responsible/creator OR is mentioned
-      oppComments = allOppComments.filter((comment: typeof allOppComments[number]) => {
-        const mentions = (comment.mentions as string[]) || []
-        const isResponsible = userOppIdSet.has(comment.opportunityId)
-        const isMentioned = mentions.includes(userId)
-        return isResponsible || isMentioned
-      })
-    }
+    // Filter: user is responsible/creator OR is mentioned
+    const oppComments = allOppComments.filter((comment) => {
+      const mentions = (comment.mentions as string[]) || []
+      const isResponsible = userOppIdSet.has(comment.opportunityId)
+      const isMentioned = mentions.includes(userId)
+      return isResponsible || isMentioned
+    })
 
     // ============================================
-    // FETCH: Marketing comments
+    // FETCH: Marketing comments (only if user is mentioned)
     // ============================================
     
     const allMktComments = await prisma.marketingOptionComment.findMany({
@@ -230,13 +183,11 @@ export async function getInboxItems(): Promise<{
       orderBy: { createdAt: 'asc' },
     })
 
-    // Filter: Admin sees all, others only if mentioned
-    const mktComments = isAdmin
-      ? allMktComments
-      : allMktComments.filter((comment: typeof allMktComments[number]) => {
-          const mentions = (comment.mentions as string[]) || []
-          return mentions.includes(userId)
-        })
+    // Filter: only show if user is mentioned
+    const mktComments = allMktComments.filter((comment) => {
+      const mentions = (comment.mentions as string[]) || []
+      return mentions.includes(userId)
+    })
 
     // ============================================
     // BATCH FETCH: Author profiles
