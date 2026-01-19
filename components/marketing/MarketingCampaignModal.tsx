@@ -77,8 +77,9 @@ export default function MarketingCampaignModal({
   // Close modal on Escape key
   useModalEscape(isOpen, onClose)
   
-  const { isAdmin, isMarketing } = useUserRole()
+  const { isAdmin, isMarketing, isSales } = useUserRole()
   const canEdit = isAdmin || isMarketing
+  const canComment = isAdmin || isMarketing || isSales // Sales can only add comments
 
   const [expandedPlatforms, setExpandedPlatforms] = useState<Record<string, boolean>>({
     instagram: true,
@@ -672,6 +673,7 @@ const handleSaveCopy = async () => {
                                           option={option}
                                           optionLabel={optionConfig?.label || option.optionType}
                                           canEdit={canEdit}
+                                          canComment={canComment}
                                           saving={saving}
                                           draggingImage={draggingImage}
                                           users={users}

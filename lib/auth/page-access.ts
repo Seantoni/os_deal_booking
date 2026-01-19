@@ -18,7 +18,7 @@ export const PAGE_ACCESS: Record<string, UserRole[]> = {
   '/booking-requests/edit': ['admin', 'sales'], // Matches /booking-requests/edit/[id]
   '/reservations': ['admin', 'sales'],
   '/deals': ['admin', 'sales', 'editor'],
-  '/marketing': ['admin', 'marketing'],
+  '/marketing': ['admin', 'marketing', 'sales'],
   '/market-intelligence': ['admin'],
   '/settings': ['admin'],
   '/activity-log': ['admin'],
