@@ -107,7 +107,6 @@ export async function getInboxItems(): Promise<{
     // ============================================
     
     // Get opportunities where user is responsible/creator
-
     const userOppIds = await prisma.opportunity.findMany({
       where: {
         OR: [{ responsibleId: userId }, { userId: userId }],

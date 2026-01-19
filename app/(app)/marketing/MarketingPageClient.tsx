@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { formatShortDateNoYear } from '@/lib/date'
@@ -165,26 +165,41 @@ export default function MarketingPageClient() {
     loadCampaigns()
   }, [loadCampaigns])
 
-  // State for initial option to highlight (from inbox)
+  // Track if we've already handled the URL param to prevent re-triggers
+  const hasHandledUrlParam = useRef(false)
+  // Track which option to expand (from inbox)
   const [initialOptionId, setInitialOptionId] = useState<string | null>(null)
 
   // Handle 'open' query parameter to open campaign modal from URL
   useEffect(() => {
-    if (!loading && campaigns.length > 0) {
-      const openFromUrl = searchParams.get('open')
-      const optionFromUrl = searchParams.get('option')
-      if (openFromUrl) {
-        const campaign = campaigns.find(c => c.id === openFromUrl)
-        if (campaign) {
-          setSelectedCampaign(campaign)
-          setInitialOptionId(optionFromUrl) // Pass option ID to modal
-          setModalOpen(true)
-          // Clear the URL parameter
-          router.replace('/marketing', { scroll: false })
-        }
-      }
+    const openFromUrl = searchParams.get('open')
+    const optionFromUrl = searchParams.get('option')
+    
+    // Skip if no param, already handled, or still loading
+    if (!openFromUrl || hasHandledUrlParam.current || loading || campaigns.length === 0) {
+      return
+    }
+
+    const campaign = campaigns.find(c => c.id === openFromUrl)
+    if (campaign) {
+      hasHandledUrlParam.current = true
+      setSelectedCampaign(campaign)
+      setInitialOptionId(optionFromUrl) // Pass to modal to expand correct platform
+      setModalOpen(true)
+      // Clear URL param after a short delay to avoid re-trigger
+      setTimeout(() => {
+        router.replace('/marketing', { scroll: false })
+      }, 100)
     }
   }, [loading, campaigns, searchParams, router])
+
+  // Reset the flag when modal closes
+  const handleCloseModal = () => {
+    setModalOpen(false)
+    setSelectedCampaign(null)
+    setInitialOptionId(null)
+    hasHandledUrlParam.current = false
+  }
 
   // Filter tabs
   const filterTabs: FilterTab[] = useMemo(() => {
@@ -301,11 +316,6 @@ export default function MarketingPageClient() {
       // Show selection modal first
       setSelectionModalOpen(true)
     }
-  }
-
-  const handleCloseModal = () => {
-    setModalOpen(false)
-    setSelectedCampaign(null)
   }
 
   const handleCloseSelectionModal = () => {
@@ -504,10 +514,7 @@ return (
       {/* Marketing Campaign Modal */}
       <MarketingCampaignModal
         isOpen={modalOpen}
-        onClose={() => {
-          handleCloseModal()
-          setInitialOptionId(null) // Clear initial option when closing
-        }}
+        onClose={handleCloseModal}
         campaignId={selectedCampaign?.id || null}
         onSuccess={handleSuccess}
         initialOptionId={initialOptionId}

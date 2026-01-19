@@ -42,7 +42,7 @@ interface MarketingCampaignModalProps {
   onClose: () => void
   campaignId: string | null
   onSuccess?: () => void
-  initialOptionId?: string | null // Option to highlight/scroll to (from inbox)
+  initialOptionId?: string | null // Option ID to expand its platform (from inbox)
 }
 
 // Platform icon mapping
@@ -86,8 +86,6 @@ export default function MarketingCampaignModal({
     tiktok: true,
     ofertasimple: true,
   })
-  const [highlightedOptionId, setHighlightedOptionId] = useState<string | null>(null)
-  const optionRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const [copyInput, setCopyInput] = useState('')
   const [copyDirty, setCopyDirty] = useState(false)
   const [scriptInput, setScriptInput] = useState('')
@@ -142,36 +140,6 @@ export default function MarketingCampaignModal({
     }
   }, [isOpen, canEdit])
 
-  // Handle initialOptionId - expand platform and scroll to option
-  useEffect(() => {
-    if (initialOptionId && !loading && optionsByPlatform) {
-      // Find which platform contains this option
-      for (const [platform, options] of Object.entries(optionsByPlatform)) {
-        const option = options.find((o: { id: string }) => o.id === initialOptionId)
-        if (option) {
-          // Expand the platform
-          setExpandedPlatforms(prev => ({ ...prev, [platform]: true }))
-          // Set highlighted option
-          setHighlightedOptionId(initialOptionId)
-          
-          // Scroll to option after a short delay to allow DOM to update
-          setTimeout(() => {
-            const optionElement = optionRefs.current[initialOptionId]
-            if (optionElement) {
-              optionElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            }
-          }, 300)
-          
-          // Remove highlight after 3 seconds
-          setTimeout(() => {
-            setHighlightedOptionId(null)
-          }, 3000)
-          break
-        }
-      }
-    }
-  }, [initialOptionId, loading, optionsByPlatform])
-
   // Sync copy and script inputs when campaign data loads
   useEffect(() => {
     if (campaign && !copyDirty && campaign.generatedCopy) {
@@ -181,6 +149,34 @@ export default function MarketingCampaignModal({
       setScriptInput(campaign.videoScript)
     }
   }, [campaign?.id, campaign?.generatedCopy, campaign?.videoScript]) // Only run when campaign data changes
+
+  // Expand only the platform containing the initial option (from inbox), collapse others
+  const hasHandledInitialOption = useRef(false)
+  useEffect(() => {
+    if (initialOptionId && optionsByPlatform && !loading && !hasHandledInitialOption.current) {
+      // Find which platform contains this option
+      for (const [platform, options] of Object.entries(optionsByPlatform)) {
+        const found = options.find((o: { id: string }) => o.id === initialOptionId)
+        if (found) {
+          hasHandledInitialOption.current = true
+          // Expand only this platform, collapse all others
+          setExpandedPlatforms({
+            instagram: platform === 'instagram',
+            tiktok: platform === 'tiktok',
+            ofertasimple: platform === 'ofertasimple',
+          })
+          break
+        }
+      }
+    }
+  }, [initialOptionId, optionsByPlatform, loading])
+
+  // Reset the flag when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      hasHandledInitialOption.current = false
+    }
+  }, [isOpen])
 
   const togglePlatform = (platform: string, event: React.MouseEvent) => {
     // Prevent scroll position from jumping when expanding/collapsing
@@ -651,34 +647,25 @@ const handleSaveCopy = async () => {
                                     const optionConfig = config.options.find(
                                       (o) => o.type === option.optionType
                                     )
-                                    const isHighlighted = highlightedOptionId === option.id
                                     return (
-                                      <div
+                                      <MarketingOptionCard
                                         key={option.id}
-                                        ref={(el) => { optionRefs.current[option.id] = el }}
-                                        className={`transition-all duration-500 ${
-                                          isHighlighted
-                                            ? 'ring-2 ring-blue-500 ring-offset-2 rounded-lg bg-blue-50/50'
-                                            : ''
-                                        }`}
-                                      >
-                                        <MarketingOptionCard
-                                          option={option}
-                                          optionLabel={optionConfig?.label || option.optionType}
-                                          canEdit={canEdit}
-                                          canComment={canComment}
-                                          saving={saving}
-                                          draggingImage={draggingImage}
-                                          users={users}
-                                          onTogglePlanned={toggleOptionPlanned}
-                                          onToggleCompleted={toggleOptionCompleted}
-                                          onUpdateDueDate={updateOptionDueDate}
-                                          onUpdateResponsible={updateOptionResponsible}
-                                          onAddAttachment={addAttachment}
-                                          onRemoveAttachment={removeAttachment}
-                                          onImageDrop={handleImageDropOnOption}
-                                        />
-                                      </div>
+                                        option={option}
+                                        optionLabel={optionConfig?.label || option.optionType}
+                                        canEdit={canEdit}
+                                        canComment={canComment}
+                                        saving={saving}
+                                        draggingImage={draggingImage}
+                                        users={users}
+                                        defaultExpanded={initialOptionId === option.id}
+                                        onTogglePlanned={toggleOptionPlanned}
+                                        onToggleCompleted={toggleOptionCompleted}
+                                        onUpdateDueDate={updateOptionDueDate}
+                                        onUpdateResponsible={updateOptionResponsible}
+                                        onAddAttachment={addAttachment}
+                                        onRemoveAttachment={removeAttachment}
+                                        onImageDrop={handleImageDropOnOption}
+                                      />
                                     )
                                   })}
                                 </div>

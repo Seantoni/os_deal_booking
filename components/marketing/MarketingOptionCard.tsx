@@ -51,6 +51,7 @@ interface MarketingOptionCardProps {
   saving: boolean
   draggingImage?: string | null // URL of image being dragged from gallery
   users?: UserOption[] // Users for responsible dropdown
+  defaultExpanded?: boolean // Start expanded (e.g., when coming from inbox)
   onTogglePlanned: (optionId: string, isPlanned: boolean) => Promise<void>
   onToggleCompleted: (optionId: string, isCompleted: boolean) => Promise<void>
   onUpdateDueDate: (optionId: string, dueDate: Date | null) => Promise<void>
@@ -68,6 +69,7 @@ export default function MarketingOptionCard({
   saving,
   draggingImage,
   users = [],
+  defaultExpanded = false,
   onTogglePlanned,
   onToggleCompleted,
   onUpdateDueDate,
@@ -78,7 +80,7 @@ export default function MarketingOptionCard({
 }: MarketingOptionCardProps) {
   // Use canComment for chat if provided, otherwise fall back to canEdit
   const canAddComments = canComment ?? canEdit
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(defaultExpanded)
   const [uploading, setUploading] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
