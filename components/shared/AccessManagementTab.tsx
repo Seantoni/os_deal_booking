@@ -252,8 +252,14 @@ export default function AccessManagementTab() {
         setInviteNotes('')
         setShowInviteForm(false)
         await loadAllowedEmails()
+      } else {
+        // Handle error response from server action
+        const errorMessage = result.error || 'Error al enviar la invitación'
+        setError(errorMessage)
+        toast.error(errorMessage)
       }
     } catch (err) {
+      // Fallback for unexpected errors
       const errorMessage = err instanceof Error ? err.message : 'Error al enviar la invitación'
       setError(errorMessage)
       toast.error(errorMessage)

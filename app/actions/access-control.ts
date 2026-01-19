@@ -394,21 +394,31 @@ export async function inviteUser(
   email: string, 
   role: UserRole, 
   options?: { notes?: string; firstName?: string; lastName?: string }
-) {
+): Promise<{ success: boolean; invitationId?: string; error?: string }> {
   const { notes, firstName, lastName } = options || {}
-  await requireAdmin()
+  
+  try {
+    await requireAdmin()
+  } catch {
+    return { success: false, error: 'No autorizado - se requiere rol de administrador' }
+  }
   
   const { userId } = await auth()
   if (!userId) {
-    throw new Error('Unauthorized')
+    return { success: false, error: 'No autorizado' }
   }
   
   // Validate role
   if (!USER_ROLE_VALUES.includes(role)) {
-    throw new Error(`Invalid role: ${role}. Must be one of: ${USER_ROLE_VALUES.join(', ')}`)
+    return { success: false, error: `Rol inválido: ${role}. Debe ser uno de: ${USER_ROLE_VALUES.join(', ')}` }
   }
   
-  const normalizedEmail = validateAndNormalizeEmail(email)
+  let normalizedEmail: string
+  try {
+    normalizedEmail = validateAndNormalizeEmail(email)
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Email inválido' }
+  }
   
   // Check if email already exists
   const existing = await prisma.allowedEmail.findUnique({
@@ -418,7 +428,7 @@ export async function inviteUser(
   if (existing) {
     // If exists and has pending invitation, don't allow duplicate
     if (existing.invitationStatus === 'pending') {
-      throw new Error('An invitation is already pending for this email')
+      return { success: false, error: 'Ya existe una invitación pendiente para este correo' }
     }
     
     // If exists but inactive, reactivate it
@@ -446,12 +456,22 @@ export async function inviteUser(
         try {
           const users = await clerk.users.getUserList({ emailAddress: [normalizedEmail] })
           if (users.data && users.data.length > 0) {
-            throw new Error('This email is already registered as a user in the system')
+            // Rollback changes
+            await prisma.allowedEmail.update({
+              where: { email: normalizedEmail },
+              data: {
+                invitationStatus: null,
+                invitedRole: null,
+                invitedAt: null,
+                invitedBy: null,
+              },
+            })
+            return { success: false, error: 'Este correo ya está registrado como usuario en el sistema' }
           }
         } catch (checkError) {
-          // If it's our custom error, rethrow it
+          // If it's our custom error about registration, return it
           if (checkError instanceof Error && checkError.message.includes('already registered')) {
-            throw checkError
+            return { success: false, error: 'Este correo ya está registrado como usuario en el sistema' }
           }
           // Otherwise, continue - the email might not exist yet
         }
@@ -492,7 +512,7 @@ export async function inviteUser(
         logger.error('[access-control] Error creating Clerk invitation:', clerkError)
         
         // Extract more detailed error message from Clerk
-        let errorMessage = 'Failed to send invitation'
+        let errorMessage = 'Error al enviar la invitación'
         if (clerkError.clerkError) {
           if (clerkError.errors && Array.isArray(clerkError.errors) && clerkError.errors.length > 0) {
             errorMessage = clerkError.errors.map((e) => e.message || e.longMessage || '').filter(Boolean).join('. ') || errorMessage
@@ -505,9 +525,9 @@ export async function inviteUser(
           // Handle specific Clerk error codes
           if (clerkError.status === 422) {
             if (errorMessage.toLowerCase().includes('already') || errorMessage.toLowerCase().includes('exists')) {
-              errorMessage = 'This email address is already registered or has a pending invitation'
+              errorMessage = 'Este correo ya está registrado o tiene una invitación pendiente'
             } else {
-              errorMessage = `Invalid email address or invitation request: ${errorMessage}`
+              errorMessage = `Correo o solicitud de invitación inválida: ${errorMessage}`
             }
           }
         } else if (clerkError.message) {
@@ -524,10 +544,10 @@ export async function inviteUser(
             invitedBy: null,
           },
         })
-        throw new Error(errorMessage)
+        return { success: false, error: errorMessage }
       }
     } else {
-      throw new Error('Email is already in the allowlist and active')
+      return { success: false, error: 'Este correo ya está en la lista de permitidos y activo' }
     }
   }
   
@@ -539,12 +559,12 @@ export async function inviteUser(
     try {
       const users = await clerk.users.getUserList({ emailAddress: [normalizedEmail] })
       if (users.data && users.data.length > 0) {
-        throw new Error('This email is already registered as a user in the system')
+        return { success: false, error: 'Este correo ya está registrado como usuario en el sistema' }
       }
     } catch (checkError) {
-      // If it's our custom error, rethrow it
+      // If it's our custom error about registration, return it
       if (checkError instanceof Error && checkError.message.includes('already registered')) {
-        throw checkError
+        return { success: false, error: 'Este correo ya está registrado como usuario en el sistema' }
       }
       // Otherwise, continue - the email might not exist yet
     }
@@ -603,7 +623,7 @@ export async function inviteUser(
     logger.error('[access-control] Error creating Clerk invitation:', clerkError)
     
     // Extract more detailed error message from Clerk
-    let errorMessage = 'Failed to send invitation'
+    let errorMessage = 'Error al enviar la invitación'
     if (clerkError.clerkError) {
       if (clerkError.errors && Array.isArray(clerkError.errors) && clerkError.errors.length > 0) {
         errorMessage = clerkError.errors.map((e) => e.message || e.longMessage || '').filter(Boolean).join('. ') || errorMessage
@@ -616,9 +636,9 @@ export async function inviteUser(
       // Handle specific Clerk error codes
       if (clerkError.status === 422) {
         if (errorMessage.toLowerCase().includes('already') || errorMessage.toLowerCase().includes('exists')) {
-          errorMessage = 'This email address is already registered or has a pending invitation'
+          errorMessage = 'Este correo ya está registrado o tiene una invitación pendiente'
         } else {
-          errorMessage = `Invalid email address or invitation request: ${errorMessage}`
+          errorMessage = `Correo o solicitud de invitación inválida: ${errorMessage}`
         }
       }
     } else if (clerkError.message) {
@@ -632,7 +652,7 @@ export async function inviteUser(
       // Ignore cleanup errors
     })
     
-    throw new Error(errorMessage)
+    return { success: false, error: errorMessage }
   }
 }
 
