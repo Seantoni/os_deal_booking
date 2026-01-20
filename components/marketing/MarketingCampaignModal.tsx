@@ -650,22 +650,22 @@ const handleSaveCopy = async () => {
                                     return (
                                       <MarketingOptionCard
                                         key={option.id}
-                                        option={option}
-                                        optionLabel={optionConfig?.label || option.optionType}
-                                        canEdit={canEdit}
+                                          option={option}
+                                          optionLabel={optionConfig?.label || option.optionType}
+                                          canEdit={canEdit}
                                         canComment={canComment}
-                                        saving={saving}
-                                        draggingImage={draggingImage}
-                                        users={users}
+                                          saving={saving}
+                                          draggingImage={draggingImage}
+                                          users={users}
                                         defaultExpanded={initialOptionId === option.id}
-                                        onTogglePlanned={toggleOptionPlanned}
-                                        onToggleCompleted={toggleOptionCompleted}
-                                        onUpdateDueDate={updateOptionDueDate}
-                                        onUpdateResponsible={updateOptionResponsible}
-                                        onAddAttachment={addAttachment}
-                                        onRemoveAttachment={removeAttachment}
-                                        onImageDrop={handleImageDropOnOption}
-                                      />
+                                          onTogglePlanned={toggleOptionPlanned}
+                                          onToggleCompleted={toggleOptionCompleted}
+                                          onUpdateDueDate={updateOptionDueDate}
+                                          onUpdateResponsible={updateOptionResponsible}
+                                          onAddAttachment={addAttachment}
+                                          onRemoveAttachment={removeAttachment}
+                                          onImageDrop={handleImageDropOnOption}
+                                        />
                                     )
                                   })}
                                 </div>

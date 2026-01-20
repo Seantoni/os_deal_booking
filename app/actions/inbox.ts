@@ -107,47 +107,47 @@ export async function getInboxItems(): Promise<{
     // ============================================
     
     // Get opportunities where user is responsible/creator
-    const userOppIds = await prisma.opportunity.findMany({
-      where: {
-        OR: [{ responsibleId: userId }, { userId: userId }],
-      },
-      select: { id: true },
-    })
-    const userOppIdSet = new Set(userOppIds.map(o => o.id))
+      const userOppIds = await prisma.opportunity.findMany({
+        where: {
+          OR: [{ responsibleId: userId }, { userId: userId }],
+        },
+        select: { id: true },
+      })
+      const userOppIdSet = new Set(userOppIds.map(o => o.id))
 
-    // Get all comments from others
-    const allOppComments = await prisma.opportunityComment.findMany({
-      where: {
-        isDeleted: false,
-        userId: { not: userId },
-      },
-      select: {
-        id: true,
-        userId: true,
-        content: true,
-        mentions: true,
-        dismissedBy: true,
-        createdAt: true,
-        opportunityId: true,
-        opportunity: {
-          select: {
-            id: true,
-            responsibleId: true,
-            userId: true,
-            business: { select: { name: true } },
+      // Get all comments from others
+      const allOppComments = await prisma.opportunityComment.findMany({
+        where: {
+          isDeleted: false,
+          userId: { not: userId },
+        },
+        select: {
+          id: true,
+          userId: true,
+          content: true,
+          mentions: true,
+          dismissedBy: true,
+          createdAt: true,
+          opportunityId: true,
+          opportunity: {
+            select: {
+              id: true,
+              responsibleId: true,
+              userId: true,
+              business: { select: { name: true } },
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'asc' },
-    })
+        orderBy: { createdAt: 'asc' },
+      })
 
-    // Filter: user is responsible/creator OR is mentioned
+      // Filter: user is responsible/creator OR is mentioned
     const oppComments = allOppComments.filter((comment) => {
-      const mentions = (comment.mentions as string[]) || []
-      const isResponsible = userOppIdSet.has(comment.opportunityId)
-      const isMentioned = mentions.includes(userId)
-      return isResponsible || isMentioned
-    })
+        const mentions = (comment.mentions as string[]) || []
+        const isResponsible = userOppIdSet.has(comment.opportunityId)
+        const isMentioned = mentions.includes(userId)
+        return isResponsible || isMentioned
+      })
 
     // ============================================
     // FETCH: Marketing comments (only if user is mentioned)
@@ -184,9 +184,9 @@ export async function getInboxItems(): Promise<{
 
     // Filter: only show if user is mentioned
     const mktComments = allMktComments.filter((comment) => {
-      const mentions = (comment.mentions as string[]) || []
-      return mentions.includes(userId)
-    })
+          const mentions = (comment.mentions as string[]) || []
+          return mentions.includes(userId)
+        })
 
     // ============================================
     // BATCH FETCH: Author profiles

@@ -177,6 +177,8 @@ export function useOpportunityForm({
             setContactName(selectedBusiness.contactName || '')
             setContactPhone(selectedBusiness.contactPhone || '')
             setContactEmail(selectedBusiness.contactEmail || '')
+            // Also set linkedBusiness for new opportunities with initial business
+            setLinkedBusiness(selectedBusiness)
           } else {
             // Business not found in list, clear fields
             setCategoryId('')
@@ -184,6 +186,7 @@ export function useOpportunityForm({
             setContactName('')
             setContactPhone('')
             setContactEmail('')
+            setLinkedBusiness(null)
           }
         } else {
           // No initial business, clear fields
@@ -192,6 +195,7 @@ export function useOpportunityForm({
           setContactName('')
           setContactPhone('')
           setContactEmail('')
+          setLinkedBusiness(null)
         }
       }
     } finally {
@@ -226,6 +230,8 @@ export function useOpportunityForm({
         setContactName(selectedBusiness.contactName || '')
         setContactPhone(selectedBusiness.contactPhone || '')
         setContactEmail(selectedBusiness.contactEmail || '')
+        // Also set linkedBusiness when business selection changes
+        setLinkedBusiness(selectedBusiness)
       }
     }
   }, [businessId, businesses, opportunity])

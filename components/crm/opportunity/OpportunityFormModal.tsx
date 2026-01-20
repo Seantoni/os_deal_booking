@@ -145,6 +145,7 @@ export default function OpportunityFormModal({
 
   // Build initial values from opportunity entity
   // Note: categoryId, tier, contactName, contactPhone, contactEmail come from the linked business
+  // categoryId uses parent category string for parentOnly display mode
   const initialValues = useMemo((): Record<string, string | null> => {
     if (!opportunity) {
       // For new opportunities, look up business data from preloaded businesses
@@ -155,8 +156,8 @@ export default function OpportunityFormModal({
       return {
         businessId: initialBusinessId || null,
         startDate: new Date().toISOString().split('T')[0],
-        // Include business data if available
-        categoryId: preloadedBusiness?.categoryId || null,
+        // Include business data if available - use parent category for parentOnly mode
+        categoryId: preloadedBusiness?.category?.parentCategory || null,
         tier: preloadedBusiness?.tier?.toString() || null,
         contactName: preloadedBusiness?.contactName || null,
         contactPhone: preloadedBusiness?.contactPhone || null,
@@ -169,8 +170,8 @@ export default function OpportunityFormModal({
       startDate: opportunity.startDate ? new Date(opportunity.startDate).toISOString().split('T')[0] : null,
       closeDate: opportunity.closeDate ? new Date(opportunity.closeDate).toISOString().split('T')[0] : null,
       notes: opportunity.notes || null,
-      // These come from the linked business
-      categoryId: business?.categoryId || null,
+      // These come from the linked business - use parent category for parentOnly mode
+      categoryId: business?.category?.parentCategory || null,
       tier: business?.tier?.toString() || null,
       contactName: business?.contactName || null,
       contactPhone: business?.contactPhone || null,
@@ -273,8 +274,9 @@ export default function OpportunityFormModal({
       const allBusinesses = [...(businesses || []), ...(preloadedBusinesses || [])]
       const selectedBusiness = allBusinesses.find((b) => b.id === businessId)
       if (selectedBusiness) {
-        if (selectedBusiness.categoryId) {
-          dynamicForm.setValue('categoryId', selectedBusiness.categoryId)
+        // Use parent category for parentOnly mode
+        if (selectedBusiness.category?.parentCategory) {
+          dynamicForm.setValue('categoryId', selectedBusiness.category.parentCategory)
         }
         if (selectedBusiness.tier) {
           dynamicForm.setValue('tier', selectedBusiness.tier.toString())
@@ -708,6 +710,12 @@ export default function OpportunityFormModal({
     email: u.email,
   })), [users])
 
+  // Combine loaded businesses with preloaded businesses (deduplicated)
+  const allBusinesses = useMemo(() => {
+    const combined = [...(businesses || []), ...(preloadedBusinesses || [])]
+    return combined.filter((b, i, arr) => arr.findIndex(x => x.id === b.id) === i)
+  }, [businesses, preloadedBusinesses])
+
   if (!isOpen) return null
 
   const isEditMode = !!opportunity
@@ -717,7 +725,7 @@ export default function OpportunityFormModal({
     <ModalShell
       isOpen={isOpen}
       onClose={onClose}
-      title={opportunity ? (opportunity.business?.name || 'Editar Oportunidad') : 'Nueva Oportunidad'}
+      title={opportunity ? (opportunity.business?.name || 'Editar Oportunidad') : (linkedBusiness?.name || 'Nueva Oportunidad')}
       subtitle="Oportunidad"
       icon={<HandshakeIcon fontSize="medium" />}
       iconColor="orange"
@@ -947,10 +955,12 @@ export default function OpportunityFormModal({
                     disabled={loading}
                     categories={categoryOptions}
                     users={userOptions}
-                    businesses={businesses}
-                      defaultExpanded={!shouldCollapse}
+                    businesses={allBusinesses}
+                    categoryDisplayMode="parentOnly"
+                    defaultExpanded={!shouldCollapse}
                     collapsible={true}
                     isEditMode={isEditMode}
+                    hiddenFieldTypes={['business-select']}
                   />
                   )
                 })}
@@ -974,7 +984,7 @@ export default function OpportunityFormModal({
                   />
                 )}
 
-                {opportunity && linkedBusiness && (
+                {linkedBusiness && (
                   <LinkedBusinessSection
                     business={linkedBusiness}
                     onEdit={handleEditBusiness}

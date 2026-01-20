@@ -398,7 +398,7 @@ export async function inviteUser(
   const { notes, firstName, lastName } = options || {}
   
   try {
-    await requireAdmin()
+  await requireAdmin()
   } catch {
     return { success: false, error: 'No autorizado - se requiere rol de administrador' }
   }

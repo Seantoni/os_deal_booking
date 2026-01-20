@@ -792,6 +792,7 @@ export default function BusinessFormModal({
                     disabled={loading}
                     categories={categoryOptions}
                     users={userOptions}
+                    categoryDisplayMode="parentOnly"
                     fieldOverrides={fieldOverrides}
                     fieldAddons={fieldAddons}
                       defaultExpanded={!shouldCollapse}

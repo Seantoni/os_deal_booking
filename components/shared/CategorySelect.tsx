@@ -15,6 +15,9 @@ interface CategorySelectProps {
   onValueChange?: (id: string | null) => void
   categories?: CategoryRecord[] // Optional: pass categories directly instead of fetching
   
+  // Display mode: 'full' shows full path (Parent > Sub1 > Sub2), 'parentOnly' shows deduplicated parents
+  displayMode?: 'full' | 'parentOnly'
+  
   // Common props
   label?: string
   required?: boolean
@@ -33,6 +36,7 @@ function CategorySelect({
   value,
   onValueChange,
   categories: externalCategories,
+  displayMode = 'full',
   // Common props
   label,
   required = false,
@@ -56,7 +60,8 @@ function CategorySelect({
   const isLegacyMode = selectedOption !== undefined || (onChange !== undefined && onValueChange === undefined)
 
   // Convert external categories to CategoryOption format
-  const options: CategoryOption[] = useMemo(() => {
+  // Keep full options for search purposes
+  const fullOptions: CategoryOption[] = useMemo(() => {
     if (externalCategories && externalCategories.length > 0) {
       return externalCategories.map(cat => ({
         value: cat.id,
@@ -71,6 +76,32 @@ function CategorySelect({
     return internalOptions
   }, [externalCategories, internalOptions])
 
+  // When displayMode is 'parentOnly', deduplicate by parent category
+  const options: CategoryOption[] = useMemo(() => {
+    if (displayMode === 'parentOnly') {
+      const seenParents = new Set<string>()
+      const parentOnlyOptions: CategoryOption[] = []
+      
+      for (const opt of fullOptions) {
+        if (opt.parent && !seenParents.has(opt.parent)) {
+          seenParents.add(opt.parent)
+          parentOnlyOptions.push({
+            value: opt.parent, // Use parent string as value
+            label: opt.parent, // Display only parent
+            parent: opt.parent,
+            sub1: null,
+            sub2: null,
+            sub3: null,
+            sub4: null,
+          })
+        }
+      }
+      
+      return parentOnlyOptions
+    }
+    return fullOptions
+  }, [fullOptions, displayMode])
+
   // Fetch categories only if not provided externally
   useEffect(() => {
     if (!externalCategories || externalCategories.length === 0) {
@@ -80,13 +111,33 @@ function CategorySelect({
   }, [externalCategories])
 
   // Filter options based on search
+  // In parentOnly mode, search against full labels to find parents (e.g., "Pizza" finds "Restaurantes")
   useEffect(() => {
-    const filtered = options.filter(opt =>
-      opt.label.toLowerCase().includes(search.toLowerCase())
-    )
-    setFilteredOptions(filtered)
+    const searchLower = search.toLowerCase()
+    
+    if (displayMode === 'parentOnly' && search) {
+      // Find which parents have any sub-category matching the search
+      const matchingParents = new Set<string>()
+      
+      for (const opt of fullOptions) {
+        if (opt.label.toLowerCase().includes(searchLower) && opt.parent) {
+          matchingParents.add(opt.parent)
+        }
+      }
+      
+      // Filter options to only show parents that have matching sub-categories
+      const filtered = options.filter(opt => 
+        matchingParents.has(opt.value) || opt.label.toLowerCase().includes(searchLower)
+      )
+      setFilteredOptions(filtered)
+    } else {
+      const filtered = options.filter(opt =>
+        opt.label.toLowerCase().includes(searchLower)
+      )
+      setFilteredOptions(filtered)
+    }
     setSelectedIndex(-1)
-  }, [search, options])
+  }, [search, options, fullOptions, displayMode])
 
   // Scroll selected option into view
   useEffect(() => {
@@ -132,10 +183,27 @@ function CategorySelect({
       return selectedOption
     }
     if (value) {
+      if (displayMode === 'parentOnly') {
+        // First, try to find a direct match (value is a parent string)
+        const directMatch = options.find(opt => opt.value === value)
+        if (directMatch) {
+          return directMatch
+        }
+        
+        // If not found, value might be a category ID (from DB) - look up its parent
+        const fullOption = fullOptions.find(opt => opt.value === value)
+        if (fullOption?.parent) {
+          // Find the parent option
+          return options.find(opt => opt.value === fullOption.parent) || null
+        }
+        
+        return null
+      }
+      // In full mode, value is a category ID
       return options.find(opt => opt.value === value) || null
     }
     return null
-  }, [isLegacyMode, selectedOption, value, options])
+  }, [isLegacyMode, selectedOption, value, options, fullOptions, displayMode])
 
   const handleSelect = useCallback((option: CategoryOption) => {
     // Call legacy onChange if provided

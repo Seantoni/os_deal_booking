@@ -172,23 +172,23 @@ export default function MarketingPageClient() {
 
   // Handle 'open' query parameter to open campaign modal from URL
   useEffect(() => {
-    const openFromUrl = searchParams.get('open')
-    const optionFromUrl = searchParams.get('option')
+      const openFromUrl = searchParams.get('open')
+      const optionFromUrl = searchParams.get('option')
     
     // Skip if no param, already handled, or still loading
     if (!openFromUrl || hasHandledUrlParam.current || loading || campaigns.length === 0) {
       return
     }
 
-    const campaign = campaigns.find(c => c.id === openFromUrl)
-    if (campaign) {
+        const campaign = campaigns.find(c => c.id === openFromUrl)
+        if (campaign) {
       hasHandledUrlParam.current = true
-      setSelectedCampaign(campaign)
+          setSelectedCampaign(campaign)
       setInitialOptionId(optionFromUrl) // Pass to modal to expand correct platform
-      setModalOpen(true)
+          setModalOpen(true)
       // Clear URL param after a short delay to avoid re-trigger
       setTimeout(() => {
-        router.replace('/marketing', { scroll: false })
+          router.replace('/marketing', { scroll: false })
       }, 100)
     }
   }, [loading, campaigns, searchParams, router])

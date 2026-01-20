@@ -28,6 +28,8 @@ interface DynamicFormFieldProps {
   categories?: CategoryRecord[]
   users?: UserOption[]
   businesses?: BusinessOption[]
+  // Category display mode: 'full' shows full path, 'parentOnly' shows only parent category
+  categoryDisplayMode?: 'full' | 'parentOnly'
   // Override props
   canEdit?: boolean // For fields like 'name' that have special edit rules
   // Is this an existing entity (edit mode)?
@@ -52,6 +54,7 @@ function DynamicFormField({
   categories = [],
   users = [],
   businesses = [],
+  categoryDisplayMode = 'full',
   canEdit = true,
   isEditMode = false,
 }: DynamicFormFieldProps) {
@@ -94,6 +97,7 @@ function DynamicFormField({
           value={value}
           onValueChange={onChange}
           categories={categories}
+          displayMode={categoryDisplayMode}
           label={label}
           required={isRequired}
           disabled={fieldDisabled}

@@ -187,14 +187,7 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
                   updateFormData('redemptionContactPhone', business.contactPhone)
                 }
                 
-                // Category from business
-                if (business.category) {
-                  const categoryValue = `${business.category.parentCategory}${business.category.subCategory1 ? ' > ' + business.category.subCategory1 : ''}${business.category.subCategory2 ? ' > ' + business.category.subCategory2 : ''}`
-                  updateFormData('category', categoryValue)
-                  updateFormData('parentCategory', business.category.parentCategory)
-                  updateFormData('subCategory1', business.category.subCategory1 || '')
-                  updateFormData('subCategory2', business.category.subCategory2 || '')
-                }
+                // Category is NOT auto-filled - user must select manually
                 
                 // Fiscal info
                 if (business.razonSocial) updateFormData('legalName', business.razonSocial)

@@ -452,15 +452,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
       const businessEmail = searchParams.get('businessEmail')
       const contactName = searchParams.get('contactName')
       const contactPhone = searchParams.get('contactPhone')
-      const parentCategory = searchParams.get('parentCategory')
-      const subCategory1 = searchParams.get('subCategory1')
-      const subCategory2 = searchParams.get('subCategory2')
-
-
-      // Build category value for compatibility with CategorySelect
-      const categoryValue = parentCategory 
-        ? `${parentCategory}${subCategory1 ? ' > ' + subCategory1 : ''}${subCategory2 ? ' > ' + subCategory2 : ''}`
-        : ''
+      // Category is NOT pre-filled - user must select manually
 
       setFormData(prev => {
         const addressAndHoursFromBusiness = [address, neighborhood].filter(Boolean).join(', ')
@@ -476,10 +468,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         redemptionContactEmail: businessEmail || partnerEmail || prev.redemptionContactEmail,
         approverName: contactName || prev.approverName,
         approverEmail: businessEmail || partnerEmail || prev.approverEmail,
-        category: categoryValue || prev.category,
-        parentCategory: parentCategory || prev.parentCategory,
-        subCategory1: subCategory1 || prev.subCategory1,
-        subCategory2: subCategory2 || prev.subCategory2,
+        // Category fields not pre-filled - user must select
         // Only set opportunityId if it's a real opportunity ID (not the "business" flag)
         opportunityId: fromOpportunity !== 'business' ? fromOpportunity : '',
           legalName: legalName || prev.legalName,
