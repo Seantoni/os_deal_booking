@@ -54,6 +54,7 @@ import { logger } from '@/lib/logger'
 import { 
   EntityPageHeader, 
   EmptyTableState, 
+  UserFilterDropdown,
   type FilterTab,
   type ColumnConfig,
 } from '@/components/shared'
@@ -148,6 +149,12 @@ export default function BusinessesPageClient({
   const focusFilter = (filters.focusFilter as 'all' | 'with-focus') || 'all'
   const setFocusFilter = useCallback((filter: 'all' | 'with-focus') => {
     updateFilter('focusFilter', filter === 'all' ? undefined : filter)
+  }, [updateFilter])
+  
+  // Sales rep filter (admin quick filter)
+  const salesRepFilter = (filters.salesRepId as string) || null
+  const setSalesRepFilter = useCallback((userId: string | null) => {
+    updateFilter('salesRepId', userId || undefined)
   }, [updateFilter])
   
   // Modal state
@@ -459,6 +466,26 @@ export default function BusinessesPageClient({
     router.push(`/booking-requests/new?${params.toString()}`)
   }
 
+  // User filter dropdown options (from users in shared data)
+  const userFilterOptions = useMemo(() => {
+    return users.map(user => ({
+      id: user.clerkId,
+      name: user.name || user.email || user.clerkId,
+      email: user.email,
+    }))
+  }, [users])
+
+  // User filter dropdown (admin only)
+  const userFilter = isAdmin ? (
+    <UserFilterDropdown
+      users={userFilterOptions}
+      value={salesRepFilter}
+      onChange={setSalesRepFilter}
+      label="Rep"
+      placeholder="Todos los Reps"
+    />
+  ) : undefined
+
   // Right side content for header
   const headerRightContent = (
     <div className="flex items-center gap-2">
@@ -517,6 +544,7 @@ export default function BusinessesPageClient({
           }
         }}
         isAdmin={isAdmin}
+        userFilter={userFilter}
         rightContent={headerRightContent}
         {...advancedFilterProps}
       />

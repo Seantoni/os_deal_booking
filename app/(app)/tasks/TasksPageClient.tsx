@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useOptimistic, useTransition } from 'react'
 import dynamic from 'next/dynamic'
-import { getUserTasks, toggleTaskComplete, type TaskWithOpportunity } from '@/app/actions/tasks'
+import { getUserTasks, toggleTaskComplete, getTaskCounts, type TaskWithOpportunity } from '@/app/actions/tasks'
 import { updateTask, deleteTask } from '@/app/actions/opportunities'
 import { getOpportunity } from '@/app/actions/crm'
 import type { Opportunity } from '@/types'
@@ -10,6 +10,7 @@ import toast from 'react-hot-toast'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useUserRole } from '@/hooks/useUserRole'
+import { useSharedData } from '@/hooks/useSharedData'
 import { useFormConfigCache } from '@/hooks/useFormConfigCache'
 import AssignmentIcon from '@mui/icons-material/Assignment'
 import GroupsIcon from '@mui/icons-material/Groups'
@@ -22,6 +23,7 @@ import PersonIcon from '@mui/icons-material/Person'
 import { formatShortDate, formatRelativeTime } from '@/lib/date'
 import {
   EntityPageHeader,
+  UserFilterDropdown,
   type FilterTab,
   type ColumnConfig
 } from '@/components/shared'
@@ -79,6 +81,7 @@ type FilterType = 'all' | 'pending' | 'completed' | 'overdue' | 'meetings' | 'to
 
 export default function TasksPageClient() {
   const { isAdmin } = useUserRole()
+  const { users } = useSharedData()
   const confirmDialog = useConfirmDialog()
   
   // Get form config cache for prefetching
@@ -88,6 +91,17 @@ export default function TasksPageClient() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState<FilterType>('all')
+  const [responsibleFilter, setResponsibleFilter] = useState<string | null>(null)
+  const [serverCounts, setServerCounts] = useState<Record<string, number>>({})
+  
+  // User filter dropdown options
+  const userFilterOptions = useMemo(() => {
+    return users.map(u => ({
+      id: u.clerkId,
+      name: u.name || u.email || u.clerkId,
+      email: u.email,
+    }))
+  }, [users])
   const [taskModalOpen, setTaskModalOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState<TaskWithOpportunity | null>(null)
   const [savingTask, setSavingTask] = useState(false)
@@ -112,14 +126,20 @@ export default function TasksPageClient() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   // Load tasks
-  const loadTasks = useCallback(async () => {
+  const loadTasks = useCallback(async (filters?: { responsibleId?: string }) => {
     setLoading(true)
     try {
-      const result = await getUserTasks()
+      const result = await getUserTasks(filters)
       if (result.success && result.data) {
         setTasks(result.data)
       } else {
         toast.error(result.error || 'Failed to load tasks')
+      }
+      
+      // Also load counts
+      const countsResult = await getTaskCounts(filters)
+      if (countsResult.success && countsResult.data) {
+        setServerCounts(countsResult.data)
       }
     } catch (error) {
       toast.error('Failed to load tasks')
@@ -129,8 +149,8 @@ export default function TasksPageClient() {
   }, [])
 
   useEffect(() => {
-    loadTasks()
-  }, [loadTasks])
+    loadTasks({ responsibleId: responsibleFilter || undefined })
+  }, [loadTasks, responsibleFilter])
 
   // Handle sort
   const handleSort = (column: string) => {
@@ -195,8 +215,12 @@ export default function TasksPageClient() {
     })
   }, [filteredTasks, sortColumn, sortDirection])
 
-  // Count for filters - uses optimisticTasks for instant UI feedback
+  // Count for filters - uses server counts when available, falls back to optimistic counts
   const counts = useMemo(() => {
+    if (Object.keys(serverCounts).length > 0) {
+      return serverCounts
+    }
+    // Fallback to client-side counts
     const now = new Date()
     now.setHours(0, 0, 0, 0)
     return {
@@ -207,7 +231,7 @@ export default function TasksPageClient() {
       meetings: optimisticTasks.filter(t => t.category === 'meeting').length,
       todos: optimisticTasks.filter(t => t.category === 'todo').length,
     }
-  }, [optimisticTasks])
+  }, [optimisticTasks, serverCounts])
 
   // React 19: Handle toggle complete using useOptimistic for instant UI update
   const handleToggleComplete = (task: TaskWithOpportunity) => {
@@ -368,6 +392,15 @@ export default function TasksPageClient() {
         activeFilter={activeFilter}
         onFilterChange={(id) => setActiveFilter(id as FilterType)}
         isAdmin={isAdmin}
+        userFilter={isAdmin ? (
+          <UserFilterDropdown
+            users={userFilterOptions}
+            value={responsibleFilter}
+            onChange={setResponsibleFilter}
+            label="Responsable"
+            placeholder="Todos"
+          />
+        ) : undefined}
       />
 
       {/* Content */}

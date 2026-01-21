@@ -44,6 +44,9 @@ interface EntityPageHeaderProps {
   
   /** Optional content between search and filters (e.g., view toggle) */
   beforeFilters?: ReactNode
+  
+  /** Optional user filter dropdown (admin quick filter) - appears after saved filters with separator */
+  userFilter?: ReactNode
 }
 
 /**
@@ -94,6 +97,7 @@ export function EntityPageHeader({
   isAdmin,
   rightContent,
   beforeFilters,
+  userFilter,
 }: EntityPageHeaderProps) {
   const activeFilterObject = savedFilters?.find(f => f.id === activeFilterId) || null
   const showAdvancedFilters = isAdmin && entityType && onAdvancedFiltersChange && onSavedFiltersChange
@@ -146,6 +150,14 @@ export function EntityPageHeader({
                   isAdmin={isAdmin}
                 />
               </div>
+            </>
+          )}
+
+          {/* User Filter (Admin Quick Filter) - After saved filters */}
+          {userFilter && (
+            <>
+              <div className="h-5 w-px bg-gray-300 mx-1 flex-shrink-0"></div>
+              {userFilter}
             </>
           )}
         </div>

@@ -29,6 +29,7 @@ import { sortEntities } from '@/hooks/useEntityPage'
 import { 
   EntityPageHeader, 
   EmptyTableState, 
+  UserFilterDropdown,
   type FilterTab,
   type ColumnConfig,
 } from '@/components/shared'
@@ -131,6 +132,12 @@ export default function OpportunitiesPageClient({
   const stageFilter = (filters.stage as string) || 'all'
   const setStageFilter = useCallback((stage: string) => {
     updateFilter('stage', stage === 'all' ? undefined : stage)
+  }, [updateFilter])
+  
+  // Responsible filter (admin quick filter)
+  const responsibleFilter = (filters.responsibleId as string) || null
+  const setResponsibleFilter = useCallback((userId: string | null) => {
+    updateFilter('responsibleId', userId || undefined)
   }, [updateFilter])
   
   // Modal state
@@ -478,6 +485,26 @@ export default function OpportunitiesPageClient({
     </div>
   )
 
+  // User filter dropdown options (from users in shared data)
+  const userFilterOptions = useMemo(() => {
+    return users.map(user => ({
+      id: user.clerkId,
+      name: user.name || user.email || user.clerkId,
+      email: user.email,
+    }))
+  }, [users])
+
+  // User filter dropdown (admin only)
+  const userFilter = isAdmin ? (
+    <UserFilterDropdown
+      users={userFilterOptions}
+      value={responsibleFilter}
+      onChange={setResponsibleFilter}
+      label="Responsable"
+      placeholder="Todos"
+    />
+  ) : undefined
+
   // Right side content for header
   const headerRightContent = isAdmin ? (
     <div className="flex items-center gap-2">
@@ -517,6 +544,7 @@ export default function OpportunitiesPageClient({
         onFilterChange={setStageFilter}
         isAdmin={isAdmin}
         beforeFilters={viewToggle}
+        userFilter={userFilter}
         rightContent={headerRightContent}
         {...advancedFilterProps}
       />

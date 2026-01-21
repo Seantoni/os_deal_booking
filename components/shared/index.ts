@@ -18,5 +18,4 @@ export {
 } from './SortableTableHeader'
 export * from './table'
 export { default as FilterTabs } from './FilterTabs'
-
-
+export { UserFilterDropdown, type UserFilterOption } from './UserFilterDropdown'

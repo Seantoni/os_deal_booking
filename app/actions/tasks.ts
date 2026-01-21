@@ -26,7 +26,7 @@ export interface TaskWithOpportunity extends Task {
  * - Admin sees all tasks
  * - Sales sees tasks from opportunities where they are responsible
  */
-export async function getUserTasks(): Promise<{
+export async function getUserTasks(filters?: { responsibleId?: string }): Promise<{
   success: boolean
   data?: TaskWithOpportunity[]
   error?: string
@@ -53,6 +53,13 @@ export async function getUserTasks(): Promise<{
       return { success: true, data: [] }
     }
     // Admin sees all (no where clause)
+    
+    // Apply responsible filter (admin quick filter)
+    if (filters?.responsibleId && role === 'admin') {
+      whereClause.opportunity = {
+        responsibleId: filters.responsibleId,
+      }
+    }
 
     const tasks = await prisma.task.findMany({
       where: whereClause,
@@ -101,6 +108,7 @@ export async function getTasksPaginated(options: {
   sortBy?: string
   sortDirection?: 'asc' | 'desc'
   filter?: 'all' | 'pending' | 'completed' | 'overdue'
+  responsibleId?: string // Filter by responsible (admin quick filter)
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -110,7 +118,7 @@ export async function getTasksPaginated(options: {
 
   try {
     const role = await getUserRole()
-    const { page = 0, pageSize = 50, sortBy = 'date', sortDirection = 'asc', filter = 'all' } = options
+    const { page = 0, pageSize = 50, sortBy = 'date', sortDirection = 'asc', filter = 'all', responsibleId } = options
 
     // Build where clause based on role
     const whereClause: Record<string, unknown> = {}
@@ -118,6 +126,11 @@ export async function getTasksPaginated(options: {
       whereClause.opportunity = { responsibleId: userId }
     } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: [], total: 0, page, pageSize }
+    }
+    
+    // Apply responsible filter (admin quick filter)
+    if (responsibleId && role === 'admin') {
+      whereClause.opportunity = { responsibleId }
     }
 
     // Add filter
@@ -187,6 +200,7 @@ export async function getTasksPaginated(options: {
  */
 export async function searchTasks(query: string, options: {
   limit?: number
+  responsibleId?: string // Filter by responsible (admin quick filter)
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -196,7 +210,7 @@ export async function searchTasks(query: string, options: {
 
   try {
     const role = await getUserRole()
-    const { limit = 100 } = options
+    const { limit = 100, responsibleId } = options
 
     if (!query || query.trim().length < 2) {
       return { success: true, data: [] }
@@ -210,6 +224,11 @@ export async function searchTasks(query: string, options: {
       roleFilter.opportunity = { responsibleId: userId }
     } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: [] }
+    }
+    
+    // Apply responsible filter (admin quick filter)
+    if (responsibleId && role === 'admin') {
+      roleFilter.opportunity = { responsibleId }
     }
 
     // Search across task title, notes, and business name
@@ -327,3 +346,50 @@ async function updateOpportunityActivityDates(opportunityId: string) {
   })
 }
 
+/**
+ * Get task counts by status (for filter tabs)
+ */
+export async function getTaskCounts(filters?: { responsibleId?: string }) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    
+    // Build base where clause based on role
+    const baseWhere: Record<string, unknown> = {}
+    if (role === 'sales') {
+      baseWhere.opportunity = { responsibleId: userId }
+    } else if (role === 'editor' || role === 'ere') {
+      return { success: true, data: { all: 0, pending: 0, completed: 0, overdue: 0, meetings: 0, todos: 0 } }
+    }
+    
+    // Apply responsible filter (admin quick filter)
+    if (filters?.responsibleId && role === 'admin') {
+      baseWhere.opportunity = { responsibleId: filters.responsibleId }
+    }
+
+    const now = new Date()
+    now.setHours(0, 0, 0, 0)
+
+    // Get counts in parallel
+    const [all, pending, completed, overdue, meetings, todos] = await Promise.all([
+      prisma.task.count({ where: baseWhere }),
+      prisma.task.count({ where: { ...baseWhere, completed: false } }),
+      prisma.task.count({ where: { ...baseWhere, completed: true } }),
+      prisma.task.count({ where: { ...baseWhere, completed: false, date: { lt: now } } }),
+      prisma.task.count({ where: { ...baseWhere, category: 'meeting' } }),
+      prisma.task.count({ where: { ...baseWhere, category: 'todo' } }),
+    ])
+
+    return { 
+      success: true, 
+      data: { all, pending, completed, overdue, meetings, todos }
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getTaskCounts')
+  }
+}

@@ -657,6 +657,7 @@ export async function getBookingRequestsPaginated(options: {
   sortBy?: string
   sortDirection?: 'asc' | 'desc'
   status?: string
+  creatorId?: string // Filter by creator (admin quick filter)
 } = {}) {
   const { userId } = await auth()
   
@@ -666,7 +667,7 @@ export async function getBookingRequestsPaginated(options: {
 
   try {
     const role = await getUserRole()
-    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', status } = options
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', status, creatorId } = options
 
     // Build where clause based on role
     const whereClause: Prisma.BookingRequestWhereInput = {}
@@ -674,6 +675,11 @@ export async function getBookingRequestsPaginated(options: {
       whereClause.userId = userId
     } else if (role !== 'admin') {
       return { success: true, data: [], total: 0, page, pageSize }
+    }
+    
+    // Apply creator filter (admin quick filter)
+    if (creatorId && role === 'admin') {
+      whereClause.userId = creatorId
     }
 
     // Add status filter if provided
@@ -723,6 +729,7 @@ export async function getBookingRequestsPaginated(options: {
 export async function searchBookingRequests(query: string, options: {
   limit?: number
   status?: string
+  creatorId?: string // Filter by creator (admin quick filter)
 } = {}) {
   const { userId } = await auth()
   
@@ -732,7 +739,7 @@ export async function searchBookingRequests(query: string, options: {
 
   try {
     const role = await getUserRole()
-    const { limit = 100, status } = options
+    const { limit = 100, status, creatorId } = options
 
     if (!query || query.trim().length < 2) {
       return { success: true, data: [] }
@@ -746,6 +753,11 @@ export async function searchBookingRequests(query: string, options: {
       roleFilter.userId = userId
     } else if (role !== 'admin') {
       return { success: true, data: [] }
+    }
+    
+    // Apply creator filter (admin quick filter)
+    if (creatorId && role === 'admin') {
+      roleFilter.userId = creatorId
     }
 
     // Add status filter if provided
@@ -771,6 +783,52 @@ export async function searchBookingRequests(query: string, options: {
     return { success: true, data: requests }
   } catch (error) {
     return handleServerActionError(error, 'searchBookingRequests')
+  }
+}
+
+/**
+ * Get booking request counts by status (for filter tabs)
+ */
+export async function getBookingRequestCounts(filters?: { creatorId?: string }) {
+  const { userId } = await auth()
+  
+  if (!userId) {
+    return { success: false, error: 'Unauthorized' }
+  }
+
+  try {
+    const role = await getUserRole()
+    
+    // Build base where clause based on role
+    const baseWhere: Prisma.BookingRequestWhereInput = {}
+    if (role === 'sales') {
+      baseWhere.userId = userId
+    } else if (role !== 'admin') {
+      return { success: true, data: { all: 0, draft: 0, pending: 0, approved: 0, booked: 0, rejected: 0, cancelled: 0 } }
+    }
+    
+    // Apply creator filter (admin quick filter)
+    if (filters?.creatorId && role === 'admin') {
+      baseWhere.userId = filters.creatorId
+    }
+
+    // Get counts for each status in parallel
+    const [all, draft, pending, approved, booked, rejected, cancelled] = await Promise.all([
+      prisma.bookingRequest.count({ where: baseWhere }),
+      prisma.bookingRequest.count({ where: { ...baseWhere, status: 'draft' } }),
+      prisma.bookingRequest.count({ where: { ...baseWhere, status: 'pending' } }),
+      prisma.bookingRequest.count({ where: { ...baseWhere, status: 'approved' } }),
+      prisma.bookingRequest.count({ where: { ...baseWhere, status: 'booked' } }),
+      prisma.bookingRequest.count({ where: { ...baseWhere, status: 'rejected' } }),
+      prisma.bookingRequest.count({ where: { ...baseWhere, status: 'cancelled' } }),
+    ])
+
+    return { 
+      success: true, 
+      data: { all, draft, pending, approved, booked, rejected, cancelled }
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getBookingRequestCounts')
   }
 }
 

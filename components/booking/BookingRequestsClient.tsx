@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
-import { deleteBookingRequest, resendBookingRequest, bulkDeleteBookingRequests, bulkUpdateBookingRequestStatus, refreshBookingRequests, cancelBookingRequest, getBookingRequest } from '@/app/actions/booking'
+import { deleteBookingRequest, resendBookingRequest, bulkDeleteBookingRequests, bulkUpdateBookingRequestStatus, cancelBookingRequest, getBookingRequest, getBookingRequestsPaginated, searchBookingRequests, getBookingRequestCounts } from '@/app/actions/booking'
 import type { BookingRequest } from '@/types'
 import type { BookingRequestStatus } from '@/lib/constants'
 import AddIcon from '@mui/icons-material/Add'
@@ -26,11 +26,13 @@ import toast from 'react-hot-toast'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useUserRole } from '@/hooks/useUserRole'
+import { useSharedData } from '@/hooks/useSharedData'
 import { useUser } from '@clerk/nextjs'
 import { Button, Input } from '@/components/ui'
-import { FilterTabs } from '@/components/shared'
+import { FilterTabs, UserFilterDropdown } from '@/components/shared'
 import { TableRow, TableCell } from '@/components/shared/table'
 import { translateStatus, translateLabel } from '@/lib/utils/translations'
+import { logger } from '@/lib/logger'
 
 // Lazy load heavy modal component
 const BookingRequestViewModal = dynamic(() => import('@/components/booking/request-view/BookingRequestViewModal'), {
@@ -46,6 +48,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
   const router = useRouter()
   const searchParams = useSearchParams()
   const { role: userRole } = useUserRole()
+  const { users } = useSharedData()
   const { user } = useUser()
   const currentUserId = user?.id || null
   const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>(initialBookingRequests)
@@ -63,8 +66,20 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkActionLoading, setBulkActionLoading] = useState(false)
   const [visibleCount, setVisibleCount] = useState(50)
+  const [creatorFilter, setCreatorFilter] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
   
   const isAdmin = userRole === 'admin'
+  
+  // User filter dropdown options
+  const userFilterOptions = useMemo(() => {
+    return users.map(u => ({
+      id: u.clerkId,
+      name: u.name || u.email || u.clerkId,
+      email: u.email,
+    }))
+  }, [users])
 
   // Prefetch cache for booking request details (improves modal load time)
   const prefetchedRequestsRef = useRef<Set<string>>(new Set())
@@ -80,14 +95,44 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     })
   }, [])
 
-  // Refresh booking requests data without full page refresh
-  // This avoids Clerk API calls on booking request updates
-  const refreshData = useCallback(async () => {
-    const result = await refreshBookingRequests()
-    if (result.success && result.data) {
-      setBookingRequests(result.data as BookingRequest[])
+  // Load booking requests with optional filters (server-side)
+  const loadData = useCallback(async (options?: { creatorId?: string; status?: string }) => {
+    setLoading(true)
+    try {
+      const result = await getBookingRequestsPaginated({
+        pageSize: 500, // Load more to maintain current UX
+        sortBy: 'createdAt',
+        sortDirection: 'desc',
+        status: options?.status,
+        creatorId: options?.creatorId,
+      })
+      if (result.success && result.data) {
+        setBookingRequests(result.data as BookingRequest[])
+      }
+      
+      // Also refresh counts
+      const countsResult = await getBookingRequestCounts({ creatorId: options?.creatorId })
+      if (countsResult.success && countsResult.data) {
+        setStatusCounts(countsResult.data)
+      }
+    } catch (error) {
+      logger.error('Failed to load booking requests:', error)
+    } finally {
+      setLoading(false)
     }
   }, [])
+
+  // Refresh data with current filters
+  const refreshData = useCallback(async () => {
+    await loadData({ creatorId: creatorFilter || undefined })
+  }, [loadData, creatorFilter])
+  
+  // Reload when creator filter changes
+  useEffect(() => {
+    if (creatorFilter !== null || isAdmin) {
+      loadData({ creatorId: creatorFilter || undefined })
+    }
+  }, [creatorFilter, loadData, isAdmin])
 
   // Read search query from URL params on mount
   useEffect(() => {
@@ -296,16 +341,22 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     })
   }
 
-  // Calculate status counts
-  const statusCounts = useMemo(() => ({
-    all: bookingRequests.length,
-    draft: bookingRequests.filter(r => r.status === 'draft').length,
-    pending: bookingRequests.filter(r => r.status === 'pending').length,
-    approved: bookingRequests.filter(r => r.status === 'approved').length,
-    booked: bookingRequests.filter(r => r.status === 'booked').length,
-    rejected: bookingRequests.filter(r => r.status === 'rejected').length,
-    cancelled: bookingRequests.filter(r => r.status === 'cancelled').length,
-  }), [bookingRequests])
+  // Calculate status counts (use server counts when available, fallback to client-side)
+  const displayCounts = useMemo(() => {
+    if (Object.keys(statusCounts).length > 0) {
+      return statusCounts
+    }
+    // Fallback to client-side counts
+    return {
+      all: bookingRequests.length,
+      draft: bookingRequests.filter(r => r.status === 'draft').length,
+      pending: bookingRequests.filter(r => r.status === 'pending').length,
+      approved: bookingRequests.filter(r => r.status === 'approved').length,
+      booked: bookingRequests.filter(r => r.status === 'booked').length,
+      rejected: bookingRequests.filter(r => r.status === 'rejected').length,
+      cancelled: bookingRequests.filter(r => r.status === 'cancelled').length,
+    }
+  }, [bookingRequests, statusCounts])
 
   // Handle column sort
   const handleSort = (column: string) => {
@@ -522,17 +573,17 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between gap-4">
             {/* Search */}
-          <div className="flex-1 max-w-md">
-            <Input
+            <div className="flex-1 max-w-md">
+              <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar solicitudes..."
-              size="sm"
-              leftIcon={<SearchIcon className="w-4 h-4" />}
+                placeholder="Buscar solicitudes..."
+                size="sm"
+                leftIcon={<SearchIcon className="w-4 h-4" />}
               />
             </div>
 
-            {/* New Request Button */}
+            {/* Right side: New Request Button */}
             <Button
               onClick={() => setShowNewRequestModal(true)}
               size="sm"
@@ -542,20 +593,36 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
             </Button>
           </div>
 
-          {/* Status Tabs */}
-          <FilterTabs
-            items={[
-              { id: 'all', label: 'Todo', count: statusCounts.all },
-              { id: 'draft', label: 'Borrador', count: statusCounts.draft },
-              { id: 'pending', label: 'Pendiente', count: statusCounts.pending },
-              { id: 'approved', label: 'Aprobado', count: statusCounts.approved },
-              { id: 'booked', label: 'Reservado', count: statusCounts.booked },
-              { id: 'rejected', label: 'Rechazado', count: statusCounts.rejected },
-              { id: 'cancelled', label: 'Cancelado', count: statusCounts.cancelled },
-            ]}
-            activeId={statusFilter}
-            onChange={(id) => setStatusFilter(id as typeof statusFilter)}
-          />
+          {/* Status Tabs Row */}
+          <div className="flex items-center gap-2">
+            <FilterTabs
+              items={[
+                { id: 'all', label: 'Todo', count: displayCounts.all },
+                { id: 'draft', label: 'Borrador', count: displayCounts.draft },
+                { id: 'pending', label: 'Pendiente', count: displayCounts.pending },
+                { id: 'approved', label: 'Aprobado', count: displayCounts.approved },
+                { id: 'booked', label: 'Reservado', count: displayCounts.booked },
+                { id: 'rejected', label: 'Rechazado', count: displayCounts.rejected },
+                { id: 'cancelled', label: 'Cancelado', count: displayCounts.cancelled },
+              ]}
+              activeId={statusFilter}
+              onChange={(id) => setStatusFilter(id as typeof statusFilter)}
+            />
+            
+            {/* User Filter (Admin Quick Filter) */}
+            {isAdmin && (
+              <>
+                <div className="h-5 w-px bg-gray-300 mx-1 flex-shrink-0"></div>
+                <UserFilterDropdown
+                  users={userFilterOptions}
+                  value={creatorFilter}
+                  onChange={setCreatorFilter}
+                  label="Creador"
+                  placeholder="Todos"
+                />
+              </>
+            )}
+          </div>
         </div>
       </div>
 

@@ -118,6 +118,7 @@ export async function getOpportunitiesPaginated(options: {
   sortBy?: string
   sortDirection?: 'asc' | 'desc'
   stage?: string // Filter by stage (e.g., 'iniciacion', 'reunion', etc.)
+  responsibleId?: string // Filter by responsible (admin quick filter)
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -127,7 +128,7 @@ export async function getOpportunitiesPaginated(options: {
 
   try {
     const role = await getUserRole()
-    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', stage } = options
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', stage, responsibleId } = options
 
     // Build where clause based on role
     const whereClause: Record<string, unknown> = {}
@@ -135,6 +136,11 @@ export async function getOpportunitiesPaginated(options: {
       whereClause.responsibleId = userId
     } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: [], total: 0, page, pageSize }
+    }
+    
+    // Apply responsible filter (admin quick filter - overrides role filter for admin)
+    if (responsibleId && role === 'admin') {
+      whereClause.responsibleId = responsibleId
     }
     
     // Apply stage filter if provided (and not 'all')
@@ -195,7 +201,7 @@ export async function getOpportunitiesPaginated(options: {
  * Get opportunity counts by stage (for filter tabs)
  * Returns counts for all, iniciacion, reunion, propuesta_enviada, propuesta_aprobada, won, lost
  */
-export async function getOpportunityCounts() {
+export async function getOpportunityCounts(filters?: { responsibleId?: string }) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
     return authResult
@@ -211,6 +217,11 @@ export async function getOpportunityCounts() {
       baseWhere.responsibleId = userId
     } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: { all: 0, iniciacion: 0, reunion: 0, propuesta_enviada: 0, propuesta_aprobada: 0, won: 0, lost: 0 } }
+    }
+    
+    // Apply responsible filter (admin quick filter)
+    if (filters?.responsibleId && role === 'admin') {
+      baseWhere.responsibleId = filters.responsibleId
     }
 
     // Get counts for each stage in parallel
@@ -415,6 +426,7 @@ export async function getOpportunityFormData(opportunityId?: string | null, busi
  */
 export async function searchOpportunities(query: string, options: {
   limit?: number
+  responsibleId?: string // Filter by responsible (admin quick filter)
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -424,7 +436,7 @@ export async function searchOpportunities(query: string, options: {
 
   try {
     const role = await getUserRole()
-    const { limit = 100 } = options
+    const { limit = 100, responsibleId } = options
 
     if (!query || query.trim().length < 2) {
       return { success: true, data: [] }
@@ -432,13 +444,18 @@ export async function searchOpportunities(query: string, options: {
 
     const searchTerm = query.trim()
 
-        // Build where clause based on role
+    // Build where clause based on role
     const roleFilter: Record<string, unknown> = {}
-        if (role === 'sales') {
+    if (role === 'sales') {
       roleFilter.responsibleId = userId
-        } else if (role === 'editor' || role === 'ere') {
+    } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: [] }
-        }
+    }
+    
+    // Apply responsible filter (admin quick filter)
+    if (responsibleId && role === 'admin') {
+      roleFilter.responsibleId = responsibleId
+    }
 
     // Search across business name, contact, and notes
         const opportunities = await prisma.opportunity.findMany({

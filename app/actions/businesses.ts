@@ -169,6 +169,7 @@ export async function getBusinessesPaginated(options: {
   sortDirection?: 'asc' | 'desc'
   opportunityFilter?: string // 'all' | 'with-open' | 'without-open'
   focusFilter?: string // 'all' | 'with-focus'
+  salesRepId?: string // Filter by sales rep (admin quick filter)
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -178,7 +179,7 @@ export async function getBusinessesPaginated(options: {
 
   try {
     const role = await getUserRole()
-    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', opportunityFilter, focusFilter } = options
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', opportunityFilter, focusFilter, salesRepId } = options
 
     // Build where clause based on role
     const whereClause: BusinessWhereClause = {}
@@ -214,6 +215,13 @@ export async function getBusinessesPaginated(options: {
       // Businesses with active focus (not null and not expired)
       // We check for non-null focusPeriod here; expiration is handled client-side
       whereClause.focusPeriod = { not: null }
+    }
+    
+    // Apply sales rep filter (admin quick filter)
+    if (salesRepId) {
+      whereClause.salesReps = {
+        some: { salesRepId }
+      }
     }
 
     // Get total count (with filters applied)
@@ -316,7 +324,7 @@ export async function getBusinessesPaginated(options: {
  * Get business counts by opportunity status (for filter tabs)
  * Returns: all, with-open (has open opportunities), without-open (no open opportunities)
  */
-export async function getBusinessCounts() {
+export async function getBusinessCounts(filters?: { salesRepId?: string }) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
     return authResult
@@ -332,6 +340,13 @@ export async function getBusinessCounts() {
       baseWhere.ownerId = userId
     } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: { all: 0, 'with-open': 0, 'without-open': 0, 'with-focus': 0 } }
+    }
+    
+    // Apply sales rep filter (admin quick filter)
+    if (filters?.salesRepId) {
+      baseWhere.salesReps = {
+        some: { salesRepId: filters.salesRepId }
+      }
     }
 
     // Get counts in parallel
@@ -659,6 +674,7 @@ export async function updateBusinessFocus(
  */
 export async function searchBusinesses(query: string, options: {
   limit?: number
+  salesRepId?: string // Filter by sales rep (admin quick filter)
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -668,7 +684,7 @@ export async function searchBusinesses(query: string, options: {
 
   try {
     const role = await getUserRole()
-    const { limit = 100 } = options
+    const { limit = 100, salesRepId } = options
 
     if (!query || query.trim().length < 2) {
       return { success: true, data: [] }
@@ -684,6 +700,13 @@ export async function searchBusinesses(query: string, options: {
       roleFilter.reassignmentStatus = null
     } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: [] }
+    }
+    
+    // Apply sales rep filter (admin quick filter)
+    if (salesRepId) {
+      roleFilter.salesReps = {
+        some: { salesRepId }
+      }
     }
 
     // Search across multiple fields with OR
