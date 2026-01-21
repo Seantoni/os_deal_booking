@@ -9,7 +9,8 @@ import { getUserRole, isAdmin } from '@/lib/auth/roles'
 import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
 import { logActivity } from '@/lib/activity-log'
 import { sendVendorToExternalApi } from '@/lib/api/external-oferta'
-import type { Business } from '@/types/business'
+import type { Business, Opportunity, BookingRequest, UserData } from '@/types'
+import type { Category } from '@prisma/client'
 
 // Extended where clause type to include reassignment fields not yet in Prisma schema
 type BusinessWhereClause = Prisma.BusinessWhereInput & {
@@ -366,6 +367,189 @@ export async function getBusinessCounts() {
     }
   } catch (error) {
     return handleServerActionError(error, 'getBusinessCounts')
+  }
+}
+
+/**
+ * Get counts for business table display (lazy loaded)
+ * Returns: openOpportunityCounts (businessId -> count), pendingRequestCounts (businessName lowercase -> count)
+ * This is much more efficient than loading all opportunities and requests
+ */
+export async function getBusinessTableCounts() {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    
+    // Build base where clause based on role
+    const baseWhere: Record<string, unknown> = {}
+    if (role === 'sales') {
+      baseWhere.ownerId = userId
+    } else if (role === 'editor' || role === 'ere') {
+      return { 
+        success: true, 
+        data: { 
+          openOpportunityCounts: {} as Record<string, number>, 
+          pendingRequestCounts: {} as Record<string, number> 
+        } 
+      }
+    }
+
+    // Get open opportunity counts per business using groupBy
+    const opportunityCounts = await prisma.opportunity.groupBy({
+      by: ['businessId'],
+      where: {
+        stage: { notIn: ['won', 'lost'] },
+        // For sales users, only count opportunities they own
+        ...(role === 'sales' ? { responsibleId: userId } : {}),
+      },
+      _count: { id: true },
+    })
+
+    // Get pending request counts per merchant name
+    const requestCounts = await prisma.bookingRequest.groupBy({
+      by: ['merchant'],
+      where: {
+        status: 'pending',
+        merchant: { not: null },
+      },
+      _count: { id: true },
+    })
+
+    // Convert to Record objects
+    const openOpportunityCounts: Record<string, number> = {}
+    for (const opp of opportunityCounts) {
+      if (opp.businessId) {
+        openOpportunityCounts[opp.businessId] = opp._count.id
+      }
+    }
+
+    const pendingRequestCounts: Record<string, number> = {}
+    for (const req of requestCounts) {
+      if (req.merchant) {
+        pendingRequestCounts[req.merchant.toLowerCase()] = req._count.id
+      }
+    }
+
+    return { 
+      success: true, 
+      data: { openOpportunityCounts, pendingRequestCounts } 
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getBusinessTableCounts')
+  }
+}
+
+/**
+ * Get all data needed for BusinessFormModal in a single request
+ * Replaces multiple separate fetches for categories, users, opportunities, requests
+ */
+export async function getBusinessFormData(businessId?: string | null) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    const admin = role === 'admin'
+
+    // Build parallel fetch promises
+    const fetchPromises: Promise<unknown>[] = [
+      // Categories (always needed)
+      prisma.category.findMany({
+        where: { isActive: true },
+        orderBy: [{ displayOrder: 'asc' }, { parentCategory: 'asc' }],
+      }),
+    ]
+
+    // Users (only for admin)
+    if (admin) {
+      fetchPromises.push(
+        prisma.userProfile.findMany({
+          where: { isActive: true },
+          select: {
+            id: true,
+            clerkId: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+          orderBy: { name: 'asc' },
+        })
+      )
+    } else {
+      fetchPromises.push(Promise.resolve([]))
+    }
+
+    // Business-specific data (only if editing existing business)
+    if (businessId) {
+      // Opportunities for this business
+      fetchPromises.push(
+        prisma.opportunity.findMany({
+          where: { businessId },
+          include: {
+            business: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    categoryKey: true,
+                    parentCategory: true,
+                    subCategory1: true,
+                    subCategory2: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        })
+      )
+
+      // Get business name for request lookup
+      const business = await prisma.business.findUnique({
+        where: { id: businessId },
+        select: { name: true },
+      })
+      const businessName = business?.name?.toLowerCase() || ''
+
+      // Requests matching this business name
+      fetchPromises.push(
+        businessName
+          ? prisma.bookingRequest.findMany({
+              where: {
+                merchant: { mode: 'insensitive', equals: businessName },
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 50, // Limit to recent requests
+            })
+          : Promise.resolve([])
+      )
+    } else {
+      // New business - no business-specific data
+      fetchPromises.push(Promise.resolve([]))
+      fetchPromises.push(Promise.resolve([]))
+    }
+
+    const [categories, users, opportunities, requests] = await Promise.all(fetchPromises)
+
+    return {
+      success: true,
+      data: {
+        categories: categories as Category[],
+        users: users as UserData[],
+        opportunities: opportunities as Opportunity[],
+        requests: requests as BookingRequest[],
+      },
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getBusinessFormData')
   }
 }
 

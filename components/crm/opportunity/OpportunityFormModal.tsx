@@ -957,7 +957,7 @@ export default function OpportunityFormModal({
                     users={userOptions}
                     businesses={allBusinesses}
                     categoryDisplayMode="parentOnly"
-                    defaultExpanded={!shouldCollapse}
+                      defaultExpanded={!shouldCollapse}
                     collapsible={true}
                     isEditMode={isEditMode}
                     hiddenFieldTypes={['business-select']}

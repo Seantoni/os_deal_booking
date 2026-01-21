@@ -3,11 +3,9 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { deleteBusiness, getOpportunities } from '@/app/actions/crm'
-import { getBusinessesPaginated, searchBusinesses, getBusinessCounts } from '@/app/actions/businesses'
-import { getBookingRequests } from '@/app/actions/booking-requests'
-import type { BookingRequest } from '@/types'
-import type { Business, Opportunity } from '@/types'
+import { deleteBusiness } from '@/app/actions/crm'
+import { getBusinessesPaginated, searchBusinesses, getBusinessCounts, getBusinessTableCounts } from '@/app/actions/businesses'
+import type { Business } from '@/types'
 import AddIcon from '@mui/icons-material/Add'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
@@ -78,16 +76,12 @@ const COLUMNS: ColumnConfig[] = [
 
 interface BusinessesPageClientProps {
   initialBusinesses?: Business[]
-  initialOpportunities?: Opportunity[]
-  initialRequests?: BookingRequest[]
   initialTotal?: number
   initialCounts?: Record<string, number>
 }
 
 export default function BusinessesPageClient({
   initialBusinesses,
-  initialOpportunities,
-  initialRequests,
   initialTotal = 0,
   initialCounts,
 }: BusinessesPageClientProps = {}) {
@@ -137,9 +131,12 @@ export default function BusinessesPageClient({
     entityName: 'negocios',
   })
 
-  // Additional state for opportunities and requests (initialized from server)
-  const [opportunities, setOpportunities] = useState<Opportunity[]>(initialOpportunities || [])
-  const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>(initialRequests || [])
+  // Lazy-loaded table counts (opportunity counts per business, request counts per business name)
+  const [tableCounts, setTableCounts] = useState<{
+    openOpportunityCounts: Record<string, number>
+    pendingRequestCounts: Record<string, number>
+  } | null>(null)
+  const [tableCountsLoading, setTableCountsLoading] = useState(true)
   
   // Opportunity filter is now managed by the hook
   const opportunityFilter = (filters.opportunityFilter as 'all' | 'with-open' | 'without-open') || 'all'
@@ -209,54 +206,45 @@ export default function BusinessesPageClient({
     return () => document.removeEventListener('click', handleClickOutside)
   }, [actionMenuOpen])
 
-  // Load opportunities and booking requests alongside businesses
+  // Lazy load table counts (opportunity and request counts per business)
+  // This runs on mount and is much faster than loading all opportunities/requests
   useEffect(() => {
-    if (initialOpportunities?.length || initialRequests?.length) {
-      return
-    }
-    
-    async function loadOpportunitiesAndRequests() {
+    async function loadTableCounts() {
       try {
-        const [oppsResult, reqsResult] = await Promise.all([
-          getOpportunities(),
-          getBookingRequests(),
-        ])
-        if (oppsResult.success && oppsResult.data) {
-          setOpportunities(oppsResult.data)
-        }
-        if (reqsResult.success && reqsResult.data) {
-          setBookingRequests(reqsResult.data)
+        const result = await getBusinessTableCounts()
+        if (result.success && result.data) {
+          setTableCounts(result.data)
         }
       } catch (error) {
-        logger.error('Failed to load opportunities/requests:', error)
+        logger.error('Failed to load table counts:', error)
+      } finally {
+        setTableCountsLoading(false)
       }
     }
-    loadOpportunitiesAndRequests()
-  }, [initialOpportunities, initialRequests])
+    loadTableCounts()
+  }, [])
 
-  // Map of business IDs to count of open opportunities
+  // Map of business IDs to count of open opportunities (from lazy-loaded counts)
   const businessOpenOpportunityCount = useMemo(() => {
     const map = new Map<string, number>()
-    opportunities.forEach(opp => {
-      const isOpen = opp.stage !== 'won' && opp.stage !== 'lost'
-      if (opp.businessId && isOpen) {
-        map.set(opp.businessId, (map.get(opp.businessId) || 0) + 1)
-      }
-    })
+    if (tableCounts?.openOpportunityCounts) {
+      Object.entries(tableCounts.openOpportunityCounts).forEach(([businessId, count]) => {
+        map.set(businessId, count)
+      })
+    }
     return map
-  }, [opportunities])
+  }, [tableCounts])
 
-  // Map of business names to count of pending requests
+  // Map of business names to count of pending requests (from lazy-loaded counts)
   const businessPendingRequestCount = useMemo(() => {
     const map = new Map<string, number>()
-    bookingRequests.forEach(req => {
-      if (req.status === 'pending' && req.merchant) {
-        const merchantLower = req.merchant.toLowerCase()
-        map.set(merchantLower, (map.get(merchantLower) || 0) + 1)
-      }
-    })
+    if (tableCounts?.pendingRequestCounts) {
+      Object.entries(tableCounts.pendingRequestCounts).forEach(([merchantLower, count]) => {
+        map.set(merchantLower, count)
+      })
+    }
     return map
-  }, [bookingRequests])
+  }, [tableCounts])
 
   // Helper to check if business has open opportunity
   const businessHasOpenOpportunity = useMemo(() => {
@@ -759,9 +747,10 @@ export default function BusinessesPageClient({
             toast.success('Opportunity created successfully')
             setOpportunityModalOpen(false)
             setSelectedBusinessForOpportunity(null)
-            getOpportunities().then(result => {
+            // Refresh table counts (much faster than loading all opportunities)
+            getBusinessTableCounts().then(result => {
               if (result.success && result.data) {
-                setOpportunities(result.data)
+                setTableCounts(result.data)
               }
             })
           }}

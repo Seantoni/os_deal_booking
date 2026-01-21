@@ -234,6 +234,183 @@ export async function getOpportunityCounts() {
 }
 
 /**
+ * Get all data needed for OpportunityFormModal in a single request
+ * Replaces multiple separate fetches for businesses, categories, users, tasks, business details, booking request
+ */
+export async function getOpportunityFormData(opportunityId?: string | null, businessId?: string | null) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    const admin = role === 'admin'
+
+    // Build where clause for businesses based on role
+    const businessWhere: Record<string, unknown> = {}
+    if (role === 'sales') {
+      businessWhere.ownerId = userId
+    } else if (role === 'editor' || role === 'ere') {
+      return { 
+        success: true, 
+        data: { 
+          businesses: [], 
+          categories: [], 
+          users: [], 
+          tasks: [], 
+          linkedBusiness: null, 
+          linkedBookingRequest: null 
+        } 
+      }
+    }
+
+    // Build parallel fetch promises
+    const fetchPromises: Promise<unknown>[] = [
+      // Businesses (with category)
+      prisma.business.findMany({
+        where: businessWhere,
+        include: {
+          category: {
+            select: {
+              id: true,
+              categoryKey: true,
+              parentCategory: true,
+              subCategory1: true,
+              subCategory2: true,
+            },
+          },
+        },
+        orderBy: { name: 'asc' },
+      }),
+      // Categories
+      prisma.category.findMany({
+        where: { isActive: true },
+        orderBy: [{ displayOrder: 'asc' }, { parentCategory: 'asc' }],
+      }),
+    ]
+
+    // Users (only for admin)
+    if (admin) {
+      fetchPromises.push(
+        prisma.userProfile.findMany({
+          where: { isActive: true },
+          select: {
+            id: true,
+            clerkId: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+          orderBy: { name: 'asc' },
+        })
+      )
+    } else {
+      fetchPromises.push(Promise.resolve([]))
+    }
+
+    // Execute main fetches
+    const [businesses, categories, users] = await Promise.all(fetchPromises) as [unknown[], unknown[], unknown[]]
+
+    // If editing an existing opportunity, fetch opportunity-specific data
+    let tasks: unknown[] = []
+    let linkedBusiness = null
+    let linkedBookingRequest = null
+
+    if (opportunityId) {
+      // Fetch opportunity details to get businessId and bookingRequestId
+      const opportunity = await prisma.opportunity.findUnique({
+        where: { id: opportunityId },
+        select: {
+          businessId: true,
+          hasRequest: true,
+          bookingRequestId: true,
+        },
+      })
+
+      if (opportunity) {
+        const oppFetches: Promise<unknown>[] = [
+          // Tasks for this opportunity
+          prisma.task.findMany({
+            where: { opportunityId },
+            orderBy: { date: 'asc' },
+          }),
+        ]
+
+        // Business details
+        if (opportunity.businessId) {
+          oppFetches.push(
+            prisma.business.findUnique({
+              where: { id: opportunity.businessId },
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    categoryKey: true,
+                    parentCategory: true,
+                    subCategory1: true,
+                    subCategory2: true,
+                  },
+                },
+              },
+            })
+          )
+        } else {
+          oppFetches.push(Promise.resolve(null))
+        }
+
+        // Booking request if exists
+        if (opportunity.hasRequest && opportunity.bookingRequestId) {
+          oppFetches.push(
+            prisma.bookingRequest.findUnique({
+              where: { id: opportunity.bookingRequestId },
+            })
+          )
+        } else {
+          oppFetches.push(Promise.resolve(null))
+        }
+
+        const [tasksResult, businessResult, requestResult] = await Promise.all(oppFetches)
+        tasks = (tasksResult as unknown[]) || []
+        linkedBusiness = businessResult
+        linkedBookingRequest = requestResult
+      }
+    } else if (businessId) {
+      // New opportunity with initial business - just fetch business details
+      linkedBusiness = await prisma.business.findUnique({
+        where: { id: businessId },
+        include: {
+          category: {
+            select: {
+              id: true,
+              categoryKey: true,
+              parentCategory: true,
+              subCategory1: true,
+              subCategory2: true,
+            },
+          },
+        },
+      })
+    }
+
+    return {
+      success: true,
+      data: {
+        businesses,
+        categories,
+        users,
+        tasks,
+        linkedBusiness,
+        linkedBookingRequest,
+      },
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getOpportunityFormData')
+  }
+}
+
+/**
  * Search opportunities across ALL records (server-side search)
  */
 export async function searchOpportunities(query: string, options: {

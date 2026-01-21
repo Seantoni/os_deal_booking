@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { getBusinesses, getAllUsers, getTasksByOpportunity, getBusiness } from '@/app/actions/crm'
-import { getCategories } from '@/app/actions/categories'
-import { getBookingRequest } from '@/app/actions/booking'
+import { getOpportunityFormData } from '@/app/actions/opportunities'
+import { getBusiness } from '@/app/actions/crm'
 import type { Opportunity, OpportunityStage, Task, Business, BookingRequest, UserData } from '@/types'
 import type { Category } from '@prisma/client'
 
@@ -56,7 +55,7 @@ export function useOpportunityForm({
   const opportunityRef = useRef(opportunity)
   opportunityRef.current = opportunity
 
-  // Reusable load function
+  // Reusable load function using single batched request
   const loadFormData = useCallback(async (skipClear = false) => {
     const currentOpportunity = opportunityRef.current
     
@@ -78,124 +77,116 @@ export function useOpportunityForm({
       setLinkedBookingRequest(null)
     }
 
+    // Check if we have all preloaded data for a new opportunity
+    const hasAllPreloadedData = 
+      (preloadedBusinesses && preloadedBusinesses.length > 0) &&
+      (preloadedCategories && preloadedCategories.length > 0) &&
+      (!isAdmin || (preloadedUsers && preloadedUsers.length > 0))
+    
+    // For new opportunities with all preloaded data and an initial business, use preloaded data
+    if (!currentOpportunity && hasAllPreloadedData && initialBusinessId) {
+      setBusinesses(preloadedBusinesses!)
+      setCategories(preloadedCategories!)
+      if (isAdmin && preloadedUsers) setUsers(preloadedUsers)
+      
+      // Set form defaults for new opportunity
+      setBusinessId(initialBusinessId)
+      setStage('iniciacion')
+      setStartDate(new Date().toISOString().split('T')[0])
+      setCloseDate('')
+      setNotes('')
+      setResponsibleId(currentUserId || '')
+      setTasks([])
+      
+      // Find business in preloaded data
+      const selectedBusiness = preloadedBusinesses!.find((b) => b.id === initialBusinessId)
+      if (selectedBusiness) {
+        setCategoryId(selectedBusiness.categoryId || '')
+        setTier(selectedBusiness.tier?.toString() || '')
+        setContactName(selectedBusiness.contactName || '')
+        setContactPhone(selectedBusiness.contactPhone || '')
+        setContactEmail(selectedBusiness.contactEmail || '')
+        setLinkedBusiness(selectedBusiness)
+      }
+      return
+    }
+
     setLoadingData(true)
     try {
-      // Use preloaded data if available, otherwise fetch
-      let businessesData = preloadedBusinesses
-      let categoriesData = preloadedCategories
-      let usersData = preloadedUsers
-
-      // Only fetch what we don't have
-      const fetchPromises: Promise<{ success: boolean; data?: unknown; error?: string }>[] = []
-      const fetchKeys: string[] = []
-
-      if (!businessesData) {
-        fetchPromises.push(getBusinesses())
-        fetchKeys.push('businesses')
-      }
-      if (!categoriesData) {
-        fetchPromises.push(getCategories())
-        fetchKeys.push('categories')
-      }
-      if (!usersData && isAdmin) {
-        fetchPromises.push(getAllUsers())
-        fetchKeys.push('users')
-      }
-
-      // Parallel fetch only missing data
-      if (fetchPromises.length > 0) {
-        const results = await Promise.all(fetchPromises)
-        fetchKeys.forEach((key, index) => {
-          const result = results[index]
-          if (result.success && result.data) {
-            if (key === 'businesses') businessesData = result.data as Business[]
-            else if (key === 'categories') categoriesData = result.data as Category[]
-            else if (key === 'users') usersData = result.data as UserData[]
-          }
-        })
-      }
-
-      // Update state with data
-      if (businessesData) setBusinesses(businessesData)
-      if (categoriesData) setCategories(categoriesData)
-      if (usersData && isAdmin) setUsers(usersData)
-
-      // Pre-fill form if editing
-      if (currentOpportunity) {
-        setBusinessId(currentOpportunity.businessId)
-        setStage(currentOpportunity.stage)
-        setStartDate(new Date(currentOpportunity.startDate).toISOString().split('T')[0])
-        setCloseDate(currentOpportunity.closeDate ? new Date(currentOpportunity.closeDate).toISOString().split('T')[0] : '')
-        setNotes(currentOpportunity.notes || '')
-        setResponsibleId(currentOpportunity.responsibleId || '')
+      // Single batched request for all form data
+      const result = await getOpportunityFormData(
+        currentOpportunity?.id,
+        !currentOpportunity ? initialBusinessId : undefined
+      )
+      
+      if (result.success && result.data) {
+        // Use preloaded data if available, otherwise use fetched data
+        const businessesData = (preloadedBusinesses && preloadedBusinesses.length > 0) 
+          ? preloadedBusinesses 
+          : (result.data.businesses as Business[])
+        const categoriesData = (preloadedCategories && preloadedCategories.length > 0) 
+          ? preloadedCategories 
+          : (result.data.categories as Category[])
+        const usersData = (preloadedUsers && preloadedUsers.length > 0) 
+          ? preloadedUsers 
+          : (result.data.users as UserData[])
         
-        // Load from business (use already fetched data)
-        const selectedBusiness = businessesData?.find((b) => b.id === currentOpportunity.businessId)
-        if (selectedBusiness) {
-          setCategoryId(selectedBusiness.categoryId || '')
-          setTier(selectedBusiness.tier?.toString() || '')
-          setContactName(selectedBusiness.contactName || '')
-          setContactPhone(selectedBusiness.contactPhone || '')
-          setContactEmail(selectedBusiness.contactEmail || '')
-        }
-
-        // Parallel fetch: Load opportunity-specific data
-        const [tasksResult, businessResult, requestResult] = await Promise.all([
-          getTasksByOpportunity(currentOpportunity.id),
-          currentOpportunity.businessId ? getBusiness(currentOpportunity.businessId) : Promise.resolve({ success: false, data: null }),
-          currentOpportunity.hasRequest && currentOpportunity.bookingRequestId 
-            ? getBookingRequest(currentOpportunity.bookingRequestId) 
-            : Promise.resolve({ success: false, data: null }),
-        ])
-
-        if (tasksResult.success && tasksResult.data) {
-          setTasks(tasksResult.data)
-        }
-          if (businessResult.success && businessResult.data) {
-            setLinkedBusiness(businessResult.data)
-        }
-          if (requestResult.success && requestResult.data) {
-            setLinkedBookingRequest(requestResult.data)
-        }
-      } else {
-        // Reset form for new opportunity
-        setBusinessId(initialBusinessId || '')
-        setStage('iniciacion')
-        setStartDate(new Date().toISOString().split('T')[0])
-        setCloseDate('')
-        setNotes('')
-        // Default responsible to current user for new opportunities
-        setResponsibleId(currentUserId || '')
-        setTasks([])
+        setBusinesses(businessesData)
+        setCategories(categoriesData)
+        if (isAdmin) setUsers(usersData)
         
-        // If initialBusinessId is provided, load business data
-        if (initialBusinessId && businessesData) {
-          const selectedBusiness = businessesData.find((b) => b.id === initialBusinessId)
-          if (selectedBusiness) {
-            setCategoryId(selectedBusiness.categoryId || '')
-            setTier(selectedBusiness.tier?.toString() || '')
-            setContactName(selectedBusiness.contactName || '')
-            setContactPhone(selectedBusiness.contactPhone || '')
-            setContactEmail(selectedBusiness.contactEmail || '')
-            // Also set linkedBusiness for new opportunities with initial business
-            setLinkedBusiness(selectedBusiness)
-          } else {
-            // Business not found in list, clear fields
-            setCategoryId('')
-            setTier('')
-            setContactName('')
-            setContactPhone('')
-            setContactEmail('')
-            setLinkedBusiness(null)
+        // Set tasks and linked data from response
+        setTasks((result.data.tasks as Task[]) || [])
+        setLinkedBusiness(result.data.linkedBusiness as Business | null)
+        setLinkedBookingRequest(result.data.linkedBookingRequest as BookingRequest | null)
+        
+        // Pre-fill form if editing
+        if (currentOpportunity) {
+          setBusinessId(currentOpportunity.businessId)
+          setStage(currentOpportunity.stage)
+          setStartDate(new Date(currentOpportunity.startDate).toISOString().split('T')[0])
+          setCloseDate(currentOpportunity.closeDate ? new Date(currentOpportunity.closeDate).toISOString().split('T')[0] : '')
+          setNotes(currentOpportunity.notes || '')
+          setResponsibleId(currentOpportunity.responsibleId || '')
+          
+          // Load category/tier from linked business
+          const linkedBiz = result.data.linkedBusiness as Business | null
+          if (linkedBiz) {
+            setCategoryId(linkedBiz.categoryId || '')
+            setTier(linkedBiz.tier?.toString() || '')
+            setContactName(linkedBiz.contactName || '')
+            setContactPhone(linkedBiz.contactPhone || '')
+            setContactEmail(linkedBiz.contactEmail || '')
           }
         } else {
-          // No initial business, clear fields
-          setCategoryId('')
-          setTier('')
-          setContactName('')
-          setContactPhone('')
-          setContactEmail('')
-          setLinkedBusiness(null)
+          // Reset form for new opportunity
+          setBusinessId(initialBusinessId || '')
+          setStage('iniciacion')
+          setStartDate(new Date().toISOString().split('T')[0])
+          setCloseDate('')
+          setNotes('')
+          setResponsibleId(currentUserId || '')
+          
+          // If initialBusinessId is provided, load business data from linked business
+          const linkedBiz = result.data.linkedBusiness as Business | null
+          if (linkedBiz) {
+            setCategoryId(linkedBiz.categoryId || '')
+            setTier(linkedBiz.tier?.toString() || '')
+            setContactName(linkedBiz.contactName || '')
+            setContactPhone(linkedBiz.contactPhone || '')
+            setContactEmail(linkedBiz.contactEmail || '')
+          } else if (initialBusinessId && businessesData) {
+            // Fallback: find in businesses list
+            const selectedBusiness = businessesData.find((b) => b.id === initialBusinessId)
+            if (selectedBusiness) {
+              setCategoryId(selectedBusiness.categoryId || '')
+              setTier(selectedBusiness.tier?.toString() || '')
+              setContactName(selectedBusiness.contactName || '')
+              setContactPhone(selectedBusiness.contactPhone || '')
+              setContactEmail(selectedBusiness.contactEmail || '')
+              setLinkedBusiness(selectedBusiness)
+            }
+          }
         }
       }
     } finally {

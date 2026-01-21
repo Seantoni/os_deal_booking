@@ -131,10 +131,10 @@ function CategorySelect({
       )
       setFilteredOptions(filtered)
     } else {
-      const filtered = options.filter(opt =>
+    const filtered = options.filter(opt =>
         opt.label.toLowerCase().includes(searchLower)
-      )
-      setFilteredOptions(filtered)
+    )
+    setFilteredOptions(filtered)
     }
     setSelectedIndex(-1)
   }, [search, options, fullOptions, displayMode])
