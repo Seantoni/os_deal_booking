@@ -481,8 +481,8 @@ export default function BusinessesPageClient({
       users={userFilterOptions}
       value={salesRepFilter}
       onChange={setSalesRepFilter}
-      label="Rep"
-      placeholder="Todos los Reps"
+      label="Owner"
+      placeholder="Todos"
     />
   ) : undefined
 

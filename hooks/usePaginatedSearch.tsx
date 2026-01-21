@@ -261,7 +261,7 @@ export function usePaginatedSearch<T>({
 
     setSearchLoading(true)
     try {
-      const result = await searchFn(query, { limit: 100 })
+      const result = await searchFn(query, { limit: 100, ...filters })
       if (result.success && result.data) {
         setSearchResults(result.data as T[])
       }
@@ -271,7 +271,7 @@ export function usePaginatedSearch<T>({
     } finally {
       setSearchLoading(false)
     }
-  }, [searchFn])
+  }, [searchFn, filters])
 
   // Handle search input change with debounce
   const handleSearchChange = useCallback((query: string) => {
@@ -357,6 +357,14 @@ export function usePaginatedSearch<T>({
       return
     }
     loadPage(0)
+    // Also refresh counts when filters change
+    if (fetchCounts) {
+      refreshCounts()
+    }
+    // Re-run search if in search mode
+    if (isSearching && searchQuery) {
+      performSearch(searchQuery)
+    }
   }, [filters]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pagination Controls Component

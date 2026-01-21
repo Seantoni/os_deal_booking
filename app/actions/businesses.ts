@@ -169,7 +169,7 @@ export async function getBusinessesPaginated(options: {
   sortDirection?: 'asc' | 'desc'
   opportunityFilter?: string // 'all' | 'with-open' | 'without-open'
   focusFilter?: string // 'all' | 'with-focus'
-  salesRepId?: string // Filter by sales rep (admin quick filter)
+  salesRepId?: string // Filter by owner (admin quick filter) - named salesRepId for consistency with other pages
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -179,7 +179,7 @@ export async function getBusinessesPaginated(options: {
 
   try {
     const role = await getUserRole()
-    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', opportunityFilter, focusFilter, salesRepId } = options
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', opportunityFilter, focusFilter, salesRepId: ownerFilter } = options
 
     // Build where clause based on role
     const whereClause: BusinessWhereClause = {}
@@ -217,11 +217,9 @@ export async function getBusinessesPaginated(options: {
       whereClause.focusPeriod = { not: null }
     }
     
-    // Apply sales rep filter (admin quick filter)
-    if (salesRepId) {
-      whereClause.salesReps = {
-        some: { salesRepId }
-      }
+    // Apply owner filter (admin quick filter)
+    if (ownerFilter) {
+      whereClause.ownerId = ownerFilter
     }
 
     // Get total count (with filters applied)
@@ -342,11 +340,9 @@ export async function getBusinessCounts(filters?: { salesRepId?: string }) {
       return { success: true, data: { all: 0, 'with-open': 0, 'without-open': 0, 'with-focus': 0 } }
     }
     
-    // Apply sales rep filter (admin quick filter)
+    // Apply owner filter (admin quick filter)
     if (filters?.salesRepId) {
-      baseWhere.salesReps = {
-        some: { salesRepId: filters.salesRepId }
-      }
+      baseWhere.ownerId = filters.salesRepId
     }
 
     // Get counts in parallel
@@ -674,7 +670,7 @@ export async function updateBusinessFocus(
  */
 export async function searchBusinesses(query: string, options: {
   limit?: number
-  salesRepId?: string // Filter by sales rep (admin quick filter)
+  salesRepId?: string // Filter by owner (admin quick filter) - named salesRepId for consistency
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -684,7 +680,7 @@ export async function searchBusinesses(query: string, options: {
 
   try {
     const role = await getUserRole()
-    const { limit = 100, salesRepId } = options
+    const { limit = 100, salesRepId: ownerFilter } = options
 
     if (!query || query.trim().length < 2) {
       return { success: true, data: [] }
@@ -702,11 +698,9 @@ export async function searchBusinesses(query: string, options: {
       return { success: true, data: [] }
     }
     
-    // Apply sales rep filter (admin quick filter)
-    if (salesRepId) {
-      roleFilter.salesReps = {
-        some: { salesRepId }
-      }
+    // Apply owner filter (admin quick filter)
+    if (ownerFilter) {
+      roleFilter.ownerId = ownerFilter
     }
 
     // Search across multiple fields with OR
