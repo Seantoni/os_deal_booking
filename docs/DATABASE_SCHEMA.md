@@ -246,7 +246,6 @@ The main form data for a deal/campaign request.
 | `redemptionContactEmail` | String? | Contact email |
 | `redemptionContactPhone` | String? | Contact phone |
 | **Financial** | | |
-| `commission` | String? | Commission percentage |
 | `offerMargin` | String? | Margin percentage |
 | `bank` | String? | Bank name |
 | `accountNumber` | String? | Bank account |

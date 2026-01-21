@@ -45,10 +45,7 @@ export type BookingFormData = {
   hasExclusivity: string
   blackoutDates: string
   exclusivityCondition: string
-  giftVouchers: string
   hasOtherBranches: string
-  vouchersPerPerson: string
-  commission: string
   
   // Descripción: Descripción y Canales de Venta
   redemptionMethods: string[]

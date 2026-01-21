@@ -89,8 +89,6 @@ export default function ContenidoStep({ formData, errors, updateFormData, isFiel
             includesTaxes: formData.includesTaxes,
             validOnHolidays: formData.validOnHolidays,
             blackoutDates: formData.blackoutDates,
-            vouchersPerPerson: formData.vouchersPerPerson,
-            giftVouchers: formData.giftVouchers,
             hasOtherBranches: formData.hasOtherBranches,
             // Policies
             cancellationPolicy: formData.cancellationPolicy,
@@ -261,12 +259,7 @@ export default function ContenidoStep({ formData, errors, updateFormData, isFiel
               { value: 'Sí', label: 'Sí (El paquete se ofrece regularmente por el Aliado)' },
               { value: 'No', label: 'No' },
             ]}
-            selectedLabel={
-                [
-                  { value: 'Sí', label: 'Sí (El paquete se ofrece regularmente por el Aliado)' },
-                  { value: 'No', label: 'No' },
-            ].find(o => o.value === formData.marketValidation)?.label || 'Seleccionar...'
-            }
+            value={formData.marketValidation}
             placeholder="Seleccionar..."
             onSelect={(value) => updateFormData('marketValidation', value)}
           error={errors.marketValidation}

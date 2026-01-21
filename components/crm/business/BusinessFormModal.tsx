@@ -598,35 +598,39 @@ export default function BusinessFormModal({
     return keys
   }, [dynamicForm.initialized, dynamicForm.sections])
 
-  // Extract only locked field values as a stable string for comparison
-  // This prevents recalculating fieldOverrides on every keystroke in non-locked fields
+  // Extract only INITIAL locked field values as a stable string for comparison
+  // Use initialValues (not current values) to determine which fields had data when modal opened
+  // This prevents fields from getting locked when user starts typing in empty fields
   const lockedFieldValuesKey = useMemo(() => {
     const entries: string[] = []
     for (const key of lockedFieldKeys) {
-      entries.push(`${key}:${dynamicForm.values[key] || ''}`)
+      entries.push(`${key}:${initialValues[key] || ''}`)
     }
     return entries.join('|')
-  }, [lockedFieldKeys, dynamicForm.values])
+  }, [lockedFieldKeys, initialValues])
 
-  // Build field overrides based on locked field values only
+  // Build field overrides based on INITIAL values only
+  // Fields that had data when modal opened should be locked; empty fields stay editable
   const fieldOverrides: Record<string, { canEdit?: boolean }> = useMemo(() => {
     const overrides: Record<string, { canEdit?: boolean }> = {}
     
     for (const fieldKey of lockedFieldKeys) {
-      const currentValue = dynamicForm.values[fieldKey]
-      const hasValue = currentValue && currentValue.trim() !== ''
+      // Use INITIAL value to determine if field should be locked
+      const initialValue = initialValues[fieldKey]
+      const hadInitialValue = initialValue && initialValue.trim() !== ''
       
-      if (isEditMode && hasValue) {
+      if (isEditMode && hadInitialValue) {
+        // Field had data when modal opened - lock it unless admin unlocks
         const canEdit = isAdmin && unlockedFields[fieldKey] === true
         overrides[fieldKey] = { canEdit }
       } else {
+        // Field was empty initially - keep it editable
         overrides[fieldKey] = { canEdit: true }
       }
     }
     
     return overrides
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lockedFieldKeys, lockedFieldValuesKey, isEditMode, isAdmin, unlockedFields])
+  }, [lockedFieldKeys, initialValues, isEditMode, isAdmin, unlockedFields])
 
   // Field addons (lock icons for fields with canEditAfterCreation in edit mode for admin)
   const fieldAddons: Record<string, React.ReactElement> = useMemo(() => {
@@ -635,10 +639,11 @@ export default function BusinessFormModal({
     if (!isEditMode || !isAdmin) return addons
     
     for (const fieldKey of lockedFieldKeys) {
-      const currentValue = dynamicForm.values[fieldKey]
-      const hasValue = currentValue && currentValue.trim() !== ''
+      // Use INITIAL value to determine if lock icon should show
+      const initialValue = initialValues[fieldKey]
+      const hadInitialValue = initialValue && initialValue.trim() !== ''
       
-      if (hasValue) {
+      if (hadInitialValue) {
         const isUnlocked = unlockedFields[fieldKey] || false
         addons[fieldKey] = (
           <div className="flex flex-col items-start gap-1">
@@ -669,8 +674,7 @@ export default function BusinessFormModal({
     }
     
     return addons
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, isAdmin, lockedFieldKeys, lockedFieldValuesKey, unlockedFields, toggleFieldUnlock])
+  }, [isEditMode, isAdmin, lockedFieldKeys, initialValues, unlockedFields, toggleFieldUnlock])
 
   // Early return if modal is not open - saves rendering work
   if (!isOpen) return null

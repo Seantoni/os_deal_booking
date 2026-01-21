@@ -267,10 +267,7 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
         hasExclusivity: fields.hasExclusivity,
         blackoutDates: fields.blackoutDates,
         exclusivityCondition: fields.exclusivityCondition,
-        giftVouchers: fields.giftVouchers,
         hasOtherBranches: fields.hasOtherBranches,
-        vouchersPerPerson: fields.vouchersPerPerson,
-        commission: fields.commission,
         // Descripción: Descripción y Canales de Venta
         redemptionMethods: redemptionMethodsJson,
         contactDetails: fields.contactDetails,

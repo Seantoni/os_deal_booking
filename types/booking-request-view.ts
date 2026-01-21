@@ -92,10 +92,7 @@ export interface BookingRequestViewData {
   hasExclusivity: string | null
   blackoutDates: string | null
   exclusivityCondition: string | null
-  giftVouchers: string | null
   hasOtherBranches: string | null
-  vouchersPerPerson: string | null
-  commission: string | null
 
   // Step 6: Descripción y Canales de Venta
   redemptionMethods: string[] | null

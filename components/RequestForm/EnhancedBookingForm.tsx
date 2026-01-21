@@ -187,10 +187,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
               hasExclusivity: data.hasExclusivity || '',
               blackoutDates: data.blackoutDates || '',
               exclusivityCondition: data.exclusivityCondition || '',
-              giftVouchers: data.giftVouchers || '',
               hasOtherBranches: data.hasOtherBranches || '',
-              vouchersPerPerson: data.vouchersPerPerson || '',
-              commission: data.commission || '',
               
               // Descripción
               redemptionMethods: Array.isArray(data.redemptionMethods) ? data.redemptionMethods : [],
@@ -369,14 +366,8 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         if (blackoutDatesParam) newData.blackoutDates = blackoutDatesParam
         const exclusivityConditionParam = searchParams.get('exclusivityCondition')
         if (exclusivityConditionParam) newData.exclusivityCondition = exclusivityConditionParam
-        const giftVouchersParam = searchParams.get('giftVouchers')
-        if (giftVouchersParam) newData.giftVouchers = giftVouchersParam
         const hasOtherBranchesParam = searchParams.get('hasOtherBranches')
         if (hasOtherBranchesParam) newData.hasOtherBranches = hasOtherBranchesParam
-        const vouchersPerPersonParam = searchParams.get('vouchersPerPerson')
-        if (vouchersPerPersonParam) newData.vouchersPerPerson = vouchersPerPersonParam
-        const commissionParam = searchParams.get('commission')
-        if (commissionParam) newData.commission = commissionParam
         
         // Step 6: Descripción
         const redemptionMethodsParam = searchParams.get('redemptionMethods')
@@ -756,9 +747,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
                     label: opt.label,
                     description: opt.parent,
                   }))}
-                  selectedLabel={
-                    categoryOptions.find(opt => opt.value === formData.category)?.label || formData.category || ''
-                  }
+                  value={formData.category || ''}
                   placeholder="Buscar y seleccionar categoría"
                   onSelect={(value) => {
                     const option = categoryOptions.find(o => o.value === value)

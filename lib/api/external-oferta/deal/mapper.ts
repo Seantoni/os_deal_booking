@@ -189,7 +189,7 @@ export function mapBookingFormToApi(
     // Boolean flags (with sensible defaults)
     couponEnabled: false,
     secretDeal: false,
-    gift: stringToBoolean(formData.giftVouchers, true),
+    gift: true, // Default to true (gift vouchers enabled by default)
     isActive: true,
     showDiscount: true,
     limitedQuantity: false,

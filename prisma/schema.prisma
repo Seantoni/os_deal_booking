@@ -36,12 +36,10 @@ model BookingRequest {
   businessReview         String?
   campaignDuration       String?
   cancellationPolicy     String?
-  commission             String?
   contactDetails         String?
   corregimiento          String?
   district               String?
   exclusivityCondition   String?
-  giftVouchers           String?
   hasExclusivity         String?
   hasOtherBranches       String?
   includesTaxes          String?
@@ -61,7 +59,6 @@ model BookingRequest {
   rucDv                  String?
   socialMedia            String?
   validOnHolidays        String?
-  vouchersPerPerson      String?
   opportunityId          String?
   dealId                 String?                 @unique
   publicLinkToken        String?                 @unique

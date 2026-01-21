@@ -97,10 +97,7 @@ export const INITIAL_FORM_DATA: BookingFormData = {
   hasExclusivity: 'No',
   blackoutDates: '',
   exclusivityCondition: '',
-  giftVouchers: 'Sí',
   hasOtherBranches: 'No',
-  vouchersPerPerson: '',
-  commission: '',
   
   // Descripción: Descripción y Canales
   redemptionMethods: [],

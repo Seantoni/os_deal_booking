@@ -144,10 +144,7 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
       hasExclusivity: fields.hasExclusivity,
       blackoutDates: fields.blackoutDates,
       exclusivityCondition: fields.exclusivityCondition,
-      giftVouchers: fields.giftVouchers,
       hasOtherBranches: fields.hasOtherBranches,
-      vouchersPerPerson: fields.vouchersPerPerson,
-      commission: fields.commission,
       // Descripción: Descripción y Canales de Venta
       redemptionMethods: redemptionMethodsJson,
       contactDetails: fields.contactDetails,
@@ -372,10 +369,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       hasExclusivity: (formData.get('hasExclusivity') as string) || null,
       blackoutDates: (formData.get('blackoutDates') as string) || null,
       exclusivityCondition: (formData.get('exclusivityCondition') as string) || null,
-      giftVouchers: (formData.get('giftVouchers') as string) || null,
       hasOtherBranches: (formData.get('hasOtherBranches') as string) || null,
-      vouchersPerPerson: (formData.get('vouchersPerPerson') as string) || null,
-      commission: (formData.get('commission') as string) || null,
       // Descripción: Descripción y Canales de Venta
       redemptionMethods,
       contactDetails: (formData.get('contactDetails') as string) || null,

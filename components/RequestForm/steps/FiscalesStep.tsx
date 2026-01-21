@@ -70,12 +70,7 @@ export default function FiscalesStep({ formData, errors, updateFormData, isField
               { value: 'Ahorros', label: 'Ahorros' },
               { value: 'Corriente', label: 'Corriente' },
             ]}
-            selectedLabel={
-                [
-                  { value: 'Ahorros', label: 'Ahorros' },
-                  { value: 'Corriente', label: 'Corriente' },
-            ].find(o => o.value === formData.accountType)?.label || 'Seleccionar...'
-            }
+            value={formData.accountType}
             placeholder="Seleccionar..."
             onSelect={(value) => updateFormData('accountType', value)}
           error={errors.accountType}

@@ -341,7 +341,7 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
               )}
 
               {/* Operations & Payments */}
-              {(request.redemptionMode || request.paymentType || request.commission) && (
+              {(request.redemptionMode || request.paymentType) && (
                 <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                   <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
                     <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Operatividad y Pagos</h3>
@@ -357,12 +357,6 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
                       <div>
                         <p className="text-xs font-medium text-gray-600">Tipo de Pago</p>
                         <p className="text-sm text-gray-900 mt-0.5">{request.paymentType}</p>
-                      </div>
-                    )}
-                    {request.commission && (
-                      <div>
-                        <p className="text-xs font-medium text-gray-600">Comisión</p>
-                        <p className="text-sm text-gray-900 mt-0.5">{request.commission}</p>
                       </div>
                     )}
                     {request.isRecurring && (
@@ -382,7 +376,7 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
               )}
 
               {/* Business Rules */}
-              {(request.includesTaxes || request.validOnHolidays || request.vouchersPerPerson || request.hasExclusivity) && (
+              {(request.includesTaxes || request.validOnHolidays || request.hasExclusivity) && (
                 <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                   <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
                     <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Reglas de Negocio</h3>
@@ -398,18 +392,6 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
                       <div>
                         <p className="text-xs font-medium text-gray-600">Válido en Feriados</p>
                         <p className="text-sm text-gray-900 mt-0.5">{request.validOnHolidays}</p>
-                      </div>
-                    )}
-                    {request.vouchersPerPerson && (
-                      <div>
-                        <p className="text-xs font-medium text-gray-600">Vouchers por Persona</p>
-                        <p className="text-sm text-gray-900 mt-0.5">{request.vouchersPerPerson}</p>
-                      </div>
-                    )}
-                    {request.giftVouchers && (
-                      <div>
-                        <p className="text-xs font-medium text-gray-600">Vouchers para Regalar</p>
-                        <p className="text-sm text-gray-900 mt-0.5">{request.giftVouchers}</p>
                       </div>
                     )}
                     {request.hasExclusivity && (

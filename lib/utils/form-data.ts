@@ -86,10 +86,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
   hasExclusivity: string | null
   blackoutDates: string | null
   exclusivityCondition: string | null
-  giftVouchers: string | null
   hasOtherBranches: string | null
-  vouchersPerPerson: string | null
-  commission: string | null
 
   // Descripción: Descripción y Canales de Venta
   redemptionMethods: string[] | null
@@ -169,10 +166,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
     hasExclusivity: getFormDataString(formData, 'hasExclusivity'),
     blackoutDates: getFormDataString(formData, 'blackoutDates'),
     exclusivityCondition: getFormDataString(formData, 'exclusivityCondition'),
-    giftVouchers: getFormDataString(formData, 'giftVouchers'),
     hasOtherBranches: getFormDataString(formData, 'hasOtherBranches'),
-    vouchersPerPerson: getFormDataString(formData, 'vouchersPerPerson'),
-    commission: getFormDataString(formData, 'commission'),
 
     // Descripción: Descripción y Canales de Venta
     redemptionMethods: parseFormDataJsonField(formData, 'redemptionMethods') as string[] | null,

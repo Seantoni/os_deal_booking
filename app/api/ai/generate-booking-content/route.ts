@@ -38,8 +38,6 @@ interface BookingContentInput {
   includesTaxes?: string
   validOnHolidays?: string
   blackoutDates?: string
-  vouchersPerPerson?: string
-  giftVouchers?: string
   hasOtherBranches?: string
   cancellationPolicy?: string
   
@@ -231,13 +229,6 @@ function formatBusinessInfo(input: BookingContentInput): string {
   if (input.blackoutDates) {
     lines.push(`  - ⚠️ FECHAS BLACKOUT (NO VÁLIDO): ${input.blackoutDates}`)
   }
-  if (input.vouchersPerPerson) {
-    lines.push(`  - Límite de vouchers por persona: ${input.vouchersPerPerson}`)
-  }
-  if (input.giftVouchers) {
-    const canGift = input.giftVouchers.toLowerCase() === 'sí' || input.giftVouchers.toLowerCase() === 'si' || input.giftVouchers.toLowerCase() === 'yes'
-    lines.push(`  - Vouchers para regalar: ${input.giftVouchers} ${canGift ? '(SÍ se puede regalar)' : '(NO se puede regalar)'}`)
-  }
   if (input.hasOtherBranches) {
     const hasOthers = input.hasOtherBranches.toLowerCase() === 'sí' || input.hasOtherBranches.toLowerCase() === 'si' || input.hasOtherBranches.toLowerCase() === 'yes'
     lines.push(`  - Otras sucursales: ${input.hasOtherBranches} ${hasOthers ? '(HAY otras sucursales donde NO es válido - RESTRICCIÓN)' : '(No hay otras sucursales)'}`)
@@ -269,7 +260,7 @@ function formatBusinessInfo(input: BookingContentInput): string {
     'businessName', 'partnerEmail', 'parentCategory', 'subCategory1', 'subCategory2',
     'startDate', 'endDate', 'addressAndHours', 'socialMedia', 'contactDetails',
     'pricingOptions', 'redemptionMode', 'includesTaxes', 'validOnHolidays', 'blackoutDates',
-    'vouchersPerPerson', 'giftVouchers', 'hasOtherBranches', 'cancellationPolicy',
+    'hasOtherBranches', 'cancellationPolicy',
     'redemptionContactName', 'redemptionContactEmail', 'redemptionContactPhone', 'redemptionMethods',
     // Output fields (should not be included as input)
     'whatWeLike', 'aboutCompany', 'aboutOffer', 'goodToKnow',
@@ -278,7 +269,7 @@ function formatBusinessInfo(input: BookingContentInput): string {
     'isRecurring', 'recurringOfferLink', 'paymentType', 'paymentInstructions',
     'legalName', 'rucDv', 'bankAccountName', 'bank', 'accountNumber', 'accountType',
     'province', 'district', 'corregimiento', 'hasExclusivity', 'exclusivityCondition',
-    'commission', 'marketValidation', 'additionalComments', 'dealImages',
+    'marketValidation', 'additionalComments', 'dealImages',
     'approverName', 'approverEmail', 'approverBusinessName', 'additionalInfo',
   ])
   

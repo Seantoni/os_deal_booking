@@ -98,10 +98,7 @@ export const REQUEST_FORM_STEPS: RequestFormStep[] = [
       { key: 'hasExclusivity', label: 'Tiene Exclusividad', type: 'select' },
       { key: 'blackoutDates', label: 'Fechas Blackout', type: 'text' },
       { key: 'exclusivityCondition', label: 'Condición de Exclusividad', type: 'textarea' },
-      { key: 'giftVouchers', label: 'Vouchers para Regalar', type: 'select' },
       { key: 'hasOtherBranches', label: 'Tiene Otras Sucursales', type: 'select' },
-      { key: 'vouchersPerPerson', label: 'Vouchers por Persona', type: 'number' },
-      { key: 'commission', label: 'Comisión', type: 'text' },
     ],
   },
   {

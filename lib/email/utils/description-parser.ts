@@ -10,7 +10,7 @@ export interface ParsedDescription {
   paymentType?: string
   redemptionContact?: { name?: string; email?: string; phone?: string }
   fiscalData?: { legalName?: string; rucDv?: string; bank?: string; accountNumber?: string }
-  businessRules?: { includesTaxes?: string; validOnHolidays?: string; commission?: string }
+  businessRules?: { includesTaxes?: string; validOnHolidays?: string }
   businessReview?: string
   pricingOptions?: Array<{ title: string; description?: string; price?: string; realValue?: string; quantity?: string }>
   cancellationPolicy?: string
@@ -96,8 +96,6 @@ export function parseEnhancedDescription(description: string | undefined): Parse
           sections.businessRules!.includesTaxes = line.split(':')[1]?.trim()
         } else if (line.includes('Válido en Feriados:')) {
           sections.businessRules!.validOnHolidays = line.split(':')[1]?.trim()
-        } else if (line.includes('Comisión:')) {
-          sections.businessRules!.commission = line.split(':')[1]?.trim()
         }
       } else if (currentSection === 'businessReview') {
         currentContent.push(line)

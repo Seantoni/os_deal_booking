@@ -258,10 +258,7 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
   fd.append('hasExclusivity', formData.hasExclusivity || '')
   fd.append('blackoutDates', formData.blackoutDates || '')
   fd.append('exclusivityCondition', formData.exclusivityCondition || '')
-  fd.append('giftVouchers', formData.giftVouchers || '')
   fd.append('hasOtherBranches', formData.hasOtherBranches || '')
-  fd.append('vouchersPerPerson', formData.vouchersPerPerson || '')
-  fd.append('commission', formData.commission || '')
   
   // Descripción: Descripción y Canales de Venta
   fd.append('redemptionMethods', JSON.stringify(formData.redemptionMethods || []))

@@ -123,10 +123,7 @@ const BASE_SECTIONS: SectionDefinition[] = [
       { key: 'hasExclusivity', label: 'Tiene Exclusividad' },
       { key: 'exclusivityCondition', label: 'Condición de Exclusividad' },
       { key: 'blackoutDates', label: 'Fechas Blackout' },
-      { key: 'giftVouchers', label: 'Vouchers para Regalar' },
       { key: 'hasOtherBranches', label: 'Tiene Otras Sucursales' },
-      { key: 'vouchersPerPerson', label: 'Vouchers por Persona' },
-      { key: 'commission', label: 'Comisión' },
     ],
   },
   {
@@ -614,10 +611,7 @@ export default function BookingRequestViewModal({
           hasExclusivity: requestData.hasExclusivity ? String(requestData.hasExclusivity) : undefined,
           blackoutDates: requestData.blackoutDates ? String(requestData.blackoutDates) : undefined,
           exclusivityCondition: requestData.exclusivityCondition ? String(requestData.exclusivityCondition) : undefined,
-          giftVouchers: requestData.giftVouchers ? String(requestData.giftVouchers) : undefined,
           hasOtherBranches: requestData.hasOtherBranches ? String(requestData.hasOtherBranches) : undefined,
-          vouchersPerPerson: requestData.vouchersPerPerson ? String(requestData.vouchersPerPerson) : undefined,
-          commission: requestData.commission ? String(requestData.commission) : undefined,
 
           redemptionMethods: Array.isArray(requestData.redemptionMethods) ? requestData.redemptionMethods : undefined,
           contactDetails: requestData.contactDetails ? String(requestData.contactDetails) : undefined,

@@ -130,7 +130,6 @@ interface BookingRequestData {
   businessReview?: string | null
   addressAndHours?: string | null
   paymentInstructions?: string | null
-  giftVouchers?: string | null
   dealImages?: Prisma.JsonValue
   socialMedia?: string | null
   contactDetails?: string | null
@@ -399,7 +398,6 @@ export async function sendDealToExternalApi(
     businessReview: bookingRequest.businessReview || '',
     addressAndHours: bookingRequest.addressAndHours || '',
     paymentInstructions: bookingRequest.paymentInstructions || '',
-    giftVouchers: bookingRequest.giftVouchers || 'Sí',
     dealImages: dealImages,
     socialMedia: bookingRequest.socialMedia || '',
     contactDetails: bookingRequest.contactDetails || '',
