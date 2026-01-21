@@ -240,6 +240,7 @@ export default function TaskModal({
       icon={isMeeting ? <GroupsIcon fontSize="small" /> : undefined}
       iconColor={isMeeting ? 'blue' : 'orange'}
       maxWidth={isMeeting ? '2xl' : 'md'}
+      autoHeight={true}
       footer={
         <ModalFooter
           onCancel={onClose}

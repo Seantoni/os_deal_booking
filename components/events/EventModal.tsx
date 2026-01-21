@@ -25,8 +25,8 @@ import EventIcon from '@mui/icons-material/Event'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import toast from 'react-hot-toast'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
-import { useModalEscape } from '@/hooks/useModalEscape'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import ModalShell from '@/components/shared/ModalShell'
 import { Button, Input, Textarea, Alert } from '@/components/ui'
 
 // ============================================================================
@@ -124,9 +124,6 @@ interface EventModalProps {
 }
 
 export default function EventModal({ isOpen, onClose, selectedDate, selectedEndDate, eventToEdit, bookingRequestId, allEvents = [], userRole = 'sales', readOnly = false, onSuccess }: EventModalProps) {
-  // Close modal on Escape key
-  useModalEscape(isOpen, onClose)
-  
   const confirmDialog = useConfirmDialog()
 
   // React 19: useTransition for non-blocking UI during form actions
@@ -662,42 +659,18 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
 
   return (
     <>
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-gray-900/20 z-40 transition-opacity"
-        onClick={onClose}
-      />
-
-      {/* Modal Container */}
-      <div className={`fixed inset-0 z-50 flex items-center justify-center md:p-3 pointer-events-none transition-all duration-300 ${
-        showBookingRequestModal ? 'md:justify-start' : ''
-      }`}>
-        {/* Modal Panel - Mobile: full screen, Desktop: centered */}
-        <div 
-          className="w-full max-w-2xl bg-white shadow-2xl md:rounded-xl flex flex-col h-full md:h-[85vh] pointer-events-auto transform transition-all duration-300 overflow-hidden"
-          style={showBookingRequestModal ? { 
-            marginLeft: 'calc(25% - 320px)', // Center in left half (50% / 2 - half modal width)
-            maxWidth: '640px' 
-          } : undefined}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 flex-shrink-0">
-            <h2 className="text-sm font-bold text-gray-900">
-              {readOnly ? 'Ver Evento' : (eventToEdit ? 'Editar Evento' : 'Crear Evento')}
-            </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-500 transition-colors p-1"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Form - Scrollable content */}
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto divide-y divide-gray-100">
+      <ModalShell
+        isOpen={isOpen}
+        onClose={onClose}
+        title={readOnly ? 'Ver Evento' : (eventToEdit ? 'Editar Evento' : 'Crear Evento')}
+        icon={<EventIcon fontSize="small" />}
+        iconColor="blue"
+        maxWidth="2xl"
+        autoHeight={true}
+        backdropClassName={showBookingRequestModal ? 'md:justify-start' : ''}
+      >
+        {/* Form - Scrollable content */}
+        <form onSubmit={handleSubmit} className="divide-y divide-gray-100">
             {/* Linked Booking Request - Top Banner */}
             {linkedBookingRequest && (
               <button
@@ -908,9 +881,8 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                 )}
               </div>
             </div>
-          </form>
-        </div>
-      </div>
+        </form>
+      </ModalShell>
 
       {/* Confirm Dialog */}
       <ConfirmDialog
