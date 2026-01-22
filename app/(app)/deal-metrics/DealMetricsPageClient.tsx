@@ -124,7 +124,7 @@ export default function DealMetricsPageClient({
       const response = await fetch('/api/deal-metrics/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sinceDays: 30, fetchAll: true }),
+        body: JSON.stringify({ sinceDays: 360, fetchAll: true }),
       })
       const result = await response.json()
       if (result.success) {

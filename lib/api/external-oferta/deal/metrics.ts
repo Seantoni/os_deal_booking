@@ -140,17 +140,21 @@ export async function fetchDealMetrics(
 
 /**
  * Fetch all deal metrics with pagination
- * Automatically fetches all pages
+ * Automatically fetches all pages using limit/offset
+ * Default limit is 1000 (max allowed by API)
  */
 export async function fetchAllDealMetrics(
   options: Omit<FetchMetricsOptions, 'offset'>
-): Promise<FetchMetricsResult & { totalFetched?: number }> {
+): Promise<FetchMetricsResult & { totalFetched?: number; pagesLoaded?: number }> {
   const allDeals: DealMetricsResponse['deals'] = []
   let offset = 0
-  const limit = options.limit || 100
+  const limit = options.limit || 1000 // Use max limit for efficiency
   let totalInApi = 0
+  let pagesLoaded = 0
 
-  while (true) {
+  const maxPages = 50 // Safety limit to prevent infinite loops
+  
+  while (pagesLoaded < maxPages) {
     const result = await fetchDealMetrics({
       ...options,
       limit,
@@ -161,6 +165,7 @@ export async function fetchAllDealMetrics(
       return result
     }
 
+    pagesLoaded++
     allDeals.push(...result.data.deals)
     totalInApi = result.data.total
 
@@ -170,6 +175,9 @@ export async function fetchAllDealMetrics(
     }
 
     offset += limit
+    
+    // Rate limiting: wait 2 seconds before next request
+    await new Promise(resolve => setTimeout(resolve, 2000))
   }
 
   return {
@@ -184,5 +192,6 @@ export async function fetchAllDealMetrics(
       deals: allDeals,
     },
     totalFetched: allDeals.length,
+    pagesLoaded,
   }
 }

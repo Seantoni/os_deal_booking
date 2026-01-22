@@ -120,12 +120,15 @@ async function upsertDealMetric(deal: DealMetric): Promise<{
   snapshotCreated: boolean
   skipped: boolean
 }> {
-  // Validate deal_id (it's a string like "D44381")
-  const externalDealId = deal.deal_id
+  // Validate and convert deal_id (API returns number, we store as string)
+  const rawDealId = deal.deal_id
   
-  if (!externalDealId || typeof externalDealId !== 'string') {
+  if (!rawDealId && rawDealId !== 0) {
     return { created: false, updated: false, snapshotCreated: false, skipped: true }
   }
+  
+  // Convert to string (API may return number or string)
+  const externalDealId = String(rawDealId)
   
   try {
     // Check if record exists
