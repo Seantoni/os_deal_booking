@@ -25,7 +25,7 @@ interface Summary {
 export default function ApiSyncClient() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<SyncResult | null>(null)
-  const [sinceDays, setSinceDays] = useState(360)
+  const [sinceDays, setSinceDays] = useState(30)
   const [fetchAll, setFetchAll] = useState(true)
   const [summary, setSummary] = useState<Summary | null>(null)
 
