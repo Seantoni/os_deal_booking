@@ -314,25 +314,26 @@ export interface DealMetricsSummary {
 
 /**
  * Get deal metrics paginated (for main metrics page)
+ * Matches usePaginatedSearch expected signature
  */
-export async function getDealMetricsPaginated(options: {
-  page?: number
-  pageSize?: number
-  sortBy?: string
-  sortDirection?: 'asc' | 'desc'
-  statusFilter?: 'all' | 'active' | 'ended'
-  vendorId?: string
-  search?: string
-} = {}): Promise<{ data: FormattedDealMetric[]; total: number; summary: DealMetricsSummary }> {
+export async function getDealMetricsPaginated(
+  options: {
+    page?: number
+    pageSize?: number
+    sortBy?: string
+    sortDirection?: 'asc' | 'desc'
+  } & Record<string, string | number | boolean | undefined> = {}
+): Promise<{ success: boolean; data?: FormattedDealMetric[]; total?: number; summary?: DealMetricsSummary; error?: string }> {
+  try {
   const {
     page = 0,
     pageSize = 50,
     sortBy = 'netRevenue',
     sortDirection = 'desc',
-    statusFilter = 'all',
-    vendorId,
-    search,
   } = options
+  const statusFilter = (options.statusFilter as 'all' | 'active' | 'ended') || 'all'
+  const vendorId = options.vendorId as string | undefined
+  const search = options.search as string | undefined
 
   // Build where clause
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -468,117 +469,132 @@ export async function getDealMetricsPaginated(options: {
     activeDeals: activeDealsCount,
   }
 
-  return { data: formattedDeals, total, summary }
+  return { success: true, data: formattedDeals, total, summary }
+  } catch (error) {
+    console.error('getDealMetricsPaginated error:', error)
+    return { success: false, error: 'Error fetching deal metrics' }
+  }
 }
 
 /**
- * Get deal metrics counts for filter tabs
+ * Get deal metrics counts for filter tabs (matches usePaginatedSearch expected signature)
  */
-export async function getDealMetricsCounts(options: {
-  vendorId?: string
-  search?: string
-} = {}): Promise<Record<string, number>> {
-  const { vendorId, search } = options
+export async function getDealMetricsCounts(
+  filters?: Record<string, string | number | boolean | undefined>
+): Promise<{ success: boolean; data?: Record<string, number>; error?: string }> {
+  try {
+    const vendorId = filters?.vendorId as string | undefined
+    const search = filters?.search as string | undefined
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const baseWhere: any = {}
-  if (vendorId) {
-    baseWhere.externalVendorId = vendorId
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const baseWhere: any = {}
+    if (vendorId) {
+      baseWhere.externalVendorId = vendorId
+    }
+    if (search) {
+      baseWhere.OR = [
+        { externalDealId: { contains: search, mode: 'insensitive' } },
+        { externalVendorId: { contains: search, mode: 'insensitive' } },
+        { dealUrl: { contains: search, mode: 'insensitive' } },
+      ]
+    }
+
+    const [all, active, ended] = await Promise.all([
+      prisma.dealMetrics.count({ where: baseWhere }),
+      prisma.dealMetrics.count({
+        where: { ...baseWhere, endAt: { gt: new Date() } },
+      }),
+      prisma.dealMetrics.count({
+        where: {
+          ...baseWhere,
+          OR: [{ endAt: { lte: new Date() } }, { endAt: null }],
+        },
+      }),
+    ])
+
+    return { success: true, data: { all, active, ended } }
+  } catch (error) {
+    console.error('getDealMetricsCounts error:', error)
+    return { success: false, error: 'Error fetching counts' }
   }
-  if (search) {
-    baseWhere.OR = [
-      { externalDealId: { contains: search, mode: 'insensitive' } },
-      { externalVendorId: { contains: search, mode: 'insensitive' } },
-      { dealUrl: { contains: search, mode: 'insensitive' } },
-    ]
-  }
-
-  const [all, active, ended] = await Promise.all([
-    prisma.dealMetrics.count({ where: baseWhere }),
-    prisma.dealMetrics.count({
-      where: { ...baseWhere, endAt: { gt: new Date() } },
-    }),
-    prisma.dealMetrics.count({
-      where: {
-        ...baseWhere,
-        OR: [{ endAt: { lte: new Date() } }, { endAt: null }],
-      },
-    }),
-  ])
-
-  return { all, active, ended }
 }
 
 /**
- * Search deal metrics
+ * Search deal metrics (matches usePaginatedSearch expected signature)
  */
 export async function searchDealMetrics(
   query: string,
-  options: {
-    statusFilter?: 'all' | 'active' | 'ended'
-    vendorId?: string
-  } = {}
-): Promise<FormattedDealMetric[]> {
-  const { statusFilter = 'all', vendorId } = options
+  options?: { limit?: number } & Record<string, string | number | boolean | undefined>
+): Promise<{ success: boolean; data?: FormattedDealMetric[]; error?: string }> {
+  try {
+    const statusFilter = (options?.statusFilter as 'all' | 'active' | 'ended') || 'all'
+    const vendorId = options?.vendorId as string | undefined
+    const limit = options?.limit ?? 100
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const whereClause: any = {
-    OR: [
-      { externalDealId: { contains: query, mode: 'insensitive' } },
-      { externalVendorId: { contains: query, mode: 'insensitive' } },
-      { dealUrl: { contains: query, mode: 'insensitive' } },
-    ],
-  }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const whereClause: any = {
+      OR: [
+        { externalDealId: { contains: query, mode: 'insensitive' } },
+        { externalVendorId: { contains: query, mode: 'insensitive' } },
+        { dealUrl: { contains: query, mode: 'insensitive' } },
+      ],
+    }
 
-  if (vendorId) {
-    whereClause.externalVendorId = vendorId
-  }
+    if (vendorId) {
+      whereClause.externalVendorId = vendorId
+    }
 
-  if (statusFilter === 'active') {
-    whereClause.endAt = { gt: new Date() }
-  } else if (statusFilter === 'ended') {
-    whereClause.AND = [
-      { OR: whereClause.OR },
-      { OR: [{ endAt: { lte: new Date() } }, { endAt: null }] },
-    ]
-    delete whereClause.OR
-  }
+    if (statusFilter === 'active') {
+      whereClause.endAt = { gt: new Date() }
+    } else if (statusFilter === 'ended') {
+      whereClause.AND = [
+        { OR: whereClause.OR },
+        { OR: [{ endAt: { lte: new Date() } }, { endAt: null }] },
+      ]
+      delete whereClause.OR
+    }
 
-  const deals = await prisma.dealMetrics.findMany({
-    where: whereClause,
-    orderBy: { netRevenue: 'desc' },
-    take: 100,
-    include: {
-      _count: {
-        select: { snapshots: true },
+    const deals = await prisma.dealMetrics.findMany({
+      where: whereClause,
+      orderBy: { netRevenue: 'desc' },
+      take: limit,
+      include: {
+        _count: {
+          select: { snapshots: true },
+        },
       },
-    },
-  })
+    })
 
-  // Get unique vendor IDs and look up business names
-  const vendorIds = [...new Set(deals.map(d => d.externalVendorId).filter(Boolean))] as string[]
-  const businesses = vendorIds.length > 0
-    ? await prisma.business.findMany({
-        where: { osAdminVendorId: { in: vendorIds } },
-        select: { osAdminVendorId: true, name: true },
-      })
-    : []
-  const vendorToBusinessName = new Map(businesses.map(b => [b.osAdminVendorId, b.name]))
+    // Get unique vendor IDs and look up business names
+    const vendorIds = [...new Set(deals.map(d => d.externalVendorId).filter(Boolean))] as string[]
+    const businesses = vendorIds.length > 0
+      ? await prisma.business.findMany({
+          where: { osAdminVendorId: { in: vendorIds } },
+          select: { osAdminVendorId: true, name: true },
+        })
+      : []
+    const vendorToBusinessName = new Map(businesses.map(b => [b.osAdminVendorId, b.name]))
 
-  return deals.map(deal => ({
-    id: deal.id,
-    externalDealId: deal.externalDealId,
-    externalVendorId: deal.externalVendorId,
-    businessName: deal.externalVendorId ? vendorToBusinessName.get(deal.externalVendorId) || null : null,
-    quantitySold: deal.quantitySold,
-    netRevenue: Number(deal.netRevenue),
-    margin: Number(deal.margin),
-    dealUrl: deal.dealUrl,
-    runAt: deal.runAt,
-    endAt: deal.endAt,
-    lastSyncedAt: deal.lastSyncedAt,
-    snapshotCount: deal._count.snapshots,
-  }))
+    const data = deals.map(deal => ({
+      id: deal.id,
+      externalDealId: deal.externalDealId,
+      externalVendorId: deal.externalVendorId,
+      businessName: deal.externalVendorId ? vendorToBusinessName.get(deal.externalVendorId) || null : null,
+      quantitySold: deal.quantitySold,
+      netRevenue: Number(deal.netRevenue),
+      margin: Number(deal.margin),
+      dealUrl: deal.dealUrl,
+      runAt: deal.runAt,
+      endAt: deal.endAt,
+      lastSyncedAt: deal.lastSyncedAt,
+      snapshotCount: deal._count.snapshots,
+    }))
+
+    return { success: true, data }
+  } catch (error) {
+    console.error('searchDealMetrics error:', error)
+    return { success: false, error: 'Error searching deal metrics' }
+  }
 }
 
 /**

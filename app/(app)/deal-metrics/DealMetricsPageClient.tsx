@@ -72,7 +72,7 @@ export default function DealMetricsPageClient({
       statusFilter: options.statusFilter as 'all' | 'active' | 'ended',
       vendorId: options.vendorId,
     })
-    return { data: result.data, total: result.total }
+    return { success: true as const, data: result.data, total: result.total }
   }, [])
 
   const {

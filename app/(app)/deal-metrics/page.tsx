@@ -7,7 +7,7 @@ export default async function DealMetricsPage() {
   await requirePageAccess('/deal-metrics')
 
   // Fetch initial data server-side
-  const [{ data: initialMetrics, total: initialTotal }, initialCounts, vendors] = await Promise.all([
+  const [paginatedResult, countsResult, vendors] = await Promise.all([
     getDealMetricsPaginated({ page: 0, pageSize: 50 }),
     getDealMetricsCounts(),
     getUniqueVendorIds(),
@@ -16,9 +16,9 @@ export default async function DealMetricsPage() {
   return (
     <AppLayout title="Métricas de Ofertas">
       <DealMetricsPageClient
-        initialMetrics={initialMetrics}
-        initialTotal={initialTotal}
-        initialCounts={initialCounts}
+        initialMetrics={paginatedResult.data ?? []}
+        initialTotal={paginatedResult.total ?? 0}
+        initialCounts={countsResult.data ?? { all: 0, active: 0, ended: 0 }}
         vendors={vendors}
       />
     </AppLayout>
