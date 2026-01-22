@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { deleteBusiness } from '@/app/actions/crm'
 import { getBusinessesPaginated, searchBusinesses, getBusinessCounts, getBusinessTableCounts } from '@/app/actions/businesses'
+import { getBusinessDealMetricsByVendorIds, type BusinessDealMetricsSummary } from '@/app/actions/deal-metrics'
 import type { Business } from '@/types'
 import AddIcon from '@mui/icons-material/Add'
 import FilterListIcon from '@mui/icons-material/FilterList'
@@ -68,10 +69,12 @@ const COLUMNS: ColumnConfig[] = [
   { key: 'email', label: 'Correo' },
   { key: 'phone', label: 'Teléfono' },
   { key: 'category', label: 'Categoría', sortable: true },
-  { key: 'netRev360', label: 'Ing. Neto (360d)', sortable: true, align: 'right' },
-  { key: 'reps', label: 'Reps' },
-  { key: 'openOpps', label: 'Opps Abiertas', sortable: true, align: 'center', width: 'w-20' },
-  { key: 'pendingReqs', label: 'Solic. Pendientes', sortable: true, align: 'center', width: 'w-24' },
+  { key: 'topSold', label: 'Top Vendido', sortable: true, align: 'right' },
+  { key: 'topRevenue', label: 'Top Ingresos', sortable: true, align: 'right' },
+  { key: 'lastLaunch', label: 'Último Lanz.', sortable: true, align: 'center' },
+  { key: 'deals360d', label: 'Deals (360d)', sortable: true, align: 'center' },
+  { key: 'openOpps', label: 'Opps', sortable: true, align: 'center', width: 'w-16' },
+  { key: 'pendingReqs', label: 'Solic.', sortable: true, align: 'center', width: 'w-16' },
   { key: 'actions', label: '', width: 'w-20' },
 ]
 
@@ -138,6 +141,10 @@ export default function BusinessesPageClient({
     pendingRequestCounts: Record<string, number>
   } | null>(null)
   const [tableCountsLoading, setTableCountsLoading] = useState(true)
+  
+  // Deal metrics for businesses (loaded lazily based on vendor IDs)
+  const [dealMetrics, setDealMetrics] = useState<Map<string, BusinessDealMetricsSummary>>(new Map())
+  const [dealMetricsLoading, setDealMetricsLoading] = useState(true)
   
   // Opportunity filter is now managed by the hook
   const opportunityFilter = (filters.opportunityFilter as 'all' | 'with-open' | 'without-open') || 'all'
@@ -231,6 +238,34 @@ export default function BusinessesPageClient({
     loadTableCounts()
   }, [])
 
+  // Load deal metrics when businesses change
+  useEffect(() => {
+    async function loadDealMetrics() {
+      const allBusinesses = searchResults || businesses
+      const vendorIds = allBusinesses
+        .map(b => b.osAdminVendorId)
+        .filter((id): id is string => !!id)
+      
+      if (vendorIds.length === 0) {
+        setDealMetrics(new Map())
+        setDealMetricsLoading(false)
+        return
+      }
+
+      try {
+        const metrics = await getBusinessDealMetricsByVendorIds(vendorIds)
+        setDealMetrics(metrics)
+      } catch (error) {
+        logger.error('Failed to load deal metrics:', error)
+      } finally {
+        setDealMetricsLoading(false)
+      }
+    }
+    
+    setDealMetricsLoading(true)
+    loadDealMetrics()
+  }, [businesses, searchResults])
+
   // Map of business IDs to count of open opportunities (from lazy-loaded counts)
   const businessOpenOpportunityCount = useMemo(() => {
     const map = new Map<string, number>()
@@ -301,6 +336,7 @@ export default function BusinessesPageClient({
 
   // Get sort value for a business
   const getSortValue = useCallback((business: Business, column: string): string | number | null => {
+    const metrics = business.osAdminVendorId ? dealMetrics.get(business.osAdminVendorId) : null
     switch (column) {
       case 'name':
         return business.name.toLowerCase()
@@ -312,9 +348,14 @@ export default function BusinessesPageClient({
         return business.contactPhone.toLowerCase()
       case 'category':
         return (business.category?.parentCategory || '').toLowerCase()
-      case 'netRev360':
-        if (business.sourceType !== 'api') return null
-        return business.metrics?.net_rev_360_days ?? null
+      case 'topSold':
+        return metrics?.topSoldQuantity ?? 0
+      case 'topRevenue':
+        return metrics?.topRevenueAmount ?? 0
+      case 'lastLaunch':
+        return metrics?.lastLaunchDate ? new Date(metrics.lastLaunchDate).getTime() : 0
+      case 'deals360d':
+        return metrics?.totalDeals360d ?? 0
       case 'openOpps':
         return businessOpenOpportunityCount.get(business.id) || 0
       case 'pendingReqs':
@@ -322,7 +363,7 @@ export default function BusinessesPageClient({
       default:
         return null
     }
-  }, [businessOpenOpportunityCount, businessPendingRequestCount])
+  }, [businessOpenOpportunityCount, businessPendingRequestCount, dealMetrics])
 
   // Filter and sort businesses (client-side for filters when searching)
   const filteredBusinesses = useMemo(() => {
@@ -622,26 +663,81 @@ export default function BusinessesPageClient({
                       <span className="text-gray-400 text-xs">-</span>
                     )}
                   </TableCell>
-                  <TableCell align="right">
-                    {business.sourceType === 'api' && business.metrics?.net_rev_360_days !== undefined ? (
-                      <span className="text-xs font-semibold text-gray-900">
-                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(
-                          business.metrics?.net_rev_360_days ?? 0
-                        )}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400 text-xs">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {business.salesReps && business.salesReps.length > 0 ? (
-                      <span className="text-xs text-gray-600">
-                        {business.salesReps.map(rep => rep.salesRep?.name?.split(' ')[0] || '?').join(', ')}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400 text-xs">-</span>
-                    )}
-                  </TableCell>
+                  {/* Deal Metrics Columns */}
+                  {(() => {
+                    const metrics = business.osAdminVendorId ? dealMetrics.get(business.osAdminVendorId) : null
+                    return (
+                      <>
+                        {/* Top Vendido */}
+                        <TableCell align="right">
+                          {metrics?.topSoldQuantity ? (
+                            metrics.topSoldDealUrl ? (
+                              <a
+                                href={metrics.topSoldDealUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
+                              >
+                                {metrics.topSoldQuantity.toLocaleString()}
+                              </a>
+                            ) : (
+                              <span className="text-xs font-medium text-gray-700">
+                                {metrics.topSoldQuantity.toLocaleString()}
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-gray-400 text-xs">-</span>
+                          )}
+                        </TableCell>
+                        {/* Top Ingresos */}
+                        <TableCell align="right">
+                          {metrics?.topRevenueAmount ? (
+                            metrics.topRevenueDealUrl ? (
+                              <a
+                                href={metrics.topRevenueDealUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                              >
+                                ${metrics.topRevenueAmount.toLocaleString()}
+                              </a>
+                            ) : (
+                              <span className="text-xs font-medium text-gray-700">
+                                ${metrics.topRevenueAmount.toLocaleString()}
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-gray-400 text-xs">-</span>
+                          )}
+                        </TableCell>
+                        {/* Último Lanzamiento */}
+                        <TableCell align="center">
+                          {metrics?.lastLaunchDate ? (
+                            <span 
+                              className="text-xs text-slate-600"
+                              title={new Date(metrics.lastLaunchDate).toLocaleDateString()}
+                            >
+                              {Math.floor((Date.now() - new Date(metrics.lastLaunchDate).getTime()) / (1000 * 60 * 60 * 24))}d
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-xs">-</span>
+                          )}
+                        </TableCell>
+                        {/* Deals (360d) */}
+                        <TableCell align="center">
+                          {metrics?.totalDeals360d ? (
+                            <span className="text-xs font-medium text-gray-700">
+                              {metrics.totalDeals360d}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-xs">-</span>
+                          )}
+                        </TableCell>
+                      </>
+                    )
+                  })()}
                   <TableCell align="center">
                     {(() => {
                       const count = businessOpenOpportunityCount.get(business.id) || 0

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import BusinessIcon from '@mui/icons-material/Business'
 import EmailIcon from '@mui/icons-material/Email'
@@ -91,6 +91,7 @@ interface BusinessDetailClientProps {
 
 export default function BusinessDetailClient({ business: initialBusiness }: BusinessDetailClientProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [business, setBusiness] = useState<Business>(initialBusiness)
   const [searchQuery, setSearchQuery] = useState('')
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -102,7 +103,10 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
   const [requests, setRequests] = useState<BookingRequest[]>([])
   const [loadingData, setLoadingData] = useState(true)
 
-  const [activeTab, setActiveTab] = useState<'pipeline' | 'metrics' | 'details'>('pipeline')
+  // Initialize tab from URL param or default to 'pipeline'
+  const tabParam = searchParams.get('tab')
+  const initialTab = (tabParam === 'metrics' || tabParam === 'details') ? tabParam : 'pipeline'
+  const [activeTab, setActiveTab] = useState<'pipeline' | 'metrics' | 'details'>(initialTab)
 
   const handleEditSuccess = (updatedBusiness: Business) => {
     setBusiness(updatedBusiness)

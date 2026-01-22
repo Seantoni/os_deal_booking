@@ -295,6 +295,7 @@ export interface FormattedDealMetric {
   id: string
   externalDealId: string
   externalVendorId: string | null
+  businessId: string | null
   businessName: string | null
   quantitySold: number
   netRevenue: number
@@ -437,31 +438,35 @@ export async function getDealMetricsPaginated(
     },
   })
 
-  // Get unique vendor IDs and look up business names
+  // Get unique vendor IDs and look up business info (id + name)
   const vendorIds = [...new Set(deals.map(d => d.externalVendorId).filter(Boolean))] as string[]
   const businesses = vendorIds.length > 0
     ? await prisma.business.findMany({
         where: { osAdminVendorId: { in: vendorIds } },
-        select: { osAdminVendorId: true, name: true },
+        select: { id: true, osAdminVendorId: true, name: true },
       })
     : []
-  const vendorToBusinessName = new Map(businesses.map(b => [b.osAdminVendorId, b.name]))
+  const vendorToBusinessInfo = new Map(businesses.map(b => [b.osAdminVendorId, { id: b.id, name: b.name }]))
 
   // Format deals
-  const formattedDeals: FormattedDealMetric[] = deals.map(deal => ({
-    id: deal.id,
-    externalDealId: deal.externalDealId,
-    externalVendorId: deal.externalVendorId,
-    businessName: deal.externalVendorId ? vendorToBusinessName.get(deal.externalVendorId) || null : null,
-    quantitySold: deal.quantitySold,
-    netRevenue: Number(deal.netRevenue),
-    margin: Number(deal.margin),
-    dealUrl: deal.dealUrl,
-    runAt: deal.runAt,
-    endAt: deal.endAt,
-    lastSyncedAt: deal.lastSyncedAt,
-    snapshotCount: deal._count.snapshots,
-  }))
+  const formattedDeals: FormattedDealMetric[] = deals.map(deal => {
+    const businessInfo = deal.externalVendorId ? vendorToBusinessInfo.get(deal.externalVendorId) : null
+    return {
+      id: deal.id,
+      externalDealId: deal.externalDealId,
+      externalVendorId: deal.externalVendorId,
+      businessId: businessInfo?.id || null,
+      businessName: businessInfo?.name || null,
+      quantitySold: deal.quantitySold,
+      netRevenue: Number(deal.netRevenue),
+      margin: Number(deal.margin),
+      dealUrl: deal.dealUrl,
+      runAt: deal.runAt,
+      endAt: deal.endAt,
+      lastSyncedAt: deal.lastSyncedAt,
+      snapshotCount: deal._count.snapshots,
+    }
+  })
 
   // Calculate summary from aggregates
   const summary: DealMetricsSummary = {
@@ -568,30 +573,34 @@ export async function searchDealMetrics(
       },
     })
 
-    // Get unique vendor IDs and look up business names
+    // Get unique vendor IDs and look up business info (id + name)
     const vendorIds = [...new Set(deals.map(d => d.externalVendorId).filter(Boolean))] as string[]
     const businesses = vendorIds.length > 0
       ? await prisma.business.findMany({
           where: { osAdminVendorId: { in: vendorIds } },
-          select: { osAdminVendorId: true, name: true },
+          select: { id: true, osAdminVendorId: true, name: true },
         })
       : []
-    const vendorToBusinessName = new Map(businesses.map(b => [b.osAdminVendorId, b.name]))
+    const vendorToBusinessInfo = new Map(businesses.map(b => [b.osAdminVendorId, { id: b.id, name: b.name }]))
 
-    const data = deals.map(deal => ({
-      id: deal.id,
-      externalDealId: deal.externalDealId,
-      externalVendorId: deal.externalVendorId,
-      businessName: deal.externalVendorId ? vendorToBusinessName.get(deal.externalVendorId) || null : null,
-      quantitySold: deal.quantitySold,
-      netRevenue: Number(deal.netRevenue),
-      margin: Number(deal.margin),
-      dealUrl: deal.dealUrl,
-      runAt: deal.runAt,
-      endAt: deal.endAt,
-      lastSyncedAt: deal.lastSyncedAt,
-      snapshotCount: deal._count.snapshots,
-    }))
+    const data = deals.map(deal => {
+      const businessInfo = deal.externalVendorId ? vendorToBusinessInfo.get(deal.externalVendorId) : null
+      return {
+        id: deal.id,
+        externalDealId: deal.externalDealId,
+        externalVendorId: deal.externalVendorId,
+        businessId: businessInfo?.id || null,
+        businessName: businessInfo?.name || null,
+        quantitySold: deal.quantitySold,
+        netRevenue: Number(deal.netRevenue),
+        margin: Number(deal.margin),
+        dealUrl: deal.dealUrl,
+        runAt: deal.runAt,
+        endAt: deal.endAt,
+        lastSyncedAt: deal.lastSyncedAt,
+        snapshotCount: deal._count.snapshots,
+      }
+    })
 
     return { success: true, data }
   } catch (error) {
@@ -626,4 +635,485 @@ export async function getUniqueVendorIds(): Promise<{ id: string; dealCount: num
       dealCount: v._count.id,
       businessName: vendorToBusinessName.get(v.externalVendorId!) || null,
     }))
+}
+
+// Type for consolidated business metrics
+export interface ConsolidatedBusinessMetric {
+  vendorId: string
+  businessId: string | null
+  businessName: string | null
+  ownerId: string | null
+  ownerName: string | null
+  topSoldDeal: {
+    dealId: string
+    quantity: number
+    dealUrl: string | null
+  } | null
+  topRevenueDeal: {
+    dealId: string
+    revenue: number
+    dealUrl: string | null
+  } | null
+  lastLaunchDate: Date | null
+  totalDeals360d: number
+}
+
+/**
+ * Get consolidated business metrics for the Negocios tab
+ * Groups deals by business, finds top performers, counts deals in last 360 days
+ */
+export async function getConsolidatedBusinessMetrics(options: {
+  search?: string
+  sortBy?: string
+  sortDirection?: 'asc' | 'desc'
+  ownerId?: string
+} = {}): Promise<{ success: boolean; data?: ConsolidatedBusinessMetric[]; error?: string }> {
+  try {
+    const { search, sortBy = 'totalDeals360d', sortDirection = 'desc', ownerId } = options
+
+    // Get date 360 days ago
+    const date360DaysAgo = new Date()
+    date360DaysAgo.setDate(date360DaysAgo.getDate() - 360)
+
+    // Get all deals (we'll aggregate in memory for flexibility)
+    const deals = await prisma.dealMetrics.findMany({
+      where: {
+        externalVendorId: { not: null },
+      },
+      orderBy: { runAt: 'desc' },
+    })
+
+    // Group deals by vendor
+    const vendorDealsMap = new Map<string, typeof deals>()
+    for (const deal of deals) {
+      if (!deal.externalVendorId) continue
+      const existing = vendorDealsMap.get(deal.externalVendorId) || []
+      existing.push(deal)
+      vendorDealsMap.set(deal.externalVendorId, existing)
+    }
+
+    // Get business info for all vendors
+    const vendorIds = [...vendorDealsMap.keys()]
+    const businesses = vendorIds.length > 0
+      ? await prisma.business.findMany({
+          where: { osAdminVendorId: { in: vendorIds } },
+          select: { 
+            id: true, 
+            osAdminVendorId: true, 
+            name: true,
+            ownerId: true,
+          },
+        })
+      : []
+
+    // Get owner info for all ownerIds
+    const ownerIds = [...new Set(businesses.map(b => b.ownerId).filter(Boolean))] as string[]
+    const owners = ownerIds.length > 0
+      ? await prisma.userProfile.findMany({
+          where: { clerkId: { in: ownerIds } },
+          select: { clerkId: true, name: true, email: true },
+        })
+      : []
+    const ownerMap = new Map(owners.map(o => [o.clerkId, o.name || o.email || o.clerkId]))
+
+    const vendorToBusinessInfo = new Map(businesses.map(b => [b.osAdminVendorId, { 
+      id: b.id, 
+      name: b.name,
+      ownerId: b.ownerId,
+      ownerName: b.ownerId ? ownerMap.get(b.ownerId) || null : null
+    }]))
+
+    // Build consolidated metrics for each vendor
+    let consolidatedData: ConsolidatedBusinessMetric[] = []
+
+    for (const [vendorId, vendorDeals] of vendorDealsMap) {
+      const businessInfo = vendorToBusinessInfo.get(vendorId)
+      const businessName = businessInfo?.name || null
+      const businessId = businessInfo?.id || null
+      const businessOwnerId = businessInfo?.ownerId || null
+      const businessOwnerName = businessInfo?.ownerName || null
+
+      // Apply owner filter
+      if (ownerId && businessOwnerId !== ownerId) continue
+
+      // Apply search filter
+      if (search) {
+        const searchLower = search.toLowerCase()
+        const matchesSearch = 
+          vendorId.toLowerCase().includes(searchLower) ||
+          (businessName && businessName.toLowerCase().includes(searchLower))
+        if (!matchesSearch) continue
+      }
+
+      // Find top deal by quantity sold
+      const topSoldDeal = vendorDeals.reduce((top, deal) => {
+        if (!top || deal.quantitySold > top.quantitySold) return deal
+        return top
+      }, null as typeof deals[0] | null)
+
+      // Find top deal by net revenue
+      const topRevenueDeal = vendorDeals.reduce((top, deal) => {
+        if (!top || Number(deal.netRevenue) > Number(top.netRevenue)) return deal
+        return top
+      }, null as typeof deals[0] | null)
+
+      // Find most recent launch date
+      const lastLaunchDate = vendorDeals.reduce((latest, deal) => {
+        if (!deal.runAt) return latest
+        if (!latest || deal.runAt > latest) return deal.runAt
+        return latest
+      }, null as Date | null)
+
+      // Count deals in last 360 days
+      const totalDeals360d = vendorDeals.filter(d => d.runAt && d.runAt >= date360DaysAgo).length
+
+      consolidatedData.push({
+        vendorId,
+        businessId,
+        businessName,
+        ownerId: businessOwnerId,
+        ownerName: businessOwnerName,
+        topSoldDeal: topSoldDeal ? {
+          dealId: topSoldDeal.externalDealId,
+          quantity: topSoldDeal.quantitySold,
+          dealUrl: topSoldDeal.dealUrl,
+        } : null,
+        topRevenueDeal: topRevenueDeal ? {
+          dealId: topRevenueDeal.externalDealId,
+          revenue: Number(topRevenueDeal.netRevenue),
+          dealUrl: topRevenueDeal.dealUrl,
+        } : null,
+        lastLaunchDate,
+        totalDeals360d,
+      })
+    }
+
+    // Sort the data
+    consolidatedData.sort((a, b) => {
+      let aVal: string | number | null = null
+      let bVal: string | number | null = null
+
+      switch (sortBy) {
+        case 'businessName':
+          aVal = (a.businessName || a.vendorId).toLowerCase()
+          bVal = (b.businessName || b.vendorId).toLowerCase()
+          break
+        case 'topSold':
+          aVal = a.topSoldDeal?.quantity ?? 0
+          bVal = b.topSoldDeal?.quantity ?? 0
+          break
+        case 'topRevenue':
+          aVal = a.topRevenueDeal?.revenue ?? 0
+          bVal = b.topRevenueDeal?.revenue ?? 0
+          break
+        case 'lastLaunchDate':
+          aVal = a.lastLaunchDate?.getTime() ?? 0
+          bVal = b.lastLaunchDate?.getTime() ?? 0
+          break
+        case 'totalDeals360d':
+        default:
+          aVal = a.totalDeals360d
+          bVal = b.totalDeals360d
+          break
+      }
+
+      if (aVal === null && bVal === null) return 0
+      if (aVal === null) return 1
+      if (bVal === null) return -1
+
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        return sortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal)
+      }
+
+      return sortDirection === 'asc' ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number)
+    })
+
+    return { success: true, data: consolidatedData }
+  } catch (error) {
+    console.error('getConsolidatedBusinessMetrics error:', error)
+    return { success: false, error: 'Error fetching consolidated business metrics' }
+  }
+}
+
+/**
+ * Get consolidated business metrics paginated (for usePaginatedSearch)
+ */
+export async function getConsolidatedBusinessMetricsPaginated(
+  options: {
+    page?: number
+    pageSize?: number
+    sortBy?: string
+    sortDirection?: 'asc' | 'desc'
+  } & Record<string, string | number | boolean | undefined> = {}
+): Promise<{ success: boolean; data?: ConsolidatedBusinessMetric[]; total?: number; error?: string }> {
+  try {
+    const {
+      page = 0,
+      pageSize = 50,
+      sortBy = 'totalDeals360d',
+      sortDirection = 'desc',
+    } = options
+    const ownerId = options.ownerId as string | undefined
+
+    // Get all consolidated data (sorted and filtered)
+    const result = await getConsolidatedBusinessMetrics({
+      sortBy,
+      sortDirection,
+      ownerId,
+    })
+
+    if (!result.success || !result.data) {
+      return { success: false, error: result.error }
+    }
+
+    const allData = result.data
+    const total = allData.length
+
+    // Apply pagination
+    const start = page * pageSize
+    const paginatedData = allData.slice(start, start + pageSize)
+
+    return { success: true, data: paginatedData, total }
+  } catch (error) {
+    console.error('getConsolidatedBusinessMetricsPaginated error:', error)
+    return { success: false, error: 'Error fetching paginated business metrics' }
+  }
+}
+
+/**
+ * Search consolidated business metrics (for usePaginatedSearch)
+ */
+export async function searchConsolidatedBusinessMetrics(
+  query: string,
+  options?: { limit?: number } & Record<string, string | number | boolean | undefined>
+): Promise<{ success: boolean; data?: ConsolidatedBusinessMetric[]; error?: string }> {
+  try {
+    const limit = options?.limit ?? 100
+    const ownerId = options?.ownerId as string | undefined
+
+    // Get all consolidated data with search filter
+    const result = await getConsolidatedBusinessMetrics({
+      search: query,
+      sortBy: 'totalDeals360d',
+      sortDirection: 'desc',
+      ownerId,
+    })
+
+    if (!result.success || !result.data) {
+      return { success: false, error: result.error }
+    }
+
+    // Apply limit
+    const data = result.data.slice(0, limit)
+
+    return { success: true, data }
+  } catch (error) {
+    console.error('searchConsolidatedBusinessMetrics error:', error)
+    return { success: false, error: 'Error searching business metrics' }
+  }
+}
+
+/**
+ * Get unique owners who have businesses with deal metrics
+ */
+export async function getBusinessOwnersWithMetrics(): Promise<{ id: string; name: string; businessCount: number }[]> {
+  try {
+    // Get all vendor IDs from deal metrics
+    const vendorIds = await prisma.dealMetrics.findMany({
+      where: { externalVendorId: { not: null } },
+      select: { externalVendorId: true },
+      distinct: ['externalVendorId'],
+    })
+
+    const vendorIdList = vendorIds.map(v => v.externalVendorId).filter(Boolean) as string[]
+
+    // Get businesses with these vendor IDs
+    const businesses = await prisma.business.findMany({
+      where: { 
+        osAdminVendorId: { in: vendorIdList },
+        ownerId: { not: null },
+      },
+      select: {
+        ownerId: true,
+      }
+    })
+
+    // Get unique owner IDs
+    const ownerIds = [...new Set(businesses.map(b => b.ownerId).filter(Boolean))] as string[]
+
+    // Get owner info from UserProfile
+    const owners = ownerIds.length > 0
+      ? await prisma.userProfile.findMany({
+          where: { clerkId: { in: ownerIds } },
+          select: { clerkId: true, name: true, email: true },
+        })
+      : []
+    const ownerInfoMap = new Map(owners.map(o => [o.clerkId, o.name || o.email || o.clerkId]))
+
+    // Group by owner and count
+    const ownerCountMap = new Map<string, number>()
+    for (const b of businesses) {
+      if (!b.ownerId) continue
+      ownerCountMap.set(b.ownerId, (ownerCountMap.get(b.ownerId) || 0) + 1)
+    }
+
+    // Convert to array and sort by count
+    return Array.from(ownerCountMap.entries())
+      .map(([id, count]) => ({ 
+        id, 
+        name: ownerInfoMap.get(id) || id, 
+        businessCount: count 
+      }))
+      .sort((a, b) => b.businessCount - a.businessCount)
+  } catch (error) {
+    console.error('getBusinessOwnersWithMetrics error:', error)
+    return []
+  }
+}
+
+// Type for simplified deal in expandable row
+export interface SimplifiedDeal {
+  id: string
+  externalDealId: string
+  quantitySold: number
+  netRevenue: number
+  runAt: Date | null
+  endAt: Date | null
+  dealUrl: string | null
+  isActive: boolean
+}
+
+/**
+ * Get deals by vendor ID for expandable row (limited to top N deals)
+ * Returns simplified deal data sorted by revenue
+ */
+export async function getDealsByVendorId(
+  vendorId: string,
+  limit: number = 10
+): Promise<{ success: boolean; data?: SimplifiedDeal[]; totalCount?: number; error?: string }> {
+  try {
+    if (!vendorId) {
+      return { success: false, error: 'Vendor ID is required' }
+    }
+
+    // Get total count first
+    const totalCount = await prisma.dealMetrics.count({
+      where: { externalVendorId: vendorId },
+    })
+
+    // Fetch deals sorted by net revenue (top performers first)
+    const deals = await prisma.dealMetrics.findMany({
+      where: { externalVendorId: vendorId },
+      orderBy: { netRevenue: 'desc' },
+      take: limit,
+    })
+
+    const now = new Date()
+    const data: SimplifiedDeal[] = deals.map(deal => ({
+      id: deal.id,
+      externalDealId: deal.externalDealId,
+      quantitySold: deal.quantitySold,
+      netRevenue: Number(deal.netRevenue),
+      runAt: deal.runAt,
+      endAt: deal.endAt,
+      dealUrl: deal.dealUrl,
+      isActive: deal.endAt ? deal.endAt > now : false,
+    }))
+
+    return { success: true, data, totalCount }
+  } catch (error) {
+    console.error('getDealsByVendorId error:', error)
+    return { success: false, error: 'Error fetching deals' }
+  }
+}
+
+// Type for business deal metrics summary (for table display)
+export interface BusinessDealMetricsSummary {
+  vendorId: string
+  topSoldQuantity: number | null
+  topSoldDealUrl: string | null
+  topRevenueAmount: number | null
+  topRevenueDealUrl: string | null
+  lastLaunchDate: Date | null
+  totalDeals360d: number
+}
+
+/**
+ * Get deal metrics summary for multiple vendor IDs (for business table)
+ * Returns aggregated metrics per vendor for display in the businesses table
+ */
+export async function getBusinessDealMetricsByVendorIds(
+  vendorIds: string[]
+): Promise<Map<string, BusinessDealMetricsSummary>> {
+  const result = new Map<string, BusinessDealMetricsSummary>()
+  
+  if (vendorIds.length === 0) return result
+
+  try {
+    const date360DaysAgo = new Date()
+    date360DaysAgo.setDate(date360DaysAgo.getDate() - 360)
+
+    // Fetch all deals for the given vendor IDs
+    const deals = await prisma.dealMetrics.findMany({
+      where: {
+        externalVendorId: { in: vendorIds },
+      },
+      select: {
+        externalVendorId: true,
+        quantitySold: true,
+        netRevenue: true,
+        dealUrl: true,
+        runAt: true,
+      },
+    })
+
+    // Group deals by vendor and calculate metrics
+    const vendorDealsMap = new Map<string, typeof deals>()
+    for (const deal of deals) {
+      if (!deal.externalVendorId) continue
+      const existing = vendorDealsMap.get(deal.externalVendorId) || []
+      existing.push(deal)
+      vendorDealsMap.set(deal.externalVendorId, existing)
+    }
+
+    // Calculate summary for each vendor
+    for (const [vendorId, vendorDeals] of vendorDealsMap) {
+      // Find top deal by quantity sold
+      const topSoldDeal = vendorDeals.reduce((top, deal) => {
+        if (!top || deal.quantitySold > top.quantitySold) return deal
+        return top
+      }, null as typeof deals[0] | null)
+
+      // Find top deal by net revenue
+      const topRevenueDeal = vendorDeals.reduce((top, deal) => {
+        if (!top || Number(deal.netRevenue) > Number(top.netRevenue)) return deal
+        return top
+      }, null as typeof deals[0] | null)
+
+      // Find most recent launch date
+      const lastLaunchDate = vendorDeals.reduce((latest, deal) => {
+        if (!deal.runAt) return latest
+        if (!latest || deal.runAt > latest) return deal.runAt
+        return latest
+      }, null as Date | null)
+
+      // Count deals in last 360 days
+      const totalDeals360d = vendorDeals.filter(d => d.runAt && d.runAt >= date360DaysAgo).length
+
+      result.set(vendorId, {
+        vendorId,
+        topSoldQuantity: topSoldDeal?.quantitySold ?? null,
+        topSoldDealUrl: topSoldDeal?.dealUrl ?? null,
+        topRevenueAmount: topRevenueDeal ? Number(topRevenueDeal.netRevenue) : null,
+        topRevenueDealUrl: topRevenueDeal?.dealUrl ?? null,
+        lastLaunchDate,
+        totalDeals360d,
+      })
+    }
+
+    return result
+  } catch (error) {
+    console.error('getBusinessDealMetricsByVendorIds error:', error)
+    return result
+  }
 }
