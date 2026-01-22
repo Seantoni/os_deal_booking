@@ -57,16 +57,16 @@ export default function DealMetricsPageClient({
 
   // Paginated search hook
   const fetchPaginated = useCallback(async (options: {
-    page: number
-    pageSize: number
+    page?: number
+    pageSize?: number
     sortBy?: string
     sortDirection?: 'asc' | 'desc'
     statusFilter?: string
     vendorId?: string
   }) => {
     const result = await getDealMetricsPaginated({
-      page: options.page,
-      pageSize: options.pageSize,
+      page: options.page ?? 0,
+      pageSize: options.pageSize ?? 50,
       sortBy: options.sortBy,
       sortDirection: options.sortDirection,
       statusFilter: options.statusFilter as 'all' | 'active' | 'ended',
