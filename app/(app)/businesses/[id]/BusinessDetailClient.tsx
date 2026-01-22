@@ -33,6 +33,7 @@ const BookingRequestViewModal = dynamic(() => import('@/components/booking/reque
 })
 import OpportunitiesSection from '@/components/crm/business/OpportunitiesSection'
 import RequestsSection from '@/components/crm/business/RequestsSection'
+import DealMetricsSection from '@/components/crm/business/DealMetricsSection'
 import { getOpportunitiesByBusiness } from '@/app/actions/crm'
 import { getRequestsByBusiness } from '@/app/actions/booking-requests'
 import type { Business, Opportunity, BookingRequest } from '@/types'
@@ -101,7 +102,7 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
   const [requests, setRequests] = useState<BookingRequest[]>([])
   const [loadingData, setLoadingData] = useState(true)
 
-  const [activeTab, setActiveTab] = useState<'pipeline' | 'details'>('pipeline')
+  const [activeTab, setActiveTab] = useState<'pipeline' | 'metrics' | 'details'>('pipeline')
 
   const handleEditSuccess = (updatedBusiness: Business) => {
     setBusiness(updatedBusiness)
@@ -334,6 +335,16 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
           Pipeline
         </button>
         <button
+          onClick={() => setActiveTab('metrics')}
+          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+            activeTab === 'metrics'
+              ? 'bg-white text-slate-900 shadow-sm'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          Metrics
+        </button>
+        <button
           onClick={() => setActiveTab('details')}
           className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
             activeTab === 'details'
@@ -363,6 +374,14 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
               businessName={business.name}
             />
           </div>
+        )}
+
+        {/* Metrics Tab */}
+        {activeTab === 'metrics' && (
+          <DealMetricsSection
+            vendorId={business.osAdminVendorId}
+            businessName={business.name}
+          />
         )}
 
         {/* Details Tab */}
