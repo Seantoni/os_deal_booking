@@ -19,7 +19,6 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import HistoryIcon from '@mui/icons-material/History'
 import CampaignIcon from '@mui/icons-material/Campaign'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
-import AnalyticsIcon from '@mui/icons-material/Analytics'
 
 // Sidebar item type
 type SidebarItem = {
@@ -34,7 +33,6 @@ const adminSidebarConfig = {
   // Monitor & Analyze (top - high-level overview)
   monitorItems: [
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
-    { name: 'Métricas', href: '/deal-metrics', Icon: AnalyticsIcon },
     { name: 'Inteligencia', href: '/market-intelligence', Icon: TrendingUpIcon },
   ],
   // Work (daily execution - heart of the product)

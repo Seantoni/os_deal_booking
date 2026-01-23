@@ -17,6 +17,14 @@ type BusinessWhereClause = Prisma.BusinessWhereInput & {
   reassignmentStatus?: null | string
 }
 
+// Map column names to database fields for sorting
+const SORT_COLUMN_MAP: Record<string, string> = {
+  topSold: 'topSoldQuantity',
+  topRevenue: 'topRevenueAmount',
+  lastLaunch: 'lastLaunchDate',
+  deals360d: 'totalDeals360d',
+}
+
 /**
  * Helper to resolve categoryId - handles both category IDs and parent category strings
  * When displayMode="parentOnly" is used in CategorySelect, it returns parent strings like "Restaurantes"
@@ -225,17 +233,22 @@ export async function getBusinessesPaginated(options: {
     // Get total count (with filters applied)
     const total = await prisma.business.count({ where: whereClause })
 
-    // Build orderBy - focused businesses first, then by specified sort
-    // Note: In PostgreSQL, ASC puts NULLs LAST, DESC puts NULLs FIRST
-    const orderByArray: Record<string, 'asc' | 'desc'>[] = []
+    // Build orderBy array - all sorting is now native Prisma
+    // Using Prisma's extended orderBy syntax for NULL handling
+    type OrderByItem = Record<string, 'asc' | 'desc' | { sort: 'asc' | 'desc'; nulls: 'first' | 'last' }>
+    const orderByArray: OrderByItem[] = []
     
     // Sort focused businesses first (those with focusPeriod) - asc puts non-null first (NULLs last)
     orderByArray.push({ focusPeriod: 'asc' })
     
     // Then apply user's sort
-    if (sortBy === 'name') {
+    const dbColumn = SORT_COLUMN_MAP[sortBy]
+    if (dbColumn) {
+      // Deal metrics column - always put NULLs last so actual data appears first
+      orderByArray.push({ [dbColumn]: { sort: sortDirection, nulls: 'last' } })
+    } else if (sortBy === 'name') {
       orderByArray.push({ name: sortDirection })
-    } else if (sortBy === 'contactName') {
+    } else if (sortBy === 'contact') {
       orderByArray.push({ contactName: sortDirection })
     } else {
       orderByArray.push({ createdAt: sortDirection })

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { deleteBusiness } from '@/app/actions/crm'
 import { getBusinessesPaginated, searchBusinesses, getBusinessCounts, getBusinessTableCounts } from '@/app/actions/businesses'
-import { getBusinessDealMetricsByVendorIds, type BusinessDealMetricsSummary } from '@/app/actions/deal-metrics'
+import { getDealsByVendorId, type SimplifiedDeal } from '@/app/actions/deal-metrics'
 import type { Business } from '@/types'
 import AddIcon from '@mui/icons-material/Add'
 import FilterListIcon from '@mui/icons-material/FilterList'
@@ -16,6 +16,8 @@ import DownloadIcon from '@mui/icons-material/Download'
 import UploadIcon from '@mui/icons-material/Upload'
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import type { ParsedCsvRow } from '@/lib/utils/csv-export'
 import CsvUploadModal, { type CsvUploadPreview, type CsvUploadResult } from '@/components/common/CsvUploadModal'
 import { exportBusinessesToCsv } from './csv-export'
@@ -56,14 +58,16 @@ import {
   EntityPageHeader, 
   EmptyTableState, 
   UserFilterDropdown,
+  SortableTableHeader,
   type FilterTab,
   type ColumnConfig,
 } from '@/components/shared'
 import { Button } from '@/components/ui'
-import { EntityTable, TableRow, TableCell } from '@/components/shared/table'
+import { TableRow, TableCell } from '@/components/shared/table'
 
 // Table columns configuration
 const COLUMNS: ColumnConfig[] = [
+  { key: 'expand', label: '', width: 'w-10' },
   { key: 'name', label: 'Nombre del Negocio', sortable: true },
   { key: 'contact', label: 'Contacto', sortable: true },
   { key: 'email', label: 'Correo' },
@@ -77,6 +81,13 @@ const COLUMNS: ColumnConfig[] = [
   { key: 'pendingReqs', label: 'Solic.', sortable: true, align: 'center', width: 'w-16' },
   { key: 'actions', label: '', width: 'w-20' },
 ]
+
+// Cache for fetched deals per business
+interface BusinessDealsCache {
+  deals: SimplifiedDeal[]
+  totalCount: number
+  loading: boolean
+}
 
 interface BusinessesPageClientProps {
   initialBusinesses?: Business[]
@@ -142,9 +153,9 @@ export default function BusinessesPageClient({
   } | null>(null)
   const [tableCountsLoading, setTableCountsLoading] = useState(true)
   
-  // Deal metrics for businesses (loaded lazily based on vendor IDs)
-  const [dealMetrics, setDealMetrics] = useState<Map<string, BusinessDealMetricsSummary>>(new Map())
-  const [dealMetricsLoading, setDealMetricsLoading] = useState(true)
+  // Expanded businesses state (for showing deals)
+  const [expandedBusinesses, setExpandedBusinesses] = useState<Set<string>>(new Set())
+  const [businessDealsCache, setBusinessDealsCache] = useState<Map<string, BusinessDealsCache>>(new Map())
   
   // Opportunity filter is now managed by the hook
   const opportunityFilter = (filters.opportunityFilter as 'all' | 'with-open' | 'without-open') || 'all'
@@ -238,34 +249,6 @@ export default function BusinessesPageClient({
     loadTableCounts()
   }, [])
 
-  // Load deal metrics when businesses change
-  useEffect(() => {
-    async function loadDealMetrics() {
-      const allBusinesses = searchResults || businesses
-      const vendorIds = allBusinesses
-        .map(b => b.osAdminVendorId)
-        .filter((id): id is string => !!id)
-      
-      if (vendorIds.length === 0) {
-        setDealMetrics(new Map())
-        setDealMetricsLoading(false)
-        return
-      }
-
-      try {
-        const metrics = await getBusinessDealMetricsByVendorIds(vendorIds)
-        setDealMetrics(metrics)
-      } catch (error) {
-        logger.error('Failed to load deal metrics:', error)
-      } finally {
-        setDealMetricsLoading(false)
-      }
-    }
-    
-    setDealMetricsLoading(true)
-    loadDealMetrics()
-  }, [businesses, searchResults])
-
   // Map of business IDs to count of open opportunities (from lazy-loaded counts)
   const businessOpenOpportunityCount = useMemo(() => {
     const map = new Map<string, number>()
@@ -334,9 +317,8 @@ export default function BusinessesPageClient({
     ]
   }, [displayBusinesses, businessHasOpenOpportunity, businessActiveFocus, initialTotal, isSearching, counts])
 
-  // Get sort value for a business
+  // Get sort value for a business (now uses denormalized columns directly)
   const getSortValue = useCallback((business: Business, column: string): string | number | null => {
-    const metrics = business.osAdminVendorId ? dealMetrics.get(business.osAdminVendorId) : null
     switch (column) {
       case 'name':
         return business.name.toLowerCase()
@@ -349,13 +331,13 @@ export default function BusinessesPageClient({
       case 'category':
         return (business.category?.parentCategory || '').toLowerCase()
       case 'topSold':
-        return metrics?.topSoldQuantity ?? 0
+        return business.topSoldQuantity ?? 0
       case 'topRevenue':
-        return metrics?.topRevenueAmount ?? 0
+        return business.topRevenueAmount ? Number(business.topRevenueAmount) : 0
       case 'lastLaunch':
-        return metrics?.lastLaunchDate ? new Date(metrics.lastLaunchDate).getTime() : 0
+        return business.lastLaunchDate ? new Date(business.lastLaunchDate).getTime() : 0
       case 'deals360d':
-        return metrics?.totalDeals360d ?? 0
+        return business.totalDeals360d ?? 0
       case 'openOpps':
         return businessOpenOpportunityCount.get(business.id) || 0
       case 'pendingReqs':
@@ -363,7 +345,7 @@ export default function BusinessesPageClient({
       default:
         return null
     }
-  }, [businessOpenOpportunityCount, businessPendingRequestCount, dealMetrics])
+  }, [businessOpenOpportunityCount, businessPendingRequestCount])
 
   // Filter and sort businesses (client-side for filters when searching)
   const filteredBusinesses = useMemo(() => {
@@ -507,6 +489,42 @@ export default function BusinessesPageClient({
     router.push(`/booking-requests/new?${params.toString()}`)
   }
 
+  // Toggle expand/collapse for a business to show its deals
+  const toggleExpandBusiness = useCallback(async (business: Business) => {
+    const businessId = business.id
+    const newExpanded = new Set(expandedBusinesses)
+    
+    if (newExpanded.has(businessId)) {
+      // Collapse
+      newExpanded.delete(businessId)
+      setExpandedBusinesses(newExpanded)
+    } else {
+      // Expand - fetch deals if not cached
+      newExpanded.add(businessId)
+      setExpandedBusinesses(newExpanded)
+      
+      // Check if already cached
+      if (!businessDealsCache.has(businessId) && business.osAdminVendorId) {
+        // Set loading state
+        setBusinessDealsCache(prev => new Map(prev).set(businessId, { deals: [], totalCount: 0, loading: true }))
+        
+        // Fetch deals using vendor ID
+        const result = await getDealsByVendorId(business.osAdminVendorId, 10)
+        
+        if (result.success && result.data) {
+          setBusinessDealsCache(prev => new Map(prev).set(businessId, {
+            deals: result.data!,
+            totalCount: result.totalCount ?? 0,
+            loading: false,
+          }))
+        } else {
+          setBusinessDealsCache(prev => new Map(prev).set(businessId, { deals: [], totalCount: 0, loading: false }))
+          toast.error('Error al cargar deals')
+        }
+      }
+    }
+  }, [expandedBusinesses, businessDealsCache])
+
   // User filter dropdown options (from users in shared data)
   const userFilterOptions = useMemo(() => {
     return users.map(user => ({
@@ -612,219 +630,342 @@ export default function BusinessesPageClient({
             {/* Search indicator from hook */}
             <SearchIndicator />
             
-            <EntityTable
-              columns={COLUMNS}
-              sortColumn={sortColumn}
-              sortDirection={sortDirection}
-              onSort={handleSort}
-            >
-              {filteredBusinesses.map((business, index) => {
-                const activeFocus = businessActiveFocus.get(business.id)
-                return (
-                <TableRow
-                  key={business.id}
-                  index={index}
-                  onClick={() => handleEditBusiness(business)}
-                  onMouseEnter={handleRowHover}
-                  className={activeFocus ? 'bg-amber-50/50 hover:bg-amber-50' : undefined}
-                >
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900 text-[13px]">
-                        {business.name}
-                      </span>
-                      {activeFocus && (
-                        <span 
-                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-medium"
-                          title={`Foco: ${FOCUS_PERIOD_LABELS[activeFocus]}`}
-                        >
-                          <CenterFocusStrongIcon style={{ fontSize: 12 }} />
-                          {FOCUS_PERIOD_LABELS[activeFocus].charAt(0)}
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-[13px] text-gray-600">
-                    {business.contactName || <span className="text-gray-400">-</span>}
-                  </TableCell>
-                  <TableCell className="text-[13px] text-gray-500 break-all">
-                    {business.contactEmail || <span className="text-gray-400">-</span>}
-                  </TableCell>
-                  <TableCell className="text-[13px] text-gray-500 whitespace-nowrap">
-                    {business.contactPhone || <span className="text-gray-400">-</span>}
-                  </TableCell>
-                  <TableCell>
-                    {business.category ? (
-                      <span className="text-xs text-gray-600">
-                        {business.category.parentCategory}
-                        {business.category.subCategory1 && ` › ${business.category.subCategory1}`}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400 text-xs">-</span>
-                    )}
-                  </TableCell>
-                  {/* Deal Metrics Columns */}
-                  {(() => {
-                    const metrics = business.osAdminVendorId ? dealMetrics.get(business.osAdminVendorId) : null
+            <div className="bg-white rounded-lg border border-gray-200">
+              <table className="w-full text-[13px] text-left">
+                <SortableTableHeader
+                  columns={COLUMNS}
+                  sortColumn={sortColumn}
+                  sortDirection={sortDirection}
+                  onSort={handleSort}
+                />
+                <tbody className="divide-y divide-slate-100">
+                  {filteredBusinesses.map((business, index) => {
+                    const activeFocus = businessActiveFocus.get(business.id)
+                    const isExpanded = expandedBusinesses.has(business.id)
+                    const cachedData = businessDealsCache.get(business.id)
+                    const isLoadingDeals = cachedData?.loading ?? false
+                    const deals = cachedData?.deals ?? []
+                    const totalCount = cachedData?.totalCount ?? 0
+                    const remainingDeals = totalCount - deals.length
+                    const hasDeals = (business.totalDeals360d ?? 0) > 0
+
                     return (
                       <>
-                        {/* Top Vendido */}
-                        <TableCell align="right">
-                          {metrics?.topSoldQuantity ? (
-                            metrics.topSoldDealUrl ? (
-                              <a
-                                href={metrics.topSoldDealUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
-                              >
-                                {metrics.topSoldQuantity.toLocaleString()}
-                              </a>
-                            ) : (
-                              <span className="text-xs font-medium text-gray-700">
-                                {metrics.topSoldQuantity.toLocaleString()}
-                              </span>
-                            )
-                          ) : (
-                            <span className="text-gray-400 text-xs">-</span>
-                          )}
-                        </TableCell>
-                        {/* Top Ingresos */}
-                        <TableCell align="right">
-                          {metrics?.topRevenueAmount ? (
-                            metrics.topRevenueDealUrl ? (
-                              <a
-                                href={metrics.topRevenueDealUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
-                              >
-                                ${metrics.topRevenueAmount.toLocaleString()}
-                              </a>
-                            ) : (
-                              <span className="text-xs font-medium text-gray-700">
-                                ${metrics.topRevenueAmount.toLocaleString()}
-                              </span>
-                            )
-                          ) : (
-                            <span className="text-gray-400 text-xs">-</span>
-                          )}
-                        </TableCell>
-                        {/* Último Lanzamiento */}
-                        <TableCell align="center">
-                          {metrics?.lastLaunchDate ? (
-                            <span 
-                              className="text-xs text-slate-600"
-                              title={new Date(metrics.lastLaunchDate).toLocaleDateString()}
+                        {/* Business Row */}
+                        <TableRow
+                          key={business.id}
+                          index={index}
+                          onClick={() => handleEditBusiness(business)}
+                          onMouseEnter={handleRowHover}
+                          className={activeFocus ? 'bg-amber-50/50 hover:bg-amber-50' : undefined}
+                        >
+                          {/* Expand/Collapse Button */}
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => toggleExpandBusiness(business)}
+                              className="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"
+                              disabled={!hasDeals || !business.osAdminVendorId}
                             >
-                              {Math.floor((Date.now() - new Date(metrics.lastLaunchDate).getTime()) / (1000 * 60 * 60 * 24))}d
-                            </span>
-                          ) : (
-                            <span className="text-gray-400 text-xs">-</span>
-                          )}
-                        </TableCell>
-                        {/* Deals (360d) */}
-                        <TableCell align="center">
-                          {metrics?.totalDeals360d ? (
-                            <span className="text-xs font-medium text-gray-700">
-                              {metrics.totalDeals360d}
-                            </span>
-                          ) : (
-                            <span className="text-gray-400 text-xs">-</span>
-                          )}
-                        </TableCell>
+                              {isExpanded ? (
+                                <ExpandMoreIcon style={{ fontSize: 20 }} />
+                              ) : (
+                                <ChevronRightIcon style={{ fontSize: 20 }} className={!hasDeals || !business.osAdminVendorId ? 'opacity-30' : ''} />
+                              )}
+                            </button>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-gray-900 text-[13px]">
+                                {business.name}
+                              </span>
+                              {activeFocus && (
+                                <span 
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-medium"
+                                  title={`Foco: ${FOCUS_PERIOD_LABELS[activeFocus]}`}
+                                >
+                                  <CenterFocusStrongIcon style={{ fontSize: 12 }} />
+                                  {FOCUS_PERIOD_LABELS[activeFocus].charAt(0)}
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-[13px] text-gray-600">
+                            {business.contactName || <span className="text-gray-400">-</span>}
+                          </TableCell>
+                          <TableCell className="text-[13px] text-gray-500 break-all">
+                            {business.contactEmail || <span className="text-gray-400">-</span>}
+                          </TableCell>
+                          <TableCell className="text-[13px] text-gray-500 whitespace-nowrap">
+                            {business.contactPhone || <span className="text-gray-400">-</span>}
+                          </TableCell>
+                          <TableCell>
+                            {business.category ? (
+                              <span className="text-xs text-gray-600">
+                                {business.category.parentCategory}
+                                {business.category.subCategory1 && ` › ${business.category.subCategory1}`}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-xs">-</span>
+                            )}
+                          </TableCell>
+                          {/* Deal Metrics Columns (denormalized on Business) */}
+                          {/* Top Vendido */}
+                          <TableCell align="right">
+                            {business.topSoldQuantity ? (
+                              business.topSoldDealUrl ? (
+                                <a
+                                  href={business.topSoldDealUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:underline"
+                                >
+                                  {business.topSoldQuantity.toLocaleString()}
+                                </a>
+                              ) : (
+                                <span className="text-xs font-medium text-gray-700">
+                                  {business.topSoldQuantity.toLocaleString()}
+                                </span>
+                              )
+                            ) : (
+                              <span className="text-gray-400 text-xs">-</span>
+                            )}
+                          </TableCell>
+                          {/* Top Ingresos */}
+                          <TableCell align="right">
+                            {business.topRevenueAmount ? (
+                              business.topRevenueDealUrl ? (
+                                <a
+                                  href={business.topRevenueDealUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                                >
+                                  ${Number(business.topRevenueAmount).toLocaleString()}
+                                </a>
+                              ) : (
+                                <span className="text-xs font-medium text-gray-700">
+                                  ${Number(business.topRevenueAmount).toLocaleString()}
+                                </span>
+                              )
+                            ) : (
+                              <span className="text-gray-400 text-xs">-</span>
+                            )}
+                          </TableCell>
+                          {/* Último Lanzamiento */}
+                          <TableCell align="center">
+                            {business.lastLaunchDate ? (
+                              <span 
+                                className="text-xs text-slate-600"
+                                title={new Date(business.lastLaunchDate).toLocaleDateString()}
+                              >
+                                {Math.floor((Date.now() - new Date(business.lastLaunchDate).getTime()) / (1000 * 60 * 60 * 24))}d
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-xs">-</span>
+                            )}
+                          </TableCell>
+                          {/* Deals (360d) */}
+                          <TableCell align="center">
+                            {business.totalDeals360d ? (
+                              <span className="text-xs font-medium text-gray-700">
+                                {business.totalDeals360d}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400 text-xs">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell align="center">
+                            {(() => {
+                              const count = businessOpenOpportunityCount.get(business.id) || 0
+                              return count > 0 ? (
+                                <span className="inline-flex px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">
+                                  {count}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 text-xs">-</span>
+                              )
+                            })()}
+                          </TableCell>
+                          <TableCell align="center">
+                            {(() => {
+                              const count = businessPendingRequestCount.get(business.name.toLowerCase()) || 0
+                              return count > 0 ? (
+                                <span className="inline-flex px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded text-xs font-medium">
+                                  {count}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 text-xs">-</span>
+                              )
+                            })()}
+                          </TableCell>
+                          <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => handleSetFocus(business)}
+                                className={`p-1.5 rounded transition-colors ${
+                                  activeFocus 
+                                    ? 'bg-amber-100 text-amber-600 hover:bg-amber-200' 
+                                    : 'hover:bg-amber-50 text-gray-400 hover:text-amber-600'
+                                }`}
+                                title={activeFocus ? `Foco: ${FOCUS_PERIOD_LABELS[activeFocus]}` : 'Establecer Foco'}
+                              >
+                                <CenterFocusStrongIcon style={{ fontSize: 18 }} />
+                              </button>
+                              <button
+                                onClick={() => handleCreateOpportunity(business)}
+                                className="p-1.5 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
+                                title="Create Opportunity"
+                              >
+                                <HandshakeIcon style={{ fontSize: 18 }} />
+                              </button>
+                              <button
+                                onClick={() => handleCreateRequest(business)}
+                                className="p-1.5 rounded hover:bg-green-50 text-gray-400 hover:text-green-600 transition-colors"
+                                title="Create Request"
+                              >
+                                <DescriptionIcon style={{ fontSize: 18 }} />
+                              </button>
+                              <button
+                                onClick={() => router.push(`/businesses/${business.id}`)}
+                                className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600 transition-colors"
+                                title="Open full page"
+                              >
+                                <OpenInNewIcon style={{ fontSize: 18 }} />
+                              </button>
+                              {/* Action Menu (Acción) */}
+                              <div className="relative">
+                                <button
+                                  onClick={() => setActionMenuOpen(actionMenuOpen === business.id ? null : business.id)}
+                                  className="p-1.5 rounded hover:bg-purple-50 text-gray-400 hover:text-purple-600 transition-colors"
+                                  title="Acción"
+                                >
+                                  <MoreVertIcon style={{ fontSize: 18 }} />
+                                </button>
+                                {actionMenuOpen === business.id && (
+                                  <div className="absolute right-0 top-full mt-1 z-50 w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+                                    <button
+                                      onClick={() => {
+                                        setSelectedBusinessForReassignment(business)
+                                        setReassignmentModalOpen(true)
+                                        setActionMenuOpen(null)
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
+                                    >
+                                      Reasignar / Sacar
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+
+                        {/* Expanded Deals Rows */}
+                        {isExpanded && (
+                          <>
+                            {isLoadingDeals ? (
+                              <tr className="bg-slate-50/50">
+                                <td colSpan={13} className="px-4 py-3">
+                                  <div className="flex items-center gap-2 text-sm text-gray-500 pl-8">
+                                    <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                                    Cargando deals...
+                                  </div>
+                                </td>
+                              </tr>
+                            ) : deals.length === 0 ? (
+                              <tr className="bg-slate-50/50">
+                                <td colSpan={13} className="px-4 py-3">
+                                  <div className="text-sm text-gray-500 pl-8">
+                                    No hay deals para este negocio
+                                  </div>
+                                </td>
+                              </tr>
+                            ) : (
+                              <>
+                                {/* Deals Header */}
+                                <tr className="bg-slate-50 border-t border-slate-200">
+                                  <td></td>
+                                  <td className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Deal ID</td>
+                                  <td className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 text-right" colSpan={2}>Vendidos</td>
+                                  <td className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 text-right" colSpan={2}>Ing. Neto</td>
+                                  <td className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-500" colSpan={2}>Fechas</td>
+                                  <td colSpan={5}></td>
+                                </tr>
+                                
+                                {/* Deal Rows */}
+                                {deals.map((deal, dealIndex) => (
+                                  <tr
+                                    key={deal.id}
+                                    className={`bg-slate-50/50 ${dealIndex < deals.length - 1 ? 'border-b border-slate-100' : ''}`}
+                                  >
+                                    <td className="pl-4 pr-2 py-2">
+                                      <span className="text-slate-300">├─</span>
+                                    </td>
+                                    <td className="px-4 py-2">
+                                      <span className="text-[12px] font-medium text-slate-700">{deal.externalDealId}</span>
+                                      <span className={`ml-2 px-1.5 py-0.5 text-[10px] font-medium rounded ${
+                                        deal.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'
+                                      }`}>
+                                        {deal.isActive ? 'Activo' : 'Fin'}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-2 text-right" colSpan={2}>
+                                      <span className="text-[12px] font-medium text-slate-700">{deal.quantitySold.toLocaleString()}</span>
+                                    </td>
+                                    <td className="px-4 py-2 text-right" colSpan={2}>
+                                      <span className="text-[12px] font-medium text-emerald-600">${deal.netRevenue.toLocaleString()}</span>
+                                    </td>
+                                    <td className="px-4 py-2" colSpan={2}>
+                                      <span className="text-[11px] text-slate-500">
+                                        {deal.runAt ? new Date(deal.runAt).toLocaleDateString('es', { day: 'numeric', month: 'short' }) : '-'}
+                                        {' → '}
+                                        {deal.endAt ? new Date(deal.endAt).toLocaleDateString('es', { day: 'numeric', month: 'short' }) : '-'}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-2 text-right" colSpan={5}>
+                                      {deal.dealUrl && (
+                                        <a
+                                          href={deal.dealUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="p-1 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors inline-flex"
+                                          title="Ver oferta"
+                                        >
+                                          <OpenInNewIcon style={{ fontSize: 16 }} />
+                                        </a>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+
+                                {/* "View more" link if there are remaining deals */}
+                                {remainingDeals > 0 && (
+                                  <tr className="bg-slate-50/50 border-t border-slate-100">
+                                    <td className="pl-4 pr-2 py-2">
+                                      <span className="text-slate-300">└─</span>
+                                    </td>
+                                    <td colSpan={12} className="px-4 py-2">
+                                      <button
+                                        onClick={() => router.push(`/businesses/${business.id}?tab=metrics`)}
+                                        className="text-[12px] text-blue-600 hover:text-blue-700 hover:underline"
+                                      >
+                                        Ver los {remainingDeals} deals restantes →
+                                      </button>
+                                    </td>
+                                  </tr>
+                                )}
+                              </>
+                            )}
+                          </>
+                        )}
                       </>
                     )
-                  })()}
-                  <TableCell align="center">
-                    {(() => {
-                      const count = businessOpenOpportunityCount.get(business.id) || 0
-                      return count > 0 ? (
-                        <span className="inline-flex px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">
-                          {count}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )
-                    })()}
-                  </TableCell>
-                  <TableCell align="center">
-                    {(() => {
-                      const count = businessPendingRequestCount.get(business.name.toLowerCase()) || 0
-                      return count > 0 ? (
-                        <span className="inline-flex px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded text-xs font-medium">
-                          {count}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )
-                    })()}
-                  </TableCell>
-                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => handleSetFocus(business)}
-                        className={`p-1.5 rounded transition-colors ${
-                          activeFocus 
-                            ? 'bg-amber-100 text-amber-600 hover:bg-amber-200' 
-                            : 'hover:bg-amber-50 text-gray-400 hover:text-amber-600'
-                        }`}
-                        title={activeFocus ? `Foco: ${FOCUS_PERIOD_LABELS[activeFocus]}` : 'Establecer Foco'}
-                      >
-                        <CenterFocusStrongIcon style={{ fontSize: 18 }} />
-                      </button>
-                      <button
-                        onClick={() => handleCreateOpportunity(business)}
-                        className="p-1.5 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
-                        title="Create Opportunity"
-                      >
-                        <HandshakeIcon style={{ fontSize: 18 }} />
-                      </button>
-                      <button
-                        onClick={() => handleCreateRequest(business)}
-                        className="p-1.5 rounded hover:bg-green-50 text-gray-400 hover:text-green-600 transition-colors"
-                        title="Create Request"
-                      >
-                        <DescriptionIcon style={{ fontSize: 18 }} />
-                      </button>
-                      <button
-                        onClick={() => router.push(`/businesses/${business.id}`)}
-                        className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600 transition-colors"
-                        title="Open full page"
-                      >
-                        <OpenInNewIcon style={{ fontSize: 18 }} />
-                      </button>
-                      {/* Action Menu (Acción) */}
-                      <div className="relative">
-                        <button
-                          onClick={() => setActionMenuOpen(actionMenuOpen === business.id ? null : business.id)}
-                          className="p-1.5 rounded hover:bg-purple-50 text-gray-400 hover:text-purple-600 transition-colors"
-                          title="Acción"
-                        >
-                          <MoreVertIcon style={{ fontSize: 18 }} />
-                        </button>
-                        {actionMenuOpen === business.id && (
-                          <div className="absolute right-0 top-full mt-1 z-50 w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
-                            <button
-                              onClick={() => {
-                                setSelectedBusinessForReassignment(business)
-                                setReassignmentModalOpen(true)
-                                setActionMenuOpen(null)
-                              }}
-                              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
-                            >
-                              Reasignar / Sacar
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )})}
-            </EntityTable>
+                  })}
+                </tbody>
+              </table>
+            </div>
             
             {/* Pagination controls from hook */}
             <PaginationControls />

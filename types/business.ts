@@ -52,6 +52,14 @@ export type Business = {
   // Focus state
   focusPeriod?: string | null
   focusSetAt?: Date | string | null
+  // Deal metrics aggregates (denormalized from DealMetrics)
+  topSoldQuantity?: number | null
+  topSoldDealUrl?: string | null
+  topRevenueAmount?: number | string | null // Decimal from Prisma can be string
+  topRevenueDealUrl?: string | null
+  lastLaunchDate?: Date | string | null
+  totalDeals360d?: number | null
+  metricsLastSyncedAt?: Date | string | null
   // Reassignment tracking
   reassignmentStatus?: string | null // null (normal), 'pending_reassign', 'pending_removal'
   reassignmentType?: 'reasignar' | 'sacar' | null

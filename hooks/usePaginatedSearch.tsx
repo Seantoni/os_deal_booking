@@ -303,17 +303,27 @@ export function usePaginatedSearch<T>({
     }
   }, [])
 
-  // Handle sort
+  // Handle sort - just update state, effect will trigger reload
   const handleSort = useCallback((column: string) => {
     const newDirection = sortColumn === column && sortDirection === 'asc' ? 'desc' : 'asc'
     setSortColumn(column)
     setSortDirection(newDirection)
-    
-    // For paginated mode, reload from server with new sort
+    // Don't call loadPage here - the effect below will handle it
+    // This ensures the state is updated before the fetch
+  }, [sortColumn, sortDirection])
+  
+  // Effect to reload when sort changes (skips initial render)
+  const sortMountedRef = useRef(false)
+  useEffect(() => {
+    if (!sortMountedRef.current) {
+      sortMountedRef.current = true
+      return
+    }
+    // Only reload if not searching (search results are sorted client-side)
     if (!isSearching) {
       loadPage(0)
     }
-  }, [sortColumn, sortDirection, isSearching, loadPage])
+  }, [sortColumn, sortDirection]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Set filters (will trigger refetch)
   const setFilters = useCallback((newFilters: FilterParams) => {
