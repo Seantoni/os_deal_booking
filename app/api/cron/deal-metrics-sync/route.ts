@@ -1,24 +1,22 @@
 /**
- * Task Reminder Cron Job
+ * Deal Metrics Sync Cron Job
  * 
- * Sends daily task reminder emails to users with pending tasks.
- * Scheduled to run at 8:00 AM Panama time (13:00 UTC).
+ * Daily sync of deal metrics from external Oferta API.
+ * Scheduled to run at midnight Panama time (05:00 UTC).
  * 
  * This endpoint is protected by the CRON_SECRET environment variable.
  * Vercel Cron Jobs will automatically include this secret in the Authorization header.
  */
 
 import { NextResponse } from 'next/server'
-import { sendAllTaskReminders } from '@/lib/email'
+import { syncDealMetrics } from '@/app/actions/deal-metrics'
 import { startCronJobLog, completeCronJobLog, cleanupOldCronJobLogs } from '@/app/actions/cron-logs'
 import { sendCronFailureEmail } from '@/lib/email/services/cron-failure'
 import { logger } from '@/lib/logger'
 
-// Vercel cron jobs require this export to configure the schedule
-// 8:00 AM Panama (UTC-5) = 13:00 UTC
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60 // Allow up to 60 seconds for sending emails
+export const maxDuration = 300 // Allow up to 5 minutes for syncing
 
 /**
  * Verify the cron secret to ensure only Vercel can trigger this endpoint
@@ -45,78 +43,69 @@ export async function GET(request: Request) {
 
   // Verify the request is from Vercel Cron
   if (!verifyCronSecret(request)) {
-    logger.warn('Unauthorized cron request attempted for task-reminders')
+    logger.warn('Unauthorized cron request attempted for deal-metrics-sync')
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }
     )
   }
 
-  logger.info('Starting task reminder cron job')
+  logger.info('Starting deal-metrics-sync cron job')
 
   // Start cron job log
-  const logResult = await startCronJobLog('task-reminders', 'cron')
+  const logResult = await startCronJobLog('deal-metrics-sync', 'cron')
   const logId = logResult.logId
 
   try {
-    const result = await sendAllTaskReminders()
+    // Sync deal metrics for the last 1 day
+    const result = await syncDealMetrics({
+      sinceDays: 1,
+      userId: 'system-cron',
+      fetchAll: true,
+    })
+
     const durationMs = Date.now() - startTime
 
     // Complete the log
     if (logId) {
       await completeCronJobLog(logId, result.success ? 'success' : 'failed', {
-        message: `Task reminders: ${result.sent} sent, ${result.failed} failed, ${result.skipped} skipped`,
-        details: {
-          sent: result.sent,
-          failed: result.failed,
-          skipped: result.skipped,
-          errors: result.errors.length > 0 ? result.errors : undefined,
-        },
-        error: result.errors.length > 0 ? result.errors.join('; ') : undefined,
+        message: result.message,
+        details: result.stats as Record<string, unknown>,
+        error: result.error,
       })
     }
 
-    // If there were failures, send notification
-    if (result.failed > 0) {
+    // If failed, send email notification
+    if (!result.success) {
       await sendCronFailureEmail({
-        jobName: 'task-reminders',
-        errorMessage: `${result.failed} emails failed to send`,
+        jobName: 'deal-metrics-sync',
+        errorMessage: result.error || result.message,
         startedAt: new Date(startTime),
         durationMs,
-        details: {
-          sent: result.sent,
-          failed: result.failed,
-          skipped: result.skipped,
-          errors: result.errors,
-        },
+        details: result.stats as Record<string, unknown>,
       })
     }
 
-    // Cleanup old logs
+    // Cleanup old logs (30 days retention)
     await cleanupOldCronJobLogs(30)
 
-    logger.info(`Task reminder cron job completed in ${durationMs}ms`, {
-      sent: result.sent,
-      failed: result.failed,
-      skipped: result.skipped,
+    logger.info(`Deal-metrics-sync cron job completed in ${durationMs}ms`, {
+      success: result.success,
+      stats: result.stats,
     })
 
     return NextResponse.json({
       success: result.success,
-      message: `Task reminders processed: ${result.sent} sent, ${result.failed} failed, ${result.skipped} skipped`,
+      message: result.message,
       duration: `${durationMs}ms`,
-      details: {
-        sent: result.sent,
-        failed: result.failed,
-        skipped: result.skipped,
-        errors: result.errors.length > 0 ? result.errors : undefined,
-      },
+      stats: result.stats,
+      logId: result.logId,
     })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     const durationMs = Date.now() - startTime
 
-    logger.error('Task reminder cron job failed:', error)
+    logger.error('Deal-metrics-sync cron job failed:', error)
 
     // Complete the log as failed
     if (logId) {
@@ -127,7 +116,7 @@ export async function GET(request: Request) {
 
     // Send failure notification
     await sendCronFailureEmail({
-      jobName: 'task-reminders',
+      jobName: 'deal-metrics-sync',
       errorMessage,
       startedAt: new Date(startTime),
       durationMs,
@@ -137,6 +126,7 @@ export async function GET(request: Request) {
       {
         success: false,
         error: errorMessage,
+        duration: `${durationMs}ms`,
       },
       { status: 500 }
     )
@@ -147,4 +137,3 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   return GET(request)
 }
-

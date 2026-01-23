@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { getUserRole } from '@/lib/auth/roles'
-import { runFullScan, runSiteScan, runChunkedScan, SourceSite, ScanProgress, CHUNK_SIZE } from '@/lib/scraping'
+import { runFullScan, runSiteScan, runChunkedScan, SourceSite, ScanProgress } from '@/lib/scraping'
+import { startCronJobLog, completeCronJobLog, cleanupOldCronJobLogs } from '@/app/actions/cron-logs'
+import { sendCronFailureEmail } from '@/lib/email/services/cron-failure'
+import { logger } from '@/lib/logger'
 
 export const maxDuration = 300 // 5 minutes max for scanning
 
@@ -149,14 +152,18 @@ export async function POST(request: Request) {
  * - site: 'rantanofertas' | 'oferta24' - which site to scan
  * - startFrom: number - starting index for chunked scan
  * - internal: 'true' - indicates self-invocation (skip auth)
+ * - logId: string - cron log ID to continue using
  */
 export async function GET(request: Request) {
+  const startTime = Date.now()
+
   try {
     const url = new URL(request.url)
     const site = url.searchParams.get('site') as SourceSite | null
     const startFrom = parseInt(url.searchParams.get('startFrom') || '0', 10)
     const isInternalCall = url.searchParams.get('internal') === 'true'
     const internalSecret = url.searchParams.get('secret')
+    const existingLogId = url.searchParams.get('logId')
     
     // Check for cron secret or internal call
     // Vercel sends the secret in Authorization: Bearer <secret> format
@@ -188,22 +195,27 @@ export async function GET(request: Request) {
     
     // If no site specified, start the scan sequence
     if (!site) {
-      console.log('Starting chunked scan sequence...')
+      logger.info('Starting market-intelligence-scan cron job')
+      
+      // Start cron job log at the beginning of the scan sequence
+      const logResult = await startCronJobLog('market-intelligence-scan', 'cron')
+      const logId = logResult.logId
       
       // Start with oferta24 (fast, completes in one go)
       const result = await runChunkedScan('oferta24', 0)
       
       // Oferta24 typically completes in one go, then start RantanOfertas
       if (result.nextStartFrom !== undefined) {
-        triggerNextChunk('oferta24', result.nextStartFrom, expectedSecret)
+        triggerNextChunk('oferta24', result.nextStartFrom, expectedSecret, logId)
       } else {
         // Oferta24 complete, start RantanOfertas
-        triggerNextChunk('rantanofertas', 0, expectedSecret)
+        triggerNextChunk('rantanofertas', 0, expectedSecret, logId)
       }
       
       return NextResponse.json({
         success: true,
         message: 'Scan started',
+        logId,
         data: {
           site: 'oferta24',
           dealsProcessed: result.dealsProcessed,
@@ -217,18 +229,56 @@ export async function GET(request: Request) {
     }
     
     // Process specific site chunk
-    console.log(`Processing chunk: ${site} starting from ${startFrom}`)
+    logger.info(`Processing chunk: ${site} starting from ${startFrom}`)
     const result = await runChunkedScan(site, startFrom)
     
     // Trigger next chunk or next site
     if (result.nextStartFrom !== undefined) {
       // More deals to process for this site
-      triggerNextChunk(site, result.nextStartFrom, expectedSecret)
+      triggerNextChunk(site, result.nextStartFrom, expectedSecret, existingLogId)
     } else if (site === 'oferta24') {
       // Oferta24 complete, start RantanOfertas
-      triggerNextChunk('rantanofertas', 0, expectedSecret)
+      triggerNextChunk('rantanofertas', 0, expectedSecret, existingLogId)
+    } else if (site === 'rantanofertas' && result.isComplete) {
+      // Scan is fully done - complete the log
+      const durationMs = Date.now() - startTime
+      
+      if (existingLogId) {
+        await completeCronJobLog(existingLogId, result.success ? 'success' : 'failed', {
+          message: `Market intelligence scan completed: ${result.dealsProcessed} deals processed, ${result.newDeals} new, ${result.updatedDeals} updated`,
+          details: {
+            dealsProcessed: result.dealsProcessed,
+            dealsWithSales: result.dealsWithSales,
+            newDeals: result.newDeals,
+            updatedDeals: result.updatedDeals,
+            totalAvailable: result.totalAvailable,
+            errors: result.errors.length > 0 ? result.errors : undefined,
+          },
+          error: result.errors.length > 0 ? result.errors.join('; ') : undefined,
+        })
+        
+        // If there were errors, send notification
+        if (result.errors.length > 0) {
+          await sendCronFailureEmail({
+            jobName: 'market-intelligence-scan',
+            errorMessage: result.errors.join('; '),
+            startedAt: new Date(startTime),
+            durationMs,
+            details: {
+              dealsProcessed: result.dealsProcessed,
+              newDeals: result.newDeals,
+              updatedDeals: result.updatedDeals,
+              errors: result.errors,
+            },
+          })
+        }
+        
+        // Cleanup old logs
+        await cleanupOldCronJobLogs(30)
+      }
+      
+      logger.info(`Market-intelligence-scan cron job completed in ${durationMs}ms`)
     }
-    // If rantanofertas completes, scan is fully done
     
     return NextResponse.json({
       success: result.success,
@@ -247,11 +297,32 @@ export async function GET(request: Request) {
       },
     })
   } catch (error) {
-    console.error('Scheduled scan error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const durationMs = Date.now() - startTime
+    const url = new URL(request.url)
+    const existingLogId = url.searchParams.get('logId')
+    
+    logger.error('Market-intelligence-scan cron job failed:', error)
+    
+    // Complete the log as failed
+    if (existingLogId) {
+      await completeCronJobLog(existingLogId, 'failed', {
+        error: errorMessage,
+      })
+    }
+    
+    // Send failure notification
+    await sendCronFailureEmail({
+      jobName: 'market-intelligence-scan',
+      errorMessage,
+      startedAt: new Date(startTime),
+      durationMs,
+    })
+    
     return NextResponse.json(
       { 
         error: 'Failed to run scheduled scan',
-        details: error instanceof Error ? error.message : 'Unknown error',
+        details: errorMessage,
       },
       { status: 500 }
     )
@@ -261,7 +332,7 @@ export async function GET(request: Request) {
 /**
  * Trigger the next chunk of scanning (fire-and-forget)
  */
-function triggerNextChunk(site: SourceSite, startFrom: number, secret?: string) {
+function triggerNextChunk(site: SourceSite, startFrom: number, secret?: string, logId?: string | null) {
   const baseUrl = getBaseUrl()
   const nextUrl = new URL('/api/market-intelligence/scan', baseUrl)
   nextUrl.searchParams.set('site', site)
@@ -270,14 +341,17 @@ function triggerNextChunk(site: SourceSite, startFrom: number, secret?: string) 
   if (secret) {
     nextUrl.searchParams.set('secret', secret)
   }
+  if (logId) {
+    nextUrl.searchParams.set('logId', logId)
+  }
   
-  console.log(`Triggering next chunk: ${nextUrl.toString()}`)
+  logger.info(`Triggering next chunk: ${nextUrl.toString()}`)
   
   // Fire and forget - don't await
   fetch(nextUrl.toString(), {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
   }).catch(err => {
-    console.error('Failed to trigger next chunk:', err)
+    logger.error('Failed to trigger next chunk:', err)
   })
 }

@@ -747,3 +747,27 @@ model Task {
   @@index([opportunityId])
   @@map("tasks")
 }
+
+// ============================================
+// Cron Job Logs (for tracking scheduled jobs)
+// ============================================
+
+model CronJobLog {
+  id          String    @id @default(cuid())
+  jobName     String                         // e.g. 'deal-metrics-sync', 'task-reminders', 'market-intelligence-scan'
+  status      String                         // 'running', 'success', 'failed'
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  durationMs  Int?
+  message     String?
+  details     Json?                          // Stats, counts, etc.
+  error       String?                        // Error message if failed
+  triggeredBy String    @default("cron")     // 'cron' or 'manual'
+  createdAt   DateTime  @default(now())
+
+  @@index([jobName])
+  @@index([status])
+  @@index([startedAt])
+  @@index([createdAt])
+  @@map("cron_job_logs")
+}

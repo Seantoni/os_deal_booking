@@ -28,8 +28,10 @@ import PublicIcon from '@mui/icons-material/Public'
 import PublicPagesTab from './components/PublicPagesTab'
 import ApiLogsTab from './components/ApiLogsTab'
 import CommentsLogTab from './components/CommentsLogTab'
+import CronJobsTab from './components/CronJobsTab'
 import HistoryIcon from '@mui/icons-material/History'
 import ChatBubbleIcon from '@mui/icons-material/ChatBubble'
+import ScheduleIcon from '@mui/icons-material/Schedule'
 import './styles.css'
 
 const isDev = process.env.NODE_ENV === 'development'
@@ -39,7 +41,7 @@ export default function SettingsPageClient() {
   const [saved, setSaved] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState<{ created: number; updated: number; deactivated: number } | null>(null)
-  const [activeTab, setActiveTab] = useState<'general' | 'categories' | 'form-builder' | 'system' | 'access' | 'email-preview' | 'public-pages' | 'api-logs' | 'comments-log'>('general')
+  const [activeTab, setActiveTab] = useState<'general' | 'categories' | 'form-builder' | 'system' | 'access' | 'email-preview' | 'public-pages' | 'api-logs' | 'comments-log' | 'cron-jobs'>('general')
   const { isAdmin } = useUserRole()
   const [formBuilderSubTab, setFormBuilderSubTab] = useState<'entity-fields' | 'request-form'>('entity-fields')
   const confirmDialog = useConfirmDialog()
@@ -324,11 +326,24 @@ export default function SettingsPageClient() {
                 <span>Comentarios</span>
               </button>
             )}
+            {isAdmin && (
+              <button
+                onClick={() => handleTabChange('cron-jobs')}
+                className={`flex items-center gap-2 px-4 py-3 text-xs font-medium transition-colors border-b-2 -mb-px ${
+                  activeTab === 'cron-jobs'
+                    ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                <ScheduleIcon fontSize="small" style={{ fontSize: 18 }} />
+                <span>Cron Jobs</span>
+              </button>
+            )}
           </div>
         </div>
 
         {/* Save Bar - Sticky */}
-        {(activeTab !== 'system' && activeTab !== 'access' && activeTab !== 'public-pages' && activeTab !== 'api-logs' && activeTab !== 'comments-log' && (activeTab !== 'form-builder' || formBuilderSubTab === 'request-form')) && (
+        {(activeTab !== 'system' && activeTab !== 'access' && activeTab !== 'public-pages' && activeTab !== 'api-logs' && activeTab !== 'comments-log' && activeTab !== 'cron-jobs' && (activeTab !== 'form-builder' || formBuilderSubTab === 'request-form')) && (
           <div className="sticky top-2 z-10 bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               {saved ? (
