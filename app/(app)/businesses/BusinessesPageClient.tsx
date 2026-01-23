@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { deleteBusiness } from '@/app/actions/crm'
-import { getBusinessesPaginated, searchBusinesses, getBusinessCounts, getBusinessTableCounts } from '@/app/actions/businesses'
+import { getBusinessesPaginated, searchBusinesses, getBusinessCounts, getBusinessTableCounts, getBusinessActiveDealUrls } from '@/app/actions/businesses'
 import { getDealsByVendorId, type SimplifiedDeal } from '@/app/actions/deal-metrics'
 import type { Business } from '@/types'
 import AddIcon from '@mui/icons-material/Add'
@@ -12,6 +12,7 @@ import FilterListIcon from '@mui/icons-material/FilterList'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import HandshakeIcon from '@mui/icons-material/Handshake'
 import DescriptionIcon from '@mui/icons-material/Description'
+import LaunchIcon from '@mui/icons-material/Launch'
 import DownloadIcon from '@mui/icons-material/Download'
 import UploadIcon from '@mui/icons-material/Upload'
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
@@ -153,6 +154,10 @@ export default function BusinessesPageClient({
   } | null>(null)
   const [tableCountsLoading, setTableCountsLoading] = useState(true)
   
+  // Lazy-loaded active deal URLs (businessId -> dealUrl)
+  const [activeDealUrls, setActiveDealUrls] = useState<Record<string, string>>({})
+  const [activeDealUrlsLoading, setActiveDealUrlsLoading] = useState(true)
+  
   // Expanded businesses state (for showing deals)
   const [expandedBusinesses, setExpandedBusinesses] = useState<Set<string>>(new Set())
   const [businessDealsCache, setBusinessDealsCache] = useState<Map<string, BusinessDealsCache>>(new Map())
@@ -173,6 +178,19 @@ export default function BusinessesPageClient({
   const salesRepFilter = (filters.salesRepId as string) || null
   const setSalesRepFilter = useCallback((userId: string | null) => {
     updateFilter('salesRepId', userId || undefined)
+  }, [updateFilter])
+  
+  // Active deal filter (toggle button)
+  const activeDealFilter = (filters.activeDealFilter as boolean) || false
+  const setActiveDealFilter = useCallback((enabled: boolean) => {
+    if (enabled) {
+      // Clear other filters when enabling active deal filter
+      updateFilter('activeDealFilter', true)
+      updateFilter('opportunityFilter', undefined)
+      updateFilter('focusFilter', undefined)
+    } else {
+      updateFilter('activeDealFilter', undefined)
+    }
   }, [updateFilter])
   
   // Modal state
@@ -247,6 +265,23 @@ export default function BusinessesPageClient({
       }
     }
     loadTableCounts()
+  }, [])
+
+  // Lazy load active deal URLs
+  useEffect(() => {
+    async function loadActiveDealUrls() {
+      try {
+        const result = await getBusinessActiveDealUrls()
+        if (result.success && result.data) {
+          setActiveDealUrls(result.data)
+        }
+      } catch (error) {
+        logger.error('Failed to load active deal URLs:', error)
+      } finally {
+        setActiveDealUrlsLoading(false)
+      }
+    }
+    loadActiveDealUrls()
   }, [])
 
   // Map of business IDs to count of open opportunities (from lazy-loaded counts)
@@ -545,6 +580,18 @@ export default function BusinessesPageClient({
     />
   ) : undefined
 
+  // Active deal toggle button
+  const activeDealToggle = (
+    <Button
+      onClick={() => setActiveDealFilter(!activeDealFilter)}
+      variant={activeDealFilter ? "primary" : "secondary"}
+      size="sm"
+      className="flex-shrink-0"
+    >
+      Deal Activo {counts['with-active-deal'] !== undefined && `(${counts['with-active-deal']})`}
+    </Button>
+  )
+
   // Right side content for header
   const headerRightContent = (
     <div className="flex items-center gap-2">
@@ -594,6 +641,11 @@ export default function BusinessesPageClient({
         filterTabs={filterTabs}
         activeFilter={focusFilter === 'with-focus' ? 'with-focus' : opportunityFilter}
         onFilterChange={(id) => {
+          // Clear active deal filter when other filters are selected
+          if (activeDealFilter) {
+            setActiveDealFilter(false)
+          }
+          
           if (id === 'with-focus') {
             setFocusFilter('with-focus')
             setOpportunityFilter('all') // Clear opportunity filter when focus filter is active
@@ -604,6 +656,7 @@ export default function BusinessesPageClient({
         }}
         isAdmin={isAdmin}
         userFilter={userFilter}
+        beforeFilters={activeDealToggle}
         rightContent={headerRightContent}
         {...advancedFilterProps}
       />
@@ -620,7 +673,7 @@ export default function BusinessesPageClient({
             icon={<FilterListIcon className="w-full h-full" />}
             title="No se encontraron negocios"
             description={
-              searchQuery || opportunityFilter !== 'all' || focusFilter !== 'all' || filterRules.length > 0
+              searchQuery || opportunityFilter !== 'all' || focusFilter !== 'all' || activeDealFilter || filterRules.length > 0
                 ? 'Intente ajustar su búsqueda o filtros' 
                 : 'Comience creando un nuevo negocio'
             }
@@ -802,6 +855,19 @@ export default function BusinessesPageClient({
                           </TableCell>
                           <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-end gap-1">
+                              {/* Active Deal Link - only show if business has active deal */}
+                              {activeDealUrls[business.id] && (
+                                <a
+                                  href={activeDealUrls[business.id]}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1.5 rounded hover:bg-emerald-50 text-emerald-600 hover:text-emerald-700 transition-colors"
+                                  title="Ver Deal Activo"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <LaunchIcon style={{ fontSize: 18 }} />
+                                </a>
+                              )}
                               <button
                                 onClick={() => handleSetFocus(business)}
                                 className={`p-1.5 rounded transition-colors ${

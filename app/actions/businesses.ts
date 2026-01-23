@@ -177,6 +177,7 @@ export async function getBusinessesPaginated(options: {
   sortDirection?: 'asc' | 'desc'
   opportunityFilter?: string // 'all' | 'with-open' | 'without-open'
   focusFilter?: string // 'all' | 'with-focus'
+  activeDealFilter?: boolean // Filter to businesses with active deals
   salesRepId?: string // Filter by owner (admin quick filter) - named salesRepId for consistency with other pages
 } = {}) {
   const authResult = await requireAuth()
@@ -187,7 +188,7 @@ export async function getBusinessesPaginated(options: {
 
   try {
     const role = await getUserRole()
-    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', opportunityFilter, focusFilter, salesRepId: ownerFilter } = options
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', opportunityFilter, focusFilter, activeDealFilter, salesRepId: ownerFilter } = options
 
     // Build where clause based on role
     const whereClause: BusinessWhereClause = {}
@@ -223,6 +224,34 @@ export async function getBusinessesPaginated(options: {
       // Businesses with active focus (not null and not expired)
       // We check for non-null focusPeriod here; expiration is handled client-side
       whereClause.focusPeriod = { not: null }
+    }
+    
+    // Apply active deal filter if provided
+    if (activeDealFilter) {
+      // Find vendor IDs that have active deals (endAt > now)
+      const now = new Date()
+      const activeDealMetrics = await prisma.dealMetrics.findMany({
+        where: {
+          endAt: { gt: now },
+          externalVendorId: { not: null },
+        },
+        select: {
+          externalVendorId: true,
+        },
+        distinct: ['externalVendorId'],
+      })
+      
+      const activeVendorIds = activeDealMetrics
+        .map(dm => dm.externalVendorId)
+        .filter((id): id is string => id !== null)
+      
+      // Filter businesses to those with osAdminVendorId in the active vendor list
+      if (activeVendorIds.length > 0) {
+        whereClause.osAdminVendorId = { in: activeVendorIds }
+      } else {
+        // No active deals, return empty result
+        whereClause.osAdminVendorId = { in: [] }
+      }
     }
     
     // Apply owner filter (admin quick filter)
@@ -333,7 +362,7 @@ export async function getBusinessesPaginated(options: {
 
 /**
  * Get business counts by opportunity status (for filter tabs)
- * Returns: all, with-open (has open opportunities), without-open (no open opportunities)
+ * Returns: all, with-open (has open opportunities), without-open (no open opportunities), with-active-deal
  */
 export async function getBusinessCounts(filters?: { salesRepId?: string }) {
   const authResult = await requireAuth()
@@ -350,7 +379,7 @@ export async function getBusinessCounts(filters?: { salesRepId?: string }) {
     if (role === 'sales') {
       baseWhere.ownerId = userId
     } else if (role === 'editor' || role === 'ere') {
-      return { success: true, data: { all: 0, 'with-open': 0, 'without-open': 0, 'with-focus': 0 } }
+      return { success: true, data: { all: 0, 'with-open': 0, 'without-open': 0, 'with-focus': 0, 'with-active-deal': 0 } }
     }
     
     // Apply owner filter (admin quick filter)
@@ -358,8 +387,25 @@ export async function getBusinessCounts(filters?: { salesRepId?: string }) {
       baseWhere.ownerId = filters.salesRepId
     }
 
+    // Get active vendor IDs with active deals
+    const now = new Date()
+    const activeDealMetrics = await prisma.dealMetrics.findMany({
+      where: {
+        endAt: { gt: now },
+        externalVendorId: { not: null },
+      },
+      select: {
+        externalVendorId: true,
+      },
+      distinct: ['externalVendorId'],
+    })
+    
+    const activeVendorIds = activeDealMetrics
+      .map(dm => dm.externalVendorId)
+      .filter((id): id is string => id !== null)
+
     // Get counts in parallel
-    const [all, withOpen, withoutOpen, withFocus] = await Promise.all([
+    const [all, withOpen, withoutOpen, withFocus, withActiveDeal] = await Promise.all([
       prisma.business.count({ where: baseWhere }),
       prisma.business.count({ 
         where: { 
@@ -383,14 +429,107 @@ export async function getBusinessCounts(filters?: { salesRepId?: string }) {
           focusPeriod: { not: null }
         } 
       }),
+      activeVendorIds.length > 0
+        ? prisma.business.count({
+            where: {
+              ...baseWhere,
+              osAdminVendorId: { in: activeVendorIds },
+            },
+          })
+        : Promise.resolve(0),
     ])
 
     return { 
       success: true, 
-      data: { all, 'with-open': withOpen, 'without-open': withoutOpen, 'with-focus': withFocus }
+      data: { all, 'with-open': withOpen, 'without-open': withoutOpen, 'with-focus': withFocus, 'with-active-deal': withActiveDeal }
     }
   } catch (error) {
     return handleServerActionError(error, 'getBusinessCounts')
+  }
+}
+
+/**
+ * Get active deal URLs for businesses (lazy loaded)
+ * Returns: activeDealUrls (businessId -> dealUrl)
+ * Only includes businesses that have at least one active deal
+ */
+export async function getBusinessActiveDealUrls() {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    
+    // Build base where clause based on role
+    const baseWhere: Record<string, unknown> = {}
+    if (role === 'sales') {
+      baseWhere.ownerId = userId
+    } else if (role === 'editor' || role === 'ere') {
+      return { 
+        success: true, 
+        data: {} as Record<string, string>
+      }
+    }
+
+    // Get all businesses (with role filter applied)
+    const businesses = await prisma.business.findMany({
+      where: {
+        ...baseWhere,
+        osAdminVendorId: { not: null }, // Only businesses with vendor ID
+      },
+      select: {
+        id: true,
+        osAdminVendorId: true,
+      },
+    })
+
+    if (businesses.length === 0) {
+      return { success: true, data: {} as Record<string, string> }
+    }
+
+    // Get vendor IDs
+    const vendorIds = businesses
+      .map(b => b.osAdminVendorId)
+      .filter((id): id is string => id !== null)
+
+    // Find active deals (endAt > now) for these vendors
+    const now = new Date()
+    const activeDeals = await prisma.dealMetrics.findMany({
+      where: {
+        externalVendorId: { in: vendorIds },
+        endAt: { gt: now },
+        dealUrl: { not: null },
+      },
+      select: {
+        externalVendorId: true,
+        dealUrl: true,
+      },
+      orderBy: { netRevenue: 'desc' }, // Get the highest revenue active deal per vendor
+      distinct: ['externalVendorId'],
+    })
+
+    // Create map: businessId -> activeDealUrl
+    const vendorToBusinessId = new Map(businesses.map(b => [b.osAdminVendorId, b.id]))
+    const activeDealUrls: Record<string, string> = {}
+    
+    for (const deal of activeDeals) {
+      if (deal.externalVendorId && deal.dealUrl) {
+        const businessId = vendorToBusinessId.get(deal.externalVendorId)
+        if (businessId) {
+          activeDealUrls[businessId] = deal.dealUrl
+        }
+      }
+    }
+
+    return { 
+      success: true, 
+      data: activeDealUrls 
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getBusinessActiveDealUrls')
   }
 }
 
@@ -684,6 +823,7 @@ export async function updateBusinessFocus(
 export async function searchBusinesses(query: string, options: {
   limit?: number
   salesRepId?: string // Filter by owner (admin quick filter) - named salesRepId for consistency
+  activeDealFilter?: boolean // Filter to businesses with active deals
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -693,7 +833,7 @@ export async function searchBusinesses(query: string, options: {
 
   try {
     const role = await getUserRole()
-    const { limit = 100, salesRepId: ownerFilter } = options
+    const { limit = 100, salesRepId: ownerFilter, activeDealFilter } = options
 
     if (!query || query.trim().length < 2) {
       return { success: true, data: [] }
@@ -714,6 +854,34 @@ export async function searchBusinesses(query: string, options: {
     // Apply owner filter (admin quick filter)
     if (ownerFilter) {
       roleFilter.ownerId = ownerFilter
+    }
+
+    // Apply active deal filter if provided
+    if (activeDealFilter) {
+      // Find vendor IDs that have active deals (endAt > now)
+      const now = new Date()
+      const activeDealMetrics = await prisma.dealMetrics.findMany({
+        where: {
+          endAt: { gt: now },
+          externalVendorId: { not: null },
+        },
+        select: {
+          externalVendorId: true,
+        },
+        distinct: ['externalVendorId'],
+      })
+      
+      const activeVendorIds = activeDealMetrics
+        .map(dm => dm.externalVendorId)
+        .filter((id): id is string => id !== null)
+      
+      // Filter businesses to those with osAdminVendorId in the active vendor list
+      if (activeVendorIds.length > 0) {
+        roleFilter.osAdminVendorId = { in: activeVendorIds }
+      } else {
+        // No active deals, return empty result
+        roleFilter.osAdminVendorId = { in: [] }
+      }
     }
 
     // Search across multiple fields with OR
