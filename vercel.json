@@ -5,10 +5,6 @@
       "schedule": "0 13 * * *"
     },
     {
-      "path": "/api/market-intelligence/scan",
-      "schedule": "0 5 * * *"
-    },
-    {
       "path": "/api/cron/deal-metrics-sync",
       "schedule": "0 5 * * *"
     }
