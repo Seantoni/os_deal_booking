@@ -474,6 +474,12 @@ export default function SettingsPageClient() {
               <CommentsLogTab />
             </div>
           )}
+
+          {activeTab === 'cron-jobs' && isAdmin && (
+            <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+              <CronJobsTab />
+            </div>
+          )}
         </div>
       </div>
 
