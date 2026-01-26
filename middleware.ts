@@ -16,6 +16,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/booking-requests/reject(.*)',
   '/api/health/(.*)',
   '/api/access/check(.*)', // Allow access check API route
+  '/api/cron/(.*)', // Cron jobs (protected by CRON_SECRET in route handlers)
   // Public booking request pages (new organized routes)
   '/booking-request/(.*)', // All public booking request pages (status, form, etc.)
   // Public pages
