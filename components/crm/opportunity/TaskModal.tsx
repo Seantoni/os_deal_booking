@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import GroupsIcon from '@mui/icons-material/Groups'
+import OpenInNewIcon from '@mui/icons-material/OpenInNew'
+import PersonIcon from '@mui/icons-material/Person'
 import type { Task } from '@/types'
 import { Button, Input, Select, Textarea } from '@/components/ui'
 import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
@@ -53,6 +55,8 @@ interface TaskModalProps {
   error?: string
   businessName?: string // For auto-filling "Reunión con"
   forCompletion?: boolean // When true, outcome fields are required before saving
+  responsibleName?: string | null // Name of the responsible user
+  onViewOpportunity?: () => void // Callback to open opportunity modal
 }
 
 export default function TaskModal({ 
@@ -64,6 +68,8 @@ export default function TaskModal({
   error,
   businessName = '',
   forCompletion = false,
+  responsibleName,
+  onViewOpportunity,
 }: TaskModalProps) {
   const [taskCategory, setTaskCategory] = useState<'meeting' | 'todo'>('todo')
   
@@ -256,6 +262,28 @@ export default function TaskModal({
           {(error || validationError) && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800">
               {validationError || error}
+            </div>
+          )}
+
+          {/* Context Info: Responsible & Opportunity Link */}
+          {task && (responsibleName || onViewOpportunity) && (
+            <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
+              {responsibleName && (
+                <div className="flex items-center gap-1.5">
+                  <PersonIcon style={{ fontSize: 14 }} />
+                  <span>{responsibleName}</span>
+                </div>
+              )}
+              {onViewOpportunity && businessName && (
+                <button
+                  type="button"
+                  onClick={onViewOpportunity}
+                  className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+                >
+                  <span>{businessName}</span>
+                  <OpenInNewIcon style={{ fontSize: 14 }} />
+                </button>
+              )}
             </div>
           )}
           

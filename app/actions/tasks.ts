@@ -18,6 +18,12 @@ export interface TaskWithOpportunity extends Task {
       contactPhone: string
       contactEmail: string
     }
+    responsible: {
+      id: string
+      clerkId: string
+      name: string | null
+      email: string | null
+    } | null
   }
 }
 
@@ -69,6 +75,7 @@ export async function getUserTasks(filters?: { responsibleId?: string }): Promis
             id: true,
             stage: true,
             name: true,
+            responsibleId: true,
             business: {
               select: {
                 id: true,
@@ -87,10 +94,24 @@ export async function getUserTasks(filters?: { responsibleId?: string }): Promis
       ],
     })
 
-    // Cast category to the expected union type
+    // Get all unique responsibleIds and fetch user info
+    const responsibleIds = [...new Set(tasks.map(t => t.opportunity.responsibleId).filter((id): id is string => id !== null))]
+    const users = responsibleIds.length > 0
+      ? await prisma.userProfile.findMany({
+          where: { clerkId: { in: responsibleIds } },
+          select: { id: true, clerkId: true, name: true, email: true },
+        })
+      : []
+    const userMap = new Map(users.map(u => [u.clerkId, u]))
+
+    // Map tasks with responsible user info
     const typedTasks = tasks.map((task) => ({
       ...task,
       category: task.category as 'meeting' | 'todo',
+      opportunity: {
+        ...task.opportunity,
+        responsible: task.opportunity.responsibleId ? userMap.get(task.opportunity.responsibleId) || null : null,
+      },
     }))
 
     return { success: true, data: typedTasks as TaskWithOpportunity[] }
@@ -157,6 +178,7 @@ export async function getTasksPaginated(options: {
             id: true,
             stage: true,
             name: true,
+            responsibleId: true,
             business: {
               select: {
                 id: true,
@@ -177,9 +199,24 @@ export async function getTasksPaginated(options: {
       take: pageSize,
     })
 
-    const typedTasks = tasks.map((task: { category: string }) => ({
+    // Get all unique responsibleIds and fetch user info
+    const responsibleIds = [...new Set(tasks.map(t => t.opportunity.responsibleId).filter((id): id is string => id !== null))]
+    const users = responsibleIds.length > 0
+      ? await prisma.userProfile.findMany({
+          where: { clerkId: { in: responsibleIds } },
+          select: { id: true, clerkId: true, name: true, email: true },
+        })
+      : []
+    const userMap = new Map(users.map(u => [u.clerkId, u]))
+
+    // Map tasks with responsible user info
+    const typedTasks = tasks.map((task) => ({
       ...task,
       category: task.category as 'meeting' | 'todo',
+      opportunity: {
+        ...task.opportunity,
+        responsible: task.opportunity.responsibleId ? userMap.get(task.opportunity.responsibleId) || null : null,
+      },
     }))
 
     return { 
@@ -247,6 +284,7 @@ export async function searchTasks(query: string, options: {
             id: true,
             stage: true,
             name: true,
+            responsibleId: true,
             business: {
               select: {
                 id: true,
@@ -266,9 +304,24 @@ export async function searchTasks(query: string, options: {
       take: limit,
     })
 
-    const typedTasks = tasks.map((task: { category: string }) => ({
+    // Get all unique responsibleIds and fetch user info
+    const responsibleIds = [...new Set(tasks.map(t => t.opportunity.responsibleId).filter((id): id is string => id !== null))]
+    const users = responsibleIds.length > 0
+      ? await prisma.userProfile.findMany({
+          where: { clerkId: { in: responsibleIds } },
+          select: { id: true, clerkId: true, name: true, email: true },
+        })
+      : []
+    const userMap = new Map(users.map(u => [u.clerkId, u]))
+
+    // Map tasks with responsible user info
+    const typedTasks = tasks.map((task) => ({
       ...task,
       category: task.category as 'meeting' | 'todo',
+      opportunity: {
+        ...task.opportunity,
+        responsible: task.opportunity.responsibleId ? userMap.get(task.opportunity.responsibleId) || null : null,
+      },
     }))
 
     return { success: true, data: typedTasks as TaskWithOpportunity[] }

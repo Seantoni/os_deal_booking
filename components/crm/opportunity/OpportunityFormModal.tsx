@@ -335,8 +335,7 @@ export default function OpportunityFormModal({
         formData.append('startDate', allValues.startDate || '')
         if (allValues.closeDate) formData.append('closeDate', allValues.closeDate)
         if (allValues.notes) formData.append('notes', allValues.notes)
-        // For existing opportunities, only admin can change responsible
-        // For new opportunities, always send the responsible (defaults to creator)
+        // Responsible is required
         if (responsibleId) formData.append('responsibleId', responsibleId)
         if (allValues.categoryId) formData.append('categoryId', allValues.categoryId)
         if (allValues.tier) formData.append('tier', allValues.tier)
@@ -377,6 +376,12 @@ export default function OpportunityFormModal({
     e.preventDefault()
     setError('')
 
+    // Validate required fields
+    if (!responsibleId) {
+      setError('Debe seleccionar un responsable para la oportunidad')
+      return
+    }
+
     startSubmitTransition(async () => {
       try {
         const allValues = dynamicForm.getAllValues()
@@ -386,9 +391,8 @@ export default function OpportunityFormModal({
         formData.append('startDate', allValues.startDate || '')
         if (allValues.closeDate) formData.append('closeDate', allValues.closeDate)
         if (allValues.notes) formData.append('notes', allValues.notes)
-        // For existing opportunities, only admin can change responsible
-        // For new opportunities, always send the responsible (defaults to creator)
-        if (responsibleId) formData.append('responsibleId', responsibleId)
+        // Responsible is required
+        formData.append('responsibleId', responsibleId)
         if (allValues.categoryId) formData.append('categoryId', allValues.categoryId)
         if (allValues.tier) formData.append('tier', allValues.tier)
         if (allValues.contactName) formData.append('contactName', allValues.contactName)
@@ -735,7 +739,7 @@ export default function OpportunityFormModal({
             onCancel={onClose}
             submitLabel="Guardar"
             submitLoading={loading || loadingData || dynamicForm.loading}
-            submitDisabled={loading || loadingData || dynamicForm.loading}
+            submitDisabled={loading || loadingData || dynamicForm.loading || !responsibleId}
             leftContent="* Campos requeridos"
             formId="opportunity-modal-form"
           />
@@ -855,14 +859,14 @@ export default function OpportunityFormModal({
                 {/* Separator */}
                 <span className="text-gray-300">|</span>
 
-                {/* Owner */}
+                {/* Owner (required) */}
                 <ReferenceInfoBar.UserSelectItem
-                  label="Responsable"
+                  label="Responsable *"
                   userId={responsibleId}
                   users={users}
                   isAdmin={isAdmin}
                   onChange={setResponsibleId}
-                  placeholder="Sin asignar"
+                  placeholder="Seleccionar..."
                 />
               </div>
             </div>
@@ -1072,6 +1076,7 @@ export default function OpportunityFormModal({
             error={error}
             businessName={linkedBusiness?.name || opportunity?.business?.name || ''}
             forCompletion={!!completingTaskId}
+            responsibleName={opportunity?.responsible?.name || opportunity?.responsible?.email}
           />
         </Suspense>
       )}
