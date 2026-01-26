@@ -24,7 +24,6 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenIcon from '@mui/icons-material/LockOpen'
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
-import SyncIcon from '@mui/icons-material/Sync'
 import { getActiveFocus, getFocusInfo, FOCUS_PERIOD_LABELS, type FocusPeriod } from '@/lib/utils/focus-period'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
@@ -661,6 +660,13 @@ export default function BusinessFormModal({
     e.preventDefault()
     setError('')
     
+    // For existing businesses with vendor ID (admin only) - use sync flow
+    const usesSyncFlow = !!business && isAdmin && !!business.osAdminVendorId
+    if (usesSyncFlow) {
+      await handleSyncToOfertaSimple()
+      return
+    }
+    
     // For new businesses, ask confirmation before creating vendor
     const isNewBusiness = !business
     if (isNewBusiness) {
@@ -694,6 +700,9 @@ export default function BusinessFormModal({
   }
 
   const isEditMode = !!business
+  
+  // Show "Guardar y Sincronizar" for admin + existing business with vendor ID
+  const shouldShowSyncButton = isEditMode && isAdmin && !!business?.osAdminVendorId
 
   // Prepare categories and users for dynamic fields
   const categoryOptions = useMemo(() => categories.map(cat => ({
@@ -838,9 +847,9 @@ export default function BusinessFormModal({
       footer={
         <ModalFooter
           onCancel={onClose}
-          submitLabel="Guardar"
-          submitLoading={loading || loadingData || dynamicForm.loading}
-          submitDisabled={loading || loadingData || dynamicForm.loading}
+          submitLabel={shouldShowSyncButton ? 'Guardar y Sincronizar' : 'Guardar'}
+          submitLoading={loading || loadingData || dynamicForm.loading || (shouldShowSyncButton && syncLoading)}
+          submitDisabled={loading || loadingData || dynamicForm.loading || (shouldShowSyncButton && syncLoading)}
           leftContent="* Campos requeridos"
           formId="business-modal-form"
           additionalActions={
@@ -854,21 +863,7 @@ export default function BusinessFormModal({
               >
                 Crear Negocio y Opp
               </Button>
-            ) : (
-              // Sync button - only for existing businesses with vendor ID (admin only)
-              isAdmin && business.osAdminVendorId ? (
-                <Button
-                  type="button"
-                  onClick={handleSyncToOfertaSimple}
-                  disabled={loading || loadingData || dynamicForm.loading || syncLoading}
-                  loading={syncLoading}
-                  className="bg-amber-500 hover:bg-amber-600 focus-visible:ring-amber-500 disabled:bg-amber-300 text-white"
-                  leftIcon={<SyncIcon fontSize="small" />}
-                >
-                  Sincronizar OS
-                </Button>
-              ) : undefined
-            )
+            ) : undefined
           }
         />
       }
