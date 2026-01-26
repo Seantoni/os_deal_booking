@@ -157,6 +157,7 @@ async function upsertDealMetric(deal: DealMetric): Promise<{
     const data = {
       externalVendorId: deal.vendor_id,
       businessId, // Link to Business
+      dealName: deal.deal_name || null, // Deal name from external API
       quantitySold: deal.quantity_sold ?? 0,
       netRevenue: deal.net_revenue ?? 0,
       margin: deal.margin ?? 0,
@@ -383,6 +384,7 @@ export async function getDealMetricsByVendorId(vendorId: string) {
   const formattedDeals = deals.map(deal => ({
     id: deal.id,
     externalDealId: deal.externalDealId,
+    dealName: deal.dealName,
     quantitySold: deal.quantitySold,
     netRevenue: Number(deal.netRevenue),
     margin: Number(deal.margin),
@@ -405,6 +407,7 @@ export async function getDealMetricsByVendorId(vendorId: string) {
 export interface FormattedDealMetric {
   id: string
   externalDealId: string
+  dealName: string | null
   externalVendorId: string | null
   businessId: string | null
   businessName: string | null
@@ -425,6 +428,71 @@ export interface DealMetricsSummary {
   totalRevenue: number
   totalMargin: number
   activeDeals: number
+}
+
+// ============================================
+// Helper Functions (DRY)
+// ============================================
+
+type DealWithCount = {
+  id: string
+  externalDealId: string
+  dealName: string | null
+  externalVendorId: string | null
+  quantitySold: number
+  netRevenue: { toString(): string } | number
+  margin: { toString(): string } | number
+  dealUrl: string | null
+  runAt: Date | null
+  endAt: Date | null
+  lastSyncedAt: Date
+  _count: { snapshots: number }
+}
+
+/**
+ * Lookup business info by vendor IDs
+ * Returns a Map of vendorId -> { id, name }
+ */
+async function lookupBusinessInfoByVendorIds(
+  vendorIds: string[]
+): Promise<Map<string, { id: string; name: string }>> {
+  if (vendorIds.length === 0) return new Map()
+  
+  const businesses = await prisma.business.findMany({
+    where: { osAdminVendorId: { in: vendorIds } },
+    select: { id: true, osAdminVendorId: true, name: true },
+  })
+  
+  return new Map(businesses.map(b => [b.osAdminVendorId!, { id: b.id, name: b.name }]))
+}
+
+/**
+ * Format a deal metric with business info lookup
+ */
+function formatDealMetric(
+  deal: DealWithCount,
+  vendorToBusinessInfo: Map<string, { id: string; name: string }>
+): FormattedDealMetric {
+  const businessInfo = deal.externalVendorId 
+    ? vendorToBusinessInfo.get(deal.externalVendorId) 
+    : null
+  
+  return {
+    id: deal.id,
+    externalDealId: deal.externalDealId,
+    dealName: deal.dealName,
+    externalVendorId: deal.externalVendorId,
+    businessId: businessInfo?.id || null,
+    businessName: businessInfo?.name || null,
+    quantitySold: deal.quantitySold,
+    netRevenue: Number(deal.netRevenue),
+    margin: Number(deal.margin),
+    dealUrl: deal.dealUrl,
+    runAt: deal.runAt,
+    endAt: deal.endAt,
+    lastSyncedAt: deal.lastSyncedAt,
+    snapshotCount: deal._count.snapshots,
+  }
 }
 
 /**
@@ -549,35 +617,12 @@ export async function getDealMetricsPaginated(
     },
   })
 
-  // Get unique vendor IDs and look up business info (id + name)
+  // Get unique vendor IDs and look up business info
   const vendorIds = [...new Set(deals.map(d => d.externalVendorId).filter(Boolean))] as string[]
-  const businesses = vendorIds.length > 0
-    ? await prisma.business.findMany({
-        where: { osAdminVendorId: { in: vendorIds } },
-        select: { id: true, osAdminVendorId: true, name: true },
-      })
-    : []
-  const vendorToBusinessInfo = new Map(businesses.map(b => [b.osAdminVendorId, { id: b.id, name: b.name }]))
+  const vendorToBusinessInfo = await lookupBusinessInfoByVendorIds(vendorIds)
 
-  // Format deals
-  const formattedDeals: FormattedDealMetric[] = deals.map(deal => {
-    const businessInfo = deal.externalVendorId ? vendorToBusinessInfo.get(deal.externalVendorId) : null
-    return {
-      id: deal.id,
-      externalDealId: deal.externalDealId,
-      externalVendorId: deal.externalVendorId,
-      businessId: businessInfo?.id || null,
-      businessName: businessInfo?.name || null,
-      quantitySold: deal.quantitySold,
-      netRevenue: Number(deal.netRevenue),
-      margin: Number(deal.margin),
-      dealUrl: deal.dealUrl,
-      runAt: deal.runAt,
-      endAt: deal.endAt,
-      lastSyncedAt: deal.lastSyncedAt,
-      snapshotCount: deal._count.snapshots,
-    }
-  })
+  // Format deals using helper
+  const formattedDeals = deals.map(deal => formatDealMetric(deal, vendorToBusinessInfo))
 
   // Calculate summary from aggregates
   const summary: DealMetricsSummary = {
@@ -684,34 +729,12 @@ export async function searchDealMetrics(
       },
     })
 
-    // Get unique vendor IDs and look up business info (id + name)
+    // Get unique vendor IDs and look up business info
     const vendorIds = [...new Set(deals.map(d => d.externalVendorId).filter(Boolean))] as string[]
-    const businesses = vendorIds.length > 0
-      ? await prisma.business.findMany({
-          where: { osAdminVendorId: { in: vendorIds } },
-          select: { id: true, osAdminVendorId: true, name: true },
-        })
-      : []
-    const vendorToBusinessInfo = new Map(businesses.map(b => [b.osAdminVendorId, { id: b.id, name: b.name }]))
+    const vendorToBusinessInfo = await lookupBusinessInfoByVendorIds(vendorIds)
 
-    const data = deals.map(deal => {
-      const businessInfo = deal.externalVendorId ? vendorToBusinessInfo.get(deal.externalVendorId) : null
-      return {
-        id: deal.id,
-        externalDealId: deal.externalDealId,
-        externalVendorId: deal.externalVendorId,
-        businessId: businessInfo?.id || null,
-        businessName: businessInfo?.name || null,
-        quantitySold: deal.quantitySold,
-        netRevenue: Number(deal.netRevenue),
-        margin: Number(deal.margin),
-        dealUrl: deal.dealUrl,
-        runAt: deal.runAt,
-        endAt: deal.endAt,
-        lastSyncedAt: deal.lastSyncedAt,
-        snapshotCount: deal._count.snapshots,
-      }
-    })
+    // Format deals using helper
+    const data = deals.map(deal => formatDealMetric(deal, vendorToBusinessInfo))
 
     return { success: true, data }
   } catch (error) {

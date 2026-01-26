@@ -12,6 +12,7 @@ import type { SortDirection } from '@/hooks/useEntityPage'
 interface DealMetric {
   id: string
   externalDealId: string
+  dealName?: string | null
   quantitySold: number
   netRevenue: number
   margin: number
@@ -34,7 +35,7 @@ interface DealMetricsSectionProps {
 
 // Table columns configuration
 const DEAL_COLUMNS: ColumnConfig[] = [
-  { key: 'externalDealId', label: 'Deal ID', sortable: true },
+  { key: 'externalDealId', label: 'Deal', sortable: true },
   { key: 'status', label: 'Status', sortable: true },
   { key: 'quantitySold', label: 'Sold', sortable: true, align: 'right' },
   { key: 'netRevenue', label: 'Revenue', sortable: true, align: 'right' },
@@ -175,10 +176,14 @@ export default function DealMetricsSection({ vendorId, businessName }: DealMetri
         >
           {sortedDeals.map((deal, index) => {
             const isActive = deal.endAt && new Date(deal.endAt) > new Date()
+            // Format: "Deal ID - Deal Name" or just "Deal ID" if no name
+            const dealDisplay = deal.dealName 
+              ? `${deal.externalDealId} - ${deal.dealName}`
+              : deal.externalDealId
             return (
               <TableRow key={deal.id} index={index}>
                 <TableCell>
-                  <span className="font-medium text-slate-900">{deal.externalDealId}</span>
+                  <span className="font-medium text-slate-900 line-clamp-2" title={dealDisplay}>{dealDisplay}</span>
                 </TableCell>
                 <TableCell>
                   <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${

@@ -150,6 +150,7 @@ export interface SendDealResult {
 export interface DealMetric {
   vendor_id: string
   deal_id: string | number // API may return number or string
+  deal_name?: string       // Deal name from API
   quantity_sold: number
   net_revenue: number
   margin: number
