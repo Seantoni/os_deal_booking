@@ -599,6 +599,11 @@ export default function TasksPageClient() {
         error={taskError}
         businessName={selectedTask?.opportunity?.business?.name || ''}
         forCompletion={forCompletion}
+        responsibleName={selectedTask?.opportunity?.responsible?.name || selectedTask?.opportunity?.responsible?.email}
+        onViewOpportunity={selectedTask?.opportunityId ? () => {
+          setTaskModalOpen(false)
+          handleViewOpportunity(selectedTask.opportunityId)
+        } : undefined}
       />
 
       {/* Opportunity Modal */}
