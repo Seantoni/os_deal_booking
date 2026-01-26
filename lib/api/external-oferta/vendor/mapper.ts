@@ -5,8 +5,44 @@
  */
 
 import type { Business } from '@/types/business'
-import type { ExternalOfertaVendorRequest } from './types'
+import type { ExternalOfertaVendorRequest, ExternalOfertaVendorUpdateRequest, VendorFieldChange } from './types'
 import { VENDOR_SALES_TYPE } from './types'
+
+// ============================================
+// Field Mapping Configuration
+// Maps internal field keys → API keys → Spanish labels
+// ============================================
+
+/**
+ * Field mapping configuration for vendor sync
+ * Each entry defines how a business field maps to the external API
+ */
+export const VENDOR_FIELD_MAPPING: {
+  fieldKey: string       // Internal business/form field key
+  apiKey: string         // External API field key
+  label: string          // Spanish display label
+}[] = [
+  { fieldKey: 'name', apiKey: 'name', label: 'Nombre' },
+  { fieldKey: 'contactEmail', apiKey: 'email', label: 'Correo electrónico' },
+  { fieldKey: 'contactPhone', apiKey: 'phoneNumber', label: 'Teléfono' },
+  { fieldKey: 'contactName', apiKey: 'managerName', label: 'Nombre de contacto' },
+  { fieldKey: 'address', apiKey: 'address', label: 'Dirección' },
+  { fieldKey: 'website', apiKey: 'website', label: 'Sitio web' },
+  { fieldKey: 'razonSocial', apiKey: 'razonSocial', label: 'Razón social' },
+  { fieldKey: 'ruc', apiKey: 'ruc', label: 'RUC' },
+  { fieldKey: 'beneficiaryName', apiKey: 'beneficiaryName', label: 'Nombre del beneficiario' },
+  { fieldKey: 'accountNumber', apiKey: 'account', label: 'Número de cuenta' },
+  { fieldKey: 'accountType', apiKey: 'accountType', label: 'Tipo de cuenta' },
+  { fieldKey: 'paymentPlan', apiKey: 'paymentPlan', label: 'Plan de pago' },
+]
+
+/**
+ * Get the Spanish label for a field key
+ */
+export function getFieldLabel(fieldKey: string): string {
+  const mapping = VENDOR_FIELD_MAPPING.find(m => m.fieldKey === fieldKey)
+  return mapping?.label || fieldKey
+}
 
 /**
  * Map internal Business to External Vendor API request
@@ -123,4 +159,87 @@ export function mapSalesTypeToInteger(salesTypeString: string | null | undefined
   
   // Default to Regular
   return VENDOR_SALES_TYPE.REGULAR
+}
+
+// ============================================
+// Field Diff Functions (for PATCH updates)
+// ============================================
+
+/**
+ * Compare business data with form values and return changed fields
+ * Only includes fields that are different and mapped to the API
+ * 
+ * @param currentBusiness - Current business data from database
+ * @param newValues - New values from form (Record<fieldKey, value>)
+ * @returns Object with changes for display and API payload
+ */
+export function getChangedVendorFields(
+  currentBusiness: Business,
+  newValues: Record<string, string | null | undefined>
+): {
+  /** List of field changes for display in confirmation dialog */
+  changes: VendorFieldChange[]
+  /** API payload with only changed fields */
+  apiPayload: ExternalOfertaVendorUpdateRequest
+} {
+  const changes: VendorFieldChange[] = []
+  const apiPayload: ExternalOfertaVendorUpdateRequest = {}
+
+  for (const mapping of VENDOR_FIELD_MAPPING) {
+    const { fieldKey, apiKey, label } = mapping
+
+    // Get current value from business
+    const currentValue = getBusinessFieldValue(currentBusiness, fieldKey)
+    // Get new value from form
+    const newValue = normalizeValue(newValues[fieldKey])
+
+    // Check if value changed
+    if (currentValue !== newValue) {
+      changes.push({
+        fieldKey,
+        apiKey,
+        label,
+        oldValue: currentValue,
+        newValue,
+        isNew: !currentValue && !!newValue,
+      })
+
+      // Add to API payload
+      ;(apiPayload as Record<string, string | null>)[apiKey] = newValue
+    }
+  }
+
+  return { changes, apiPayload }
+}
+
+/**
+ * Get a field value from business object by field key
+ */
+function getBusinessFieldValue(business: Business, fieldKey: string): string | null {
+  const value = (business as Record<string, unknown>)[fieldKey]
+  return normalizeValue(value as string | null | undefined)
+}
+
+/**
+ * Normalize a value for comparison (empty strings → null)
+ */
+function normalizeValue(value: string | null | undefined): string | null {
+  if (value === undefined || value === null || value === '') {
+    return null
+  }
+  return value.trim()
+}
+
+/**
+ * Format a value for display (null → "(vacío)")
+ */
+export function formatValueForDisplay(value: string | null): string {
+  if (value === null || value === '') {
+    return '(vacío)'
+  }
+  // Truncate long values
+  if (value.length > 50) {
+    return value.substring(0, 47) + '...'
+  }
+  return value
 }

@@ -121,3 +121,49 @@ export interface SendVendorResult {
   /** Log ID for tracking */
   logId?: string
 }
+
+// ============================================
+// PATCH /external/api/vendors/{id} - Update
+// ============================================
+
+/**
+ * Request payload for updating a vendor (PATCH)
+ * All fields are optional - only send changed fields
+ */
+export type ExternalOfertaVendorUpdateRequest = Partial<Omit<ExternalOfertaVendorRequest, 'salesType'>> & {
+  /** Sales type is optional on update */
+  salesType?: number
+}
+
+/**
+ * Result of vendor update attempt
+ */
+export interface UpdateVendorResult {
+  success: boolean
+  /** External vendor ID */
+  externalVendorId?: number
+  /** Number of fields updated */
+  fieldsUpdated?: number
+  /** Error message (if failed) */
+  error?: string
+  /** Log ID for tracking */
+  logId?: string
+}
+
+/**
+ * Describes a single field change for display in confirmation dialog
+ */
+export interface VendorFieldChange {
+  /** Internal field key (e.g., "contactPhone") */
+  fieldKey: string
+  /** API field key (e.g., "phoneNumber") */
+  apiKey: string
+  /** Spanish label for display (e.g., "Teléfono") */
+  label: string
+  /** Previous value (null if was empty) */
+  oldValue: string | null
+  /** New value */
+  newValue: string | null
+  /** Whether this is a new value (was empty before) */
+  isNew: boolean
+}

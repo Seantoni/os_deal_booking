@@ -4,6 +4,9 @@ import { useEffect, useState, useMemo, useCallback, useActionState, useTransitio
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { createBusiness, updateBusiness, createOpportunity } from '@/app/actions/crm'
+import { previewVendorSync, syncVendorToExternal } from '@/app/actions/businesses'
+import { formatValueForDisplay } from '@/lib/api/external-oferta/vendor/mapper'
+import type { VendorFieldChange } from '@/lib/api/external-oferta/vendor/types'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
 import { useCachedFormConfig } from '@/hooks/useFormConfigCache'
@@ -21,6 +24,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenIcon from '@mui/icons-material/LockOpen'
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
+import SyncIcon from '@mui/icons-material/Sync'
 import { getActiveFocus, getFocusInfo, FOCUS_PERIOD_LABELS, type FocusPeriod } from '@/lib/utils/focus-period'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
@@ -88,6 +92,13 @@ export default function BusinessFormModal({
   const vendorConfirmDialog = useConfirmDialog()
   const vendorResultDialog = useConfirmDialog()
   
+  // Sync dialog for PATCH updates
+  const syncConfirmDialog = useConfirmDialog()
+  const syncResultDialog = useConfirmDialog()
+  const [syncLoading, setSyncLoading] = useState(false)
+  const [syncChanges, setSyncChanges] = useState<VendorFieldChange[]>([])
+  const [syncVendorId, setSyncVendorId] = useState<string | null>(null)
+  
   // Show pre-confirmation dialog before creating vendor
   const confirmVendorCreation = async (): Promise<boolean> => {
     return await vendorConfirmDialog.confirm({
@@ -146,6 +157,129 @@ export default function BusinessFormModal({
       confirmVariant: isOk ? 'success' : 'danger',
     })
   }
+
+  // Handle sync to OfertaSimple (PATCH)
+  const handleSyncToOfertaSimple = async () => {
+    if (!business?.id || !business?.osAdminVendorId) return
+    
+    setError('')
+    setSyncLoading(true)
+    
+    try {
+      // Step 1: Preview changes
+      const allValues = dynamicForm.getAllValues()
+      const previewResult = await previewVendorSync(business.id, allValues)
+      
+      if (!previewResult.success || !previewResult.data) {
+        setError(previewResult.error || 'Error al obtener cambios')
+        setSyncLoading(false)
+        return
+      }
+      
+      const { changes, vendorId } = previewResult.data
+      
+      if (changes.length === 0) {
+        setError('No hay cambios para sincronizar')
+        setSyncLoading(false)
+        return
+      }
+      
+      setSyncChanges(changes)
+      setSyncVendorId(vendorId)
+      setSyncLoading(false)
+      
+      // Step 2: Show confirmation dialog with changes
+      const changesContent = (
+        <div className="text-left space-y-3">
+          <p className="text-gray-700 text-sm">
+            Se enviarán los siguientes cambios a OfertaSimple:
+          </p>
+          <ul className="space-y-1.5 text-sm">
+            {changes.map((change) => (
+              <li key={change.fieldKey} className="flex items-start gap-2">
+                {change.isNew ? (
+                  <span className="text-green-600 font-medium">+</span>
+                ) : (
+                  <span className="text-amber-600 font-medium">●</span>
+                )}
+                <span className="text-gray-700">
+                  <span className="font-medium">{change.label}:</span>{' '}
+                  {change.isNew ? (
+                    <span className="text-green-700">{formatValueForDisplay(change.newValue)}</span>
+                  ) : (
+                    <>
+                      <span className="text-gray-400 line-through">{formatValueForDisplay(change.oldValue)}</span>
+                      <span className="mx-1">→</span>
+                      <span className="text-amber-700">{formatValueForDisplay(change.newValue)}</span>
+                    </>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-gray-500 text-xs pt-2 border-t border-gray-200">
+            Vendor ID: {vendorId}
+          </p>
+        </div>
+      )
+      
+      const confirmed = await syncConfirmDialog.confirm({
+        title: 'Sincronizar con OfertaSimple',
+        message: changesContent,
+        confirmText: 'Sincronizar',
+        cancelText: 'Cancelar',
+        confirmVariant: 'primary',
+      })
+      
+      if (!confirmed) return
+      
+      // Step 3: Execute sync (auto-saves locally + PATCH to API)
+      setSyncLoading(true)
+      const formData = buildFormData()
+      const syncResult = await syncVendorToExternal(business.id, formData)
+      setSyncLoading(false)
+      
+      // Step 4: Show result dialog
+      const isOk = syncResult.success
+      const resultContent = (
+        <div className="text-left space-y-2">
+          <p className={isOk ? 'text-green-700 font-medium' : 'text-red-700 font-medium'}>
+            {isOk 
+              ? `✅ ${syncResult.data?.fieldsUpdated} campo(s) sincronizado(s) exitosamente.` 
+              : '❌ Error al sincronizar con OfertaSimple.'}
+          </p>
+          
+          {!isOk && syncResult.error && (
+            <p className="text-gray-700 text-sm">
+              <span className="font-medium">Error:</span> {syncResult.error}
+            </p>
+          )}
+          
+          <p className="text-gray-500 text-xs pt-2 border-t border-gray-200">
+            Puede ver más detalles en Settings → API Logs.
+          </p>
+        </div>
+      )
+      
+      await syncResultDialog.confirm({
+        title: isOk ? 'Sincronización Exitosa' : 'Error de Sincronización',
+        message: resultContent,
+        confirmText: 'Entendido',
+        cancelText: '',
+        confirmVariant: isOk ? 'success' : 'danger',
+      })
+      
+      // If successful, refresh the business data
+      if (isOk && syncResult.data?.business) {
+        onSuccess(syncResult.data.business)
+      }
+      
+    } catch (err) {
+      setError('Error inesperado al sincronizar')
+      setSyncLoading(false)
+    }
+  }
+
   const router = useRouter()
   const { user } = useUser()
   const { isAdmin } = useUserRole()
@@ -720,7 +854,21 @@ export default function BusinessFormModal({
               >
                 Crear Negocio y Opp
               </Button>
-            ) : undefined
+            ) : (
+              // Sync button - only for existing businesses with vendor ID (admin only)
+              isAdmin && business.osAdminVendorId ? (
+                <Button
+                  type="button"
+                  onClick={handleSyncToOfertaSimple}
+                  disabled={loading || loadingData || dynamicForm.loading || syncLoading}
+                  loading={syncLoading}
+                  className="bg-amber-500 hover:bg-amber-600 focus-visible:ring-amber-500 disabled:bg-amber-300 text-white"
+                  leftIcon={<SyncIcon fontSize="small" />}
+                >
+                  Sincronizar OS
+                </Button>
+              ) : undefined
+            )
           }
         />
       }
@@ -921,6 +1069,32 @@ export default function BusinessFormModal({
       confirmVariant={vendorResultDialog.options.confirmVariant}
       onConfirm={vendorResultDialog.handleConfirm}
       onCancel={vendorResultDialog.handleCancel}
+      zIndex={80}
+    />
+
+    {/* Sync confirmation dialog - z-80 to be above ModalShell (z-70) */}
+    <ConfirmDialog
+      isOpen={syncConfirmDialog.isOpen}
+      title={syncConfirmDialog.options.title}
+      message={syncConfirmDialog.options.message}
+      confirmText={syncConfirmDialog.options.confirmText}
+      cancelText={syncConfirmDialog.options.cancelText}
+      confirmVariant={syncConfirmDialog.options.confirmVariant}
+      onConfirm={syncConfirmDialog.handleConfirm}
+      onCancel={syncConfirmDialog.handleCancel}
+      zIndex={80}
+    />
+
+    {/* Sync result dialog - z-80 to be above ModalShell (z-70) */}
+    <ConfirmDialog
+      isOpen={syncResultDialog.isOpen}
+      title={syncResultDialog.options.title}
+      message={syncResultDialog.options.message}
+      confirmText={syncResultDialog.options.confirmText}
+      cancelText={syncResultDialog.options.cancelText}
+      confirmVariant={syncResultDialog.options.confirmVariant}
+      onConfirm={syncResultDialog.handleConfirm}
+      onCancel={syncResultDialog.handleCancel}
       zIndex={80}
     />
   </>
