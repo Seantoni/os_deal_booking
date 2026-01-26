@@ -68,19 +68,16 @@ import { TableRow, TableCell } from '@/components/shared/table'
 
 // Table columns configuration
 const COLUMNS: ColumnConfig[] = [
-  { key: 'expand', label: '', width: 'w-10' },
+  { key: 'expand', label: '', width: 'w-4' },
   { key: 'name', label: 'Nombre del Negocio', sortable: true },
-  { key: 'contact', label: 'Contacto', sortable: true },
-  { key: 'email', label: 'Correo' },
-  { key: 'phone', label: 'Teléfono' },
   { key: 'category', label: 'Categoría', sortable: true },
-  { key: 'topSold', label: 'Top Vendido', sortable: true, align: 'right' },
-  { key: 'topRevenue', label: 'Top Ingresos', sortable: true, align: 'right' },
-  { key: 'lastLaunch', label: 'Último Lanz.', sortable: true, align: 'center' },
-  { key: 'deals360d', label: 'Deals (360d)', sortable: true, align: 'center' },
-  { key: 'openOpps', label: 'Opps', sortable: true, align: 'center', width: 'w-16' },
-  { key: 'pendingReqs', label: 'Solic.', sortable: true, align: 'center', width: 'w-16' },
-  { key: 'actions', label: '', width: 'w-20' },
+  { key: 'topSold', label: 'Top #', sortable: true, align: 'right' },
+  { key: 'topRevenue', label: 'Top $', sortable: true, align: 'right' },
+  { key: 'lastLaunch', label: 'Lanz.', sortable: true, align: 'center' },
+  { key: 'deals360d', label: '#Deals', sortable: true, align: 'center' },
+  { key: 'openOpps', label: 'Opps', sortable: true, align: 'center', width: 'w-14' },
+  { key: 'pendingReqs', label: 'Solic.', sortable: true, align: 'center', width: 'w-14' },
+  { key: 'actions', label: '', width: 'w-16' },
 ]
 
 // Cache for fetched deals per business
@@ -357,12 +354,6 @@ export default function BusinessesPageClient({
     switch (column) {
       case 'name':
         return business.name.toLowerCase()
-      case 'contact':
-        return (business.contactName || '').toLowerCase()
-      case 'email':
-        return business.contactEmail.toLowerCase()
-      case 'phone':
-        return business.contactPhone.toLowerCase()
       case 'category':
         return (business.category?.parentCategory || '').toLowerCase()
       case 'topSold':
@@ -742,15 +733,6 @@ export default function BusinessesPageClient({
                               )}
                             </div>
                           </TableCell>
-                          <TableCell className="text-[13px] text-gray-600">
-                            {business.contactName || <span className="text-gray-400">-</span>}
-                          </TableCell>
-                          <TableCell className="text-[13px] text-gray-500 break-all">
-                            {business.contactEmail || <span className="text-gray-400">-</span>}
-                          </TableCell>
-                          <TableCell className="text-[13px] text-gray-500 whitespace-nowrap">
-                            {business.contactPhone || <span className="text-gray-400">-</span>}
-                          </TableCell>
                           <TableCell>
                             {business.category ? (
                               <span className="text-xs text-gray-600">
@@ -985,9 +967,9 @@ export default function BusinessesPageClient({
                                     </td>
                                     <td className="px-4 py-2" colSpan={2}>
                                       <span className="text-[11px] text-slate-500">
-                                        {deal.runAt ? new Date(deal.runAt).toLocaleDateString('es', { day: 'numeric', month: 'short' }) : '-'}
+                                        {deal.runAt ? new Date(deal.runAt).toLocaleDateString('es', { day: 'numeric', month: 'short', year: '2-digit' }) : '-'}
                                         {' → '}
-                                        {deal.endAt ? new Date(deal.endAt).toLocaleDateString('es', { day: 'numeric', month: 'short' }) : '-'}
+                                        {deal.endAt ? new Date(deal.endAt).toLocaleDateString('es', { day: 'numeric', month: 'short', year: '2-digit' }) : '-'}
                                       </span>
                                     </td>
                                     <td className="px-4 py-2 text-right" colSpan={5}>
