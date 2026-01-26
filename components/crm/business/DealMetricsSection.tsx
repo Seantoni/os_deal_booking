@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart'
-import AttachMoneyIcon from '@mui/icons-material/AttachMoney'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import BarChartIcon from '@mui/icons-material/BarChart'
 import { getDealMetricsByVendorId } from '@/app/actions/deal-metrics'
@@ -29,31 +27,9 @@ interface DealMetric {
   }[]
 }
 
-interface Summary {
-  totalDeals: number
-  totalQuantitySold: number
-  totalRevenue: number
-  totalMargin: number
-  activeDeals: number
-}
-
 interface DealMetricsSectionProps {
   vendorId: string | null | undefined
   businessName: string
-}
-
-function StatCard({ label, value, icon, color }: { label: string; value: string | number; icon: React.ReactNode; color: string }) {
-  return (
-    <div className="bg-white rounded-lg border border-slate-200 p-3">
-      <div className="flex items-center gap-2 mb-1">
-        <div className={`p-1.5 rounded ${color}`}>
-          {icon}
-        </div>
-        <span className="text-xs text-slate-500 uppercase tracking-wide">{label}</span>
-      </div>
-      <div className="text-xl font-bold text-slate-900">{value}</div>
-    </div>
-  )
 }
 
 // Table columns configuration
@@ -71,7 +47,6 @@ const DEAL_COLUMNS: ColumnConfig[] = [
 export default function DealMetricsSection({ vendorId, businessName }: DealMetricsSectionProps) {
   const [loading, setLoading] = useState(true)
   const [deals, setDeals] = useState<DealMetric[]>([])
-  const [summary, setSummary] = useState<Summary | null>(null)
   const [sortColumn, setSortColumn] = useState<string | null>('netRevenue')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
 
@@ -85,7 +60,6 @@ export default function DealMetricsSection({ vendorId, businessName }: DealMetri
       try {
         const result = await getDealMetricsByVendorId(vendorId)
         setDeals(result.deals as DealMetric[])
-        setSummary(result.summary)
       } catch (error) {
         console.error('Error loading deal metrics:', error)
       } finally {
@@ -182,36 +156,6 @@ export default function DealMetricsSection({ vendorId, businessName }: DealMetri
 
   return (
     <div className="space-y-4">
-      {/* Summary Cards */}
-      {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard
-            label="Total Deals"
-            value={summary.totalDeals}
-            icon={<BarChartIcon style={{ fontSize: 16 }} className="text-blue-600" />}
-            color="bg-blue-50"
-          />
-          <StatCard
-            label="Total Sold"
-            value={summary.totalQuantitySold.toLocaleString()}
-            icon={<ShoppingCartIcon style={{ fontSize: 16 }} className="text-purple-600" />}
-            color="bg-purple-50"
-          />
-          <StatCard
-            label="Total Revenue"
-            value={`$${summary.totalRevenue.toLocaleString()}`}
-            icon={<AttachMoneyIcon style={{ fontSize: 16 }} className="text-emerald-600" />}
-            color="bg-emerald-50"
-          />
-          <StatCard
-            label="Total Margin"
-            value={`$${summary.totalMargin.toLocaleString()}`}
-            icon={<TrendingUpIcon style={{ fontSize: 16 }} className="text-amber-600" />}
-            color="bg-amber-50"
-          />
-        </div>
-      )}
-
       {/* Aggregated Chart */}
       {deals.length > 0 && (
         <div className="bg-white rounded-lg border border-slate-200 p-4">

@@ -134,15 +134,25 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     }
   }, [creatorFilter, loadData, isAdmin])
 
-  // Read search query from URL params on mount
+  // Read search query and view param from URL params on mount
   useEffect(() => {
     // Read from both searchParams and window.location to ensure we catch it
     const searchParam = searchParams.get('search') || new URLSearchParams(window.location.search).get('search')
+    const viewParam = searchParams.get('view') || new URLSearchParams(window.location.search).get('view')
+    
     if (searchParam) {
       setSearchQuery(searchParam)
-      // Clean up URL after reading
+    }
+    
+    if (viewParam) {
+      setViewRequestId(viewParam)
+    }
+    
+    // Clean up URL after reading
+    if (searchParam || viewParam) {
       const currentParams = new URLSearchParams(window.location.search)
       currentParams.delete('search')
+      currentParams.delete('view')
       const newUrl = currentParams.toString() 
         ? `${window.location.pathname}?${currentParams.toString()}`
         : window.location.pathname
