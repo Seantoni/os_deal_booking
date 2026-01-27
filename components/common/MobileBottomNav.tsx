@@ -19,6 +19,7 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import CloseIcon from '@mui/icons-material/Close'
 import MenuIcon from '@mui/icons-material/Menu'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import CampaignIcon from '@mui/icons-material/Campaign'
 
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz'
 
@@ -48,6 +49,7 @@ const editorPrimaryNav: NavItem[] = []
 // Secondary nav items (shown in "More" menu)
 const adminSecondaryNav: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
+  { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
   { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
   { name: 'Marketing', href: '/marketing', Icon: AssignmentIcon },
   { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
@@ -59,6 +61,7 @@ const adminSecondaryNav: NavItem[] = [
 
 const salesSecondaryNav: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
+  { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
   { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
   { name: 'Marketing', href: '/marketing', Icon: AssignmentIcon },
   { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },

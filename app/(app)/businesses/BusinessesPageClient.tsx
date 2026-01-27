@@ -19,6 +19,7 @@ import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import CampaignIcon from '@mui/icons-material/Campaign'
 import type { ParsedCsvRow } from '@/lib/utils/csv-export'
 import CsvUploadModal, { type CsvUploadPreview, type CsvUploadResult } from '@/components/common/CsvUploadModal'
 import { exportBusinessesToCsv } from './csv-export'
@@ -44,7 +45,13 @@ const ReassignmentModal = dynamic(() => import('@/components/crm/business/Reassi
   loading: () => null,
   ssr: false,
 })
+
+const AssignCampaignModal = dynamic(() => import('@/components/crm/business/AssignCampaignModal'), {
+  loading: () => null,
+  ssr: false,
+})
 import toast from 'react-hot-toast'
+import { getBusinessCampaignCounts } from '@/app/actions/campaigns'
 import { getActiveFocus, FOCUS_PERIOD_LABELS, type FocusPeriod } from '@/lib/utils/focus-period'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
@@ -201,6 +208,9 @@ export default function BusinessesPageClient({
   const [reassignmentModalOpen, setReassignmentModalOpen] = useState(false)
   const [selectedBusinessForReassignment, setSelectedBusinessForReassignment] = useState<Business | null>(null)
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null) // Track which row has open menu
+  const [campaignModalOpen, setCampaignModalOpen] = useState(false)
+  const [selectedBusinessForCampaign, setSelectedBusinessForCampaign] = useState<Business | null>(null)
+  const [businessCampaignCounts, setBusinessCampaignCounts] = useState<Record<string, number>>({})
   
   const confirmDialog = useConfirmDialog()
 
@@ -280,6 +290,24 @@ export default function BusinessesPageClient({
     }
     loadActiveDealUrls()
   }, [])
+
+  // Lazy load business campaign counts (how many active/upcoming campaigns each business is in)
+  const loadCampaignCounts = useCallback(async () => {
+    try {
+      const result = await getBusinessCampaignCounts()
+      if (result.success && result.data) {
+        setBusinessCampaignCounts(result.data)
+      }
+    } catch (error) {
+      logger.error('Failed to load campaign counts:', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isAdmin) {
+      loadCampaignCounts()
+    }
+  }, [isAdmin, loadCampaignCounts])
 
   // Map of business IDs to count of open opportunities (from lazy-loaded counts)
   const businessOpenOpportunityCount = useMemo(() => {
@@ -731,6 +759,15 @@ export default function BusinessesPageClient({
                                   {FOCUS_PERIOD_LABELS[activeFocus].charAt(0)}
                                 </span>
                               )}
+                              {businessCampaignCounts[business.id] > 0 && (
+                                <span 
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-medium"
+                                  title={`En ${businessCampaignCounts[business.id]} campaña(s)`}
+                                >
+                                  <CampaignIcon style={{ fontSize: 12 }} />
+                                  {businessCampaignCounts[business.id]}
+                                </span>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -882,6 +919,23 @@ export default function BusinessesPageClient({
                               >
                                 <OpenInNewIcon style={{ fontSize: 18 }} />
                               </button>
+                              {/* Campaign Button (Admin only) */}
+                              {isAdmin && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedBusinessForCampaign(business)
+                                    setCampaignModalOpen(true)
+                                  }}
+                                  className={`p-1.5 rounded transition-colors ${
+                                    businessCampaignCounts[business.id] > 0
+                                      ? 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                                      : 'hover:bg-blue-50 text-gray-400 hover:text-blue-600'
+                                  }`}
+                                  title="Añadir a Campaña"
+                                >
+                                  <CampaignIcon style={{ fontSize: 18 }} />
+                                </button>
+                              )}
                               {/* Action Menu (Acción) */}
                               <div className="relative">
                                 <button
@@ -892,7 +946,7 @@ export default function BusinessesPageClient({
                                   <MoreVertIcon style={{ fontSize: 18 }} />
                                 </button>
                                 {actionMenuOpen === business.id && (
-                                  <div className="absolute right-0 top-full mt-1 z-50 w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+                                  <div className="absolute right-0 top-full mt-1 z-50 w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
                                     <button
                                       onClick={() => {
                                         setSelectedBusinessForReassignment(business)
@@ -1122,6 +1176,23 @@ export default function BusinessesPageClient({
             if (!isSearching) {
               loadPage(currentPage)
             }
+          }}
+        />
+      )}
+
+      {/* Campaign Assignment Modal */}
+      {campaignModalOpen && selectedBusinessForCampaign && (
+        <AssignCampaignModal
+          isOpen={campaignModalOpen}
+          onClose={() => {
+            setCampaignModalOpen(false)
+            setSelectedBusinessForCampaign(null)
+          }}
+          businessId={selectedBusinessForCampaign.id}
+          businessName={selectedBusinessForCampaign.name}
+          onSuccess={() => {
+            // Reload campaign counts to update the indicator
+            loadCampaignCounts()
           }}
         />
       )}

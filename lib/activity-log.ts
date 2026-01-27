@@ -43,6 +43,8 @@ export type EntityType =
   | 'Task'
   | 'MarketingCampaign'
   | 'MarketingOption'
+  | 'SalesCampaign'
+  | 'BusinessCampaign'
 
 /**
  * Details object for logging additional context

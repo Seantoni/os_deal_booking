@@ -95,3 +95,7 @@ export {
   getBuiltinFieldDefinition,
   DEFAULT_SECTIONS,
 } from './form-config'
+
+// Campaign types
+export type { SalesCampaign, BusinessCampaign, CampaignStatus } from './campaign'
+export { getCampaignStatus, isCampaignSelectable } from './campaign'

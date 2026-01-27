@@ -18,6 +18,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import HistoryIcon from '@mui/icons-material/History'
 import CampaignIcon from '@mui/icons-material/Campaign'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 
 // Sidebar item type
@@ -34,6 +35,7 @@ const adminSidebarConfig = {
   monitorItems: [
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
     { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
+    { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
   ],
   // Work (daily execution - heart of the product)
   workItems: [
@@ -46,7 +48,7 @@ const adminSidebarConfig = {
   // Acquire & Grow (less frequent)
   acquireItems: [
     { name: 'Leads', href: '/leads', Icon: PersonAddIcon },
-    { name: 'Marketing', href: '/marketing', Icon: CampaignIcon },
+    { name: 'Marketing', href: '/marketing', Icon: AutoAwesomeIcon },
   ],
   // Admin-only management
   adminItems: [
@@ -62,6 +64,7 @@ const salesSidebarConfig = {
   monitorItems: [
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
     { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
+    { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
   ],
   workItems: [
     { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
@@ -84,10 +87,12 @@ const editorSidebarConfig = {
 }
 
 const marketingSidebarConfig = {
-  monitorItems: [] as SidebarItem[],
+  monitorItems: [
+    { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
+  ],
   workItems: [] as SidebarItem[],
   acquireItems: [
-    { name: 'Marketing', href: '/marketing', Icon: CampaignIcon },
+    { name: 'Marketing', href: '/marketing', Icon: AutoAwesomeIcon },
   ],
   adminItems: [] as SidebarItem[],
   bottomItems: [] as SidebarItem[],

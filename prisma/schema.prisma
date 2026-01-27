@@ -271,6 +271,7 @@ model Business {
   lead                 Lead?
   opportunities        Opportunity[]
   dealMetrics          DealMetrics[]
+  campaigns            BusinessCampaign[]
 
   @@index([categoryId])
   @@index([leadId])
@@ -771,4 +772,44 @@ model CronJobLog {
   @@index([startedAt])
   @@index([createdAt])
   @@map("cron_job_logs")
+}
+
+// ============================================
+// Sales Campaigns (for grouping businesses)
+// ============================================
+
+model SalesCampaign {
+  id            String             @id @default(cuid())
+  name          String
+  runAt         DateTime
+  endAt         DateTime
+  minBusinesses Int?
+  maxBusinesses Int?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  createdBy     String?
+
+  businesses    BusinessCampaign[]
+
+  @@index([runAt])
+  @@index([endAt])
+  @@index([createdBy])
+  @@map("sales_campaigns")
+}
+
+model BusinessCampaign {
+  id         String        @id @default(cuid())
+  businessId String
+  campaignId String
+  assignedAt DateTime      @default(now())
+  assignedBy String?
+
+  business   Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  campaign   SalesCampaign @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+
+  @@unique([businessId, campaignId])
+  @@index([businessId])
+  @@index([campaignId])
+  @@index([assignedAt])
+  @@map("business_campaigns")
 }
