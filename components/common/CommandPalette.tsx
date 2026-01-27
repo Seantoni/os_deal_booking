@@ -309,7 +309,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                   })}
                 </div>
                 <p className="text-[10px] mt-3 text-gray-400">
-                  Busca por nombre, email, estado o ID
+                  Busca por nombre, email, estado, ID o Vendor ID externo
                 </p>
               </div>
             ) : results ? (

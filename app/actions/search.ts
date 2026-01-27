@@ -114,6 +114,15 @@ async function searchBusinesses(searchTerm: string, isIdSearch: boolean, role: s
     orConditions.push({ id: searchTerm })
   }
 
+  // Search by external vendor ID (osAdminVendorId) - exact or partial match
+  // Check if searchTerm looks like a numeric ID (digits only)
+  if (/^\d+$/.test(searchTerm)) {
+    orConditions.push({ osAdminVendorId: { equals: searchTerm } })
+  } else {
+    // Also allow partial match for vendor ID
+    orConditions.push({ osAdminVendorId: { contains: searchTerm, mode: 'insensitive' } })
+  }
+
   let where: Prisma.BusinessWhereInput = { OR: orConditions }
 
   if (role === 'sales') {
@@ -130,7 +139,9 @@ async function searchBusinesses(searchTerm: string, isIdSearch: boolean, role: s
     id: business.id,
     type: 'business' as const,
     title: business.name,
-    subtitle: business.contactEmail || business.contactName || undefined,
+    subtitle: business.osAdminVendorId 
+      ? `OS ID: ${business.osAdminVendorId}` 
+      : (business.contactEmail || business.contactName || undefined),
     url: `/businesses/${business.id}`,
   }))
 }
