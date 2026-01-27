@@ -33,7 +33,7 @@ const adminSidebarConfig = {
   // Monitor & Analyze (top - high-level overview)
   monitorItems: [
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
-    { name: 'Inteligencia', href: '/market-intelligence', Icon: TrendingUpIcon },
+    { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
   ],
   // Work (daily execution - heart of the product)
   workItems: [
@@ -46,7 +46,6 @@ const adminSidebarConfig = {
   // Acquire & Grow (less frequent)
   acquireItems: [
     { name: 'Leads', href: '/leads', Icon: PersonAddIcon },
-    { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
     { name: 'Marketing', href: '/marketing', Icon: CampaignIcon },
   ],
   // Admin-only management
@@ -54,7 +53,6 @@ const adminSidebarConfig = {
     { name: 'Asignaciones', href: '/assignments', Icon: AssignmentReturnIcon },
   ],
   bottomItems: [
-    { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
     { name: 'Actividad', href: '/activity-log', Icon: HistoryIcon },
     { name: 'Configuración', href: '/settings', Icon: SettingsIcon },
   ],
@@ -63,6 +61,7 @@ const adminSidebarConfig = {
 const salesSidebarConfig = {
   monitorItems: [
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
+    { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
   ],
   workItems: [
     { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
@@ -71,21 +70,15 @@ const salesSidebarConfig = {
     { name: 'Negocios', href: '/businesses', Icon: BusinessIcon },
     { name: 'Opps', href: '/opportunities', Icon: HandshakeIcon },
   ],
-  acquireItems: [
-    { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
-  ],
+  acquireItems: [] as SidebarItem[],
   adminItems: [] as SidebarItem[],
-  bottomItems: [
-    { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
-  ],
+  bottomItems: [] as SidebarItem[],
 }
 
 const editorSidebarConfig = {
   monitorItems: [] as SidebarItem[],
   workItems: [] as SidebarItem[],
-  acquireItems: [
-    { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
-  ],
+  acquireItems: [] as SidebarItem[],
   adminItems: [] as SidebarItem[],
   bottomItems: [] as SidebarItem[],
 }

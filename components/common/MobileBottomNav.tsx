@@ -32,20 +32,18 @@ type NavItem = {
 const adminPrimaryNav: NavItem[] = [
   { name: 'Opps', href: '/opportunities', Icon: HandshakeIcon },
   { name: 'Negocios', href: '/businesses', Icon: BusinessIcon },
-  { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
+  { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
   { name: 'Requests', href: '/booking-requests', Icon: DescriptionIcon },
 ]
 
 const salesPrimaryNav: NavItem[] = [
   { name: 'Opps', href: '/opportunities', Icon: HandshakeIcon },
   { name: 'Negocios', href: '/businesses', Icon: BusinessIcon },
-  { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
+  { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
   { name: 'Requests', href: '/booking-requests', Icon: DescriptionIcon },
 ]
 
-const editorPrimaryNav: NavItem[] = [
-  { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
-]
+const editorPrimaryNav: NavItem[] = []
 
 // Secondary nav items (shown in "More" menu)
 const adminSecondaryNav: NavItem[] = [
@@ -53,10 +51,8 @@ const adminSecondaryNav: NavItem[] = [
   { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
   { name: 'Marketing', href: '/marketing', Icon: AssignmentIcon },
   { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
-  { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
   { name: 'Reservaciones', href: '/reservations', Icon: ListAltIcon },
   { name: 'Leads', href: '/leads', Icon: PersonAddIcon },
-  { name: 'Inteligencia', href: '/market-intelligence', Icon: TrendingUpIcon },
   { name: 'Asignaciones', href: '/assignments', Icon: AssignmentReturnIcon },
   { name: 'Configuración', href: '/settings', Icon: SettingsIcon },
 ]
@@ -66,7 +62,6 @@ const salesSecondaryNav: NavItem[] = [
   { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
   { name: 'Marketing', href: '/marketing', Icon: AssignmentIcon },
   { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
-  { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
   { name: 'Reservaciones', href: '/reservations', Icon: ListAltIcon },
 ]
 
