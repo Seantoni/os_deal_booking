@@ -617,7 +617,9 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
             confirmVariant: 'primary',
           })
         }
-        // Modal stays open - user can close it manually
+        
+        // Close modal after user acknowledges the API result
+        onClose()
       } catch (err) {
         // Optimistic update already rolled back via onSuccess
         const errorMsg = err instanceof Error ? err.message : 'Error al reservar el evento'
