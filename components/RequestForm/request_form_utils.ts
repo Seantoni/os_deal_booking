@@ -76,6 +76,22 @@ export const validateStep = (
     ? REQUEST_FORM_STEPS.find((s) => s.key === mappedKey)
     : REQUEST_FORM_STEPS.find((s) => s.id === step)
 
+  /**
+   * Evaluates if a showWhen condition is met for a field
+   */
+  const isShowWhenConditionMet = (showWhen: { field: string; value: string | string[] } | undefined): boolean => {
+    if (!showWhen) return true // No condition means always show
+    
+    const dependentValue = formData[showWhen.field as keyof BookingFormData]
+    const requiredValue = showWhen.value
+    
+    // Check if the condition is met
+    if (Array.isArray(requiredValue)) {
+      return requiredValue.includes(dependentValue as string)
+    }
+    return dependentValue === requiredValue
+  }
+
   const shouldValidateField = (fieldKey: string): boolean => {
     if (!stepDef) return false
     // Skip nested/array sub-fields (e.g., pricingOptions.title) - these are handled by step-specific validation
@@ -84,9 +100,41 @@ export const validateStep = (
     if (!def) return false
     if (def.categorySpecific && def.template) {
       if (!templateName || templateName !== def.template) return false
+      
+      // For category-specific fields, also check the template's showWhen condition
+      const template = FIELD_TEMPLATES[templateName]
+      if (template) {
+        const templateFieldConfig = template.fields.find(f => f.name === fieldKey)
+        if (templateFieldConfig?.showWhen && !isShowWhenConditionMet(templateFieldConfig.showWhen)) {
+          return false // Field is hidden by showWhen condition
+        }
+      }
     }
+    
+    // Conditional fields: only validate if the condition is met
     if (fieldKey === 'recurringOfferLink' && formData.isRecurring !== 'Sí') return false
+    if (fieldKey === 'exclusivityCondition' && formData.hasExclusivity !== 'Sí') return false
+    
     return isRequired(fieldKey)
+  }
+  
+  /**
+   * Check if a template field should be validated based on its showWhen condition
+   */
+  const shouldValidateTemplateField = (fieldName: string): boolean => {
+    if (!templateName || !FIELD_TEMPLATES[templateName]) return false
+    
+    const template = FIELD_TEMPLATES[templateName]
+    const fieldConfig = template.fields.find(f => f.name === fieldName)
+    
+    if (!fieldConfig) return false
+    
+    // Check showWhen condition
+    if (fieldConfig.showWhen) {
+      return isShowWhenConditionMet(fieldConfig.showWhen)
+    }
+    
+    return true // No showWhen means always validate if required
   }
 
   const isEmpty = (value: unknown) => {
@@ -191,7 +239,20 @@ export const validateStep = (
       break
     case 7:
       // Información Adicional: Category-specific fields (dynamic)
-      // Validation handled by generic required-field check above
+      // Validate template fields with showWhen conditions
+      if (templateName && FIELD_TEMPLATES[templateName]) {
+        const template = FIELD_TEMPLATES[templateName]
+        template.fields.forEach(fieldConfig => {
+          const fieldKey = fieldConfig.name
+          // Only validate if required AND visible (showWhen condition met)
+          if (isRequired(fieldKey) && shouldValidateTemplateField(fieldKey)) {
+            const value = formData[fieldKey as keyof BookingFormData]
+            if (isEmpty(value)) {
+              newErrors[fieldKey] = 'Requerido'
+            }
+          }
+        })
+      }
       break
     case 8:
       // Contenido: AI-generated content fields
