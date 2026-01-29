@@ -97,13 +97,25 @@ export default function SystemTab() {
     setOfertaApiStatus({ status: 'checking' })
     try {
       const response = await fetch('/api/external-oferta/test', { method: 'POST' })
-      const data = await response.json()
-      setOfertaApiStatus(data.success
-        ? { status: 'connected', details: `ID: ${data.externalId}` }
-        : { status: 'error', error: data.errorMessage || 'Failed' }
-      )
+      let data
+      try {
+        data = await response.json()
+      } catch {
+        setOfertaApiStatus({ status: 'error', error: `HTTP ${response.status} (no JSON)` })
+        return
+      }
+      if (data.success) {
+        setOfertaApiStatus({ status: 'connected', details: `ID: ${data.externalId}` })
+      } else {
+        // Extract error from various formats
+        const err = data.errorMessage 
+          || (typeof data.error === 'string' ? data.error : null)
+          || data.hint
+          || `HTTP ${data.status || response.status}`
+        setOfertaApiStatus({ status: 'error', error: err })
+      }
     } catch (error) {
-      setOfertaApiStatus({ status: 'error', error: error instanceof Error ? error.message : 'Error' })
+      setOfertaApiStatus({ status: 'error', error: error instanceof Error ? error.message : 'Network error' })
     }
   }
 

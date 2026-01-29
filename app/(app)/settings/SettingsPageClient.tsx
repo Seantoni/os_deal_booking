@@ -8,7 +8,6 @@ import InfoIcon from '@mui/icons-material/Info'
 import SettingsIcon from '@mui/icons-material/Settings'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import CategoryIcon from '@mui/icons-material/Category'
-import DnsIcon from '@mui/icons-material/Dns'
 import ViewModuleIcon from '@mui/icons-material/ViewModule'
 import AccessManagementTab from '@/components/shared/AccessManagementTab'
 import GeneralTab from './components/GeneralTab'
@@ -34,7 +33,57 @@ import HistoryIcon from '@mui/icons-material/History'
 import ChatBubbleIcon from '@mui/icons-material/ChatBubble'
 import ScheduleIcon from '@mui/icons-material/Schedule'
 import CampaignIcon from '@mui/icons-material/Campaign'
+import TuneIcon from '@mui/icons-material/Tune'
+import MonitorHeartIcon from '@mui/icons-material/MonitorHeart'
 import './styles.css'
+
+type TabId = 'general' | 'categories' | 'form-builder' | 'system' | 'access' | 'email-preview' | 'public-pages' | 'api-logs' | 'comments-log' | 'cron-jobs' | 'campaigns'
+
+interface NavItem {
+  id: TabId
+  label: string
+  icon: React.ReactNode
+  adminOnly?: boolean
+}
+
+interface NavGroup {
+  title: string
+  items: NavItem[]
+}
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    title: 'Configuration',
+    items: [
+      { id: 'general', label: 'General', icon: <SettingsIcon style={{ fontSize: 18 }} /> },
+      { id: 'categories', label: 'Categories', icon: <CategoryIcon style={{ fontSize: 18 }} /> },
+      { id: 'form-builder', label: 'Form Builder', icon: <ViewModuleIcon style={{ fontSize: 18 }} /> },
+    ]
+  },
+  {
+    title: 'System',
+    items: [
+      { id: 'system', label: 'Health & APIs', icon: <MonitorHeartIcon style={{ fontSize: 18 }} /> },
+      { id: 'access', label: 'Access Control', icon: <PersonAddIcon style={{ fontSize: 18 }} /> },
+    ]
+  },
+  {
+    title: 'Content',
+    items: [
+      { id: 'public-pages', label: 'Public Pages', icon: <PublicIcon style={{ fontSize: 18 }} /> },
+      { id: 'email-preview', label: 'Email Templates', icon: <EmailIcon style={{ fontSize: 18 }} />, adminOnly: true },
+    ]
+  },
+  {
+    title: 'Monitoring',
+    items: [
+      { id: 'api-logs', label: 'API Logs', icon: <HistoryIcon style={{ fontSize: 18 }} />, adminOnly: true },
+      { id: 'comments-log', label: 'Comments', icon: <ChatBubbleIcon style={{ fontSize: 18 }} />, adminOnly: true },
+      { id: 'cron-jobs', label: 'Cron Jobs', icon: <ScheduleIcon style={{ fontSize: 18 }} />, adminOnly: true },
+      { id: 'campaigns', label: 'Campaigns', icon: <CampaignIcon style={{ fontSize: 18 }} />, adminOnly: true },
+    ]
+  },
+]
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -43,14 +92,14 @@ export default function SettingsPageClient() {
   const [saved, setSaved] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState<{ created: number; updated: number; deactivated: number } | null>(null)
-  const [activeTab, setActiveTab] = useState<'general' | 'categories' | 'form-builder' | 'system' | 'access' | 'email-preview' | 'public-pages' | 'api-logs' | 'comments-log' | 'cron-jobs' | 'campaigns'>('general')
+  const [activeTab, setActiveTab] = useState<TabId>('general')
   const { isAdmin } = useUserRole()
   const [formBuilderSubTab, setFormBuilderSubTab] = useState<'entity-fields' | 'request-form'>('entity-fields')
   const confirmDialog = useConfirmDialog()
   const [isPending, startTransition] = useTransition()
 
   // Wrap tab changes in startTransition for better INP
-  const handleTabChange = (tab: typeof activeTab) => {
+  const handleTabChange = (tab: TabId) => {
     startTransition(() => {
       setActiveTab(tab)
     })
@@ -60,6 +109,15 @@ export default function SettingsPageClient() {
     startTransition(() => {
       setFormBuilderSubTab(subTab)
     })
+  }
+
+  // Get current tab label for header
+  const getCurrentTabLabel = (): string => {
+    for (const group of NAV_GROUPS) {
+      const item = group.items.find(i => i.id === activeTab)
+      if (item) return item.label
+    }
+    return 'Settings'
   }
 
   const [isRefreshingFields, setIsRefreshingFields] = useState(false)
@@ -211,298 +269,266 @@ export default function SettingsPageClient() {
     }
   }
 
+  // Tabs that require save functionality
+  const showSaveBar = (activeTab === 'general' || activeTab === 'categories' || (activeTab === 'form-builder' && formBuilderSubTab === 'request-form'))
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+
+  // Get visible nav items for mobile dropdown
+  const visibleNavItems = NAV_GROUPS.flatMap(group => 
+    group.items.filter(item => !item.adminOnly || isAdmin)
+  )
+
   return (
-    <div className="h-full flex flex-col bg-gray-50">
-      <div className="max-w-5xl mx-auto w-full py-6 px-4">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-xl font-bold text-gray-900">Settings</h1>
-          <p className="text-xs text-gray-500 mt-0.5">Configure system preferences and categories</p>
-        </div>
-
-        {/* Tabs */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 overflow-hidden">
-          <div className="flex border-b border-gray-200 overflow-x-auto scrollbar-hide">
-            <button
-              onClick={() => handleTabChange('general')}
-              className={`flex items-center gap-2 px-4 py-3 text-xs font-medium transition-colors border-b-2 -mb-px ${
-                activeTab === 'general'
-                  ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              <SettingsIcon fontSize="small" style={{ fontSize: 18 }} />
-              <span>General</span>
-            </button>
-            <button
-              onClick={() => handleTabChange('categories')}
-              className={`flex items-center gap-2 px-4 py-3 text-xs font-medium transition-colors border-b-2 -mb-px ${
-                activeTab === 'categories'
-                  ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              <CategoryIcon fontSize="small" style={{ fontSize: 18 }} />
-              <span>Categories</span>
-            </button>
-            <button
-              onClick={() => handleTabChange('form-builder')}
-              className={`flex items-center gap-2 px-4 py-3 text-xs font-medium transition-colors border-b-2 -mb-px ${
-                activeTab === 'form-builder'
-                  ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              <ViewModuleIcon fontSize="small" style={{ fontSize: 18 }} />
-              <span>Form Builder</span>
-            </button>
-            <button
-              onClick={() => handleTabChange('system')}
-              className={`flex items-center gap-2 px-4 py-3 text-xs font-medium transition-colors border-b-2 -mb-px ${
-                activeTab === 'system'
-                  ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              <DnsIcon fontSize="small" style={{ fontSize: 18 }} />
-              <span>System</span>
-            </button>
-            <button
-              onClick={() => handleTabChange('access')}
-              className={`flex items-center gap-2 px-4 py-3 text-xs font-medium transition-colors border-b-2 -mb-px ${
-                activeTab === 'access'
-                  ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              <PersonAddIcon fontSize="small" style={{ fontSize: 18 }} />
-              <span>Access</span>
-            </button>
-            <button
-              onClick={() => handleTabChange('public-pages')}
-              className={`flex items-center gap-2 px-4 py-3 text-xs font-medium transition-colors border-b-2 -mb-px ${
-                activeTab === 'public-pages'
-                  ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              <PublicIcon fontSize="small" style={{ fontSize: 18 }} />
-              <span>Public Pages</span>
-            </button>
-            {isAdmin && (
-              <button
-                onClick={() => handleTabChange('email-preview')}
-                className={`flex items-center gap-2 px-4 py-3 text-xs font-medium transition-colors border-b-2 -mb-px ${
-                  activeTab === 'email-preview'
-                    ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <EmailIcon fontSize="small" style={{ fontSize: 18 }} />
-                <span>Email Preview</span>
-              </button>
-            )}
-            {isAdmin && (
-              <button
-                onClick={() => handleTabChange('api-logs')}
-                className={`flex items-center gap-2 px-4 py-3 text-xs font-medium transition-colors border-b-2 -mb-px ${
-                  activeTab === 'api-logs'
-                    ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <HistoryIcon fontSize="small" style={{ fontSize: 18 }} />
-                <span>API Logs</span>
-              </button>
-            )}
-            {isAdmin && (
-              <button
-                onClick={() => handleTabChange('comments-log')}
-                className={`flex items-center gap-2 px-4 py-3 text-xs font-medium transition-colors border-b-2 -mb-px ${
-                  activeTab === 'comments-log'
-                    ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <ChatBubbleIcon fontSize="small" style={{ fontSize: 18 }} />
-                <span>Comentarios</span>
-              </button>
-            )}
-            {isAdmin && (
-              <button
-                onClick={() => handleTabChange('cron-jobs')}
-                className={`flex items-center gap-2 px-4 py-3 text-xs font-medium transition-colors border-b-2 -mb-px ${
-                  activeTab === 'cron-jobs'
-                    ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <ScheduleIcon fontSize="small" style={{ fontSize: 18 }} />
-                <span>Cron Jobs</span>
-              </button>
-            )}
-            {isAdmin && (
-              <button
-                onClick={() => handleTabChange('campaigns')}
-                className={`flex items-center gap-2 px-4 py-3 text-xs font-medium transition-colors border-b-2 -mb-px ${
-                  activeTab === 'campaigns'
-                    ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <CampaignIcon fontSize="small" style={{ fontSize: 18 }} />
-                <span>Campañas</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Save Bar - Sticky */}
-        {(activeTab !== 'system' && activeTab !== 'access' && activeTab !== 'public-pages' && activeTab !== 'api-logs' && activeTab !== 'comments-log' && activeTab !== 'cron-jobs' && activeTab !== 'campaigns' && (activeTab !== 'form-builder' || formBuilderSubTab === 'request-form')) && (
-          <div className="sticky top-2 z-10 bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {saved ? (
-                <div className="flex items-center gap-1.5 text-green-600">
-                  <CheckCircleIcon fontSize="small" style={{ fontSize: 16 }} />
-                  <span className="text-xs font-medium">Saved!</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5 text-gray-500">
-                  <InfoIcon fontSize="small" style={{ fontSize: 16 }} />
-                  <span className="text-xs">Unsaved changes</span>
-                </div>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleReset}
-                className="px-3 py-1.5 text-xs text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors font-medium"
-              >
-                Reset
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={syncing}
-                className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
-              >
-                {syncing ? (
-                  <>
-                    <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span>Saving...</span>
-                  </>
-                ) : (
-                  <span>Save Changes</span>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Tab Content */}
-        <div className={isPending ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
-          {activeTab === 'general' && (
-            <GeneralTab settings={settings} setSettings={setSettings} />
-          )}
-
-          {activeTab === 'categories' && (
-            <CategoriesTab settings={settings} setSettings={setSettings} />
-          )}
-
-          {activeTab === 'form-builder' && (
-            <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
-              {/* Sub-navigation within Form Builder */}
-              <div className="flex border-b border-gray-200 bg-gray-50">
-                <button
-                  onClick={() => handleSubTabChange('entity-fields')}
-                  className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium transition-colors border-b-2 -mb-px ${
-                    formBuilderSubTab === 'entity-fields'
-                      ? 'border-blue-600 text-blue-600 bg-white'
-                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                  }`}
-                >
-                  <BuildIcon style={{ fontSize: 16 }} />
-                  <span>Entity Fields</span>
-                </button>
-                <button
-                  onClick={() => handleSubTabChange('request-form')}
-                  className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium transition-colors border-b-2 -mb-px ${
-                    formBuilderSubTab === 'request-form'
-                      ? 'border-blue-600 text-blue-600 bg-white'
-                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                  }`}
-                >
-                  <DescriptionIcon style={{ fontSize: 16 }} />
-                  <span>Request Form</span>
-                </button>
-              </div>
-
-              {/* Sub-tab Content */}
-              <div className="p-6">
-                {formBuilderSubTab === 'entity-fields' && (
-                  <EntityFieldsTab />
-                )}
-                {formBuilderSubTab === 'request-form' && (
-                  <RequestFormFieldsTab
-                    settings={settings}
-                    onUpdate={(requestFormFields) => {
-                      setSettings(prev => ({ ...prev, requestFormFields }))
-                    }}
-                    onRefresh={() => loadSettings(true)}
-                    isRefreshing={isRefreshingFields}
-                  />
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'system' && (
-            <SystemTab />
-          )}
-
-          {activeTab === 'access' && (
-            <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-              <AccessManagementTab />
-            </div>
-          )}
-
-          {activeTab === 'public-pages' && (
-            <PublicPagesTab />
-          )}
-
-          {activeTab === 'email-preview' && isAdmin && (
-            <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-              <EmailPreviewTab isAdmin={isAdmin} />
-            </div>
-          )}
-
-          {activeTab === 'api-logs' && isAdmin && (
-            <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-              <ApiLogsTab />
-            </div>
-          )}
-
-          {activeTab === 'comments-log' && isAdmin && (
-            <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-              <CommentsLogTab />
-            </div>
-          )}
-
-          {activeTab === 'cron-jobs' && isAdmin && (
-            <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-              <CronJobsTab />
-            </div>
-          )}
-
-          {activeTab === 'campaigns' && isAdmin && (
-            <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-              <CampaignsTab />
-            </div>
-          )}
-        </div>
+    <div className="h-full flex flex-col md:flex-row bg-gray-50">
+      {/* Mobile Header */}
+      <div className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+        <h1 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+          <TuneIcon style={{ fontSize: 18 }} className="text-gray-500" />
+          Settings
+        </h1>
+        <button
+          onClick={() => setMobileNavOpen(!mobileNavOpen)}
+          className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-gray-100 rounded-md text-gray-700"
+        >
+          {getCurrentTabLabel()}
+          <svg className={`w-4 h-4 transition-transform ${mobileNavOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
       </div>
+
+      {/* Mobile Navigation Dropdown */}
+      {mobileNavOpen && (
+        <div className="md:hidden bg-white border-b border-gray-200 shadow-lg">
+          <div className="grid grid-cols-2 gap-1 p-2">
+            {visibleNavItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => { handleTabChange(item.id); setMobileNavOpen(false) }}
+                className={`flex items-center gap-2 px-3 py-2 text-xs rounded-md transition-colors ${
+                  activeTab === item.id
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <span className={activeTab === item.id ? 'text-blue-600' : 'text-gray-400'}>
+                  {item.icon}
+                </span>
+                <span className="font-medium truncate">{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Desktop Sidebar Navigation */}
+      <aside className="hidden md:block w-44 flex-shrink-0 bg-white border-r border-gray-200 overflow-y-auto">
+        <div className="px-3 py-3 border-b border-gray-100">
+          <h1 className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+            <TuneIcon style={{ fontSize: 16 }} className="text-gray-500" />
+            Settings
+          </h1>
+        </div>
+        <nav className="py-1">
+          {NAV_GROUPS.map((group) => {
+            const visibleItems = group.items.filter(item => !item.adminOnly || isAdmin)
+            if (visibleItems.length === 0) return null
+            
+            return (
+              <div key={group.title} className="mb-0.5">
+                <div className="px-3 py-1.5">
+                  <span className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">
+                    {group.title}
+                  </span>
+                </div>
+                {visibleItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleTabChange(item.id)}
+                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors ${
+                      activeTab === item.id
+                        ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
+                  >
+                    <span className={activeTab === item.id ? 'text-blue-600' : 'text-gray-400'}>
+                      {item.icon}
+                    </span>
+                    <span className="font-medium">{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            )
+          })}
+        </nav>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="py-4 md:py-6 px-4 md:px-8 max-w-6xl mx-auto">
+          {/* Content Header with Save Bar */}
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h2 className="text-base md:text-lg font-semibold text-gray-900">{getCurrentTabLabel()}</h2>
+              <p className="text-xs text-gray-500 mt-0.5 hidden sm:block">
+                {activeTab === 'general' && 'General system preferences'}
+                {activeTab === 'categories' && 'Manage business categories'}
+                {activeTab === 'form-builder' && 'Configure form fields and entities'}
+                {activeTab === 'system' && 'System health and API integrations'}
+                {activeTab === 'access' && 'Manage user access permissions'}
+                {activeTab === 'public-pages' && 'Configure public-facing pages'}
+                {activeTab === 'email-preview' && 'Preview and test email templates'}
+                {activeTab === 'api-logs' && 'View external API request logs'}
+                {activeTab === 'comments-log' && 'View all comments activity'}
+                {activeTab === 'cron-jobs' && 'Monitor scheduled tasks'}
+                {activeTab === 'campaigns' && 'Manage sales campaigns'}
+              </p>
+            </div>
+            
+            {/* Save Actions */}
+            {showSaveBar && (
+              <div className="flex items-center gap-3">
+                {saved ? (
+                  <div className="flex items-center gap-1.5 text-green-600">
+                    <CheckCircleIcon fontSize="small" style={{ fontSize: 16 }} />
+                    <span className="text-xs font-medium">Saved!</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-gray-400">
+                    <InfoIcon fontSize="small" style={{ fontSize: 14 }} />
+                    <span className="text-xs">Unsaved</span>
+                  </div>
+                )}
+                <button
+                  onClick={handleReset}
+                  className="px-3 py-1.5 text-xs text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors font-medium"
+                >
+                  Reset
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={syncing}
+                  className="px-4 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                >
+                  {syncing ? (
+                    <>
+                      <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <span>Save Changes</span>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Tab Content */}
+          <div className={isPending ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
+            {activeTab === 'general' && (
+              <GeneralTab settings={settings} setSettings={setSettings} />
+            )}
+
+            {activeTab === 'categories' && (
+              <CategoriesTab settings={settings} setSettings={setSettings} />
+            )}
+
+            {activeTab === 'form-builder' && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                {/* Sub-navigation within Form Builder */}
+                <div className="flex border-b border-gray-200 bg-gray-50">
+                  <button
+                    onClick={() => handleSubTabChange('entity-fields')}
+                    className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium transition-colors border-b-2 -mb-px ${
+                      formBuilderSubTab === 'entity-fields'
+                        ? 'border-blue-600 text-blue-600 bg-white'
+                        : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                  >
+                    <BuildIcon style={{ fontSize: 16 }} />
+                    <span>Entity Fields</span>
+                  </button>
+                  <button
+                    onClick={() => handleSubTabChange('request-form')}
+                    className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium transition-colors border-b-2 -mb-px ${
+                      formBuilderSubTab === 'request-form'
+                        ? 'border-blue-600 text-blue-600 bg-white'
+                        : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                    }`}
+                  >
+                    <DescriptionIcon style={{ fontSize: 16 }} />
+                    <span>Request Form</span>
+                  </button>
+                </div>
+
+                {/* Sub-tab Content */}
+                <div className="p-6">
+                  {formBuilderSubTab === 'entity-fields' && (
+                    <EntityFieldsTab />
+                  )}
+                  {formBuilderSubTab === 'request-form' && (
+                    <RequestFormFieldsTab
+                      settings={settings}
+                      onUpdate={(requestFormFields) => {
+                        setSettings(prev => ({ ...prev, requestFormFields }))
+                      }}
+                      onRefresh={() => loadSettings(true)}
+                      isRefreshing={isRefreshingFields}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'system' && (
+              <SystemTab />
+            )}
+
+            {activeTab === 'access' && (
+              <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                <AccessManagementTab />
+              </div>
+            )}
+
+            {activeTab === 'public-pages' && (
+              <PublicPagesTab />
+            )}
+
+            {activeTab === 'email-preview' && isAdmin && (
+              <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                <EmailPreviewTab isAdmin={isAdmin} />
+              </div>
+            )}
+
+            {activeTab === 'api-logs' && isAdmin && (
+              <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                <ApiLogsTab />
+              </div>
+            )}
+
+            {activeTab === 'comments-log' && isAdmin && (
+              <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                <CommentsLogTab />
+              </div>
+            )}
+
+            {activeTab === 'cron-jobs' && isAdmin && (
+              <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                <CronJobsTab />
+              </div>
+            )}
+
+            {activeTab === 'campaigns' && isAdmin && (
+              <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                <CampaignsTab />
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
 
       {/* Confirm Dialog */}
       <ConfirmDialog
