@@ -7,12 +7,27 @@
 import { prisma } from '@/lib/prisma'
 import { scrapeRantanOfertas, getRantanOfertasDealUrls } from './rantanofertas'
 import { scrapeOferta24 } from './oferta24'
-import { ScrapedDeal, ScrapeResult, SourceSite, ProgressCallback, ScanProgress } from './types'
+import { scrapeTicketplus } from './ticketplus'
+import { scrapePanatickets } from './panatickets'
+import { 
+  ScrapedDeal, 
+  ScrapeResult, 
+  SourceSite, 
+  ProgressCallback, 
+  ScanProgress,
+  ScrapedEvent,
+  EventScrapeResult,
+  EventSourceSite,
+  EventProgressCallback,
+  EventScanProgress,
+} from './types'
 
 export * from './types'
 export { getRantanOfertasDealUrls } from './rantanofertas'
+export { scrapeTicketplus } from './ticketplus'
+export { scrapePanatickets } from './panatickets'
 
-const MAX_DEALS_PER_SITE = 100 // 100 per site = 200 total max
+const MAX_DEALS_PER_SITE = 150 // 100 per site = 300 total max
 const CHUNK_SIZE = 25 // Process 25 deals per invocation to stay under Vercel timeout
 
 export { CHUNK_SIZE }
@@ -492,6 +507,290 @@ export async function runSiteScan(site: SourceSite, onProgress?: ProgressCallbac
       totalDealsWithSales: 0,
       newDeals: 0,
       updatedDeals: 0,
+      errors: [errorMsg],
+      duration: (Date.now() - startTime) / 1000,
+    }
+  }
+}
+
+// ============================================
+// Event Lead Scraping Functions
+// ============================================
+
+const MAX_EVENTS_PER_SITE = 100
+
+/**
+ * Event scan result
+ */
+export interface EventScanResult {
+  success: boolean
+  eventsFound: number
+  newEvents: number
+  updatedEvents: number
+  errors: string[]
+  duration: number // in seconds
+}
+
+/**
+ * Save scraped event to database, creating or updating as needed
+ */
+async function saveEventLead(scrapedEvent: ScrapedEvent): Promise<{ isNew: boolean; updated: boolean }> {
+  const existingEvent = await prisma.eventLead.findUnique({
+    where: { sourceUrl: scrapedEvent.sourceUrl },
+  })
+  
+  if (existingEvent) {
+    // Update existing event
+    const hasChanges = 
+      existingEvent.eventName !== scrapedEvent.eventName ||
+      existingEvent.eventDate !== scrapedEvent.eventDate ||
+      existingEvent.eventPlace !== scrapedEvent.eventPlace ||
+      existingEvent.price !== scrapedEvent.price
+    
+    // Always update last scanned time
+    await prisma.eventLead.update({
+      where: { id: existingEvent.id },
+      data: {
+        eventName: scrapedEvent.eventName,
+        eventDate: scrapedEvent.eventDate,
+        eventPlace: scrapedEvent.eventPlace,
+        promoter: scrapedEvent.promoter,
+        imageUrl: scrapedEvent.imageUrl,
+        price: scrapedEvent.price,
+        lastScannedAt: new Date(),
+        status: 'active',
+      },
+    })
+    
+    return { isNew: false, updated: hasChanges }
+  } else {
+    // Create new event lead
+    await prisma.eventLead.create({
+      data: {
+        sourceUrl: scrapedEvent.sourceUrl,
+        sourceSite: scrapedEvent.sourceSite,
+        eventName: scrapedEvent.eventName,
+        eventDate: scrapedEvent.eventDate,
+        eventPlace: scrapedEvent.eventPlace,
+        promoter: scrapedEvent.promoter,
+        imageUrl: scrapedEvent.imageUrl,
+        price: scrapedEvent.price,
+        status: 'active',
+      },
+    })
+    
+    return { isNew: true, updated: false }
+  }
+}
+
+/**
+ * Mark event leads as expired if they weren't found in the latest scan
+ */
+async function markExpiredEventLeads(sourceSite: EventSourceSite, foundUrls: string[]): Promise<number> {
+  if (foundUrls.length === 0) {
+    // Don't mark anything expired if we found 0 events (likely a scan error)
+    console.log(`[markExpiredEventLeads] Skipping - no events found (possible scan error)`)
+    return 0
+  }
+  
+  const result = await prisma.eventLead.updateMany({
+    where: {
+      sourceSite,
+      status: 'active',
+      sourceUrl: { notIn: foundUrls },
+    },
+    data: {
+      status: 'expired',
+    },
+  })
+  
+  if (result.count > 0) {
+    console.log(`[markExpiredEventLeads] Marked ${result.count} ${sourceSite} events as expired`)
+  }
+  
+  return result.count
+}
+
+/**
+ * Scan a specific event site
+ */
+async function scanEventSite(site: EventSourceSite, onProgress?: EventProgressCallback, maxEvents?: number): Promise<EventScrapeResult> {
+  const limit = maxEvents ?? MAX_EVENTS_PER_SITE
+  switch (site) {
+    case 'ticketplus':
+      return await scrapeTicketplus(limit, onProgress)
+    case 'panatickets':
+      return await scrapePanatickets(limit, onProgress)
+    default:
+      return {
+        success: false,
+        events: [],
+        errors: [`Unknown event site: ${site}`],
+        scannedAt: new Date(),
+      }
+  }
+}
+
+/**
+ * Run a full scan of all event sites
+ */
+export async function runFullEventScan(onProgress?: EventProgressCallback, maxEventsPerSite?: number): Promise<EventScanResult> {
+  const startTime = Date.now()
+  const errors: string[] = []
+  let totalEventsFound = 0
+  let newEvents = 0
+  let updatedEvents = 0
+  
+  // Both event sites
+  const sites: EventSourceSite[] = ['ticketplus', 'panatickets']
+  
+  for (const site of sites) {
+    console.log(`\n=== Scanning Event Site: ${site} ===`)
+    
+    try {
+      const result = await scanEventSite(site, onProgress, maxEventsPerSite)
+      
+      if (!result.success) {
+        errors.push(...result.errors)
+        continue
+      }
+      
+      totalEventsFound += result.events.length
+      
+      // Report saving progress
+      if (onProgress) {
+        onProgress({
+          site,
+          phase: 'saving',
+          message: `Saving ${result.events.length} events to database...`,
+        })
+      }
+      
+      // Save events to database
+      for (const event of result.events) {
+        try {
+          const { isNew, updated } = await saveEventLead(event)
+          if (isNew) newEvents++
+          if (updated) updatedEvents++
+        } catch (err) {
+          errors.push(`Failed to save event: ${err instanceof Error ? err.message : 'Unknown'}`)
+        }
+      }
+      
+      // Mark expired events
+      const foundUrls = result.events.map(e => e.sourceUrl)
+      await markExpiredEventLeads(site, foundUrls)
+      
+      errors.push(...result.errors)
+    } catch (error) {
+      const errorMsg = `Error scanning ${site}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      errors.push(errorMsg)
+      console.error(errorMsg)
+      
+      if (onProgress) {
+        onProgress({
+          site,
+          phase: 'error',
+          message: errorMsg,
+        })
+      }
+    }
+  }
+  
+  const duration = (Date.now() - startTime) / 1000
+  
+  console.log(`\n=== Event Scan Complete ===`)
+  console.log(`Duration: ${duration.toFixed(1)}s`)
+  console.log(`Total events found: ${totalEventsFound}`)
+  console.log(`New events: ${newEvents}`)
+  console.log(`Updated events: ${updatedEvents}`)
+  console.log(`Errors: ${errors.length}`)
+  
+  return {
+    success: errors.length === 0,
+    eventsFound: totalEventsFound,
+    newEvents,
+    updatedEvents,
+    errors,
+    duration,
+  }
+}
+
+/**
+ * Scan a single event site
+ */
+export async function runEventSiteScan(site: EventSourceSite, onProgress?: EventProgressCallback): Promise<EventScanResult> {
+  const startTime = Date.now()
+  const errors: string[] = []
+  let newEvents = 0
+  let updatedEvents = 0
+  
+  console.log(`\n=== Scanning Event Site: ${site} ===`)
+  
+  try {
+    const result = await scanEventSite(site, onProgress)
+    
+    if (!result.success) {
+      return {
+        success: false,
+        eventsFound: 0,
+        newEvents: 0,
+        updatedEvents: 0,
+        errors: result.errors,
+        duration: (Date.now() - startTime) / 1000,
+      }
+    }
+    
+    // Report saving progress
+    if (onProgress) {
+      onProgress({
+        site,
+        phase: 'saving',
+        message: `Saving ${result.events.length} events to database...`,
+      })
+    }
+    
+    // Save events to database
+    for (const event of result.events) {
+      try {
+        const { isNew, updated } = await saveEventLead(event)
+        if (isNew) newEvents++
+        if (updated) updatedEvents++
+      } catch (err) {
+        errors.push(`Failed to save event: ${err instanceof Error ? err.message : 'Unknown'}`)
+      }
+    }
+    
+    // Mark expired events
+    const foundUrls = result.events.map(e => e.sourceUrl)
+    await markExpiredEventLeads(site, foundUrls)
+    
+    const duration = (Date.now() - startTime) / 1000
+    
+    return {
+      success: true,
+      eventsFound: result.events.length,
+      newEvents,
+      updatedEvents,
+      errors: result.errors,
+      duration,
+    }
+  } catch (error) {
+    const errorMsg = `Error scanning ${site}: ${error instanceof Error ? error.message : 'Unknown error'}`
+    
+    if (onProgress) {
+      onProgress({
+        site,
+        phase: 'error',
+        message: errorMsg,
+      })
+    }
+    
+    return {
+      success: false,
+      eventsFound: 0,
+      newEvents: 0,
+      updatedEvents: 0,
       errors: [errorMsg],
       duration: (Date.now() - startTime) / 1000,
     }

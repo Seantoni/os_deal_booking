@@ -677,7 +677,8 @@ export default function BookingRequestViewModal({
 
       {/* Modal Container */}
       {/* Mobile: full screen, Desktop: centered with padding */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center md:p-3 pointer-events-none">
+      {/* z-[80] to appear above ModalShell (z-[70]) when opened from EventModal */}
+      <div className="fixed inset-0 z-[80] flex items-center justify-center md:p-3 pointer-events-none">
         {/* Modal Panel */}
         {/* Mobile: full height, no rounded. Desktop: 85vh max, rounded */}
         <div className={`w-full max-w-5xl bg-white shadow-2xl md:rounded-xl flex flex-col h-full md:h-[85vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${

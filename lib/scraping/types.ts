@@ -47,3 +47,50 @@ export interface ScanProgress {
   dealTitle?: string
 }
 
+// ============================================
+// Event Lead Types (ticket sites scraping)
+// ============================================
+
+export type EventSourceSite = 'ticketplus' | 'panatickets'
+
+export interface ScrapedEvent {
+  sourceUrl: string
+  sourceSite: EventSourceSite
+  eventName: string
+  eventDate: string | null // Raw date string from card (e.g., "27 FEB", "9 ABR")
+  eventPlace: string | null // Venue name
+  promoter: string | null // Who is promoting the event
+  imageUrl: string | null
+  price: string | null // Price text (may have range)
+}
+
+export interface EventScrapeResult {
+  success: boolean
+  events: ScrapedEvent[]
+  errors: string[]
+  scannedAt: Date
+}
+
+export const EVENT_SOURCE_SITES: Record<EventSourceSite, { name: string; baseUrl: string }> = {
+  ticketplus: {
+    name: 'Ticketplus',
+    baseUrl: 'https://ticketpluspty.com',
+  },
+  panatickets: {
+    name: 'Panatickets',
+    baseUrl: 'https://panatickets.boletosenlinea.events',
+  },
+}
+
+// Progress callback for event scraping
+export type EventProgressCallback = (progress: EventScanProgress) => void
+
+export interface EventScanProgress {
+  site: EventSourceSite
+  phase: 'connecting' | 'loading_page' | 'extracting' | 'saving' | 'complete' | 'error'
+  message: string
+  current?: number
+  total?: number
+  eventName?: string
+}
+

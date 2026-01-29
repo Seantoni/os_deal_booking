@@ -813,3 +813,31 @@ model BusinessCampaign {
   @@index([assignedAt])
   @@map("business_campaigns")
 }
+
+// ============================================
+// Event Leads (scraped from ticket sites)
+// ============================================
+
+model EventLead {
+  id            String   @id @default(cuid())
+  sourceUrl     String   @unique
+  sourceSite    String   // 'ticketplus' | 'panatickets'
+  eventName     String
+  eventDate     String?  // Raw date string from card (e.g., "27 FEB", "9 ABR")
+  eventPlace    String?  // Venue name
+  promoter      String?  // Who is promoting the event
+  imageUrl      String?
+  price         String?  // Price text (may have range)
+  status        String   @default("active")
+  firstSeenAt   DateTime @default(now())
+  lastScannedAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([sourceSite])
+  @@index([status])
+  @@index([firstSeenAt])
+  @@index([lastScannedAt])
+  @@index([eventName])
+  @@map("event_leads")
+}

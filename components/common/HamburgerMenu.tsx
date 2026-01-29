@@ -53,6 +53,7 @@ const adminSidebarConfig = {
   // Admin-only management
   adminItems: [
     { name: 'Asignaciones', href: '/assignments', Icon: AssignmentReturnIcon },
+    { name: 'Leads Neg.', href: '/leads-negocios', Icon: TrendingUpIcon },
   ],
   bottomItems: [
     { name: 'Actividad', href: '/activity-log', Icon: HistoryIcon },

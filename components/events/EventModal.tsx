@@ -884,7 +884,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
         </form>
       </ModalShell>
 
-      {/* Confirm Dialog */}
+      {/* Confirm Dialog - z-index 80 to appear above ModalShell (z-70) */}
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
         title={confirmDialog.options.title}
@@ -894,6 +894,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
         confirmVariant={confirmDialog.options.confirmVariant}
         onConfirm={confirmDialog.handleConfirm}
         onCancel={confirmDialog.handleCancel}
+        zIndex={80}
       />
 
       {/* Booking Request View Modal */}

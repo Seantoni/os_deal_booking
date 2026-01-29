@@ -20,6 +20,7 @@ export const PAGE_ACCESS: Record<string, UserRole[]> = {
   '/deals': ['admin', 'sales', 'editor'],
   '/marketing': ['admin', 'marketing', 'sales'],
   '/market-intelligence': ['admin'],
+  '/leads-negocios': ['admin'],
   '/settings': ['admin'],
   '/activity-log': ['admin'],
 }
