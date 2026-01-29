@@ -343,13 +343,36 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
       </div>
 
         {(formData.startDate || formData.endDate) && (
-          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-6 shadow-sm">
-            <p className="text-sm text-blue-900 leading-relaxed font-medium">
-              {daysUntilLaunch !== null && daysUntilLaunch >= 0 && (
-                <>Oferta puede lanzar en <span className="font-bold">{daysUntilLaunch} {daysUntilLaunch === 1 ? 'día' : 'días'}</span>. </>
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
+              {daysUntilLaunch !== null && daysUntilLaunch >= 0 ? (
+                <div className="bg-white/60 rounded-lg px-3 py-2">
+                  <p className="text-xs text-gray-500">Lanza en</p>
+                  <p className="text-sm font-semibold text-blue-700">{daysUntilLaunch} {daysUntilLaunch === 1 ? 'día' : 'días'}</p>
+                </div>
+              ) : (
+                <div className="bg-white/60 rounded-lg px-3 py-2">
+                  <p className="text-xs text-gray-500">Lanza en</p>
+                  <p className="text-sm font-semibold text-gray-400">—</p>
+                </div>
               )}
-              Oferta durará {campaignDuration} {campaignDurationUnit === 'days' ? (campaignDuration === '1' ? 'día' : 'días') : (campaignDuration === '1' ? 'mes' : 'meses')} lanzando el <span className="font-bold">{startDateFormatted}</span> y terminando el <span className="font-bold">{endDateFormatted}</span> y válido para canje hasta el <span className="font-bold">{redemptionDateFormatted}</span>. Total días activos en el sitio: <span className="font-bold">{totalDays} {totalDays === 1 ? 'día' : 'días'}</span>.
-            </p>
+              <div className="bg-white/60 rounded-lg px-3 py-2">
+                <p className="text-xs text-gray-500">Inicio</p>
+                <p className="text-sm font-semibold text-gray-800">{startDateFormatted || '—'}</p>
+              </div>
+              <div className="bg-white/60 rounded-lg px-3 py-2">
+                <p className="text-xs text-gray-500">Fin</p>
+                <p className="text-sm font-semibold text-gray-800">{endDateFormatted || '—'}</p>
+              </div>
+              <div className="bg-white/60 rounded-lg px-3 py-2">
+                <p className="text-xs text-gray-500">Días activos</p>
+                <p className="text-sm font-semibold text-gray-800">{totalDays || '—'}</p>
+              </div>
+              <div className="bg-white/60 rounded-lg px-3 py-2">
+                <p className="text-xs text-gray-500">Canje hasta</p>
+                <p className="text-sm font-semibold text-green-700">{redemptionDateFormatted || '—'}</p>
+              </div>
+            </div>
           </div>
         )}
     </div>
