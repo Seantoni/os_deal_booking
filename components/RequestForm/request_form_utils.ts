@@ -227,6 +227,7 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
   
   // Configuración: Configuración General y Vigencia
   fd.append('campaignDuration', formData.campaignDuration || '')
+  fd.append('campaignDurationUnit', formData.campaignDurationUnit || 'months')
   
   // Operatividad: Operatividad y Pagos
   fd.append('redemptionMode', formData.redemptionMode || '')

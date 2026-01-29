@@ -584,6 +584,7 @@ export default function BookingRequestViewModal({
           subCategory2: requestData.subCategory2 ? String(requestData.subCategory2) : '',
           subCategory3: requestData.subCategory3 ? String(requestData.subCategory3) : '',
           campaignDuration: requestData.campaignDuration ? String(requestData.campaignDuration) : '',
+          campaignDurationUnit: (requestData.campaignDurationUnit as 'days' | 'months') || 'months',
 
           redemptionMode: requestData.redemptionMode ? String(requestData.redemptionMode) : undefined,
           isRecurring: requestData.isRecurring ? String(requestData.isRecurring) : undefined,

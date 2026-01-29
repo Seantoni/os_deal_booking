@@ -155,6 +155,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
               startDate: data.startDate ? new Date(data.startDate).toISOString().split('T')[0] : '',
               endDate: data.endDate ? new Date(data.endDate).toISOString().split('T')[0] : '',
               campaignDuration: data.campaignDuration || '',
+              campaignDurationUnit: (data.campaignDurationUnit as 'days' | 'months') || 'months',
               opportunityId: data.opportunityId || '',
               
               // Operatividad
@@ -340,6 +341,10 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         if (subCategory3Param) newData.subCategory3 = subCategory3Param
         const campaignDurationParam = searchParams.get('campaignDuration')
         if (campaignDurationParam) newData.campaignDuration = campaignDurationParam
+        const campaignDurationUnitParam = searchParams.get('campaignDurationUnit')
+        if (campaignDurationUnitParam === 'days' || campaignDurationUnitParam === 'months') {
+          newData.campaignDurationUnit = campaignDurationUnitParam
+        }
         
         // Step 2: Operatividad
         const redemptionModeParam = searchParams.get('redemptionMode')

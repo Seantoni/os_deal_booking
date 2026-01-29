@@ -55,6 +55,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
 
   // Configuración: Configuración General y Vigencia
   campaignDuration: string | null
+  campaignDurationUnit: string | null
 
   // Operatividad: Operatividad y Pagos
   redemptionMode: string | null
@@ -135,6 +136,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
 
     // Configuración: Configuración General y Vigencia
     campaignDuration: getFormDataString(formData, 'campaignDuration'),
+    campaignDurationUnit: getFormDataString(formData, 'campaignDurationUnit'),
 
     // Operatividad: Operatividad y Pagos
     redemptionMode: getFormDataString(formData, 'redemptionMode'),

@@ -62,6 +62,7 @@ export const INITIAL_FORM_DATA: BookingFormData = {
   agencyContact: '',
   tentativeLaunchDate: '',
   campaignDuration: '3',
+  campaignDurationUnit: 'months',
   internalPeriod: '',
   
   // Operatividad: Operatividad y Pagos

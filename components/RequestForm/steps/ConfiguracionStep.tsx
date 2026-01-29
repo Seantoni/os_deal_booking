@@ -132,16 +132,22 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
   }
 
   const campaignDuration = formData.campaignDuration || '3'
+  const campaignDurationUnit = formData.campaignDurationUnit || 'months'
   const startDateFormatted = formData.startDate ? formatDate(formData.startDate) : 'X'
   const endDateFormatted = formData.endDate ? formatDate(formData.endDate) : 'Y'
   
-  // Calculate redemption validity date (end date + campaign duration in months)
+  // Calculate redemption validity date (end date + campaign duration in days or months)
   const calculateRedemptionDate = (): string => {
     if (!formData.endDate) return 'Z'
     const endDate = new Date(formData.endDate + 'T00:00:00')
-    const months = parseInt(campaignDuration) || 3
+    const duration = parseInt(campaignDuration) || 3
     const redemptionDate = new Date(endDate)
-    redemptionDate.setMonth(redemptionDate.getMonth() + months)
+    
+    if (campaignDurationUnit === 'days') {
+      redemptionDate.setDate(redemptionDate.getDate() + duration)
+    } else {
+      redemptionDate.setMonth(redemptionDate.getMonth() + duration)
+    }
     return formatDate(redemptionDate.toISOString().split('T')[0])
   }
   
@@ -262,18 +268,50 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
           </div>
         </div>
 
-          <Input
-          label="Duración de Campaña"
-          required={isFieldRequired('campaignDuration')}
-            value={formData.campaignDuration || '3'}
-            onChange={(e) => updateFormData('campaignDuration', e.target.value)}
-            placeholder="Ej: 2 meses"
-          helperText="Periodo de canje a publicar en campaña"
-        />
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Duración de Campaña {isFieldRequired('campaignDuration') && <span className="text-red-500">*</span>}
+          </label>
+          <div className="flex gap-2">
+            <Input
+              value={formData.campaignDuration}
+              onChange={(e) => updateFormData('campaignDuration', e.target.value)}
+              placeholder="3"
+              type="number"
+              min="1"
+              className="flex-1"
+            />
+            <div className="inline-flex rounded-lg bg-gray-100 p-0.5">
+              <button
+                type="button"
+                onClick={() => updateFormData('campaignDurationUnit', 'days')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                  (formData.campaignDurationUnit || 'months') === 'days'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Días
+              </button>
+              <button
+                type="button"
+                onClick={() => updateFormData('campaignDurationUnit', 'months')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                  (formData.campaignDurationUnit || 'months') === 'months'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Meses
+              </button>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 mt-1.5">Periodo de canje a publicar en campaña</p>
+        </div>
 
         <div>
           <Input
-            label="Fecha de Inicio (Run At)"
+            label="Fecha de lanzamiento estimada"
             required={isFieldRequired('startDate')}
             type="date"
             value={formData.startDate}
@@ -310,7 +348,7 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
               {daysUntilLaunch !== null && daysUntilLaunch >= 0 && (
                 <>Oferta puede lanzar en <span className="font-bold">{daysUntilLaunch} {daysUntilLaunch === 1 ? 'día' : 'días'}</span>. </>
               )}
-              Oferta durará {campaignDuration} {campaignDuration === '1' ? 'mes' : 'meses'} lanzando el <span className="font-bold">{startDateFormatted}</span> y terminando el <span className="font-bold">{endDateFormatted}</span> y válido para canje hasta el <span className="font-bold">{redemptionDateFormatted}</span>. Total días activos en el sitio: <span className="font-bold">{totalDays} {totalDays === 1 ? 'día' : 'días'}</span>.
+              Oferta durará {campaignDuration} {campaignDurationUnit === 'days' ? (campaignDuration === '1' ? 'día' : 'días') : (campaignDuration === '1' ? 'mes' : 'meses')} lanzando el <span className="font-bold">{startDateFormatted}</span> y terminando el <span className="font-bold">{endDateFormatted}</span> y válido para canje hasta el <span className="font-bold">{redemptionDateFormatted}</span>. Total días activos en el sitio: <span className="font-bold">{totalDays} {totalDays === 1 ? 'día' : 'días'}</span>.
             </p>
           </div>
         )}

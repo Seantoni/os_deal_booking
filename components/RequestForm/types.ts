@@ -10,6 +10,7 @@ export type BookingFormData = {
   agencyContact: string
   tentativeLaunchDate: string
   campaignDuration: string
+  campaignDurationUnit: 'days' | 'months' // Unit for campaign duration calculation
   internalPeriod: string
   
   // Operatividad: Operatividad y Pagos

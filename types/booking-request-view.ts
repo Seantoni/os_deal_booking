@@ -61,6 +61,7 @@ export interface BookingRequestViewData {
 
   // Step 1: Configuración General y Vigencia
   campaignDuration: string | null
+  campaignDurationUnit: string | null
 
   // Step 2: Operatividad y Pagos
   redemptionMode: string | null

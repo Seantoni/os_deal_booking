@@ -117,6 +117,7 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
       userId,
       // Configuración: Configuración General y Vigencia
       campaignDuration: fields.campaignDuration,
+      campaignDurationUnit: fields.campaignDurationUnit || 'months',
       // Operatividad: Operatividad y Pagos
       redemptionMode: fields.redemptionMode,
       isRecurring: fields.isRecurring,
@@ -342,6 +343,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       userId,
       // Configuración: Configuración General y Vigencia
       campaignDuration: (formData.get('campaignDuration') as string) || null,
+      campaignDurationUnit: (formData.get('campaignDurationUnit') as string) || 'months',
       // Operatividad: Operatividad y Pagos
       redemptionMode: (formData.get('redemptionMode') as string) || null,
       isRecurring: (formData.get('isRecurring') as string) || null,

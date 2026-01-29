@@ -35,6 +35,7 @@ model BookingRequest {
   blackoutDates          String?
   businessReview         String?
   campaignDuration       String?
+  campaignDurationUnit   String?   @default("months") // 'days' or 'months'
   cancellationPolicy     String?
   contactDetails         String?
   corregimiento          String?
