@@ -8,7 +8,7 @@ import { getUserRole, isAdmin } from '@/lib/auth/roles'
 import type { OpportunityStage } from '@/types'
 import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
 import { logActivity } from '@/lib/activity-log'
-import { getTodayInPanama } from '@/lib/date/timezone'
+import { getTodayInPanama, parseDateInPanamaTime, formatDateForPanama } from '@/lib/date/timezone'
 
 /**
  * Get all opportunities (cached, minimal data for lists)
@@ -971,7 +971,8 @@ export async function createTask(formData: FormData) {
       return { success: false, error: 'Invalid task category' }
     }
 
-    const taskDate = new Date(date)
+    // Create date in Panama timezone to preserve the intended day
+    const taskDate = parseDateInPanamaTime(date)
     
     // Check if task date is in the past - auto-complete if so
     const todayStr = getTodayInPanama() // YYYY-MM-DD in Panama timezone
@@ -1015,8 +1016,10 @@ export async function createTask(formData: FormData) {
         orderBy: { date: 'asc' },
       })
 
-      const futureTasks = allTasks.filter((t) => !t.completed && new Date(t.date) >= new Date())
-      const pastTasks = allTasks.filter((t) => t.completed || new Date(t.date) < new Date())
+      // Use Panama timezone for date comparisons
+      const todayStr = getTodayInPanama()
+      const futureTasks = allTasks.filter((t) => !t.completed && formatDateForPanama(new Date(t.date)) >= todayStr)
+      const pastTasks = allTasks.filter((t) => t.completed || formatDateForPanama(new Date(t.date)) < todayStr)
 
       const nextActivityDate = futureTasks.length > 0 ? new Date(futureTasks[0].date) : null
       const lastActivityDate = pastTasks.length > 0 ? new Date(pastTasks[pastTasks.length - 1].date) : null
@@ -1061,7 +1064,8 @@ export async function updateTask(taskId: string, formData: FormData) {
       return { success: false, error: 'Invalid task category' }
     }
 
-    const taskDate = new Date(date)
+    // Create date in Panama timezone to preserve the intended day
+    const taskDate = parseDateInPanamaTime(date)
 
     // Get opportunity ID before updating
     const existingTask = await prisma.task.findUnique({
@@ -1114,14 +1118,15 @@ export async function updateTask(taskId: string, formData: FormData) {
       })
     }
 
-    // Update opportunity's nextActivityDate and lastActivityDate
+    // Update opportunity's nextActivityDate and lastActivityDate (using Panama timezone)
     const allTasks = await prisma.task.findMany({
       where: { opportunityId: existingTask.opportunityId },
       orderBy: { date: 'asc' },
     })
 
-    const futureTasks = allTasks.filter((t) => !t.completed && new Date(t.date) >= new Date())
-    const pastTasks = allTasks.filter((t) => t.completed || new Date(t.date) < new Date())
+    const todayStrUpdate = getTodayInPanama()
+    const futureTasks = allTasks.filter((t) => !t.completed && formatDateForPanama(new Date(t.date)) >= todayStrUpdate)
+    const pastTasks = allTasks.filter((t) => t.completed || formatDateForPanama(new Date(t.date)) < todayStrUpdate)
 
     const nextActivityDate = futureTasks.length > 0 ? new Date(futureTasks[0].date) : null
     const lastActivityDate = pastTasks.length > 0 ? new Date(pastTasks[pastTasks.length - 1].date) : null
@@ -1184,14 +1189,15 @@ export async function deleteTask(taskId: string) {
       },
     })
 
-    // Update opportunity's nextActivityDate and lastActivityDate
+    // Update opportunity's nextActivityDate and lastActivityDate (using Panama timezone)
     const allTasks = await prisma.task.findMany({
       where: { opportunityId: task.opportunityId },
       orderBy: { date: 'asc' },
     })
 
-    const futureTasks = allTasks.filter((t) => !t.completed && new Date(t.date) >= new Date())
-    const pastTasks = allTasks.filter((t) => t.completed || new Date(t.date) < new Date())
+    const todayStrDelete = getTodayInPanama()
+    const futureTasks = allTasks.filter((t) => !t.completed && formatDateForPanama(new Date(t.date)) >= todayStrDelete)
+    const pastTasks = allTasks.filter((t) => t.completed || formatDateForPanama(new Date(t.date)) < todayStrDelete)
 
     const nextActivityDate = futureTasks.length > 0 ? new Date(futureTasks[0].date) : null
     const lastActivityDate = pastTasks.length > 0 ? new Date(pastTasks[pastTasks.length - 1].date) : null

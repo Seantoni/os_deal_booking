@@ -8,6 +8,7 @@ import { invalidateEntity } from '@/lib/cache'
 import { getUserRole, isAdmin } from '@/lib/auth/roles'
 import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
 import { logActivity } from '@/lib/activity-log'
+import { getTodayInPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
 import { sendVendorToExternalApi, updateVendorInExternalApi, getChangedVendorFields } from '@/lib/api/external-oferta'
 import type { VendorFieldChange, ExternalOfertaVendorUpdateRequest, UpdateVendorResult } from '@/lib/api/external-oferta/vendor/types'
 import type { Business, Opportunity, BookingRequest, UserData } from '@/types'
@@ -1473,8 +1474,9 @@ export async function getBusinessesWithBookingStatus() {
   }
 
   try {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    // Use Panama timezone for date comparison
+    const todayStr = getTodayInPanama()
+    const today = parseDateInPanamaTime(todayStr)
 
     // Get all businesses with basic info
     const businesses = await prisma.business.findMany({

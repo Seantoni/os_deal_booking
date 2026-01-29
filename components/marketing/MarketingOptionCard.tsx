@@ -4,7 +4,7 @@ import { useState, useRef } from 'react'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import EventIcon from '@mui/icons-material/Event'
-import { formatISODateOnly, daysUntil } from '@/lib/date'
+import { formatISODateOnly, daysUntil, getTodayInPanama, formatDateForPanama } from '@/lib/date'
 import AttachFileIcon from '@mui/icons-material/AttachFile'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
@@ -213,7 +213,10 @@ export default function MarketingOptionCard({
     await onRemoveAttachment(option.id, url)
   }
 
-const isOverdue = option.dueDate && new Date(option.dueDate) < new Date() && !option.isCompleted
+// Check overdue using Panama timezone
+const todayStr = getTodayInPanama()
+const dueDateStr = option.dueDate ? formatDateForPanama(new Date(option.dueDate)) : null
+const isOverdue = dueDateStr && dueDateStr < todayStr && !option.isCompleted
   const daysLeft = option.dueDate ? daysUntil(option.dueDate) : null
 
   // Determine if this card can receive a drop

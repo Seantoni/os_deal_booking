@@ -19,7 +19,7 @@ import { EntityTable, StatusPill, TableRow, TableCell } from '@/components/share
 import { EmptyTableState, type ColumnConfig } from '@/components/shared'
 import ModalShell from '@/components/shared/ModalShell'
 import toast from 'react-hot-toast'
-import { formatCompactDateTime } from '@/lib/date'
+import { formatCompactDateTime, getTodayInPanama, formatDateForPanama } from '@/lib/date'
 
 type SortField = 'eventName' | 'eventDate' | 'eventPlace' | 'promoter' | 'sourceSite' | 'firstSeenAt' | 'lastScannedAt'
 
@@ -119,19 +119,22 @@ function formatDateSpanish(date: Date | null): string {
 }
 
 /**
- * Calculate days until a date
+ * Calculate days until a date (using Panama timezone)
  */
 function getDaysUntil(date: Date | null): number | null {
   if (!date) return null
   
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
+  // Use Panama timezone for consistent date comparison
+  const todayStr = getTodayInPanama()
+  const eventDateStr = formatDateForPanama(date)
   
-  // Create a copy to avoid mutating the original
-  const eventDate = new Date(date.getTime())
-  eventDate.setHours(0, 0, 0, 0)
+  const todayParts = todayStr.split('-').map(Number)
+  const eventParts = eventDateStr.split('-').map(Number)
   
-  const diffTime = eventDate.getTime() - now.getTime()
+  const todayDate = new Date(todayParts[0], todayParts[1] - 1, todayParts[2])
+  const eventDate = new Date(eventParts[0], eventParts[1] - 1, eventParts[2])
+  
+  const diffTime = eventDate.getTime() - todayDate.getTime()
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
   
   return diffDays

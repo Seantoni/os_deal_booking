@@ -7,7 +7,7 @@ import { createOpportunity, updateOpportunity, createTask, updateTask, deleteTas
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
 import { useCachedFormConfig } from '@/hooks/useFormConfigCache'
-import { getTodayInPanama } from '@/lib/date/timezone'
+import { getTodayInPanama, formatDateForPanama } from '@/lib/date/timezone'
 import type { Opportunity, OpportunityStage, Task, Business, UserData } from '@/types'
 import type { Category } from '@prisma/client'
 import HandshakeIcon from '@mui/icons-material/Handshake'
@@ -155,7 +155,7 @@ export default function OpportunityFormModal({
       
       return {
         businessId: initialBusinessId || null,
-        startDate: new Date().toISOString().split('T')[0],
+        startDate: getTodayInPanama(),
         // Include business data if available - use parent category for parentOnly mode
         categoryId: preloadedBusiness?.category?.parentCategory || null,
         tier: preloadedBusiness?.tier?.toString() || null,
@@ -167,8 +167,9 @@ export default function OpportunityFormModal({
     const business = opportunity.business
     return {
       businessId: opportunity.businessId || null,
-      startDate: opportunity.startDate ? new Date(opportunity.startDate).toISOString().split('T')[0] : null,
-      closeDate: opportunity.closeDate ? new Date(opportunity.closeDate).toISOString().split('T')[0] : null,
+      // Use Panama timezone for date display
+      startDate: opportunity.startDate ? formatDateForPanama(new Date(opportunity.startDate)) : null,
+      closeDate: opportunity.closeDate ? formatDateForPanama(new Date(opportunity.closeDate)) : null,
       notes: opportunity.notes || null,
       // These come from the linked business - use parent category for parentOnly mode
       categoryId: business?.category?.parentCategory || null,
@@ -193,21 +194,22 @@ export default function OpportunityFormModal({
   const activitySummary = useMemo(() => {
     if (!tasks.length) return { nextTask: null, lastTask: null, nextMeeting: null, lastMeeting: null }
 
+    // Use Panama timezone for date comparisons
     const getTaskDateStr = (date: Date | string) => {
-      const d = new Date(date)
-      const year = d.getUTCFullYear()
-      const month = String(d.getUTCMonth() + 1).padStart(2, '0')
-      const day = String(d.getUTCDate()).padStart(2, '0')
-      return `${year}-${month}-${day}`
+      return formatDateForPanama(new Date(date))
     }
     const todayStr = getTodayInPanama()
-    const todayParts = todayStr.split('-').map(Number)
-    const todayDate = new Date(todayParts[0], todayParts[1] - 1, todayParts[2])
 
-    // Helper to calculate days difference
+    // Helper to calculate days difference (using Panama timezone)
     const getDaysDiff = (date: Date | string) => {
-      const d = new Date(date)
-      const taskDate = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+      const taskDateStr = formatDateForPanama(new Date(date))
+      const taskParts = taskDateStr.split('-').map(Number)
+      const todayParts = todayStr.split('-').map(Number)
+      
+      // Create dates at midnight for comparison
+      const taskDate = new Date(taskParts[0], taskParts[1] - 1, taskParts[2])
+      const todayDate = new Date(todayParts[0], todayParts[1] - 1, todayParts[2])
+      
       const diffTime = taskDate.getTime() - todayDate.getTime()
       return Math.round(diffTime / (1000 * 60 * 60 * 24))
     }
@@ -611,7 +613,8 @@ export default function OpportunityFormModal({
       const formData = new FormData()
       formData.append('category', task.category)
       formData.append('title', task.title)
-      formData.append('date', new Date(task.date).toISOString().split('T')[0])
+      // Use Panama timezone for task date
+      formData.append('date', formatDateForPanama(new Date(task.date)))
       formData.append('completed', newCompletedState.toString())
       formData.append('notes', task.notes || '')
 

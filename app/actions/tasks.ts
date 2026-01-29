@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
 import { invalidateEntity, invalidateDashboard } from '@/lib/cache'
 import { getUserRole, isAdmin } from '@/lib/auth/roles'
+import { getTodayInPanama, formatDateForPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
 import type { Task } from '@/types'
 
 export interface TaskWithOpportunity extends Task {
@@ -154,16 +155,16 @@ export async function getTasksPaginated(options: {
       whereClause.opportunity = { responsibleId }
     }
 
-    // Add filter
-    const now = new Date()
-    now.setHours(0, 0, 0, 0)
+    // Add filter (using Panama timezone)
+    const todayStr = getTodayInPanama()
+    const todayPanama = parseDateInPanamaTime(todayStr)
     if (filter === 'pending') {
       whereClause.completed = false
     } else if (filter === 'completed') {
       whereClause.completed = true
     } else if (filter === 'overdue') {
       whereClause.completed = false
-      whereClause.date = { lt: now }
+      whereClause.date = { lt: todayPanama }
     }
 
     // Get total count
@@ -383,9 +384,10 @@ async function updateOpportunityActivityDates(opportunityId: string) {
     orderBy: { date: 'asc' },
   })
 
-  const now = new Date()
-  const futureTasks = allTasks.filter((t) => !t.completed && new Date(t.date) >= now)
-  const pastTasks = allTasks.filter((t) => t.completed || new Date(t.date) < now)
+  // Use Panama timezone for date comparisons
+  const todayStrActivity = getTodayInPanama()
+  const futureTasks = allTasks.filter((t) => !t.completed && formatDateForPanama(new Date(t.date)) >= todayStrActivity)
+  const pastTasks = allTasks.filter((t) => t.completed || formatDateForPanama(new Date(t.date)) < todayStrActivity)
 
   const nextActivityDate = futureTasks.length > 0 ? new Date(futureTasks[0].date) : null
   const lastActivityDate = pastTasks.length > 0 ? new Date(pastTasks[pastTasks.length - 1].date) : null
@@ -425,15 +427,16 @@ export async function getTaskCounts(filters?: { responsibleId?: string }) {
       baseWhere.opportunity = { responsibleId: filters.responsibleId }
     }
 
-    const now = new Date()
-    now.setHours(0, 0, 0, 0)
+    // Use Panama timezone for overdue calculation
+    const todayStrCounts = getTodayInPanama()
+    const todayPanamaCounts = parseDateInPanamaTime(todayStrCounts)
 
     // Get counts in parallel
     const [all, pending, completed, overdue, meetings, todos] = await Promise.all([
       prisma.task.count({ where: baseWhere }),
       prisma.task.count({ where: { ...baseWhere, completed: false } }),
       prisma.task.count({ where: { ...baseWhere, completed: true } }),
-      prisma.task.count({ where: { ...baseWhere, completed: false, date: { lt: now } } }),
+      prisma.task.count({ where: { ...baseWhere, completed: false, date: { lt: todayPanamaCounts } } }),
       prisma.task.count({ where: { ...baseWhere, category: 'meeting' } }),
       prisma.task.count({ where: { ...baseWhere, category: 'todo' } }),
     ])

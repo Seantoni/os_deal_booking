@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { getDaysDifference, getCategoryColors } from '@/lib/categories'
 import { getEventsOnDate, getDailyLimitStatus } from '@/lib/event-validation'
 import { getSettings } from '@/lib/settings'
-import { formatDateForPanama, PANAMA_TIMEZONE } from '@/lib/date/timezone'
+import { formatDateForPanama, PANAMA_TIMEZONE, getDateComponentsInPanama } from '@/lib/date/timezone'
 import EventSearchResults from '@/components/events/EventSearchResults'
 import PublicIcon from '@mui/icons-material/Public'
 import LockIcon from '@mui/icons-material/Lock'
@@ -283,10 +283,11 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
       // Launch date mode: ONLY show on start date as blocks (ALL VIEWS)
       filteredEvents.forEach(event => {
         const startDate = new Date(event.startDate)
-        // Use UTC methods to avoid timezone shift
-        const eventYear = startDate.getUTCFullYear()
-        const eventMonth = startDate.getUTCMonth()
-        const eventDay = startDate.getUTCDate()
+        // Use Panama timezone for consistent date display
+        const eventPanama = getDateComponentsInPanama(startDate)
+        const eventYear = eventPanama.year
+        const eventMonth = eventPanama.month - 1 // Convert to 0-indexed
+        const eventDay = eventPanama.day
         
         // Check if start date is within current view range
         if (eventMonth === month && eventYear === year && 
@@ -517,11 +518,9 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
       } else if (resizeMode === 'start' && onEventMove) {
         // Resizing from the start - update start date, keep end date
         const newStartDate = new Date(year, month, day, 12, 0, 0)
-        const originalEnd = new Date(resizingEvent.endDate)
-        const endYear = originalEnd.getUTCFullYear()
-        const endMonth = originalEnd.getUTCMonth()
-        const endDay = originalEnd.getUTCDate()
-        const endDateLocal = new Date(endYear, endMonth, endDay, 12, 0, 0)
+        // Use Panama timezone for end date
+        const endPanama = getDateComponentsInPanama(new Date(resizingEvent.endDate))
+        const endDateLocal = new Date(endPanama.year, endPanama.month - 1, endPanama.day, 12, 0, 0)
         
         // Make sure new start is before end
         if (newStartDate < endDateLocal) {
@@ -532,16 +531,13 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
       setResizeMode(null)
       setResizeStartDay(null)
     } else if (draggingEvent && onEventMove) {
-      // Moving - calculate the duration of the original event
-      const originalStart = new Date(draggingEvent.startDate)
-      const originalEnd = new Date(draggingEvent.endDate)
+      // Moving - calculate the duration of the original event using Panama timezone
+      const startPanama = getDateComponentsInPanama(new Date(draggingEvent.startDate))
+      const endPanama = getDateComponentsInPanama(new Date(draggingEvent.endDate))
       
-      // Normalize both dates to midnight for accurate day calculation
-      const startNormalized = new Date(originalStart)
-      startNormalized.setHours(0, 0, 0, 0)
-      
-      const endNormalized = new Date(originalEnd)
-      endNormalized.setHours(0, 0, 0, 0)
+      // Create normalized dates at midnight for accurate day calculation
+      const startNormalized = new Date(startPanama.year, startPanama.month - 1, startPanama.day)
+      const endNormalized = new Date(endPanama.year, endPanama.month - 1, endPanama.day)
       
       // Calculate duration in days (inclusive of both start and end)
       const duration = getDaysDifference(startNormalized, endNormalized)
@@ -573,8 +569,9 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
     setDraggingEvent(null)
     setResizingEvent(event)
     setResizeMode(mode)
-    const startDate = new Date(event.startDate)
-    setResizeStartDay(startDate.getUTCDate())
+    // Use Panama timezone for start day
+    const startPanama = getDateComponentsInPanama(new Date(event.startDate))
+    setResizeStartDay(startPanama.day)
   }
 
   const handleResizeEnd = () => {

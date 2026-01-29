@@ -20,7 +20,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PhoneIcon from '@mui/icons-material/Phone'
 import EmailIcon from '@mui/icons-material/Email'
 import PersonIcon from '@mui/icons-material/Person'
-import { formatShortDate, formatRelativeTime } from '@/lib/date'
+import { formatShortDate, formatRelativeTime, getTodayInPanama, formatDateForPanama } from '@/lib/date'
 import {
   EntityPageHeader,
   UserFilterDropdown,
@@ -166,9 +166,8 @@ export default function TasksPageClient() {
   const filteredTasks = useMemo(() => {
     let filtered = optimisticTasks
 
-    // Apply status filter
-    const now = new Date()
-    now.setHours(0, 0, 0, 0)
+    // Apply status filter (using Panama timezone)
+    const todayStr = getTodayInPanama()
 
     switch (activeFilter) {
       case 'pending':
@@ -178,7 +177,7 @@ export default function TasksPageClient() {
         filtered = filtered.filter(t => t.completed)
         break
       case 'overdue':
-        filtered = filtered.filter(t => !t.completed && new Date(t.date) < now)
+        filtered = filtered.filter(t => !t.completed && formatDateForPanama(new Date(t.date)) < todayStr)
         break
       case 'meetings':
         filtered = filtered.filter(t => t.category === 'meeting')
@@ -220,14 +219,13 @@ export default function TasksPageClient() {
     if (Object.keys(serverCounts).length > 0) {
       return serverCounts
     }
-    // Fallback to client-side counts
-    const now = new Date()
-    now.setHours(0, 0, 0, 0)
+    // Fallback to client-side counts (using Panama timezone)
+    const todayStr = getTodayInPanama()
     return {
       all: optimisticTasks.length,
       pending: optimisticTasks.filter(t => !t.completed).length,
       completed: optimisticTasks.filter(t => t.completed).length,
-      overdue: optimisticTasks.filter(t => !t.completed && new Date(t.date) < now).length,
+      overdue: optimisticTasks.filter(t => !t.completed && formatDateForPanama(new Date(t.date)) < todayStr).length,
       meetings: optimisticTasks.filter(t => t.category === 'meeting').length,
       todos: optimisticTasks.filter(t => t.category === 'todo').length,
     }
@@ -355,21 +353,19 @@ export default function TasksPageClient() {
     }
   }
 
-  // Check if task is overdue
+  // Check if task is overdue (using Panama timezone)
   const isOverdue = (task: TaskWithOpportunity) => {
     if (task.completed) return false
-    const now = new Date()
-    now.setHours(0, 0, 0, 0)
-    return new Date(task.date) < now
+    const todayStr = getTodayInPanama()
+    const taskDateStr = formatDateForPanama(new Date(task.date))
+    return taskDateStr < todayStr
   }
 
-  // Check if task is due today
+  // Check if task is due today (using Panama timezone)
   const isDueToday = (task: TaskWithOpportunity) => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const taskDate = new Date(task.date)
-    taskDate.setHours(0, 0, 0, 0)
-    return taskDate.getTime() === today.getTime()
+    const todayStr = getTodayInPanama()
+    const taskDateStr = formatDateForPanama(new Date(task.date))
+    return taskDateStr === todayStr
   }
 
   const filterTabs: FilterTab[] = [

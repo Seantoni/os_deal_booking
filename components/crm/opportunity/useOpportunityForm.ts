@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getOpportunityFormData } from '@/app/actions/opportunities'
 import { getBusiness } from '@/app/actions/crm'
+import { getTodayInPanama, formatDateForPanama } from '@/lib/date/timezone'
 import type { Opportunity, OpportunityStage, Task, Business, BookingRequest, UserData } from '@/types'
 import type { Category } from '@prisma/client'
 
@@ -89,10 +90,10 @@ export function useOpportunityForm({
       setCategories(preloadedCategories!)
       if (isAdmin && preloadedUsers) setUsers(preloadedUsers)
       
-      // Set form defaults for new opportunity
+      // Set form defaults for new opportunity (using Panama timezone)
       setBusinessId(initialBusinessId)
       setStage('iniciacion')
-      setStartDate(new Date().toISOString().split('T')[0])
+      setStartDate(getTodayInPanama())
       setCloseDate('')
       setNotes('')
       setResponsibleId(currentUserId || '')
@@ -144,8 +145,9 @@ export function useOpportunityForm({
         if (currentOpportunity) {
           setBusinessId(currentOpportunity.businessId)
           setStage(currentOpportunity.stage)
-          setStartDate(new Date(currentOpportunity.startDate).toISOString().split('T')[0])
-          setCloseDate(currentOpportunity.closeDate ? new Date(currentOpportunity.closeDate).toISOString().split('T')[0] : '')
+          // Use Panama timezone for date display
+          setStartDate(formatDateForPanama(new Date(currentOpportunity.startDate)))
+          setCloseDate(currentOpportunity.closeDate ? formatDateForPanama(new Date(currentOpportunity.closeDate)) : '')
           setNotes(currentOpportunity.notes || '')
           setResponsibleId(currentOpportunity.responsibleId || '')
           
@@ -159,10 +161,10 @@ export function useOpportunityForm({
             setContactEmail(linkedBiz.contactEmail || '')
           }
         } else {
-          // Reset form for new opportunity
+          // Reset form for new opportunity (using Panama timezone)
           setBusinessId(initialBusinessId || '')
           setStage('iniciacion')
-          setStartDate(new Date().toISOString().split('T')[0])
+          setStartDate(getTodayInPanama())
           setCloseDate('')
           setNotes('')
           setResponsibleId(currentUserId || '')

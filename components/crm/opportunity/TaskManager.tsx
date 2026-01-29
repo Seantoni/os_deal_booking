@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { PANAMA_TIMEZONE, getTodayInPanama } from '@/lib/date/timezone'
+import { PANAMA_TIMEZONE, getTodayInPanama, formatDateForPanama } from '@/lib/date/timezone'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -36,14 +36,9 @@ export default function TaskManager({
   const [filter, setFilter] = useState<TaskFilter>('all')
   const todayStr = getTodayInPanama() // YYYY-MM-DD in Panama timezone
   
-  // Helper to get the date string from a task date (stored as UTC midnight)
-  // We use UTC components to get the original date the user selected
+  // Helper to get the date string from a task date (using Panama timezone)
   const getTaskDateStr = (date: Date | string) => {
-    const d = new Date(date)
-    const year = d.getUTCFullYear()
-    const month = String(d.getUTCMonth() + 1).padStart(2, '0')
-    const day = String(d.getUTCDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
+    return formatDateForPanama(new Date(date))
   }
 
   // Filter tasks by type
@@ -230,20 +225,16 @@ function TaskItem({
     day: 'numeric',
   })
 
-  // Calculate days difference
-  // Get task date as YYYY-MM-DD using UTC (to match how it was stored)
-  const taskDateObj = new Date(task.date)
-  const taskYear = taskDateObj.getUTCFullYear()
-  const taskMonth = taskDateObj.getUTCMonth()
-  const taskDay = taskDateObj.getUTCDate()
+  // Calculate days difference (using Panama timezone)
+  const taskDateStr = formatDateForPanama(new Date(task.date))
+  const taskParts = taskDateStr.split('-').map(Number)
   
-  // Get today in Panama timezone
   const todayStr = getTodayInPanama() // YYYY-MM-DD
   const todayParts = todayStr.split('-').map(Number)
   
-  // Create local dates for diff calculation (both at midnight local)
+  // Create local dates for diff calculation (both at midnight)
   const todayDate = new Date(todayParts[0], todayParts[1] - 1, todayParts[2])
-  const taskLocalDate = new Date(taskYear, taskMonth, taskDay)
+  const taskLocalDate = new Date(taskParts[0], taskParts[1] - 1, taskParts[2])
   
   const diffTime = taskLocalDate.getTime() - todayDate.getTime()
   const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))

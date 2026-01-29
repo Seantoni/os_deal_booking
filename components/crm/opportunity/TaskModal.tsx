@@ -7,7 +7,7 @@ import PersonIcon from '@mui/icons-material/Person'
 import type { Task } from '@/types'
 import { Button, Input, Select, Textarea } from '@/components/ui'
 import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
-import { getTodayInPanama } from '@/lib/date/timezone'
+import { getTodayInPanama, formatDateForPanama } from '@/lib/date/timezone'
 
 // Meeting data structure stored as JSON in notes
 export interface MeetingData {
@@ -97,11 +97,7 @@ export default function TaskModal({
     if (task) {
       setTaskCategory(task.category)
       // Format the task date in Panama timezone for the date input
-      const taskDateObj = new Date(task.date)
-      const year = taskDateObj.getUTCFullYear()
-      const month = String(taskDateObj.getUTCMonth() + 1).padStart(2, '0')
-      const day = String(taskDateObj.getUTCDate()).padStart(2, '0')
-      setTaskDate(`${year}-${month}-${day}`)
+      setTaskDate(formatDateForPanama(new Date(task.date)))
       
       if (task.category === 'meeting') {
         // Parse meeting data from notes

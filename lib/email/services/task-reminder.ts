@@ -9,6 +9,7 @@ import { resend, EMAIL_CONFIG } from '../config'
 import { renderTaskReminderEmail, type TaskForEmail } from '../templates/task-reminder'
 import { getAppBaseUrl } from '@/lib/config/env'
 import { logger } from '@/lib/logger'
+import { getTodayInPanama, formatDateForPanama, parseDateInPanamaTime, parseEndDateInPanamaTime } from '@/lib/date/timezone'
 
 interface UserTasksGroup {
   userId: string
@@ -22,19 +23,10 @@ interface UserTasksGroup {
  * Get all tasks that are due today or overdue, grouped by responsible user
  */
 async function getTasksByResponsibleUser(): Promise<UserTasksGroup[]> {
-  // Get today's date range (start of day to end of day in Panama timezone)
-  const now = new Date()
-  // Convert to Panama time
-  const panamaOffset = -5 * 60 // Panama is UTC-5
-  const localOffset = now.getTimezoneOffset()
-  const offsetDiff = panamaOffset - localOffset
-  
-  const panamaDate = new Date(now.getTime() + offsetDiff * 60 * 1000)
-  const todayStart = new Date(panamaDate)
-  todayStart.setHours(0, 0, 0, 0)
-  
-  const todayEnd = new Date(panamaDate)
-  todayEnd.setHours(23, 59, 59, 999)
+  // Get today's date range in Panama timezone
+  const todayStr = getTodayInPanama()
+  const todayStart = parseDateInPanamaTime(todayStr)
+  const todayEnd = parseEndDateInPanamaTime(todayStr)
 
   // Get all incomplete tasks that are due today or overdue
   const tasks = await prisma.task.findMany({
@@ -102,10 +94,9 @@ async function getTasksByResponsibleUser(): Promise<UserTasksGroup[]> {
     }
 
     const userGroup = tasksByUser.get(responsibleId)!
-    const taskDate = new Date(task.date)
-    taskDate.setHours(0, 0, 0, 0)
     
-    const todayCompare = new Date(todayStart)
+    // Compare dates using Panama timezone
+    const taskDateStr = formatDateForPanama(new Date(task.date))
     
     const taskForEmail: TaskForEmail = {
       id: task.id,
@@ -123,7 +114,7 @@ async function getTasksByResponsibleUser(): Promise<UserTasksGroup[]> {
       },
     }
 
-    if (taskDate.getTime() < todayCompare.getTime()) {
+    if (taskDateStr < todayStr) {
       userGroup.overdueTasks.push(taskForEmail)
     } else {
       userGroup.dueTodayTasks.push(taskForEmail)
