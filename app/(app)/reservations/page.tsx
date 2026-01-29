@@ -17,10 +17,12 @@ export default async function ReservationsPage() {
   await requirePageAccess('/reservations')
 
   // Fetch all events (ReservationsClient filters for booked events)
-  const events = await getEvents()
+  const eventsResult = await getEvents()
+  const events = eventsResult.success ? eventsResult.data || [] : []
 
   // Fetch user profiles for all unique userIds in events
-  const userIds = [...new Set(events.map(e => e.userId).filter(Boolean))]
+  type EventType = { userId: string | null }
+  const userIds = [...new Set(events.map((e: EventType) => e.userId).filter(Boolean) as string[])]
   const users = userIds.length > 0 
     ? await prisma.userProfile.findMany({
         where: { clerkId: { in: userIds } },

@@ -87,7 +87,7 @@ export default function PipelinePageClient({
       const result = await getPipelineDataPaginated({ page, pageSize })
       if (result.success && result.data) {
         setData(result.data as PipelineData)
-        setTotalCount((result as any).total || 0)
+        setTotalCount('total' in result ? (result.total as number) || 0 : 0)
         setCurrentPage(page)
       }
     } catch (error) {

@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import { getOpportunitiesPaginated, searchOpportunities, getOpportunityCounts } from '@/app/actions/opportunities'
 import { deleteOpportunity } from '@/app/actions/crm'
-import type { Opportunity } from '@/types'
+import type { Opportunity, Business } from '@/types'
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban'
 import TableChartIcon from '@mui/icons-material/TableChart'
 import FilterListIcon from '@mui/icons-material/FilterList'
@@ -65,7 +65,7 @@ const COLUMNS: ColumnConfig[] = [
 
 interface OpportunitiesPageClientProps {
   initialOpportunities?: Opportunity[]
-  initialBusinesses?: any[]
+  initialBusinesses?: Business[]
   initialTotal?: number
   initialCounts?: Record<string, number>
 }

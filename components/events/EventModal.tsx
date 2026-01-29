@@ -479,16 +479,23 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
     const proceedSave = () => {
       startTransition(async () => {
         try {
-          let result: Event
           if (eventToEdit) {
-            result = await updateEvent(eventToEdit.id, formData)
-            if (onSuccess) {
-              onSuccess(result, 'update')
+            const result = await updateEvent(eventToEdit.id, formData)
+            if (!result.success) {
+              setField('error', result.error || 'Error al actualizar el evento')
+              return
+            }
+            if (onSuccess && result.data) {
+              onSuccess(result.data, 'update')
             }
           } else {
-            result = await createEvent(formData)
-            if (onSuccess) {
-              onSuccess(result, 'create')
+            const result = await createEvent(formData)
+            if (!result.success) {
+              setField('error', result.error || 'Error al crear el evento')
+              return
+            }
+            if (onSuccess && result.data) {
+              onSuccess(result.data, 'create')
             }
           }
           

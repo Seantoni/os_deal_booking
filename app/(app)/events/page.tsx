@@ -18,12 +18,13 @@ export default async function EventsPage() {
   await requirePageAccess('/events')
   
   // Parallel server-side data fetching
-  const [events, bookingRequestsResult, userRole] = await Promise.all([
+  const [eventsResult, bookingRequestsResult, userRole] = await Promise.all([
     getEvents(),
     getBookingRequests(),
     getUserRole(),
   ])
   
+  const events = eventsResult.success ? eventsResult.data || [] : []
   const bookingRequests = bookingRequestsResult.success ? bookingRequestsResult.data || [] : []
 
   return (

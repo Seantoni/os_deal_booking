@@ -1283,6 +1283,16 @@ export async function bulkUpsertOpportunities(
     })
     const businessByName = new Map(allBusinesses.map(b => [b.name.toLowerCase(), b]))
 
+    // Pre-fetch all existing opportunities that will be updated (avoids N+1)
+    const existingIds = rows.filter(r => r.id).map(r => r.id!)
+    const existingOpportunities = existingIds.length > 0
+      ? await prisma.opportunity.findMany({
+          where: { id: { in: existingIds } },
+          select: { id: true, businessId: true },
+        })
+      : []
+    const existingOpportunityMap = new Map(existingOpportunities.map(o => [o.id, o]))
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
       const rowNum = i + 2 // +2 for 1-indexed and header row
@@ -1344,8 +1354,8 @@ export async function bulkUpsertOpportunities(
         }
 
         if (row.id) {
-          // Update existing
-          const existing = await prisma.opportunity.findUnique({ where: { id: row.id } })
+          // Update existing - use pre-fetched map instead of individual query
+          const existing = existingOpportunityMap.get(row.id)
           if (!existing) {
             errors.push(`Fila ${rowNum}: No se encontró oportunidad con ID ${row.id}`)
             continue

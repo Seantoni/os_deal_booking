@@ -9,6 +9,7 @@
 import { prisma } from '@/lib/prisma'
 import { fetchDealMetrics, fetchAllDealMetrics } from '@/lib/api/external-oferta/deal/metrics'
 import type { DealMetric } from '@/lib/api/external-oferta/deal/types'
+import type { Prisma } from '@prisma/client'
 
 export interface SyncMetricsResult {
   success: boolean
@@ -519,8 +520,7 @@ export async function getDealMetricsPaginated(
   const search = options.search as string | undefined
 
   // Build where clause
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const whereClause: any = {}
+  const whereClause: Prisma.DealMetricsWhereInput = {}
 
   if (vendorId) {
     whereClause.externalVendorId = vendorId
@@ -537,24 +537,24 @@ export async function getDealMetricsPaginated(
   if (statusFilter === 'active') {
     whereClause.endAt = { gt: new Date() }
   } else if (statusFilter === 'ended') {
-    whereClause.OR = [
-      { endAt: { lte: new Date() } },
-      { endAt: null },
-    ]
-    // If there's already an OR for search, we need to combine
-    if (search) {
+    // If there's already an OR for search, we need to combine with AND
+    if (search && whereClause.OR) {
       const searchOR = whereClause.OR
       delete whereClause.OR
       whereClause.AND = [
         { OR: searchOR },
         { OR: [{ endAt: { lte: new Date() } }, { endAt: null }] },
       ]
+    } else {
+      whereClause.OR = [
+        { endAt: { lte: new Date() } },
+        { endAt: null },
+      ]
     }
   }
 
   // Build orderBy
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let orderBy: any = { netRevenue: 'desc' }
+  let orderBy: Prisma.DealMetricsOrderByWithRelationInput = { netRevenue: 'desc' }
   if (sortBy) {
     switch (sortBy) {
       case 'externalDealId':
@@ -650,8 +650,7 @@ export async function getDealMetricsCounts(
     const vendorId = filters?.vendorId as string | undefined
     const search = filters?.search as string | undefined
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const baseWhere: any = {}
+    const baseWhere: Prisma.DealMetricsWhereInput = {}
     if (vendorId) {
       baseWhere.externalVendorId = vendorId
     }
@@ -695,13 +694,14 @@ export async function searchDealMetrics(
     const vendorId = options?.vendorId as string | undefined
     const limit = options?.limit ?? 100
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const whereClause: any = {
-      OR: [
-        { externalDealId: { contains: query, mode: 'insensitive' } },
-        { externalVendorId: { contains: query, mode: 'insensitive' } },
-        { dealUrl: { contains: query, mode: 'insensitive' } },
-      ],
+    const searchOR: Prisma.DealMetricsWhereInput[] = [
+      { externalDealId: { contains: query, mode: 'insensitive' } },
+      { externalVendorId: { contains: query, mode: 'insensitive' } },
+      { dealUrl: { contains: query, mode: 'insensitive' } },
+    ]
+    
+    const whereClause: Prisma.DealMetricsWhereInput = {
+      OR: searchOR,
     }
 
     if (vendorId) {
@@ -712,7 +712,7 @@ export async function searchDealMetrics(
       whereClause.endAt = { gt: new Date() }
     } else if (statusFilter === 'ended') {
       whereClause.AND = [
-        { OR: whereClause.OR },
+        { OR: searchOR },
         { OR: [{ endAt: { lte: new Date() } }, { endAt: null }] },
       ]
       delete whereClause.OR

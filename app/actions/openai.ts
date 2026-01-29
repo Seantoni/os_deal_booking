@@ -1,18 +1,17 @@
 'use server'
 
-import { auth } from '@clerk/nextjs/server'
 import { getOpenAIClient } from '@/lib/openai'
 import { logger } from '@/lib/logger'
+import { requireAuth } from '@/lib/utils/server-actions'
 
 /**
  * Test OpenAI API connection
  * This is a simple test to verify the API is working
  */
 export async function testOpenAIConnection() {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    throw new Error('Unauthorized')
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return { success: false, error: 'Unauthorized' }
   }
 
   try {

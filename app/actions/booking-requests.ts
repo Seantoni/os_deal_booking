@@ -205,11 +205,11 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
  * Send a booking request (changes status to pending)
  */
 export async function sendBookingRequest(formData: FormData, requestId?: string) {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
+  const { userId } = authResult
 
   try {
     const name = formData.get('name') as string
@@ -599,11 +599,11 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
  * - Sales: sees only their own requests
  */
 export async function getBookingRequests() {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
+  const { userId } = authResult
 
   try {
     const role = await getUserRole()
@@ -655,11 +655,11 @@ export async function getBookingRequestsPaginated(options: {
   status?: string
   creatorId?: string // Filter by creator (admin quick filter)
 } = {}) {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
+  const { userId } = authResult
 
   try {
     const role = await getUserRole()
@@ -727,11 +727,11 @@ export async function searchBookingRequests(query: string, options: {
   status?: string
   creatorId?: string // Filter by creator (admin quick filter)
 } = {}) {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
+  const { userId } = authResult
 
   try {
     const role = await getUserRole()
@@ -786,11 +786,11 @@ export async function searchBookingRequests(query: string, options: {
  * Get booking request counts by status (for filter tabs)
  */
 export async function getBookingRequestCounts(filters?: { creatorId?: string }) {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
+  const { userId } = authResult
 
   try {
     const role = await getUserRole()
@@ -837,11 +837,11 @@ export async function refreshBookingRequests(): Promise<{
   data?: BookingRequest[]
   error?: string
 }> {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
+  const { userId } = authResult
 
   try {
     const role = await getUserRole()
@@ -926,10 +926,9 @@ export async function getRequestsByBusiness(businessId: string) {
  * Get a booking request by opportunity ID
  */
 export async function getBookingRequestByOpportunityId(opportunityId: string) {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
 
   try {
@@ -952,11 +951,11 @@ export async function getBookingRequestByOpportunityId(opportunityId: string) {
  * Get a single booking request by ID
  */
 export async function getBookingRequest(requestId: string) {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
+  const { userId } = authResult
 
   try {
     const role = await getUserRole()
@@ -978,23 +977,20 @@ export async function getBookingRequest(requestId: string) {
       return { success: false, error: 'Unauthorized' }
     }
 
-    // Fetch user profiles for processedBy and userId (creator)
-    let processedByUser = null
-    let createdByUser = null
+    // Fetch user profiles for processedBy and userId (creator) in a single query
+    // This avoids N+1 by batching the lookups
+    const userClerkIds = [bookingRequest.processedBy, bookingRequest.userId].filter(Boolean) as string[]
+    const userProfiles = userClerkIds.length > 0
+      ? await prisma.userProfile.findMany({
+          where: { clerkId: { in: userClerkIds } },
+          select: { clerkId: true, name: true, email: true },
+        })
+      : []
 
-    if (bookingRequest.processedBy) {
-      processedByUser = await prisma.userProfile.findUnique({
-        where: { clerkId: bookingRequest.processedBy },
-        select: { name: true, email: true },
-      })
-    }
-
-    if (bookingRequest.userId) {
-      createdByUser = await prisma.userProfile.findUnique({
-        where: { clerkId: bookingRequest.userId },
-        select: { name: true, email: true },
-      })
-    }
+    // Build lookup map for O(1) access
+    const userProfileMap = new Map(userProfiles.map(u => [u.clerkId, { name: u.name, email: u.email }]))
+    const processedByUser = bookingRequest.processedBy ? userProfileMap.get(bookingRequest.processedBy) || null : null
+    const createdByUser = bookingRequest.userId ? userProfileMap.get(bookingRequest.userId) || null : null
 
     return { 
       success: true, 
@@ -1014,10 +1010,9 @@ export async function getBookingRequest(requestId: string) {
  * Delete a booking request
  */
 export async function deleteBookingRequest(requestId: string) {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
 
   try {
@@ -1137,10 +1132,9 @@ export async function updateBookingRequestStatus(
   requestId: string, 
   status: BookingRequestStatus
 ) {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
 
   try {

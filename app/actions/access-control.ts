@@ -1,14 +1,15 @@
 'use server'
 
 // Access control server actions for managing user permissions and invitations
-import { auth, clerkClient } from '@clerk/nextjs/server'
+import { clerkClient } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
-import { requireAdmin } from '@/lib/auth/roles'
+import { requireAdmin } from '@/lib/utils/server-actions'
 import { validateAndNormalizeEmail } from '@/lib/auth/email-validation'
 import { invalidateEntity } from '@/lib/cache'
 import { addToClerkAllowlist, removeFromClerkAllowlist } from '@/lib/clerk-allowlist'
 import { USER_ROLE_VALUES, type UserRole } from '@/lib/constants'
 import { logger } from '@/lib/logger'
+import { handleServerActionError } from '@/lib/utils/server-actions'
 
 // Type for Clerk API errors
 interface ClerkError {
@@ -41,243 +42,260 @@ export async function checkEmailAccess(email: string): Promise<boolean> {
  * Get all allowed emails (admin only)
  */
 export async function getAllowedEmails() {
-  await requireAdmin()
-  
-  const allowedEmails = await prisma.allowedEmail.findMany({
-    orderBy: { createdAt: 'desc' },
-    include: {
-      auditLogs: {
-        orderBy: { performedAt: 'desc' },
-        take: 1, // Get most recent audit log
+  try {
+    await requireAdmin()
+    
+    const allowedEmails = await prisma.allowedEmail.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        auditLogs: {
+          orderBy: { performedAt: 'desc' },
+          take: 1, // Get most recent audit log
+        },
       },
-    },
-  })
-  
-  return allowedEmails
+    })
+    
+    return { success: true, data: allowedEmails }
+  } catch (error) {
+    return handleServerActionError(error, 'getAllowedEmails')
+  }
 }
 
 /**
  * Add email to allowlist (admin only)
  */
 export async function addAllowedEmail(email: string, notes?: string) {
-  await requireAdmin()
-  
-  const { userId } = await auth()
-  if (!userId) {
-    throw new Error('Unauthorized')
-  }
-  
-  const normalizedEmail = validateAndNormalizeEmail(email)
-  
-  // Check if email already exists
-  const existing = await prisma.allowedEmail.findUnique({
-    where: { email: normalizedEmail },
-  })
-  
-  if (existing) {
-    // If exists but inactive, reactivate it
-    if (!existing.isActive) {
-      const updated = await prisma.allowedEmail.update({
-        where: { email: normalizedEmail },
-        data: {
-          isActive: true,
-          updatedAt: new Date(),
-        },
-      })
-      
-      // Create audit log for reactivation
-      await prisma.accessAuditLog.create({
-        data: {
-          email: normalizedEmail,
-          action: 'reactivated',
-          performedBy: userId,
-          notes,
-          allowedEmailId: updated.id,
-        },
-      })
-      
-      // Sync to Clerk allowlist
-      const clerkResult = await addToClerkAllowlist(normalizedEmail)
-      if (!clerkResult.success) {
-        logger.warn('[access-control] Failed to sync to Clerk allowlist:', clerkResult.error)
-        // Continue anyway - database is source of truth
-      }
-      
-      invalidateEntity('access-control')
-      return { success: true, action: 'reactivated' as const }
-    } else {
-      throw new Error('Email is already in the allowlist')
+  try {
+    const adminResult = await requireAdmin()
+    if (!('userId' in adminResult)) {
+      return adminResult
     }
+    const { userId } = adminResult
+    
+    const normalizedEmail = validateAndNormalizeEmail(email)
+    
+    // Check if email already exists
+    const existing = await prisma.allowedEmail.findUnique({
+      where: { email: normalizedEmail },
+    })
+    
+    if (existing) {
+      // If exists but inactive, reactivate it
+      if (!existing.isActive) {
+        const updated = await prisma.allowedEmail.update({
+          where: { email: normalizedEmail },
+          data: {
+            isActive: true,
+            updatedAt: new Date(),
+          },
+        })
+        
+        // Create audit log for reactivation
+        await prisma.accessAuditLog.create({
+          data: {
+            email: normalizedEmail,
+            action: 'reactivated',
+            performedBy: userId,
+            notes,
+            allowedEmailId: updated.id,
+          },
+        })
+        
+        // Sync to Clerk allowlist
+        const clerkResult = await addToClerkAllowlist(normalizedEmail)
+        if (!clerkResult.success) {
+          logger.warn('[access-control] Failed to sync to Clerk allowlist:', clerkResult.error)
+          // Continue anyway - database is source of truth
+        }
+        
+        invalidateEntity('access-control')
+        return { success: true, action: 'reactivated' as const }
+      } else {
+        return { success: false, error: 'Email is already in the allowlist' }
+      }
+    }
+    
+    // Create new allowed email
+    const allowedEmail = await prisma.allowedEmail.create({
+      data: {
+        email: normalizedEmail,
+        isActive: true,
+        notes,
+        createdBy: userId,
+      },
+    })
+    
+    // Create audit log for granting access
+    await prisma.accessAuditLog.create({
+      data: {
+        email: normalizedEmail,
+        action: 'granted',
+        performedBy: userId,
+        notes,
+        allowedEmailId: allowedEmail.id,
+      },
+    })
+    
+    // Sync to Clerk allowlist
+    const clerkResult = await addToClerkAllowlist(normalizedEmail)
+    if (!clerkResult.success) {
+      logger.warn('[access-control] Failed to sync to Clerk allowlist:', clerkResult.error)
+      // Continue anyway - database is source of truth
+    }
+    
+    invalidateEntity('access-control')
+    return { success: true, action: 'granted' as const }
+  } catch (error) {
+    return handleServerActionError(error, 'addAllowedEmail')
   }
-  
-  // Create new allowed email
-  const allowedEmail = await prisma.allowedEmail.create({
-    data: {
-      email: normalizedEmail,
-      isActive: true,
-      notes,
-      createdBy: userId,
-    },
-  })
-  
-  // Create audit log for granting access
-  await prisma.accessAuditLog.create({
-    data: {
-      email: normalizedEmail,
-      action: 'granted',
-      performedBy: userId,
-      notes,
-      allowedEmailId: allowedEmail.id,
-    },
-  })
-  
-  // Sync to Clerk allowlist
-  const clerkResult = await addToClerkAllowlist(normalizedEmail)
-  if (!clerkResult.success) {
-    logger.warn('[access-control] Failed to sync to Clerk allowlist:', clerkResult.error)
-    // Continue anyway - database is source of truth
-  }
-  
-  invalidateEntity('access-control')
-  return { success: true, action: 'granted' as const }
 }
 
 /**
  * Revoke access for an email (admin only)
  */
 export async function revokeAccess(email: string, notes?: string) {
-  await requireAdmin()
-  
-  const { userId } = await auth()
-  if (!userId) {
-    throw new Error('Unauthorized')
+  try {
+    const adminResult = await requireAdmin()
+    if (!('userId' in adminResult)) {
+      return adminResult
+    }
+    const { userId } = adminResult
+    
+    const normalizedEmail = validateAndNormalizeEmail(email)
+    
+    // Find the allowed email
+    const allowedEmail = await prisma.allowedEmail.findUnique({
+      where: { email: normalizedEmail },
+    })
+    
+    if (!allowedEmail) {
+      return { success: false, error: 'Email not found in allowlist' }
+    }
+    
+    if (!allowedEmail.isActive) {
+      return { success: false, error: 'Email access is already revoked' }
+    }
+    
+    // Soft delete: set isActive to false
+    await prisma.allowedEmail.update({
+      where: { email: normalizedEmail },
+      data: {
+        isActive: false,
+        updatedAt: new Date(),
+      },
+    })
+    
+    // Create audit log for revocation
+    await prisma.accessAuditLog.create({
+      data: {
+        email: normalizedEmail,
+        action: 'revoked',
+        performedBy: userId,
+        notes,
+        allowedEmailId: allowedEmail.id,
+      },
+    })
+    
+    // Sync to Clerk allowlist
+    const clerkResult = await removeFromClerkAllowlist(normalizedEmail)
+    if (!clerkResult.success) {
+      logger.warn('[access-control] Failed to sync to Clerk allowlist:', clerkResult.error)
+      // Continue anyway - database is source of truth
+    }
+    
+    invalidateEntity('access-control')
+    return { success: true }
+  } catch (error) {
+    return handleServerActionError(error, 'revokeAccess')
   }
-  
-  const normalizedEmail = validateAndNormalizeEmail(email)
-  
-  // Find the allowed email
-  const allowedEmail = await prisma.allowedEmail.findUnique({
-    where: { email: normalizedEmail },
-  })
-  
-  if (!allowedEmail) {
-    throw new Error('Email not found in allowlist')
-  }
-  
-  if (!allowedEmail.isActive) {
-    throw new Error('Email access is already revoked')
-  }
-  
-  // Soft delete: set isActive to false
-  await prisma.allowedEmail.update({
-    where: { email: normalizedEmail },
-    data: {
-      isActive: false,
-      updatedAt: new Date(),
-    },
-  })
-  
-  // Create audit log for revocation
-  await prisma.accessAuditLog.create({
-    data: {
-      email: normalizedEmail,
-      action: 'revoked',
-      performedBy: userId,
-      notes,
-      allowedEmailId: allowedEmail.id,
-    },
-  })
-  
-  // Sync to Clerk allowlist
-  const clerkResult = await removeFromClerkAllowlist(normalizedEmail)
-  if (!clerkResult.success) {
-    logger.warn('[access-control] Failed to sync to Clerk allowlist:', clerkResult.error)
-    // Continue anyway - database is source of truth
-  }
-  
-  invalidateEntity('access-control')
-  return { success: true }
 }
 
 /**
  * Reactivate access for a revoked email (admin only)
  */
 export async function reactivateAccess(email: string, notes?: string) {
-  await requireAdmin()
-  
-  const { userId } = await auth()
-  if (!userId) {
-    throw new Error('Unauthorized')
+  try {
+    const adminResult = await requireAdmin()
+    if (!('userId' in adminResult)) {
+      return adminResult
+    }
+    const { userId } = adminResult
+    
+    const normalizedEmail = validateAndNormalizeEmail(email)
+    
+    // Find the allowed email
+    const allowedEmail = await prisma.allowedEmail.findUnique({
+      where: { email: normalizedEmail },
+    })
+    
+    if (!allowedEmail) {
+      return { success: false, error: 'Email not found in allowlist' }
+    }
+    
+    if (allowedEmail.isActive) {
+      return { success: false, error: 'Email access is already active' }
+    }
+    
+    // Reactivate
+    await prisma.allowedEmail.update({
+      where: { email: normalizedEmail },
+      data: {
+        isActive: true,
+        updatedAt: new Date(),
+      },
+    })
+    
+    // Create audit log for reactivation
+    await prisma.accessAuditLog.create({
+      data: {
+        email: normalizedEmail,
+        action: 'reactivated',
+        performedBy: userId,
+        notes,
+        allowedEmailId: allowedEmail.id,
+      },
+    })
+    
+    // Sync to Clerk allowlist (add back when reactivating)
+    const clerkResult = await addToClerkAllowlist(normalizedEmail)
+    if (!clerkResult.success) {
+      logger.warn('[access-control] Failed to sync to Clerk allowlist:', clerkResult.error)
+      // Continue anyway - database is source of truth
+    }
+    
+    invalidateEntity('access-control')
+    return { success: true }
+  } catch (error) {
+    return handleServerActionError(error, 'reactivateAccess')
   }
-  
-  const normalizedEmail = validateAndNormalizeEmail(email)
-  
-  // Find the allowed email
-  const allowedEmail = await prisma.allowedEmail.findUnique({
-    where: { email: normalizedEmail },
-  })
-  
-  if (!allowedEmail) {
-    throw new Error('Email not found in allowlist')
-  }
-  
-  if (allowedEmail.isActive) {
-    throw new Error('Email access is already active')
-  }
-  
-  // Reactivate
-  await prisma.allowedEmail.update({
-    where: { email: normalizedEmail },
-    data: {
-      isActive: true,
-      updatedAt: new Date(),
-    },
-  })
-  
-  // Create audit log for reactivation
-  await prisma.accessAuditLog.create({
-    data: {
-      email: normalizedEmail,
-      action: 'reactivated',
-      performedBy: userId,
-      notes,
-      allowedEmailId: allowedEmail.id,
-    },
-  })
-  
-  // Sync to Clerk allowlist (add back when reactivating)
-  const clerkResult = await addToClerkAllowlist(normalizedEmail)
-  if (!clerkResult.success) {
-    logger.warn('[access-control] Failed to sync to Clerk allowlist:', clerkResult.error)
-    // Continue anyway - database is source of truth
-  }
-  
-  invalidateEntity('access-control')
-  return { success: true }
 }
 
 /**
  * Get audit logs for access control (admin only)
  */
 export async function getAccessAuditLogs(email?: string, limit: number = 100) {
-  await requireAdmin()
-  
-  const logs = await prisma.accessAuditLog.findMany({
-    where: email ? { email: validateAndNormalizeEmail(email) } : undefined,
-    orderBy: { performedAt: 'desc' },
-    take: limit,
-    include: {
-      allowedEmail: {
-        select: {
-          id: true,
-          email: true,
-          isActive: true,
+  try {
+    await requireAdmin()
+    
+    const logs = await prisma.accessAuditLog.findMany({
+      where: email ? { email: validateAndNormalizeEmail(email) } : undefined,
+      orderBy: { performedAt: 'desc' },
+      take: limit,
+      include: {
+        allowedEmail: {
+          select: {
+            id: true,
+            email: true,
+            isActive: true,
+          },
         },
       },
-    },
-  })
-  
-  return logs
+    })
+    
+    return { success: true, data: logs }
+  } catch (error) {
+    return handleServerActionError(error, 'getAccessAuditLogs')
+  }
 }
 
 // Export types for use in components
@@ -312,12 +330,11 @@ export type AccessAuditLog = {
  * This should be run once during migration
  */
 export async function grandfatherExistingUsers() {
-  await requireAdmin()
-  
-  const { userId } = await auth()
-  if (!userId) {
-    throw new Error('Unauthorized')
+  const adminResult = await requireAdmin()
+  if (!('userId' in adminResult)) {
+    return adminResult
   }
+  const { userId } = adminResult
   
   // Get all UserProfile emails that exist
   const userProfiles = await prisma.userProfile.findMany({
@@ -397,16 +414,11 @@ export async function inviteUser(
 ): Promise<{ success: boolean; invitationId?: string; error?: string }> {
   const { notes, firstName, lastName } = options || {}
   
-  try {
-  await requireAdmin()
-  } catch {
+  const adminResult = await requireAdmin()
+  if (!('userId' in adminResult)) {
     return { success: false, error: 'No autorizado - se requiere rol de administrador' }
   }
-  
-  const { userId } = await auth()
-  if (!userId) {
-    return { success: false, error: 'No autorizado' }
-  }
+  const { userId } = adminResult
   
   // Validate role
   if (!USER_ROLE_VALUES.includes(role)) {
@@ -663,16 +675,11 @@ export async function inviteUser(
 export async function resendInvitation(
   email: string
 ): Promise<{ success: boolean; invitationId?: string; error?: string }> {
-  try {
-    await requireAdmin()
-  } catch {
+  const adminResult = await requireAdmin()
+  if (!('userId' in adminResult)) {
     return { success: false, error: 'No autorizado - se requiere rol de administrador' }
   }
-  
-  const { userId } = await auth()
-  if (!userId) {
-    return { success: false, error: 'No autorizado' }
-  }
+  const { userId } = adminResult
   
   let normalizedEmail: string
   try {

@@ -18,9 +18,32 @@ import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { formatShortDate } from '@/lib/date'
 
-// Types inferred from Prisma responses
-type AllowedEmail = Awaited<ReturnType<typeof getAllowedEmails>>[0]
-type AccessAuditLog = Awaited<ReturnType<typeof getAccessAuditLogs>>[0]
+// Types for access control
+type AllowedEmail = {
+  id: string
+  email: string
+  isActive: boolean
+  notes: string | null
+  createdAt: Date
+  updatedAt: Date
+  createdBy: string
+  invitedRole: string | null
+  invitationStatus: string | null
+  invitedAt: Date | null
+  invitedBy: string | null
+  clerkInvitationId: string | null
+  auditLogs: AccessAuditLog[]
+}
+type AccessAuditLog = {
+  id: string
+  email: string
+  action: string
+  performedBy: string
+  notes: string | null
+  performedAt: Date
+  allowedEmailId: string | null
+  allowedEmail?: { id: string; email: string; isActive: boolean } | null
+}
 type UserProfile = {
   id: string
   clerkId: string
@@ -93,8 +116,12 @@ export default function AccessManagementTab() {
     try {
       setLoading(true)
       setError(null)
-      const emails = await getAllowedEmails()
-      setAllowedEmails(emails)
+      const result = await getAllowedEmails()
+      if (result.success && result.data) {
+        setAllowedEmails(result.data)
+      } else {
+        setError(result.error || 'Error al cargar los correos permitidos')
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar los correos permitidos')
     } finally {
@@ -211,7 +238,8 @@ export default function AccessManagementTab() {
       const result = await addAllowedEmail(newEmail.trim(), newEmailNotes.trim() || undefined)
       
       if (result.success) {
-        toast.success(`Correo ${result.action === 'reactivated' ? 'reactivado' : 'agregado'} exitosamente`)
+        const action = 'action' in result ? result.action : 'granted'
+        toast.success(`Correo ${action === 'reactivated' ? 'reactivado' : 'agregado'} exitosamente`)
         setNewEmail('')
         setNewEmailNotes('')
         setShowAddForm(false)
@@ -344,8 +372,12 @@ export default function AccessManagementTab() {
   async function loadAuditLogs() {
     try {
       setLoadingAuditLogs(true)
-      const logs = await getAccessAuditLogs()
-      setAuditLogs(logs)
+      const result = await getAccessAuditLogs()
+      if (result.success && result.data) {
+        setAuditLogs(result.data)
+      } else {
+        setError(result.error || 'Error al cargar los registros de auditoría')
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar los registros de auditoría')
     } finally {

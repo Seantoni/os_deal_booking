@@ -235,9 +235,9 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
   }
 
   // Helper to render field if it matches search
-  const renderField = (label: string, value?: string | null, props?: any) => {
+  const renderField = (label: string, value?: string | null, props?: { icon?: React.ReactNode; isLink?: boolean; href?: string | null }) => {
     if (!matchesSearch(value, label)) return null
-    return <InfoRow label={label} value={value} {...props} />
+    return <InfoRow label={label} value={value} {...props} href={props?.href ?? undefined} />
   }
 
   return (

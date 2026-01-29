@@ -43,7 +43,8 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
         try {
           // Fetch ALL booked events (regardless of user) and settings
           // This ensures accurate date calculation based on all reserved dates
-          const events = await getAllBookedEvents()
+          const eventsResult = await getAllBookedEvents()
+          const events = eventsResult.success ? eventsResult.data || [] : []
           const settings = getSettings()
           
           // Build standardized category key for matching

@@ -583,7 +583,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {stats?.teamPerformance?.map((member: any, index: number) => (
+                  {stats?.teamPerformance?.map((member, index) => (
                     <tr 
                       key={member.userId} 
                       className={`${member.isCurrentUser ? 'bg-blue-50/40' : 'hover:bg-gray-50/50'}`}

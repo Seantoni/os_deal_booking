@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import { getOpenAIClient } from '@/lib/openai'
 import { logger } from '@/lib/logger'
 import { aiLimiter, applyRateLimit } from '@/lib/rate-limit'
+import type { BookingFormData } from '@/components/RequestForm/types'
 
 const RESTAURANT_REVIEW_PROMPT = `Role: You are a contract reviewer specialized in restaurant promotions for e-commerce platforms. Your task is to evaluate if a proposed deal meets success criteria based on industry data and platform performance.
 
@@ -171,7 +172,7 @@ export async function POST(req: Request) {
   }
 }
 
-function buildContractSummary(formData: any): string {
+function buildContractSummary(formData: Partial<BookingFormData>): string {
   const sections: string[] = []
   
   // Business Info
@@ -215,7 +216,7 @@ function buildContractSummary(formData: any): string {
   // Pricing Options
   const pricingOptions = Array.isArray(formData.pricingOptions) ? formData.pricingOptions : []
   if (pricingOptions.length > 0) {
-    const pricingSection = pricingOptions.map((opt: any, i: number) => {
+    const pricingSection = pricingOptions.map((opt, i) => {
       const price = parseFloat(opt.price) || 0
       const realValue = parseFloat(opt.realValue) || 0
       const discount = realValue > 0 ? Math.round(((realValue - price) / realValue) * 100) : 0
@@ -238,12 +239,11 @@ function buildContractSummary(formData: any): string {
 
   // Restrictions
   sections.push(`## Restricciones y Términos
-- Aplica días feriados: ${formData.holidaysApply || 'No especificado'}
-- Aplica fines de semana: ${formData.weekendsApply || 'No especificado'}
+- Válido en feriados: ${formData.validOnHolidays || 'No especificado'}
 - Fechas Blackout: ${formData.blackoutDates || 'Ninguna'}
 - Exclusividad: ${formData.hasExclusivity || 'No'}
 - Condición de Exclusividad: ${formData.exclusivityCondition || 'N/A'}
-- Propina incluida: ${formData.tipIncluded || 'No especificado'}`)
+- Incluye impuestos: ${formData.includesTaxes || 'No especificado'}`)
 
   // Description & Content
   sections.push(`## Descripción y Contenido

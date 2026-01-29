@@ -124,10 +124,10 @@ export default function DealDraftPage() {
           }
 
           // Get AI-generated content from ContenidoStep
-          const whatWeLike = (data as any).whatWeLike || ''
-          const aboutCompany = (data as any).aboutCompany || ''
-          const aboutOffer = (data as any).aboutOffer || ''
-          const goodToKnow = (data as any).goodToKnow || ''
+          const whatWeLike = data.whatWeLike || ''
+          const aboutCompany = data.aboutCompany || ''
+          const aboutOffer = data.aboutOffer || ''
+          const goodToKnow = data.goodToKnow || ''
 
           setDealData({
             businessName: businessName,

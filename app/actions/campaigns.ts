@@ -2,9 +2,6 @@
 
 /**
  * Sales Campaign Server Actions
- * 
- * Note: Run `npx prisma generate` after schema changes to update the Prisma client.
- * The salesCampaign and businessCampaign models were added to the schema.
  */
 
 import { prisma } from '@/lib/prisma'
@@ -12,10 +9,26 @@ import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions
 import { isAdmin } from '@/lib/auth/roles'
 import { logActivity } from '@/lib/activity-log'
 import type { SalesCampaign, BusinessCampaign } from '@/types'
+import type { Prisma } from '@prisma/client'
 
-// Prisma client reference with any type until regenerated
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = prisma as any
+// Type for raw Prisma campaign with _count
+type RawCampaignWithCount = Prisma.SalesCampaignGetPayload<{
+  include: { _count: { select: { businesses: true } } }
+}>
+
+// Type for raw business campaign with relations
+type RawBusinessCampaignWithRelations = Prisma.BusinessCampaignGetPayload<{
+  include: {
+    business: { select: { id: true; name: true; ownerId: true } }
+  }
+}>
+
+// Type for campaign assignment with campaign relation
+type RawAssignmentWithCampaign = Prisma.BusinessCampaignGetPayload<{
+  include: {
+    campaign: { include: { _count: { select: { businesses: true } } } }
+  }
+}>
 
 // ============================================
 // Campaign CRUD Operations (Admin only)
@@ -35,7 +48,7 @@ export async function getAllCampaigns(): Promise<{
   }
 
   try {
-    const campaigns = await db.salesCampaign.findMany({
+    const campaigns = await prisma.salesCampaign.findMany({
       orderBy: { runAt: 'desc' },
       include: {
         _count: {
@@ -44,8 +57,7 @@ export async function getAllCampaigns(): Promise<{
       },
     })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mappedCampaigns: SalesCampaign[] = campaigns.map((c: any) => ({
+    const mappedCampaigns: SalesCampaign[] = campaigns.map((c: RawCampaignWithCount) => ({
       id: c.id,
       name: c.name,
       runAt: c.runAt,
@@ -81,7 +93,7 @@ export async function getUpcomingCampaigns(): Promise<{
   try {
     const now = new Date()
 
-    const campaigns = await db.salesCampaign.findMany({
+    const campaigns = await prisma.salesCampaign.findMany({
       where: {
         runAt: { gt: now },
       },
@@ -93,8 +105,7 @@ export async function getUpcomingCampaigns(): Promise<{
       },
     })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mappedCampaigns: SalesCampaign[] = campaigns.map((c: any) => ({
+    const mappedCampaigns: SalesCampaign[] = campaigns.map((c: RawCampaignWithCount) => ({
       id: c.id,
       name: c.name,
       runAt: c.runAt,
@@ -127,7 +138,7 @@ export async function getCampaignWithBusinesses(campaignId: string): Promise<{
   }
 
   try {
-    const campaign = await db.salesCampaign.findUnique({
+    const campaign = await prisma.salesCampaign.findUnique({
       where: { id: campaignId },
       include: {
         businesses: {
@@ -154,8 +165,7 @@ export async function getCampaignWithBusinesses(campaignId: string): Promise<{
 
     // Fetch owner info for businesses
     const ownerIds = campaign.businesses
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((bc: any) => bc.business.ownerId)
+      .map((bc: RawBusinessCampaignWithRelations) => bc.business.ownerId)
       .filter(Boolean) as string[]
 
     const owners = ownerIds.length > 0
@@ -167,8 +177,7 @@ export async function getCampaignWithBusinesses(campaignId: string): Promise<{
 
     const ownerMap = new Map(owners.map((o) => [o.clerkId, o]))
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mappedBusinesses: BusinessCampaign[] = campaign.businesses.map((bc: any) => ({
+    const mappedBusinesses: BusinessCampaign[] = campaign.businesses.map((bc: RawBusinessCampaignWithRelations) => ({
       id: bc.id,
       businessId: bc.businessId,
       campaignId: bc.campaignId,
@@ -238,7 +247,7 @@ export async function createCampaign(data: {
       return { success: false, error: 'La fecha de fin debe ser posterior a la fecha de inicio' }
     }
 
-    const campaign = await db.salesCampaign.create({
+    const campaign = await prisma.salesCampaign.create({
       data: {
         name: data.name,
         runAt,
@@ -297,7 +306,7 @@ export async function updateCampaign(
   }
 
   try {
-    const existing = await db.salesCampaign.findUnique({
+    const existing = await prisma.salesCampaign.findUnique({
       where: { id: campaignId },
       include: { _count: { select: { businesses: true } } },
     })
@@ -307,8 +316,7 @@ export async function updateCampaign(
     }
 
     // Build update data
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updateData: any = {}
+    const updateData: Prisma.SalesCampaignUpdateInput = {}
     
     if (data.name !== undefined) updateData.name = data.name
     if (data.runAt !== undefined) updateData.runAt = new Date(data.runAt)
@@ -317,14 +325,14 @@ export async function updateCampaign(
     if (data.maxBusinesses !== undefined) updateData.maxBusinesses = data.maxBusinesses
 
     // Validate dates if both are being set
-    const finalRunAt = updateData.runAt ?? existing.runAt
-    const finalEndAt = updateData.endAt ?? existing.endAt
+    const finalRunAt = (updateData.runAt as Date | undefined) ?? existing.runAt
+    const finalEndAt = (updateData.endAt as Date | undefined) ?? existing.endAt
 
     if (new Date(finalEndAt) <= new Date(finalRunAt)) {
       return { success: false, error: 'La fecha de fin debe ser posterior a la fecha de inicio' }
     }
 
-    const campaign = await db.salesCampaign.update({
+    const campaign = await prisma.salesCampaign.update({
       where: { id: campaignId },
       data: updateData,
     })
@@ -368,7 +376,7 @@ export async function deleteCampaign(campaignId: string): Promise<{
   }
 
   try {
-    const campaign = await db.salesCampaign.findUnique({
+    const campaign = await prisma.salesCampaign.findUnique({
       where: { id: campaignId },
       include: { _count: { select: { businesses: true } } },
     })
@@ -384,7 +392,7 @@ export async function deleteCampaign(campaignId: string): Promise<{
       }
     }
 
-    await db.salesCampaign.delete({
+    await prisma.salesCampaign.delete({
       where: { id: campaignId },
     })
 
@@ -445,7 +453,7 @@ export async function assignBusinessToCampaigns(
 
     // Verify all campaigns exist and check max limits
     const now = new Date()
-    const campaigns = await db.salesCampaign.findMany({
+    const campaigns = await prisma.salesCampaign.findMany({
       where: { id: { in: campaignIds } },
       include: { _count: { select: { businesses: true } } },
     })
@@ -455,8 +463,7 @@ export async function assignBusinessToCampaigns(
     }
 
     // Check for campaigns that are not upcoming
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const notUpcoming = campaigns.filter((c: any) => c.runAt <= now)
+    const notUpcoming = campaigns.filter((c: RawCampaignWithCount) => c.runAt <= now)
     if (notUpcoming.length > 0) {
       return { 
         success: false, 
@@ -465,8 +472,7 @@ export async function assignBusinessToCampaigns(
     }
 
     // Check max limits
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const campaign of campaigns as any[]) {
+    for (const campaign of campaigns) {
       if (campaign.maxBusinesses && campaign._count.businesses >= campaign.maxBusinesses) {
         return { 
           success: false, 
@@ -476,7 +482,7 @@ export async function assignBusinessToCampaigns(
     }
 
     // Get existing assignments to avoid duplicates
-    const existingAssignments = await db.businessCampaign.findMany({
+    const existingAssignments = await prisma.businessCampaign.findMany({
       where: {
         businessId,
         campaignId: { in: campaignIds },
@@ -484,8 +490,7 @@ export async function assignBusinessToCampaigns(
       select: { campaignId: true },
     })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const existingCampaignIds = new Set(existingAssignments.map((a: any) => a.campaignId))
+    const existingCampaignIds = new Set(existingAssignments.map((a) => a.campaignId))
     const newCampaignIds = campaignIds.filter((id) => !existingCampaignIds.has(id))
 
     if (newCampaignIds.length === 0) {
@@ -493,9 +498,9 @@ export async function assignBusinessToCampaigns(
     }
 
     // Create new assignments
-    const createdAssignments = await db.$transaction(
+    const createdAssignments = await prisma.$transaction(
       newCampaignIds.map((campaignId: string) =>
-        db.businessCampaign.create({
+        prisma.businessCampaign.create({
           data: {
             businessId,
             campaignId,
@@ -507,10 +512,8 @@ export async function assignBusinessToCampaigns(
 
     // Log activity
     const campaignNames = campaigns
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .filter((c: any) => newCampaignIds.includes(c.id))
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((c: any) => c.name)
+      .filter((c: RawCampaignWithCount) => newCampaignIds.includes(c.id))
+      .map((c: RawCampaignWithCount) => c.name)
       .join(', ')
 
     await logActivity({
@@ -551,7 +554,7 @@ export async function removeBusinessFromCampaign(
   }
 
   try {
-    const assignment = await db.businessCampaign.findUnique({
+    const assignment = await prisma.businessCampaign.findUnique({
       where: {
         businessId_campaignId: { businessId, campaignId },
       },
@@ -565,7 +568,7 @@ export async function removeBusinessFromCampaign(
       return { success: false, error: 'Asignación no encontrada' }
     }
 
-    await db.businessCampaign.delete({
+    await prisma.businessCampaign.delete({
       where: { id: assignment.id },
     })
 
@@ -599,7 +602,7 @@ export async function getBusinessCampaigns(businessId: string): Promise<{
   }
 
   try {
-    const assignments = await db.businessCampaign.findMany({
+    const assignments = await prisma.businessCampaign.findMany({
       where: { businessId },
       include: {
         campaign: {
@@ -611,8 +614,7 @@ export async function getBusinessCampaigns(businessId: string): Promise<{
       orderBy: { campaign: { runAt: 'desc' } },
     })
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = assignments.map((a: any) => ({
+    const result = assignments.map((a: RawAssignmentWithCampaign) => ({
       campaign: {
         id: a.campaign.id,
         name: a.campaign.name,
@@ -650,7 +652,7 @@ export async function getBusinessCampaignCounts(): Promise<{
   try {
     const now = new Date()
 
-    const assignments = await db.businessCampaign.groupBy({
+    const assignments = await prisma.businessCampaign.groupBy({
       by: ['businessId'],
       where: {
         campaign: {
@@ -661,8 +663,7 @@ export async function getBusinessCampaignCounts(): Promise<{
     })
 
     const counts: Record<string, number> = {}
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const a of assignments as any[]) {
+    for (const a of assignments) {
       counts[a.businessId] = a._count
     }
 

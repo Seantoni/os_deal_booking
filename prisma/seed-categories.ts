@@ -25,7 +25,7 @@ async function seedCategories() {
   // Iterate through the category hierarchy
   for (const [parentCategory, subCategories] of Object.entries(INITIAL_CATEGORY_HIERARCHY)) {
     // Determine max duration (7 days for specific categories, 5 for others)
-    const maxDuration = SEVEN_DAY_CATEGORIES.includes(parentCategory as any) ? 7 : 5
+    const maxDuration = (SEVEN_DAY_CATEGORIES as readonly string[]).includes(parentCategory) ? 7 : 5
 
     // If there are no subcategories, create a category entry for just the parent
     if (Object.keys(subCategories).length === 0) {

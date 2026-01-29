@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { getBookingRequest } from '@/app/actions/booking-requests'
 import { useModalEscape } from '@/hooks/useModalEscape'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
+import type { BookingRequestViewData, PricingOption } from '@/types'
 import CloseIcon from '@mui/icons-material/Close'
 import DescriptionIcon from '@mui/icons-material/Description'
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
@@ -24,7 +25,7 @@ interface BookingRequestModalProps {
 }
 
 export default function BookingRequestModal({ isOpen, onClose, requestId }: BookingRequestModalProps) {
-  const [request, setRequest] = useState<any>(null)
+  const [request, setRequest] = useState<BookingRequestViewData | null>(null)
   const [loading, setLoading] = useState(false)
 
   // Close modal on Escape key
@@ -423,7 +424,7 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
                     <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Opciones de Compra</h3>
                   </div>
                   <div className="p-4 space-y-3">
-                    {request.pricingOptions.map((option: any, idx: number) => (
+                    {(request.pricingOptions as PricingOption[]).map((option, idx) => (
                       <div key={idx} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                         <div className="flex justify-between items-start">
                           <div>
