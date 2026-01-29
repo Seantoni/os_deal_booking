@@ -268,13 +268,41 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     
     // Handle replication (fast path) - load payload from sessionStorage to avoid huge URLs
     if (replicateKey) {
+      const raw = sessionStorage.getItem(`replicate:${replicateKey}`)
+      // If payload is missing, it may have been consumed by a previous render (React Strict Mode)
+      // or the session expired - silently skip in this case
+      if (!raw) {
+        return
+      }
+      
       try {
-        const raw = sessionStorage.getItem(`replicate:${replicateKey}`)
-        if (!raw) throw new Error('Missing replicate payload')
         const payload = JSON.parse(raw) as Partial<BookingFormData>
-        setFormData(prev => ({ ...prev, ...payload }))
-        // One-time use
+        
+        // Also load additionalInfo if available (contains template-specific fields)
+        // Structure: { templateName, templateDisplayName, fields: { fieldName: value, ... } }
+        const additionalInfoRaw = sessionStorage.getItem(`replicate:${replicateKey}:additionalInfo`)
+        const additionalInfo = additionalInfoRaw 
+          ? JSON.parse(additionalInfoRaw) as { templateName?: string; templateDisplayName?: string; fields?: Record<string, string> } 
+          : null
+        
+        // One-time use - clean up storage BEFORE updating state to prevent double processing
         sessionStorage.removeItem(`replicate:${replicateKey}`)
+        if (additionalInfoRaw) {
+          sessionStorage.removeItem(`replicate:${replicateKey}:additionalInfo`)
+        }
+        
+        // Merge payload and additionalInfo.fields into form data
+        setFormData(prev => ({
+          ...prev,
+          ...payload,
+          // Spread additionalInfo.fields (the template-specific fields like eventStartTime, restaurantValidDineIn, etc.)
+          ...(additionalInfo?.fields && typeof additionalInfo.fields === 'object'
+            ? Object.fromEntries(
+                Object.entries(additionalInfo.fields).map(([key, value]) => [key, value ?? ''])
+              )
+            : {}),
+        }))
+        
         toast.success('Solicitud replicada (desde memoria)')
       } catch (e) {
         console.error('Failed to load replicate payload', e)
