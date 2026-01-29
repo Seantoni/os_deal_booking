@@ -2,12 +2,12 @@ import RejectedBookingRequestForm from '@/components/booking/RejectedBookingRequ
 import { PublicPageHeader } from '@/components/shared/public-pages/PublicPageHeader'
 
 // Public route: no auth required
-export default function RejectedBookingRequestsPage({
+export default async function RejectedBookingRequestsPage({
   searchParams,
 }: {
-  searchParams: { id?: string; token?: string; success?: string }
+  searchParams: Promise<{ id?: string; token?: string; success?: string }>
 }) {
-  const params = searchParams
+  const params = await searchParams
   
   // If success, show success message
   if (params.success === 'true') {

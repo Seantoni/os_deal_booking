@@ -13,15 +13,29 @@ export default async function AlreadyProcessedPage({
   const isApproved = status === 'approved'
   const isRejected = status === 'rejected'
 
-  // Fetch booking request to get processedBy email
-  let processedByEmail: string | null = null
+  // Fetch booking request to get processedBy name
+  let processedByName: string | null = null
   if (params.id) {
     try {
       const bookingRequest = await prisma.bookingRequest.findUnique({
         where: { id: params.id },
         select: { processedBy: true },
       })
-      processedByEmail = bookingRequest?.processedBy || null
+      
+      // Look up the user profile to get the actual name
+      if (bookingRequest?.processedBy) {
+        // Check if it's an admin override (starts with "Admin:")
+        if (bookingRequest.processedBy.startsWith('Admin:')) {
+          processedByName = bookingRequest.processedBy
+        } else {
+          // Look up user profile by clerkId
+          const userProfile = await prisma.userProfile.findUnique({
+            where: { clerkId: bookingRequest.processedBy },
+            select: { name: true, email: true },
+          })
+          processedByName = userProfile?.name || userProfile?.email || bookingRequest.processedBy
+        }
+      }
     } catch (error) {
       logger.error('Error fetching booking request:', error)
     }
@@ -72,24 +86,24 @@ export default async function AlreadyProcessedPage({
             <p className="text-gray-600">
               Esta solicitud de booking ya ha sido <span className="font-semibold text-blue-700">aprobada</span>.
             </p>
-            {processedByEmail && (
+            {processedByName && (
               <div className={`rounded-lg p-3 text-center ${
-                processedByEmail.startsWith('Admin:') 
+                processedByName.startsWith('Admin:') 
                   ? 'bg-green-50 border border-green-200' 
                   : 'bg-blue-50 border border-blue-200'
               }`}>
-                <p className={`text-sm ${processedByEmail.startsWith('Admin:') ? 'text-green-800' : 'text-blue-800'}`}>
-                  {processedByEmail.startsWith('Admin:') ? (
+                <p className={`text-sm ${processedByName.startsWith('Admin:') ? 'text-green-800' : 'text-blue-800'}`}>
+                  {processedByName.startsWith('Admin:') ? (
                     <>
                       <strong>Aprobada internamente por Administrador de OfertaSimple</strong>
                       <br />
-                      <span className={`font-mono ${processedByEmail.startsWith('Admin:') ? 'text-green-900' : 'text-blue-900'}`}>
-                        {processedByEmail.replace('Admin: ', '')}
+                      <span className={`font-mono ${processedByName.startsWith('Admin:') ? 'text-green-900' : 'text-blue-900'}`}>
+                        {processedByName.replace('Admin: ', '')}
                       </span>
                     </>
                   ) : (
                     <>
-                      <strong>Aprobada por:</strong> <span className="font-mono text-blue-900">{processedByEmail}</span>
+                      <strong>Aprobada por:</strong> <span className="text-blue-900">{processedByName}</span>
                     </>
                   )}
                 </p>
@@ -113,10 +127,10 @@ export default async function AlreadyProcessedPage({
             <p className="text-gray-600">
               Esta solicitud de booking ya ha sido <span className="font-semibold text-red-700">rechazada</span>.
             </p>
-            {processedByEmail && (
+            {processedByName && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
                 <p className="text-sm text-red-800">
-                  <strong>Rechazada por:</strong> <span className="font-mono text-red-900">{processedByEmail}</span>
+                  <strong>Rechazada por:</strong> <span className="text-red-900">{processedByName}</span>
                 </p>
               </div>
             )}

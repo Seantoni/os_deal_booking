@@ -1106,6 +1106,7 @@ export default function OpportunityFormModal({
         </Suspense>
       )}
 
+      {/* ConfirmDialog - z-index 80 to appear above ModalShell (z-70) */}
       {confirmDialog.isOpen && (
         <Suspense fallback={null}>
           <ConfirmDialog
@@ -1117,6 +1118,7 @@ export default function OpportunityFormModal({
             confirmVariant={confirmDialog.options.confirmVariant}
             onConfirm={confirmDialog.handleConfirm}
             onCancel={confirmDialog.handleCancel}
+            zIndex={80}
           />
         </Suspense>
       )}
