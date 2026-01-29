@@ -580,17 +580,20 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
         // Import the book function
         const { bookEvent } = await import('@/app/actions/events')
         const result = await bookEvent(eventToEdit.id) as {
-          event?: unknown
-          externalApi?: {
-            success: boolean
-            externalId?: number
-            error?: string
-            logId?: string
-          } | null
+          success: boolean
+          data?: {
+            event?: unknown
+            externalApi?: {
+              success: boolean
+              externalId?: number
+              error?: string
+              logId?: string
+            } | null
+          }
         }
         toast.success('Evento reservado exitosamente')
 
-        const externalApi = result?.externalApi ?? null
+        const externalApi = result?.data?.externalApi ?? null
 
         // Show external API result (success/failure) after booking
         if (externalApi) {
