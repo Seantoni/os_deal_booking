@@ -20,6 +20,7 @@ export const CATEGORY_TEMPLATE_MAP: Record<string, string> = {
   // PARENT LEVEL MAPPINGS (apply to ALL subcategories)
   // ============================================================
   'HOTELES': 'HOTEL',
+  'HOTEL': 'HOTEL', // Alias for custom category without 'ES'
   'RESTAURANTES': 'RESTAURANTE',
   'PRODUCTOS': 'PRODUCTOS',
   'MASCOTAS': 'MASCOTAS',
