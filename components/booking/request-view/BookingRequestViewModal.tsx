@@ -1289,7 +1289,7 @@ export default function BookingRequestViewModal({
         onCancel={() => setShowApproveConfirm(false)}
         loading={approving}
         loadingText="Aprobando..."
-        zIndex={60}
+        zIndex={90}
       />
 
       {/* Cancel Request Confirmation Modal */}
@@ -1319,7 +1319,7 @@ export default function BookingRequestViewModal({
         onCancel={() => setShowCancelConfirm(false)}
         loading={cancelling}
         loadingText="Cancelando..."
-        zIndex={60}
+        zIndex={90}
       />
 
       {/* Marketing Campaign Modal */}

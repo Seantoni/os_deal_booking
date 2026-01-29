@@ -591,42 +591,33 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
             } | null
           }
         }
-        toast.success('Evento reservado exitosamente')
-
         const externalApi = result?.data?.externalApi ?? null
 
-        // Show external API result (success/failure) after booking
+        // Small delay to ensure first dialog is fully closed before showing API result
+        await new Promise(resolve => setTimeout(resolve, 100))
+
+        // Show external API result dialog on top of EventModal (don't close modal)
         if (externalApi) {
           const isOk = externalApi.success === true
-          const lines: string[] = []
-          lines.push(isOk ? 'Deal was sent to OfertaSimple successfully.' : 'Deal FAILED to send to OfertaSimple.')
-          if (externalApi.success && externalApi.externalId) {
-            lines.push(`OfertaSimple Deal ID: ${externalApi.externalId}`)
-          }
-          if (!externalApi.success && externalApi.error) lines.push(`Error: ${externalApi.error}`)
-          if (externalApi.logId) lines.push(`Log ID: ${externalApi.logId}`)
-          lines.push('Check Settings → API Logs for full request/response details.')
-
           await confirmDialog.confirm({
-            title: isOk ? 'OfertaSimple: Success' : 'OfertaSimple: Failed',
-            message: lines.join('\n'),
+            title: isOk ? 'OfertaSimple: Éxito' : 'OfertaSimple: Error',
+            message: isOk 
+              ? `El evento fue reservado y enviado a OfertaSimple exitosamente.\n\nDeal ID: #${externalApi.externalId || 'N/A'}\n\nPuedes ver los detalles en Settings → API Logs.`
+              : `El evento fue reservado pero falló el envío a OfertaSimple.\n\nError: ${externalApi.error || 'Error desconocido'}\n\nRevisa Settings → API Logs para más detalles.`,
             confirmText: 'OK',
-            cancelText: 'Close',
+            cancelText: '',
             confirmVariant: isOk ? 'success' : 'danger',
           })
         } else {
-          // No external API call was attempted (e.g. no booking request linked)
           await confirmDialog.confirm({
-            title: 'OfertaSimple',
-            message: 'No external API call was made for this booking (no linked booking request or missing data).',
+            title: 'Evento Reservado',
+            message: 'El evento fue reservado exitosamente.\n\nNo se realizó envío a OfertaSimple (sin solicitud vinculada o datos faltantes).',
             confirmText: 'OK',
-            cancelText: 'Close',
+            cancelText: '',
             confirmVariant: 'primary',
           })
         }
-
-        // onSuccess callback already called for optimistic update
-        onClose()
+        // Modal stays open - user can close it manually
       } catch (err) {
         // Optimistic update already rolled back via onSuccess
         const errorMsg = err instanceof Error ? err.message : 'Error al reservar el evento'
