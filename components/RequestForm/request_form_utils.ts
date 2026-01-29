@@ -135,10 +135,6 @@ export const validateStep = (
       // Optional fields, no strict validation
       break
     case 6:
-      // Descripción: Descripción y Canales
-      // No strict validation, all fields are optional
-      break
-    case 7:
       // Estructura: Estructura de Oferta
       // Validate pricing options: realValue must be greater than price, both must be positive
       const pricingOptionsToValidate = Array.isArray(formData.pricingOptions) ? formData.pricingOptions : []
@@ -193,13 +189,17 @@ export const validateStep = (
         })
       }
       break
+    case 7:
+      // Información Adicional: Category-specific fields (dynamic)
+      // Validation handled by generic required-field check above
+      break
     case 8:
-      // Políticas: Políticas y Revisión
+      // Contenido: AI-generated content fields
       // Optional fields, no strict validation
       break
     case 9:
-      // Información Adicional: Información Adicional (Category-specific)
-      // All fields are optional
+      // Validación: Final review step
+      // No validation needed, just review
       break
   }
 
