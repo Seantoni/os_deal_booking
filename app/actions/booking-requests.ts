@@ -136,9 +136,7 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
       accountNumber: fields.accountNumber,
       accountType: fields.accountType,
       addressAndHours: fields.addressAndHours,
-      province: fields.province,
-      district: fields.district,
-      corregimiento: fields.corregimiento,
+      provinceDistrictCorregimiento: fields.provinceDistrictCorregimiento,
       // Negocio: Reglas de Negocio y Restricciones
       includesTaxes: fields.includesTaxes,
       validOnHolidays: fields.validOnHolidays,
@@ -362,9 +360,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       accountNumber: (formData.get('accountNumber') as string) || null,
       accountType: (formData.get('accountType') as string) || null,
       addressAndHours: (formData.get('addressAndHours') as string) || null,
-      province: (formData.get('province') as string) || null,
-      district: (formData.get('district') as string) || null,
-      corregimiento: (formData.get('corregimiento') as string) || null,
+      provinceDistrictCorregimiento: (formData.get('provinceDistrictCorregimiento') as string) || null,
       // Negocio: Reglas de Negocio y Restricciones
       includesTaxes: (formData.get('includesTaxes') as string) || null,
       validOnHolidays: (formData.get('validOnHolidays') as string) || null,

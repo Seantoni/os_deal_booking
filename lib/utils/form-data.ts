@@ -77,9 +77,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
   accountNumber: string | null
   accountType: string | null
   addressAndHours: string | null
-  province: string | null
-  district: string | null
-  corregimiento: string | null
+  provinceDistrictCorregimiento: string | null
 
   // Negocio: Reglas de Negocio y Restricciones
   includesTaxes: string | null
@@ -158,9 +156,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
     accountNumber: getFormDataString(formData, 'accountNumber'),
     accountType: getFormDataString(formData, 'accountType'),
     addressAndHours: getFormDataString(formData, 'addressAndHours'),
-    province: getFormDataString(formData, 'province'),
-    district: getFormDataString(formData, 'district'),
-    corregimiento: getFormDataString(formData, 'corregimiento'),
+    provinceDistrictCorregimiento: getFormDataString(formData, 'provinceDistrictCorregimiento'),
 
     // Negocio: Reglas de Negocio y Restricciones
     includesTaxes: getFormDataString(formData, 'includesTaxes'),

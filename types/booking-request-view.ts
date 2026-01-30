@@ -83,9 +83,7 @@ export interface BookingRequestViewData {
   accountNumber: string | null
   accountType: string | null
   addressAndHours: string | null
-  province: string | null
-  district: string | null
-  corregimiento: string | null
+  provinceDistrictCorregimiento: string | null
 
   // Step 5: Reglas de Negocio y Restricciones
   includesTaxes: string | null

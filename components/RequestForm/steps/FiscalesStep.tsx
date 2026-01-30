@@ -1,5 +1,6 @@
 import type { BookingFormData } from '../types'
 import { Dropdown, Input } from '@/components/ui'
+import { ProvDistCorrSelect } from '@/components/shared'
 
 interface FiscalesStepProps {
   formData: BookingFormData
@@ -87,32 +88,16 @@ export default function FiscalesStep({ formData, errors, updateFormData, isField
           />
         </div>
 
-          <Input
-          label="Provincia"
-          required={isFieldRequired('province')}
-            value={formData.province}
-            onChange={(e) => updateFormData('province', e.target.value)}
-            placeholder="Provincia"
-          error={errors.province}
-        />
-
-          <Input
-          label="Distrito"
-          required={isFieldRequired('district')}
-            value={formData.district}
-            onChange={(e) => updateFormData('district', e.target.value)}
-            placeholder="Distrito"
-          error={errors.district}
-        />
-
-          <Input
-          label="Corregimiento"
-          required={isFieldRequired('corregimiento')}
-            value={formData.corregimiento}
-            onChange={(e) => updateFormData('corregimiento', e.target.value)}
-            placeholder="Corregimiento"
-          error={errors.corregimiento}
+        <div className="md:col-span-2">
+          <ProvDistCorrSelect
+            label="Provincia, Distrito, Corregimiento"
+            required={isFieldRequired('provinceDistrictCorregimiento')}
+            value={formData.provinceDistrictCorregimiento}
+            onChange={(value) => updateFormData('provinceDistrictCorregimiento', value || '')}
+            placeholder="Seleccionar ubicación..."
+            error={errors.provinceDistrictCorregimiento}
           />
+        </div>
       </div>
     </div>
   )

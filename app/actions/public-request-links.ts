@@ -258,9 +258,7 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
         accountNumber: fields.accountNumber,
         accountType: fields.accountType,
         addressAndHours: fields.addressAndHours,
-        province: fields.province,
-        district: fields.district,
-        corregimiento: fields.corregimiento,
+        provinceDistrictCorregimiento: fields.provinceDistrictCorregimiento,
         // Negocio: Reglas de Negocio y Restricciones
         includesTaxes: fields.includesTaxes,
         validOnHolidays: fields.validOnHolidays,

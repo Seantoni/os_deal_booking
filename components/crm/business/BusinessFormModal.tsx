@@ -337,9 +337,7 @@ export default function BusinessFormModal({
       tier: business.tier?.toString() || null,
       ruc: business.ruc || null,
       razonSocial: business.razonSocial || null,
-      province: business.province || null,
-      district: business.district || null,
-      corregimiento: business.corregimiento || null,
+      provinceDistrictCorregimiento: business.provinceDistrictCorregimiento || null,
       accountManager: business.accountManager || null,
       ere: business.ere || null,
       salesType: business.salesType || null,
@@ -564,9 +562,7 @@ export default function BusinessFormModal({
     if (business.ruc) params.set('ruc', business.ruc)
     
     // Location info
-    if (business.province) params.set('province', business.province)
-    if (business.district) params.set('district', business.district)
-    if (business.corregimiento) params.set('corregimiento', business.corregimiento)
+    if (business.provinceDistrictCorregimiento) params.set('provinceDistrictCorregimiento', business.provinceDistrictCorregimiento)
     if (business.address) params.set('address', business.address)
     if (business.neighborhood) params.set('neighborhood', business.neighborhood)
     
@@ -638,9 +634,7 @@ export default function BusinessFormModal({
     if (allValues.tier) formData.append('tier', allValues.tier)
     if (allValues.ruc) formData.append('ruc', allValues.ruc)
     if (allValues.razonSocial) formData.append('razonSocial', allValues.razonSocial)
-    if (allValues.province) formData.append('province', allValues.province)
-    if (allValues.district) formData.append('district', allValues.district)
-    if (allValues.corregimiento) formData.append('corregimiento', allValues.corregimiento)
+    if (allValues.provinceDistrictCorregimiento) formData.append('provinceDistrictCorregimiento', allValues.provinceDistrictCorregimiento)
     if (allValues.accountManager) formData.append('accountManager', allValues.accountManager)
     if (allValues.ere) formData.append('ere', allValues.ere)
     if (allValues.salesType) formData.append('salesType', allValues.salesType)

@@ -161,7 +161,7 @@ export function mapBookingFormToApi(
 
     // Address/Location
     vendorAddress: formData.addressAndHours || null,
-    // appLocation: Could derive from province/district - TODO
+    // appLocation: Could derive from provinceDistrictCorregimiento - TODO
 
     // Images
     images: images.length > 0 ? images : null,

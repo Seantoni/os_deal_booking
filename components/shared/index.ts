@@ -2,6 +2,7 @@
 export { default as AccessManagementTab } from './AccessManagementTab'
 export { default as BusinessSelect, type BusinessWithStatus } from './BusinessSelect'
 export { default as CategorySelect } from './CategorySelect'
+export { default as ProvDistCorrSelect } from './ProvDistCorrSelect'
 export { default as CustomFieldsRenderer } from './CustomFieldsRenderer'
 export { default as MultiEmailInput } from './MultiEmailInput'
 export { default as DynamicFormField } from './DynamicFormField'

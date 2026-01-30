@@ -199,9 +199,7 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
                 // Fiscal info
                 if (business.razonSocial) updateFormData('legalName', business.razonSocial)
                 if (business.ruc) updateFormData('rucDv', business.ruc)
-                if (business.province) updateFormData('province', business.province)
-                if (business.district) updateFormData('district', business.district)
-                if (business.corregimiento) updateFormData('corregimiento', business.corregimiento)
+                if (business.provinceDistrictCorregimiento) updateFormData('provinceDistrictCorregimiento', business.provinceDistrictCorregimiento)
                 
                 // Bank info
                 if (business.bank) updateFormData('bank', business.bank)

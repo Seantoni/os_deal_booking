@@ -3,6 +3,7 @@
 import { memo } from 'react'
 import { Input, Select, Textarea } from '@/components/ui'
 import CategorySelect from './CategorySelect'
+import ProvDistCorrSelect from './ProvDistCorrSelect'
 import type { FormFieldWithDefinition, BuiltinFieldDefinition, CategoryRecord } from '@/types'
 import type { SelectOption } from '@/app/actions/custom-fields'
 
@@ -103,6 +104,21 @@ function DynamicFormField({
           disabled={fieldDisabled}
           helpText={helpText}
           placeholder="Seleccionar categoría..."
+          size="sm"
+        />
+      )
+
+    case 'location':
+      // ProvDistCorr select - use shared ProvDistCorrSelect component with search
+      return (
+        <ProvDistCorrSelect
+          value={value}
+          onChange={onChange}
+          label={label}
+          required={isRequired}
+          disabled={fieldDisabled}
+          helpText={helpText}
+          placeholder="Seleccionar ubicación..."
           size="sm"
         />
       )

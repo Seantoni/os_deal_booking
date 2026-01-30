@@ -30,9 +30,7 @@ export type Business = {
   // Extended profile
   ruc?: string | null
   razonSocial?: string | null
-  province?: string | null
-  district?: string | null
-  corregimiento?: string | null
+  provinceDistrictCorregimiento?: string | null
   naOs?: boolean | null
   accountManager?: string | null
   ere?: string | null

@@ -44,9 +44,7 @@ export const CSV_EXPORT_COLUMNS = [
   { key: 'ruc', label: 'RUC', getValue: (b: Business) => b.ruc || '' },
   { key: 'razonSocial', label: 'Razón Social', getValue: (b: Business) => b.razonSocial || '' },
   // Location
-  { key: 'province', label: 'Provincia', getValue: (b: Business) => b.province || '' },
-  { key: 'district', label: 'Distrito', getValue: (b: Business) => b.district || '' },
-  { key: 'corregimiento', label: 'Corregimiento', getValue: (b: Business) => b.corregimiento || '' },
+  { key: 'provinceDistrictCorregimiento', label: 'Prov,Dist,Corr', getValue: (b: Business) => b.provinceDistrictCorregimiento || '' },
   { key: 'address', label: 'Dirección', getValue: (b: Business) => b.address || '' },
   { key: 'neighborhood', label: 'Barriada', getValue: (b: Business) => b.neighborhood || '' },
   // Payment info

@@ -27,9 +27,7 @@ export interface BusinessWithStatus {
   description: string | null
   ruc: string | null
   razonSocial: string | null
-  province: string | null
-  district: string | null
-  corregimiento: string | null
+  provinceDistrictCorregimiento: string | null
   bank: string | null
   beneficiaryName: string | null
   accountNumber: string | null

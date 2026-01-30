@@ -677,9 +677,7 @@ export default function OpportunityFormModal({
     if (linkedBusiness.ruc) params.set('ruc', linkedBusiness.ruc)
     
     // Location info
-    if (linkedBusiness.province) params.set('province', linkedBusiness.province)
-    if (linkedBusiness.district) params.set('district', linkedBusiness.district)
-    if (linkedBusiness.corregimiento) params.set('corregimiento', linkedBusiness.corregimiento)
+    if (linkedBusiness.provinceDistrictCorregimiento) params.set('provinceDistrictCorregimiento', linkedBusiness.provinceDistrictCorregimiento)
     if (linkedBusiness.address) params.set('address', linkedBusiness.address)
     if (linkedBusiness.neighborhood) params.set('neighborhood', linkedBusiness.neighborhood)
     

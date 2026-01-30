@@ -351,9 +351,7 @@ export default function OpportunitiesPageClient({
 
     if (business.razonSocial) params.legalName = business.razonSocial
     if (business.ruc) params.ruc = business.ruc
-    if (business.province) params.province = business.province
-    if (business.district) params.district = business.district
-    if (business.corregimiento) params.corregimiento = business.corregimiento
+    if (business.provinceDistrictCorregimiento) params.provinceDistrictCorregimiento = business.provinceDistrictCorregimiento
     if (business.bank) params.bank = business.bank
     if (business.beneficiaryName) params.bankAccountName = business.beneficiaryName
     if (business.accountNumber) params.accountNumber = business.accountNumber

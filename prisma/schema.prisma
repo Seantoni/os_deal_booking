@@ -38,8 +38,7 @@ model BookingRequest {
   campaignDurationUnit   String?   @default("months") // 'days' or 'months'
   cancellationPolicy     String?
   contactDetails         String?
-  corregimiento          String?
-  district               String?
+  provinceDistrictCorregimiento String?
   exclusivityCondition   String?
   hasExclusivity         String?
   hasOtherBranches       String?
@@ -50,7 +49,6 @@ model BookingRequest {
   paymentInstructions    String?
   paymentType            String?
   pricingOptions         Json?
-  province               String?
   recurringOfferLink     String?
   redemptionContactEmail String?
   redemptionContactName  String?
@@ -237,15 +235,13 @@ model Business {
   address              String?
   bank                 String?
   beneficiaryName      String?
-  corregimiento        String?
-  district             String?
+  provinceDistrictCorregimiento String?
   emailPaymentContacts String?
   ere                  String?
   isAsesor             String?
   neighborhood         String?
   osAsesor             String?
   paymentPlan          String?
-  province             String?
   razonSocial          String?
   ruc                  String?
   salesType            String?
@@ -841,4 +837,13 @@ model EventLead {
   @@index([lastScannedAt])
   @@index([eventName])
   @@map("event_leads")
+}
+
+model ProvDistCorr {
+  id    String @id @default(cuid())
+  value String @unique  // e.g. "BOCAS DEL TORO,CHANGUINOLA,LAS TABLAS"
+  
+  createdAt DateTime @default(now())
+  
+  @@map("prov_dist_corr")
 }

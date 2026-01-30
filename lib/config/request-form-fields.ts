@@ -8,7 +8,7 @@
 export type RequestFormFieldDefinition = {
   key: string
   label: string
-  type: 'text' | 'email' | 'date' | 'select' | 'textarea' | 'number' | 'checkbox' | 'array'
+  type: 'text' | 'email' | 'date' | 'select' | 'textarea' | 'number' | 'checkbox' | 'array' | 'location'
   /** If true, this field only appears for certain categories */
   categorySpecific?: boolean
   /** Category template this field belongs to */
@@ -82,9 +82,7 @@ export const REQUEST_FORM_STEPS: RequestFormStep[] = [
       { key: 'accountNumber', label: 'Número de Cuenta', type: 'text' },
       { key: 'accountType', label: 'Tipo de Cuenta', type: 'select' },
       { key: 'addressAndHours', label: 'Dirección y Horarios', type: 'textarea' },
-      { key: 'province', label: 'Provincia', type: 'text' },
-      { key: 'district', label: 'Distrito', type: 'text' },
-      { key: 'corregimiento', label: 'Corregimiento', type: 'text' },
+      { key: 'provinceDistrictCorregimiento', label: 'Provincia, Distrito, Corregimiento', type: 'location' },
     ],
   },
   {

@@ -304,7 +304,7 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
               )}
 
               {/* Location */}
-              {(request.addressAndHours || request.province || request.district) && (
+              {(request.addressAndHours || request.provinceDistrictCorregimiento) && (
                 <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                   <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
                     <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Ubicación</h3>
@@ -319,22 +319,10 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
                         </div>
                       </div>
                     )}
-                    {request.province && (
-                      <div>
-                        <p className="text-xs font-medium text-gray-600">Provincia</p>
-                        <p className="text-sm text-gray-900 mt-0.5">{request.province}</p>
-                      </div>
-                    )}
-                    {request.district && (
-                      <div>
-                        <p className="text-xs font-medium text-gray-600">Distrito</p>
-                        <p className="text-sm text-gray-900 mt-0.5">{request.district}</p>
-                      </div>
-                    )}
-                    {request.corregimiento && (
-                      <div>
-                        <p className="text-xs font-medium text-gray-600">Corregimiento</p>
-                        <p className="text-sm text-gray-900 mt-0.5">{request.corregimiento}</p>
+                    {request.provinceDistrictCorregimiento && (
+                      <div className="col-span-2">
+                        <p className="text-xs font-medium text-gray-600">Provincia, Distrito, Corregimiento</p>
+                        <p className="text-sm text-gray-900 mt-0.5">{request.provinceDistrictCorregimiento}</p>
                       </div>
                     )}
                   </div>

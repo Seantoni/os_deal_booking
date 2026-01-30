@@ -110,9 +110,7 @@ const BASE_SECTIONS: SectionDefinition[] = [
     title: 'Ubicación',
     fields: [
       { key: 'addressAndHours', label: 'Dirección y Horario' },
-      { key: 'province', label: 'Provincia' },
-      { key: 'district', label: 'Distrito' },
-      { key: 'corregimiento', label: 'Corregimiento' },
+      { key: 'provinceDistrictCorregimiento', label: 'Provincia, Distrito, Corregimiento' },
     ],
   },
   {
@@ -603,9 +601,7 @@ export default function BookingRequestViewModal({
           accountNumber: requestData.accountNumber ? String(requestData.accountNumber) : undefined,
           accountType: requestData.accountType ? String(requestData.accountType) : undefined,
           addressAndHours: requestData.addressAndHours ? String(requestData.addressAndHours) : undefined,
-          province: requestData.province ? String(requestData.province) : undefined,
-          district: requestData.district ? String(requestData.district) : undefined,
-          corregimiento: requestData.corregimiento ? String(requestData.corregimiento) : undefined,
+          provinceDistrictCorregimiento: requestData.provinceDistrictCorregimiento ? String(requestData.provinceDistrictCorregimiento) : undefined,
 
           includesTaxes: requestData.includesTaxes ? String(requestData.includesTaxes) : undefined,
           validOnHolidays: requestData.validOnHolidays ? String(requestData.validOnHolidays) : undefined,

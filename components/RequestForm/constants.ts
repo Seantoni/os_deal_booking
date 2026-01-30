@@ -88,9 +88,7 @@ export const INITIAL_FORM_DATA: BookingFormData = {
   accountNumber: '',
   accountType: 'Ahorros',
   addressAndHours: '',
-  province: '',
-  district: '',
-  corregimiento: '',
+  provinceDistrictCorregimiento: '',
   
   // Negocio: Reglas de Negocio
   includesTaxes: 'Sí',

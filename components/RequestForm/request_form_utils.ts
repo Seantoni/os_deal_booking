@@ -310,9 +310,7 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
   fd.append('accountNumber', formData.accountNumber || '')
   fd.append('accountType', formData.accountType || '')
   fd.append('addressAndHours', formData.addressAndHours || '')
-  fd.append('province', formData.province || '')
-  fd.append('district', formData.district || '')
-  fd.append('corregimiento', formData.corregimiento || '')
+  fd.append('provinceDistrictCorregimiento', formData.provinceDistrictCorregimiento || '')
   
   // Negocio: Reglas de Negocio y Restricciones
   fd.append('includesTaxes', formData.includesTaxes || '')

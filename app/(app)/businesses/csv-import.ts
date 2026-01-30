@@ -110,9 +110,7 @@ function mapCsvRowToBusinessRow(row: ParsedCsvRow): BulkBusinessRow {
     ruc: blankToUndefined(row['RUC']),
     razonSocial: blankToUndefined(row['Razón Social']),
     // Location
-    province: blankToUndefined(row['Provincia']),
-    district: blankToUndefined(row['Distrito']),
-    corregimiento: blankToUndefined(row['Corregimiento']),
+    provinceDistrictCorregimiento: blankToUndefined(row['Prov,Dist,Corr']),
     address: blankToUndefined(row['Dirección']),
     neighborhood: blankToUndefined(row['Barriada']),
     // Payment info

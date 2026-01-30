@@ -86,6 +86,9 @@ interface UsePaginatedSearchReturn<T> {
   /** Loading state for search */
   searchLoading: boolean
   
+  /** Error state - set when data fails to load */
+  error: string | null
+  
   /** Current search query */
   searchQuery: string
   
@@ -182,6 +185,7 @@ export function usePaginatedSearch<T>({
   const [currentPage, setCurrentPage] = useState(0)
   const [loading, setLoading] = useState(!initialData)
   const [searchLoading, setSearchLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('')
@@ -225,6 +229,7 @@ export function usePaginatedSearch<T>({
   // Load paginated data
   const loadPage = useCallback(async (page: number = 0) => {
     setLoading(true)
+    setError(null)
     try {
       const result = await fetchPaginated({
         page,
@@ -237,9 +242,16 @@ export function usePaginatedSearch<T>({
         setData(result.data as T[])
         setTotalCount(result.total || 0)
         setCurrentPage(page)
+      } else if (!result.success) {
+        const errorMsg = result.error || `Error al cargar ${entityName}`
+        setError(errorMsg)
+        logger.error(`Failed to load ${entityName}:`, errorMsg)
+        toast.error(errorMsg)
       }
-    } catch (error) {
-      logger.error(`Failed to load ${entityName}:`, error)
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : `Error al cargar ${entityName}`
+      setError(errorMsg)
+      logger.error(`Failed to load ${entityName}:`, err)
       toast.error(`Error al cargar ${entityName}`)
     } finally {
       setLoading(false)
@@ -440,6 +452,7 @@ export function usePaginatedSearch<T>({
     setSearchResults,
     loading,
     searchLoading,
+    error,
     searchQuery,
     handleSearchChange,
     clearSearch,

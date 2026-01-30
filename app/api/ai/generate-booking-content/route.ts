@@ -268,7 +268,7 @@ function formatBusinessInfo(input: BookingContentInput): string {
     'category', 'merchant', 'additionalEmails', 'opportunityId', 'campaignDuration',
     'isRecurring', 'recurringOfferLink', 'paymentType', 'paymentInstructions',
     'legalName', 'rucDv', 'bankAccountName', 'bank', 'accountNumber', 'accountType',
-    'province', 'district', 'corregimiento', 'hasExclusivity', 'exclusivityCondition',
+    'provinceDistrictCorregimiento', 'hasExclusivity', 'exclusivityCondition',
     'marketValidation', 'additionalComments', 'dealImages',
     'approverName', 'approverEmail', 'approverBusinessName', 'additionalInfo',
   ])

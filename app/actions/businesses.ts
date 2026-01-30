@@ -1041,9 +1041,7 @@ export async function createBusiness(formData: FormData) {
     const tier = formData.get('tier') ? parseInt(formData.get('tier') as string) : null
     const ruc = formData.get('ruc') as string | null
     const razonSocial = formData.get('razonSocial') as string | null
-    const province = formData.get('province') as string | null
-    const district = formData.get('district') as string | null
-    const corregimiento = formData.get('corregimiento') as string | null
+    const provinceDistrictCorregimiento = formData.get('provinceDistrictCorregimiento') as string | null
     const accountManager = formData.get('accountManager') as string | null
     const ere = formData.get('ere') as string | null
     const salesType = formData.get('salesType') as string | null
@@ -1116,9 +1114,7 @@ export async function createBusiness(formData: FormData) {
       tier: tier || null,
       ruc: ruc || null,
       razonSocial: razonSocial || null,
-      province: province || null,
-      district: district || null,
-      corregimiento: corregimiento || null,
+      provinceDistrictCorregimiento: provinceDistrictCorregimiento || null,
       accountManager: accountManager || null,
       ere: ere || null,
       salesType: salesType || null,
@@ -1268,9 +1264,7 @@ export async function updateBusiness(businessId: string, formData: FormData) {
     const tier = formData.get('tier') ? parseInt(formData.get('tier') as string) : null
     const ruc = formData.get('ruc') as string | null
     const razonSocial = formData.get('razonSocial') as string | null
-    const province = formData.get('province') as string | null
-    const district = formData.get('district') as string | null
-    const corregimiento = formData.get('corregimiento') as string | null
+    const provinceDistrictCorregimiento = formData.get('provinceDistrictCorregimiento') as string | null
     const accountManager = formData.get('accountManager') as string | null
     const ere = formData.get('ere') as string | null
     const salesType = formData.get('salesType') as string | null
@@ -1313,9 +1307,7 @@ export async function updateBusiness(businessId: string, formData: FormData) {
       tier: tier || null,
       ruc: ruc || null,
       razonSocial: razonSocial || null,
-      province: province || null,
-      district: district || null,
-      corregimiento: corregimiento || null,
+      provinceDistrictCorregimiento: provinceDistrictCorregimiento || null,
       accountManager: accountManager || null,
       ere: ere || null,
       salesType: salesType || null,
@@ -1501,9 +1493,7 @@ export async function getBusinessesWithBookingStatus() {
         description: true,
         ruc: true,
         razonSocial: true,
-        province: true,
-        district: true,
-        corregimiento: true,
+        provinceDistrictCorregimiento: true,
         bank: true,
         beneficiaryName: true,
         accountNumber: true,
@@ -1581,9 +1571,7 @@ export interface BulkBusinessRow {
   salesReps?: string
   salesTeam?: string
   // Location
-  province?: string
-  district?: string
-  corregimiento?: string
+  provinceDistrictCorregimiento?: string
   address?: string
   neighborhood?: string
   // Legal/Tax
@@ -1690,9 +1678,7 @@ export async function bulkUpsertBusinesses(
           ownerId,
           salesTeam: row.salesTeam || null,
           // Location
-          province: row.province || null,
-          district: row.district || null,
-          corregimiento: row.corregimiento || null,
+          provinceDistrictCorregimiento: row.provinceDistrictCorregimiento || null,
           address: row.address || null,
           neighborhood: row.neighborhood || null,
           // Legal/Tax

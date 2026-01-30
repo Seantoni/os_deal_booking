@@ -178,9 +178,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
               accountNumber: data.accountNumber || '',
               accountType: data.accountType || '',
               addressAndHours: data.addressAndHours || '',
-              province: data.province || '',
-              district: data.district || '',
-              corregimiento: data.corregimiento || '',
+              provinceDistrictCorregimiento: data.provinceDistrictCorregimiento || '',
               
               // Negocio
               includesTaxes: data.includesTaxes || '',
@@ -253,9 +251,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     const partnerEmail = searchParams.get('partnerEmail')
     const legalName = searchParams.get('legalName')
     const ruc = searchParams.get('ruc')
-    const province = searchParams.get('province')
-    const district = searchParams.get('district')
-    const corregimiento = searchParams.get('corregimiento')
+    const provinceDistrictCorregimiento = searchParams.get('provinceDistrictCorregimiento')
     const bank = searchParams.get('bank')
     const bankAccountName = searchParams.get('bankAccountName')
     const accountNumber = searchParams.get('accountNumber')
@@ -381,12 +377,8 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         if (accountTypeParam) newData.accountType = accountTypeParam
         const addressAndHoursParam = searchParams.get('addressAndHours')
         if (addressAndHoursParam) newData.addressAndHours = addressAndHoursParam
-        const provinceParam = searchParams.get('province')
-        if (provinceParam) newData.province = provinceParam
-        const districtParam = searchParams.get('district')
-        if (districtParam) newData.district = districtParam
-        const corregimientoParam = searchParams.get('corregimiento')
-        if (corregimientoParam) newData.corregimiento = corregimientoParam
+        const provinceDistrictCorregimientoParam = searchParams.get('provinceDistrictCorregimiento')
+        if (provinceDistrictCorregimientoParam) newData.provinceDistrictCorregimiento = provinceDistrictCorregimientoParam
         
         // Step 5: Negocio
         const includesTaxesParam = searchParams.get('includesTaxes')
@@ -497,9 +489,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         opportunityId: fromOpportunity !== 'business' ? fromOpportunity : '',
           legalName: legalName || prev.legalName,
           rucDv: ruc || prev.rucDv,
-          province: province || prev.province,
-          district: district || prev.district,
-          corregimiento: corregimiento || prev.corregimiento,
+          provinceDistrictCorregimiento: provinceDistrictCorregimiento || prev.provinceDistrictCorregimiento,
           bank: bank || prev.bank,
           bankAccountName: bankAccountName || prev.bankAccountName,
           accountNumber: accountNumber || prev.accountNumber,

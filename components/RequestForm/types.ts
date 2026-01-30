@@ -36,9 +36,7 @@ export type BookingFormData = {
   accountNumber: string
   accountType: string
   addressAndHours: string
-  province: string
-  district: string
-  corregimiento: string
+  provinceDistrictCorregimiento: string
   
   // Negocio: Reglas de Negocio y Restricciones
   includesTaxes: string

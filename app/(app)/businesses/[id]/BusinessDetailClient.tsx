@@ -175,9 +175,7 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
     if (business.ruc) params.set('ruc', business.ruc)
     
     // Location info
-    if (business.province) params.set('province', business.province)
-    if (business.district) params.set('district', business.district)
-    if (business.corregimiento) params.set('corregimiento', business.corregimiento)
+    if (business.provinceDistrictCorregimiento) params.set('provinceDistrictCorregimiento', business.provinceDistrictCorregimiento)
     if (business.address) params.set('address', business.address)
     if (business.neighborhood) params.set('neighborhood', business.neighborhood)
     
@@ -401,9 +399,7 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
               </Section>
 
               <Section title="Location" icon={<LocationOnIcon fontSize="small" />}>
-                {renderField("Province", business.province)}
-                {renderField("District", business.district)}
-                {renderField("Corregimiento", business.corregimiento)}
+                {renderField("Prov, Dist, Corr", business.provinceDistrictCorregimiento)}
                 {renderField("Address", business.address)}
                 {renderField("Neighborhood", business.neighborhood)}
               </Section>
