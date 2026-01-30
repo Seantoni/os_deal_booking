@@ -534,22 +534,39 @@ export async function getDealMetricsPaginated(
     ]
   }
 
+  // Active = runAt <= now AND endAt >= today
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()) // Start of today
+  
   if (statusFilter === 'active') {
-    whereClause.endAt = { gt: new Date() }
-  } else if (statusFilter === 'ended') {
-    // If there's already an OR for search, we need to combine with AND
+    // Active: has started (runAt <= now) AND hasn't ended (endAt >= today)
+    const activeConditions: Prisma.DealMetricsWhereInput[] = [
+      { runAt: { lte: now } },
+      { endAt: { gte: today } },
+    ]
     if (search && whereClause.OR) {
       const searchOR = whereClause.OR
       delete whereClause.OR
-      whereClause.AND = [
-        { OR: searchOR },
-        { OR: [{ endAt: { lte: new Date() } }, { endAt: null }] },
-      ]
+      whereClause.AND = [{ OR: searchOR }, ...activeConditions]
     } else {
-      whereClause.OR = [
-        { endAt: { lte: new Date() } },
-        { endAt: null },
-      ]
+      whereClause.AND = activeConditions
+    }
+  } else if (statusFilter === 'ended') {
+    // Ended: NOT active (hasn't started OR has ended)
+    const endedConditions: Prisma.DealMetricsWhereInput = {
+      OR: [
+        { runAt: { gt: now } },  // Hasn't started yet
+        { runAt: null },         // No start date
+        { endAt: { lt: today } }, // Has ended
+        { endAt: null },         // No end date
+      ],
+    }
+    if (search && whereClause.OR) {
+      const searchOR = whereClause.OR
+      delete whereClause.OR
+      whereClause.AND = [{ OR: searchOR }, endedConditions]
+    } else {
+      whereClause.AND = [endedConditions]
     }
   }
 
@@ -609,11 +626,14 @@ export async function getDealMetricsPaginated(
     }),
   ])
 
-  // Count active deals
+  // Count active deals (runAt <= now AND endAt >= today)
   const activeDealsCount = await prisma.dealMetrics.count({
     where: {
       ...whereClause,
-      endAt: { gt: new Date() },
+      AND: [
+        { runAt: { lte: now } },
+        { endAt: { gte: today } },
+      ],
     },
   })
 
@@ -662,15 +682,30 @@ export async function getDealMetricsCounts(
       ]
     }
 
+    // Active = runAt <= now AND endAt >= today
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    
     const [all, active, ended] = await Promise.all([
       prisma.dealMetrics.count({ where: baseWhere }),
       prisma.dealMetrics.count({
-        where: { ...baseWhere, endAt: { gt: new Date() } },
+        where: { 
+          ...baseWhere, 
+          AND: [
+            { runAt: { lte: now } },
+            { endAt: { gte: today } },
+          ],
+        },
       }),
       prisma.dealMetrics.count({
         where: {
           ...baseWhere,
-          OR: [{ endAt: { lte: new Date() } }, { endAt: null }],
+          OR: [
+            { runAt: { gt: now } },   // Hasn't started
+            { runAt: null },          // No start date
+            { endAt: { lt: today } }, // Has ended
+            { endAt: null },          // No end date
+          ],
         },
       }),
     ])
@@ -708,12 +743,26 @@ export async function searchDealMetrics(
       whereClause.externalVendorId = vendorId
     }
 
+    // Active = runAt <= now AND endAt >= today
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
     if (statusFilter === 'active') {
-      whereClause.endAt = { gt: new Date() }
+      whereClause.AND = [
+        { OR: searchOR },
+        { runAt: { lte: now } },
+        { endAt: { gte: today } },
+      ]
+      delete whereClause.OR
     } else if (statusFilter === 'ended') {
       whereClause.AND = [
         { OR: searchOR },
-        { OR: [{ endAt: { lte: new Date() } }, { endAt: null }] },
+        { OR: [
+          { runAt: { gt: now } },
+          { runAt: null },
+          { endAt: { lt: today } },
+          { endAt: null },
+        ]},
       ]
       delete whereClause.OR
     }

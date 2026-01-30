@@ -605,10 +605,14 @@ export default function BusinessFormModal({
       await loadFormData()
       onSuccess(business)
     } else if (createdBusiness) {
-      // New business was just created - close everything and notify parent
-      setCreatedBusiness(null)
+      // New business was just created - notify parent, close modal, and redirect to opportunity
       onSuccess(createdBusiness)
+      setCreatedBusiness(null)
       onClose()
+      
+      // Redirect to opportunities page with the new opportunity open
+      sessionStorage.setItem('openOpportunityId', opportunity.id)
+      router.push('/opportunities')
     }
   }
 
