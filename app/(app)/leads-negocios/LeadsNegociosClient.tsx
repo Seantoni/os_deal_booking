@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { 
   getEventLeads, 
   getEventLeadStats,
+  getAllEventLeadsForExport,
   EventLeadWithStats 
 } from '@/app/actions/event-leads'
 import RefreshIcon from '@mui/icons-material/Refresh'
@@ -14,12 +15,14 @@ import FilterListIcon from '@mui/icons-material/FilterList'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import DownloadIcon from '@mui/icons-material/Download'
 import { Button } from '@/components/ui'
 import { EntityTable, StatusPill, TableRow, TableCell } from '@/components/shared/table'
 import { EmptyTableState, type ColumnConfig } from '@/components/shared'
 import ModalShell from '@/components/shared/ModalShell'
 import toast from 'react-hot-toast'
 import { formatCompactDateTime, getTodayInPanama, formatDateForPanama } from '@/lib/date'
+import { exportEventLeadsToCsv } from './csv-export'
 
 type SortField = 'eventName' | 'eventDate' | 'eventPlace' | 'promoter' | 'sourceSite' | 'firstSeenAt' | 'lastScannedAt'
 
@@ -222,6 +225,10 @@ export default function LeadsNegociosClient() {
     return new Date(now.getFullYear(), now.getMonth(), 1)
   })
   
+  // Export dropdown state
+  const [showExportMenu, setShowExportMenu] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  
   const loadEvents = useCallback(async () => {
     setLoading(true)
     try {
@@ -255,6 +262,40 @@ export default function LeadsNegociosClient() {
       console.error('Failed to load stats:', error)
     }
   }, [])
+  
+  // Export handlers
+  const handleExportCurrentView = useCallback(() => {
+    setShowExportMenu(false)
+    if (events.length === 0) {
+      toast.error('No hay eventos para exportar')
+      return
+    }
+    const count = exportEventLeadsToCsv(events, `event-leads-vista-actual-${new Date().toISOString().split('T')[0]}.csv`)
+    toast.success(`Exportados ${count} eventos`)
+  }, [events])
+  
+  const handleExportAll = useCallback(async () => {
+    setShowExportMenu(false)
+    setExporting(true)
+    try {
+      const allEvents = await getAllEventLeadsForExport({
+        sourceSite: sourceSite || undefined,
+        status: status || undefined,
+        search: committedSearch || undefined,
+      })
+      if (allEvents.length === 0) {
+        toast.error('No hay eventos para exportar')
+        return
+      }
+      const count = exportEventLeadsToCsv(allEvents, `event-leads-todos-${new Date().toISOString().split('T')[0]}.csv`)
+      toast.success(`Exportados ${count} eventos`)
+    } catch (error) {
+      console.error('Export failed:', error)
+      toast.error('Error al exportar eventos')
+    } finally {
+      setExporting(false)
+    }
+  }, [sourceSite, status, committedSearch])
   
   // Load events when filters change
   useEffect(() => {
@@ -479,6 +520,44 @@ export default function LeadsNegociosClient() {
             >
               Calendario
             </Button>
+            
+            {/* Export Button with Dropdown */}
+            <div className="relative">
+              <Button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                disabled={exporting}
+                variant="secondary"
+                size="sm"
+                leftIcon={exporting ? <RefreshIcon className="animate-spin" style={{ fontSize: 14 }} /> : <DownloadIcon style={{ fontSize: 14 }} />}
+              >
+                {exporting ? 'Exportando...' : 'Exportar'}
+              </Button>
+              
+              {showExportMenu && (
+                <>
+                  {/* Backdrop to close menu */}
+                  <div 
+                    className="fixed inset-0 z-10" 
+                    onClick={() => setShowExportMenu(false)}
+                  />
+                  {/* Dropdown menu */}
+                  <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-20">
+                    <button
+                      onClick={handleExportCurrentView}
+                      className="w-full text-left px-3 py-2 text-[13px] text-gray-700 hover:bg-gray-50 rounded-t-md"
+                    >
+                      Vista actual ({events.length})
+                    </button>
+                    <button
+                      onClick={handleExportAll}
+                      className="w-full text-left px-3 py-2 text-[13px] text-gray-700 hover:bg-gray-50 rounded-b-md border-t border-gray-100"
+                    >
+                      Todos los datos ({total})
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
             
             {/* Scan Button */}
             <Button

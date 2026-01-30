@@ -8,7 +8,6 @@
 'use client'
 
 import { useMemo, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import { getDealMetricsPaginated, searchDealMetrics, getDealMetricsCounts, type FormattedDealMetric } from '@/app/actions/deal-metrics'
 import { usePaginatedSearch } from '@/hooks/usePaginatedSearch'
 import { sortEntities } from '@/hooks/useEntityPage'
@@ -60,8 +59,6 @@ export function DealsTab({
   initialTotal = 0,
   initialCounts,
 }: DealsTabProps) {
-  const router = useRouter()
-  
   // Use the paginated search hook
   const {
     data: deals,
@@ -239,20 +236,15 @@ export function DealsTab({
                         
                         {/* Business Name */}
                         <TableCell>
-                          {deal.businessName ? (
-                            <button
-                              onClick={() => {
-                                if (deal.businessId) {
-                                  sessionStorage.setItem('openBusinessId', deal.businessId)
-                                  router.push('/businesses')
-                                }
-                              }}
+                          {deal.businessName && deal.businessId ? (
+                            <a
+                              href={`/businesses/${deal.businessId}`}
+                              onClick={(e) => e.stopPropagation()}
                               className="text-blue-600 hover:text-blue-700 hover:underline text-left flex items-center gap-1"
-                              disabled={!deal.businessId}
                             >
                               <StorefrontIcon style={{ fontSize: 14 }} />
                               <span className="line-clamp-1">{deal.businessName}</span>
-                            </button>
+                            </a>
                           ) : (
                             <span className="text-gray-400 text-xs">
                               {deal.externalVendorId || '-'}

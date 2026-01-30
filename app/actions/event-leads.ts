@@ -325,3 +325,57 @@ export async function searchEventLeads(
     lastScannedAt: event.lastScannedAt,
   }))
 }
+
+/**
+ * Get all event leads for export (no pagination)
+ */
+export async function getAllEventLeadsForExport(params: {
+  sourceSite?: string
+  status?: string
+  search?: string
+} = {}): Promise<EventLeadWithStats[]> {
+  const isAdmin = await checkAdminAccess()
+  if (!isAdmin) {
+    return []
+  }
+
+  const { sourceSite, status, search } = params
+
+  const where: WhereInput = {}
+
+  if (sourceSite) {
+    where.sourceSite = sourceSite
+  }
+
+  if (status) {
+    where.status = status
+  }
+
+  if (search) {
+    where.OR = [
+      { eventName: { contains: search, mode: 'insensitive' } },
+      { eventPlace: { contains: search, mode: 'insensitive' } },
+      { promoter: { contains: search, mode: 'insensitive' } },
+    ]
+  }
+
+  const events = await prisma.eventLead.findMany({
+    where,
+    orderBy: { lastScannedAt: 'desc' },
+  })
+
+  return events.map((event: EventLead) => ({
+    id: event.id,
+    sourceUrl: event.sourceUrl,
+    sourceSite: event.sourceSite,
+    eventName: event.eventName,
+    eventDate: event.eventDate,
+    eventPlace: event.eventPlace,
+    promoter: event.promoter,
+    imageUrl: event.imageUrl,
+    price: event.price,
+    status: event.status,
+    firstSeenAt: event.firstSeenAt,
+    lastScannedAt: event.lastScannedAt,
+  }))
+}
