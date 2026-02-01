@@ -52,9 +52,9 @@ async function getExecutablePath(): Promise<string> {
     }
     
     // chromium-min downloads the binary from a remote URL
-    // Using the official sparticuz chromium pack hosted on GitHub releases
+    // Using the official Sparticuz chromium pack from GitHub releases (x64 for Vercel)
     const execPath = await chromiumDefault.executablePath(
-      'https://github.com/nicholasgriffintn/chromium-binaries-for-serverless/releases/download/v134.0.0/chromium-v134.0.0-pack.tar'
+      'https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.x64.tar'
     )
     console.log(`[Browser] Chromium executable path: ${execPath}`)
     
