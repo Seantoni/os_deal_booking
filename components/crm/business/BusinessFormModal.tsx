@@ -177,9 +177,63 @@ export default function BusinessFormModal({
       
       const { changes, vendorId } = previewResult.data
       
+      // If no API-syncable changes, offer to save locally only
       if (changes.length === 0) {
-        setError('No hay cambios para sincronizar')
         setSyncLoading(false)
+        
+        const saveLocallyContent = (
+          <div className="text-left space-y-3">
+            <p className="text-gray-700 text-sm">
+              No se detectaron cambios en campos sincronizables con OfertaSimple.
+            </p>
+            <p className="text-gray-600 text-sm">
+              Si realizó cambios en otros campos (como notas, equipo, etc.), estos se guardarán localmente sin sincronizar con la API.
+            </p>
+          </div>
+        )
+        
+        const confirmed = await syncConfirmDialog.confirm({
+          title: 'Sin cambios para API',
+          message: saveLocallyContent,
+          confirmText: 'Guardar Localmente',
+          cancelText: 'Cancelar',
+          confirmVariant: 'primary',
+        })
+        
+        if (!confirmed) return
+        
+        // Save locally without API sync
+        setSyncLoading(true)
+        const formData = buildFormData()
+        const updateResult = await updateBusiness(business.id, formData)
+        setSyncLoading(false)
+        
+        if (updateResult.success && updateResult.data) {
+          // Show success confirmation
+          const successContent = (
+            <div className="text-left space-y-2">
+              <p className="text-green-700 font-medium">
+                ✅ Cambios guardados localmente.
+              </p>
+              <p className="text-gray-600 text-sm">
+                Los cambios se guardaron en el sistema pero no se sincronizaron con OfertaSimple (no había cambios en campos sincronizables).
+              </p>
+            </div>
+          )
+          
+          await syncResultDialog.confirm({
+            title: 'Guardado Exitoso',
+            message: successContent,
+            confirmText: 'Entendido',
+            cancelText: '',
+            confirmVariant: 'success',
+          })
+          
+          onSuccess(updateResult.data)
+          onClose()
+        } else {
+          setError(updateResult.error || 'Error al guardar')
+        }
         return
       }
       

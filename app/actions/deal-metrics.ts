@@ -94,11 +94,13 @@ export async function syncDealMetrics(options: {
 
     // Update Business metrics for all affected vendors
     const vendorIds = [...new Set(deals.map(d => d.vendor_id).filter(Boolean))]
-    const businessesUpdated = await updateBusinessMetricsForVendors(vendorIds)
+    const metricsResult = await updateBusinessMetricsForVendors(vendorIds)
+    const businessesUpdated = metricsResult.updated
+    const autoAddedToAssignments = metricsResult.autoAdded
 
     return {
       success: true,
-      message: `Synced ${processed} deals: ${created} created, ${updated} updated, ${snapshots} snapshots, ${businessesUpdated} businesses updated${skipped > 0 ? `, ${skipped} skipped` : ''}`,
+      message: `Synced ${processed} deals: ${created} created, ${updated} updated, ${snapshots} snapshots, ${businessesUpdated} businesses updated${autoAddedToAssignments > 0 ? `, ${autoAddedToAssignments} auto-added to assignments` : ''}${skipped > 0 ? `, ${skipped} skipped` : ''}`,
       stats: {
         fetched: deals.length,
         created,
@@ -106,6 +108,7 @@ export async function syncDealMetrics(options: {
         snapshots,
         skipped,
         businessesUpdated,
+        autoAddedToAssignments,
       },
       logId: result.logId,
     }
@@ -225,22 +228,27 @@ async function upsertDealMetric(deal: DealMetric): Promise<{
 /**
  * Update Business metrics aggregates for given vendor IDs
  * Called after syncing deal metrics to update the denormalized columns
+ * Also auto-adds recurring businesses (>2 deals in 360 days) to assignments
  */
-async function updateBusinessMetricsForVendors(vendorIds: string[]): Promise<number> {
-  if (vendorIds.length === 0) return 0
+async function updateBusinessMetricsForVendors(vendorIds: string[]): Promise<{ updated: number; autoAdded: number }> {
+  if (vendorIds.length === 0) return { updated: 0, autoAdded: 0 }
+
+  // Import the auto-add function
+  const { autoAddRecurringBusiness } = await import('./assignments')
 
   const date360DaysAgo = new Date()
   date360DaysAgo.setDate(date360DaysAgo.getDate() - 360)
   const now = new Date()
 
   let updated = 0
+  let autoAdded = 0
 
   for (const vendorId of vendorIds) {
     try {
-      // Find the business for this vendor
+      // Find the business for this vendor (include more fields for auto-add check)
       const business = await prisma.business.findFirst({
         where: { osAdminVendorId: vendorId },
-        select: { id: true },
+        select: { id: true, name: true, ownerId: true, salesTeam: true },
       })
 
       if (!business) continue
@@ -306,12 +314,29 @@ async function updateBusinessMetricsForVendors(vendorIds: string[]): Promise<num
       })
 
       updated++
+
+      // Auto-add to assignments if recurring (>2 deals in 360 days)
+      // Only for businesses with salesTeam = 'Outside Sales' or null/blank
+      if (totalDeals360d > 2) {
+        const salesTeam = business.salesTeam
+        if (!salesTeam || salesTeam === 'Outside Sales') {
+          const result = await autoAddRecurringBusiness(
+            business.id,
+            business.name,
+            business.ownerId
+          )
+          if (result.added) {
+            autoAdded++
+            console.log(`[deal-metrics] Auto-added recurring business: ${business.name} (${totalDeals360d} deals in 360d)`)
+          }
+        }
+      }
     } catch (error) {
       console.error(`Failed to update business metrics for vendor ${vendorId}:`, error)
     }
   }
 
-  return updated
+  return { updated, autoAdded }
 }
 
 /**
