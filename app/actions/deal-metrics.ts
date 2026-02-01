@@ -21,6 +21,7 @@ export interface SyncMetricsResult {
     snapshots: number
     skipped?: number
     businessesUpdated?: number
+    autoAddedToAssignments?: number
   }
   error?: string
   logId?: string

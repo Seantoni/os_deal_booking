@@ -3,9 +3,15 @@
  * 
  * Handles browser initialization for both local development and Vercel serverless.
  * Uses puppeteer-core + @sparticuz/chromium for Vercel compatibility.
+ * 
+ * Critical fixes for Vercel serverless:
+ * 1. Set AWS_LAMBDA_JS_RUNTIME before chromium module loads
+ * 2. Set LD_LIBRARY_PATH to chromium executable directory (for libnspr4.so)
+ * 3. Disable graphics mode to prevent freezing
  */
 
 import puppeteer, { Browser } from 'puppeteer-core'
+import * as path from 'path'
 
 // Cache the browser instance for reuse within the same invocation
 let browserInstance: Browser | null = null
@@ -18,18 +24,42 @@ function isServerless(): boolean {
 }
 
 /**
- * Get the executable path for Chromium
+ * Get the executable path for Chromium and configure serverless environment
  * - On Vercel: Use @sparticuz/chromium (loaded dynamically)
  * - Locally: Use system Chrome/Chromium
+ * 
+ * CRITICAL: Sets LD_LIBRARY_PATH so Chromium can find shared libraries (libnspr4.so, libnss3.so)
  */
 async function getExecutablePath(): Promise<string> {
   if (isServerless()) {
+    // Set AWS_LAMBDA_JS_RUNTIME fallback (should also be in Vercel Dashboard)
+    if (!process.env.AWS_LAMBDA_JS_RUNTIME) {
+      process.env.AWS_LAMBDA_JS_RUNTIME = 'nodejs22.x'
+      console.log(`[Browser] Set AWS_LAMBDA_JS_RUNTIME=nodejs22.x`)
+    }
+    
     // Dynamic import to avoid bundling issues
     const chromium = await import('@sparticuz/chromium')
     console.log(`[Browser] Chromium module loaded, getting executable path...`)
-    const path = await chromium.default.executablePath()
-    console.log(`[Browser] Chromium executable path: ${path}`)
-    return path
+    
+    // Disable graphics mode to prevent freezing in serverless (no GPU support)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chromiumDefault = chromium.default as any
+    if (typeof chromiumDefault.setGraphicsMode === 'function') {
+      chromiumDefault.setGraphicsMode(false)
+      console.log(`[Browser] Graphics mode disabled`)
+    }
+    
+    const execPath = await chromiumDefault.executablePath()
+    console.log(`[Browser] Chromium executable path: ${execPath}`)
+    
+    // CRITICAL: Set LD_LIBRARY_PATH so Chromium can find shared libraries
+    // This fixes the "libnspr4.so: cannot open shared object file" error
+    const execDir = path.dirname(execPath)
+    process.env.LD_LIBRARY_PATH = execDir
+    console.log(`[Browser] Set LD_LIBRARY_PATH=${execDir}`)
+    
+    return execPath
   }
   
   // Local development - try common paths

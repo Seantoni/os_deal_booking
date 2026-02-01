@@ -14,8 +14,8 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '5mb',
     },
   },
-  // Exclude puppeteer-core from bundle (chromium must be bundled for Vercel)
-  serverExternalPackages: ['puppeteer-core'],
+  // Exclude puppeteer packages from bundle for Vercel serverless compatibility
+  serverExternalPackages: ['puppeteer-core', '@sparticuz/chromium'],
   // Allow S3 images
   images: {
     remotePatterns: [
