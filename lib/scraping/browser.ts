@@ -2,7 +2,8 @@
  * Browser Helper for Puppeteer
  * 
  * Handles browser initialization for both local development and Vercel serverless.
- * Uses puppeteer-core + @sparticuz/chromium for Vercel compatibility.
+ * Uses puppeteer-core + @sparticuz/chromium-min for Vercel compatibility.
+ * chromium-min downloads the browser binary at runtime from a remote URL.
  * 
  * Critical fixes for Vercel serverless:
  * 1. Set AWS_LAMBDA_JS_RUNTIME before chromium module loads
@@ -25,7 +26,7 @@ function isServerless(): boolean {
 
 /**
  * Get the executable path for Chromium and configure serverless environment
- * - On Vercel: Use @sparticuz/chromium (loaded dynamically)
+ * - On Vercel: Use @sparticuz/chromium-min (downloads binary at runtime)
  * - Locally: Use system Chrome/Chromium
  * 
  * CRITICAL: Sets LD_LIBRARY_PATH so Chromium can find shared libraries (libnspr4.so, libnss3.so)
@@ -39,8 +40,8 @@ async function getExecutablePath(): Promise<string> {
     }
     
     // Dynamic import to avoid bundling issues
-    const chromium = await import('@sparticuz/chromium')
-    console.log(`[Browser] Chromium module loaded, getting executable path...`)
+    const chromium = await import('@sparticuz/chromium-min')
+    console.log(`[Browser] Chromium-min module loaded, getting executable path...`)
     
     // Disable graphics mode to prevent freezing in serverless (no GPU support)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,7 +51,11 @@ async function getExecutablePath(): Promise<string> {
       console.log(`[Browser] Graphics mode disabled`)
     }
     
-    const execPath = await chromiumDefault.executablePath()
+    // chromium-min downloads the binary from a remote URL
+    // Using the official sparticuz chromium pack hosted on GitHub releases
+    const execPath = await chromiumDefault.executablePath(
+      'https://github.com/nicholasgriffintn/chromium-binaries-for-serverless/releases/download/v134.0.0/chromium-v134.0.0-pack.tar'
+    )
     console.log(`[Browser] Chromium executable path: ${execPath}`)
     
     // CRITICAL: Set LD_LIBRARY_PATH so Chromium can find shared libraries
@@ -107,7 +112,7 @@ async function getBrowserArgs(): Promise<string[]> {
   
   if (isServerless()) {
     // Dynamic import for serverless
-    const chromium = await import('@sparticuz/chromium')
+    const chromium = await import('@sparticuz/chromium-min')
     // Use chromium's optimized args for serverless
     return [...chromium.default.args, ...baseArgs]
   }
