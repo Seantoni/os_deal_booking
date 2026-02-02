@@ -88,10 +88,10 @@ export async function scrapeEnLaTaquilla(
         
         // Navigate up to find the row/container for this event
         // The structure varies but typically in a table row or div container
-        let container = titleLink.closest('tr') || titleLink.closest('td')?.parentElement?.closest('tr')
+        let container: Element | null = titleLink.closest('tr') ?? titleLink.closest('td')?.parentElement?.closest('tr') ?? null
         if (!container) {
           // Try finding a common parent div
-          container = titleLink.closest('[class*="wcpt"]')?.parentElement as Element | null
+          container = titleLink.closest('[class*="wcpt"]')?.parentElement ?? null
         }
         
         let imageUrl: string | null = null
