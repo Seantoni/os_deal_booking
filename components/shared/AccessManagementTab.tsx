@@ -70,7 +70,9 @@ import PendingIcon from '@mui/icons-material/Pending'
 import SyncIcon from '@mui/icons-material/Sync'
 import PersonOffIcon from '@mui/icons-material/PersonOff'
 import ReplayIcon from '@mui/icons-material/Replay'
+import KeyIcon from '@mui/icons-material/Key'
 import { Button, Alert, Select, Input, Textarea } from '@/components/ui'
+import EntityAccessSection from './EntityAccessSection'
 
 type AccessAuditLogWithEmail = AccessAuditLog
 
@@ -1095,6 +1097,24 @@ export default function AccessManagementTab() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Entity Access Section */}
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
+          <div className="flex items-center gap-2">
+            <KeyIcon className="text-indigo-600" style={{ fontSize: 20 }} />
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Acceso por Entidad</h3>
+              <p className="text-sm text-gray-600 mt-0.5">
+                Otorgar acceso específico a elementos individuales sin cambiar roles
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="p-6">
+          <EntityAccessSection />
+        </div>
       </div>
 
       {/* Confirm Dialog */}
