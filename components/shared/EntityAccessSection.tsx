@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   grantEntityAccess,
   revokeEntityAccess,
   getUserEntityAccess,
+  searchEntitiesForAccess,
   type EntityType,
   type AccessLevel,
   type EntityAccessRecord,
@@ -27,6 +28,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import EditIcon from '@mui/icons-material/Edit'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import CloseIcon from '@mui/icons-material/Close'
+import CheckIcon from '@mui/icons-material/Check'
 
 import { Button, Select, Input, Alert } from '@/components/ui'
 
@@ -37,6 +39,12 @@ type UserProfile = {
   name: string | null
   role: string
   isActive: boolean
+}
+
+type EntityOption = {
+  id: string
+  name: string
+  subtitle?: string
 }
 
 const ENTITY_TYPES: { value: EntityType; label: string; icon: React.ReactNode }[] = [
@@ -64,9 +72,17 @@ export default function EntityAccessSection() {
   const [showGrantForm, setShowGrantForm] = useState(false)
   const [grantEntityType, setGrantEntityType] = useState<EntityType>('business')
   const [grantEntityId, setGrantEntityId] = useState('')
+  const [grantEntityName, setGrantEntityName] = useState('')
   const [grantAccessLevel, setGrantAccessLevel] = useState<AccessLevel>('view')
   const [grantNotes, setGrantNotes] = useState('')
   const [granting, setGranting] = useState(false)
+  
+  // Entity search state
+  const [entitySearchQuery, setEntitySearchQuery] = useState('')
+  const [entityOptions, setEntityOptions] = useState<EntityOption[]>([])
+  const [loadingEntities, setLoadingEntities] = useState(false)
+  const [showEntityDropdown, setShowEntityDropdown] = useState(false)
+  const entityDropdownRef = useRef<HTMLDivElement>(null)
   
   const [error, setError] = useState<string | null>(null)
   const confirmDialog = useConfirmDialog()
@@ -120,13 +136,64 @@ export default function EntityAccessSection() {
     }
   }, [selectedUserId, loadUserAccess])
 
+  // Search entities when type changes or search query changes
+  const searchEntities = useCallback(async (type: EntityType, query: string) => {
+    try {
+      setLoadingEntities(true)
+      const result = await searchEntitiesForAccess(type, query, 20)
+      if (result.success && result.data) {
+        setEntityOptions(result.data)
+      }
+    } catch (err) {
+      console.error('Error searching entities:', err)
+    } finally {
+      setLoadingEntities(false)
+    }
+  }, [])
+
+  // Debounced entity search
+  useEffect(() => {
+    if (!showGrantForm) return
+    
+    const timer = setTimeout(() => {
+      searchEntities(grantEntityType, entitySearchQuery)
+    }, 300)
+    
+    return () => clearTimeout(timer)
+  }, [grantEntityType, entitySearchQuery, showGrantForm, searchEntities])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (entityDropdownRef.current && !entityDropdownRef.current.contains(event.target as Node)) {
+        setShowEntityDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Reset entity selection when type changes
+  useEffect(() => {
+    setGrantEntityId('')
+    setGrantEntityName('')
+    setEntitySearchQuery('')
+  }, [grantEntityType])
+
+  function handleSelectEntity(entity: EntityOption) {
+    setGrantEntityId(entity.id)
+    setGrantEntityName(entity.name)
+    setEntitySearchQuery(entity.name)
+    setShowEntityDropdown(false)
+  }
+
   async function handleGrantAccess() {
     if (!selectedUserId) {
       toast.error('Seleccione un usuario')
       return
     }
-    if (!grantEntityId.trim()) {
-      toast.error('Ingrese el ID de la entidad')
+    if (!grantEntityId) {
+      toast.error('Seleccione una entidad')
       return
     }
 
@@ -137,14 +204,16 @@ export default function EntityAccessSection() {
       const result = await grantEntityAccess(
         selectedUserId,
         grantEntityType,
-        grantEntityId.trim(),
+        grantEntityId,
         grantAccessLevel,
         { notes: grantNotes.trim() || undefined }
       )
       
       if (result.success) {
-        toast.success('Acceso otorgado exitosamente')
+        toast.success(`Acceso otorgado a "${grantEntityName}"`)
         setGrantEntityId('')
+        setGrantEntityName('')
+        setEntitySearchQuery('')
         setGrantNotes('')
         setShowGrantForm(false)
         await loadUserAccess(selectedUserId)
@@ -293,16 +362,72 @@ export default function EntityAccessSection() {
               />
             </div>
             
-            <div>
+            <div className="relative" ref={entityDropdownRef}>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                ID de Entidad
+                Buscar {getEntityTypeLabel(grantEntityType)}
               </label>
-              <Input
-                type="text"
-                value={grantEntityId}
-                onChange={(e) => setGrantEntityId(e.target.value)}
-                placeholder="cuid o ID"
-              />
+              <div className="relative">
+                <SearchIcon 
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" 
+                  style={{ fontSize: 16 }} 
+                />
+                <input
+                  type="text"
+                  value={entitySearchQuery}
+                  onChange={(e) => {
+                    setEntitySearchQuery(e.target.value)
+                    setShowEntityDropdown(true)
+                    if (grantEntityId && e.target.value !== grantEntityName) {
+                      setGrantEntityId('')
+                      setGrantEntityName('')
+                    }
+                  }}
+                  onFocus={() => setShowEntityDropdown(true)}
+                  placeholder={`Buscar ${getEntityTypeLabel(grantEntityType).toLowerCase()}...`}
+                  className="w-full pl-8 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {grantEntityId && (
+                  <CheckIcon 
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-green-500" 
+                    style={{ fontSize: 16 }} 
+                  />
+                )}
+              </div>
+              
+              {/* Entity Dropdown */}
+              {showEntityDropdown && (
+                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {loadingEntities ? (
+                    <div className="px-3 py-4 text-sm text-gray-500 text-center">
+                      Buscando...
+                    </div>
+                  ) : entityOptions.length === 0 ? (
+                    <div className="px-3 py-4 text-sm text-gray-500 text-center">
+                      {entitySearchQuery ? 'No se encontraron resultados' : 'Escriba para buscar'}
+                    </div>
+                  ) : (
+                    entityOptions.map((entity) => (
+                      <button
+                        key={entity.id}
+                        type="button"
+                        onClick={() => handleSelectEntity(entity)}
+                        className={`w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 ${
+                          grantEntityId === entity.id ? 'bg-blue-50' : ''
+                        }`}
+                      >
+                        <div className="text-sm font-medium text-gray-900 truncate">
+                          {entity.name}
+                        </div>
+                        {entity.subtitle && (
+                          <div className="text-xs text-gray-500 truncate">
+                            {entity.subtitle}
+                          </div>
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
             
             <div>
@@ -332,10 +457,30 @@ export default function EntityAccessSection() {
             </div>
           </div>
           
+          {/* Selected entity indicator */}
+          {grantEntityId && (
+            <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-md flex items-center gap-2">
+              <CheckIcon className="text-green-600" style={{ fontSize: 16 }} />
+              <span className="text-sm text-green-800">
+                Seleccionado: <strong>{grantEntityName}</strong>
+              </span>
+              <button 
+                onClick={() => {
+                  setGrantEntityId('')
+                  setGrantEntityName('')
+                  setEntitySearchQuery('')
+                }}
+                className="ml-auto text-green-600 hover:text-green-800"
+              >
+                <CloseIcon style={{ fontSize: 16 }} />
+              </button>
+            </div>
+          )}
+          
           <div className="mt-4 flex justify-end">
             <Button
               onClick={handleGrantAccess}
-              disabled={granting || !grantEntityId.trim()}
+              disabled={granting || !grantEntityId}
               loading={granting}
             >
               Otorgar Acceso

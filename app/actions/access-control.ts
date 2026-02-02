@@ -1208,10 +1208,173 @@ export async function getAccessibleEntityIds(
       select: { entityId: true },
     })
     
-    return accessList.map(a => a.entityId)
+    return accessList.map((a: { entityId: string }) => a.entityId)
   } catch (error) {
     logger.error('[entity-access] Error getting accessible entity IDs:', error)
     return []
+  }
+}
+
+/**
+ * Search entities by type for the entity access UI
+ * Returns a list of entities with id and display name
+ */
+export async function searchEntitiesForAccess(
+  entityType: EntityType,
+  searchQuery: string,
+  limit: number = 20
+): Promise<{ success: boolean; data?: { id: string; name: string; subtitle?: string }[]; error?: string }> {
+  try {
+    await requireAdmin()
+    
+    const query = searchQuery.toLowerCase().trim()
+    
+    switch (entityType) {
+      case 'business': {
+        const businesses = await prisma.business.findMany({
+          where: query ? {
+            OR: [
+              { name: { contains: query, mode: 'insensitive' } },
+              { contactName: { contains: query, mode: 'insensitive' } },
+              { contactEmail: { contains: query, mode: 'insensitive' } },
+            ],
+          } : {},
+          select: {
+            id: true,
+            name: true,
+            contactEmail: true,
+          },
+          take: limit,
+          orderBy: { name: 'asc' },
+        })
+        return {
+          success: true,
+          data: businesses.map(b => ({
+            id: b.id,
+            name: b.name,
+            subtitle: b.contactEmail || undefined,
+          })),
+        }
+      }
+      
+      case 'opportunity': {
+        const opportunities = await prisma.opportunity.findMany({
+          where: query ? {
+            OR: [
+              { name: { contains: query, mode: 'insensitive' } },
+              { business: { name: { contains: query, mode: 'insensitive' } } },
+            ],
+          } : {},
+          select: {
+            id: true,
+            name: true,
+            business: { select: { name: true } },
+            stage: true,
+          },
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+        })
+        return {
+          success: true,
+          data: opportunities.map(o => ({
+            id: o.id,
+            name: o.name || o.business.name,
+            subtitle: `${o.stage} - ${o.business.name}`,
+          })),
+        }
+      }
+      
+      case 'deal': {
+        const deals = await prisma.deal.findMany({
+          where: query ? {
+            bookingRequest: {
+              OR: [
+                { name: { contains: query, mode: 'insensitive' } },
+                { merchant: { contains: query, mode: 'insensitive' } },
+                { businessEmail: { contains: query, mode: 'insensitive' } },
+              ],
+            },
+          } : {},
+          select: {
+            id: true,
+            status: true,
+            bookingRequest: { select: { name: true, businessEmail: true, merchant: true } },
+          },
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+        })
+        return {
+          success: true,
+          data: deals.map(d => ({
+            id: d.id,
+            name: d.bookingRequest?.name || 'Deal sin nombre',
+            subtitle: `${d.status} - ${d.bookingRequest?.merchant || d.bookingRequest?.businessEmail || ''}`,
+          })),
+        }
+      }
+      
+      case 'eventLead': {
+        const eventLeads = await prisma.eventLead.findMany({
+          where: query ? {
+            OR: [
+              { eventName: { contains: query, mode: 'insensitive' } },
+              { eventPlace: { contains: query, mode: 'insensitive' } },
+              { promoter: { contains: query, mode: 'insensitive' } },
+            ],
+          } : {},
+          select: {
+            id: true,
+            eventName: true,
+            eventPlace: true,
+            eventDate: true,
+          },
+          take: limit,
+          orderBy: { lastScannedAt: 'desc' },
+        })
+        return {
+          success: true,
+          data: eventLeads.map(e => ({
+            id: e.id,
+            name: e.eventName,
+            subtitle: [e.eventPlace, e.eventDate].filter(Boolean).join(' - ') || undefined,
+          })),
+        }
+      }
+      
+      case 'bookingRequest': {
+        const requests = await prisma.bookingRequest.findMany({
+          where: query ? {
+            OR: [
+              { name: { contains: query, mode: 'insensitive' } },
+              { merchant: { contains: query, mode: 'insensitive' } },
+              { businessEmail: { contains: query, mode: 'insensitive' } },
+            ],
+          } : {},
+          select: {
+            id: true,
+            name: true,
+            merchant: true,
+            businessEmail: true,
+            status: true,
+          },
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+        })
+        return {
+          success: true,
+          data: requests.map(r => ({
+            id: r.id,
+            name: r.name,
+            subtitle: `${r.status} - ${r.merchant || r.businessEmail}`,
+          })),
+        }
+      }
+      
+      default:
+        return { success: false, error: 'Tipo de entidad no soportado' }
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'searchEntitiesForAccess')
   }
 }
 
