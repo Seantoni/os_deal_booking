@@ -11,6 +11,9 @@ import type { EntityType, AccessLevel } from '@/app/actions/access-control'
 
 export type { EntityType, AccessLevel }
 
+// Special entity ID indicating access to ALL entities of a type
+const ALL_ENTITIES_ID = '__ALL__'
+
 /**
  * Check if the current user can access a specific entity
  * 
@@ -42,7 +45,43 @@ export async function canAccessEntity(
       return { canAccess: false, accessLevel: null, reason: 'not_authenticated' }
     }
     
-    // Check explicit entity access
+    // First check if user has access to ALL entities of this type
+    const allAccess = await prisma.entityAccess.findUnique({
+      where: {
+        userId_entityType_entityId: {
+          userId: profile.id,
+          entityType,
+          entityId: ALL_ENTITIES_ID,
+        },
+      },
+      select: {
+        accessLevel: true,
+        expiresAt: true,
+      },
+    })
+    
+    if (allAccess) {
+      // Check expiration
+      if (!allAccess.expiresAt || allAccess.expiresAt >= new Date()) {
+        const level = allAccess.accessLevel as AccessLevel
+        
+        // Check if required level is met
+        if (options?.requireLevel) {
+          const levelHierarchy: Record<AccessLevel, number> = {
+            view: 1,
+            edit: 2,
+            manage: 3,
+          }
+          if (levelHierarchy[level] >= levelHierarchy[options.requireLevel]) {
+            return { canAccess: true, accessLevel: level, reason: 'entity_type_access' }
+          }
+        } else {
+          return { canAccess: true, accessLevel: level, reason: 'entity_type_access' }
+        }
+      }
+    }
+    
+    // Check explicit entity access (for specific item - legacy support)
     const entityAccess = await prisma.entityAccess.findUnique({
       where: {
         userId_entityType_entityId: {
@@ -217,13 +256,30 @@ export async function getAccessibleIds(
       return []
     }
     
+    // Check if user has access to ALL entities of this type
+    const allAccess = await prisma.entityAccess.findUnique({
+      where: {
+        userId_entityType_entityId: {
+          userId: profile.id,
+          entityType,
+          entityId: ALL_ENTITIES_ID,
+        },
+      },
+      select: { expiresAt: true },
+    })
+    
+    if (allAccess && (!allAccess.expiresAt || allAccess.expiresAt >= new Date())) {
+      return null // null means no restriction - user has access to all
+    }
+    
     const ids = new Set<string>()
     
-    // Get explicit entity access grants
+    // Get explicit entity access grants (specific items - legacy support)
     const grants = await prisma.entityAccess.findMany({
       where: {
         userId: profile.id,
         entityType,
+        entityId: { not: ALL_ENTITIES_ID },
         OR: [
           { expiresAt: null },
           { expiresAt: { gt: new Date() } },

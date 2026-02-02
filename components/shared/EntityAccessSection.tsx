@@ -1,11 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   grantEntityAccess,
   revokeEntityAccess,
   getUserEntityAccess,
-  searchEntitiesForAccess,
   type EntityType,
   type AccessLevel,
   type EntityAccessRecord,
@@ -28,7 +27,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import EditIcon from '@mui/icons-material/Edit'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import CloseIcon from '@mui/icons-material/Close'
-import CheckIcon from '@mui/icons-material/Check'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 
 import { Button, Select, Input, Alert } from '@/components/ui'
 
@@ -41,18 +40,12 @@ type UserProfile = {
   isActive: boolean
 }
 
-type EntityOption = {
-  id: string
-  name: string
-  subtitle?: string
-}
-
-const ENTITY_TYPES: { value: EntityType; label: string; icon: React.ReactNode }[] = [
-  { value: 'business', label: 'Negocios', icon: <BusinessIcon style={{ fontSize: 16 }} /> },
-  { value: 'opportunity', label: 'Oportunidades', icon: <HandshakeIcon style={{ fontSize: 16 }} /> },
-  { value: 'deal', label: 'Deals', icon: <ReceiptIcon style={{ fontSize: 16 }} /> },
-  { value: 'eventLead', label: 'Event Leads', icon: <EventIcon style={{ fontSize: 16 }} /> },
-  { value: 'bookingRequest', label: 'Solicitudes', icon: <DescriptionIcon style={{ fontSize: 16 }} /> },
+const ENTITY_TYPES: { value: EntityType; label: string; icon: React.ReactNode; description: string }[] = [
+  { value: 'business', label: 'Negocios', icon: <BusinessIcon style={{ fontSize: 16 }} />, description: 'Acceso a todos los negocios' },
+  { value: 'opportunity', label: 'Oportunidades', icon: <HandshakeIcon style={{ fontSize: 16 }} />, description: 'Acceso a todas las oportunidades' },
+  { value: 'deal', label: 'Deals', icon: <ReceiptIcon style={{ fontSize: 16 }} />, description: 'Acceso a todos los deals' },
+  { value: 'eventLead', label: 'Event Leads', icon: <EventIcon style={{ fontSize: 16 }} />, description: 'Acceso a todos los event leads' },
+  { value: 'bookingRequest', label: 'Solicitudes', icon: <DescriptionIcon style={{ fontSize: 16 }} />, description: 'Acceso a todas las solicitudes' },
 ]
 
 const ACCESS_LEVELS: { value: AccessLevel; label: string; icon: React.ReactNode; description: string }[] = [
@@ -60,6 +53,9 @@ const ACCESS_LEVELS: { value: AccessLevel; label: string; icon: React.ReactNode;
   { value: 'edit', label: 'Editar', icon: <EditIcon style={{ fontSize: 14 }} />, description: 'Ver y modificar' },
   { value: 'manage', label: 'Gestionar', icon: <AdminPanelSettingsIcon style={{ fontSize: 14 }} />, description: 'Control total' },
 ]
+
+// Special entity ID to indicate "all" access to the entity type
+const ALL_ENTITIES_ID = '__ALL__'
 
 export default function EntityAccessSection() {
   const [users, setUsers] = useState<UserProfile[]>([])
@@ -71,18 +67,9 @@ export default function EntityAccessSection() {
   // Grant form state
   const [showGrantForm, setShowGrantForm] = useState(false)
   const [grantEntityType, setGrantEntityType] = useState<EntityType>('business')
-  const [grantEntityId, setGrantEntityId] = useState('')
-  const [grantEntityName, setGrantEntityName] = useState('')
   const [grantAccessLevel, setGrantAccessLevel] = useState<AccessLevel>('view')
   const [grantNotes, setGrantNotes] = useState('')
   const [granting, setGranting] = useState(false)
-  
-  // Entity search state
-  const [entitySearchQuery, setEntitySearchQuery] = useState('')
-  const [entityOptions, setEntityOptions] = useState<EntityOption[]>([])
-  const [loadingEntities, setLoadingEntities] = useState(false)
-  const [showEntityDropdown, setShowEntityDropdown] = useState(false)
-  const entityDropdownRef = useRef<HTMLDivElement>(null)
   
   const [error, setError] = useState<string | null>(null)
   const confirmDialog = useConfirmDialog()
@@ -136,55 +123,9 @@ export default function EntityAccessSection() {
     }
   }, [selectedUserId, loadUserAccess])
 
-  // Search entities when type changes or search query changes
-  const searchEntities = useCallback(async (type: EntityType, query: string) => {
-    try {
-      setLoadingEntities(true)
-      const result = await searchEntitiesForAccess(type, query, 20)
-      if (result.success && result.data) {
-        setEntityOptions(result.data)
-      }
-    } catch (err) {
-      console.error('Error searching entities:', err)
-    } finally {
-      setLoadingEntities(false)
-    }
-  }, [])
-
-  // Debounced entity search
-  useEffect(() => {
-    if (!showGrantForm) return
-    
-    const timer = setTimeout(() => {
-      searchEntities(grantEntityType, entitySearchQuery)
-    }, 300)
-    
-    return () => clearTimeout(timer)
-  }, [grantEntityType, entitySearchQuery, showGrantForm, searchEntities])
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (entityDropdownRef.current && !entityDropdownRef.current.contains(event.target as Node)) {
-        setShowEntityDropdown(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  // Reset entity selection when type changes
-  useEffect(() => {
-    setGrantEntityId('')
-    setGrantEntityName('')
-    setEntitySearchQuery('')
-  }, [grantEntityType])
-
-  function handleSelectEntity(entity: EntityOption) {
-    setGrantEntityId(entity.id)
-    setGrantEntityName(entity.name)
-    setEntitySearchQuery(entity.name)
-    setShowEntityDropdown(false)
+  // Check if user already has access to a specific entity type
+  function hasAccessToType(entityType: EntityType): boolean {
+    return userAccessList.some(a => a.entityType === entityType && a.entityId === ALL_ENTITIES_ID)
   }
 
   async function handleGrantAccess() {
@@ -192,8 +133,10 @@ export default function EntityAccessSection() {
       toast.error('Seleccione un usuario')
       return
     }
-    if (!grantEntityId) {
-      toast.error('Seleccione una entidad')
+
+    // Check if already has access
+    if (hasAccessToType(grantEntityType)) {
+      toast.error(`El usuario ya tiene acceso a ${getEntityTypeLabel(grantEntityType)}`)
       return
     }
 
@@ -204,16 +147,13 @@ export default function EntityAccessSection() {
       const result = await grantEntityAccess(
         selectedUserId,
         grantEntityType,
-        grantEntityId,
+        ALL_ENTITIES_ID, // Grant access to ALL entities of this type
         grantAccessLevel,
         { notes: grantNotes.trim() || undefined }
       )
       
       if (result.success) {
-        toast.success(`Acceso otorgado a "${grantEntityName}"`)
-        setGrantEntityId('')
-        setGrantEntityName('')
-        setEntitySearchQuery('')
+        toast.success(`Acceso a ${getEntityTypeLabel(grantEntityType)} otorgado`)
         setGrantNotes('')
         setShowGrantForm(false)
         await loadUserAccess(selectedUserId)
@@ -350,86 +290,47 @@ export default function EntityAccessSection() {
             Otorgar acceso a: {selectedUser?.name || selectedUser?.email}
           </h4>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tipo de Entidad
-              </label>
-              <Select
-                value={grantEntityType}
-                onChange={(e) => setGrantEntityType(e.target.value as EntityType)}
-                options={ENTITY_TYPES.map(t => ({ value: t.value, label: t.label }))}
-              />
-            </div>
-            
-            <div className="relative" ref={entityDropdownRef}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Buscar {getEntityTypeLabel(grantEntityType)}
-              </label>
-              <div className="relative">
-                <SearchIcon 
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" 
-                  style={{ fontSize: 16 }} 
-                />
-                <input
-                  type="text"
-                  value={entitySearchQuery}
-                  onChange={(e) => {
-                    setEntitySearchQuery(e.target.value)
-                    setShowEntityDropdown(true)
-                    if (grantEntityId && e.target.value !== grantEntityName) {
-                      setGrantEntityId('')
-                      setGrantEntityName('')
-                    }
-                  }}
-                  onFocus={() => setShowEntityDropdown(true)}
-                  placeholder={`Buscar ${getEntityTypeLabel(grantEntityType).toLowerCase()}...`}
-                  className="w-full pl-8 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                {grantEntityId && (
-                  <CheckIcon 
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-green-500" 
-                    style={{ fontSize: 16 }} 
-                  />
-                )}
-              </div>
+          {/* Entity Type Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+            {ENTITY_TYPES.map((type) => {
+              const alreadyHasAccess = hasAccessToType(type.value)
+              const isSelected = grantEntityType === type.value
               
-              {/* Entity Dropdown */}
-              {showEntityDropdown && (
-                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {loadingEntities ? (
-                    <div className="px-3 py-4 text-sm text-gray-500 text-center">
-                      Buscando...
-                    </div>
-                  ) : entityOptions.length === 0 ? (
-                    <div className="px-3 py-4 text-sm text-gray-500 text-center">
-                      {entitySearchQuery ? 'No se encontraron resultados' : 'Escriba para buscar'}
-                    </div>
-                  ) : (
-                    entityOptions.map((entity) => (
-                      <button
-                        key={entity.id}
-                        type="button"
-                        onClick={() => handleSelectEntity(entity)}
-                        className={`w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 ${
-                          grantEntityId === entity.id ? 'bg-blue-50' : ''
-                        }`}
-                      >
-                        <div className="text-sm font-medium text-gray-900 truncate">
-                          {entity.name}
-                        </div>
-                        {entity.subtitle && (
-                          <div className="text-xs text-gray-500 truncate">
-                            {entity.subtitle}
-                          </div>
-                        )}
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-            
+              return (
+                <button
+                  key={type.value}
+                  type="button"
+                  onClick={() => !alreadyHasAccess && setGrantEntityType(type.value)}
+                  disabled={alreadyHasAccess}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    alreadyHasAccess
+                      ? 'bg-green-50 border-green-300 cursor-not-allowed'
+                      : isSelected
+                        ? 'bg-white border-blue-500 shadow-sm'
+                        : 'bg-white border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={alreadyHasAccess ? 'text-green-600' : isSelected ? 'text-blue-600' : 'text-gray-500'}>
+                      {type.icon}
+                    </span>
+                    <span className={`font-medium text-sm ${alreadyHasAccess ? 'text-green-700' : 'text-gray-900'}`}>
+                      {type.label}
+                    </span>
+                    {alreadyHasAccess && (
+                      <CheckCircleIcon className="ml-auto text-green-500" style={{ fontSize: 16 }} />
+                    )}
+                  </div>
+                  <p className={`text-xs mt-1 ${alreadyHasAccess ? 'text-green-600' : 'text-gray-500'}`}>
+                    {alreadyHasAccess ? 'Ya tiene acceso' : type.description}
+                  </p>
+                </button>
+              )
+            })}
+          </div>
+          
+          {/* Access Level and Notes */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Nivel de Acceso
@@ -457,33 +358,19 @@ export default function EntityAccessSection() {
             </div>
           </div>
           
-          {/* Selected entity indicator */}
-          {grantEntityId && (
-            <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-md flex items-center gap-2">
-              <CheckIcon className="text-green-600" style={{ fontSize: 16 }} />
-              <span className="text-sm text-green-800">
-                Seleccionado: <strong>{grantEntityName}</strong>
-              </span>
-              <button 
-                onClick={() => {
-                  setGrantEntityId('')
-                  setGrantEntityName('')
-                  setEntitySearchQuery('')
-                }}
-                className="ml-auto text-green-600 hover:text-green-800"
-              >
-                <CloseIcon style={{ fontSize: 16 }} />
-              </button>
-            </div>
-          )}
-          
-          <div className="mt-4 flex justify-end">
+          <div className="mt-4 flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => setShowGrantForm(false)}
+            >
+              Cancelar
+            </Button>
             <Button
               onClick={handleGrantAccess}
-              disabled={granting || !grantEntityId}
+              disabled={granting || hasAccessToType(grantEntityType)}
               loading={granting}
             >
-              Otorgar Acceso
+              Otorgar Acceso a {getEntityTypeLabel(grantEntityType)}
             </Button>
           </div>
         </div>
@@ -497,7 +384,7 @@ export default function EntityAccessSection() {
               Accesos de {selectedUser?.name || selectedUser?.email}
             </h4>
             <p className="text-xs text-gray-500 mt-0.5">
-              {userAccessList.length} acceso(s) otorgado(s)
+              {userAccessList.length} módulo(s) con acceso
             </p>
           </div>
           
@@ -507,59 +394,54 @@ export default function EntityAccessSection() {
             </div>
           ) : userAccessList.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
-              Este usuario no tiene accesos especiales a entidades.
+              Este usuario no tiene accesos especiales a módulos.
               <br />
-              <span className="text-xs">Los accesos por rol o asignación no se muestran aquí.</span>
+              <span className="text-xs">Los accesos por rol no se muestran aquí.</span>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="text-left py-2 px-4 text-xs font-semibold text-gray-600">Tipo</th>
-                    <th className="text-left py-2 px-4 text-xs font-semibold text-gray-600">ID Entidad</th>
-                    <th className="text-left py-2 px-4 text-xs font-semibold text-gray-600">Nivel</th>
-                    <th className="text-left py-2 px-4 text-xs font-semibold text-gray-600">Otorgado</th>
-                    <th className="text-left py-2 px-4 text-xs font-semibold text-gray-600">Notas</th>
-                    <th className="text-right py-2 px-4 text-xs font-semibold text-gray-600">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {userAccessList.map((access) => (
-                    <tr key={access.id} className="hover:bg-gray-50">
-                      <td className="py-2 px-4">
-                        <span className="inline-flex items-center gap-1.5 text-sm text-gray-700">
-                          {getEntityTypeIcon(access.entityType as EntityType)}
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {userAccessList.map((access) => (
+                <div 
+                  key={access.id} 
+                  className="bg-gray-50 rounded-lg p-3 border border-gray-200"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-blue-600">
+                        {getEntityTypeIcon(access.entityType as EntityType)}
+                      </span>
+                      <div>
+                        <div className="font-medium text-sm text-gray-900">
                           {getEntityTypeLabel(access.entityType as EntityType)}
-                        </span>
-                      </td>
-                      <td className="py-2 px-4">
-                        <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-700">
-                          {access.entityId}
-                        </code>
-                      </td>
-                      <td className="py-2 px-4">
-                        {getAccessLevelBadge(access.accessLevel as AccessLevel)}
-                      </td>
-                      <td className="py-2 px-4 text-xs text-gray-500">
-                        {formatShortDate(access.grantedAt)}
-                      </td>
-                      <td className="py-2 px-4 text-xs text-gray-500 max-w-[150px] truncate" title={access.notes || ''}>
-                        {access.notes || '-'}
-                      </td>
-                      <td className="py-2 px-4 text-right">
-                        <button
-                          onClick={() => handleRevokeAccess(access)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
-                          title="Revocar Acceso"
-                        >
-                          <DeleteIcon style={{ fontSize: 16 }} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Todos los registros
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleRevokeAccess(access)}
+                      className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors"
+                      title="Revocar Acceso"
+                    >
+                      <DeleteIcon style={{ fontSize: 14 }} />
+                    </button>
+                  </div>
+                  
+                  <div className="mt-2 flex items-center justify-between">
+                    {getAccessLevelBadge(access.accessLevel as AccessLevel)}
+                    <span className="text-xs text-gray-400">
+                      {formatShortDate(access.grantedAt)}
+                    </span>
+                  </div>
+                  
+                  {access.notes && (
+                    <div className="mt-2 text-xs text-gray-500 truncate" title={access.notes}>
+                      {access.notes}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>
