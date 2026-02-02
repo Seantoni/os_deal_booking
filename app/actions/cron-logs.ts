@@ -10,6 +10,7 @@ export type CronJobName =
   | 'deal-metrics-sync'
   | 'task-reminders'
   | 'market-intelligence-scan'
+  | 'event-leads-sync'
 
 export interface CronJobLog {
   id: string

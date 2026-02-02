@@ -14,6 +14,7 @@ const JOB_LABELS: Record<string, string> = {
   'deal-metrics-sync': 'Sync de Métricas',
   'task-reminders': 'Recordatorios de Tareas',
   'market-intelligence-scan': 'Escaneo de Mercado',
+  'event-leads-sync': 'Sync de Eventos',
 }
 
 const STATUS_CONFIG = {
@@ -113,6 +114,7 @@ export default function CronJobsTab() {
         'deal-metrics-sync': '/api/cron/deal-metrics-sync',
         'task-reminders': '/api/cron/task-reminders',
         'market-intelligence-scan': '/api/market-intelligence/scan',
+        'event-leads-sync': '/api/cron/event-leads-sync',
       }
 
       const response = await fetch(endpoints[jobName], {

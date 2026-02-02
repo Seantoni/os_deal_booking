@@ -11,6 +11,10 @@
     {
       "path": "/api/market-intelligence/scan",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/event-leads-sync",
+      "schedule": "0 7 * * *"
     }
   ],
   "functions": {
@@ -19,6 +23,10 @@
       "maxDuration": 300
     },
     "app/api/cron/deal-metrics-sync/route.ts": {
+      "memory": 1024,
+      "maxDuration": 300
+    },
+    "app/api/cron/event-leads-sync/route.ts": {
       "memory": 1024,
       "maxDuration": 300
     }
