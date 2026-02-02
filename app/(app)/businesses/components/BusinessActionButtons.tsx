@@ -13,7 +13,7 @@ import HandshakeIcon from '@mui/icons-material/Handshake'
 import DescriptionIcon from '@mui/icons-material/Description'
 import LaunchIcon from '@mui/icons-material/Launch'
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
-import MoreVertIcon from '@mui/icons-material/MoreVert'
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import CampaignIcon from '@mui/icons-material/Campaign'
 import { FOCUS_PERIOD_LABELS, type FocusPeriod } from '@/lib/utils/focus-period'
 
@@ -23,8 +23,6 @@ interface BusinessActionButtonsProps {
   activeDealUrl: string | undefined
   campaignCount: number
   isAdmin: boolean
-  actionMenuOpen: string | null
-  onSetActionMenuOpen: (id: string | null) => void
   onSetFocus: (business: Business) => void
   onCreateOpportunity: (business: Business) => void
   onCreateRequest: (business: Business) => void
@@ -38,8 +36,6 @@ export function BusinessActionButtons({
   activeDealUrl,
   campaignCount,
   isAdmin,
-  actionMenuOpen,
-  onSetActionMenuOpen,
   onSetFocus,
   onCreateOpportunity,
   onCreateRequest,
@@ -77,6 +73,33 @@ export function BusinessActionButtons({
         <CenterFocusStrongIcon style={{ fontSize: 18 }} />
       </button>
       
+      {/* Campaign Button (Admin only) */}
+      {isAdmin && (
+        <button
+          onClick={() => onOpenCampaignModal(business)}
+          className={`p-1.5 rounded transition-colors ${
+            campaignCount > 0
+              ? 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+              : 'hover:bg-blue-50 text-gray-400 hover:text-blue-600'
+          }`}
+          title="Añadir a Campaña"
+        >
+          <CampaignIcon style={{ fontSize: 18 }} />
+        </button>
+      )}
+      
+      {/* Reassignment Action Button */}
+      <button
+        onClick={() => onOpenReassignmentModal(business)}
+        className="p-1.5 rounded hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 transition-colors"
+        title="Acción (Reasignar/Sacar/Recurrente)"
+      >
+        <SwapHorizIcon style={{ fontSize: 18 }} />
+      </button>
+
+      {/* Vertical Divider */}
+      <div className="h-5 w-px bg-gray-300 mx-1" />
+
       {/* Create Opportunity */}
       <button
         onClick={() => onCreateOpportunity(business)}
@@ -94,6 +117,9 @@ export function BusinessActionButtons({
       >
         <DescriptionIcon style={{ fontSize: 18 }} />
       </button>
+
+      {/* Vertical Divider */}
+      <div className="h-5 w-px bg-gray-300 mx-1" />
       
       {/* Open Full Page */}
       <button
@@ -103,45 +129,6 @@ export function BusinessActionButtons({
       >
         <OpenInNewIcon style={{ fontSize: 18 }} />
       </button>
-      
-      {/* Campaign Button (Admin only) */}
-      {isAdmin && (
-        <button
-          onClick={() => onOpenCampaignModal(business)}
-          className={`p-1.5 rounded transition-colors ${
-            campaignCount > 0
-              ? 'bg-blue-100 text-blue-600 hover:bg-blue-200'
-              : 'hover:bg-blue-50 text-gray-400 hover:text-blue-600'
-          }`}
-          title="Añadir a Campaña"
-        >
-          <CampaignIcon style={{ fontSize: 18 }} />
-        </button>
-      )}
-      
-      {/* Action Menu (More options) */}
-      <div className="relative">
-        <button
-          onClick={() => onSetActionMenuOpen(actionMenuOpen === business.id ? null : business.id)}
-          className="p-1.5 rounded hover:bg-purple-50 text-gray-400 hover:text-purple-600 transition-colors"
-          title="Acción"
-        >
-          <MoreVertIcon style={{ fontSize: 18 }} />
-        </button>
-        {actionMenuOpen === business.id && (
-          <div className="absolute right-0 top-full mt-1 z-50 w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
-            <button
-              onClick={() => {
-                onOpenReassignmentModal(business)
-                onSetActionMenuOpen(null)
-              }}
-              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
-            >
-              Reasignar / Sacar
-            </button>
-          </div>
-        )}
-      </div>
     </div>
   )
 }

@@ -35,13 +35,11 @@ interface BusinessTableRowProps {
   pendingRequestCount: number
   campaignCount: number
   isAdmin: boolean
-  actionMenuOpen: string | null
   
   // Callbacks
   onRowClick: (business: Business) => void
   onRowHover: () => void
   onToggleExpand: (business: Business) => void
-  onSetActionMenuOpen: (id: string | null) => void
   onSetFocus: (business: Business) => void
   onCreateOpportunity: (business: Business) => void
   onCreateRequest: (business: Business) => void
@@ -60,11 +58,9 @@ export function BusinessTableRow({
   pendingRequestCount,
   campaignCount,
   isAdmin,
-  actionMenuOpen,
   onRowClick,
   onRowHover,
   onToggleExpand,
-  onSetActionMenuOpen,
   onSetFocus,
   onCreateOpportunity,
   onCreateRequest,
@@ -240,8 +236,6 @@ export function BusinessTableRow({
             activeDealUrl={activeDealUrl}
             campaignCount={campaignCount}
             isAdmin={isAdmin}
-            actionMenuOpen={actionMenuOpen}
-            onSetActionMenuOpen={onSetActionMenuOpen}
             onSetFocus={onSetFocus}
             onCreateOpportunity={onCreateOpportunity}
             onCreateRequest={onCreateRequest}

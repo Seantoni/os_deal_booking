@@ -69,6 +69,29 @@ const AssignCampaignModal = dynamic(() => import('@/components/crm/business/Assi
   ssr: false,
 })
 
+// Actions column header with grouped labels - matches button layout
+// Button sizes: 30px each (18px icon + 12px padding), gap-1 = 4px, divider mx-1 = 8px
+const ActionsColumnHeader = () => (
+  <div className="flex items-center justify-end text-[10px] font-medium normal-case tracking-normal">
+    {/* Admin group: Focus, Campaign, Reassignment - 3 buttons + 2 gaps = 98px */}
+    <div className="flex items-center justify-center text-amber-600" style={{ width: '98px' }}>
+      <span>Admin</span>
+    </div>
+    {/* Divider space */}
+    <div style={{ width: '10px' }} />
+    {/* Crear group: Opportunity, Request - 2 buttons + 1 gap = 64px */}
+    <div className="flex items-center justify-center text-blue-600" style={{ width: '64px' }}>
+      <span>Crear</span>
+    </div>
+    {/* Divider space */}
+    <div style={{ width: '10px' }} />
+    {/* Ver group: Open Full Page - 1 button = 30px */}
+    <div className="flex items-center justify-center text-slate-600" style={{ width: '30px' }}>
+      <span>Ver</span>
+    </div>
+  </div>
+)
+
 // Table columns configuration
 const COLUMNS: ColumnConfig[] = [
   { key: 'expand', label: '', width: 'w-4' },
@@ -80,7 +103,7 @@ const COLUMNS: ColumnConfig[] = [
   { key: 'deals360d', label: '#Deals', sortable: true, align: 'center' },
   { key: 'openOpps', label: 'Opps', sortable: true, align: 'center', width: 'w-14' },
   { key: 'pendingReqs', label: 'Solic.', sortable: true, align: 'center', width: 'w-14' },
-  { key: 'actions', label: '', width: 'w-16' },
+  { key: 'actions', label: <ActionsColumnHeader />, align: 'right' },
 ]
 
 interface BusinessesPageClientProps {
@@ -210,19 +233,6 @@ export default function BusinessesPageClient({
       }
     }
   }, [searchParams, businesses, searchResults, pageState])
-
-  // Close action menu when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (pageState.actionMenuOpen && !(event.target as Element).closest('.relative')) {
-        pageState.setActionMenuOpen(null)
-      }
-    }
-    if (pageState.actionMenuOpen) {
-      document.addEventListener('click', handleClickOutside)
-    }
-    return () => document.removeEventListener('click', handleClickOutside)
-  }, [pageState.actionMenuOpen, pageState])
 
   // Determine which businesses to display
   const displayBusinesses = searchResults !== null ? searchResults : businesses
@@ -616,11 +626,9 @@ export default function BusinessesPageClient({
                       pendingRequestCount={businessPendingRequestCount.get(business.name.toLowerCase()) || 0}
                       campaignCount={businessCampaignCounts[business.id] || 0}
                       isAdmin={isAdmin}
-                      actionMenuOpen={pageState.actionMenuOpen}
                       onRowClick={(b) => pageState.openBusinessModal(b)}
                       onRowHover={handleRowHover}
                       onToggleExpand={pageState.toggleExpandBusiness}
-                      onSetActionMenuOpen={pageState.setActionMenuOpen}
                       onSetFocus={pageState.openFocusModal}
                       onCreateOpportunity={pageState.openOpportunityModal}
                       onCreateRequest={handleCreateRequest}

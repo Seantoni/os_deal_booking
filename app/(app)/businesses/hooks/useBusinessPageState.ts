@@ -60,9 +60,6 @@ export function useBusinessPageState() {
   // Expanded businesses state (for showing deals)
   const [expandedBusinesses, setExpandedBusinesses] = useState<Set<string>>(new Set())
   const [businessDealsCache, setBusinessDealsCache] = useState<Map<string, BusinessDealsCache>>(new Map())
-  
-  // Action menu state (which row has open menu)
-  const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null)
 
   // Business modal handlers
   const openBusinessModal = useCallback((business: Business | null = null) => {
@@ -227,9 +224,5 @@ export function useBusinessPageState() {
     toggleExpandBusiness,
     getBusinessDeals,
     isBusinessExpanded,
-    
-    // Action menu
-    actionMenuOpen,
-    setActionMenuOpen,
   }
 }
