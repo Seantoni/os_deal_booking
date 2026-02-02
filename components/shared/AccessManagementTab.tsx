@@ -10,7 +10,7 @@ import {
   inviteUser,
   resendInvitation,
 } from '@/app/actions/access-control'
-import { getAllUserProfiles, updateUserRole, previewUserSync, applyUserSync, type SyncPreview } from '@/app/actions/users'
+import { getAllUserProfiles, updateUserRole, deleteUserProfile, previewUserSync, applyUserSync, type SyncPreview } from '@/app/actions/users'
 import type { UserRole } from '@/lib/constants'
 import { USER_ROLE_OPTIONS } from '@/lib/constants'
 import toast from 'react-hot-toast'
@@ -301,6 +301,28 @@ export default function AccessManagementTab() {
       }
     } catch (err) {
       toast.error('Error al actualizar rol')
+    }
+  }
+
+  const handleDeleteUser = async (user: UserProfile) => {
+    const confirmed = await confirmDialog.confirm({
+      title: 'Eliminar Usuario',
+      message: `¿Eliminar a ${user.name || user.email || 'este usuario'} de la base de datos? Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      confirmVariant: 'danger',
+    })
+    if (!confirmed) return
+    try {
+      const result = await deleteUserProfile(user.clerkId)
+      if (result.success) {
+        toast.success('Usuario eliminado')
+        await loadUserProfiles()
+      } else {
+        toast.error(result.error || 'Error al eliminar usuario')
+      }
+    } catch (err) {
+      toast.error('Error al eliminar usuario')
     }
   }
 
@@ -620,13 +642,22 @@ export default function AccessManagementTab() {
                           </button>
                         </>
                       ) : (
-                        <button
-                          onClick={() => { setEditingUserId(user.clerkId); setEditingRole(user.role as UserRole) }}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Editar rol"
-                        >
-                          <EditIcon style={{ fontSize: 18 }} />
-                        </button>
+                        <>
+                          <button
+                            onClick={() => { setEditingUserId(user.clerkId); setEditingRole(user.role as UserRole) }}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Editar rol"
+                          >
+                            <EditIcon style={{ fontSize: 18 }} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUser(user)}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Eliminar usuario"
+                          >
+                            <DeleteIcon style={{ fontSize: 18 }} />
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>

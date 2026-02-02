@@ -42,4 +42,3 @@ export {
   buildAccessFilter,
 } from './entity-access'
 export type { EntityType, AccessLevel } from './entity-access'
-
