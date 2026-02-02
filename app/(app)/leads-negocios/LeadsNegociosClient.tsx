@@ -58,15 +58,18 @@ const MONTH_NAMES_FULL = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
  * - "ENE - MAR" (date range, uses first month)
  * - "Jueves 14 may 2026" (full date with year from Panatickets)
  * - "14 mayo 2026" (day + full month + year)
+ * - "14 de Marzo de 2026" (En La Taquilla format)
+ * - "del 24 de Febrero al 14 de Marzo" (date range, uses first date)
+ * - "04, 05 y 06 de Febrero" (multiple dates, uses first)
  */
 function parseEventDate(rawDate: string | null): Date | null {
   if (!rawDate) return null
   
   const normalized = rawDate.trim()
   
-  // Pattern 1: Full date with year like "Jueves 14 may 2026" or "14 mayo 2026"
-  // Match: optional day name, day number, month name, year
-  const fullDateMatch = normalized.match(/(?:\w+\s+)?(\d{1,2})\s+(ene(?:ro)?|feb(?:rero)?|mar(?:zo)?|abr(?:il)?|may(?:o)?|jun(?:io)?|jul(?:io)?|ago(?:sto)?|sep(?:tiembre)?|oct(?:ubre)?|nov(?:iembre)?|dic(?:iembre)?)\s+(\d{4})/i)
+  // Pattern 1: Full date with year like "Jueves 14 may 2026" or "14 mayo 2026" or "14 de Marzo de 2026"
+  // Match: optional day name, day number, optional "de", month name, optional "de", year
+  const fullDateMatch = normalized.match(/(?:\w+\s+)?(\d{1,2})\s+(?:de\s+)?(ene(?:ro)?|feb(?:rero)?|mar(?:zo)?|abr(?:il)?|may(?:o)?|jun(?:io)?|jul(?:io)?|ago(?:sto)?|sep(?:tiembre)?|oct(?:ubre)?|nov(?:iembre)?|dic(?:iembre)?)\s+(?:de\s+)?(\d{4})/i)
   if (fullDateMatch) {
     const day = parseInt(fullDateMatch[1], 10)
     const monthStr = fullDateMatch[2].toUpperCase()
@@ -85,7 +88,79 @@ function parseEventDate(rawDate: string | null): Date | null {
     }
   }
   
-  // Pattern 2: Day + abbreviated month like "27 FEB", "9 ABR"
+  // Pattern 2: Date range like "del 24 de Febrero al 14 de Marzo" - extract first date
+  const rangeWithDayMatch = normalized.match(/(?:del?\s+)?(\d{1,2})\s+(?:de\s+)?(ene(?:ro)?|feb(?:rero)?|mar(?:zo)?|abr(?:il)?|may(?:o)?|jun(?:io)?|jul(?:io)?|ago(?:sto)?|sep(?:tiembre)?|oct(?:ubre)?|nov(?:iembre)?|dic(?:iembre)?)\s+(?:al|a|-)/i)
+  if (rangeWithDayMatch) {
+    const day = parseInt(rangeWithDayMatch[1], 10)
+    const monthStr = rangeWithDayMatch[2].toUpperCase()
+    
+    let monthNum = MONTH_TO_NUM[monthStr]
+    if (monthNum === undefined) {
+      const abbr = monthStr.substring(0, 3)
+      monthNum = MONTH_TO_NUM[abbr]
+    }
+    
+    if (monthNum !== undefined) {
+      const now = new Date()
+      const currentYear = now.getFullYear()
+      let year = currentYear
+      const tentativeDate = new Date(currentYear, monthNum, day)
+      if (tentativeDate < now) {
+        year = currentYear + 1
+      }
+      return new Date(year, monthNum, day)
+    }
+  }
+  
+  // Pattern 3: Multiple dates like "04, 05 y 06 de Febrero" - use first date
+  const multipleDatesMatch = normalized.match(/(\d{1,2})(?:,\s*\d{1,2})*\s+(?:y\s+\d{1,2}\s+)?(?:de\s+)?(ene(?:ro)?|feb(?:rero)?|mar(?:zo)?|abr(?:il)?|may(?:o)?|jun(?:io)?|jul(?:io)?|ago(?:sto)?|sep(?:tiembre)?|oct(?:ubre)?|nov(?:iembre)?|dic(?:iembre)?)/i)
+  if (multipleDatesMatch) {
+    const day = parseInt(multipleDatesMatch[1], 10)
+    const monthStr = multipleDatesMatch[2].toUpperCase()
+    
+    let monthNum = MONTH_TO_NUM[monthStr]
+    if (monthNum === undefined) {
+      const abbr = monthStr.substring(0, 3)
+      monthNum = MONTH_TO_NUM[abbr]
+    }
+    
+    if (monthNum !== undefined) {
+      const now = new Date()
+      const currentYear = now.getFullYear()
+      let year = currentYear
+      const tentativeDate = new Date(currentYear, monthNum, day)
+      if (tentativeDate < now) {
+        year = currentYear + 1
+      }
+      return new Date(year, monthNum, day)
+    }
+  }
+  
+  // Pattern 4: Day + full month name without year like "24 de Febrero"
+  const dayMonthMatch = normalized.match(/(\d{1,2})\s+(?:de\s+)?(ene(?:ro)?|feb(?:rero)?|mar(?:zo)?|abr(?:il)?|may(?:o)?|jun(?:io)?|jul(?:io)?|ago(?:sto)?|sep(?:tiembre)?|oct(?:ubre)?|nov(?:iembre)?|dic(?:iembre)?)/i)
+  if (dayMonthMatch) {
+    const day = parseInt(dayMonthMatch[1], 10)
+    const monthStr = dayMonthMatch[2].toUpperCase()
+    
+    let monthNum = MONTH_TO_NUM[monthStr]
+    if (monthNum === undefined) {
+      const abbr = monthStr.substring(0, 3)
+      monthNum = MONTH_TO_NUM[abbr]
+    }
+    
+    if (monthNum !== undefined) {
+      const now = new Date()
+      const currentYear = now.getFullYear()
+      let year = currentYear
+      const tentativeDate = new Date(currentYear, monthNum, day)
+      if (tentativeDate < now) {
+        year = currentYear + 1
+      }
+      return new Date(year, monthNum, day)
+    }
+  }
+  
+  // Pattern 5: Day + abbreviated month like "27 FEB", "9 ABR"
   const shortMatch = normalized.match(/(\d{1,2})\s*(ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)/i)
   if (shortMatch) {
     const day = parseInt(shortMatch[1], 10)
@@ -109,7 +184,7 @@ function parseEventDate(rawDate: string | null): Date | null {
     }
   }
   
-  // Pattern 3: Date range like "ENE - MAR" - use first month
+  // Pattern 6: Date range like "ENE - MAR" - use first month
   const rangeMatch = normalized.match(/^(ENE|FEB|MAR|ABR|MAY|JUN|JUL|AGO|SEP|OCT|NOV|DIC)/i)
   if (rangeMatch) {
     const monthKey = rangeMatch[1].toUpperCase()
@@ -441,6 +516,7 @@ export default function LeadsNegociosClient() {
     switch (site) {
       case 'ticketplus': return 'Ticketplus'
       case 'panatickets': return 'Panatickets'
+      case 'enlataquilla': return 'En La Taquilla'
       default: return site
     }
   }
@@ -537,6 +613,7 @@ export default function LeadsNegociosClient() {
               <option value="">Todos los Sitios</option>
               <option value="ticketplus">Ticketplus</option>
               <option value="panatickets">Panatickets</option>
+              <option value="enlataquilla">En La Taquilla</option>
             </select>
             
             {/* Status Filter */}

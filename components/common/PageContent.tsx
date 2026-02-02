@@ -11,13 +11,13 @@ export default function PageContent({ children }: PageContentProps) {
   const { isOpen, isCalendarPage } = useSidebar()
   
   // Calculate left margin based on sidebar state
-  // Sidebar is 78px wide + 8px margin from left + gap = ~86px
+  // Sidebar is 66px wide + 6px margin from left + 6px gap (same as left) = 78px
   // On mobile (below md): no margin
   // On Calendar page: don't push content (overlay behavior)
   // On other pages (desktop): push content when sidebar is open
   let desktopMargin = ''
   if (!isCalendarPage && isOpen) {
-    desktopMargin = 'md:ml-[86px]'
+    desktopMargin = 'md:ml-[70px]'
   }
   
   return (

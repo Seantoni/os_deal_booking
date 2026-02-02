@@ -51,7 +51,7 @@ export interface ScanProgress {
 // Event Lead Types (ticket sites scraping)
 // ============================================
 
-export type EventSourceSite = 'ticketplus' | 'panatickets'
+export type EventSourceSite = 'ticketplus' | 'panatickets' | 'enlataquilla'
 
 export interface ScrapedEvent {
   sourceUrl: string
@@ -79,6 +79,10 @@ export const EVENT_SOURCE_SITES: Record<EventSourceSite, { name: string; baseUrl
   panatickets: {
     name: 'Panatickets',
     baseUrl: 'https://panatickets.boletosenlinea.events',
+  },
+  enlataquilla: {
+    name: 'En La Taquilla',
+    baseUrl: 'https://enlataquilla.com',
   },
 }
 

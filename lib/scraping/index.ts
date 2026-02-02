@@ -9,6 +9,7 @@ import { scrapeRantanOfertas, getRantanOfertasDealUrls } from './rantanofertas'
 import { scrapeOferta24 } from './oferta24'
 import { scrapeTicketplus } from './ticketplus'
 import { scrapePanatickets } from './panatickets'
+import { scrapeEnLaTaquilla } from './enlataquilla'
 import { 
   ScrapedDeal, 
   ScrapeResult, 
@@ -26,6 +27,7 @@ export * from './types'
 export { getRantanOfertasDealUrls } from './rantanofertas'
 export { scrapeTicketplus } from './ticketplus'
 export { scrapePanatickets } from './panatickets'
+export { scrapeEnLaTaquilla } from './enlataquilla'
 
 const MAX_DEALS_PER_SITE = 150 // 100 per site = 300 total max
 const CHUNK_SIZE = 25 // Process 25 deals per invocation to stay under Vercel timeout
@@ -621,6 +623,8 @@ async function scanEventSite(site: EventSourceSite, onProgress?: EventProgressCa
       return await scrapeTicketplus(limit, onProgress)
     case 'panatickets':
       return await scrapePanatickets(limit, onProgress)
+    case 'enlataquilla':
+      return await scrapeEnLaTaquilla(limit, onProgress)
     default:
       return {
         success: false,
@@ -641,8 +645,8 @@ export async function runFullEventScan(onProgress?: EventProgressCallback, maxEv
   let newEvents = 0
   let updatedEvents = 0
   
-  // Both event sites
-  const sites: EventSourceSite[] = ['ticketplus', 'panatickets']
+  // All event sites
+  const sites: EventSourceSite[] = ['ticketplus', 'panatickets', 'enlataquilla']
   
   for (const site of sites) {
     console.log(`\n=== Scanning Event Site: ${site} ===`)

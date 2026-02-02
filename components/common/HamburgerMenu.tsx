@@ -158,19 +158,19 @@ export default function HamburgerMenu() {
       )}
 
       {/* Sidebar Menu - Hidden on mobile (md:block) */}
-      <div className={`hidden md:block absolute top-3 left-2 bottom-3 bg-white/95 backdrop-blur-xl border border-slate-200/60 shadow-md rounded-xl transform transition-all duration-300 ease-in-out ${
-        isOpen ? 'translate-x-0' : '-translate-x-[calc(100%+16px)]'
-      } w-[78px]`} style={{ zIndex: isCalendarPage ? 50 : 30 }}>
+      <div className={`hidden md:block absolute top-3 left-1.5 bottom-3 bg-white/95 backdrop-blur-xl border border-slate-200/60 shadow-md rounded-xl transform transition-all duration-300 ease-in-out ${
+        isOpen ? 'translate-x-0' : '-translate-x-[calc(100%+12px)]'
+      } w-[66px]`} style={{ zIndex: isCalendarPage ? 50 : 30 }}>
         <div className={`h-full flex flex-col`}>
           {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto py-2 px-1.5 scrollbar-hide">
+          <nav className="flex-1 overflow-y-auto py-1.5 px-1 scrollbar-hide">
             {(!mounted || loading) ? (
               // Shimmer loading effect
               <div className="space-y-0.5">
                 {[...Array(6)].map((_, i) => (
                   <div
                     key={i}
-                    className="flex flex-col items-center justify-center py-1.5 rounded animate-pulse"
+                    className="flex flex-col items-center justify-center py-1 rounded animate-pulse"
                   >
                     <div className="w-4 h-4 bg-slate-100 rounded"></div>
                     <div className="w-6 h-1 bg-slate-100 rounded mt-0.5"></div>
@@ -178,10 +178,10 @@ export default function HamburgerMenu() {
                 ))}
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {/* Monitor & Analyze (Dashboard on top) */}
                 {sidebarConfig.monitorItems.length > 0 && (
-                  <div className="space-y-1">
+                  <div className="space-y-0.5">
                     {sidebarConfig.monitorItems.map((item) => {
                       const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
                       const Icon = item.Icon
@@ -194,14 +194,14 @@ export default function HamburgerMenu() {
                               setIsOpen(false)
                             }
                           }}
-                          className={`group flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-all duration-200 ${
+                          className={`group flex flex-col items-center justify-center py-1.5 px-1 rounded-lg transition-all duration-200 ${
                             isActive 
                               ? 'bg-orange-100 text-orange-600' 
                               : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                           }`}
                         >
-                          <Icon style={{ fontSize: '1.1rem' }} className={isActive ? 'text-orange-600' : ''} />
-                          <span className={`text-[10px] font-medium mt-1 leading-tight truncate w-full text-center ${
+                          <Icon style={{ fontSize: '1rem' }} className={isActive ? 'text-orange-600' : ''} />
+                          <span className={`text-[9px] font-medium mt-0.5 leading-tight truncate w-full text-center ${
                             isActive ? 'text-orange-600' : 'text-slate-500 group-hover:text-slate-700'
                           }`}>
                             {item.name}
@@ -214,12 +214,12 @@ export default function HamburgerMenu() {
 
                 {/* Separator */}
                 {sidebarConfig.monitorItems.length > 0 && sidebarConfig.workItems.length > 0 && (
-                  <div className="h-px bg-slate-200/60 mx-2" />
+                  <div className="h-px bg-slate-200/60 mx-1.5" />
                 )}
 
                 {/* Work (daily execution) */}
                 {sidebarConfig.workItems.length > 0 && (
-                  <div className="space-y-1">
+                  <div className="space-y-0.5">
                     {sidebarConfig.workItems.map((item) => {
                       const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
                       const Icon = item.Icon
@@ -232,14 +232,14 @@ export default function HamburgerMenu() {
                               setIsOpen(false)
                             }
                           }}
-                          className={`group flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-all duration-200 ${
+                          className={`group flex flex-col items-center justify-center py-1.5 px-1 rounded-lg transition-all duration-200 ${
                             isActive 
                               ? 'bg-orange-100 text-orange-600' 
                               : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                           }`}
                         >
-                          <Icon style={{ fontSize: '1.1rem' }} className={isActive ? 'text-orange-600' : ''} />
-                          <span className={`text-[10px] font-medium mt-1 leading-tight truncate w-full text-center ${
+                          <Icon style={{ fontSize: '1rem' }} className={isActive ? 'text-orange-600' : ''} />
+                          <span className={`text-[9px] font-medium mt-0.5 leading-tight truncate w-full text-center ${
                             isActive ? 'text-orange-600' : 'text-slate-500 group-hover:text-slate-700'
                           }`}>
                             {item.name}
@@ -252,12 +252,12 @@ export default function HamburgerMenu() {
 
                 {/* Separator */}
                 {sidebarConfig.workItems.length > 0 && sidebarConfig.acquireItems.length > 0 && (
-                  <div className="h-px bg-slate-200/60 mx-2" />
+                  <div className="h-px bg-slate-200/60 mx-1.5" />
                 )}
 
                 {/* Acquire & Grow */}
                 {sidebarConfig.acquireItems.length > 0 && (
-                  <div className="space-y-1">
+                  <div className="space-y-0.5">
                     {sidebarConfig.acquireItems.map((item) => {
                       const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
                       const Icon = item.Icon
@@ -270,14 +270,14 @@ export default function HamburgerMenu() {
                               setIsOpen(false)
                             }
                           }}
-                          className={`group flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-all duration-200 ${
+                          className={`group flex flex-col items-center justify-center py-1.5 px-1 rounded-lg transition-all duration-200 ${
                             isActive 
                               ? 'bg-orange-100 text-orange-600' 
                               : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                           }`}
                         >
-                          <Icon style={{ fontSize: '1.1rem' }} className={isActive ? 'text-orange-600' : ''} />
-                          <span className={`text-[10px] font-medium mt-1 leading-tight truncate w-full text-center ${
+                          <Icon style={{ fontSize: '1rem' }} className={isActive ? 'text-orange-600' : ''} />
+                          <span className={`text-[9px] font-medium mt-0.5 leading-tight truncate w-full text-center ${
                             isActive ? 'text-orange-600' : 'text-slate-500 group-hover:text-slate-700'
                           }`}>
                             {item.name}
@@ -290,12 +290,12 @@ export default function HamburgerMenu() {
 
                 {/* Separator */}
                 {sidebarConfig.acquireItems.length > 0 && sidebarConfig.adminItems.length > 0 && (
-                  <div className="h-px bg-slate-200/60 mx-2" />
+                  <div className="h-px bg-slate-200/60 mx-1.5" />
                 )}
 
                 {/* Admin-only (Assignments, etc.) */}
                 {sidebarConfig.adminItems.length > 0 && (
-                  <div className="space-y-1">
+                  <div className="space-y-0.5">
                     {sidebarConfig.adminItems.map((item) => {
                       const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
                       const Icon = item.Icon
@@ -308,14 +308,14 @@ export default function HamburgerMenu() {
                               setIsOpen(false)
                             }
                           }}
-                          className={`group flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-all duration-200 ${
+                          className={`group flex flex-col items-center justify-center py-1.5 px-1 rounded-lg transition-all duration-200 ${
                             isActive 
                               ? 'bg-purple-100 text-purple-600' 
                               : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                           }`}
                         >
-                          <Icon style={{ fontSize: '1.1rem' }} className={isActive ? 'text-purple-600' : ''} />
-                          <span className={`text-[10px] font-medium mt-1 leading-tight truncate w-full text-center ${
+                          <Icon style={{ fontSize: '1rem' }} className={isActive ? 'text-purple-600' : ''} />
+                          <span className={`text-[9px] font-medium mt-0.5 leading-tight truncate w-full text-center ${
                             isActive ? 'text-purple-600' : 'text-slate-500 group-hover:text-slate-700'
                           }`}>
                             {item.name}
@@ -331,8 +331,8 @@ export default function HamburgerMenu() {
 
           {/* Bottom Section - Settings */}
           {mounted && !loading && sidebarConfig.bottomItems.length > 0 && (
-            <div className="px-1.5 pb-2 pt-2 border-t border-slate-200/60">
-              <div className="space-y-1">
+            <div className="px-1 pb-1.5 pt-1 border-t border-slate-200/60">
+              <div className="space-y-0.5">
                 {sidebarConfig.bottomItems.map((item) => {
                   const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
                   const Icon = item.Icon
@@ -345,14 +345,14 @@ export default function HamburgerMenu() {
                           setIsOpen(false)
                         }
                       }}
-                      className={`group flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-all duration-200 ${
+                      className={`group flex flex-col items-center justify-center py-1.5 px-1 rounded-lg transition-all duration-200 ${
                         isActive 
                           ? 'bg-orange-100 text-orange-600' 
                           : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                       }`}
                     >
-                      <Icon style={{ fontSize: '1.1rem' }} className={isActive ? 'text-orange-600' : ''} />
-                      <span className={`text-[10px] font-medium mt-1 leading-tight truncate w-full text-center ${
+                      <Icon style={{ fontSize: '1rem' }} className={isActive ? 'text-orange-600' : ''} />
+                      <span className={`text-[9px] font-medium mt-0.5 leading-tight truncate w-full text-center ${
                         isActive ? 'text-orange-600' : 'text-slate-500 group-hover:text-slate-700'
                       }`}>
                         {item.name}
