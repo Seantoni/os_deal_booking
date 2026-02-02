@@ -229,6 +229,16 @@ async function checkEntityAssignment(
       return !!eventLead?.promoterBusiness?.salesReps?.length
     }
     
+    case 'lead': {
+      // Check if user is the responsible for this lead
+      const lead = await prisma.lead.findUnique({
+        where: { id: entityId },
+        select: { responsibleId: true },
+      })
+      
+      return profile.clerkId === lead?.responsibleId
+    }
+    
     default:
       return false
   }
@@ -374,6 +384,16 @@ export async function getAccessibleIds(
         }
         break
       }
+      
+      case 'lead': {
+        // Leads where user is the responsible
+        const leads = await prisma.lead.findMany({
+          where: { responsibleId: profile.clerkId },
+          select: { id: true },
+        })
+        leads.forEach(l => ids.add(l.id))
+        break
+      }
     }
     
     return Array.from(ids)
@@ -400,4 +420,153 @@ export async function buildAccessFilter(
   }
   
   return { id: { in: ids } }
+}
+
+/**
+ * Check if the current user can EDIT a specific business
+ * 
+ * Edit access is granted if:
+ * 1. User is admin or editor (can edit all)
+ * 2. User is assigned as a sales rep for this business
+ * 3. User has explicit EntityAccess grant with edit or manage level
+ * 
+ * Note: This is different from canAccessEntity which checks VIEW access.
+ * Sales users can VIEW all businesses but only EDIT assigned ones.
+ * 
+ * @param businessId - ID of the business to check
+ * @returns Object with canEdit boolean and reason
+ */
+export async function canEditBusiness(
+  businessId: string
+): Promise<{ canEdit: boolean; reason: string }> {
+  try {
+    // Check if user is admin or editor
+    const profile = await getUserProfile()
+    if (!profile) {
+      return { canEdit: false, reason: 'not_authenticated' }
+    }
+    
+    // Admin and editor can edit all businesses
+    if (profile.role === 'admin' || profile.role === 'editor') {
+      return { canEdit: true, reason: 'admin_or_editor' }
+    }
+    
+    // Check if user has explicit EntityAccess grant with edit/manage level
+    const allAccess = await prisma.entityAccess.findUnique({
+      where: {
+        userId_entityType_entityId: {
+          userId: profile.id,
+          entityType: 'business',
+          entityId: ALL_ENTITIES_ID,
+        },
+      },
+      select: {
+        accessLevel: true,
+        expiresAt: true,
+      },
+    })
+    
+    if (allAccess && (!allAccess.expiresAt || allAccess.expiresAt >= new Date())) {
+      const level = allAccess.accessLevel as AccessLevel
+      if (level === 'edit' || level === 'manage') {
+        return { canEdit: true, reason: 'entity_type_access' }
+      }
+    }
+    
+    // Check if user is the owner of this business
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: { ownerId: true },
+    })
+    
+    if (business?.ownerId === profile.clerkId) {
+      return { canEdit: true, reason: 'owner' }
+    }
+    
+    // Check if user is assigned as sales rep for this business
+    // salesRepId in BusinessSalesRep refers to UserProfile.clerkId
+    const assignment = await prisma.businessSalesRep.findFirst({
+      where: {
+        businessId,
+        salesRepId: profile.clerkId,
+      },
+    })
+    
+    if (assignment) {
+      return { canEdit: true, reason: 'assigned' }
+    }
+    
+    // Sales users can VIEW but not EDIT unassigned businesses
+    return { canEdit: false, reason: 'not_assigned' }
+  } catch (error) {
+    console.error('[entity-access] Error checking edit permission:', error)
+    return { canEdit: false, reason: 'error' }
+  }
+}
+
+/**
+ * Get business IDs that the current user can EDIT
+ * Returns null if user can edit all (admin/editor)
+ * 
+ * @returns Array of business IDs user can edit, or null if no restriction
+ */
+export async function getEditableBusinessIds(): Promise<string[] | null> {
+  try {
+    const profile = await getUserProfile()
+    if (!profile) {
+      return []
+    }
+    
+    // Admin and editor can edit all
+    if (profile.role === 'admin' || profile.role === 'editor') {
+      return null
+    }
+    
+    // Check if user has "all" access to businesses with edit/manage level
+    const allAccess = await prisma.entityAccess.findUnique({
+      where: {
+        userId_entityType_entityId: {
+          userId: profile.id,
+          entityType: 'business',
+          entityId: ALL_ENTITIES_ID,
+        },
+      },
+      select: {
+        accessLevel: true,
+        expiresAt: true,
+      },
+    })
+    
+    if (allAccess && (!allAccess.expiresAt || allAccess.expiresAt >= new Date())) {
+      const level = allAccess.accessLevel as AccessLevel
+      if (level === 'edit' || level === 'manage') {
+        return null // Can edit all
+      }
+    }
+    
+    // Get business IDs where user is owner OR assigned as sales rep
+    const [ownedBusinesses, assignments] = await Promise.all([
+      // Businesses where user is the owner
+      prisma.business.findMany({
+        where: { ownerId: profile.clerkId },
+        select: { id: true },
+      }),
+      // Businesses where user is assigned as sales rep
+      prisma.businessSalesRep.findMany({
+        where: { salesRepId: profile.clerkId },
+        select: { businessId: true },
+      }),
+    ])
+    
+    // Combine and deduplicate
+    const editableIds = new Set([
+      ...ownedBusinesses.map(b => b.id),
+      ...assignments.map(a => a.businessId),
+    ])
+    
+    return Array.from(editableIds)
+  } catch (error) {
+    console.error('[entity-access] Error getting editable business IDs:', error)
+    return []
+  }
 }

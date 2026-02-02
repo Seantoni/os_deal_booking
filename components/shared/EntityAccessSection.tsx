@@ -28,6 +28,7 @@ import EditIcon from '@mui/icons-material/Edit'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import CloseIcon from '@mui/icons-material/Close'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import PersonSearchIcon from '@mui/icons-material/PersonSearch'
 
 import { Button, Select, Input, Alert } from '@/components/ui'
 
@@ -44,7 +45,8 @@ const ENTITY_TYPES: { value: EntityType; label: string; icon: React.ReactNode; d
   { value: 'business', label: 'Negocios', icon: <BusinessIcon style={{ fontSize: 16 }} />, description: 'Acceso a todos los negocios' },
   { value: 'opportunity', label: 'Oportunidades', icon: <HandshakeIcon style={{ fontSize: 16 }} />, description: 'Acceso a todas las oportunidades' },
   { value: 'deal', label: 'Deals', icon: <ReceiptIcon style={{ fontSize: 16 }} />, description: 'Acceso a todos los deals' },
-  { value: 'eventLead', label: 'Event Leads', icon: <EventIcon style={{ fontSize: 16 }} />, description: 'Acceso a todos los event leads' },
+  { value: 'lead', label: 'Leads', icon: <PersonSearchIcon style={{ fontSize: 16 }} />, description: 'Acceso a todos los leads (CRM)' },
+  { value: 'eventLead', label: 'Leads Negocios', icon: <EventIcon style={{ fontSize: 16 }} />, description: 'Acceso a todos los leads de eventos' },
   { value: 'bookingRequest', label: 'Solicitudes', icon: <DescriptionIcon style={{ fontSize: 16 }} />, description: 'Acceso a todas las solicitudes' },
 ]
 

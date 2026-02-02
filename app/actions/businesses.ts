@@ -6,6 +6,7 @@ import { unstable_cache } from 'next/cache'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
 import { invalidateEntity } from '@/lib/cache'
 import { getUserRole, isAdmin } from '@/lib/auth/roles'
+import { getEditableBusinessIds, canEditBusiness } from '@/lib/auth/entity-access'
 import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
 import { logActivity } from '@/lib/activity-log'
 import { getTodayInPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
@@ -171,6 +172,11 @@ export async function getBusinesses() {
 /**
  * Get businesses with pagination (cacheable, <2MB per page)
  * Supports filtering by opportunity status (with-open, without-open)
+ * 
+ * NOTE: Sales users can VIEW all businesses but only EDIT assigned ones.
+ * The response includes `editableBusinessIds` which is either:
+ * - null: User can edit all businesses (admin/editor)
+ * - string[]: Array of business IDs the user can edit
  */
 export async function getBusinessesPaginated(options: {
   page?: number
@@ -181,6 +187,7 @@ export async function getBusinessesPaginated(options: {
   focusFilter?: string // 'all' | 'with-focus'
   activeDealFilter?: boolean // Filter to businesses with active deals
   salesRepId?: string // Filter by owner (admin quick filter) - named salesRepId for consistency with other pages
+  myBusinessesOnly?: boolean // Filter to show only businesses assigned to current user (for sales users)
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -190,17 +197,27 @@ export async function getBusinessesPaginated(options: {
 
   try {
     const role = await getUserRole()
-    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', opportunityFilter, focusFilter, activeDealFilter, salesRepId: ownerFilter } = options
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', opportunityFilter, focusFilter, activeDealFilter, salesRepId: ownerFilter, myBusinessesOnly } = options
 
     // Build where clause based on role
+    // Sales users can VIEW all businesses (no ownerId filter by default)
+    // They can only EDIT assigned ones (handled by editableBusinessIds)
     const whereClause: BusinessWhereClause = {}
     if (role === 'sales') {
-      whereClause.ownerId = userId
-      // Filter out businesses pending reassignment for sales reps
-      // Sales reps should not see businesses that have been flagged for reassignment
+      // Sales can view all businesses, but filter out those pending reassignment
       whereClause.reassignmentStatus = null
+      
+      // "My Businesses Only" filter - defaults to TRUE for sales users
+      // Only show all businesses if explicitly set to false
+      const showMyBusinessesOnly = myBusinessesOnly !== false
+      if (showMyBusinessesOnly) {
+        whereClause.OR = [
+          { ownerId: userId },
+          { salesReps: { some: { salesRepId: userId } } },
+        ]
+      }
     } else if (role === 'editor' || role === 'ere') {
-      return { success: true, data: [], total: 0, page, pageSize }
+      return { success: true, data: [], total: 0, page, pageSize, editableBusinessIds: [] as string[] }
     }
     // Admin sees all businesses (no reassignmentStatus filter)
     
@@ -349,6 +366,10 @@ export async function getBusinessesPaginated(options: {
       customFields: customFieldsByBusinessId.get(biz.id) || {},
     }))
 
+    // Get editable business IDs for this user
+    // null = can edit all (admin/editor), string[] = specific IDs user can edit
+    const editableBusinessIds = await getEditableBusinessIds()
+
     return { 
       success: true, 
       data: businessesWithCustomFields, 
@@ -356,6 +377,7 @@ export async function getBusinessesPaginated(options: {
       page, 
       pageSize,
       totalPages: Math.ceil(total / pageSize),
+      editableBusinessIds,
     }
   } catch (error) {
     return handleServerActionError(error, 'getBusinessesPaginated')
@@ -363,10 +385,34 @@ export async function getBusinessesPaginated(options: {
 }
 
 /**
+ * Get business IDs that the current user can edit
+ * Returns null if user can edit all (admin/editor), or array of editable IDs
+ * 
+ * Used by UI to determine which businesses should show edit controls
+ */
+export async function fetchEditableBusinessIds(): Promise<{
+  success: boolean
+  data?: string[] | null
+  error?: string
+}> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    const editableIds = await getEditableBusinessIds()
+    return { success: true, data: editableIds }
+  } catch (error) {
+    return handleServerActionError(error, 'fetchEditableBusinessIds')
+  }
+}
+
+/**
  * Get business counts by opportunity status (for filter tabs)
  * Returns: all, with-open (has open opportunities), without-open (no open opportunities), with-active-deal
  */
-export async function getBusinessCounts(filters?: { salesRepId?: string }) {
+export async function getBusinessCounts(filters?: { salesRepId?: string; myBusinessesOnly?: boolean }) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
     return authResult
@@ -377,9 +423,21 @@ export async function getBusinessCounts(filters?: { salesRepId?: string }) {
     const role = await getUserRole()
     
     // Build base where clause based on role
+    // Sales users can VIEW all businesses, so no ownerId filter needed for counts by default
     const baseWhere: Record<string, unknown> = {}
     if (role === 'sales') {
-      baseWhere.ownerId = userId
+      // Sales can view all businesses, but filter out those pending reassignment
+      baseWhere.reassignmentStatus = null
+      
+      // "My Businesses Only" filter - defaults to TRUE for sales users
+      // Only show all businesses if explicitly set to false
+      const showMyBusinessesOnly = filters?.myBusinessesOnly !== false
+      if (showMyBusinessesOnly) {
+        baseWhere.OR = [
+          { ownerId: userId },
+          { salesReps: { some: { salesRepId: userId } } },
+        ]
+      }
     } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: { all: 0, 'with-open': 0, 'without-open': 0, 'with-focus': 0, 'with-active-deal': 0 } }
     }
@@ -821,11 +879,14 @@ export async function updateBusinessFocus(
 /**
  * Search businesses across ALL records (server-side search)
  * Used when user types in search bar - searches name, contactName, contactEmail, contactPhone
+ * 
+ * NOTE: Sales users can VIEW all businesses but only EDIT assigned ones.
  */
 export async function searchBusinesses(query: string, options: {
   limit?: number
   salesRepId?: string // Filter by owner (admin quick filter) - named salesRepId for consistency
   activeDealFilter?: boolean // Filter to businesses with active deals
+  myBusinessesOnly?: boolean // Filter to show only businesses assigned to current user (for sales users)
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -835,22 +896,32 @@ export async function searchBusinesses(query: string, options: {
 
   try {
     const role = await getUserRole()
-    const { limit = 100, salesRepId: ownerFilter, activeDealFilter } = options
+    const { limit = 100, salesRepId: ownerFilter, activeDealFilter, myBusinessesOnly } = options
 
     if (!query || query.trim().length < 2) {
-      return { success: true, data: [] }
+      return { success: true, data: [], editableBusinessIds: null as string[] | null }
     }
 
     const searchTerm = query.trim()
 
     // Build where clause based on role
+    // Sales users can VIEW all businesses (no ownerId filter by default)
     const roleFilter: BusinessWhereClause = {}
     if (role === 'sales') {
-      roleFilter.ownerId = userId
-      // Filter out businesses pending reassignment
+      // Sales can view all businesses, but filter out those pending reassignment
       roleFilter.reassignmentStatus = null
+      
+      // "My Businesses Only" filter - defaults to TRUE for sales users
+      // Only show all businesses if explicitly set to false
+      const showMyBusinessesOnly = myBusinessesOnly !== false
+      if (showMyBusinessesOnly) {
+        roleFilter.OR = [
+          { ownerId: userId },
+          { salesReps: { some: { salesRepId: userId } } },
+        ]
+      }
     } else if (role === 'editor' || role === 'ere') {
-      return { success: true, data: [] }
+      return { success: true, data: [], editableBusinessIds: [] as string[] }
     }
     
     // Apply owner filter (admin quick filter)
@@ -959,7 +1030,10 @@ export async function searchBusinesses(query: string, options: {
       customFields: customFieldsByBusinessId.get(biz.id) || {},
     }))
 
-    return { success: true, data: businessesWithCustomFields }
+    // Get editable business IDs for this user
+    const editableBusinessIds = await getEditableBusinessIds()
+
+    return { success: true, data: businessesWithCustomFields, editableBusinessIds }
   } catch (error) {
     return handleServerActionError(error, 'searchBusinesses')
   }
@@ -1011,7 +1085,17 @@ export async function getBusiness(businessId: string) {
       return { success: false, error: 'Business not found' }
     }
 
-    return { success: true, data: business }
+    // Fetch owner profile if ownerId exists (no Prisma relation defined)
+    let owner: { name: string | null; email: string | null } | null = null
+    if (business.ownerId) {
+      const ownerProfile = await prisma.userProfile.findUnique({
+        where: { clerkId: business.ownerId },
+        select: { name: true, email: true },
+      })
+      owner = ownerProfile
+    }
+
+    return { success: true, data: { ...business, owner } }
   } catch (error) {
     return handleServerActionError(error, 'getBusiness')
   }
@@ -1246,6 +1330,16 @@ export async function updateBusiness(businessId: string, formData: FormData) {
   }
 
   try {
+    // Check if user can edit this business
+    // Sales users can VIEW all businesses but only EDIT assigned ones
+    const editPermission = await canEditBusiness(businessId)
+    if (!editPermission.canEdit) {
+      return { 
+        success: false, 
+        error: 'No tienes permiso para editar este negocio. Solo puedes editar negocios que te han sido asignados.' 
+      }
+    }
+
     // Fetch current business data for comparison
     const currentBusiness = await prisma.business.findUnique({
       where: { id: businessId },

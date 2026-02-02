@@ -35,6 +35,7 @@ interface BusinessTableRowProps {
   pendingRequestCount: number
   campaignCount: number
   isAdmin: boolean
+  canEdit: boolean // Whether user can edit this business
   
   // Callbacks
   onRowClick: (business: Business) => void
@@ -58,6 +59,7 @@ export function BusinessTableRow({
   pendingRequestCount,
   campaignCount,
   isAdmin,
+  canEdit,
   onRowClick,
   onRowHover,
   onToggleExpand,
@@ -236,6 +238,7 @@ export function BusinessTableRow({
             activeDealUrl={activeDealUrl}
             campaignCount={campaignCount}
             isAdmin={isAdmin}
+            canEdit={canEdit}
             onSetFocus={onSetFocus}
             onCreateOpportunity={onCreateOpportunity}
             onCreateRequest={onCreateRequest}

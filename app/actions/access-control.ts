@@ -868,7 +868,7 @@ export async function processInvitationOnSignup(clerkId: string, email: string) 
 // Grant specific users access to specific items regardless of role
 // =============================================================================
 
-export type EntityType = 'business' | 'opportunity' | 'deal' | 'eventLead' | 'bookingRequest'
+export type EntityType = 'business' | 'opportunity' | 'deal' | 'eventLead' | 'bookingRequest' | 'lead'
 export type AccessLevel = 'view' | 'edit' | 'manage'
 
 export interface EntityAccessRecord {
@@ -1366,6 +1366,35 @@ export async function searchEntitiesForAccess(
             id: r.id,
             name: r.name,
             subtitle: `${r.status} - ${r.merchant || r.businessEmail}`,
+          })),
+        }
+      }
+      
+      case 'lead': {
+        const leads = await prisma.lead.findMany({
+          where: query ? {
+            OR: [
+              { name: { contains: query, mode: 'insensitive' } },
+              { contactName: { contains: query, mode: 'insensitive' } },
+              { contactEmail: { contains: query, mode: 'insensitive' } },
+            ],
+          } : {},
+          select: {
+            id: true,
+            name: true,
+            contactName: true,
+            contactEmail: true,
+            stage: true,
+          },
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+        })
+        return {
+          success: true,
+          data: leads.map(l => ({
+            id: l.id,
+            name: l.name,
+            subtitle: `${l.stage} - ${l.contactName || l.contactEmail}`,
           })),
         }
       }

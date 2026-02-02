@@ -147,6 +147,7 @@ interface ModalFooterProps {
   additionalActions?: ReactNode
   leftContent?: ReactNode
   formId?: string // Custom form ID (default: 'modal-form')
+  hideSubmit?: boolean // Hide the submit button (for read-only modals)
 }
 
 export function ModalFooter({

@@ -123,11 +123,10 @@ async function searchBusinesses(searchTerm: string, isIdSearch: boolean, role: s
     orConditions.push({ osAdminVendorId: { contains: searchTerm, mode: 'insensitive' } })
   }
 
-  let where: Prisma.BusinessWhereInput = { OR: orConditions }
-
-  if (role === 'sales') {
-    where.ownerId = userId
-  }
+  const where: Prisma.BusinessWhereInput = { OR: orConditions }
+  
+  // NOTE: Sales users can VIEW all businesses (no ownerId filter)
+  // They can only EDIT assigned ones, which is enforced at the update action level
 
   const businesses = await prisma.business.findMany({
     where,

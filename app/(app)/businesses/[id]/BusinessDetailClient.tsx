@@ -31,11 +31,13 @@ const BookingRequestViewModal = dynamic(() => import('@/components/booking/reque
   loading: () => <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"><div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div></div>,
   ssr: false,
 })
+import LockIcon from '@mui/icons-material/Lock'
 import OpportunitiesSection from '@/components/crm/business/OpportunitiesSection'
 import RequestsSection from '@/components/crm/business/RequestsSection'
 import DealMetricsSection from '@/components/crm/business/DealMetricsSection'
 import { getOpportunitiesByBusiness } from '@/app/actions/crm'
 import { getRequestsByBusiness } from '@/app/actions/booking-requests'
+import { fetchEditableBusinessIds } from '@/app/actions/businesses'
 import type { Business, Opportunity, BookingRequest } from '@/types'
 
 function InfoRow({ label, value, icon, isLink, href }: { label: string; value?: string | null; icon?: React.ReactNode; isLink?: boolean; href?: string }) {
@@ -102,11 +104,33 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [requests, setRequests] = useState<BookingRequest[]>([])
   const [loadingData, setLoadingData] = useState(true)
+  
+  // Track if user can edit this business
+  // null = loading, true = can edit, false = view only
+  const [canEdit, setCanEdit] = useState<boolean | null>(null)
 
   // Initialize tab from URL param or default to 'pipeline'
   const tabParam = searchParams.get('tab')
   const initialTab = (tabParam === 'metrics' || tabParam === 'details') ? tabParam : 'pipeline'
   const [activeTab, setActiveTab] = useState<'pipeline' | 'metrics' | 'details'>(initialTab)
+  
+  // Fetch edit permissions on mount
+  useEffect(() => {
+    fetchEditableBusinessIds().then(result => {
+      if (result.success && result.data !== undefined) {
+        // null means can edit all, otherwise check if this business ID is in the list
+        const editableIds = result.data
+        if (editableIds === null) {
+          setCanEdit(true)
+        } else {
+          setCanEdit(editableIds.includes(initialBusiness.id))
+        }
+      } else {
+        // On error, default to no edit permission
+        setCanEdit(false)
+      }
+    })
+  }, [initialBusiness.id])
 
   const handleEditSuccess = (updatedBusiness: Business) => {
     setBusiness(updatedBusiness)
@@ -263,6 +287,15 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
                 }`}>
                   {business.sourceType === 'api' ? 'API' : 'Manual'}
                 </span>
+                {/* Owner badge */}
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded ${
+                  business.owner?.name || business.owner?.email
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'bg-gray-100 text-gray-500'
+                }`}>
+                  <PersonIcon style={{ fontSize: 10 }} />
+                  {business.owner?.name || business.owner?.email || 'Sin asignar'}
+                </span>
                 {business.metrics?.net_rev_360_days !== undefined && (
                   <span className="px-1.5 py-0.5 text-[10px] font-mono font-medium bg-emerald-100 text-emerald-700 rounded">
                     {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(business.metrics.net_rev_360_days)}
@@ -296,18 +329,31 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
               />
             </div>
           )}
+          
+          {/* Read-only indicator */}
+          {canEdit === false && (
+            <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
+              <LockIcon style={{ fontSize: 12 }} />
+              <span className="hidden sm:inline">Solo lectura</span>
+            </span>
+          )}
+          
           <Button
             onClick={() => setIsOpportunityModalOpen(true)}
-              size="xs"
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+            disabled={canEdit === false || canEdit === null}
+            size="xs"
+            className={canEdit === false ? 'opacity-50 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}
+            title={canEdit === false ? 'Sin permiso de edición' : 'Crear Oportunidad'}
           >
               <AddIcon style={{ fontSize: 14 }} />
               <span className="hidden sm:inline ml-1">Opportunity</span>
           </Button>
           <Button
             onClick={handleCreateRequest}
-              size="xs"
-              className="bg-green-600 hover:bg-green-700 text-white"
+            disabled={canEdit === false || canEdit === null}
+            size="xs"
+            className={canEdit === false ? 'opacity-50 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}
+            title={canEdit === false ? 'Sin permiso de edición' : 'Crear Solicitud'}
           >
               <DescriptionIcon style={{ fontSize: 14 }} />
               <span className="hidden sm:inline ml-1">Request</span>
@@ -315,10 +361,11 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
           <Button
             onClick={() => setIsEditModalOpen(true)}
             variant="secondary"
-              size="xs"
+            size="xs"
+            title={canEdit === false ? 'Ver detalles (solo lectura)' : 'Editar'}
           >
               <EditIcon style={{ fontSize: 14 }} />
-              <span className="hidden sm:inline ml-1">Edit</span>
+              <span className="hidden sm:inline ml-1">{canEdit === false ? 'Ver' : 'Edit'}</span>
           </Button>
           </div>
         </div>
@@ -445,6 +492,7 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
         onClose={() => setIsEditModalOpen(false)}
         business={business}
         onSuccess={handleEditSuccess}
+        canEdit={canEdit ?? false}
       />
 
       {/* Opportunity Modal */}

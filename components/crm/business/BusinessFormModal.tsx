@@ -63,6 +63,9 @@ interface BusinessFormModalProps {
   // Pre-loaded data to skip fetching (passed from parent page)
   preloadedCategories?: Category[]
   preloadedUsers?: UserData[]
+  // Read-only mode for viewing without edit permission
+  // Sales users can VIEW all businesses but only EDIT assigned ones
+  canEdit?: boolean
 }
 
 export default function BusinessFormModal({ 
@@ -72,6 +75,7 @@ export default function BusinessFormModal({
   onSuccess,
   preloadedCategories,
   preloadedUsers,
+  canEdit = true, // Default to true for backwards compatibility
 }: BusinessFormModalProps) {
   // CreateResult type - existingBusiness uses Record for flexibility with Prisma's return type
   type CreateResult = {
@@ -899,13 +903,14 @@ export default function BusinessFormModal({
       footer={
         <ModalFooter
           onCancel={onClose}
-          submitLabel={shouldShowSyncButton ? 'Guardar y Sincronizar' : 'Guardar'}
+          cancelLabel={canEdit ? 'Cancelar' : 'Cerrar'}
+          submitLabel={canEdit ? (shouldShowSyncButton ? 'Guardar y Sincronizar' : 'Guardar') : undefined}
           submitLoading={loading || loadingData || dynamicForm.loading || (shouldShowSyncButton && syncLoading)}
           submitDisabled={loading || loadingData || dynamicForm.loading || (shouldShowSyncButton && syncLoading)}
-          leftContent="* Campos requeridos"
+          leftContent={canEdit ? '* Campos requeridos' : undefined}
           formId="business-modal-form"
           additionalActions={
-            !business ? (
+            canEdit && !business ? (
               <Button
                 type="button"
                 onClick={handleCreateBusinessAndOpportunity}
@@ -921,6 +926,15 @@ export default function BusinessFormModal({
       }
     >
       <form id="business-modal-form" onSubmit={handleSubmit} className="bg-gray-50 min-h-[500px] flex flex-col">
+            {/* Read-only mode banner */}
+            {!canEdit && business && (
+              <div className="mx-6 mt-4">
+                <Alert variant="info" icon={<LockIcon fontSize="small" />}>
+                  <span className="font-medium">Modo de solo lectura.</span> Solo puedes ver este negocio porque no está asignado a ti.
+                </Alert>
+              </div>
+            )}
+
             {error && (
               <div className="mx-6 mt-4">
                 <Alert variant="error" icon={<ErrorOutlineIcon fontSize="small" />}>
@@ -988,12 +1002,12 @@ export default function BusinessFormModal({
                     section={section}
                     values={allFormValues}
                     onChange={dynamicForm.setValue}
-                    disabled={loading}
+                    disabled={loading || !canEdit}
                     categories={categoryOptions}
                     users={userOptions}
                     categoryDisplayMode="parentOnly"
-                    fieldOverrides={fieldOverrides}
-                    fieldAddons={fieldAddons}
+                    fieldOverrides={canEdit ? fieldOverrides : undefined}
+                    fieldAddons={canEdit ? fieldAddons : undefined}
                       defaultExpanded={!shouldCollapse}
                     collapsible={true}
                   />

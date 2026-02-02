@@ -23,6 +23,7 @@ interface BusinessActionButtonsProps {
   activeDealUrl: string | undefined
   campaignCount: number
   isAdmin: boolean
+  canEdit: boolean // Whether user can edit this business (false for unassigned sales users)
   onSetFocus: (business: Business) => void
   onCreateOpportunity: (business: Business) => void
   onCreateRequest: (business: Business) => void
@@ -36,6 +37,7 @@ export function BusinessActionButtons({
   activeDealUrl,
   campaignCount,
   isAdmin,
+  canEdit,
   onSetFocus,
   onCreateOpportunity,
   onCreateRequest,
@@ -46,7 +48,7 @@ export function BusinessActionButtons({
 
   return (
     <div className="flex items-center justify-end gap-1">
-      {/* Active Deal Link - only show if business has active deal */}
+      {/* Active Deal Link - only show if business has active deal (always visible) */}
       {activeDealUrl && (
         <a
           href={activeDealUrl}
@@ -60,39 +62,50 @@ export function BusinessActionButtons({
         </a>
       )}
       
-      {/* Focus Button */}
+      {/* Focus Button - only if canEdit */}
       <button
-        onClick={() => onSetFocus(business)}
+        onClick={() => canEdit && onSetFocus(business)}
+        disabled={!canEdit}
         className={`p-1.5 rounded transition-colors ${
-          activeFocus 
-            ? 'bg-amber-100 text-amber-600 hover:bg-amber-200' 
-            : 'hover:bg-amber-50 text-gray-400 hover:text-amber-600'
+          !canEdit 
+            ? 'opacity-30 cursor-not-allowed text-gray-300'
+            : activeFocus 
+              ? 'bg-amber-100 text-amber-600 hover:bg-amber-200' 
+              : 'hover:bg-amber-50 text-gray-400 hover:text-amber-600'
         }`}
-        title={activeFocus ? `Foco: ${FOCUS_PERIOD_LABELS[activeFocus]}` : 'Establecer Foco'}
+        title={!canEdit ? 'Sin permiso de edición' : (activeFocus ? `Foco: ${FOCUS_PERIOD_LABELS[activeFocus]}` : 'Establecer Foco')}
       >
         <CenterFocusStrongIcon style={{ fontSize: 18 }} />
       </button>
       
-      {/* Campaign Button (Admin only) */}
+      {/* Campaign Button (Admin only) - only if canEdit */}
       {isAdmin && (
         <button
-          onClick={() => onOpenCampaignModal(business)}
+          onClick={() => canEdit && onOpenCampaignModal(business)}
+          disabled={!canEdit}
           className={`p-1.5 rounded transition-colors ${
-            campaignCount > 0
-              ? 'bg-blue-100 text-blue-600 hover:bg-blue-200'
-              : 'hover:bg-blue-50 text-gray-400 hover:text-blue-600'
+            !canEdit
+              ? 'opacity-30 cursor-not-allowed text-gray-300'
+              : campaignCount > 0
+                ? 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                : 'hover:bg-blue-50 text-gray-400 hover:text-blue-600'
           }`}
-          title="Añadir a Campaña"
+          title={!canEdit ? 'Sin permiso de edición' : 'Añadir a Campaña'}
         >
           <CampaignIcon style={{ fontSize: 18 }} />
         </button>
       )}
       
-      {/* Reassignment Action Button */}
+      {/* Reassignment Action Button - only if canEdit */}
       <button
-        onClick={() => onOpenReassignmentModal(business)}
-        className="p-1.5 rounded hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 transition-colors"
-        title="Acción (Reasignar/Sacar/Recurrente)"
+        onClick={() => canEdit && onOpenReassignmentModal(business)}
+        disabled={!canEdit}
+        className={`p-1.5 rounded transition-colors ${
+          !canEdit
+            ? 'opacity-30 cursor-not-allowed text-gray-300'
+            : 'hover:bg-indigo-50 text-gray-400 hover:text-indigo-600'
+        }`}
+        title={!canEdit ? 'Sin permiso de edición' : 'Acción (Reasignar/Sacar/Recurrente)'}
       >
         <SwapHorizIcon style={{ fontSize: 18 }} />
       </button>
@@ -100,20 +113,30 @@ export function BusinessActionButtons({
       {/* Vertical Divider */}
       <div className="h-5 w-px bg-gray-300 mx-1" />
 
-      {/* Create Opportunity */}
+      {/* Create Opportunity - only if canEdit */}
       <button
-        onClick={() => onCreateOpportunity(business)}
-        className="p-1.5 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
-        title="Create Opportunity"
+        onClick={() => canEdit && onCreateOpportunity(business)}
+        disabled={!canEdit}
+        className={`p-1.5 rounded transition-colors ${
+          !canEdit
+            ? 'opacity-30 cursor-not-allowed text-gray-300'
+            : 'hover:bg-blue-50 text-gray-400 hover:text-blue-600'
+        }`}
+        title={!canEdit ? 'Sin permiso de edición' : 'Create Opportunity'}
       >
         <HandshakeIcon style={{ fontSize: 18 }} />
       </button>
       
-      {/* Create Request */}
+      {/* Create Request - only if canEdit */}
       <button
-        onClick={() => onCreateRequest(business)}
-        className="p-1.5 rounded hover:bg-green-50 text-gray-400 hover:text-green-600 transition-colors"
-        title="Create Request"
+        onClick={() => canEdit && onCreateRequest(business)}
+        disabled={!canEdit}
+        className={`p-1.5 rounded transition-colors ${
+          !canEdit
+            ? 'opacity-30 cursor-not-allowed text-gray-300'
+            : 'hover:bg-green-50 text-gray-400 hover:text-green-600'
+        }`}
+        title={!canEdit ? 'Sin permiso de edición' : 'Create Request'}
       >
         <DescriptionIcon style={{ fontSize: 18 }} />
       </button>
@@ -121,7 +144,7 @@ export function BusinessActionButtons({
       {/* Vertical Divider */}
       <div className="h-5 w-px bg-gray-300 mx-1" />
       
-      {/* Open Full Page */}
+      {/* Open Full Page - always enabled (view-only is fine) */}
       <button
         onClick={() => router.push(`/businesses/${business.id}`)}
         className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600 transition-colors"

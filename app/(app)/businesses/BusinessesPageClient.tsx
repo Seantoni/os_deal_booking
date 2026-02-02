@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { deleteBusiness } from '@/app/actions/crm'
-import { getBusinessesPaginated, searchBusinesses, getBusinessCounts, getBusinessTableCounts } from '@/app/actions/businesses'
+import { getBusinessesPaginated, searchBusinesses, getBusinessCounts, getBusinessTableCounts, fetchEditableBusinessIds } from '@/app/actions/businesses'
 import type { Business } from '@/types'
 import AddIcon from '@mui/icons-material/Add'
 import FilterListIcon from '@mui/icons-material/FilterList'
@@ -123,6 +123,30 @@ export default function BusinessesPageClient({
   const isAdmin = userRole === 'admin'
   const confirmDialog = useConfirmDialog()
   
+  // Track which businesses the current user can edit
+  // null = can edit all (admin/editor), string[] = specific IDs
+  const [editableBusinessIds, setEditableBusinessIds] = useState<string[] | null>(null)
+  const editableIdsLoadedRef = useRef(false)
+  
+  // Fetch editable business IDs on mount
+  useEffect(() => {
+    if (editableIdsLoadedRef.current) return
+    editableIdsLoadedRef.current = true
+    
+    fetchEditableBusinessIds().then(result => {
+      if (result.success) {
+        setEditableBusinessIds(result.data ?? null)
+      }
+    })
+  }, [])
+  
+  // Helper to check if user can edit a specific business
+  const canEditBusiness = useCallback((businessId: string): boolean => {
+    // null means can edit all (admin/editor)
+    if (editableBusinessIds === null) return true
+    return editableBusinessIds.includes(businessId)
+  }, [editableBusinessIds])
+  
   // Shared data for categories and users
   const { categories, users } = useSharedData()
   
@@ -205,6 +229,18 @@ export default function BusinessesPageClient({
     } else {
       updateFilter('activeDealFilter', undefined)
     }
+  }, [updateFilter])
+  
+  // "My Businesses Only" filter - for sales users to filter to their assigned businesses
+  // Server defaults to TRUE for sales users, so undefined means "my businesses"
+  // Only when explicitly set to false will it show all businesses
+  const isSalesUser = userRole === 'sales'
+  const myBusinessesOnly = isSalesUser 
+    ? (filters.myBusinessesOnly !== false) // Default true for sales, false only when explicitly set
+    : false
+  const setMyBusinessesOnly = useCallback((enabled: boolean) => {
+    // For sales users: true = show my businesses (default), false = show all
+    updateFilter('myBusinessesOnly', enabled ? undefined : false)
   }, [updateFilter])
 
   // Handle opening business from URL query params or sessionStorage
@@ -431,6 +467,18 @@ export default function BusinessesPageClient({
     />
   ) : undefined
 
+  // "My Businesses Only" toggle button (for sales users)
+  const myBusinessesToggle = isSalesUser ? (
+    <Button
+      onClick={() => setMyBusinessesOnly(!myBusinessesOnly)}
+      variant={myBusinessesOnly ? "primary" : "secondary"}
+      size="sm"
+      className="flex-shrink-0"
+    >
+      Mis Negocios
+    </Button>
+  ) : null
+  
   // Active deal toggle button
   const activeDealToggle = (
     <Button
@@ -558,7 +606,12 @@ export default function BusinessesPageClient({
             }}
             isAdmin={isAdmin}
             userFilter={userFilter}
-            beforeFilters={activeDealToggle}
+            beforeFilters={
+              <div className="flex items-center gap-2">
+                {myBusinessesToggle}
+                {activeDealToggle}
+              </div>
+            }
             rightContent={headerRightContent}
             {...advancedFilterProps}
           />
@@ -626,6 +679,7 @@ export default function BusinessesPageClient({
                       pendingRequestCount={businessPendingRequestCount.get(business.name.toLowerCase()) || 0}
                       campaignCount={businessCampaignCounts[business.id] || 0}
                       isAdmin={isAdmin}
+                      canEdit={canEditBusiness(business.id)}
                       onRowClick={(b) => pageState.openBusinessModal(b)}
                       onRowHover={handleRowHover}
                       onToggleExpand={pageState.toggleExpandBusiness}
@@ -667,6 +721,7 @@ export default function BusinessesPageClient({
         }}
         preloadedCategories={categories}
         preloadedUsers={users}
+        canEdit={pageState.selectedBusiness ? canEditBusiness(pageState.selectedBusiness.id) : true}
       />
 
       {/* Opportunity Modal */}
