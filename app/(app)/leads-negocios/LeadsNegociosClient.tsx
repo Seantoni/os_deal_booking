@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { 
   getEventLeads, 
   getEventLeadStats,
@@ -16,6 +17,7 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import DownloadIcon from '@mui/icons-material/Download'
+import StorefrontIcon from '@mui/icons-material/Storefront'
 import { Button } from '@/components/ui'
 import { EntityTable, StatusPill, TableRow, TableCell } from '@/components/shared/table'
 import { EmptyTableState, type ColumnConfig } from '@/components/shared'
@@ -23,6 +25,15 @@ import ModalShell from '@/components/shared/ModalShell'
 import toast from 'react-hot-toast'
 import { formatCompactDateTime, getTodayInPanama, formatDateForPanama } from '@/lib/date'
 import { exportEventLeadsToCsv } from './csv-export'
+import { PromoterBusinessSelect } from './components/PromoterBusinessSelect'
+import { getBusiness } from '@/app/actions/businesses'
+import type { Business } from '@/types'
+
+// Lazy load business modal
+const BusinessFormModal = dynamic(() => import('@/components/crm/business/BusinessFormModal'), {
+  loading: () => null,
+  ssr: false,
+})
 
 type SortField = 'eventName' | 'eventDate' | 'eventPlace' | 'promoter' | 'sourceSite' | 'firstSeenAt' | 'lastScannedAt'
 
@@ -176,7 +187,7 @@ const COLUMNS: ColumnConfig[] = [
   { key: 'eventPlace', label: 'Lugar', sortable: true },
   { key: 'promoter', label: 'Promotor', sortable: true },
   { key: 'lastScannedAt', label: 'Actualizado', sortable: true, width: 'w-28' },
-  { key: 'actions', label: '', align: 'center', width: 'w-14' },
+  { key: 'actions', label: '', align: 'center', width: 'w-20' },
 ]
 
 interface ScanProgress {
@@ -228,6 +239,11 @@ export default function LeadsNegociosClient() {
   // Export dropdown state
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [exporting, setExporting] = useState(false)
+  
+  // Business modal state
+  const [businessModalOpen, setBusinessModalOpen] = useState(false)
+  const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null)
+  const [loadingBusiness, setLoadingBusiness] = useState(false)
   
   const loadEvents = useCallback(async () => {
     setLoading(true)
@@ -427,6 +443,40 @@ export default function LeadsNegociosClient() {
       case 'panatickets': return 'Panatickets'
       default: return site
     }
+  }
+  
+  // Handler for opening business modal from event lead
+  const handleOpenBusiness = async (event: EventLeadWithStats) => {
+    if (!event.promoterBusinessId) {
+      toast.error('Primero selecciona un negocio promotor')
+      return
+    }
+    
+    setLoadingBusiness(true)
+    try {
+      const result = await getBusiness(event.promoterBusinessId)
+      if (result.success && result.data) {
+        setSelectedBusiness(result.data as Business)
+        setBusinessModalOpen(true)
+      } else {
+        toast.error('No se pudo cargar el negocio')
+      }
+    } catch {
+      toast.error('Error al cargar el negocio')
+    } finally {
+      setLoadingBusiness(false)
+    }
+  }
+  
+  const handleBusinessModalClose = () => {
+    setBusinessModalOpen(false)
+    setSelectedBusiness(null)
+  }
+  
+  const handleBusinessSuccess = () => {
+    setBusinessModalOpen(false)
+    setSelectedBusiness(null)
+    loadEvents() // Refresh to show any updates
   }
   
   return (
@@ -675,22 +725,46 @@ export default function LeadsNegociosClient() {
                         {event.eventPlace || <span className="text-gray-400">-</span>}
                       </div>
                     </TableCell>
-                    <TableCell className="text-[13px] text-gray-600">
-                      {event.promoter || <span className="text-gray-400">-</span>}
+                    <TableCell className="text-[13px]">
+                      <PromoterBusinessSelect
+                        eventId={event.id}
+                        promoterBusinessId={event.promoterBusinessId}
+                        promoterBusinessName={event.promoterBusiness?.name ?? null}
+                        onSuccess={loadEvents}
+                      />
+                      {event.promoter && !event.promoterBusiness && (
+                        <div className="text-[11px] text-gray-400 truncate mt-0.5" title={event.promoter}>
+                          (scraped: {event.promoter})
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-[13px] text-gray-500">
                       {formatCompactDateTime(event.lastScannedAt)}
                     </TableCell>
                     <TableCell align="center">
-                      <a
-                        href={event.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition-colors"
-                        title="Ver Evento"
-                      >
-                        <OpenInNewIcon style={{ fontSize: '1rem' }} />
-                      </a>
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => handleOpenBusiness(event)}
+                          disabled={loadingBusiness || !event.promoterBusinessId}
+                          className={`inline-flex items-center justify-center w-7 h-7 rounded transition-colors ${
+                            event.promoterBusinessId 
+                              ? 'hover:bg-blue-50 text-gray-400 hover:text-blue-600' 
+                              : 'text-gray-300 cursor-not-allowed'
+                          } ${loadingBusiness ? 'opacity-50' : ''}`}
+                          title={event.promoterBusinessId ? 'Ver Negocio' : 'Selecciona un promotor primero'}
+                        >
+                          <StorefrontIcon style={{ fontSize: '1rem' }} />
+                        </button>
+                        <a
+                          href={event.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Ver en sitio"
+                        >
+                          <OpenInNewIcon style={{ fontSize: '1rem' }} />
+                        </a>
+                      </div>
                     </TableCell>
                   </TableRow>
                 )
@@ -744,6 +818,16 @@ export default function LeadsNegociosClient() {
           parseEventDate={parseEventDate}
         />
       </ModalShell>
+      
+      {/* Business Modal */}
+      {businessModalOpen && selectedBusiness && (
+        <BusinessFormModal
+          isOpen={businessModalOpen}
+          onClose={handleBusinessModalClose}
+          business={selectedBusiness}
+          onSuccess={handleBusinessSuccess}
+        />
+      )}
     </div>
   )
 }

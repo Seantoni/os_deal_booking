@@ -32,6 +32,8 @@ export interface EventLeadWithStats {
   eventDate: string | null
   eventPlace: string | null
   promoter: string | null
+  promoterBusinessId: string | null
+  promoterBusiness: { id: string; name: string } | null
   imageUrl: string | null
   price: string | null
   status: string
@@ -64,6 +66,38 @@ interface GetEventLeadsResult {
 async function checkAdminAccess(): Promise<boolean> {
   const role = await getUserRole()
   return role === 'admin'
+}
+
+/**
+ * Get businesses for promoter dropdown (admin only)
+ * Returns id and name for compact select
+ */
+export async function getBusinessesForPromoterSelect(
+  search?: string,
+  limit = 50
+): Promise<{ success: boolean; data?: { id: string; name: string }[]; error?: string }> {
+  const isAdmin = await checkAdminAccess()
+  if (!isAdmin) {
+    return { success: false, data: [], error: 'Unauthorized' }
+  }
+
+  try {
+    const where = search && search.trim().length >= 2
+      ? { name: { contains: search.trim(), mode: 'insensitive' as const } }
+      : {}
+
+    const businesses = await prisma.business.findMany({
+      where,
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+      take: limit,
+    })
+
+    return { success: true, data: businesses }
+  } catch (error) {
+    console.error('Failed to fetch businesses for promoter select:', error)
+    return { success: false, data: [], error: error instanceof Error ? error.message : 'Fetch failed' }
+  }
 }
 
 // Valid database columns that can be used in Prisma orderBy
@@ -137,10 +171,15 @@ export async function getEventLeads(params: GetEventLeadsParams = {}): Promise<G
     orderBy: { [validSortBy]: sortOrder },
     skip: (page - 1) * pageSize,
     take: pageSize,
+    include: {
+      promoterBusiness: {
+        select: { id: true, name: true },
+      },
+    },
   })
   
   // Map to response type
-  const eventsWithStats: EventLeadWithStats[] = events.map((event: EventLead) => ({
+  const eventsWithStats: EventLeadWithStats[] = events.map((event) => ({
     id: event.id,
     sourceUrl: event.sourceUrl,
     sourceSite: event.sourceSite,
@@ -148,6 +187,8 @@ export async function getEventLeads(params: GetEventLeadsParams = {}): Promise<G
     eventDate: event.eventDate,
     eventPlace: event.eventPlace,
     promoter: event.promoter,
+    promoterBusinessId: event.promoterBusinessId,
+    promoterBusiness: event.promoterBusiness ? { id: event.promoterBusiness.id, name: event.promoterBusiness.name } : null,
     imageUrl: event.imageUrl,
     price: event.price,
     status: event.status,
@@ -175,6 +216,11 @@ export async function getEventLead(eventId: string): Promise<EventLeadWithStats 
   
   const event = await prisma.eventLead.findUnique({
     where: { id: eventId },
+    include: {
+      promoterBusiness: {
+        select: { id: true, name: true },
+      },
+    },
   })
   
   if (!event) {
@@ -189,11 +235,38 @@ export async function getEventLead(eventId: string): Promise<EventLeadWithStats 
     eventDate: event.eventDate,
     eventPlace: event.eventPlace,
     promoter: event.promoter,
+    promoterBusinessId: event.promoterBusinessId,
+    promoterBusiness: event.promoterBusiness ? { id: event.promoterBusiness.id, name: event.promoterBusiness.name } : null,
     imageUrl: event.imageUrl,
     price: event.price,
     status: event.status,
     firstSeenAt: event.firstSeenAt,
     lastScannedAt: event.lastScannedAt,
+  }
+}
+
+/**
+ * Update event lead's promoter business
+ */
+export async function updateEventLeadPromoterBusiness(
+  eventId: string,
+  businessId: string | null
+): Promise<{ success: boolean; error?: string }> {
+  const isAdmin = await checkAdminAccess()
+  if (!isAdmin) {
+    return { success: false, error: 'Unauthorized' }
+  }
+
+  try {
+    await prisma.eventLead.update({
+      where: { id: eventId },
+      data: { promoterBusinessId: businessId },
+    })
+    revalidatePath('/leads-negocios')
+    return { success: true }
+  } catch (error) {
+    console.error('Failed to update event lead promoter:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Update failed' }
   }
 }
 
@@ -308,9 +381,14 @@ export async function searchEventLeads(
     where,
     orderBy: { lastScannedAt: 'desc' },
     take: limit,
+    include: {
+      promoterBusiness: {
+        select: { id: true, name: true },
+      },
+    },
   })
   
-  return events.map((event: EventLead) => ({
+  return events.map((event) => ({
     id: event.id,
     sourceUrl: event.sourceUrl,
     sourceSite: event.sourceSite,
@@ -318,6 +396,8 @@ export async function searchEventLeads(
     eventDate: event.eventDate,
     eventPlace: event.eventPlace,
     promoter: event.promoter,
+    promoterBusinessId: event.promoterBusinessId,
+    promoterBusiness: event.promoterBusiness ? { id: event.promoterBusiness.id, name: event.promoterBusiness.name } : null,
     imageUrl: event.imageUrl,
     price: event.price,
     status: event.status,
@@ -362,9 +442,14 @@ export async function getAllEventLeadsForExport(params: {
   const events = await prisma.eventLead.findMany({
     where,
     orderBy: { lastScannedAt: 'desc' },
+    include: {
+      promoterBusiness: {
+        select: { id: true, name: true },
+      },
+    },
   })
 
-  return events.map((event: EventLead) => ({
+  return events.map((event) => ({
     id: event.id,
     sourceUrl: event.sourceUrl,
     sourceSite: event.sourceSite,
@@ -372,6 +457,8 @@ export async function getAllEventLeadsForExport(params: {
     eventDate: event.eventDate,
     eventPlace: event.eventPlace,
     promoter: event.promoter,
+    promoterBusinessId: event.promoterBusinessId,
+    promoterBusiness: event.promoterBusiness ? { id: event.promoterBusiness.id, name: event.promoterBusiness.name } : null,
     imageUrl: event.imageUrl,
     price: event.price,
     status: event.status,

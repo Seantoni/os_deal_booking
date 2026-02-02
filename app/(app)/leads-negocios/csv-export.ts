@@ -105,7 +105,8 @@ export const CSV_EXPORT_COLUMNS = [
     return days !== null ? days : ''
   }},
   { key: 'eventPlace', label: 'Lugar', getValue: (e: EventLeadWithStats) => e.eventPlace || '' },
-  { key: 'promoter', label: 'Promotor', getValue: (e: EventLeadWithStats) => e.promoter || '' },
+  { key: 'promoter', label: 'Promotor (scraped)', getValue: (e: EventLeadWithStats) => e.promoter || '' },
+  { key: 'promoterBusiness', label: 'Promotor (asignado)', getValue: (e: EventLeadWithStats) => e.promoterBusiness?.name || '' },
   { key: 'status', label: 'Status', getValue: (e: EventLeadWithStats) => e.status },
   { key: 'sourceUrl', label: 'URL', getValue: (e: EventLeadWithStats) => e.sourceUrl },
   { key: 'firstSeenAt', label: 'Primera Vez Visto', getValue: (e: EventLeadWithStats) => formatDateForCsv(e.firstSeenAt) },
