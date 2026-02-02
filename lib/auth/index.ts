@@ -35,3 +35,11 @@ export {
   checkEmailAccessMiddleware,
 } from './middleware-check'
 
+// Entity-level access control
+export {
+  canAccessEntity,
+  getAccessibleIds,
+  buildAccessFilter,
+} from './entity-access'
+export type { EntityType, AccessLevel } from './entity-access'
+

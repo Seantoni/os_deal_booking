@@ -130,6 +130,7 @@ model UserProfile {
   updatedAt       DateTime           @updatedAt
   isActive        Boolean            @default(true)
   businessReps    BusinessSalesRep[]
+  entityAccess    EntityAccess[]     // Items this user has been granted access to
 
   @@index([clerkId])
   @@index([email])
@@ -851,4 +852,26 @@ model ProvDistCorr {
   createdAt DateTime @default(now())
   
   @@map("prov_dist_corr")
+}
+
+// Item-level access control - grants specific users access to specific entities
+// regardless of their role. Works across: business, opportunity, deal, eventLead, etc.
+model EntityAccess {
+  id          String    @id @default(cuid())
+  userId      String    // UserProfile.id of user who has access
+  entityType  String    // 'business' | 'opportunity' | 'deal' | 'eventLead' | 'bookingRequest'
+  entityId    String    // ID of the specific item
+  accessLevel String    @default("view") // 'view' | 'edit' | 'manage'
+  grantedBy   String    // UserProfile.id of admin who granted access
+  grantedAt   DateTime  @default(now())
+  expiresAt   DateTime? // Optional expiration date
+  notes       String?   // Why access was granted
+  
+  user        UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, entityType, entityId])
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("entity_access")
 }

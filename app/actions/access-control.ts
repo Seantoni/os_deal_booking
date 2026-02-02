@@ -863,3 +863,355 @@ export async function processInvitationOnSignup(clerkId: string, email: string) 
   }
 }
 
+// =============================================================================
+// ENTITY-LEVEL ACCESS CONTROL
+// Grant specific users access to specific items regardless of role
+// =============================================================================
+
+export type EntityType = 'business' | 'opportunity' | 'deal' | 'eventLead' | 'bookingRequest'
+export type AccessLevel = 'view' | 'edit' | 'manage'
+
+export interface EntityAccessRecord {
+  id: string
+  userId: string
+  entityType: EntityType
+  entityId: string
+  accessLevel: AccessLevel
+  grantedBy: string
+  grantedAt: Date
+  expiresAt: Date | null
+  notes: string | null
+  user: {
+    id: string
+    name: string | null
+    email: string | null
+  }
+}
+
+/**
+ * Grant a user access to a specific entity (admin only)
+ */
+export async function grantEntityAccess(
+  userId: string,
+  entityType: EntityType,
+  entityId: string,
+  accessLevel: AccessLevel = 'view',
+  options?: { notes?: string; expiresAt?: Date }
+): Promise<{ success: boolean; data?: EntityAccessRecord; error?: string }> {
+  try {
+    const adminResult = await requireAdmin()
+    if (!('userId' in adminResult)) {
+      return { success: false, error: 'Admin access required' }
+    }
+    const { userId: adminUserId } = adminResult
+    
+    // Verify the user exists
+    const targetUser = await prisma.userProfile.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, email: true },
+    })
+    
+    if (!targetUser) {
+      return { success: false, error: 'User not found' }
+    }
+    
+    // Upsert the access record
+    const access = await prisma.entityAccess.upsert({
+      where: {
+        userId_entityType_entityId: {
+          userId,
+          entityType,
+          entityId,
+        },
+      },
+      create: {
+        userId,
+        entityType,
+        entityId,
+        accessLevel,
+        grantedBy: adminUserId,
+        expiresAt: options?.expiresAt || null,
+        notes: options?.notes || null,
+      },
+      update: {
+        accessLevel,
+        grantedBy: adminUserId,
+        grantedAt: new Date(),
+        expiresAt: options?.expiresAt || null,
+        notes: options?.notes || null,
+      },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    })
+    
+    logger.info(`[entity-access] Granted ${accessLevel} access to ${entityType}:${entityId} for user ${userId}`)
+    
+    return {
+      success: true,
+      data: access as EntityAccessRecord,
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'grantEntityAccess')
+  }
+}
+
+/**
+ * Revoke a user's access to a specific entity (admin only)
+ */
+export async function revokeEntityAccess(
+  userId: string,
+  entityType: EntityType,
+  entityId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const adminResult = await requireAdmin()
+    if (!('userId' in adminResult)) {
+      return { success: false, error: 'Admin access required' }
+    }
+    
+    await prisma.entityAccess.delete({
+      where: {
+        userId_entityType_entityId: {
+          userId,
+          entityType,
+          entityId,
+        },
+      },
+    })
+    
+    logger.info(`[entity-access] Revoked access to ${entityType}:${entityId} for user ${userId}`)
+    
+    return { success: true }
+  } catch (error) {
+    // If record doesn't exist, that's fine
+    if ((error as { code?: string }).code === 'P2025') {
+      return { success: true }
+    }
+    return handleServerActionError(error, 'revokeEntityAccess')
+  }
+}
+
+/**
+ * Check if a user has access to a specific entity
+ * Returns the access level if granted, null if no access
+ */
+export async function checkEntityAccess(
+  userId: string,
+  entityType: EntityType,
+  entityId: string
+): Promise<AccessLevel | null> {
+  try {
+    const access = await prisma.entityAccess.findUnique({
+      where: {
+        userId_entityType_entityId: {
+          userId,
+          entityType,
+          entityId,
+        },
+      },
+      select: {
+        accessLevel: true,
+        expiresAt: true,
+      },
+    })
+    
+    if (!access) return null
+    
+    // Check if access has expired
+    if (access.expiresAt && access.expiresAt < new Date()) {
+      return null
+    }
+    
+    return access.accessLevel as AccessLevel
+  } catch (error) {
+    logger.error('[entity-access] Error checking access:', error)
+    return null
+  }
+}
+
+/**
+ * Get all users who have access to a specific entity (admin only)
+ */
+export async function getEntityAccessList(
+  entityType: EntityType,
+  entityId: string
+): Promise<{ success: boolean; data?: EntityAccessRecord[]; error?: string }> {
+  try {
+    await requireAdmin()
+    
+    const accessList = await prisma.entityAccess.findMany({
+      where: {
+        entityType,
+        entityId,
+      },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+      orderBy: { grantedAt: 'desc' },
+    })
+    
+    return {
+      success: true,
+      data: accessList as EntityAccessRecord[],
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getEntityAccessList')
+  }
+}
+
+/**
+ * Get all entities a user has access to (admin only, or for own user)
+ */
+export async function getUserEntityAccess(
+  userId: string,
+  entityType?: EntityType
+): Promise<{ success: boolean; data?: EntityAccessRecord[]; error?: string }> {
+  try {
+    // Allow users to see their own access, admins can see anyone's
+    const adminResult = await requireAdmin().catch(() => null)
+    if (!adminResult || !('userId' in adminResult)) {
+      // Not admin - check if requesting own data
+      const { auth } = await import('@clerk/nextjs/server')
+      const { userId: clerkId } = await auth()
+      if (!clerkId) {
+        return { success: false, error: 'Unauthorized' }
+      }
+      
+      const currentUser = await prisma.userProfile.findUnique({
+        where: { clerkId },
+        select: { id: true },
+      })
+      
+      if (currentUser?.id !== userId) {
+        return { success: false, error: 'Can only view own access' }
+      }
+    }
+    
+    const accessList = await prisma.entityAccess.findMany({
+      where: {
+        userId,
+        ...(entityType ? { entityType } : {}),
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: new Date() } },
+        ],
+      },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+      orderBy: { grantedAt: 'desc' },
+    })
+    
+    return {
+      success: true,
+      data: accessList as EntityAccessRecord[],
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getUserEntityAccess')
+  }
+}
+
+/**
+ * Bulk grant access to multiple users for an entity (admin only)
+ */
+export async function bulkGrantEntityAccess(
+  userIds: string[],
+  entityType: EntityType,
+  entityId: string,
+  accessLevel: AccessLevel = 'view',
+  options?: { notes?: string; expiresAt?: Date }
+): Promise<{ success: boolean; granted: number; errors: string[] }> {
+  try {
+    const adminResult = await requireAdmin()
+    if (!('userId' in adminResult)) {
+      return { success: false, granted: 0, errors: ['Admin access required'] }
+    }
+    const { userId: adminUserId } = adminResult
+    
+    const errors: string[] = []
+    let granted = 0
+    
+    for (const userId of userIds) {
+      try {
+        await prisma.entityAccess.upsert({
+          where: {
+            userId_entityType_entityId: {
+              userId,
+              entityType,
+              entityId,
+            },
+          },
+          create: {
+            userId,
+            entityType,
+            entityId,
+            accessLevel,
+            grantedBy: adminUserId,
+            expiresAt: options?.expiresAt || null,
+            notes: options?.notes || null,
+          },
+          update: {
+            accessLevel,
+            grantedBy: adminUserId,
+            grantedAt: new Date(),
+            expiresAt: options?.expiresAt || null,
+            notes: options?.notes || null,
+          },
+        })
+        granted++
+      } catch (err) {
+        errors.push(`Failed to grant access for user ${userId}: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      }
+    }
+    
+    logger.info(`[entity-access] Bulk granted ${accessLevel} access to ${entityType}:${entityId} for ${granted}/${userIds.length} users`)
+    
+    return {
+      success: errors.length === 0,
+      granted,
+      errors,
+    }
+  } catch (error) {
+    return {
+      success: false,
+      granted: 0,
+      errors: [error instanceof Error ? error.message : 'Unknown error'],
+    }
+  }
+}
+
+/**
+ * Get entity IDs that a user has access to for a specific type
+ * Useful for filtering queries
+ */
+export async function getAccessibleEntityIds(
+  userId: string,
+  entityType: EntityType
+): Promise<string[]> {
+  try {
+    const accessList = await prisma.entityAccess.findMany({
+      where: {
+        userId,
+        entityType,
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: new Date() } },
+        ],
+      },
+      select: { entityId: true },
+    })
+    
+    return accessList.map(a => a.entityId)
+  } catch (error) {
+    logger.error('[entity-access] Error getting accessible entity IDs:', error)
+    return []
+  }
+}
+
