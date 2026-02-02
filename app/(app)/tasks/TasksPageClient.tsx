@@ -90,7 +90,7 @@ export default function TasksPageClient() {
   const [tasks, setTasks] = useState<TaskWithOpportunity[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all')
+  const [activeFilter, setActiveFilter] = useState<FilterType>('pending')
   const [responsibleFilter, setResponsibleFilter] = useState<string | null>(null)
   const [serverCounts, setServerCounts] = useState<Record<string, number>>({})
   
