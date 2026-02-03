@@ -271,6 +271,7 @@ model Business {
   dealMetrics          DealMetrics[]
   campaigns            BusinessCampaign[]
   eventLeads           EventLead[]
+  restaurantLeads      RestaurantLead[]
 
   @@index([categoryId])
   @@index([leadId])
@@ -852,6 +853,43 @@ model ProvDistCorr {
   createdAt DateTime @default(now())
   
   @@map("prov_dist_corr")
+}
+
+// ============================================
+// Restaurant Leads (scraped from Degusta, etc.)
+// ============================================
+
+model RestaurantLead {
+  id                  String    @id @default(cuid())
+  sourceUrl           String    @unique
+  sourceSite          String    // 'degusta'
+  name                String
+  cuisine             String?   // Food type (e.g., "Japonesa, Asiática, Fusion")
+  address             String?
+  neighborhood        String?
+  pricePerPerson      Decimal?  @db.Decimal(10, 2)  // Average price per person
+  discount            String?   // Discount text (e.g., "10% OFF")
+  votes               Int?      // Number of votes/reviews
+  foodRating          Decimal?  @db.Decimal(3, 1)   // e.g., 4.8
+  serviceRating       Decimal?  @db.Decimal(3, 1)
+  ambientRating       Decimal?  @db.Decimal(3, 1)
+  imageUrl            String?
+  matchedBusinessId   String?   // Linked business (auto or manual matched)
+  matchConfidence     Decimal?  @db.Decimal(3, 2)  // Match confidence 0.00-1.00
+  firstSeenAt         DateTime  @default(now())
+  lastScannedAt       DateTime  @default(now())
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  matchedBusiness     Business? @relation(fields: [matchedBusinessId], references: [id], onDelete: SetNull)
+
+  @@index([sourceSite])
+  @@index([firstSeenAt])
+  @@index([lastScannedAt])
+  @@index([name])
+  @@index([cuisine])
+  @@index([matchedBusinessId])
+  @@map("restaurant_leads")
 }
 
 // Item-level access control - grants specific users access to specific entities

@@ -98,3 +98,51 @@ export interface EventScanProgress {
   eventName?: string
 }
 
+// ============================================
+// Restaurant Lead Types (Degusta, etc.)
+// ============================================
+
+export type RestaurantSourceSite = 'degusta'
+
+export interface ScrapedRestaurant {
+  sourceUrl: string
+  sourceSite: RestaurantSourceSite
+  name: string
+  cuisine: string | null       // Food type (e.g., "Japonesa, Asiática, Fusion")
+  address: string | null
+  neighborhood: string | null
+  pricePerPerson: number | null  // Price in dollars
+  discount: string | null      // Discount text (e.g., "10% OFF")
+  votes: number | null         // Number of votes/reviews
+  foodRating: number | null    // e.g., 4.8
+  serviceRating: number | null
+  ambientRating: number | null
+  imageUrl: string | null
+}
+
+export interface RestaurantScrapeResult {
+  success: boolean
+  restaurants: ScrapedRestaurant[]
+  errors: string[]
+  scannedAt: Date
+}
+
+export const RESTAURANT_SOURCE_SITES: Record<RestaurantSourceSite, { name: string; baseUrl: string }> = {
+  degusta: {
+    name: 'Degusta Panamá',
+    baseUrl: 'https://www.degustapanama.com',
+  },
+}
+
+// Progress callback for restaurant scraping
+export type RestaurantProgressCallback = (progress: RestaurantScanProgress) => void
+
+export interface RestaurantScanProgress {
+  site: RestaurantSourceSite
+  phase: 'connecting' | 'loading_page' | 'extracting' | 'saving' | 'complete' | 'error'
+  message: string
+  current?: number
+  total?: number
+  restaurantName?: string
+}
+

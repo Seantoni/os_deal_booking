@@ -10,6 +10,8 @@ import { scrapeOferta24 } from './oferta24'
 import { scrapeTicketplus } from './ticketplus'
 import { scrapePanatickets } from './panatickets'
 import { scrapeEnLaTaquilla } from './enlataquilla'
+import { scrapeDegusta } from './degusta'
+import { findMatchingBusiness } from '@/lib/matching/restaurant-business'
 import { 
   ScrapedDeal, 
   ScrapeResult, 
@@ -21,6 +23,11 @@ import {
   EventSourceSite,
   EventProgressCallback,
   EventScanProgress,
+  ScrapedRestaurant,
+  RestaurantScrapeResult,
+  RestaurantSourceSite,
+  RestaurantProgressCallback,
+  RestaurantScanProgress,
 } from './types'
 
 export * from './types'
@@ -28,6 +35,7 @@ export { getRantanOfertasDealUrls } from './rantanofertas'
 export { scrapeTicketplus } from './ticketplus'
 export { scrapePanatickets } from './panatickets'
 export { scrapeEnLaTaquilla } from './enlataquilla'
+export { scrapeDegusta } from './degusta'
 
 const MAX_DEALS_PER_SITE = 150 // 100 per site = 300 total max
 const CHUNK_SIZE = 25 // Process 25 deals per invocation to stay under Vercel timeout
@@ -795,6 +803,295 @@ export async function runEventSiteScan(site: EventSourceSite, onProgress?: Event
       eventsFound: 0,
       newEvents: 0,
       updatedEvents: 0,
+      errors: [errorMsg],
+      duration: (Date.now() - startTime) / 1000,
+    }
+  }
+}
+
+// ============================================
+// Restaurant Lead Scraping Functions
+// ============================================
+
+const MAX_RESTAURANTS_PER_SITE = 150
+
+/**
+ * Restaurant scan result
+ */
+export interface RestaurantScanResult {
+  success: boolean
+  restaurantsFound: number
+  newRestaurants: number
+  updatedRestaurants: number
+  errors: string[]
+  duration: number // in seconds
+}
+
+/**
+ * Save scraped restaurant to database, creating or updating as needed
+ * Also attempts to match with existing businesses
+ */
+async function saveRestaurantLead(scrapedRestaurant: ScrapedRestaurant): Promise<{ isNew: boolean; updated: boolean; matched: boolean }> {
+  const existingRestaurant = await prisma.restaurantLead.findUnique({
+    where: { sourceUrl: scrapedRestaurant.sourceUrl },
+  })
+  
+  if (existingRestaurant) {
+    // Update existing restaurant
+    const hasChanges = 
+      existingRestaurant.name !== scrapedRestaurant.name ||
+      existingRestaurant.cuisine !== scrapedRestaurant.cuisine ||
+      existingRestaurant.discount !== scrapedRestaurant.discount ||
+      (existingRestaurant.pricePerPerson?.toNumber() ?? null) !== scrapedRestaurant.pricePerPerson
+    
+    // Try to match if not already matched and name changed
+    let matchedBusinessId = existingRestaurant.matchedBusinessId
+    let matchConfidence = existingRestaurant.matchConfidence?.toNumber() ?? null
+    
+    if (!matchedBusinessId || (hasChanges && existingRestaurant.name !== scrapedRestaurant.name)) {
+      try {
+        const match = await findMatchingBusiness(scrapedRestaurant.name)
+        if (match) {
+          matchedBusinessId = match.businessId
+          matchConfidence = match.confidence
+        }
+      } catch (err) {
+        console.error('Error matching business:', err)
+      }
+    }
+    
+    // Always update last scanned time
+    await prisma.restaurantLead.update({
+      where: { id: existingRestaurant.id },
+      data: {
+        name: scrapedRestaurant.name,
+        cuisine: scrapedRestaurant.cuisine,
+        address: scrapedRestaurant.address,
+        neighborhood: scrapedRestaurant.neighborhood,
+        pricePerPerson: scrapedRestaurant.pricePerPerson,
+        discount: scrapedRestaurant.discount,
+        votes: scrapedRestaurant.votes,
+        foodRating: scrapedRestaurant.foodRating,
+        serviceRating: scrapedRestaurant.serviceRating,
+        ambientRating: scrapedRestaurant.ambientRating,
+        imageUrl: scrapedRestaurant.imageUrl,
+        matchedBusinessId,
+        matchConfidence,
+        lastScannedAt: new Date(),
+      },
+    })
+    
+    return { isNew: false, updated: hasChanges, matched: !!matchedBusinessId }
+  } else {
+    // Try to match with existing business
+    let matchedBusinessId: string | null = null
+    let matchConfidence: number | null = null
+    
+    try {
+      const match = await findMatchingBusiness(scrapedRestaurant.name)
+      if (match) {
+        matchedBusinessId = match.businessId
+        matchConfidence = match.confidence
+      }
+    } catch (err) {
+      console.error('Error matching business:', err)
+    }
+    
+    // Create new restaurant lead
+    await prisma.restaurantLead.create({
+      data: {
+        sourceUrl: scrapedRestaurant.sourceUrl,
+        sourceSite: scrapedRestaurant.sourceSite,
+        name: scrapedRestaurant.name,
+        cuisine: scrapedRestaurant.cuisine,
+        address: scrapedRestaurant.address,
+        neighborhood: scrapedRestaurant.neighborhood,
+        pricePerPerson: scrapedRestaurant.pricePerPerson,
+        discount: scrapedRestaurant.discount,
+        votes: scrapedRestaurant.votes,
+        foodRating: scrapedRestaurant.foodRating,
+        serviceRating: scrapedRestaurant.serviceRating,
+        ambientRating: scrapedRestaurant.ambientRating,
+        imageUrl: scrapedRestaurant.imageUrl,
+        matchedBusinessId,
+        matchConfidence,
+      },
+    })
+    
+    return { isNew: true, updated: false, matched: !!matchedBusinessId }
+  }
+}
+
+/**
+ * Scan a specific restaurant site
+ */
+async function scanRestaurantSite(site: RestaurantSourceSite, onProgress?: RestaurantProgressCallback, maxRestaurants?: number): Promise<RestaurantScrapeResult> {
+  const limit = maxRestaurants ?? MAX_RESTAURANTS_PER_SITE
+  switch (site) {
+    case 'degusta':
+      return await scrapeDegusta(limit, onProgress)
+    default:
+      return {
+        success: false,
+        restaurants: [],
+        errors: [`Unknown restaurant site: ${site}`],
+        scannedAt: new Date(),
+      }
+  }
+}
+
+/**
+ * Run a full scan of all restaurant sites
+ */
+export async function runFullRestaurantScan(onProgress?: RestaurantProgressCallback, maxRestaurantsPerSite?: number): Promise<RestaurantScanResult> {
+  const startTime = Date.now()
+  const errors: string[] = []
+  let totalRestaurantsFound = 0
+  let newRestaurants = 0
+  let updatedRestaurants = 0
+  
+  // All restaurant sites
+  const sites: RestaurantSourceSite[] = ['degusta']
+  
+  for (const site of sites) {
+    console.log(`\n=== Scanning Restaurant Site: ${site} ===`)
+    
+    try {
+      const result = await scanRestaurantSite(site, onProgress, maxRestaurantsPerSite)
+      
+      if (!result.success) {
+        errors.push(...result.errors)
+        continue
+      }
+      
+      totalRestaurantsFound += result.restaurants.length
+      
+      // Report saving progress
+      if (onProgress) {
+        onProgress({
+          site,
+          phase: 'saving',
+          message: `Saving ${result.restaurants.length} restaurants to database...`,
+        })
+      }
+      
+      // Save restaurants to database
+      for (const restaurant of result.restaurants) {
+        try {
+          const { isNew, updated } = await saveRestaurantLead(restaurant)
+          if (isNew) newRestaurants++
+          if (updated) updatedRestaurants++
+        } catch (err) {
+          errors.push(`Failed to save restaurant: ${err instanceof Error ? err.message : 'Unknown'}`)
+        }
+      }
+      
+      errors.push(...result.errors)
+    } catch (error) {
+      const errorMsg = `Error scanning ${site}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      errors.push(errorMsg)
+      console.error(errorMsg)
+      
+      if (onProgress) {
+        onProgress({
+          site,
+          phase: 'error',
+          message: errorMsg,
+        })
+      }
+    }
+  }
+  
+  const duration = (Date.now() - startTime) / 1000
+  
+  console.log(`\n=== Restaurant Scan Complete ===`)
+  console.log(`Duration: ${duration.toFixed(1)}s`)
+  console.log(`Total restaurants found: ${totalRestaurantsFound}`)
+  console.log(`New restaurants: ${newRestaurants}`)
+  console.log(`Updated restaurants: ${updatedRestaurants}`)
+  console.log(`Errors: ${errors.length}`)
+  
+  return {
+    success: errors.length === 0,
+    restaurantsFound: totalRestaurantsFound,
+    newRestaurants,
+    updatedRestaurants,
+    errors,
+    duration,
+  }
+}
+
+/**
+ * Scan a single restaurant site
+ */
+export async function runRestaurantSiteScan(site: RestaurantSourceSite, onProgress?: RestaurantProgressCallback): Promise<RestaurantScanResult> {
+  const startTime = Date.now()
+  const errors: string[] = []
+  let newRestaurants = 0
+  let updatedRestaurants = 0
+  
+  console.log(`\n=== Scanning Restaurant Site: ${site} ===`)
+  
+  try {
+    const result = await scanRestaurantSite(site, onProgress)
+    
+    if (!result.success) {
+      return {
+        success: false,
+        restaurantsFound: 0,
+        newRestaurants: 0,
+        updatedRestaurants: 0,
+        errors: result.errors,
+        duration: (Date.now() - startTime) / 1000,
+      }
+    }
+    
+    // Report saving progress
+    if (onProgress) {
+      onProgress({
+        site,
+        phase: 'saving',
+        message: `Saving ${result.restaurants.length} restaurants to database...`,
+      })
+    }
+    
+    // Save restaurants to database
+    for (const restaurant of result.restaurants) {
+      try {
+        const { isNew, updated } = await saveRestaurantLead(restaurant)
+        if (isNew) newRestaurants++
+        if (updated) updatedRestaurants++
+      } catch (err) {
+        errors.push(`Failed to save restaurant: ${err instanceof Error ? err.message : 'Unknown'}`)
+      }
+    }
+    
+    const duration = (Date.now() - startTime) / 1000
+    
+    return {
+      success: true,
+      restaurantsFound: result.restaurants.length,
+      newRestaurants,
+      updatedRestaurants,
+      errors: result.errors,
+      duration,
+    }
+  } catch (error) {
+    const errorMsg = `Error scanning ${site}: ${error instanceof Error ? error.message : 'Unknown error'}`
+    
+    if (onProgress) {
+      onProgress({
+        site,
+        phase: 'error',
+        message: errorMsg,
+      })
+    }
+    
+    return {
+      success: false,
+      restaurantsFound: 0,
+      newRestaurants: 0,
+      updatedRestaurants: 0,
       errors: [errorMsg],
       duration: (Date.now() - startTime) / 1000,
     }

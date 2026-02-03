@@ -8,6 +8,13 @@ import {
   getAllEventLeadsForExport,
   EventLeadWithStats 
 } from '@/app/actions/event-leads'
+import {
+  getRestaurantLeads,
+  getRestaurantLeadStats,
+  getAllRestaurantLeadsForExport,
+  runRestaurantBusinessMatching,
+  RestaurantLeadWithStats,
+} from '@/app/actions/restaurant-leads'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import SearchIcon from '@mui/icons-material/Search'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
@@ -18,6 +25,10 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import DownloadIcon from '@mui/icons-material/Download'
 import StorefrontIcon from '@mui/icons-material/Storefront'
+import RestaurantIcon from '@mui/icons-material/Restaurant'
+import EventIcon from '@mui/icons-material/Event'
+import StarIcon from '@mui/icons-material/Star'
+import LinkIcon from '@mui/icons-material/Link'
 import { Button } from '@/components/ui'
 import { EntityTable, StatusPill, TableRow, TableCell } from '@/components/shared/table'
 import { EmptyTableState, type ColumnConfig } from '@/components/shared'
@@ -26,8 +37,11 @@ import toast from 'react-hot-toast'
 import { formatCompactDateTime, getTodayInPanama, formatDateForPanama } from '@/lib/date'
 import { exportEventLeadsToCsv } from './csv-export'
 import { PromoterBusinessSelect } from './components/PromoterBusinessSelect'
+import { RestaurantBusinessSelect } from './components/RestaurantBusinessSelect'
 import { getBusiness } from '@/app/actions/businesses'
 import type { Business } from '@/types'
+
+type LeadTab = 'eventos' | 'restaurantes'
 
 // Lazy load business modal
 const BusinessFormModal = dynamic(() => import('@/components/crm/business/BusinessFormModal'), {
@@ -208,6 +222,39 @@ function formatDateSpanish(date: Date | null): string {
 }
 
 /**
+ * Export restaurant leads to CSV
+ */
+function exportRestaurantLeadsToCsv(restaurants: RestaurantLeadWithStats[], filename: string): void {
+  const headers = ['Nombre', 'Tipo', 'Descuento', 'Precio/Persona', 'Comida', 'Servicio', 'Ambiente', 'Votos', 'Dirección', 'URL', 'Primera vez', 'Actualizado']
+  
+  const rows = restaurants.map(r => [
+    r.name,
+    r.cuisine || '',
+    r.discount || '',
+    r.pricePerPerson ? `$${r.pricePerPerson}` : '',
+    r.foodRating ? r.foodRating.toFixed(1) : '',
+    r.serviceRating ? r.serviceRating.toFixed(1) : '',
+    r.ambientRating ? r.ambientRating.toFixed(1) : '',
+    r.votes?.toString() || '',
+    r.address || '',
+    r.sourceUrl,
+    r.firstSeenAt.toISOString(),
+    r.lastScannedAt.toISOString(),
+  ])
+  
+  const csvContent = [
+    headers.join(','),
+    ...rows.map(row => row.map(cell => `"${(cell || '').replace(/"/g, '""')}"`).join(',')),
+  ].join('\n')
+  
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(blob)
+  link.download = filename
+  link.click()
+}
+
+/**
  * Calculate days until a date (using Panama timezone)
  */
 function getDaysUntil(date: Date | null): number | null {
@@ -282,12 +329,68 @@ interface Stats {
   newToday: number
 }
 
+interface RestaurantScanProgress {
+  site: string
+  phase: string
+  message: string
+  current?: number
+  total?: number
+  restaurantName?: string
+}
+
+interface RestaurantStats {
+  totalRestaurants: number
+  withDiscount: number
+  bySite: { site: string; count: number }[]
+  lastScanAt: Date | null
+  newToday: number
+  avgFoodRating: number | null
+}
+
+type RestaurantSortField = 'name' | 'cuisine' | 'pricePerPerson' | 'votes' | 'foodRating' | 'discount' | 'firstSeenAt' | 'lastScannedAt'
+
+// Restaurant table columns
+const RESTAURANT_COLUMNS: ColumnConfig[] = [
+  { key: 'name', label: 'Restaurante', sortable: true },
+  { key: 'matchedBusiness', label: 'Negocio', sortable: false, width: 'w-36' },
+  { key: 'cuisine', label: 'Tipo', sortable: true, width: 'w-28' },
+  { key: 'discount', label: 'Descuento', sortable: true, width: 'w-24' },
+  { key: 'pricePerPerson', label: 'Precio', sortable: true, width: 'w-20' },
+  { key: 'foodRating', label: 'Comida', sortable: true, width: 'w-20' },
+  { key: 'votes', label: 'Votos', sortable: true, width: 'w-20' },
+  { key: 'lastScannedAt', label: 'Actualizado', sortable: true, width: 'w-28' },
+  { key: 'actions', label: '', align: 'center', width: 'w-20' },
+]
+
 export default function LeadsNegociosClient() {
+  // Tab state
+  const [activeTab, setActiveTab] = useState<LeadTab>('eventos')
+  
+  // Events state
   const [events, setEvents] = useState<EventLeadWithStats[]>([])
   const [loading, setLoading] = useState(true)
   const [scanning, setScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null)
   const [stats, setStats] = useState<Stats | null>(null)
+  
+  // Restaurant state
+  const [restaurants, setRestaurants] = useState<RestaurantLeadWithStats[]>([])
+  const [restaurantLoading, setRestaurantLoading] = useState(true)
+  const [restaurantScanning, setRestaurantScanning] = useState(false)
+  const [restaurantScanProgress, setRestaurantScanProgress] = useState<RestaurantScanProgress | null>(null)
+  const [restaurantStats, setRestaurantStats] = useState<RestaurantStats | null>(null)
+  const [restaurantPage, setRestaurantPage] = useState(1)
+  const [restaurantTotalPages, setRestaurantTotalPages] = useState(1)
+  const [restaurantTotal, setRestaurantTotal] = useState(0)
+  const [restaurantSearch, setRestaurantSearch] = useState('')
+  const [restaurantCommittedSearch, setRestaurantCommittedSearch] = useState('')
+  const [restaurantSortBy, setRestaurantSortBy] = useState<RestaurantSortField>('lastScannedAt')
+  const [restaurantSortOrder, setRestaurantSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [showRestaurantNewOnly, setShowRestaurantNewOnly] = useState(false)
+  const [showDiscountOnly, setShowDiscountOnly] = useState(true)
+  const [showRestaurantExportMenu, setShowRestaurantExportMenu] = useState(false)
+  const [restaurantExporting, setRestaurantExporting] = useState(false)
+  const [matching, setMatching] = useState(false)
   
   // Pagination
   const [page, setPage] = useState(1)
@@ -354,6 +457,40 @@ export default function LeadsNegociosClient() {
     }
   }, [])
   
+  // Restaurant loading functions
+  const loadRestaurants = useCallback(async () => {
+    setRestaurantLoading(true)
+    try {
+      const result = await getRestaurantLeads({
+        page: restaurantPage,
+        pageSize,
+        search: restaurantCommittedSearch || undefined,
+        sortBy: restaurantSortBy,
+        sortOrder: restaurantSortOrder,
+        newOnly: showRestaurantNewOnly,
+        hasDiscount: showDiscountOnly,
+      })
+      
+      setRestaurants(result.restaurants)
+      setRestaurantTotalPages(result.totalPages)
+      setRestaurantTotal(result.total)
+    } catch (error) {
+      console.error('Failed to load restaurants:', error)
+      toast.error('Failed to load restaurants')
+    } finally {
+      setRestaurantLoading(false)
+    }
+  }, [restaurantPage, pageSize, restaurantCommittedSearch, restaurantSortBy, restaurantSortOrder, showRestaurantNewOnly, showDiscountOnly])
+  
+  const loadRestaurantStats = useCallback(async () => {
+    try {
+      const statsResult = await getRestaurantLeadStats()
+      setRestaurantStats(statsResult)
+    } catch (error) {
+      console.error('Failed to load restaurant stats:', error)
+    }
+  }, [])
+  
   // Export handlers
   const handleExportCurrentView = useCallback(() => {
     setShowExportMenu(false)
@@ -390,13 +527,27 @@ export default function LeadsNegociosClient() {
   
   // Load events when filters change
   useEffect(() => {
-    loadEvents()
-  }, [loadEvents])
+    if (activeTab === 'eventos') {
+      loadEvents()
+    }
+  }, [loadEvents, activeTab])
   
   // Load stats on mount
   useEffect(() => {
     loadStats()
   }, [loadStats])
+  
+  // Load restaurants when filters change
+  useEffect(() => {
+    if (activeTab === 'restaurantes') {
+      loadRestaurants()
+    }
+  }, [loadRestaurants, activeTab])
+  
+  // Load restaurant stats on mount
+  useEffect(() => {
+    loadRestaurantStats()
+  }, [loadRestaurantStats])
   
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -555,8 +706,220 @@ export default function LeadsNegociosClient() {
     loadEvents() // Refresh to show any updates
   }
   
+  // Restaurant handlers
+  const handleRestaurantSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    setRestaurantPage(1)
+    setRestaurantCommittedSearch(restaurantSearch)
+  }
+  
+  const handleRestaurantSort = (column: string) => {
+    const field = column as RestaurantSortField
+    
+    if (restaurantSortBy === field) {
+      setRestaurantSortOrder(restaurantSortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setRestaurantSortBy(field)
+      setRestaurantSortOrder(field === 'foodRating' || field === 'votes' ? 'desc' : 'asc')
+    }
+    setRestaurantPage(1)
+  }
+  
+  const handleRestaurantScan = async () => {
+    setRestaurantScanning(true)
+    setRestaurantScanProgress(null)
+    
+    try {
+      // Use SSE for real-time progress
+      const response = await fetch('/api/restaurant-leads/scan', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+        },
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        toast.error(errorData.error || 'Scan failed')
+        setRestaurantScanning(false)
+        return
+      }
+      
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+      
+      if (!reader) {
+        toast.error('Failed to start scan stream')
+        setRestaurantScanning(false)
+        return
+      }
+      
+      let buffer = ''
+      
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        
+        buffer += decoder.decode(value, { stream: true })
+        
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        
+        for (const line of lines) {
+          if (line.startsWith('event: ')) continue
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+              const eventIndex = lines.indexOf(line) - 1
+              const eventLine = eventIndex >= 0 ? lines[eventIndex] : ''
+              
+              if (eventLine.includes('progress')) {
+                setRestaurantScanProgress(data)
+              } else if (eventLine.includes('complete')) {
+                setRestaurantScanProgress(null)
+                
+                if (data.errors && data.errors.length > 0) {
+                  toast.error(
+                    `Scan had errors: ${data.errors[0]}${data.errors.length > 1 ? ` (+${data.errors.length - 1} more)` : ''}`,
+                    { duration: 10000 }
+                  )
+                } else if (data.restaurantsFound === 0) {
+                  toast.error('No restaurants found. The site structure may have changed.')
+                } else {
+                  toast.success(
+                    `Scan complete! Found ${data.restaurantsFound} restaurants (${data.newRestaurants} new)`,
+                    { duration: 5000 }
+                  )
+                }
+                
+                loadRestaurants()
+                loadRestaurantStats()
+              } else if (eventLine.includes('error')) {
+                toast.error(data.message || 'Scan failed')
+              }
+            } catch (parseError) {
+              console.error('Failed to parse SSE data:', parseError)
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Restaurant scan error:', error)
+      toast.error(error instanceof Error ? error.message : 'Scan failed')
+    } finally {
+      setRestaurantScanning(false)
+      setRestaurantScanProgress(null)
+    }
+  }
+  
+  // Restaurant export handlers
+  const handleRestaurantExportCurrentView = useCallback(() => {
+    setShowRestaurantExportMenu(false)
+    if (restaurants.length === 0) {
+      toast.error('No hay restaurantes para exportar')
+      return
+    }
+    exportRestaurantLeadsToCsv(restaurants, `restaurant-leads-vista-actual-${new Date().toISOString().split('T')[0]}.csv`)
+    toast.success(`Exportados ${restaurants.length} restaurantes`)
+  }, [restaurants])
+  
+  const handleRestaurantExportAll = useCallback(async () => {
+    setShowRestaurantExportMenu(false)
+    setRestaurantExporting(true)
+    try {
+      const allRestaurants = await getAllRestaurantLeadsForExport({
+        search: restaurantCommittedSearch || undefined,
+        hasDiscount: showDiscountOnly,
+      })
+      if (allRestaurants.length === 0) {
+        toast.error('No hay restaurantes para exportar')
+        return
+      }
+      exportRestaurantLeadsToCsv(allRestaurants, `restaurant-leads-todos-${new Date().toISOString().split('T')[0]}.csv`)
+      toast.success(`Exportados ${allRestaurants.length} restaurantes`)
+    } catch (error) {
+      console.error('Export failed:', error)
+      toast.error('Error al exportar restaurantes')
+    } finally {
+      setRestaurantExporting(false)
+    }
+  }, [restaurantCommittedSearch, showDiscountOnly])
+  
+  // Handle bulk matching
+  const handleBulkMatching = async () => {
+    setMatching(true)
+    try {
+      const result = await runRestaurantBusinessMatching()
+      if (result.success && result.data) {
+        const { total, matched, updated } = result.data
+        if (updated > 0) {
+          toast.success(`Encontrados ${matched} de ${total} sin match. ${updated} actualizados.`)
+          loadRestaurants()
+          loadRestaurantStats()
+        } else if (total === 0) {
+          toast.success('Todos los restaurantes ya tienen match.')
+        } else {
+          toast.success(`No se encontraron nuevos matches (${total} sin match)`)
+        }
+      } else {
+        toast.error(result.error || 'Error al buscar matches')
+      }
+    } catch (error) {
+      console.error('Matching error:', error)
+      toast.error('Error al buscar matches')
+    } finally {
+      setMatching(false)
+    }
+  }
+  
   return (
     <div className="h-full flex flex-col bg-gray-50">
+      {/* Tab Navigation */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="px-4 flex items-center gap-1">
+          <button
+            onClick={() => setActiveTab('eventos')}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'eventos'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <EventIcon style={{ fontSize: 18 }} />
+            Eventos
+            {stats && (
+              <span className={`ml-1 px-1.5 py-0.5 text-xs rounded-full ${
+                activeTab === 'eventos' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+              }`}>
+                {stats.totalEvents}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('restaurantes')}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'restaurantes'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <RestaurantIcon style={{ fontSize: 18 }} />
+            Restaurantes
+            {restaurantStats && (
+              <span className={`ml-1 px-1.5 py-0.5 text-xs rounded-full ${
+                activeTab === 'restaurantes' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+              }`}>
+                {restaurantStats.totalRestaurants}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+      
+      {/* Events Tab Content */}
+      {activeTab === 'eventos' && (
+        <>
       {/* Header with Stats, Search, Filters */}
       <div className="bg-white border-b border-gray-200 px-4 py-3">
         {/* Stats Row */}
@@ -895,6 +1258,327 @@ export default function LeadsNegociosClient() {
           parseEventDate={parseEventDate}
         />
       </ModalShell>
+        </>
+      )}
+      
+      {/* Restaurants Tab Content */}
+      {activeTab === 'restaurantes' && (
+        <>
+          {/* Restaurant Header with Stats, Search, Filters */}
+          <div className="bg-white border-b border-gray-200 px-4 py-3">
+            {/* Restaurant Stats Row */}
+            {restaurantStats && (
+              <div className="flex items-center gap-4 mb-3 text-[13px]">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-gray-500">Total:</span>
+                  <span className="font-medium text-gray-900">{restaurantStats.totalRestaurants}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-gray-500">Con Descuento:</span>
+                  <span className="font-medium text-green-600">{restaurantStats.withDiscount}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-gray-500">Nuevos Hoy:</span>
+                  <span className="font-medium text-blue-600">{restaurantStats.newToday}</span>
+                </div>
+                {restaurantStats.avgFoodRating && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-gray-500">Rating Promedio:</span>
+                    <span className="font-medium text-yellow-600 flex items-center gap-0.5">
+                      <StarIcon style={{ fontSize: 14 }} />
+                      {restaurantStats.avgFoodRating.toFixed(1)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-gray-500">Último Scan:</span>
+                  <span className="font-medium text-gray-700">
+                    {restaurantStats.lastScanAt ? formatCompactDateTime(restaurantStats.lastScanAt) : 'Nunca'}
+                  </span>
+                </div>
+              </div>
+            )}
+            
+            {/* Restaurant Search and Filters Row */}
+            <div className="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
+              {/* Search */}
+              <form onSubmit={handleRestaurantSearch} className="flex gap-2 flex-1 max-w-md">
+                <div className="relative flex-1">
+                  <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" style={{ fontSize: '1rem' }} />
+                  <input
+                    type="text"
+                    value={restaurantSearch}
+                    onChange={(e) => setRestaurantSearch(e.target.value)}
+                    placeholder="Buscar restaurantes..."
+                    className="w-full pl-9 pr-3 py-1.5 text-[13px] border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <Button type="submit" variant="secondary" size="sm">
+                  Buscar
+                </Button>
+              </form>
+              
+              {/* Restaurant Filters */}
+              <div className="flex gap-2 items-center flex-wrap">
+                {/* Discount Only Toggle */}
+                <label className="flex items-center gap-1.5 text-[13px] text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showDiscountOnly}
+                    onChange={(e) => { setShowDiscountOnly(e.target.checked); setRestaurantPage(1) }}
+                    className="rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                  />
+                  Con descuento
+                </label>
+                
+                {/* New Only Toggle */}
+                <label className="flex items-center gap-1.5 text-[13px] text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showRestaurantNewOnly}
+                    onChange={(e) => { setShowRestaurantNewOnly(e.target.checked); setRestaurantPage(1) }}
+                    className="rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                  />
+                  Nuevos hoy
+                </label>
+                
+                {/* Restaurant Export Button with Dropdown */}
+                <div className="relative">
+                  <Button
+                    onClick={() => setShowRestaurantExportMenu(!showRestaurantExportMenu)}
+                    disabled={restaurantExporting}
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={restaurantExporting ? <RefreshIcon className="animate-spin" style={{ fontSize: 14 }} /> : <DownloadIcon style={{ fontSize: 14 }} />}
+                  >
+                    {restaurantExporting ? 'Exportando...' : 'Exportar'}
+                  </Button>
+                  
+                  {showRestaurantExportMenu && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setShowRestaurantExportMenu(false)}
+                      />
+                      <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-20">
+                        <button
+                          onClick={handleRestaurantExportCurrentView}
+                          className="w-full text-left px-3 py-2 text-[13px] text-gray-700 hover:bg-gray-50 rounded-t-md"
+                        >
+                          Vista actual ({restaurants.length})
+                        </button>
+                        <button
+                          onClick={handleRestaurantExportAll}
+                          className="w-full text-left px-3 py-2 text-[13px] text-gray-700 hover:bg-gray-50 rounded-b-md border-t border-gray-100"
+                        >
+                          Todos los datos ({restaurantTotal})
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+                
+                {/* Match Button */}
+                <Button
+                  onClick={handleBulkMatching}
+                  disabled={matching || restaurantScanning}
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={matching ? <RefreshIcon className="animate-spin" style={{ fontSize: 14 }} /> : <LinkIcon style={{ fontSize: 14 }} />}
+                >
+                  {matching ? 'Buscando...' : 'Buscar Matches'}
+                </Button>
+                
+                {/* Scan Button */}
+                <Button
+                  onClick={handleRestaurantScan}
+                  disabled={restaurantScanning || matching}
+                  variant="primary"
+                  size="sm"
+                  leftIcon={restaurantScanning ? <RefreshIcon className="animate-spin" style={{ fontSize: 14 }} /> : <PlayArrowIcon style={{ fontSize: 14 }} />}
+                >
+                  {restaurantScanning ? 'Escaneando...' : 'Escanear'}
+                </Button>
+              </div>
+            </div>
+            
+            {/* Restaurant Scan Progress */}
+            {restaurantScanProgress && (
+              <div className="mt-3 p-2.5 bg-blue-50 rounded-md border border-blue-200">
+                <div className="flex items-center gap-2">
+                  <RefreshIcon className="animate-spin text-blue-600" style={{ fontSize: '0.9rem' }} />
+                  <span className="text-[13px] text-blue-700">
+                    {restaurantScanProgress.message}
+                    {restaurantScanProgress.current && restaurantScanProgress.total && (
+                      <span className="ml-1">({restaurantScanProgress.current}/{restaurantScanProgress.total})</span>
+                    )}
+                  </span>
+                </div>
+                {restaurantScanProgress.restaurantName && (
+                  <div className="text-xs text-blue-600 mt-1 truncate">
+                    Current: {restaurantScanProgress.restaurantName}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Restaurant Content */}
+          <div className="flex-1 overflow-auto p-4">
+            {restaurantLoading ? (
+              <div className="p-6 text-[13px] text-gray-500 bg-white rounded-lg border border-gray-200 flex items-center gap-2">
+                <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                Cargando...
+              </div>
+            ) : restaurants.length === 0 ? (
+              <EmptyTableState
+                icon={<RestaurantIcon className="w-full h-full" />}
+                title="No se encontraron restaurantes"
+                description={
+                  restaurantCommittedSearch || showRestaurantNewOnly
+                    ? 'Intente ajustar su búsqueda o filtros' 
+                    : 'Haga clic en "Escanear" para obtener restaurantes de Degusta'
+                }
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                {/* Results count */}
+                <div className="text-[13px] text-gray-500 mb-2">
+                  Mostrando {restaurants.length} de {restaurantTotal} restaurantes
+                  {restaurantCommittedSearch && <span className="ml-1">que coinciden con &quot;{restaurantCommittedSearch}&quot;</span>}
+                </div>
+
+                <EntityTable
+                  columns={RESTAURANT_COLUMNS}
+                  sortColumn={restaurantSortBy}
+                  sortDirection={restaurantSortOrder}
+                  onSort={handleRestaurantSort}
+                >
+                  {restaurants.map((restaurant, index) => (
+                    <TableRow key={restaurant.id} index={index}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {restaurant.imageUrl && (
+                            <img 
+                              src={restaurant.imageUrl} 
+                              alt="" 
+                              className="w-10 h-10 rounded object-cover flex-shrink-0"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                            />
+                          )}
+                          <div className="min-w-0">
+                            <div className="font-medium text-gray-900 text-[13px] truncate max-w-[250px]" title={restaurant.name}>
+                              {restaurant.name}
+                            </div>
+                            {restaurant.isNew && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-green-100 text-green-700 rounded">
+                                Nuevo
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <RestaurantBusinessSelect
+                          restaurantId={restaurant.id}
+                          matchedBusinessId={restaurant.matchedBusinessId}
+                          matchedBusinessName={restaurant.matchedBusiness?.name || null}
+                          matchConfidence={restaurant.matchConfidence}
+                          onSuccess={loadRestaurants}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-[13px] text-gray-600 truncate max-w-[100px]" title={restaurant.cuisine || undefined}>
+                          {restaurant.cuisine || <span className="text-gray-400">-</span>}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {restaurant.discount ? (
+                          <StatusPill label={restaurant.discount} tone="success" />
+                        ) : (
+                          <span className="text-gray-400 text-[13px]">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-[13px] text-gray-700 font-medium">
+                          {restaurant.pricePerPerson ? `$${restaurant.pricePerPerson}` : '-'}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        {restaurant.foodRating ? (
+                          <span className="text-[13px] text-yellow-600 font-medium flex items-center gap-0.5">
+                            <StarIcon style={{ fontSize: 12 }} />
+                            {restaurant.foodRating.toFixed(1)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-[13px]">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-[13px] text-gray-600">
+                          {restaurant.votes ?? '-'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-[13px] text-gray-500">
+                        {formatCompactDateTime(restaurant.lastScannedAt)}
+                      </TableCell>
+                      <TableCell align="center">
+                        <div className="flex items-center gap-0.5">
+                          {restaurant.matchedBusinessId && (
+                            <a
+                              href={`/businesses/${restaurant.matchedBusinessId}`}
+                              className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-green-50 text-green-500 hover:text-green-700 transition-colors"
+                              title="Ver Negocio"
+                            >
+                              <StorefrontIcon style={{ fontSize: '1rem' }} />
+                            </a>
+                          )}
+                          <a
+                            href={restaurant.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600 transition-colors"
+                            title="Ver en Degusta"
+                          >
+                            <OpenInNewIcon style={{ fontSize: '1rem' }} />
+                          </a>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </EntityTable>
+                
+                {/* Restaurant Pagination */}
+                {restaurantTotalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-200">
+                    <div className="text-[13px] text-gray-500">
+                      Página {restaurantPage} de {restaurantTotalPages}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => setRestaurantPage(p => Math.max(1, p - 1))}
+                        disabled={restaurantPage === 1 || restaurantLoading}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        Anterior
+                      </Button>
+                      <Button
+                        onClick={() => setRestaurantPage(p => Math.min(restaurantTotalPages, p + 1))}
+                        disabled={restaurantPage === restaurantTotalPages || restaurantLoading}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        Siguiente
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </>
+      )}
       
       {/* Business Modal */}
       {businessModalOpen && selectedBusiness && (

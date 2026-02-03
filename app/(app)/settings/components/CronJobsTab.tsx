@@ -15,6 +15,7 @@ const JOB_LABELS: Record<string, string> = {
   'task-reminders': 'Recordatorios de Tareas',
   'market-intelligence-scan': 'Escaneo de Mercado',
   'event-leads-sync': 'Sync de Eventos',
+  'restaurant-leads-sync': 'Sync de Restaurantes',
 }
 
 const STATUS_CONFIG = {
@@ -115,6 +116,7 @@ export default function CronJobsTab() {
         'task-reminders': '/api/cron/task-reminders',
         'market-intelligence-scan': '/api/cron/market-intelligence-scan',
         'event-leads-sync': '/api/cron/event-leads-sync',
+        'restaurant-leads-sync': '/api/cron/restaurant-leads-sync',
       }
 
       const response = await fetch(endpoints[jobName], {
