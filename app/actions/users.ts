@@ -93,7 +93,6 @@ export async function updateUserRole(clerkId: string, role: UserRole) {
  * Delete user profile (admin only)
  * This removes the user from the local database but does NOT delete them from Clerk
  * Also clears ownerId from businesses owned by this user
- * Note: BusinessSalesRep entries are automatically cascade deleted via schema
  */
 export async function deleteUserProfile(clerkId: string) {
   const authResult = await requireAuth()
@@ -135,7 +134,7 @@ export async function deleteUserProfile(clerkId: string) {
         logger.info(`Cleared ownerId from ${clearedBusinesses.count} businesses for user ${clerkId}`)
       }
 
-      // Delete user profile (BusinessSalesRep entries cascade delete automatically)
+      // Delete user profile
       await tx.userProfile.delete({
         where: { clerkId },
       })

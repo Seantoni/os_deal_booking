@@ -104,16 +104,12 @@ export async function getBusinesses() {
                 subCategory2: true,
               },
             },
-            salesReps: {
-              include: {
-                userProfile: {
-                  select: {
-                    id: true,
-                    clerkId: true,
-                    name: true,
-                    email: true,
-                  },
-                },
+            owner: {
+              select: {
+                id: true,
+                clerkId: true,
+                name: true,
+                email: true,
               },
             },
           },
@@ -186,7 +182,7 @@ export async function getBusinessesPaginated(options: {
   opportunityFilter?: string // 'all' | 'with-open' | 'without-open'
   focusFilter?: string // 'all' | 'with-focus'
   activeDealFilter?: boolean // Filter to businesses with active deals
-  salesRepId?: string // Filter by owner (admin quick filter) - named salesRepId for consistency with other pages
+  ownerId?: string // Filter by owner (admin quick filter)
   myBusinessesOnly?: boolean // Filter to show only businesses assigned to current user (for sales users)
 } = {}) {
   const authResult = await requireAuth()
@@ -197,7 +193,7 @@ export async function getBusinessesPaginated(options: {
 
   try {
     const role = await getUserRole()
-    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', opportunityFilter, focusFilter, activeDealFilter, salesRepId: ownerFilter, myBusinessesOnly } = options
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', opportunityFilter, focusFilter, activeDealFilter, ownerId: ownerFilter, myBusinessesOnly } = options
 
     // Build where clause based on role
     // Sales users can VIEW all businesses (no ownerId filter by default)
@@ -211,10 +207,7 @@ export async function getBusinessesPaginated(options: {
       // Only show all businesses if explicitly set to false
       const showMyBusinessesOnly = myBusinessesOnly !== false
       if (showMyBusinessesOnly) {
-        whereClause.OR = [
-          { ownerId: userId },
-          { salesReps: { some: { salesRepId: userId } } },
-        ]
+        whereClause.ownerId = userId
       }
     } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: [], total: 0, page, pageSize, editableBusinessIds: [] as string[] }
@@ -315,16 +308,12 @@ export async function getBusinessesPaginated(options: {
             subCategory2: true,
           },
         },
-        salesReps: {
-          include: {
-            userProfile: {
-              select: {
-                id: true,
-                clerkId: true,
-                name: true,
-                email: true,
-              },
-            },
+        owner: {
+          select: {
+            id: true,
+            clerkId: true,
+            name: true,
+            email: true,
           },
         },
       },
@@ -412,7 +401,7 @@ export async function fetchEditableBusinessIds(): Promise<{
  * Get business counts by opportunity status (for filter tabs)
  * Returns: all, with-open (has open opportunities), without-open (no open opportunities), with-active-deal
  */
-export async function getBusinessCounts(filters?: { salesRepId?: string; myBusinessesOnly?: boolean }) {
+export async function getBusinessCounts(filters?: { ownerId?: string; myBusinessesOnly?: boolean }) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
     return authResult
@@ -433,18 +422,15 @@ export async function getBusinessCounts(filters?: { salesRepId?: string; myBusin
       // Only show all businesses if explicitly set to false
       const showMyBusinessesOnly = filters?.myBusinessesOnly !== false
       if (showMyBusinessesOnly) {
-        baseWhere.OR = [
-          { ownerId: userId },
-          { salesReps: { some: { salesRepId: userId } } },
-        ]
+        baseWhere.ownerId = userId
       }
     } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: { all: 0, 'with-open': 0, 'without-open': 0, 'with-focus': 0, 'with-active-deal': 0 } }
     }
     
     // Apply owner filter (admin quick filter)
-    if (filters?.salesRepId) {
-      baseWhere.ownerId = filters.salesRepId
+    if (filters?.ownerId) {
+      baseWhere.ownerId = filters.ownerId
     }
 
     // Get active vendor IDs with active deals
@@ -791,26 +777,20 @@ export async function updateBusinessFocus(
   const { userId } = authResult
 
   try {
-    // Get business with salesReps to check permissions
+    // Get business to check permissions
     const business = await prisma.business.findUnique({
       where: { id: businessId },
-      include: {
-        salesReps: {
-          select: { salesRepId: true }
-        }
-      }
     })
 
     if (!business) {
       return { success: false, error: 'Business not found' }
     }
 
-    // Check permissions: must be admin or assigned sales rep
+    // Check permissions: must be admin or owner
     const admin = await isAdmin()
-    const isAssignedRep = business.salesReps.some(rep => rep.salesRepId === userId)
     const isOwner = business.ownerId === userId
 
-    if (!admin && !isAssignedRep && !isOwner) {
+    if (!admin && !isOwner) {
       return { success: false, error: 'No tienes permiso para modificar el foco de este negocio' }
     }
 
@@ -831,16 +811,12 @@ export async function updateBusinessFocus(
             subCategory2: true,
           },
         },
-        salesReps: {
-          include: {
-            userProfile: {
-              select: {
-                id: true,
-                clerkId: true,
-                name: true,
-                email: true,
-              },
-            },
+        owner: {
+          select: {
+            id: true,
+            clerkId: true,
+            name: true,
+            email: true,
           },
         },
       },
@@ -884,9 +860,9 @@ export async function updateBusinessFocus(
  */
 export async function searchBusinesses(query: string, options: {
   limit?: number
-  salesRepId?: string // Filter by owner (admin quick filter) - named salesRepId for consistency
+  ownerId?: string // Filter by owner (admin quick filter)
   activeDealFilter?: boolean // Filter to businesses with active deals
-  myBusinessesOnly?: boolean // Filter to show only businesses assigned to current user (for sales users)
+  myBusinessesOnly?: boolean // Filter to show only businesses owned by current user (for sales users)
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -896,7 +872,7 @@ export async function searchBusinesses(query: string, options: {
 
   try {
     const role = await getUserRole()
-    const { limit = 100, salesRepId: ownerFilter, activeDealFilter, myBusinessesOnly } = options
+    const { limit = 100, ownerId: ownerFilter, activeDealFilter, myBusinessesOnly } = options
 
     if (!query || query.trim().length < 2) {
       return { success: true, data: [], editableBusinessIds: null as string[] | null }
@@ -915,10 +891,7 @@ export async function searchBusinesses(query: string, options: {
       // Only show all businesses if explicitly set to false
       const showMyBusinessesOnly = myBusinessesOnly !== false
       if (showMyBusinessesOnly) {
-        roleFilter.OR = [
-          { ownerId: userId },
-          { salesReps: { some: { salesRepId: userId } } },
-        ]
+        roleFilter.ownerId = userId
       }
     } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: [], editableBusinessIds: [] as string[] }
@@ -978,16 +951,12 @@ export async function searchBusinesses(query: string, options: {
             subCategory2: true,
           },
         },
-        salesReps: {
-          include: {
-            userProfile: {
-              select: {
-                id: true,
-                clerkId: true,
-                name: true,
-                email: true,
-              },
-            },
+        owner: {
+          select: {
+            id: true,
+            clerkId: true,
+            name: true,
+            email: true,
           },
         },
       },
@@ -1061,16 +1030,12 @@ export async function getBusiness(businessId: string) {
             subCategory2: true,
           },
         },
-        salesReps: {
-          include: {
-            userProfile: {
-              select: {
-                id: true,
-                clerkId: true,
-                name: true,
-                email: true,
-              },
-            },
+        owner: {
+          select: {
+            id: true,
+            clerkId: true,
+            name: true,
+            email: true,
           },
         },
         opportunities: {
@@ -1085,17 +1050,7 @@ export async function getBusiness(businessId: string) {
       return { success: false, error: 'Business not found' }
     }
 
-    // Fetch owner profile if ownerId exists (no Prisma relation defined)
-    let owner: { name: string | null; email: string | null } | null = null
-    if (business.ownerId) {
-      const ownerProfile = await prisma.userProfile.findUnique({
-        where: { clerkId: business.ownerId },
-        select: { name: true, email: true },
-      })
-      owner = ownerProfile
-    }
-
-    return { success: true, data: { ...business, owner } }
+    return { success: true, data: business }
   } catch (error) {
     return handleServerActionError(error, 'getBusiness')
   }
@@ -1117,7 +1072,6 @@ export async function createBusiness(formData: FormData) {
     const contactPhone = formData.get('contactPhone') as string
     const contactEmail = formData.get('contactEmail') as string
     const categoryId = formData.get('categoryId') as string | null
-    const salesRepIds = formData.getAll('salesRepIds') as string[] // Array of clerkIds
     const salesTeam = formData.get('salesTeam') as string | null
     const website = formData.get('website') as string | null
     const instagram = formData.get('instagram') as string | null
@@ -1159,24 +1113,22 @@ export async function createBusiness(formData: FormData) {
             subCategory2: true,
           },
         },
-        salesReps: true,
+        owner: {
+          select: {
+            id: true,
+            clerkId: true,
+            name: true,
+            email: true,
+          },
+        },
       },
     })
 
     if (existingBusiness) {
-      // Get owner info if ownerId exists
-      let ownerInfo: { name: string | null; email: string | null } | null = null
-      if (existingBusiness.ownerId) {
-        const ownerProfile = await prisma.userProfile.findUnique({
-          where: { clerkId: existingBusiness.ownerId },
-          select: { name: true, email: true },
-        })
-        ownerInfo = ownerProfile
-      }
       return { 
         success: false, 
         error: 'Business already exists', 
-        existingBusiness: { ...existingBusiness, owner: ownerInfo }
+        existingBusiness
       }
     }
 
@@ -1213,16 +1165,13 @@ export async function createBusiness(formData: FormData) {
       address: address || null,
       neighborhood: neighborhood || null,
       osAdminVendorId: osAdminVendorId || null,
-      salesReps: {
-        create: salesRepIds.map((clerkId) => ({
-          salesRepId: clerkId,
-        })),
-      },
     }
 
-    // Set ownerId if userId exists
+    // Set owner if userId exists
     if (userId) {
-      businessData.ownerId = userId
+      businessData.owner = {
+        connect: { clerkId: userId }
+      }
     }
 
     // Use relation field for category
@@ -1246,7 +1195,14 @@ export async function createBusiness(formData: FormData) {
             subCategory2: true,
           },
         },
-        salesReps: true,
+        owner: {
+          select: {
+            id: true,
+            clerkId: true,
+            name: true,
+            email: true,
+          },
+        },
       },
     })
 
@@ -1300,7 +1256,14 @@ export async function createBusiness(formData: FormData) {
                 subCategory2: true,
               },
             },
-            salesReps: true,
+            owner: {
+              select: {
+                id: true,
+                clerkId: true,
+                name: true,
+                email: true,
+              },
+            },
           },
         })
       : business
@@ -1350,7 +1313,6 @@ export async function updateBusiness(businessId: string, formData: FormData) {
     const contactPhone = formData.get('contactPhone') as string
     const contactEmail = formData.get('contactEmail') as string
     const categoryId = formData.get('categoryId') as string | null
-    const salesRepIds = formData.getAll('salesRepIds') as string[]
     const salesTeam = formData.get('salesTeam') as string | null
     const website = formData.get('website') as string | null
     const instagram = formData.get('instagram') as string | null
@@ -1382,13 +1344,7 @@ export async function updateBusiness(businessId: string, formData: FormData) {
     const admin = await isAdmin()
     const ownerId = admin && formData.get('ownerId') ? (formData.get('ownerId') as string) : undefined
 
-    // Update business and sales reps
-    // First, delete existing sales rep associations
-    await prisma.businessSalesRep.deleteMany({
-      where: { businessId },
-    })
-
-    // Then update business and create new associations
+    // Update business
     const updateData: Record<string, unknown> = {
       name,
       contactName,
@@ -1416,11 +1372,6 @@ export async function updateBusiness(businessId: string, formData: FormData) {
       address: address || null,
       neighborhood: neighborhood || null,
       osAdminVendorId: osAdminVendorId || null,
-      salesReps: {
-        create: salesRepIds.map((clerkId) => ({
-          salesRepId: clerkId,
-        })),
-      },
     }
 
     // Use relation field for category
@@ -1440,7 +1391,9 @@ export async function updateBusiness(businessId: string, formData: FormData) {
 
     // Only update owner if admin
     if (admin && ownerId) {
-      updateData.ownerId = ownerId
+      updateData.owner = {
+        connect: { clerkId: ownerId }
+      }
     }
 
     const business = await prisma.business.update({
@@ -1456,7 +1409,14 @@ export async function updateBusiness(businessId: string, formData: FormData) {
             subCategory2: true,
           },
         },
-        salesReps: true,
+        owner: {
+          select: {
+            id: true,
+            clerkId: true,
+            name: true,
+            email: true,
+          },
+        },
       },
     })
 
@@ -1662,7 +1622,6 @@ export interface BulkBusinessRow {
   contactPhone?: string
   category?: string // Full category path (e.g., "Food > Restaurants > Italian")
   owner?: string
-  salesReps?: string
   salesTeam?: string
   // Location
   provinceDistrictCorregimiento?: string
@@ -1718,7 +1677,7 @@ export async function bulkUpsertBusinesses(
     let updated = 0
     const errors: string[] = []
 
-    // Get all users for owner/salesReps lookup
+    // Get all users for owner lookup
     const allUsers = await prisma.userProfile.findMany({
       select: { id: true, clerkId: true, name: true, email: true },
     })
@@ -1763,13 +1722,11 @@ export async function bulkUpsertBusinesses(
         }
 
         // Build data object with all fields
-        const data = {
+        const data: Record<string, unknown> = {
           name: row.name,
           contactName: row.contactName || '',
           contactEmail: row.contactEmail || '',
           contactPhone: row.contactPhone || '',
-          categoryId,
-          ownerId,
           salesTeam: row.salesTeam || null,
           // Location
           provinceDistrictCorregimiento: row.provinceDistrictCorregimiento || null,
@@ -1800,6 +1757,16 @@ export async function bulkUpsertBusinesses(
           osAdminVendorId: row.osAdminVendorId || null,
         }
 
+        // Add category relation if categoryId was found
+        if (categoryId) {
+          data.category = { connect: { id: categoryId } }
+        }
+
+        // Add owner relation if ownerId was found
+        if (ownerId) {
+          data.owner = { connect: { clerkId: ownerId } }
+        }
+
         if (row.id) {
           // Update existing
           const existing = await prisma.business.findUnique({ where: { id: row.id } })
@@ -1810,7 +1777,7 @@ export async function bulkUpsertBusinesses(
 
           await prisma.business.update({
             where: { id: row.id },
-            data,
+            data: data as Parameters<typeof prisma.business.update>[0]['data'],
           })
           updated++
         } else {
@@ -1824,7 +1791,7 @@ export async function bulkUpsertBusinesses(
             continue
           }
 
-          await prisma.business.create({ data })
+          await prisma.business.create({ data: data as Parameters<typeof prisma.business.create>[0]['data'] })
           created++
         }
       } catch (err) {

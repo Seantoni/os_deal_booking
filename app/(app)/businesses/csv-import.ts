@@ -11,11 +11,11 @@ import { bulkUpsertBusinesses, type BulkBusinessRow } from '@/app/actions/busine
 // Expected CSV headers (matching export format)
 export const CSV_IMPORT_HEADERS = [
   'ID', 'Nombre', 'Contacto', 'Email', 'Teléfono', 'Categoría', 
-  'Owner', 'Sales Reps', 'Equipo', 
+  'Owner', 'Equipo', 
   'Tier', 'Account Manager', 'ERE', 'Tipo de Venta', 'Es Asesor', 'OS Asesor',
   'Website', 'Instagram', 'Descripción',
   'RUC', 'Razón Social', 
-  'Provincia', 'Distrito', 'Corregimiento', 'Dirección', 'Barriada',
+  'Prov,Dist,Corr', 'Dirección', 'Barriada',
   'Plan de Pago', 'Banco', 'Nombre Beneficiario', 'Número de Cuenta', 'Tipo de Cuenta', 'Emails de Pago',
   'OS Admin Vendor ID',
   'Fecha Creación'
@@ -23,6 +23,7 @@ export const CSV_IMPORT_HEADERS = [
 
 /**
  * Preview CSV import - validate rows before importing
+ * Note: ID validation is done server-side since client only has paginated data
  */
 export async function previewBusinessImport(
   rows: ParsedCsvRow[],
@@ -33,8 +34,8 @@ export async function previewBusinessImport(
   let skipped = 0
   const errors: string[] = []
 
-  // Get existing business IDs for validation
-  const existingIds = new Set(existingBusinesses.map(b => b.id))
+  // Build map of existing businesses by name (case-insensitive) for duplicate detection
+  const existingByName = new Map(existingBusinesses.map(b => [b.name.toLowerCase(), b]))
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
@@ -44,15 +45,12 @@ export async function previewBusinessImport(
     const name = row['Nombre']?.trim()
 
     if (id) {
-      if (existingIds.has(id)) {
-        toUpdate++
-      } else {
-        errors.push(`Fila ${rowNum}: ID "${id}" no encontrado`)
-        skipped++
-      }
+      // Has ID - assume it's an update (server will validate if ID exists)
+      toUpdate++
     } else if (name) {
-      // Check for duplicate name
-      const existingName = existingBusinesses.find(b => b.name.toLowerCase() === name.toLowerCase())
+      // No ID - check for duplicate name (best effort with loaded data)
+      // Server will do final validation
+      const existingName = existingByName.get(name.toLowerCase())
       if (existingName) {
         errors.push(`Fila ${rowNum}: Ya existe negocio con nombre "${name}"`)
         skipped++
@@ -93,7 +91,6 @@ function mapCsvRowToBusinessRow(row: ParsedCsvRow): BulkBusinessRow {
     category: blankToUndefined(row['Categoría']),
     // Ownership
     owner: blankToUndefined(row['Owner']),
-    salesReps: blankToUndefined(row['Sales Reps']),
     salesTeam: blankToUndefined(row['Equipo']),
     // Business info
     tier: blankToUndefined(row['Tier']),

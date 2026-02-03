@@ -215,9 +215,9 @@ export default function BusinessesPageClient({
     updateFilter('focusFilter', filter === 'all' ? undefined : filter)
   }, [updateFilter])
   
-  const salesRepFilter = (filters.salesRepId as string) || null
-  const setSalesRepFilter = useCallback((userId: string | null) => {
-    updateFilter('salesRepId', userId || undefined)
+  const ownerFilter = (filters.ownerId as string) || null
+  const setOwnerFilter = useCallback((userId: string | null) => {
+    updateFilter('ownerId', userId || undefined)
   }, [updateFilter])
   
   const activeDealFilter = (filters.activeDealFilter as boolean) || false
@@ -460,8 +460,8 @@ export default function BusinessesPageClient({
   const userFilter = isAdmin ? (
     <UserFilterDropdown
       users={userFilterOptions}
-      value={salesRepFilter}
-      onChange={setSalesRepFilter}
+      value={ownerFilter}
+      onChange={setOwnerFilter}
       label="Owner"
       placeholder="Todos"
     />

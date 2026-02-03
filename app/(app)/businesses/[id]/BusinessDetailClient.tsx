@@ -459,7 +459,6 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
             <div className="space-y-4">
               <Section title="Assignments & Relationships" icon={<PersonIcon fontSize="small" />}>
                 {renderField("Owner", business.owner?.name || business.owner?.email || business.ownerId)}
-                {renderField("Sales Reps", business.salesReps && business.salesReps.length > 0 ? business.salesReps.map((rep) => rep.salesRep?.name || rep.salesRep?.email || 'Rep').join(', ') : null)}
                 {renderField("Source", business.sourceType)}
               </Section>
 

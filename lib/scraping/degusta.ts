@@ -34,7 +34,6 @@ export async function scrapeDegusta(
         ...extra,
       })
     }
-    console.log(`[Degusta] ${message}`)
   }
   
   try {
@@ -49,16 +48,44 @@ export async function scrapeDegusta(
     // Navigate to search page with discounts filter
     reportProgress('loading_page', 'Loading search page...')
     
-    try {
-      await page.goto(SEARCH_URL, { waitUntil: 'networkidle2', timeout: PAGE_TIMEOUT })
-      console.log(`[Degusta] Navigation successful, URL: ${page.url()}`)
-    } catch (navError) {
-      console.error(`[Degusta] Navigation failed:`, navError)
-      throw navError
-    }
+    await page.goto(SEARCH_URL, { waitUntil: 'networkidle2', timeout: PAGE_TIMEOUT })
     
     // Wait for content to load
     await new Promise(resolve => setTimeout(resolve, CONTENT_LOAD_WAIT))
+    
+    // Try to dismiss cookie consent or any popups
+    try {
+      const cookieSelectors = [
+        'button[id*="cookie"]',
+        'button[class*="cookie"]',
+        'button[class*="accept"]',
+        '[class*="consent"] button',
+        '.cookie-banner button',
+        '#onetrust-accept-btn-handler',
+      ]
+      for (const selector of cookieSelectors) {
+        const btn = await page.$(selector)
+        if (btn) {
+          await btn.click()
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          break
+        }
+      }
+    } catch {
+      // No cookie consent found, continue
+    }
+    
+    // Wait for restaurant content to appear (with timeout)
+    try {
+      await page.waitForSelector('a[href*="restaurante"], .dg-result-restaurant-title', { 
+        timeout: 10000 
+      })
+    } catch {
+      reportProgress('loading_page', 'Waiting for content to load...')
+    }
+    
+    // Wait a bit more for dynamic content
+    await new Promise(resolve => setTimeout(resolve, 2000))
     
     // Scroll down to load more restaurants (lazy loading)
     reportProgress('loading_page', 'Scrolling to load more restaurants...')
@@ -99,28 +126,59 @@ export async function scrapeDegusta(
         imageUrl: string | null
       }> = []
       
-      // Find all restaurant cards - they have the title link with class dg-result-restaurant-title
-      const restaurantCards = document.querySelectorAll('.dg-result-restaurant-title')
+      // Try multiple selectors to find restaurant cards
+      // Strategy 1: Original selector
+      let restaurantCards = document.querySelectorAll('.dg-result-restaurant-title')
+      
+      // Strategy 2: Look for h5 elements with restaurant links
+      if (restaurantCards.length === 0) {
+        restaurantCards = document.querySelectorAll('h5.h5 a[href*="restaurante"]')
+      }
+      
+      // Strategy 3: Look for any link to restaurant pages
+      if (restaurantCards.length === 0) {
+        const allLinks = document.querySelectorAll('a[href*="/restaurante/"]')
+        // Filter to unique restaurant links (avoid duplicates from image + text links)
+        const uniqueUrls = new Set<string>()
+        const uniqueLinks: Element[] = []
+        allLinks.forEach(link => {
+          const href = link.getAttribute('href')
+          if (href && !uniqueUrls.has(href)) {
+            uniqueUrls.add(href)
+            uniqueLinks.push(link)
+          }
+        })
+        restaurantCards = uniqueLinks as unknown as NodeListOf<Element>
+      }
+      
+      // Strategy 4: Look for card-like containers
+      if (restaurantCards.length === 0) {
+        restaurantCards = document.querySelectorAll('[class*="card"][class*="restaurant"], [class*="result-item"]')
+      }
       
       restaurantCards.forEach((titleEl) => {
         try {
-          // Get the link element
-          const linkEl = titleEl.querySelector('a')
+          // Get the link element - it might be the element itself or a child
+          let linkEl: Element | null = titleEl.querySelector('a')
+          if (!linkEl && titleEl.tagName === 'A') {
+            linkEl = titleEl
+          }
           if (!linkEl) return
           
           // Get restaurant name and URL
-          const name = linkEl.textContent?.trim() || ''
+          let name = linkEl.textContent?.trim() || ''
           const href = linkEl.getAttribute('href') || ''
-          if (!name || !href) return
+          if (!href) return
           
           // Build full URL
           const sourceUrl = href.startsWith('http') ? href : baseUrl + href
           
           // Find the parent card container - go up several levels to get the full card
           // The card structure has the image/discount in one column and info in another
-          let card: Element | null = titleEl.closest('.col-12')?.parentElement || 
-                                     titleEl.closest('.row') || 
-                                     titleEl.closest('[class*="result"]')
+          let card: Element | null = linkEl.closest('.col-12')?.parentElement || 
+                                     linkEl.closest('.row') || 
+                                     linkEl.closest('[class*="result"]') ||
+                                     linkEl.closest('[class*="card"]')
           
           // Try to find an even larger container if needed (the full restaurant row)
           if (card) {
@@ -130,7 +188,31 @@ export async function scrapeDegusta(
             }
           }
           
+          // If we couldn't find a card, use the link's parent as fallback
+          if (!card) {
+            card = linkEl.parentElement?.parentElement?.parentElement || linkEl.parentElement
+          }
+          
           if (!card) return
+          
+          // If name is empty (e.g., we found an image link), try to get it from the card
+          if (!name) {
+            const cardTitleEl = card.querySelector('.dg-result-restaurant-title a, h5 a[href*="restaurante"]')
+            if (cardTitleEl) {
+              name = cardTitleEl.textContent?.trim() || ''
+            }
+          }
+          
+          // Extract name from URL as last resort
+          if (!name && href) {
+            // URL like /panama/restaurante/sugoi-condado-del-rey_109023.html
+            const match = href.match(/restaurante\/([^_]+)/)
+            if (match) {
+              name = match[1].replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+            }
+          }
+          
+          if (!name) return
           
           // Find cuisine/food type
           let cuisine: string | null = null
@@ -158,9 +240,7 @@ export async function scrapeDegusta(
           }
           
           // Find discount - look for elements with degusta discount classes
-          // The discount is usually in the image overlay area
           let discount: string | null = null
-          // Try multiple selectors - the discount can be in different class patterns
           const discountSelectors = [
             '.degusta_estandar',
             '.degusta_premium', 
@@ -237,15 +317,13 @@ export async function scrapeDegusta(
             ambientRating,
             imageUrl,
           })
-        } catch (err) {
-          console.error('Error extracting restaurant:', err)
+        } catch {
+          // Skip this restaurant if extraction fails
         }
       })
       
       return results
     }, BASE_URL)
-    
-    console.log(`[Degusta] Found ${rawRestaurants.length} restaurants`)
     
     if (rawRestaurants.length === 0) {
       errors.push('No restaurants found on page')
@@ -258,7 +336,7 @@ export async function scrapeDegusta(
     for (let i = 0; i < restaurantsToProcess.length; i++) {
       const raw = restaurantsToProcess[i]
       
-      reportProgress('extracting', `Processing restaurant ${i + 1}/${restaurantsToProcess.length}...`, {
+      reportProgress('extracting', `Processing restaurant ${i + 1}/${restaurantsToProcess.length}: ${raw.name}`, {
         current: i + 1,
         total: restaurantsToProcess.length,
         restaurantName: raw.name,
@@ -270,7 +348,7 @@ export async function scrapeDegusta(
         name: raw.name,
         cuisine: raw.cuisine,
         address: raw.address,
-        neighborhood: null, // Could extract from address if needed
+        neighborhood: null,
         pricePerPerson: raw.pricePerPerson,
         discount: raw.discount,
         votes: raw.votes,
@@ -281,7 +359,6 @@ export async function scrapeDegusta(
       }
       
       restaurants.push(restaurant)
-      console.log(`  ✓ ${raw.name} - ${raw.cuisine || 'N/A'} - ${raw.discount || 'No discount'}`)
     }
     
     reportProgress('complete', `Scan complete! Found ${restaurants.length} restaurants`)

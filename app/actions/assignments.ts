@@ -8,18 +8,6 @@ import { logActivity } from '@/lib/activity-log'
 
 export type ReassignmentType = 'reasignar' | 'sacar' | 'recurrente'
 
-// Type for sales rep relation
-type SalesRepRelation = {
-  id: string
-  salesRepId: string
-  userProfile: {
-    id: string
-    clerkId: string
-    name: string | null
-    email: string | null
-  }
-}
-
 // Business include config for consistent queries
 const businessInclude = {
   category: {
@@ -31,16 +19,12 @@ const businessInclude = {
       subCategory2: true,
     },
   },
-  salesReps: {
-    include: {
-      userProfile: {
-        select: {
-          id: true,
-          clerkId: true,
-          name: true,
-          email: true,
-        },
-      },
+  owner: {
+    select: {
+      id: true,
+      clerkId: true,
+      name: true,
+      email: true,
     },
   },
 }
@@ -65,7 +49,12 @@ interface BusinessWithReassignment {
     subCategory1: string | null
     subCategory2: string | null
   } | null
-  salesReps?: SalesRepRelation[]
+  owner?: {
+    id: string
+    clerkId: string
+    name: string | null
+    email: string | null
+  } | null
   [key: string]: unknown
 }
 
@@ -230,11 +219,6 @@ export async function getAssignmentsPaginated(options: {
     const transformedBusinesses = businesses.map(biz => {
       return {
         ...biz,
-        salesReps: (biz.salesReps || []).map((sr: SalesRepRelation) => ({
-          id: sr.id,
-          salesRepId: sr.salesRepId,
-          salesRep: sr.userProfile,
-        })),
         reassignmentRequester: biz.reassignmentRequestedBy 
           ? requesterMap.get(biz.reassignmentRequestedBy) || null
           : null,
@@ -473,19 +457,7 @@ export async function searchAssignments(query: string) {
       take: 50,
     }) as unknown as BusinessWithReassignment[]
 
-    // Transform salesReps structure
-    const transformedBusinesses = businesses.map(biz => {
-      return {
-        ...biz,
-        salesReps: (biz.salesReps || []).map((sr: SalesRepRelation) => ({
-          id: sr.id,
-          salesRepId: sr.salesRepId,
-          salesRep: sr.userProfile,
-        })),
-      }
-    })
-
-    return { success: true, data: transformedBusinesses }
+    return { success: true, data: businesses }
   } catch (error) {
     return handleServerActionError(error, 'searchAssignments')
   }

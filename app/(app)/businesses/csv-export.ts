@@ -25,9 +25,6 @@ export const CSV_EXPORT_COLUMNS = [
   }},
   // Ownership
   { key: 'owner', label: 'Owner', getValue: (b: Business) => b.owner?.name || '' },
-  { key: 'salesReps', label: 'Sales Reps', getValue: (b: Business) => 
-    b.salesReps?.map(r => r.salesRep?.name || '').filter(Boolean).join(', ') || ''
-  },
   { key: 'salesTeam', label: 'Equipo', getValue: (b: Business) => b.salesTeam || '' },
   // Business info
   { key: 'tier', label: 'Tier', getValue: (b: Business) => b.tier?.toString() || '' },

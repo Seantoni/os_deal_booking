@@ -557,7 +557,14 @@ export async function getOpportunity(opportunityId: string) {
                 subCategory2: true,
               },
             },
-            salesReps: true,
+            owner: {
+              select: {
+                id: true,
+                clerkId: true,
+                name: true,
+                email: true,
+              },
+            },
           },
         },
         tasks: {

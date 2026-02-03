@@ -79,16 +79,6 @@ export type Business = {
     subCategory1: string | null
     subCategory2: string | null
   } | null
-  salesReps?: {
-    id: string
-    salesRepId: string
-    salesRep: {
-      id: string
-      clerkId: string
-      name: string | null
-      email: string | null
-    }
-  }[]
   owner?: {
     id: string
     clerkId: string

@@ -20,7 +20,7 @@ const ALL_ENTITIES_ID = '__ALL__'
  * Access is granted if:
  * 1. User is admin (sees everything)
  * 2. User has explicit EntityAccess grant
- * 3. User is assigned to the entity (e.g., salesRep, createdBy)
+ * 3. User is assigned to the entity (e.g., owner, createdBy)
  * 
  * @param entityType - Type of entity ('business', 'opportunity', etc.)
  * @param entityId - ID of the specific entity
@@ -134,7 +134,7 @@ export async function canAccessEntity(
 
 /**
  * Check if user is assigned to an entity through entity-specific relationships
- * (e.g., salesRep for Business, createdBy for BookingRequest)
+ * (e.g., owner for Business, createdBy for BookingRequest)
  */
 async function checkEntityAssignment(
   entityType: EntityType,
@@ -151,28 +151,21 @@ async function checkEntityAssignment(
   
   switch (entityType) {
     case 'business': {
-      // Check if user is a sales rep for this business
-      // salesRepId in BusinessSalesRep refers to UserProfile.clerkId
-      const assignment = await prisma.businessSalesRep.findFirst({
-        where: {
-          businessId: entityId,
-          salesRepId: profile.clerkId,
-        },
+      // Check if user is the owner of this business
+      const business = await prisma.business.findUnique({
+        where: { id: entityId },
+        select: { ownerId: true },
       })
-      return !!assignment
+      return business?.ownerId === profile.clerkId
     }
     
     case 'opportunity': {
-      // Check if user owns this opportunity or is assigned to the linked business
+      // Check if user owns this opportunity or the linked business
       const opportunity = await prisma.opportunity.findUnique({
         where: { id: entityId },
         include: {
           business: {
-            include: {
-              salesReps: {
-                where: { salesRepId: profile.clerkId },
-              },
-            },
+            select: { ownerId: true },
           },
         },
       })
@@ -181,8 +174,8 @@ async function checkEntityAssignment(
       
       // Check if user created the opportunity
       if (profile.clerkId === opportunity.userId) return true
-      // Check if user is sales rep for the linked business
-      if (opportunity.business?.salesReps.length) return true
+      // Check if user owns the linked business
+      if (opportunity.business?.ownerId === profile.clerkId) return true
       
       return false
     }
@@ -212,21 +205,17 @@ async function checkEntityAssignment(
     }
     
     case 'eventLead': {
-      // Check if user is assigned to the promoter business
+      // Check if user owns the promoter business
       const eventLead = await prisma.eventLead.findUnique({
         where: { id: entityId },
         include: {
           promoterBusiness: {
-            include: {
-              salesReps: {
-                where: { salesRepId: profile.clerkId },
-              },
-            },
+            select: { ownerId: true },
           },
         },
       })
       
-      return !!eventLead?.promoterBusiness?.salesReps?.length
+      return eventLead?.promoterBusiness?.ownerId === profile.clerkId
     }
     
     case 'lead': {
@@ -303,14 +292,12 @@ export async function getAccessibleIds(
     // Get assigned entities based on type
     switch (entityType) {
       case 'business': {
-        // salesRepId in BusinessSalesRep refers to UserProfile.clerkId
-        const assignments = await prisma.businessSalesRep.findMany({
-          where: {
-            salesRepId: profile.clerkId,
-          },
-          select: { businessId: true },
+        // Businesses where user is the owner
+        const ownedBusinesses = await prisma.business.findMany({
+          where: { ownerId: profile.clerkId },
+          select: { id: true },
         })
-        assignments.forEach(a => ids.add(a.businessId))
+        ownedBusinesses.forEach(b => ids.add(b.id))
         break
       }
       
@@ -322,18 +309,16 @@ export async function getAccessibleIds(
         })
         created.forEach(o => ids.add(o.id))
         
-        // Opportunities linked to assigned businesses
-        const businessAssignments = await prisma.businessSalesRep.findMany({
-          where: {
-            salesRepId: profile.clerkId,
-          },
-          select: { businessId: true },
+        // Opportunities linked to owned businesses
+        const ownedBusinesses = await prisma.business.findMany({
+          where: { ownerId: profile.clerkId },
+          select: { id: true },
         })
         
-        if (businessAssignments.length > 0) {
+        if (ownedBusinesses.length > 0) {
           const linkedOpps = await prisma.opportunity.findMany({
             where: {
-              businessId: { in: businessAssignments.map(b => b.businessId) },
+              businessId: { in: ownedBusinesses.map(b => b.id) },
             },
             select: { id: true },
           })
@@ -365,18 +350,16 @@ export async function getAccessibleIds(
       }
       
       case 'eventLead': {
-        // Event leads linked to assigned businesses
-        const businessAssignments = await prisma.businessSalesRep.findMany({
-          where: {
-            salesRepId: profile.clerkId,
-          },
-          select: { businessId: true },
+        // Event leads linked to owned businesses
+        const ownedBusinesses = await prisma.business.findMany({
+          where: { ownerId: profile.clerkId },
+          select: { id: true },
         })
         
-        if (businessAssignments.length > 0) {
+        if (ownedBusinesses.length > 0) {
           const linkedLeads = await prisma.eventLead.findMany({
             where: {
-              promoterBusinessId: { in: businessAssignments.map(b => b.businessId) },
+              promoterBusinessId: { in: ownedBusinesses.map(b => b.id) },
             },
             select: { id: true },
           })
@@ -427,11 +410,11 @@ export async function buildAccessFilter(
  * 
  * Edit access is granted if:
  * 1. User is admin or editor (can edit all)
- * 2. User is assigned as a sales rep for this business
+ * 2. User is the owner of this business
  * 3. User has explicit EntityAccess grant with edit or manage level
  * 
  * Note: This is different from canAccessEntity which checks VIEW access.
- * Sales users can VIEW all businesses but only EDIT assigned ones.
+ * Sales users can VIEW all businesses but only EDIT ones they own.
  * 
  * @param businessId - ID of the business to check
  * @returns Object with canEdit boolean and reason
@@ -483,21 +466,8 @@ export async function canEditBusiness(
       return { canEdit: true, reason: 'owner' }
     }
     
-    // Check if user is assigned as sales rep for this business
-    // salesRepId in BusinessSalesRep refers to UserProfile.clerkId
-    const assignment = await prisma.businessSalesRep.findFirst({
-      where: {
-        businessId,
-        salesRepId: profile.clerkId,
-      },
-    })
-    
-    if (assignment) {
-      return { canEdit: true, reason: 'assigned' }
-    }
-    
-    // Sales users can VIEW but not EDIT unassigned businesses
-    return { canEdit: false, reason: 'not_assigned' }
+    // Sales users can VIEW but not EDIT businesses they don't own
+    return { canEdit: false, reason: 'not_owner' }
   } catch (error) {
     console.error('[entity-access] Error checking edit permission:', error)
     return { canEdit: false, reason: 'error' }
@@ -544,27 +514,13 @@ export async function getEditableBusinessIds(): Promise<string[] | null> {
       }
     }
     
-    // Get business IDs where user is owner OR assigned as sales rep
-    const [ownedBusinesses, assignments] = await Promise.all([
-      // Businesses where user is the owner
-      prisma.business.findMany({
-        where: { ownerId: profile.clerkId },
-        select: { id: true },
-      }),
-      // Businesses where user is assigned as sales rep
-      prisma.businessSalesRep.findMany({
-        where: { salesRepId: profile.clerkId },
-        select: { businessId: true },
-      }),
-    ])
+    // Get business IDs where user is the owner
+    const ownedBusinesses = await prisma.business.findMany({
+      where: { ownerId: profile.clerkId },
+      select: { id: true },
+    })
     
-    // Combine and deduplicate
-    const editableIds = new Set([
-      ...ownedBusinesses.map(b => b.id),
-      ...assignments.map(a => a.businessId),
-    ])
-    
-    return Array.from(editableIds)
+    return ownedBusinesses.map(b => b.id)
   } catch (error) {
     console.error('[entity-access] Error getting editable business IDs:', error)
     return []
