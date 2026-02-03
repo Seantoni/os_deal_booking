@@ -170,7 +170,8 @@ export default function BusinessFormModal({
     
     try {
       // Step 1: Preview changes
-      const allValues = dynamicForm.getAllValues()
+      // Include salesTeam from ReferenceInfoBar state (not part of dynamicForm)
+      const allValues = { ...dynamicForm.getAllValues(), salesTeam }
       const previewResult = await previewVendorSync(business.id, allValues)
       
       if (!previewResult.success || !previewResult.data) {
