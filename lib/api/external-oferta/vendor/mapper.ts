@@ -34,6 +34,7 @@ export const VENDOR_FIELD_MAPPING: {
   { fieldKey: 'accountNumber', apiKey: 'account', label: 'Número de cuenta' },
   { fieldKey: 'accountType', apiKey: 'accountType', label: 'Tipo de cuenta' },
   { fieldKey: 'paymentPlan', apiKey: 'paymentPlan', label: 'Plan de pago' },
+  { fieldKey: 'salesTeam', apiKey: 'salesType', label: 'Tipo de ventas' },
 ]
 
 /**
@@ -60,16 +61,21 @@ export function getFieldLabel(fieldKey: string): string {
 export function mapBusinessToVendor(
   business: Business,
   options: {
-    /** Override default sales type (defaults to 0=Regular) */
-    salesType?: number
+    /** Override sales type (if not provided, maps from business.salesTeam) */
+    salesType?: number | null
   } = {}
 ): ExternalOfertaVendorRequest {
+  // Map salesTeam to salesType: "Inside Sales" → 1, "Outside Sales" → 0, null → null
+  const mappedSalesType = options.salesType !== undefined 
+    ? options.salesType 
+    : mapSalesTeamToSalesType(business.salesTeam)
+  
   return {
     // ===== REQUIRED FIELDS =====
     name: business.name,
     email: business.contactEmail,
-    // Default to Regular (0) - TODO: Map from business.salesType string when mapping is available
-    salesType: options.salesType ?? VENDOR_SALES_TYPE.REGULAR,
+    // Maps from business.salesTeam: "Inside Sales" → 1, "Outside Sales" → 0
+    salesType: mappedSalesType ?? VENDOR_SALES_TYPE.REGULAR, // API requires a value, default to 0 if null
 
     // ===== DIRECT MAPPINGS =====
     address: business.address || null,
@@ -142,23 +148,38 @@ function isValidEmail(email: string): boolean {
 }
 
 /**
- * Future helper: Map salesType string to integer
- * TODO: Implement when we know the exact string values stored
+ * Map salesTeam string to salesType integer for external API
  * 
- * @param salesTypeString - String value from business.salesType
- * @returns Integer value for API (0-3)
+ * Mapping:
+ * - "Inside Sales" → 1 (Inside)
+ * - "Outside Sales" → 0 (Regular)
+ * - null/empty → null (not sent to API)
+ * 
+ * @param salesTeam - String value from business.salesTeam
+ * @returns Integer value for API (0 or 1) or null if not set
+ */
+export function mapSalesTeamToSalesType(salesTeam: string | null | undefined): number | null {
+  if (!salesTeam) return null
+
+  const normalized = salesTeam.trim()
+  
+  if (normalized === 'Inside Sales') return VENDOR_SALES_TYPE.INSIDE
+  if (normalized === 'Outside Sales') return VENDOR_SALES_TYPE.REGULAR
+  
+  // Fallback: check for partial matches (legacy support)
+  const lower = normalized.toLowerCase()
+  if (lower.includes('inside')) return VENDOR_SALES_TYPE.INSIDE
+  
+  // Default to Regular for any other "Outside" variant
+  return VENDOR_SALES_TYPE.REGULAR
+}
+
+/**
+ * @deprecated Use mapSalesTeamToSalesType instead
  */
 export function mapSalesTypeToInteger(salesTypeString: string | null | undefined): number {
-  if (!salesTypeString) return VENDOR_SALES_TYPE.REGULAR
-
-  const lower = salesTypeString.toLowerCase()
-  
-  if (lower.includes('inside')) return VENDOR_SALES_TYPE.INSIDE
-  if (lower.includes('recurring') || lower.includes('recurrente')) return VENDOR_SALES_TYPE.RECURRING
-  if (lower.includes('osp')) return VENDOR_SALES_TYPE.OSP
-  
-  // Default to Regular
-  return VENDOR_SALES_TYPE.REGULAR
+  const result = mapSalesTeamToSalesType(salesTypeString)
+  return result ?? VENDOR_SALES_TYPE.REGULAR
 }
 
 // ============================================
@@ -204,8 +225,16 @@ export function getChangedVendorFields(
         isNew: !currentValue && !!newValue,
       })
 
-      // Add to API payload
-      ;(apiPayload as Record<string, string | null>)[apiKey] = newValue
+      // Special handling for salesTeam → salesType (string → number mapping)
+      if (fieldKey === 'salesTeam') {
+        const salesTypeValue = mapSalesTeamToSalesType(newValue)
+        if (salesTypeValue !== null) {
+          apiPayload.salesType = salesTypeValue
+        }
+      } else {
+        // Add to API payload as string
+        ;(apiPayload as Record<string, string | null>)[apiKey] = newValue
+      }
     }
   }
 

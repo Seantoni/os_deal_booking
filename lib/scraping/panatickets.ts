@@ -85,7 +85,24 @@ export async function scrapePanatickets(
         const href = link.getAttribute('href')
         if (!href) return
         
-        const fullUrl = href.startsWith('http') ? href : `${baseUrl}/${href.replace(/^\//, '')}`
+        // Handle different URL formats:
+        // - Full URL: "https://..." or "http://..."
+        // - Protocol-relative: "//domain.com/..."
+        // - Absolute path: "/path/..."
+        // - Relative path: "path/..."
+        let fullUrl: string
+        if (href.startsWith('http://') || href.startsWith('https://')) {
+          fullUrl = href
+        } else if (href.startsWith('//')) {
+          // Protocol-relative URL
+          fullUrl = 'https:' + href
+        } else if (href.startsWith('/')) {
+          // Absolute path
+          fullUrl = baseUrl + href
+        } else {
+          // Relative path
+          fullUrl = baseUrl + '/' + href
+        }
         
         // Skip duplicates
         if (processedUrls.has(fullUrl)) return

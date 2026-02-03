@@ -113,7 +113,7 @@ export default function CronJobsTab() {
       const endpoints: Record<CronJobName, string> = {
         'deal-metrics-sync': '/api/cron/deal-metrics-sync',
         'task-reminders': '/api/cron/task-reminders',
-        'market-intelligence-scan': '/api/market-intelligence/scan',
+        'market-intelligence-scan': '/api/cron/market-intelligence-scan',
         'event-leads-sync': '/api/cron/event-leads-sync',
       }
 

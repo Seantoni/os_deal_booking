@@ -9,7 +9,7 @@
       "schedule": "0 5 * * *"
     },
     {
-      "path": "/api/market-intelligence/scan",
+      "path": "/api/cron/market-intelligence-scan",
       "schedule": "0 6 * * *"
     },
     {
@@ -18,7 +18,7 @@
     }
   ],
   "functions": {
-    "app/api/market-intelligence/scan/route.ts": {
+    "app/api/cron/market-intelligence-scan/route.ts": {
       "memory": 1024,
       "maxDuration": 300
     },

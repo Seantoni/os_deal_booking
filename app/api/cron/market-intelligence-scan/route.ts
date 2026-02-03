@@ -20,7 +20,7 @@ function getBaseUrl(): string {
 }
 
 /**
- * POST /api/market-intelligence/scan
+ * POST /api/cron/market-intelligence-scan
  * 
  * Trigger a manual scan of competitor sites with SSE progress updates.
  * Admin only.
@@ -143,7 +143,7 @@ export async function POST(request: Request) {
 }
 
 /**
- * GET /api/market-intelligence/scan
+ * GET /api/cron/market-intelligence-scan
  * 
  * For cron job - trigger daily scan with chunked processing.
  * Supports self-invocation for long-running scans.
@@ -334,7 +334,7 @@ export async function GET(request: Request) {
  */
 function triggerNextChunk(site: SourceSite, startFrom: number, secret?: string, logId?: string | null) {
   const baseUrl = getBaseUrl()
-  const nextUrl = new URL('/api/market-intelligence/scan', baseUrl)
+  const nextUrl = new URL('/api/cron/market-intelligence-scan', baseUrl)
   nextUrl.searchParams.set('site', site)
   nextUrl.searchParams.set('startFrom', startFrom.toString())
   nextUrl.searchParams.set('internal', 'true')
