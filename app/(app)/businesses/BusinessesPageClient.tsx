@@ -478,7 +478,7 @@ export default function BusinessesPageClient({
       Mis Negocios
     </Button>
   ) : null
-  
+
   // Active deal toggle button
   const activeDealToggle = (
     <Button

@@ -15,14 +15,8 @@ export const CSV_EXPORT_COLUMNS = [
   { key: 'contactName', label: 'Contacto', getValue: (b: Business) => b.contactName || '' },
   { key: 'contactEmail', label: 'Email', getValue: (b: Business) => b.contactEmail || '' },
   { key: 'contactPhone', label: 'Teléfono', getValue: (b: Business) => b.contactPhone || '' },
-  // Category
-  { key: 'category', label: 'Categoría', getValue: (b: Business) => {
-    if (!b.category) return ''
-    let cat = b.category.parentCategory
-    if (b.category.subCategory1) cat += ` > ${b.category.subCategory1}`
-    if (b.category.subCategory2) cat += ` > ${b.category.subCategory2}`
-    return cat
-  }},
+  // Category - export parent category only (matches form's parentOnly display mode)
+  { key: 'category', label: 'Categoría', getValue: (b: Business) => b.category?.parentCategory || '' },
   // Ownership
   { key: 'owner', label: 'Owner', getValue: (b: Business) => b.owner?.name || '' },
   { key: 'salesTeam', label: 'Equipo', getValue: (b: Business) => b.salesTeam || '' },

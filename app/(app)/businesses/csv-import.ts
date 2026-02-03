@@ -5,8 +5,47 @@
 
 import type { Business } from '@/types'
 import type { ParsedCsvRow } from '@/lib/utils/csv-export'
-import type { CsvUploadPreview, CsvUploadResult } from '@/components/common/CsvUploadModal'
-import { bulkUpsertBusinesses, type BulkBusinessRow } from '@/app/actions/businesses'
+import type { CsvUploadPreview, CsvUploadResult, CsvPreviewSample } from '@/components/common/CsvUploadModal'
+import { bulkUpsertBusinesses, type BulkBusinessRow } from '@/app/actions/business-bulk'
+
+// All importable fields for preview (shows which fields have values in CSV)
+const PREVIEW_FIELDS: { csvHeader: string; label: string }[] = [
+  // Contact
+  { csvHeader: 'Contacto', label: 'Contacto' },
+  { csvHeader: 'Email', label: 'Email' },
+  { csvHeader: 'Teléfono', label: 'Teléfono' },
+  // Classification
+  { csvHeader: 'Categoría', label: 'Categoría' },
+  { csvHeader: 'Owner', label: 'Owner' },
+  { csvHeader: 'Equipo', label: 'Equipo' },
+  { csvHeader: 'Tier', label: 'Tier' },
+  // Business info
+  { csvHeader: 'Account Manager', label: 'Account Manager' },
+  { csvHeader: 'ERE', label: 'ERE' },
+  { csvHeader: 'Tipo de Venta', label: 'Tipo Venta' },
+  { csvHeader: 'Es Asesor', label: 'Es Asesor' },
+  { csvHeader: 'OS Asesor', label: 'OS Asesor' },
+  // Online
+  { csvHeader: 'Website', label: 'Website' },
+  { csvHeader: 'Instagram', label: 'Instagram' },
+  { csvHeader: 'Descripción', label: 'Descripción' },
+  // Legal
+  { csvHeader: 'RUC', label: 'RUC' },
+  { csvHeader: 'Razón Social', label: 'Razón Social' },
+  // Location
+  { csvHeader: 'Prov,Dist,Corr', label: 'Ubicación' },
+  { csvHeader: 'Dirección', label: 'Dirección' },
+  { csvHeader: 'Barriada', label: 'Barriada' },
+  // Payment
+  { csvHeader: 'Plan de Pago', label: 'Plan Pago' },
+  { csvHeader: 'Banco', label: 'Banco' },
+  { csvHeader: 'Nombre Beneficiario', label: 'Beneficiario' },
+  { csvHeader: 'Número de Cuenta', label: 'Cuenta' },
+  { csvHeader: 'Tipo de Cuenta', label: 'Tipo Cuenta' },
+  { csvHeader: 'Emails de Pago', label: 'Emails Pago' },
+  // External
+  { csvHeader: 'OS Admin Vendor ID', label: 'Vendor ID' },
+]
 
 // Expected CSV headers (matching export format)
 export const CSV_IMPORT_HEADERS = [
@@ -22,6 +61,24 @@ export const CSV_IMPORT_HEADERS = [
 ]
 
 /**
+ * Get fields with non-empty values from a CSV row for preview
+ */
+function getChangedFields(row: ParsedCsvRow): string[] {
+  const changes: string[] = []
+  for (const field of PREVIEW_FIELDS) {
+    const value = row[field.csvHeader]?.trim()
+    if (value) {
+      changes.push(field.label)
+    }
+  }
+  // Show up to 6 fields, then indicate more
+  if (changes.length > 6) {
+    return [...changes.slice(0, 5), `+${changes.length - 5} más`]
+  }
+  return changes
+}
+
+/**
  * Preview CSV import - validate rows before importing
  * Note: ID validation is done server-side since client only has paginated data
  */
@@ -33,6 +90,7 @@ export async function previewBusinessImport(
   let toUpdate = 0
   let skipped = 0
   const errors: string[] = []
+  const samples: CsvPreviewSample[] = []
 
   // Build map of existing businesses by name (case-insensitive) for duplicate detection
   const existingByName = new Map(existingBusinesses.map(b => [b.name.toLowerCase(), b]))
@@ -47,6 +105,15 @@ export async function previewBusinessImport(
     if (id) {
       // Has ID - assume it's an update (server will validate if ID exists)
       toUpdate++
+      
+      // Add to samples (max 5)
+      if (samples.length < 5) {
+        samples.push({
+          name: name || `ID: ${id.slice(0, 8)}...`,
+          action: 'update',
+          changes: getChangedFields(row)
+        })
+      }
     } else if (name) {
       // No ID - check for duplicate name (best effort with loaded data)
       // Server will do final validation
@@ -56,6 +123,15 @@ export async function previewBusinessImport(
         skipped++
       } else {
         toCreate++
+        
+        // Add to samples (max 5)
+        if (samples.length < 5) {
+          samples.push({
+            name,
+            action: 'create',
+            changes: getChangedFields(row)
+          })
+        }
       }
     } else {
       errors.push(`Fila ${rowNum}: Se requiere ID o Nombre`)
@@ -63,7 +139,7 @@ export async function previewBusinessImport(
     }
   }
 
-  return { toCreate, toUpdate, skipped, errors, rows }
+  return { toCreate, toUpdate, skipped, errors, rows, samples }
 }
 
 /**

@@ -10,12 +10,19 @@ import { useModalEscape } from '@/hooks/useModalEscape'
 import { Button } from '@/components/ui'
 import { parseCsv, type ParsedCsvRow } from '@/lib/utils/csv-export'
 
+export interface CsvPreviewSample {
+  name: string
+  action: 'create' | 'update'
+  changes?: string[] // Key fields being changed for updates
+}
+
 export interface CsvUploadPreview {
   toCreate: number
   toUpdate: number
   skipped: number
   errors: string[]
   rows: ParsedCsvRow[]
+  samples?: CsvPreviewSample[] // Top 5 samples to show in confirmation
 }
 
 export interface CsvUploadResult {
@@ -296,6 +303,48 @@ export default function CsvUploadModal({
                       </ul>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Sample preview */}
+              {preview.samples && preview.samples.length > 0 && (
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
+                    <p className="text-xs font-medium text-gray-700">
+                      Vista previa (primeros {preview.samples.length} registros)
+                    </p>
+                  </div>
+                  <div className="divide-y divide-gray-100 max-h-48 overflow-auto">
+                    {preview.samples.map((sample, i) => (
+                      <div key={i} className="px-3 py-2 flex items-start gap-2">
+                        <span className={`
+                          inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0
+                          ${sample.action === 'create' 
+                            ? 'bg-green-100 text-green-700' 
+                            : 'bg-blue-100 text-blue-700'}
+                        `}>
+                          {sample.action === 'create' ? 'NUEVO' : 'ACTUALIZAR'}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {sample.name}
+                          </p>
+                          {sample.changes && sample.changes.length > 0 && (
+                            <p className="text-xs text-gray-500 truncate">
+                              Campos: {sample.changes.join(', ')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {(preview.toCreate + preview.toUpdate) > preview.samples.length && (
+                    <div className="px-3 py-2 bg-gray-50 border-t border-gray-200">
+                      <p className="text-xs text-gray-500 text-center">
+                        ... y {(preview.toCreate + preview.toUpdate) - preview.samples.length} registros más
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 

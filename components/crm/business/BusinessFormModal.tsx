@@ -951,11 +951,11 @@ export default function BusinessFormModal({
                 {/* Reference Info Bar (special section - not from form config) */}
                 <ReferenceInfoBar>
                   <ReferenceInfoBar.CreatedDateItem entity={business} />
-                  <ReferenceInfoBar.TextItem
-                    label="Vendor ID"
+                  <ReferenceInfoBar.VendorIdItem
                     value={allFormValues.osAdminVendorId || ''}
-                    placeholder="OS Admin ID"
-                    readOnly
+                    onChange={(val) => dynamicForm.setValue('osAdminVendorId', val)}
+                    isAdmin={isAdmin}
+                    placeholder="Sin ID"
                   />
                   <ReferenceInfoBar.UserSelectItem
                     label="Propietario"
