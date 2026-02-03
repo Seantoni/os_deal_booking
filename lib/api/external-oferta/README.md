@@ -133,4 +133,3 @@ View logs in **Settings → API Logs** tab.
 
 - `POST /api/external-oferta/resend` - Resend a failed deal request
 - `GET /api/external-oferta/logs` - Get API logs (admin only)
-- `POST /api/external-oferta/test` - Test endpoint (development only)

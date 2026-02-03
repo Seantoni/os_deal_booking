@@ -41,17 +41,6 @@ export default function SystemTab() {
 
   async function checkConfigStatuses() {
     try {
-      const response = await fetch('/api/external-oferta/test')
-      const data = await response.json()
-      setOfertaApiStatus({
-        status: data.configured ? 'connected' : 'not_configured',
-        details: data.configured ? 'Token configured' : null
-      })
-    } catch {
-      setOfertaApiStatus({ status: 'error', error: 'Check failed' })
-    }
-
-    try {
       const response = await fetch('/api/health/config')
       const data = await response.json()
       
@@ -72,11 +61,17 @@ export default function SystemTab() {
       setCronStatus({
         status: data.cron?.configured ? 'connected' : 'not_configured',
       })
+      
+      setOfertaApiStatus({
+        status: data.oferta?.configured ? 'connected' : 'not_configured',
+        details: data.oferta?.configured ? 'Token configured' : null
+      })
     } catch {
       setResendStatus({ status: 'idle' })
       setS3Status({ status: 'idle' })
       setSentryStatus({ status: 'idle' })
       setCronStatus({ status: 'idle' })
+      setOfertaApiStatus({ status: 'idle' })
     }
   }
 
@@ -90,32 +85,6 @@ export default function SystemTab() {
       )
     } catch (error) {
       setOpenaiStatus({ status: 'error', error: error instanceof Error ? error.message : 'Error' })
-    }
-  }
-
-  async function testOfertaSimpleApi() {
-    setOfertaApiStatus({ status: 'checking' })
-    try {
-      const response = await fetch('/api/external-oferta/test', { method: 'POST' })
-      let data
-      try {
-        data = await response.json()
-      } catch {
-        setOfertaApiStatus({ status: 'error', error: `HTTP ${response.status} (no JSON)` })
-        return
-      }
-      if (data.success) {
-        setOfertaApiStatus({ status: 'connected', details: `ID: ${data.externalId}` })
-      } else {
-        // Extract error from various formats
-        const err = data.errorMessage 
-          || (typeof data.error === 'string' ? data.error : null)
-          || data.hint
-          || `HTTP ${data.status || response.status}`
-        setOfertaApiStatus({ status: 'error', error: err })
-      }
-    } catch (error) {
-      setOfertaApiStatus({ status: 'error', error: error instanceof Error ? error.message : 'Network error' })
     }
   }
 
@@ -236,7 +205,6 @@ export default function SystemTab() {
               status={ofertaApiStatus.status}
               details={ofertaApiStatus.details}
               error={ofertaApiStatus.error}
-              onTest={testOfertaSimpleApi}
             />
             <ServiceRow
               name="Vendor API"

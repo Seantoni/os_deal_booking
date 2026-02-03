@@ -4,11 +4,23 @@
  * GET /api/health/config
  * 
  * Returns the configuration status of all external services
+ * Restricted to admin users only
  */
 
 import { NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/auth/roles'
 
 export async function GET() {
+  // Require admin role - this endpoint exposes infrastructure details
+  try {
+    await requireAdmin()
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized: Admin access required' },
+      { status: 403 }
+    )
+  }
+
   return NextResponse.json({
     resend: {
       configured: !!process.env.RESEND_API_KEY,

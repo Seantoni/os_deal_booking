@@ -2,8 +2,19 @@ import { NextResponse } from 'next/server'
 import { syncCategoriesToDatabase } from '@/app/actions/categories'
 import type { CategoryHierarchy } from '@/types'
 import { logger } from '@/lib/logger'
+import { requireAdmin } from '@/lib/auth/roles'
 
 export async function POST(request: Request) {
+  // Require admin role - category sync can modify/deactivate taxonomy
+  try {
+    await requireAdmin()
+  } catch {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized: Admin access required' },
+      { status: 403 }
+    )
+  }
+
   try {
     const body = await request.json()
     const hierarchy: CategoryHierarchy = body.hierarchy
@@ -24,11 +35,11 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     logger.error('Error in /api/categories/sync:', error)
+    const errorMessage = process.env.NODE_ENV === 'development'
+      ? (error instanceof Error ? error.message : 'Unknown error')
+      : 'Category sync failed'
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      },
+      { success: false, error: errorMessage },
       { status: 500 }
     )
   }
