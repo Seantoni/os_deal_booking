@@ -11,9 +11,9 @@ const BASE_URL = 'https://www.degustapanama.com'
 // Search URL with discounts filter enabled
 const SEARCH_URL = 'https://www.degustapanama.com/panama/search?filters=eyJmaWx0ZXJzIjp7ImRpc2NvdW50cyI6dHJ1ZX0sInNjb3JlX3JhbmdlIjp7fSwic29ydCI6InJhbmRvbSJ9'
 
-// Timeouts and wait times
+// Timeouts and wait times (lighter for Vercel serverless)
 const PAGE_TIMEOUT = 60000 // 60 seconds for page load
-const CONTENT_LOAD_WAIT = 5000 // Match ticketplus timing for Vercel
+const CONTENT_LOAD_WAIT = 2000
 
 /**
  * Main scraper function for Degusta Panamá
@@ -50,7 +50,7 @@ export async function scrapeDegusta(
     reportProgress('loading_page', 'Loading search page...')
     
     try {
-      await page.goto(SEARCH_URL, { waitUntil: 'networkidle2', timeout: PAGE_TIMEOUT })
+      await page.goto(SEARCH_URL, { waitUntil: 'domcontentloaded', timeout: PAGE_TIMEOUT })
       console.log(`[Degusta] Navigation successful, URL: ${page.url()}`)
     } catch (navError) {
       console.error(`[Degusta] Navigation failed:`, navError)
@@ -82,10 +82,10 @@ export async function scrapeDegusta(
       // No cookie consent found, continue
     }
     
-    // Wait for restaurant content to appear (with timeout)
+    // Wait for restaurant content to appear (shorter timeout for Vercel)
     try {
       await page.waitForSelector('a[href*="restaurante"], .dg-result-restaurant-title', { 
-        timeout: 10000 
+        timeout: 5000 
       })
       console.log(`[Degusta] Restaurant content detected`)
     } catch {
@@ -93,8 +93,8 @@ export async function scrapeDegusta(
       reportProgress('loading_page', 'Waiting for content to load...')
     }
     
-    // Wait a bit more for dynamic content
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    // Brief wait for dynamic content
+    await new Promise(resolve => setTimeout(resolve, 1000))
     
     // Scroll down to load more restaurants (lazy loading)
     reportProgress('loading_page', 'Scrolling to load more restaurants...')
@@ -113,7 +113,7 @@ export async function scrapeDegusta(
       
       previousHeight = currentHeight
       await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      await new Promise(resolve => setTimeout(resolve, 1000))
       scrollAttempts++
     }
     

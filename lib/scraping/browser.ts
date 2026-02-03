@@ -170,12 +170,11 @@ export async function createPage(browser: Browser) {
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
   )
   
-  // Block unnecessary resources to speed up loading
+  // Block unnecessary resources to speed up loading and reduce memory
   await page.setRequestInterception(true)
   page.on('request', (request) => {
     const resourceType = request.resourceType()
-    // Block fonts, media, and some images to speed up
-    if (['font', 'media'].includes(resourceType)) {
+    if (['font', 'media', 'image'].includes(resourceType)) {
       request.abort()
     } else {
       request.continue()
