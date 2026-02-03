@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     // Sync metrics (fetch from API + store to DB)
     const result = await syncDealMetrics({
       sinceDays,
-      userId,
+      userId: userId ?? undefined,
       fetchAll,
     })
 
