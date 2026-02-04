@@ -3,6 +3,7 @@
  */
 
 import type { LeadStage } from '@/lib/constants'
+import type { BusinessRef, CategoryRef, Nullable, UserBaseRef } from './shared'
 
 export type Lead = {
   id: string
@@ -10,34 +11,20 @@ export type Lead = {
   contactName: string
   contactPhone: string
   contactEmail: string
-  categoryId: string | null
-  responsibleId: string | null
+  categoryId: Nullable<string>
+  responsibleId: Nullable<string>
   stage: LeadStage
-  website: string | null
-  instagram: string | null
-  description: string | null
-  source: string | null
-  notes: string | null
-  businessId: string | null
-  convertedAt: Date | null
+  website: Nullable<string>
+  instagram: Nullable<string>
+  description: Nullable<string>
+  source: Nullable<string>
+  notes: Nullable<string>
+  businessId: Nullable<string>
+  convertedAt: Nullable<Date>
   createdAt: Date
   updatedAt: Date
   // Relations
-  category?: {
-    id: string
-    categoryKey: string
-    parentCategory: string
-    subCategory1: string | null
-    subCategory2: string | null
-  } | null
-  responsible?: {
-    clerkId: string
-    name: string | null
-    email: string | null
-  } | null
-  business?: {
-    id: string
-    name: string
-  } | null
+  category?: Nullable<CategoryRef>
+  responsible?: Nullable<UserBaseRef>
+  business?: Nullable<BusinessRef>
 }
-

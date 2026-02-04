@@ -3,89 +3,131 @@
  */
 
 import type { OpportunityStage } from '@/lib/constants'
+import type {
+  CategoryRef,
+  DateLike,
+  DecimalLike,
+  Nullable,
+  UserRef,
+} from './shared'
 
-export type Business = {
+export type BusinessExternalMetrics = {
+  net_rev_360_days?: number
+  total_vouchers?: number
+  total_deals?: number
+  last_deal_id?: string
+  last_deal_link?: string
+}
+
+export type BusinessCore = {
   id: string
   name: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type BusinessContact = {
   contactName: string
   contactPhone: string
   contactEmail: string
-  categoryId: string | null
-  ownerId: string | null
-  salesTeam: string | null
-  website: string | null
-  instagram: string | null
-  description: string | null
-  tier: number | null
-  sourceType?: string | null
-  metrics?: {
-    net_rev_360_days?: number
-    total_vouchers?: number
-    total_deals?: number
-    last_deal_id?: string
-    last_deal_link?: string
-  } | null
-  createdAt: Date
-  updatedAt: Date
-  // Extended profile
-  ruc?: string | null
-  razonSocial?: string | null
-  provinceDistrictCorregimiento?: string | null
-  naOs?: boolean | null
-  accountManager?: string | null
-  ere?: string | null
-  paymentPlan?: string | null
-  bank?: string | null
-  beneficiaryName?: string | null
-  accountNumber?: string | null
-  accountType?: string | null
-  emailPaymentContacts?: string | null
-  address?: string | null
-  neighborhood?: string | null
-  salesType?: string | null
-  isAsesor?: string | null
-  osAsesor?: string | null
-  // External IDs
-  osAdminVendorId?: string | null
-  // Focus state
-  focusPeriod?: string | null
-  focusSetAt?: Date | string | null
-  // Deal metrics aggregates (denormalized from DealMetrics)
-  topSoldQuantity?: number | null
-  topSoldDealUrl?: string | null
-  topRevenueAmount?: number | string | null // Decimal from Prisma can be string
-  topRevenueDealUrl?: string | null
-  lastLaunchDate?: Date | string | null
-  totalDeals360d?: number | null
-  metricsLastSyncedAt?: Date | string | null
-  // Reassignment tracking
-  reassignmentStatus?: string | null // null (normal), 'pending_reassign', 'pending_removal'
-  reassignmentType?: 'reasignar' | 'sacar' | null
-  reassignmentRequestedBy?: string | null // clerkId of who requested
-  reassignmentRequestedAt?: Date | string | null
-  reassignmentReason?: string | null
-  reassignmentPreviousOwner?: string | null // to restore if cancelled
-  reassignmentRequester?: {
-    id: string
-    clerkId: string
-    name: string | null
-    email: string | null
-  } | null
-  // Relations
-  category?: {
-    id: string
-    categoryKey: string
-    parentCategory: string
-    subCategory1: string | null
-    subCategory2: string | null
-  } | null
-  owner?: {
-    id: string
-    clerkId: string
-    name: string | null
-    email: string | null
-  } | null
 }
+
+export type BusinessClassification = {
+  categoryId: Nullable<string>
+  tier: Nullable<number>
+  description: Nullable<string>
+  sourceType?: Nullable<string>
+}
+
+export type BusinessAssignment = {
+  ownerId: Nullable<string>
+  salesTeam: Nullable<string>
+  accountManager?: Nullable<string>
+  ere?: Nullable<string>
+}
+
+export type BusinessOnlinePresence = {
+  website: Nullable<string>
+  instagram: Nullable<string>
+}
+
+export type BusinessLegal = {
+  ruc?: Nullable<string>
+  razonSocial?: Nullable<string>
+  provinceDistrictCorregimiento?: Nullable<string>
+  naOs?: Nullable<boolean>
+}
+
+export type BusinessLocation = {
+  address?: Nullable<string>
+  neighborhood?: Nullable<string>
+}
+
+export type BusinessBanking = {
+  paymentPlan?: Nullable<string>
+  bank?: Nullable<string>
+  beneficiaryName?: Nullable<string>
+  accountNumber?: Nullable<string>
+  accountType?: Nullable<string>
+  emailPaymentContacts?: Nullable<string>
+}
+
+export type BusinessSales = {
+  salesType?: Nullable<string>
+  isAsesor?: Nullable<string>
+  osAsesor?: Nullable<string>
+}
+
+export type BusinessExternalIds = {
+  osAdminVendorId?: Nullable<string>
+}
+
+export type BusinessFocus = {
+  focusPeriod?: Nullable<string>
+  focusSetAt?: Nullable<DateLike>
+}
+
+export type BusinessMetrics = {
+  metrics?: Nullable<BusinessExternalMetrics>
+  topSoldQuantity?: Nullable<number>
+  topSoldDealUrl?: Nullable<string>
+  topRevenueAmount?: Nullable<DecimalLike>
+  topRevenueDealUrl?: Nullable<string>
+  lastLaunchDate?: Nullable<DateLike>
+  totalDeals360d?: Nullable<number>
+  metricsLastSyncedAt?: Nullable<DateLike>
+}
+
+export type BusinessReassignment = {
+  reassignmentStatus?: Nullable<string>
+  reassignmentType?: 'reasignar' | 'sacar' | null
+  reassignmentRequestedBy?: Nullable<string>
+  reassignmentRequestedAt?: Nullable<DateLike>
+  reassignmentReason?: Nullable<string>
+  reassignmentPreviousOwner?: Nullable<string>
+  reassignmentRequester?: Nullable<UserRef>
+}
+
+export type BusinessRelations = {
+  category?: Nullable<CategoryRef>
+  owner?: Nullable<UserRef>
+}
+
+export type Business =
+  & BusinessCore
+  & BusinessContact
+  & BusinessClassification
+  & BusinessAssignment
+  & BusinessOnlinePresence
+  & BusinessLegal
+  & BusinessLocation
+  & BusinessBanking
+  & BusinessSales
+  & BusinessExternalIds
+  & BusinessFocus
+  & BusinessMetrics
+  & BusinessReassignment
+  & BusinessRelations
 
 export type Opportunity = {
   id: string
@@ -126,4 +168,3 @@ export type Task = {
   createdAt: Date
   updatedAt: Date
 }
-
