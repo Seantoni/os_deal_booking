@@ -13,7 +13,9 @@
     "db:migrate": "prisma migrate dev",
     "db:setup": "prisma generate && prisma migrate dev --name init",
     "db:seed:categories": "tsx prisma/seed-categories.ts",
-    "db:migrate:settings": "tsx prisma/migrate-settings-to-db.ts"
+    "db:migrate:settings": "tsx prisma/migrate-settings-to-db.ts",
+    "db:import:businesses": "tsx prisma/import-businesses-csv.ts",
+    "db:migrate:payment-plan": "tsx prisma/migrate-payment-plan-values.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.953.0",

@@ -494,7 +494,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
           bankAccountName: bankAccountName || prev.bankAccountName,
           accountNumber: accountNumber || prev.accountNumber,
           accountType: accountType || prev.accountType,
-          paymentInstructions: paymentPlan || prev.paymentInstructions,
+          paymentType: paymentPlan || prev.paymentType,
           addressAndHours: addressAndHoursFromBusiness || prev.addressAndHours,
           socialMedia: socialFromBusiness || prev.socialMedia,
           contactDetails: website || prev.contactDetails,

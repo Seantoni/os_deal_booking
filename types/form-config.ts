@@ -103,8 +103,8 @@ export const BUSINESS_BUILTIN_FIELDS: BuiltinFieldDefinition[] = [
   { key: 'beneficiaryName', label: 'Nombre en Cuenta Bancaria', type: 'text', defaultRequired: false, canHide: true, canSetRequired: true },
   { key: 'accountNumber', label: 'Número de Cuenta', type: 'text', defaultRequired: false, canHide: true, canSetRequired: true },
   { key: 'accountType', label: 'Tipo de Cuenta', type: 'select', defaultRequired: false, canHide: true, canSetRequired: true, options: [
-    { value: 'Ahorros', label: 'Ahorros' },
-    { value: 'Corriente', label: 'Corriente' },
+    { value: 'Cuenta de Ahorros', label: 'Cuenta de Ahorros' },
+    { value: 'Cuenta Corriente', label: 'Cuenta Corriente' },
   ]},
   { key: 'paymentPlan', label: 'Plan de Pago', type: 'text', defaultRequired: false, canHide: true, canSetRequired: true },
   { key: 'emailPaymentContacts', label: 'Emails para Pagos', type: 'text', defaultRequired: false, canHide: true, canSetRequired: true, helpText: 'Separar múltiples emails con comas' },

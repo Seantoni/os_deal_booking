@@ -86,7 +86,7 @@ export const INITIAL_FORM_DATA: BookingFormData = {
   bankAccountName: '',
   bank: '',
   accountNumber: '',
-  accountType: 'Ahorros',
+  accountType: '',
   addressAndHours: '',
   provinceDistrictCorregimiento: '',
   

@@ -206,7 +206,7 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
                 if (business.beneficiaryName) updateFormData('bankAccountName', business.beneficiaryName)
                 if (business.accountNumber) updateFormData('accountNumber', business.accountNumber)
                 if (business.accountType) updateFormData('accountType', business.accountType)
-                if (business.paymentPlan) updateFormData('paymentInstructions', business.paymentPlan)
+                if (business.paymentPlan) updateFormData('paymentType', business.paymentPlan)
                 
                 // Address
                 const addressParts = [business.address, business.neighborhood].filter(Boolean)

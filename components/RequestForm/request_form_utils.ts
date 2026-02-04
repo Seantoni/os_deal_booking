@@ -62,7 +62,8 @@ export const validateStep = (
   stepKey?: string
 ): Record<string, string> => {
   const newErrors: Record<string, string> = {}
-  const isRequired = (fieldKey: string) => requiredFields?.[fieldKey]?.required === true
+  // Use truthy check (not strict equality) to handle both boolean true and string "true"
+  const isRequired = (fieldKey: string) => !!requiredFields?.[fieldKey]?.required
   const templateName = getTemplateName(
     formData.parentCategory,
     formData.subCategory1,

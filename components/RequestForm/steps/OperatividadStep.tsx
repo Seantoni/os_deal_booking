@@ -67,11 +67,11 @@ export default function OperatividadStep({ formData, errors, updateFormData, isF
             fullWidth
             items={[
               { value: '', label: 'Seleccionar...' },
-              { value: 'QR Diario', label: 'QR Diario' },
-              { value: 'QR Semanal', label: 'QR Semanal' },
-              { value: 'QR Mensual', label: 'QR Mensual' },
-              { value: 'LISTA Semanal', label: 'LISTA Semanal' },
-              { value: 'LISTA Mensual', label: 'LISTA Mensual' },
+              { value: 'QR - Daily', label: 'QR - Daily' },
+              { value: 'QR - Weekly', label: 'QR - Weekly' },
+              { value: 'QR - Monthly', label: 'QR - Monthly' },
+              { value: 'List - Weekly', label: 'List - Weekly' },
+              { value: 'List - Monthly', label: 'List - Monthly' },
               { value: '50% en 7 días y 50% en 30 días', label: '50% en 7 días y 50% en 30 días' },
               { value: 'EVENTO', label: 'EVENTO' },
               { value: 'OTRO', label: 'OTRO' },

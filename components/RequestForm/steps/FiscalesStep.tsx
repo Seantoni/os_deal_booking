@@ -68,8 +68,9 @@ export default function FiscalesStep({ formData, errors, updateFormData, isField
           required={isFieldRequired('accountType')}
             fullWidth
             items={[
-              { value: 'Ahorros', label: 'Ahorros' },
-              { value: 'Corriente', label: 'Corriente' },
+              { value: '', label: 'Seleccionar...' },
+              { value: 'Cuenta de Ahorros', label: 'Cuenta de Ahorros' },
+              { value: 'Cuenta Corriente', label: 'Cuenta Corriente' },
             ]}
             value={formData.accountType}
             placeholder="Seleccionar..."
