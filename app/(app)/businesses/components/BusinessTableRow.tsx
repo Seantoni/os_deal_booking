@@ -137,6 +137,32 @@ export function BusinessTableRow({
           )}
         </TableCell>
         
+        {/* Tier */}
+        <TableCell align="center">
+          {business.tier ? (
+            <span className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${
+              business.tier === 1 ? 'bg-emerald-100 text-emerald-700' :
+              business.tier === 2 ? 'bg-blue-100 text-blue-700' :
+              'bg-gray-100 text-gray-600'
+            }`}>
+              T{business.tier}
+            </span>
+          ) : (
+            <span className="text-gray-400 text-xs">-</span>
+          )}
+        </TableCell>
+        
+        {/* Owner */}
+        <TableCell>
+          {business.owner ? (
+            <span className="text-xs text-gray-600" title={business.owner.email || undefined}>
+              {business.owner.name || business.owner.email || '-'}
+            </span>
+          ) : (
+            <span className="text-gray-400 text-xs">-</span>
+          )}
+        </TableCell>
+        
         {/* Top Vendido */}
         <TableCell align="right">
           {business.topSoldQuantity ? (

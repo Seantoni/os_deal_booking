@@ -184,7 +184,11 @@ export async function getBusinessesPaginated(options: {
   activeDealFilter?: boolean // Filter to businesses with active deals
   ownerId?: string // Filter by owner (admin quick filter)
   myBusinessesOnly?: boolean // Filter to show only businesses assigned to current user (for sales users)
+  advancedFilters?: string // JSON-serialized FilterRule[] for advanced field filtering
 } = {}) {
+  // Import here to avoid circular dependencies
+  const { buildPrismaWhere, parseAdvancedFilters } = await import('@/lib/filters/buildPrismaWhere')
+  
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
     return authResult
@@ -193,7 +197,7 @@ export async function getBusinessesPaginated(options: {
 
   try {
     const role = await getUserRole()
-    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', opportunityFilter, focusFilter, activeDealFilter, ownerId: ownerFilter, myBusinessesOnly } = options
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', opportunityFilter, focusFilter, activeDealFilter, ownerId: ownerFilter, myBusinessesOnly, advancedFilters } = options
 
     // Build where clause based on role
     // Sales users can VIEW all businesses (no ownerId filter by default)
@@ -269,6 +273,23 @@ export async function getBusinessesPaginated(options: {
     // Apply owner filter (admin quick filter)
     if (ownerFilter) {
       whereClause.ownerId = ownerFilter
+    }
+    
+    // Apply advanced filters (field-based filtering from AdvancedFilterBuilder)
+    if (advancedFilters) {
+      const filterRules = parseAdvancedFilters(advancedFilters)
+      if (filterRules.length > 0) {
+        const advancedWhere = buildPrismaWhere(filterRules)
+        // Merge advanced where conditions into the main where clause
+        if (Object.keys(advancedWhere).length > 0) {
+          // Use AND to combine existing conditions with advanced filters
+          const existingConditions = Object.keys(whereClause).length > 0 ? [whereClause] : []
+          const combinedWhere = existingConditions.length > 0
+            ? { AND: [...existingConditions, advancedWhere] }
+            : advancedWhere
+          Object.assign(whereClause, combinedWhere)
+        }
+      }
     }
 
     // Get total count (with filters applied)
@@ -401,7 +422,10 @@ export async function fetchEditableBusinessIds(): Promise<{
  * Get business counts by opportunity status (for filter tabs)
  * Returns: all, with-open (has open opportunities), without-open (no open opportunities), with-active-deal
  */
-export async function getBusinessCounts(filters?: { ownerId?: string; myBusinessesOnly?: boolean }) {
+export async function getBusinessCounts(filters?: { ownerId?: string; myBusinessesOnly?: boolean; advancedFilters?: string }) {
+  // Import here to avoid circular dependencies
+  const { buildPrismaWhere, parseAdvancedFilters } = await import('@/lib/filters/buildPrismaWhere')
+  
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
     return authResult
@@ -431,6 +455,21 @@ export async function getBusinessCounts(filters?: { ownerId?: string; myBusiness
     // Apply owner filter (admin quick filter)
     if (filters?.ownerId) {
       baseWhere.ownerId = filters.ownerId
+    }
+    
+    // Apply advanced filters
+    if (filters?.advancedFilters) {
+      const filterRules = parseAdvancedFilters(filters.advancedFilters)
+      if (filterRules.length > 0) {
+        const advancedWhere = buildPrismaWhere(filterRules)
+        if (Object.keys(advancedWhere).length > 0) {
+          const existingConditions = Object.keys(baseWhere).length > 0 ? [{ ...baseWhere }] : []
+          const combinedWhere = existingConditions.length > 0
+            ? { AND: [...existingConditions, advancedWhere] }
+            : advancedWhere
+          Object.assign(baseWhere, combinedWhere)
+        }
+      }
     }
 
     // Get active vendor IDs with active deals

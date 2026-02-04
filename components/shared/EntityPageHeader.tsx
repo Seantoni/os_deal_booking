@@ -29,8 +29,10 @@ interface EntityPageHeaderProps {
   
   /** Saved filters configuration (optional) */
   savedFilters?: SavedFilter[]
-  activeFilterId?: string | null
-  onFilterSelect?: (filter: SavedFilter | null) => void
+  activeFilterIds?: string[] // Multi-select support
+  activeFilterId?: string | null // Legacy single-select support
+  onFilterToggle?: (filter: SavedFilter) => void // Multi-select handler
+  onFilterSelect?: (filter: SavedFilter | null) => void // Legacy single-select handler
   
   /** Advanced filters (optional) */
   onAdvancedFiltersChange?: (rules: FilterRule[]) => void
@@ -90,7 +92,9 @@ export function EntityPageHeader({
   activeFilter,
   onFilterChange,
   savedFilters,
+  activeFilterIds,
   activeFilterId,
+  onFilterToggle,
   onFilterSelect,
   onAdvancedFiltersChange,
   onSavedFiltersChange,
@@ -99,9 +103,11 @@ export function EntityPageHeader({
   beforeFilters,
   userFilter,
 }: EntityPageHeaderProps) {
-  const activeFilterObject = savedFilters?.find(f => f.id === activeFilterId) || null
+  // Support both multi-select and legacy single-select
+  const effectiveActiveIds = activeFilterIds || (activeFilterId ? [activeFilterId] : [])
+  const activeFilterObject = savedFilters?.find(f => effectiveActiveIds.includes(f.id)) || null
   const showAdvancedFilters = isAdmin && entityType && onAdvancedFiltersChange && onSavedFiltersChange
-  const showSavedFilters = savedFilters && savedFilters.length > 0 && onFilterSelect
+  const showSavedFilters = savedFilters && savedFilters.length > 0 && (onFilterToggle || onFilterSelect)
 
   return (
     <div className="bg-white border-b border-gray-200 px-4 py-2">
@@ -145,8 +151,10 @@ export function EntityPageHeader({
               <div className="flex-shrink-0">
                 <SavedFiltersBar
                   savedFilters={savedFilters!}
-                  activeFilterId={activeFilterId || null}
-                  onFilterSelect={onFilterSelect!}
+                  activeFilterIds={effectiveActiveIds}
+                  activeFilterId={activeFilterId}
+                  onFilterToggle={onFilterToggle}
+                  onFilterSelect={onFilterSelect}
                   isAdmin={isAdmin}
                 />
               </div>

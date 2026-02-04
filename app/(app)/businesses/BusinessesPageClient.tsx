@@ -97,6 +97,8 @@ const COLUMNS: ColumnConfig[] = [
   { key: 'expand', label: '', width: 'w-4' },
   { key: 'name', label: 'Nombre del Negocio', sortable: true },
   { key: 'category', label: 'Categoría', sortable: true },
+  { key: 'tier', label: 'Tier', sortable: true, align: 'center', width: 'w-14' },
+  { key: 'owner', label: 'Propietario', sortable: true },
   { key: 'topSold', label: 'Top #', sortable: true, align: 'right' },
   { key: 'topRevenue', label: 'Top $', sortable: true, align: 'right' },
   { key: 'lastLaunch', label: 'Lanz.', sortable: true, align: 'center' },
@@ -243,6 +245,15 @@ export default function BusinessesPageClient({
     updateFilter('myBusinessesOnly', enabled ? undefined : false)
   }, [updateFilter])
 
+  // Sync advanced filter rules to pagination (for server-side filtering)
+  useEffect(() => {
+    if (filterRules.length > 0) {
+      updateFilter('advancedFilters', JSON.stringify(filterRules))
+    } else {
+      updateFilter('advancedFilters', undefined)
+    }
+  }, [filterRules, updateFilter])
+
   // Handle opening business from URL query params or sessionStorage
   useEffect(() => {
     const openBusinessId = sessionStorage.getItem('openBusinessId')
@@ -312,6 +323,10 @@ export default function BusinessesPageClient({
         return business.name.toLowerCase()
       case 'category':
         return (business.category?.parentCategory || '').toLowerCase()
+      case 'tier':
+        return business.tier ?? 999 // Put null tiers at the end
+      case 'owner':
+        return (business.owner?.name || business.owner?.email || '').toLowerCase()
       case 'topSold':
         return business.topSoldQuantity ?? 0
       case 'topRevenue':
@@ -334,6 +349,7 @@ export default function BusinessesPageClient({
     let filtered = displayBusinesses
 
     if (isSearching) {
+      // Client-side filtering for search results (server filters don't apply to search)
       if (opportunityFilter === 'with-open') {
         filtered = filtered.filter(b => businessHasOpenOpportunity.get(b.id))
       } else if (opportunityFilter === 'without-open') {
@@ -343,9 +359,11 @@ export default function BusinessesPageClient({
       if (focusFilter === 'with-focus') {
         filtered = filtered.filter(b => businessActiveFocus.has(b.id))
       }
+      
+      // Apply advanced filters client-side for search results only
+      // (paginated data is filtered server-side via advancedFilters param)
+      filtered = applyFiltersToData(filtered)
     }
-
-    filtered = applyFiltersToData(filtered)
 
     if (isSearching && sortColumn) {
       return sortEntities(filtered, sortColumn, sortDirection, getSortValue)

@@ -7,4 +7,5 @@
 
 export * from './filterConfig'
 export * from './applyFilters'
+export * from './buildPrismaWhere'
 
