@@ -215,8 +215,12 @@ function UserSelectItem({
   }))
 
   const handleChange = (newUserId: string | null) => {
-    onChange(newUserId || '')
+    // Use special value '__unassigned__' to allow clearing the owner
+    onChange(newUserId || '__unassigned__')
   }
+
+  // Convert '__unassigned__' to null for display (shows placeholder)
+  const displayValue = userId === '__unassigned__' ? null : userId
 
   return (
     <Item 
@@ -224,7 +228,7 @@ function UserSelectItem({
       label={label}
     >
       <UserSelect
-        value={userId}
+        value={displayValue}
         onChange={handleChange}
         users={userOptions}
         canEdit={isAdmin}

@@ -46,7 +46,12 @@ export function useBusinessForm({
     const currentBusiness = businessRef.current
 
     // Reset reference bar fields
-    setOwnerId(currentBusiness?.ownerId || currentUserId || '')
+    // For existing businesses: use ownerId if set, otherwise '__unassigned__' to allow clearing
+    // For new businesses: default to current user
+    const ownerValue = currentBusiness 
+      ? (currentBusiness.ownerId || '__unassigned__')
+      : (currentUserId || '__unassigned__')
+    setOwnerId(ownerValue)
     setSalesTeam(currentBusiness?.salesTeam || '')
     setOpportunities([])
     setRequests([])

@@ -379,7 +379,8 @@ export default function OpportunityFormModal({
     setError('')
 
     // Validate required fields
-    if (!responsibleId) {
+    // Check for empty or '__unassigned__' value (from UserSelectItem)
+    if (!responsibleId || responsibleId === '__unassigned__') {
       setError('Debe seleccionar un responsable para la oportunidad')
       return
     }
@@ -740,7 +741,7 @@ export default function OpportunityFormModal({
             onCancel={onClose}
             submitLabel="Guardar"
             submitLoading={loading || loadingData || dynamicForm.loading}
-            submitDisabled={loading || loadingData || dynamicForm.loading || !responsibleId}
+            submitDisabled={loading || loadingData || dynamicForm.loading || !responsibleId || responsibleId === '__unassigned__'}
             leftContent="* Campos requeridos"
             formId="opportunity-modal-form"
           />

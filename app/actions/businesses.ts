@@ -1342,7 +1342,9 @@ export async function updateBusiness(businessId: string, formData: FormData) {
 
     // Check if user is admin to allow owner editing
     const admin = await isAdmin()
-    const ownerId = admin && formData.get('ownerId') ? (formData.get('ownerId') as string) : undefined
+    const ownerIdRaw = formData.get('ownerId') as string | null
+    // Handle special '__unassigned__' value to clear owner
+    const ownerId = admin && ownerIdRaw ? (ownerIdRaw === '__unassigned__' ? '__unassigned__' : ownerIdRaw) : undefined
 
     // Update business
     const updateData: Record<string, unknown> = {
@@ -1391,8 +1393,16 @@ export async function updateBusiness(businessId: string, formData: FormData) {
 
     // Only update owner if admin
     if (admin && ownerId) {
-      updateData.owner = {
-        connect: { clerkId: ownerId }
+      if (ownerId === '__unassigned__') {
+        // Clear the owner - disconnect the relation
+        updateData.owner = {
+          disconnect: true
+        }
+      } else {
+        // Connect to the specified owner
+        updateData.owner = {
+          connect: { clerkId: ownerId }
+        }
       }
     }
 
