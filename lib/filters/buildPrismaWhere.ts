@@ -80,33 +80,40 @@ function ruleToCondition(rule: FilterRule): PrismaCondition | null {
   const fieldParts = field.split('.')
   const isNestedField = fieldParts.length > 1
   
-  // For isNull/isNotNull on nested relation fields like 'owner.name',
-  // we want to check if the relation itself is null/not null
-  // e.g., 'owner.name isNull' should match businesses with no owner
+  // For isNull/isNotNull on nested relation fields like 'owner.name' or 'business.category.parentCategory',
+  // we want to check if any level of the relation chain is null/not null
+  // e.g., 'business.category.parentCategory isNull' should match when:
+  //   - business is null, OR
+  //   - business.category is null, OR
+  //   - business.category.parentCategory is null
   if (isNestedField && (operator === 'isNull' || operator === 'isNotNull')) {
-    // Get the relation name (e.g., 'owner' from 'owner.name')
-    const relationName = fieldParts[0]
-    
     if (operator === 'isNull') {
-      // Check if relation is null OR nested field is null
-      // e.g., { OR: [{ owner: null }, { owner: { name: null } }] }
-      const relationNull: PrismaCondition = { [relationName]: null }
+      // Build OR chain for each level that could be null
+      // For 'a.b.c', we need: [{ a: null }, { a: { b: null } }, { a: { b: { c: null } } }]
+      const orConditions: PrismaCondition[] = []
       
-      // Build the nested field null check
-      let nestedNull: PrismaCondition = {}
-      let current = nestedNull
-      for (let i = 0; i < fieldParts.length - 1; i++) {
-        current[fieldParts[i]] = {}
-        current = current[fieldParts[i]] as PrismaCondition
+      for (let depth = 0; depth < fieldParts.length; depth++) {
+        const condition: PrismaCondition = {}
+        let current = condition
+        
+        // Build the path up to this depth
+        for (let i = 0; i < depth; i++) {
+          current[fieldParts[i]] = {}
+          current = current[fieldParts[i]] as PrismaCondition
+        }
+        
+        // Set the null check at this level
+        current[fieldParts[depth]] = null
+        orConditions.push(condition)
       }
-      current[fieldParts[fieldParts.length - 1]] = null
       
-      return { OR: [relationNull, nestedNull] }
+      return { OR: orConditions }
     } else {
-      // isNotNull: relation exists AND nested field is not null
-      // e.g., { owner: { isNot: null, name: { not: null } } }
+      // isNotNull: ALL relations in chain must exist AND terminal field is not null
+      // For 'a.b.c', we need: { a: { isNot: null, b: { isNot: null, c: { not: null } } } }
       let result: PrismaCondition = {}
       let current = result
+      
       for (let i = 0; i < fieldParts.length - 1; i++) {
         current[fieldParts[i]] = { isNot: null }
         current = current[fieldParts[i]] as PrismaCondition
