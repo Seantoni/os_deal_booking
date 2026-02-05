@@ -69,7 +69,7 @@ export async function generatePDFFromHTML(
     })
     
     // Wait a bit more for any lazy-loaded images or fonts
-    await page.waitForTimeout(1000)
+    await new Promise(resolve => setTimeout(resolve, 1000))
     
     // Generate PDF
     logger.info('[PDF] Generating PDF with options:', pdfOptions)
