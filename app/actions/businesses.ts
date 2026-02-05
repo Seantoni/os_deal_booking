@@ -281,14 +281,14 @@ export async function getBusinessesPaginated(options: {
       const filterRules = parseAdvancedFilters(advancedFilters)
       if (filterRules.length > 0) {
         const advancedWhere = buildPrismaWhere(filterRules)
-        // Merge advanced where conditions into the main where clause
         if (Object.keys(advancedWhere).length > 0) {
-          // Use AND to combine existing conditions with advanced filters
-          const existingConditions = Object.keys(whereClause).length > 0 ? [whereClause] : []
-          const combinedWhere = existingConditions.length > 0
-            ? { AND: [...existingConditions, advancedWhere] }
-            : advancedWhere
-          Object.assign(whereClause, combinedWhere)
+          // Snapshot existing conditions into a new object to avoid circular refs,
+          // then reset whereClause and combine with AND.
+          const existingConditions = { ...whereClause }
+          for (const key of Object.keys(whereClause)) {
+            delete (whereClause as Record<string, unknown>)[key]
+          }
+          whereClause.AND = [existingConditions, advancedWhere]
         }
       }
     }
