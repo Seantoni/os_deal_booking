@@ -1347,10 +1347,13 @@ export async function resendBookingRequest(requestId: string, emails?: string | 
       })
     }
 
-    // Send emails to all recipients
+    // Send emails to all recipients.
+    // Spread the full record so the PDF has access to all form fields
+    // (pricing options, business details, etc.), overriding businessEmail per recipient.
     const results = await Promise.all(
       uniqueEmails.map(email => 
         resendBookingRequestEmail({
+          ...(bookingRequest as Record<string, unknown>),
           id: bookingRequest.id,
           name: bookingRequest.name,
           businessEmail: email,
@@ -1362,6 +1365,7 @@ export async function resendBookingRequest(requestId: string, emails?: string | 
           startDate: bookingRequest.startDate,
           endDate: bookingRequest.endDate,
           userId: bookingRequest.userId,
+          additionalInfo: bookingRequest.additionalInfo as { templateDisplayName?: string; fields?: Record<string, string> } | null,
         })
       )
     )

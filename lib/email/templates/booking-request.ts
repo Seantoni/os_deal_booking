@@ -34,8 +34,8 @@ interface BookingRequestEmailProps {
 /**
  * Generate HTML string for booking request email.
  *
- * Kept intentionally simple — one summary card with the key info and
- * action buttons.  Full details live in the attached PDF.
+ * One summary card → action buttons → PDF notice.
+ * Full details live in the attached PDF.
  */
 export function renderBookingRequestEmail(props: BookingRequestEmailProps): string {
   const {
@@ -55,36 +55,57 @@ export function renderBookingRequestEmail(props: BookingRequestEmailProps): stri
   const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
 
   const content = `
-    <!-- Header Title -->
+    <!-- Title -->
     <h1 style="margin: 0 0 8px 0; font-size: 24px; font-weight: 700; color: ${EMAIL_STYLES.colors.text}; letter-spacing: -0.02em; text-align: center;">
       Solicitud de Aprobación
     </h1>
-    <p style="margin: 0 0 32px 0; font-size: 16px; line-height: 1.5; color: ${EMAIL_STYLES.colors.secondary}; text-align: center;">
-      Nueva propuesta para <strong>${escapeHtml(merchant || requestName)}</strong>.
+    <p style="margin: 0 0 28px 0; font-size: 15px; line-height: 1.5; color: ${EMAIL_STYLES.colors.secondary}; text-align: center;">
+      Nueva propuesta para <strong>${escapeHtml(merchant || requestName)}</strong>
     </p>
 
-    <!-- Key Info Summary Card -->
-    <div style="background-color: #f5f5f7; border-radius: 12px; padding: 24px; margin-bottom: 32px;">
-      ${renderKeyValue('Evento / Campaña', escapeHtml(requestName), true)}
-      ${merchant ? renderKeyValue('Merchant / Aliado', escapeHtml(merchant), true) : ''}
-      ${renderKeyValue('Email del Negocio', escapeHtml(businessEmail), true)}
-      ${renderKeyValue('Categoría', escapeHtml(category || 'General'), true)}
-
-      <div style="margin-top: 12px;">
-        ${renderKeyValue('Fecha de Inicio', escapeHtml(startDate))}
-        ${renderKeyValue('Fecha de Fin', escapeHtml(endDate))}
-      </div>
+    <!-- Summary Card -->
+    <div style="background-color: #f5f5f7; border-radius: 12px; padding: 24px; margin-bottom: 28px;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td colspan="2" style="padding-bottom: 16px;">
+            ${renderKeyValue('Evento / Campaña', escapeHtml(requestName), true)}
+          </td>
+        </tr>
+        ${merchant ? `
+        <tr>
+          <td colspan="2" style="padding-bottom: 16px;">
+            ${renderKeyValue('Merchant / Aliado', escapeHtml(merchant), true)}
+          </td>
+        </tr>
+        ` : ''}
+        <tr>
+          <td style="width: 50%; vertical-align: top; padding-bottom: 16px;">
+            ${renderKeyValue('Categoría', escapeHtml(category || 'General'), true)}
+          </td>
+          <td style="width: 50%; vertical-align: top; padding-bottom: 16px;">
+            ${renderKeyValue('Email del Negocio', escapeHtml(businessEmail), true)}
+          </td>
+        </tr>
+        <tr>
+          <td style="width: 50%; vertical-align: top;">
+            ${renderKeyValue('Fecha de Inicio', escapeHtml(startDate), true)}
+          </td>
+          <td style="width: 50%; vertical-align: top;">
+            ${renderKeyValue('Fecha de Fin', escapeHtml(endDate), true)}
+          </td>
+        </tr>
+      </table>
     </div>
 
     <!-- Action Buttons -->
     ${!hideActions ? `
-      <div style="text-align: center; margin-bottom: 32px;">
-        <div style="margin-bottom: 16px;">
+      <div style="text-align: center; margin-bottom: 28px;">
+        <div style="margin-bottom: 12px;">
           ${renderButton('Aprobar', approveUrl, 'primary')}
           <span style="display: inline-block; width: 12px;"></span>
           ${renderButton('Rechazar', rejectUrl, 'danger')}
         </div>
-        <div style="font-size: 12px; color: ${EMAIL_STYLES.colors.secondary};">
+        <div style="font-size: 11px; color: ${EMAIL_STYLES.colors.secondary};">
           Al aprobar, acepta los <a href="${termsLink}" style="color: ${EMAIL_STYLES.colors.secondary}; text-decoration: underline;">Términos y Condiciones</a>.
         </div>
       </div>
@@ -93,31 +114,17 @@ export function renderBookingRequestEmail(props: BookingRequestEmailProps): stri
     ${renderDivider()}
 
     <!-- PDF Notice -->
-    <div style="text-align: center; padding: 24px 0;">
-      <div style="font-size: 28px; margin-bottom: 12px;">📎</div>
-      <p style="margin: 0 0 6px 0; font-size: 15px; font-weight: 600; color: ${EMAIL_STYLES.colors.text};">
-        Detalles completos en el PDF adjunto
+    <div style="text-align: center; padding: 20px 0;">
+      <p style="margin: 0 0 4px 0; font-size: 14px; font-weight: 600; color: ${EMAIL_STYLES.colors.text};">
+        📎 Adjunto los detalles del acuerdo
       </p>
-      <p style="margin: 0; font-size: 13px; line-height: 1.5; color: ${EMAIL_STYLES.colors.secondary};">
-        Abra el archivo PDF adjunto a este correo para consultar toda la información de la solicitud, incluyendo datos del negocio, estructura de la oferta, políticas y más.
+      <p style="margin: 0; font-size: 12px; line-height: 1.5; color: ${EMAIL_STYLES.colors.secondary};">
+        Revise el PDF adjunto para consultar la información completa de la solicitud.
       </p>
     </div>
 
-    ${!hideActions ? `
-      ${renderDivider()}
-      <div style="text-align: center; margin-top: 24px; margin-bottom: 16px;">
-        <div style="margin-bottom: 16px;">
-          ${renderButton('Aprobar', approveUrl, 'primary')}
-          <span style="display: inline-block; width: 12px;"></span>
-          ${renderButton('Rechazar', rejectUrl, 'danger')}
-        </div>
-        <div style="font-size: 12px; color: ${EMAIL_STYLES.colors.secondary};">
-          Al aprobar, acepta los <a href="${termsLink}" style="color: ${EMAIL_STYLES.colors.secondary}; text-decoration: underline;">Términos y Condiciones</a>.
-        </div>
-      </div>
-    ` : ''}
-
-    <div style="margin-top: 32px; font-size: 12px; color: ${EMAIL_STYLES.colors.secondary}; text-align: center;">
+    <!-- Sent By -->
+    <div style="margin-top: 16px; font-size: 11px; color: ${EMAIL_STYLES.colors.secondary}; text-align: center;">
       Solicitud enviada por: ${escapeHtml(requesterEmail || 'Equipo de OfertaSimple')}
     </div>
   `

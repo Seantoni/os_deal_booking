@@ -15,7 +15,9 @@ import { logger } from '@/lib/logger'
  * @param bookingRequest - The booking request to resend
  * @returns Success status and any error message
  */
-// Type for the booking request parameter
+// Type for the booking request parameter.
+// Uses an index signature so the full Prisma record can be forwarded as
+// `bookingData` for the PDF (pricing options, business details, etc.).
 interface BookingRequestForResend {
   id: string
   name: string
@@ -32,6 +34,7 @@ interface BookingRequestForResend {
     templateDisplayName?: string
     fields?: Record<string, string>
   } | null
+  [key: string]: unknown
 }
 
 export async function resendBookingRequestEmail(bookingRequest: BookingRequestForResend) {
