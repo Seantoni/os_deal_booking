@@ -20,8 +20,12 @@ export interface BackfillChange {
   businessField: string
   /** Spanish label for UI */
   label: string
+  /** Current value in business (null if empty) */
+  oldValue: string | null
   /** Value to be set */
   newValue: string
+  /** Whether this is a new value (business was empty) vs an update (overwriting existing) */
+  isUpdate: boolean
   /** Vendor API field (if applicable) */
   vendorApiField?: string
 }
@@ -130,14 +134,16 @@ export async function previewBackfillFromRequest(requestId: string): Promise<Bac
       // Get request value
       const requestValue = normalizeValue((request as Record<string, unknown>)[requestField])
 
-      // Only add to changes if:
-      // 1. Business field is empty (null)
-      // 2. Request field has a value
-      if (businessValue === null && requestValue !== null) {
+      // Add to changes if:
+      // 1. Request field has a value
+      // 2. Values are different (either business is empty OR has different value)
+      if (requestValue !== null && businessValue !== requestValue) {
         changes.push({
           businessField,
           label,
+          oldValue: businessValue,
           newValue: requestValue,
+          isUpdate: businessValue !== null, // true if overwriting existing value
           vendorApiField,
         })
       }

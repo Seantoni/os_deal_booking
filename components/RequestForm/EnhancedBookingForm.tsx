@@ -56,7 +56,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     businessName?: string
     hasVendorId?: boolean
     changes: BackfillChange[]
-    formattedChanges?: Array<{ label: string; value: string }>
+    formattedChanges?: Array<{ label: string; value: string; oldValue?: string | null; isUpdate?: boolean }>
   } | null>(null)
   const [showBackfillDialog, setShowBackfillDialog] = useState(false)
   const [showBackfillResultDialog, setShowBackfillResultDialog] = useState(false)
@@ -249,6 +249,11 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
             
             return updatedData
           })
+          
+          // Set linkedBusinessId for backfill tracking when editing existing request
+          if (data.linkedBusiness?.id) {
+            setLinkedBusinessId(data.linkedBusiness.id)
+          }
           
           toast.success('Solicitud cargada para continuar editando')
         } else {
@@ -1118,7 +1123,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         message={
           <div className="text-left space-y-3">
             <p className="text-gray-700 text-sm">
-              Se detectaron campos nuevos en esta solicitud que pueden actualizar el negocio <strong>{backfillPreview?.businessName}</strong>.
+              Se detectaron cambios en esta solicitud que pueden actualizar el negocio <strong>{backfillPreview?.businessName}</strong>.
             </p>
             
             {backfillPreview?.formattedChanges && backfillPreview.formattedChanges.length > 0 && (
@@ -1127,11 +1132,25 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
                 <ul className="space-y-1.5 text-sm">
                   {backfillPreview.formattedChanges.map((change, idx) => (
                     <li key={idx} className="flex items-start gap-2">
-                      <span className="text-green-600 font-medium">+</span>
-                      <span className="text-gray-700">
-                        <span className="font-medium">{change.label}:</span>{' '}
-                        <span className="text-green-700">{change.value}</span>
-                      </span>
+                      {change.isUpdate ? (
+                        <>
+                          <span className="text-amber-600 font-medium">~</span>
+                          <span className="text-gray-700">
+                            <span className="font-medium">{change.label}:</span>{' '}
+                            <span className="text-red-500 line-through">{change.oldValue}</span>
+                            {' → '}
+                            <span className="text-green-700">{change.value}</span>
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-green-600 font-medium">+</span>
+                          <span className="text-gray-700">
+                            <span className="font-medium">{change.label}:</span>{' '}
+                            <span className="text-green-700">{change.value}</span>
+                          </span>
+                        </>
+                      )}
                     </li>
                   ))}
                 </ul>

@@ -1724,21 +1724,25 @@ export async function previewBusinessBackfill(
       const requestValue = formData.get(requestField) as string | null
       const normalizedRequestValue = normalizeValue(requestValue)
 
-      // Only add if business field is empty but request has data
-      if (normalizedBusinessValue === null && normalizedRequestValue !== null) {
+      // Add to changes if request has data AND values are different
+      if (normalizedRequestValue !== null && normalizedBusinessValue !== normalizedRequestValue) {
         changes.push({
           businessField,
           label,
+          oldValue: normalizedBusinessValue,
           newValue: normalizedRequestValue,
+          isUpdate: normalizedBusinessValue !== null, // true if overwriting existing value
           vendorApiField,
         })
       }
     }
 
-    // Format changes for UI
+    // Format changes for UI (show old→new for updates)
     const formattedChanges = changes.map(c => ({
       label: c.label,
       value: c.newValue,
+      oldValue: c.oldValue,
+      isUpdate: c.isUpdate,
     }))
 
     return {
