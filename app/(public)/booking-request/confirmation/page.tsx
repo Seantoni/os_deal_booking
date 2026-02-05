@@ -1,6 +1,5 @@
 import { getPublicLinkByToken } from '@/app/actions/booking'
-import { formatDateShort } from '@/lib/date'
-import { PublicPageHeader } from '@/components/shared/public-pages/PublicPageHeader'
+import { PublicPageLayout } from '@/components/shared/public-pages/PublicPageLayout'
 
 interface PublicBookingRequestConfirmationPageProps {
   searchParams: Promise<{ token?: string; requestId?: string }>
@@ -17,60 +16,53 @@ export default async function PublicBookingRequestConfirmationPage({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-xl overflow-hidden">
-        {/* Header with Logo */}
-        <PublicPageHeader />
-
-        <div className="p-8 text-center">
-        <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-          <svg
-            className="w-8 h-8 text-green-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
+    <PublicPageLayout title="¡Solicitud Enviada!">
+      <div className="text-center">
+        <div className="mb-8 animate-in zoom-in duration-300">
+          <div className="mx-auto w-16 h-16 bg-[#34c759] rounded-full flex items-center justify-center shadow-lg shadow-green-500/20">
+            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          ¡Solicitud Enviada Exitosamente!
-        </h1>
-        <p className="text-gray-600 mb-6">
+        
+        <p className="text-[#86868b] mb-8 leading-relaxed">
           Su solicitud de booking ha sido recibida y está en revisión. La procesaremos en breve.
         </p>
         
         {requestId && (
-          <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <p className="text-xs font-semibold text-gray-700 mb-1">ID de Solicitud:</p>
-            <p className="text-sm font-mono text-gray-900">{requestId}</p>
+          <div className="bg-[#f5f5f7] rounded-xl p-4 mb-6 text-left">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#86868b] mb-1">ID de Solicitud</p>
+            <p className="text-[#1d1d1f] font-mono">{requestId}</p>
           </div>
         )}
 
         {publicLink?.bookingRequest && (
-          <div className="bg-blue-50 rounded-lg p-4 mb-6 text-left">
-            <p className="text-sm font-semibold text-gray-900 mb-2">Detalles de la Solicitud:</p>
-            <div className="space-y-1 text-sm text-gray-700">
-              <p><span className="font-medium">Nombre:</span> {publicLink.bookingRequest.name}</p>
+          <div className="bg-[#f5f5f7] rounded-xl p-5 mb-6 text-left">
+            <p className="text-sm font-semibold text-[#1d1d1f] mb-3">Detalles de la Solicitud</p>
+            <div className="space-y-2 text-sm text-[#86868b]">
+              <div className="flex justify-between">
+                <span className="font-medium text-[#1d1d1f]">Nombre:</span>
+                <span>{publicLink.bookingRequest.name}</span>
+              </div>
               {publicLink.bookingRequest.merchant && (
-                <p><span className="font-medium">Merchant:</span> {publicLink.bookingRequest.merchant}</p>
+                <div className="flex justify-between">
+                  <span className="font-medium text-[#1d1d1f]">Merchant:</span>
+                  <span>{publicLink.bookingRequest.merchant}</span>
+                </div>
               )}
-              <p><span className="font-medium">Estado:</span> Aprobado</p>
+              <div className="flex justify-between">
+                <span className="font-medium text-[#1d1d1f]">Estado:</span>
+                <span className="text-[#34c759] font-medium">Aprobado</span>
+              </div>
             </div>
           </div>
         )}
 
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-[#86868b]">
           Puede cerrar esta página ahora. La solicitud será revisada y procesada por nuestro equipo.
         </p>
-        </div>
       </div>
-    </div>
+    </PublicPageLayout>
   )
 }
-

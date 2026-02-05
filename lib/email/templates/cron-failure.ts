@@ -4,6 +4,15 @@
  * Notification email sent to admin when a cron job fails
  */
 
+import { 
+  renderEmailLayout, 
+  renderSectionTitle, 
+  renderKeyValue, 
+  renderButton,
+  escapeHtml,
+  EMAIL_STYLES 
+} from './layout'
+
 interface CronFailureEmailProps {
   jobName: string
   errorMessage: string
@@ -11,19 +20,6 @@ interface CronFailureEmailProps {
   durationMs?: number
   details?: Record<string, unknown>
   appBaseUrl: string
-}
-
-/**
- * Escape HTML special characters
- */
-function escapeHtml(text: string | undefined | null): string {
-  if (!text) return ''
-  return String(text)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
 }
 
 /**
@@ -72,148 +68,60 @@ export function renderCronFailureEmail(props: CronFailureEmailProps): string {
   const formattedDate = formatDateTime(startedAt)
   const cronLogsUrl = `${appBaseUrl}/settings?tab=cron-jobs`
 
-  return `
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
-<head>
-  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Falla de Cron Job - OfertaSimple</title>
-  <style type="text/css">
-    body { margin: 0; padding: 0; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
-    table, td { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
-  </style>
-</head>
-<body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 0; width: 100% !important;">
+  const content = `
+    <!-- Header Title -->
+    <div style="text-align: center; margin-bottom: 32px;">
+      <div style="display: inline-block; width: 48px; height: 48px; background-color: ${EMAIL_STYLES.colors.error}; border-radius: 50%; color: #ffffff; font-size: 24px; line-height: 48px; font-weight: bold; margin-bottom: 16px;">!</div>
+      <h1 style="margin: 0 0 12px 0; font-size: 24px; font-weight: 700; color: ${EMAIL_STYLES.colors.text}; letter-spacing: -0.02em;">
+        Falla de Cron Job
+      </h1>
+      <p style="margin: 0; font-size: 16px; line-height: 1.5; color: ${EMAIL_STYLES.colors.secondary};">
+        ${escapeHtml(displayName)}
+      </p>
+    </div>
 
-  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="width: 100%; background-color: #f3f4f6;">
-    <tr>
-      <td align="center" style="padding: 20px 0;">
+    <!-- Summary Card -->
+    <div style="background-color: #f5f5f7; border-radius: 12px; padding: 24px;">
+      ${renderSectionTitle('Resumen del Error')}
+      
+      <div style="margin-top: 16px; margin-bottom: 24px;">
+        ${renderKeyValue('Job', escapeHtml(jobName), true)}
+        ${renderKeyValue('Inicio', escapeHtml(formattedDate), true)}
+        ${durationMs ? renderKeyValue('Duración', formatDuration(durationMs), true) : ''}
+      </div>
 
-        <!-- Main Container -->
-        <table border="0" cellpadding="0" cellspacing="0" width="600" style="width: 600px; max-width: 600px; background-color: #ffffff; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);">
+      <!-- Error Message -->
+      <div style="padding: 16px; background-color: rgba(255, 59, 48, 0.05); border-radius: 8px; border-left: 3px solid ${EMAIL_STYLES.colors.error}; margin-bottom: 20px;">
+        <h3 style="margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase; color: ${EMAIL_STYLES.colors.error}; letter-spacing: 0.5px;">
+          Mensaje de Error
+        </h3>
+        <code style="font-family: 'SF Mono', Monaco, monospace; font-size: 12px; color: ${EMAIL_STYLES.colors.text}; display: block; white-space: pre-wrap; word-break: break-word;">
+          ${escapeHtml(errorMessage)}
+        </code>
+      </div>
 
-          <!-- Header -->
-          <tr>
-            <td align="center" style="background-color: #dc2626; padding: 20px 30px; border-bottom: 3px solid #991b1b;">
-              <img src="https://oferta-uploads-prod.s3.us-east-1.amazonaws.com/pictures/others/OfertaSimple%20Assets/OFS_Marca_Blanco_02.png?_t=1754077435" alt="OfertaSimple" width="180" style="display: block; border: 0; max-width: 180px; width: 180px;" />
-            </td>
-          </tr>
+      ${details && Object.keys(details).length > 0 ? `
+        <!-- Additional Details -->
+        <div style="padding: 16px; background-color: #ffffff; border: 1px solid ${EMAIL_STYLES.colors.border}; border-radius: 8px;">
+          <h3 style="margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase; color: ${EMAIL_STYLES.colors.secondary}; letter-spacing: 0.5px;">
+            Detalles Adicionales
+          </h3>
+          <pre style="margin: 0; font-family: 'SF Mono', Monaco, monospace; font-size: 11px; color: ${EMAIL_STYLES.colors.text}; white-space: pre-wrap; word-break: break-word;">${escapeHtml(JSON.stringify(details, null, 2))}</pre>
+        </div>
+      ` : ''}
+    </div>
 
-          <!-- Alert Banner -->
-          <tr>
-            <td align="center" style="background-color: #fef2f2; padding: 28px 30px;">
-              <h1 style="margin: 0 0 8px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #991b1b; font-size: 22px; font-weight: 700; line-height: 1.3;">
-                Falla de Cron Job
-              </h1>
-              <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #b91c1c; font-size: 15px; line-height: 1.5;">
-                ${escapeHtml(displayName)}
-              </p>
-            </td>
-          </tr>
+    <!-- CTA Button -->
+    <div style="margin-top: 32px; text-align: center;">
+      ${renderButton('Ver Logs de Cron Jobs', cronLogsUrl, 'secondary')}
+    </div>
+  `
 
-          <!-- Summary Card -->
-          <tr>
-            <td style="padding: 0 30px 24px 30px;">
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border: 1px solid #fee2e2; border-radius: 12px; margin-top: -12px; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06);">
-                <tr>
-                  <td style="padding: 20px;">
-                    <div style="margin-bottom: 12px; border-left: 4px solid #dc2626; padding-left: 10px;">
-                      <h2 style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 17px; color: #111827; font-weight: 700;">
-                        Resumen del Error
-                      </h2>
-                    </div>
-
-                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
-                      <tr>
-                        <td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9;">
-                          <span style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">Job</span>
-                        </td>
-                        <td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; text-align: right;">
-                          <span style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #111827; font-weight: 600;">${escapeHtml(jobName)}</span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9;">
-                          <span style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">Inicio</span>
-                        </td>
-                        <td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; text-align: right;">
-                          <span style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #111827; font-weight: 600;">${escapeHtml(formattedDate)}</span>
-                        </td>
-                      </tr>
-                      ${durationMs ? `
-                      <tr>
-                        <td style="padding: 10px 0;">
-                          <span style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">Duración</span>
-                        </td>
-                        <td style="padding: 10px 0; text-align: right;">
-                          <span style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #111827; font-weight: 600;">${formatDuration(durationMs)}</span>
-                        </td>
-                      </tr>
-                      ` : ''}
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Content -->
-          <tr>
-            <td style="padding: 0 30px 30px 30px;">
-
-              <!-- Error Message -->
-              <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
-                <h3 style="margin: 0 0 8px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #991b1b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px;">
-                  Mensaje de Error
-                </h3>
-                <p style="margin: 0; font-family: 'Monaco', 'Courier New', monospace; font-size: 12px; color: #dc2626; line-height: 1.5; word-break: break-word;">
-                  ${escapeHtml(errorMessage)}
-                </p>
-              </div>
-
-              ${details && Object.keys(details).length > 0 ? `
-              <!-- Additional Details -->
-              <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
-                <h3 style="margin: 0 0 10px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #374151; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px;">
-                  Detalles Adicionales
-                </h3>
-                <pre style="margin: 0; font-family: 'Monaco', 'Courier New', monospace; font-size: 12px; color: #4b5563; white-space: pre-wrap; word-break: break-word;">
-${escapeHtml(JSON.stringify(details, null, 2))}
-                </pre>
-              </div>
-              ` : ''}
-
-              <!-- CTA Button -->
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 10px;">
-                <tr>
-                  <td align="center">
-                    <a href="${cronLogsUrl}" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; display: inline-block; padding: 12px 28px; background-color: #e84c0f; color: white; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600; box-shadow: 0 4px 6px rgba(232, 76, 15, 0.2);">
-                      Ver Logs de Cron Jobs
-                    </a>
-                  </td>
-                </tr>
-              </table>
-
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td align="center" style="background-color: #f9fafb; padding: 20px; border-top: 1px solid #e5e7eb;">
-              <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #9ca3af;">
-                &copy; ${new Date().getFullYear()} OfertaSimple. Sistema de Notificaciones Automáticas.
-              </p>
-            </td>
-          </tr>
-        </table>
-
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-  `.trim()
+  return renderEmailLayout({
+    title: 'Falla de Cron Job - OfertaSimple',
+    previewText: `Falla en ${displayName}: ${errorMessage}`,
+    children: content
+  })
 }
 
 /**
