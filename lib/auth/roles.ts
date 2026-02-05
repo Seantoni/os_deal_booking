@@ -4,6 +4,7 @@ import { cache } from 'react'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 import type { UserRole } from '@/lib/constants'
+import { extractDisplayName, extractUserEmail } from '@/lib/auth/user-display'
 
 /**
  * Internal function to get or create user profile
@@ -18,7 +19,7 @@ async function _getUserProfileInternal() {
 
   // Upsert to avoid duplicate insert races on clerkId
   const user = await currentUser()
-  const userEmail = user?.emailAddresses[0]?.emailAddress || null
+  const userEmail = extractUserEmail(user)
 
   // Check if user has a pending invitation with role assignment
   let assignedRole: UserRole = 'sales' // Default role
@@ -42,7 +43,7 @@ async function _getUserProfileInternal() {
   }
 
   // Determine the best name to use: Clerk data > invitation data > null
-  const clerkName = user?.fullName || user?.firstName || null
+  const clerkName = extractDisplayName(user)
   const userName = clerkName || invitedName
 
   const profile = await prisma.userProfile.upsert({

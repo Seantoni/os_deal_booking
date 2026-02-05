@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { unstable_cache } from 'next/cache'
+import { currentUser } from '@clerk/nextjs/server'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
 import { invalidateEntity } from '@/lib/cache'
 import { getUserRole, isAdmin } from '@/lib/auth/roles'
@@ -1171,8 +1172,10 @@ export async function createBusiness(formData: FormData) {
       }
     }
 
-    if (!name || !contactName || !contactPhone || !contactEmail) {
-      return { success: false, error: 'Missing required fields' }
+    // Only 'name' is always required at server level (canSetRequired: false in form config)
+    // Other field requirements are determined by admin in Settings → Entity Fields
+    if (!name) {
+      return { success: false, error: 'Campos requeridos faltantes: Business Name' }
     }
 
     // Create business with sales reps
@@ -1251,7 +1254,19 @@ export async function createBusiness(formData: FormData) {
     try {
       // Convert Prisma result to Business type for the mapper
       // Use unknown intermediate cast as Prisma types have different shapes
-      const businessForApi = business as unknown as Business
+      let businessForApi = business as unknown as Business
+      
+      // If contactEmail is empty, use the current user's email as fallback for vendor API
+      // This ensures the vendor can be created even if contact email wasn't provided
+      if (!businessForApi.contactEmail) {
+        const user = await currentUser()
+        const userEmail = user?.emailAddresses?.[0]?.emailAddress
+        if (userEmail) {
+          businessForApi = { ...businessForApi, contactEmail: userEmail }
+          console.log(`[createBusiness] Using user email as fallback for vendor API: ${userEmail}`)
+        }
+      }
+      
       vendorApiResult = await sendVendorToExternalApi(businessForApi, {
         userId,
         triggeredBy: 'manual',
@@ -1375,8 +1390,10 @@ export async function updateBusiness(businessId: string, formData: FormData) {
     const neighborhood = formData.get('neighborhood') as string | null
     const osAdminVendorId = formData.get('osAdminVendorId') as string | null
 
-    if (!name || !contactName || !contactPhone || !contactEmail) {
-      return { success: false, error: 'Missing required fields' }
+    // Only 'name' is always required at server level (canSetRequired: false in form config)
+    // Other field requirements are determined by admin in Settings → Entity Fields
+    if (!name) {
+      return { success: false, error: 'Campos requeridos faltantes: Business Name' }
     }
 
     // Check if user is admin to allow owner editing

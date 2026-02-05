@@ -3,6 +3,7 @@ import { currentUser } from '@clerk/nextjs/server'
 import { checkEmailAccess } from '@/app/actions/access-control'
 import { prisma } from '@/lib/prisma'
 import { normalizeEmail } from '@/lib/auth/email-validation'
+import { extractDisplayName } from '@/lib/auth/user-display'
 import { ENV } from '@/lib/config/env'
 import { logger } from '@/lib/logger'
 
@@ -74,10 +75,8 @@ export async function GET(request: NextRequest) {
       // Log LOGIN activity for new sessions
       if (shouldLogLogin) {
         try {
-          // Get user name for activity log
-          const userName = user.firstName && user.lastName 
-            ? `${user.firstName} ${user.lastName}`.trim()
-            : user.firstName || user.username || null
+          // Get user name for activity log using centralized utility
+          const userName = extractDisplayName(user)
 
           // Get IP and user agent from request headers
           const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() 
@@ -147,9 +146,7 @@ export async function GET(request: NextRequest) {
       // Log LOGIN activity for new sessions (try even if main db query failed)
       if (shouldLogLogin) {
         try {
-          const userName = user.firstName && user.lastName 
-            ? `${user.firstName} ${user.lastName}`.trim()
-            : user.firstName || user.username || null
+          const userName = extractDisplayName(user)
           const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() 
             || request.headers.get('x-real-ip') 
             || null

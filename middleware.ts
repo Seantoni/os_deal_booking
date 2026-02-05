@@ -6,6 +6,8 @@ import { generalLimiter, checkRateLimit, rateLimitResponse, getClientIp, isRateL
 
 // Cookie name for caching access check result
 const ACCESS_COOKIE_NAME = 'os_access_verified'
+// Cookie name for login logging deduplication (must match api/access/check)
+const LOGIN_LOGGED_COOKIE = 'os_login_logged'
 
 const isPublicRoute = createRouteMatcher([
   // Auth routes
@@ -16,6 +18,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/booking-requests/reject(.*)',
   '/api/health/(.*)',
   '/api/access/check(.*)', // Allow access check API route
+  '/api/webhooks/(.*)', // Webhooks (verified by signature in route handlers)
   '/api/cron/(.*)', // Cron jobs (protected by CRON_SECRET in route handlers)
   // Public booking request pages (new organized routes)
   '/booking-request/(.*)', // All public booking request pages (status, form, etc.)
@@ -106,6 +109,26 @@ export default clerkMiddleware(async (auth, request) => {
         maxAge: CACHE_ACCESS_CHECK_SECONDS,
         path: '/',
       })
+
+      // Forward the login logged cookie from API response to browser
+      // This ensures the login deduplication cookie reaches the user's browser
+      const loginLoggedCookie = response.headers.getSetCookie?.()
+        ?.find(c => c.startsWith(`${LOGIN_LOGGED_COOKIE}=`))
+      if (loginLoggedCookie) {
+        // Parse and forward the cookie
+        const cookieParts = loginLoggedCookie.split(';')
+        const cookieValue = cookieParts[0]?.split('=')[1]
+        if (cookieValue) {
+          nextResponse.cookies.set(LOGIN_LOGGED_COOKIE, cookieValue, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 8 * 60 * 60, // 8 hours (must match api/access/check)
+            path: '/',
+          })
+          logger.debug('[middleware] Forwarded login logged cookie for userId:', userId)
+        }
+      }
 
       logger.debug('[middleware] Access granted and cached for userId:', userId)
 

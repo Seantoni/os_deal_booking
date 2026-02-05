@@ -585,11 +585,12 @@ export async function updateLeadStage(
 
     // If moving to 'asignado' from 'por_asignar', convert to business
     if (newStage === LEAD_STAGES.ASIGNADO && lead.stage === LEAD_STAGES.POR_ASIGNAR) {
-      // Validate required fields for business creation
-      if (!lead.name || !lead.contactName || !lead.contactEmail || !lead.contactPhone) {
+      // Only 'name' is always required for business creation (canSetRequired: false)
+      // Other field requirements are determined by admin in Settings → Entity Fields
+      if (!lead.name) {
         return { 
           success: false, 
-          error: 'Cannot convert to business: Missing required fields (name, contact name, email, phone)' 
+          error: 'No se puede convertir a negocio: Falta el nombre del negocio' 
         }
       }
 

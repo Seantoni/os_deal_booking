@@ -45,7 +45,8 @@
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "react-hot-toast": "^2.6.0",
-    "resend": "^6.5.2"
+    "resend": "^6.5.2",
+    "svix": "^1.84.1"
   },
   "devDependencies": {
     "@next/bundle-analyzer": "^16.0.6",

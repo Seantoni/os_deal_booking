@@ -20,11 +20,19 @@ import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import LoginIcon from '@mui/icons-material/Login'
+import LogoutIcon from '@mui/icons-material/Logout'
 import SyncIcon from '@mui/icons-material/Sync'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import CancelIcon from '@mui/icons-material/Cancel'
 import SendIcon from '@mui/icons-material/Send'
 import FilterListIcon from '@mui/icons-material/FilterList'
+import AssignmentIndIcon from '@mui/icons-material/AssignmentInd'
+import FileDownloadIcon from '@mui/icons-material/FileDownload'
+import FileUploadIcon from '@mui/icons-material/FileUpload'
+import TuneIcon from '@mui/icons-material/Tune'
+import CategoryIcon from '@mui/icons-material/Category'
+import TaskIcon from '@mui/icons-material/Task'
+import CampaignIcon from '@mui/icons-material/Campaign'
 
 interface ActivityLogDetails {
   statusChange?: { from: string; to: string }
@@ -71,9 +79,15 @@ const ACTION_OPTIONS = [
   { value: 'STATUS_CHANGE', label: 'Cambio de Estado' },
   { value: 'APPROVE', label: 'Aprobar' },
   { value: 'REJECT', label: 'Rechazar' },
+  { value: 'CANCEL', label: 'Cancelar' },
   { value: 'SEND', label: 'Enviar' },
   { value: 'RESEND', label: 'Reenviar' },
+  { value: 'ASSIGN', label: 'Asignar' },
   { value: 'LOGIN', label: 'Iniciar Sesión' },
+  { value: 'LOGOUT', label: 'Cerrar Sesión' },
+  { value: 'EXPORT', label: 'Exportar' },
+  { value: 'IMPORT', label: 'Importar' },
+  { value: 'SETTINGS_UPDATE', label: 'Actualizar Configuración' },
 ]
 
 const ENTITY_OPTIONS = [
@@ -83,8 +97,16 @@ const ENTITY_OPTIONS = [
   { value: 'Deal', label: 'Oferta' },
   { value: 'Lead', label: 'Lead' },
   { value: 'BookingRequest', label: 'Booking Request' },
-  { value: 'Event', label: 'Event' },
-  { value: 'Settings', label: 'Settings' },
+  { value: 'Event', label: 'Evento' },
+  { value: 'Task', label: 'Tarea' },
+  { value: 'User', label: 'Usuario' },
+  { value: 'Settings', label: 'Configuración' },
+  { value: 'Category', label: 'Categoría' },
+  { value: 'CustomField', label: 'Campo Personalizado' },
+  { value: 'MarketingCampaign', label: 'Campaña de Marketing' },
+  { value: 'MarketingOption', label: 'Opción de Marketing' },
+  { value: 'SalesCampaign', label: 'Campaña de Ventas' },
+  { value: 'BusinessCampaign', label: 'Campaña de Negocio' },
 ]
 
 function getActionIcon(action: string) {
@@ -99,15 +121,27 @@ function getActionIcon(action: string) {
       return <VisibilityIcon className="w-4 h-4 text-gray-600" />
     case 'LOGIN':
       return <LoginIcon className="w-4 h-4 text-purple-600" />
+    case 'LOGOUT':
+      return <LogoutIcon className="w-4 h-4 text-purple-600" />
     case 'STATUS_CHANGE':
       return <SyncIcon className="w-4 h-4 text-orange-600" />
     case 'APPROVE':
       return <CheckCircleIcon className="w-4 h-4 text-green-600" />
     case 'REJECT':
       return <CancelIcon className="w-4 h-4 text-red-600" />
+    case 'CANCEL':
+      return <CancelIcon className="w-4 h-4 text-amber-600" />
     case 'SEND':
     case 'RESEND':
       return <SendIcon className="w-4 h-4 text-blue-600" />
+    case 'ASSIGN':
+      return <AssignmentIndIcon className="w-4 h-4 text-indigo-600" />
+    case 'EXPORT':
+      return <FileDownloadIcon className="w-4 h-4 text-teal-600" />
+    case 'IMPORT':
+      return <FileUploadIcon className="w-4 h-4 text-teal-600" />
+    case 'SETTINGS_UPDATE':
+      return <TuneIcon className="w-4 h-4 text-gray-600" />
     default:
       return <EditIcon className="w-4 h-4 text-gray-600" />
   }
@@ -127,10 +161,21 @@ function getEntityIcon(entityType: string) {
       return <EventNoteIcon className="w-4 h-4 text-teal-600" />
     case 'Event':
       return <EventNoteIcon className="w-4 h-4 text-pink-600" />
+    case 'Task':
+      return <TaskIcon className="w-4 h-4 text-amber-600" />
     case 'Settings':
       return <SettingsIcon className="w-4 h-4 text-gray-600" />
     case 'User':
       return <PersonIcon className="w-4 h-4 text-indigo-600" />
+    case 'Category':
+      return <CategoryIcon className="w-4 h-4 text-cyan-600" />
+    case 'CustomField':
+      return <TuneIcon className="w-4 h-4 text-slate-600" />
+    case 'MarketingCampaign':
+    case 'MarketingOption':
+    case 'SalesCampaign':
+    case 'BusinessCampaign':
+      return <CampaignIcon className="w-4 h-4 text-rose-600" />
     default:
       return <BusinessIcon className="w-4 h-4 text-gray-600" />
   }
@@ -148,15 +193,27 @@ function getActionColor(action: string) {
       return 'bg-gray-100 text-gray-800'
     case 'LOGIN':
       return 'bg-purple-100 text-purple-800'
+    case 'LOGOUT':
+      return 'bg-purple-100 text-purple-800'
     case 'STATUS_CHANGE':
       return 'bg-orange-100 text-orange-800'
     case 'APPROVE':
       return 'bg-green-100 text-green-800'
     case 'REJECT':
       return 'bg-red-100 text-red-800'
+    case 'CANCEL':
+      return 'bg-amber-100 text-amber-800'
     case 'SEND':
     case 'RESEND':
       return 'bg-blue-100 text-blue-800'
+    case 'ASSIGN':
+      return 'bg-indigo-100 text-indigo-800'
+    case 'EXPORT':
+      return 'bg-teal-100 text-teal-800'
+    case 'IMPORT':
+      return 'bg-teal-100 text-teal-800'
+    case 'SETTINGS_UPDATE':
+      return 'bg-slate-100 text-slate-800'
     default:
       return 'bg-gray-100 text-gray-800'
   }

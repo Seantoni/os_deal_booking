@@ -603,11 +603,17 @@ export async function createOpportunity(formData: FormData) {
     const notes = formData.get('notes') as string | null
     const responsibleId = formData.get('responsibleId') as string | null
 
-    if (!businessId || !stage || !startDate) {
-      return { success: false, error: 'Missing required fields' }
+    // Only businessId and stage are always required (canSetRequired: false in form config)
+    // startDate requirement is determined by admin in Settings → Entity Fields
+    const missingFields: string[] = []
+    if (!businessId) missingFields.push('Business')
+    if (!stage) missingFields.push('Stage')
+    
+    if (missingFields.length > 0) {
+      return { success: false, error: `Campos requeridos faltantes: ${missingFields.join(', ')}` }
     }
 
-    const startDateTime = new Date(startDate)
+    const startDateTime = startDate ? new Date(startDate) : new Date()
     const closeDateTime = closeDate ? new Date(closeDate) : null
 
     // Set responsible to current user by default if not provided
@@ -680,11 +686,13 @@ export async function updateOpportunity(opportunityId: string, formData: FormDat
     const lostReason = formData.get('lostReason') as string | null
     const responsibleId = formData.get('responsibleId') as string | null
 
-    if (!stage || !startDate) {
-      return { success: false, error: 'Missing required fields' }
+    // Only stage is always required for updates (canSetRequired: false in form config)
+    // startDate requirement is determined by admin in Settings → Entity Fields
+    if (!stage) {
+      return { success: false, error: 'Campos requeridos faltantes: Stage' }
     }
 
-    const startDateTime = new Date(startDate)
+    const startDateTime = startDate ? new Date(startDate) : null
     const closeDateTime = closeDate ? new Date(closeDate) : null
 
     // Check if user is admin to allow responsible editing
@@ -698,10 +706,14 @@ export async function updateOpportunity(opportunityId: string, formData: FormDat
 
     const updateData: Record<string, unknown> = {
       stage,
-      startDate: startDateTime,
       closeDate: closeDateTime,
       notes: notes || null,
       lostReason: lostReason || null,
+    }
+    
+    // Only update startDate if provided
+    if (startDateTime) {
+      updateData.startDate = startDateTime
     }
 
     // Only update responsible if admin
@@ -746,8 +758,8 @@ export async function updateOpportunity(opportunityId: string, formData: FormDat
         // We'll log this as part of changes, but action will be STATUS_CHANGE if stage changed
       }
 
-      // Check date fields
-      if (currentOpportunity.startDate.getTime() !== startDateTime.getTime()) {
+      // Check date fields (only if startDate was provided)
+      if (startDateTime && currentOpportunity.startDate.getTime() !== startDateTime.getTime()) {
         changedFields.push('startDate')
         previousValues.startDate = currentOpportunity.startDate
         newValues.startDate = startDateTime

@@ -42,3 +42,13 @@ export {
   buildAccessFilter,
 } from './entity-access'
 export type { EntityType, AccessLevel } from './entity-access'
+
+// User display name utilities
+export {
+  extractDisplayName,
+  extractUserEmail,
+  getUserDisplayInfo,
+  getDisplayNameByClerkId,
+  getBatchUserDisplayInfo,
+} from './user-display'
+export type { ClerkUserLike } from './user-display'
