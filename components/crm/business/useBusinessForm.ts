@@ -58,7 +58,7 @@ export function useBusinessForm({
 
     // If we have all preloaded data for a new business, skip the fetch entirely
     const hasAllPreloadedData = (preloadedCategories && preloadedCategories.length > 0) && 
-                                 (!isAdmin || (preloadedUsers && preloadedUsers.length > 0))
+                                 (preloadedUsers && preloadedUsers.length > 0)
     
     if (!currentBusiness && hasAllPreloadedData) {
       // New business with all preloaded data - no need to fetch
@@ -75,7 +75,7 @@ export function useBusinessForm({
         if (!preloadedCategories || preloadedCategories.length === 0) {
           setCategories(result.data.categories)
         }
-        if (isAdmin && (!preloadedUsers || preloadedUsers.length === 0)) {
+        if (!preloadedUsers || preloadedUsers.length === 0) {
           setUsers(result.data.users)
         }
         
@@ -88,7 +88,7 @@ export function useBusinessForm({
     } finally {
       setLoadingData(false)
     }
-  }, [currentUserId, preloadedCategories, preloadedUsers, isAdmin])
+  }, [currentUserId, preloadedCategories, preloadedUsers])
 
   // Main load effect
   useEffect(() => {

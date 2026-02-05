@@ -750,10 +750,13 @@ export default function BusinessesPageClient({
           onClose={pageState.closeOpportunityModal}
           opportunity={null}
           initialBusinessId={pageState.selectedBusinessForOpportunity.id}
-          onSuccess={() => {
+          onSuccess={(opportunity) => {
             toast.success('Opportunity created successfully')
             pageState.closeOpportunityModal()
             refreshTableCounts()
+            // Redirect to opportunities page with the new opportunity open
+            sessionStorage.setItem('openOpportunityId', opportunity.id)
+            router.push('/opportunities')
           }}
           preloadedBusinesses={businesses}
           preloadedCategories={categories}

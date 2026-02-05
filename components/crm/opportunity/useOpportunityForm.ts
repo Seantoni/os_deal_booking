@@ -82,13 +82,13 @@ export function useOpportunityForm({
     const hasAllPreloadedData = 
       (preloadedBusinesses && preloadedBusinesses.length > 0) &&
       (preloadedCategories && preloadedCategories.length > 0) &&
-      (!isAdmin || (preloadedUsers && preloadedUsers.length > 0))
+      (preloadedUsers && preloadedUsers.length > 0)
     
     // For new opportunities with all preloaded data and an initial business, use preloaded data
     if (!currentOpportunity && hasAllPreloadedData && initialBusinessId) {
       setBusinesses(preloadedBusinesses!)
       setCategories(preloadedCategories!)
-      if (isAdmin && preloadedUsers) setUsers(preloadedUsers)
+      if (preloadedUsers) setUsers(preloadedUsers)
       
       // Set form defaults for new opportunity (using Panama timezone)
       setBusinessId(initialBusinessId)
@@ -134,7 +134,7 @@ export function useOpportunityForm({
         
         setBusinesses(businessesData)
         setCategories(categoriesData)
-        if (isAdmin) setUsers(usersData)
+        setUsers(usersData)
         
         // Set tasks and linked data from response
         setTasks((result.data.tasks as Task[]) || [])
@@ -194,7 +194,7 @@ export function useOpportunityForm({
     } finally {
       setLoadingData(false)
     }
-  }, [isAdmin, initialBusinessId, currentUserId, preloadedBusinesses, preloadedCategories, preloadedUsers])
+  }, [initialBusinessId, currentUserId, preloadedBusinesses, preloadedCategories, preloadedUsers])
 
   // Main load effect
   useEffect(() => {
