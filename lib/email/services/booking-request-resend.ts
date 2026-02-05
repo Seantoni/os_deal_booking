@@ -5,6 +5,8 @@ import { generateApprovalToken } from '@/lib/tokens'
 import { buildCategoryDisplayString } from '@/lib/utils/category-display'
 import { currentUser } from '@clerk/nextjs/server'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
+import { generateBookingRequestPDF, generateBookingRequestPDFFilename } from '@/lib/pdf'
+import { logger } from '@/lib/logger'
 
 /**
  * Resend booking request email to the same business email
@@ -81,6 +83,32 @@ export async function resendBookingRequestEmail(bookingRequest: BookingRequestFo
       requesterEmail: userEmail,
     })
 
+    // Generate PDF summary for attachment
+    let pdfBuffer: Buffer | null = null
+    let pdfFilename: string | null = null
+    try {
+      logger.info('[ResendBookingRequest] Generating PDF summary')
+      pdfBuffer = await generateBookingRequestPDF({
+        requestName: bookingRequest.name,
+        businessEmail: bookingRequest.businessEmail,
+        merchant: bookingRequest.merchant || undefined,
+        category: categoryString,
+        parentCategory: bookingRequest.parentCategory || undefined,
+        subCategory1: bookingRequest.subCategory1 || undefined,
+        subCategory2: bookingRequest.subCategory2 || undefined,
+        startDate: bookingRequest.startDate,
+        endDate: bookingRequest.endDate,
+        requesterEmail: userEmail,
+        additionalInfo: bookingRequest.additionalInfo || null,
+        bookingData: bookingRequest as unknown as Record<string, unknown>,
+      })
+      pdfFilename = generateBookingRequestPDFFilename(bookingRequest.name, bookingRequest.merchant || undefined)
+      logger.info(`[ResendBookingRequest] PDF generated: ${pdfFilename} (${pdfBuffer.length} bytes)`)
+    } catch (pdfError) {
+      logger.error('[ResendBookingRequest] Error generating PDF, continuing without attachment:', pdfError)
+      // Don't fail the resend if PDF generation fails - log and continue without attachment
+    }
+
     // Send email to business (with CTAs)
     await resend.emails.send({
       from: `OS Deals Booking <${EMAIL_CONFIG.from}>`,
@@ -88,6 +116,12 @@ export async function resendBookingRequestEmail(bookingRequest: BookingRequestFo
       replyTo: userEmail || EMAIL_CONFIG.replyTo,
       subject: `Solicitud de Reserva: ${bookingRequest.name}${bookingRequest.merchant ? ` (${bookingRequest.merchant})` : ''}`,
       html: emailHtml,
+      attachments: pdfBuffer && pdfFilename ? [
+        {
+          filename: pdfFilename,
+          content: pdfBuffer.toString('base64'),
+        },
+      ] : undefined,
     })
     
     // Send separate copy to requester without CTAs
@@ -113,6 +147,12 @@ export async function resendBookingRequestEmail(bookingRequest: BookingRequestFo
         replyTo: userEmail || EMAIL_CONFIG.replyTo,
         subject: `Copia de tu solicitud: ${bookingRequest.name}${bookingRequest.merchant ? ` (${bookingRequest.merchant})` : ''}`,
         html: requesterHtml,
+        attachments: pdfBuffer && pdfFilename ? [
+          {
+            filename: pdfFilename,
+            content: pdfBuffer.toString('base64'),
+          },
+        ] : undefined,
       })
     }
     

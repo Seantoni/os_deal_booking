@@ -95,6 +95,7 @@ export function renderBookingRequestEmail(props: BookingRequestEmailProps): stri
 
     const content = filled.map(f => {
       const value = f.value !== undefined ? f.value : formatValue(getBookingValue(f.key))
+      // Don't truncate content in email
       return renderKeyValue(f.label, escapeHtml(value), f.fullWidth || false)
     }).join('')
 
@@ -361,6 +362,21 @@ export function renderBookingRequestEmail(props: BookingRequestEmailProps): stri
     <div style="margin-top: 40px; font-size: 12px; color: ${EMAIL_STYLES.colors.secondary}; text-align: center;">
       Solicitud enviada por: ${escapeHtml(requesterEmail || 'Equipo de OfertaSimple')}
     </div>
+
+    <!-- Bottom Action Buttons -->
+    ${!hideActions ? `
+      ${renderDivider()}
+      <div style="text-align: center; margin-top: 32px; margin-bottom: 16px;">
+        <div style="margin-bottom: 16px;">
+          ${renderButton('Aprobar', approveUrl, 'primary')}
+          <span style="display: inline-block; width: 12px;"></span>
+          ${renderButton('Rechazar', rejectUrl, 'danger')}
+        </div>
+        <div style="font-size: 12px; color: ${EMAIL_STYLES.colors.secondary};">
+          Al aprobar, acepta los <a href="${termsLink}" style="color: ${EMAIL_STYLES.colors.secondary}; text-decoration: underline;">Términos y Condiciones</a>.
+        </div>
+      </div>
+    ` : ''}
   `
 
   return renderEmailLayout({

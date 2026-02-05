@@ -10,6 +10,7 @@ import { getUserRole } from '@/lib/auth/roles'
 import { resend, EMAIL_CONFIG } from '@/lib/email/config'
 import { renderBookingRequestEmail } from '@/lib/email/templates/booking-request'
 import { resendBookingRequestEmail } from '@/lib/email/services/booking-request-resend'
+import { generateBookingRequestPDF, generateBookingRequestPDFFilename } from '@/lib/pdf'
 import { generateApprovalToken } from '@/lib/tokens'
 import type { BookingRequestStatus, BookingRequest } from '@/types'
 import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
@@ -533,6 +534,32 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       requesterEmail: userEmail,
     })
 
+    // Generate PDF summary for attachment
+    let pdfBuffer: Buffer | null = null
+    let pdfFilename: string | null = null
+    try {
+      logger.info('[BookingRequest] Generating PDF summary')
+      pdfBuffer = await generateBookingRequestPDF({
+        requestName: data.name!,
+        businessEmail: data.businessEmail!,
+        merchant: data.merchant || undefined,
+        category: categoryString,
+        parentCategory: data.parentCategory || undefined,
+        subCategory1: data.subCategory1 || undefined,
+        subCategory2: data.subCategory2 || undefined,
+        startDate: startDateTime,
+        endDate: endDateTime,
+        requesterEmail: userEmail,
+        additionalInfo: emailAdditionalInfo,
+        bookingData: data,
+      })
+      pdfFilename = generateBookingRequestPDFFilename(data.name!, data.merchant || undefined)
+      logger.info(`[BookingRequest] PDF generated: ${pdfFilename} (${pdfBuffer.length} bytes)`)
+    } catch (pdfError) {
+      logger.error('[BookingRequest] Error generating PDF, continuing without attachment:', pdfError)
+      // Don't fail the request if PDF generation fails - log and continue without attachment
+    }
+
     // Build list of all business recipients (primary + additional)
     const allRecipients = [businessEmail, ...additionalEmails.filter(e => e && e.trim())]
     const uniqueRecipients = [...new Set(allRecipients)]
@@ -546,8 +573,14 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
           replyTo: userEmail || EMAIL_CONFIG.replyTo,
           subject: `Solicitud de Reserva: ${name}${merchant ? ` (${merchant})` : ''}`,
           html: emailHtml,
+          attachments: pdfBuffer && pdfFilename ? [
+            {
+              filename: pdfFilename,
+              content: pdfBuffer.toString('base64'),
+            },
+          ] : undefined,
         })
-        logger.info(`Email sent to ${uniqueRecipients.join(', ')}`)
+        logger.info(`Email sent to ${uniqueRecipients.join(', ')}${pdfBuffer ? ' with PDF attachment' : ''}`)
       }
 
       // Send separate copy to requester without CTAs
@@ -573,8 +606,14 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
           replyTo: userEmail || EMAIL_CONFIG.replyTo,
           subject: `Copia de tu solicitud: ${name}${merchant ? ` (${merchant})` : ''}`,
           html: requesterHtml,
+          attachments: pdfBuffer && pdfFilename ? [
+            {
+              filename: pdfFilename,
+              content: pdfBuffer.toString('base64'),
+            },
+          ] : undefined,
         })
-        logger.info(`Requester copy sent to ${userEmail}`)
+        logger.info(`Requester copy sent to ${userEmail}${pdfBuffer ? ' with PDF attachment' : ''}`)
       }
     } catch (emailError) {
       logger.error('Error sending email:', emailError)
