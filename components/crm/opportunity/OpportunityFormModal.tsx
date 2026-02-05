@@ -661,6 +661,7 @@ export default function OpportunityFormModal({
     // Build query parameters with business data for pre-filling the booking form
     const params = new URLSearchParams()
     params.set('fromOpportunity', opportunity.id)
+    params.set('businessId', linkedBusiness.id) // Pass businessId for backfill tracking
     params.set('businessName', linkedBusiness.name || '')
     if (linkedBusiness.contactEmail) params.set('businessEmail', linkedBusiness.contactEmail)
     if (linkedBusiness.contactName) params.set('contactName', linkedBusiness.contactName)

@@ -432,6 +432,9 @@ export default function BusinessFormModal({
   // State to track pending vendor result for showing dialog after action completes
   const [pendingVendorResult, setPendingVendorResult] = useState<CreateResult['vendorApiResult'] | null>(null)
   
+  // State to hold successful business for closing after vendor dialog
+  const [pendingSuccessBusiness, setPendingSuccessBusiness] = useState<Business | null>(null)
+
   // React 19: useActionState for save/update business action
   const [saveState, saveAction, isSavePending] = useActionState<FormActionState, FormData>(
     async (_prevState, formData) => {
@@ -449,11 +452,16 @@ export default function BusinessFormModal({
             console.warn('Failed to save custom fields:', customFieldResult.error)
           }
           
-          // Store vendor result to show dialog after action completes
+          // For new businesses with vendor result, show dialog BEFORE closing
+          // User must acknowledge the dialog before modal closes
           if (isNewBusiness && result.vendorApiResult) {
             setPendingVendorResult(result.vendorApiResult)
+            setPendingSuccessBusiness(result.data)
+            // Don't close yet - will close after dialog is acknowledged
+            return { success: true, error: null }
           }
           
+          // No vendor dialog needed - close immediately
           onSuccess(result.data)
           onClose()
           return { success: true, error: null }
@@ -480,25 +488,56 @@ export default function BusinessFormModal({
   )
   
   // Show vendor result dialog when pendingVendorResult is set
+  // After user acknowledges, close the modal
   useEffect(() => {
     if (pendingVendorResult) {
       showVendorResultDialog(pendingVendorResult).then(() => {
         setPendingVendorResult(null)
+        // Now close the modal after user acknowledged the vendor result
+        if (pendingSuccessBusiness) {
+          onSuccess(pendingSuccessBusiness)
+          setPendingSuccessBusiness(null)
+          onClose()
+        }
       })
     }
-  }, [pendingVendorResult])
+  }, [pendingVendorResult, pendingSuccessBusiness, onSuccess, onClose])
 
   // State to hold the newly created business for opening opportunity modal
   const [createdBusiness, setCreatedBusiness] = useState<Business | null>(null)
+
+  // Helper to validate required fields and return missing ones
+  const validateRequiredFields = useCallback(() => {
+    const allValues = dynamicForm.getAllValues()
+    const missingFields: string[] = []
+    
+    // Check dynamic form sections for required fields
+    if (dynamicForm.initialized) {
+      for (const section of dynamicForm.sections) {
+        for (const field of section.fields) {
+          if (field.isRequired && field.isVisible) {
+            const value = allValues[field.fieldKey]
+            if (!value || (typeof value === 'string' && value.trim() === '')) {
+              // Get label from definition (built-in) or customFieldLabel (custom)
+              const label = field.definition?.label || field.customFieldLabel || field.fieldKey
+              missingFields.push(label)
+            }
+          }
+        }
+      }
+    }
+    
+    return missingFields
+  }, [dynamicForm])
 
   // React 19: useActionState for create business & opportunity action
   const [createWithOppState, createWithOppAction, isCreateWithOppPending] = useActionState<FormActionState, FormData>(
     async (_prevState, formData) => {
       try {
-        const allValues = dynamicForm.getAllValues()
+        const missingFields = validateRequiredFields()
         
-        if (!allValues.name || !allValues.contactName || !allValues.contactPhone || !allValues.contactEmail) {
-          const errorMsg = 'Por favor complete todos los campos requeridos'
+        if (missingFields.length > 0) {
+          const errorMsg = `Campos requeridos faltantes: ${missingFields.join(', ')}`
           setError(errorMsg)
           return { success: false, error: errorMsg }
         }
@@ -602,6 +641,7 @@ export default function BusinessFormModal({
     
     // Flag to trigger pre-fill logic in EnhancedBookingForm
     params.set('fromOpportunity', 'business')
+    params.set('businessId', business.id) // Pass businessId for backfill tracking
     
     // Basic business info
     params.set('businessName', business.name)
@@ -716,6 +756,13 @@ export default function BusinessFormModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+    
+    // Validate required fields first
+    const missingFields = validateRequiredFields()
+    if (missingFields.length > 0) {
+      setError(`Campos requeridos faltantes: ${missingFields.join(', ')}`)
+      return
+    }
     
     // For existing businesses with vendor ID (admin only) - use sync flow
     const usesSyncFlow = !!business && isAdmin && !!business.osAdminVendorId
@@ -1121,7 +1168,7 @@ export default function BusinessFormModal({
       zIndex={80}
     />
     
-    {/* Vendor API result dialog - z-80 to be above ModalShell (z-70) */}
+    {/* Vendor API result dialog - z-90 to be clearly above ModalShell (z-70) and other dialogs */}
     <ConfirmDialog
       isOpen={vendorResultDialog.isOpen}
       title={vendorResultDialog.options.title}
@@ -1131,7 +1178,7 @@ export default function BusinessFormModal({
       confirmVariant={vendorResultDialog.options.confirmVariant}
       onConfirm={vendorResultDialog.handleConfirm}
       onCancel={vendorResultDialog.handleCancel}
-      zIndex={80}
+      zIndex={90}
     />
 
     {/* Sync confirmation dialog - z-80 to be above ModalShell (z-70) */}

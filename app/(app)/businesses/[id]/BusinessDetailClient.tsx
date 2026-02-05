@@ -179,6 +179,7 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
     
     // Flag to trigger pre-fill logic in EnhancedBookingForm
     params.set('fromOpportunity', 'business')
+    params.set('businessId', business.id) // Pass businessId for backfill tracking
     
     // Basic business info
     params.set('businessName', business.name)

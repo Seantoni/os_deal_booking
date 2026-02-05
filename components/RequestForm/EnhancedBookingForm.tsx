@@ -3,6 +3,11 @@
 import { useState, useEffect, useCallback, useActionState, useTransition, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { saveBookingRequestDraft, sendBookingRequest, getBookingRequest } from '@/app/actions/booking'
+import { 
+  previewBusinessBackfill, 
+  sendBookingRequestWithBackfill,
+} from '@/app/actions/booking-requests'
+import type { BackfillChange } from '@/lib/business-backfill'
 import type { BookingFormData } from './types'
 import { STEPS, INITIAL_FORM_DATA, getStepKeyByIndex, getStepIndexByKey, getStepIdByKey } from './constants'
 import { validateStep, buildFormDataForSubmit, getErrorFieldLabels } from './request_form_utils'
@@ -45,6 +50,25 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   const [requiredFields, setRequiredFields] = useState<RequestFormFieldsConfig>({})
   const [loadingEdit, setLoadingEdit] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  
+  // Business backfill state
+  const [backfillPreview, setBackfillPreview] = useState<{
+    businessName?: string
+    hasVendorId?: boolean
+    changes: BackfillChange[]
+    formattedChanges?: Array<{ label: string; value: string }>
+  } | null>(null)
+  const [showBackfillDialog, setShowBackfillDialog] = useState(false)
+  const [showBackfillResultDialog, setShowBackfillResultDialog] = useState(false)
+  const [backfillResult, setBackfillResult] = useState<{
+    success: boolean
+    fieldsUpdated?: string[]
+    vendorSynced?: boolean
+    error?: string
+  } | null>(null)
+  const [loadingBackfillPreview, setLoadingBackfillPreview] = useState(false)
+  // Track linked business ID for backfill (from URL params when creating from Business)
+  const [linkedBusinessId, setLinkedBusinessId] = useState<string | null>(null)
   
   // Ref for the scrollable form container
   const formContainerRef = useRef<HTMLDivElement>(null)
@@ -248,6 +272,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     const isReplicate = searchParams.get('replicate') === 'true'
     const replicateKey = searchParams.get('replicateKey')
     const fromOpportunity = searchParams.get('fromOpportunity')
+    const businessIdParam = searchParams.get('businessId') // Direct business link for backfill
     const partnerEmail = searchParams.get('partnerEmail')
     const legalName = searchParams.get('legalName')
     const ruc = searchParams.get('ruc')
@@ -263,6 +288,11 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     const website = searchParams.get('website')
     const instagram = searchParams.get('instagram')
     
+    // Track linked business ID for backfill
+    if (businessIdParam) {
+      setLinkedBusinessId(businessIdParam)
+    }
+    
     // Handle replication (fast path) - load payload from sessionStorage to avoid huge URLs
     if (replicateKey) {
       const raw = sessionStorage.getItem(`replicate:${replicateKey}`)
@@ -273,7 +303,12 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
       }
       
       try {
-        const payload = JSON.parse(raw) as Partial<BookingFormData>
+        const payload = JSON.parse(raw) as Partial<BookingFormData> & { linkedBusinessId?: string }
+        
+        // Extract linkedBusinessId for backfill tracking
+        if (payload.linkedBusinessId) {
+          setLinkedBusinessId(payload.linkedBusinessId)
+        }
         
         // Also load additionalInfo if available (contains template-specific fields)
         // Structure: { templateName, templateDisplayName, fields: { fieldName: value, ... } }
@@ -288,10 +323,14 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
           sessionStorage.removeItem(`replicate:${replicateKey}:additionalInfo`)
         }
         
+        // Remove linkedBusinessId from payload before spreading (it's not a form field)
+        const formPayload = { ...payload }
+        delete (formPayload as Record<string, unknown>).linkedBusinessId
+        
         // Merge payload and additionalInfo.fields into form data
         setFormData(prev => ({
           ...prev,
-          ...payload,
+          ...formPayload as Partial<BookingFormData>,
           // Spread additionalInfo.fields (the template-specific fields like eventStartTime, restaurantValidDineIn, etc.)
           ...(additionalInfo?.fields && typeof additionalInfo.fields === 'object'
             ? Object.fromEntries(
@@ -669,7 +708,8 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   }
 
   // React 19: Handler that shows confirmation dialog before submit
-  const handleSubmit = () => {
+  // Now includes backfill preview check
+  const handleSubmit = async () => {
     // Check essential fields before submission
     const missingFields: string[] = []
     if (!formData.businessName) missingFields.push('businessName')
@@ -693,17 +733,111 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
       return
     }
     
-    // Show confirmation dialog
+    // Check for business backfill changes if there's a linkedBusinessId
+    // This is now the standardized approach - all entry points pass businessId
+    if (linkedBusinessId) {
+      setLoadingBackfillPreview(true)
+      try {
+        const formDataToSend = buildFormDataForSubmit(formData)
+        formDataToSend.append('linkedBusinessId', linkedBusinessId)
+        const preview = await previewBusinessBackfill(formDataToSend, requestId)
+        
+        if (preview.success && preview.data?.hasLinkedBusiness && preview.data.changes.length > 0) {
+          // Store preview and show backfill confirmation dialog
+          setBackfillPreview({
+            businessName: preview.data.businessName,
+            hasVendorId: preview.data.hasVendorId,
+            changes: preview.data.changes,
+            formattedChanges: preview.data.formattedChanges,
+          })
+          setShowBackfillDialog(true)
+          setLoadingBackfillPreview(false)
+          return
+        }
+      } catch (error) {
+        console.error('Error previewing backfill:', error)
+        // Continue with regular submit on error
+      }
+      setLoadingBackfillPreview(false)
+    }
+    
+    // No backfill needed - show regular confirmation dialog
     setShowConfirmDialog(true)
   }
 
-  // Actually execute the submit after confirmation
-  const handleConfirmedSubmit = () => {
+  // Handle confirmed submit WITH backfill
+  const handleConfirmedSubmitWithBackfill = async () => {
+    setShowBackfillDialog(false)
+    
+    if (!backfillPreview) {
+      // Fallback to regular submit
+      handleConfirmedSubmitRegular()
+      return
+    }
+    
+    startTransition(async () => {
+      const formDataToSend = buildFormDataForSubmit(formData)
+      // If we have a direct businessId link, add it for backfill execution
+      if (linkedBusinessId) {
+        formDataToSend.append('linkedBusinessId', linkedBusinessId)
+      }
+      
+      try {
+        const result = await sendBookingRequestWithBackfill(
+          formDataToSend,
+          requestId,
+          backfillPreview.changes
+        )
+        
+        if (result.success) {
+          // Show result dialog with backfill info
+          setBackfillResult({
+            success: true,
+            fieldsUpdated: result.backfillResult?.updatedFields,
+            vendorSynced: result.backfillResult?.vendorSyncResult?.success,
+          })
+          setShowBackfillResultDialog(true)
+        } else {
+          toast.error('Error al enviar solicitud: ' + result.error)
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
+        toast.error('Error: ' + errorMsg)
+      }
+      
+      // Clear backfill preview
+      setBackfillPreview(null)
+    })
+  }
+
+  // Handle skip backfill (send without updating business)
+  const handleSkipBackfill = () => {
+    setShowBackfillDialog(false)
+    setBackfillPreview(null)
+    // Show regular confirmation dialog
+    setShowConfirmDialog(true)
+  }
+
+  // Handle backfill result dialog close
+  const handleBackfillResultClose = () => {
+    setShowBackfillResultDialog(false)
+    setBackfillResult(null)
+    toast.success('Solicitud enviada exitosamente')
+    router.push('/booking-requests')
+  }
+
+  // Regular submit (without backfill)
+  const handleConfirmedSubmitRegular = () => {
     setShowConfirmDialog(false)
     startTransition(() => {
       const formDataToSend = buildFormDataForSubmit(formData)
       submitAction(formDataToSend)
     })
+  }
+
+  // Actually execute the submit after confirmation (legacy, now calls regular)
+  const handleConfirmedSubmit = () => {
+    handleConfirmedSubmitRegular()
   }
 
   const addPricingOption = () => {
@@ -842,6 +976,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
                     errors={errors}
                     updateFormData={updateFormData}
                     isFieldRequired={isFieldRequired}
+                    onBusinessSelect={(businessId) => setLinkedBusinessId(businessId)}
                   />
                 )}
 
@@ -962,7 +1097,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         />
       </div>
 
-      {/* Submit Confirmation Dialog */}
+      {/* Submit Confirmation Dialog (no backfill) */}
       <ConfirmDialog
         isOpen={showConfirmDialog}
         title="Confirmar Envío"
@@ -975,6 +1110,106 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         loading={isSubmitPending}
         loadingText="Enviando..."
       />
+
+      {/* Backfill Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showBackfillDialog}
+        title="Actualizar Datos del Negocio"
+        message={
+          <div className="text-left space-y-3">
+            <p className="text-gray-700 text-sm">
+              Se detectaron campos nuevos en esta solicitud que pueden actualizar el negocio <strong>{backfillPreview?.businessName}</strong>.
+            </p>
+            
+            {backfillPreview?.formattedChanges && backfillPreview.formattedChanges.length > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-xs font-semibold text-blue-800 mb-2">Campos a actualizar:</p>
+                <ul className="space-y-1.5 text-sm">
+                  {backfillPreview.formattedChanges.map((change, idx) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <span className="text-green-600 font-medium">+</span>
+                      <span className="text-gray-700">
+                        <span className="font-medium">{change.label}:</span>{' '}
+                        <span className="text-green-700">{change.value}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {backfillPreview?.hasVendorId && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                ⚡ También se sincronizará con OfertaSimple (Vendor API)
+              </p>
+            )}
+            
+            <p className="text-gray-500 text-xs pt-2 border-t border-gray-200">
+              ¿Desea actualizar el negocio con estos datos y enviar la solicitud?
+            </p>
+          </div>
+        }
+        confirmText="Actualizar y Enviar"
+        cancelText="Solo Enviar"
+        confirmVariant="primary"
+        onConfirm={handleConfirmedSubmitWithBackfill}
+        onCancel={handleSkipBackfill}
+        loading={isSubmitPending || isPending}
+        loadingText="Enviando..."
+      />
+
+      {/* Backfill Result Dialog */}
+      <ConfirmDialog
+        isOpen={showBackfillResultDialog}
+        title={backfillResult?.success ? "Solicitud Enviada" : "Error"}
+        message={
+          <div className="text-left space-y-3">
+            {backfillResult?.success ? (
+              <>
+                <p className="text-green-700 font-medium">
+                  ✅ Solicitud enviada exitosamente.
+                </p>
+                
+                {backfillResult.fieldsUpdated && backfillResult.fieldsUpdated.length > 0 && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <p className="text-xs font-semibold text-green-800 mb-1">
+                      Negocio actualizado ({backfillResult.fieldsUpdated.length} campo{backfillResult.fieldsUpdated.length > 1 ? 's' : ''}):
+                    </p>
+                    <p className="text-sm text-green-700">
+                      {backfillResult.fieldsUpdated.join(', ')}
+                    </p>
+                  </div>
+                )}
+                
+                {backfillResult.vendorSynced && (
+                  <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1">
+                    ⚡ Sincronizado con OfertaSimple (Vendor API)
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-red-700">
+                ❌ {backfillResult?.error || 'Error desconocido'}
+              </p>
+            )}
+          </div>
+        }
+        confirmText="Entendido"
+        cancelText=""
+        confirmVariant={backfillResult?.success ? "success" : "danger"}
+        onConfirm={handleBackfillResultClose}
+        onCancel={handleBackfillResultClose}
+      />
+
+      {/* Loading overlay for backfill preview */}
+      {loadingBackfillPreview && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 flex items-center gap-3">
+            <div className="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full" />
+            <span className="text-gray-700 font-medium">Verificando datos del negocio...</span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

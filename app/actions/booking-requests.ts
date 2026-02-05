@@ -22,6 +22,14 @@ import { parseDateInPanamaTime, parseEndDateInPanamaTime, PANAMA_TIMEZONE, forma
 import { buildCategoryKey } from '@/lib/category-utils'
 import { logActivity } from '@/lib/activity-log'
 import { generateRequestName, countBusinessRequests } from '@/lib/utils/request-naming'
+import { findLinkedBusiness, findLinkedBusinessFull } from '@/lib/business'
+import { 
+  previewBackfillFromRequest, 
+  executeBackfillFromRequest,
+  type BackfillChange,
+  type BackfillPreviewResult,
+  type BackfillExecuteResult,
+} from '@/lib/business-backfill'
 
 /**
  * Create or update a booking request as draft
@@ -988,6 +996,12 @@ export async function getBookingRequest(requestId: string) {
     const processedByUser = bookingRequest.processedBy ? userProfileMap.get(bookingRequest.processedBy) || null : null
     const createdByUser = bookingRequest.userId ? userProfileMap.get(bookingRequest.userId) || null : null
 
+    // Find linked business info using centralized utility
+    const linkedBusiness = await findLinkedBusiness({
+      opportunityId: bookingRequest.opportunityId,
+      email: bookingRequest.businessEmail,
+    })
+
     return { 
       success: true, 
       data: {
@@ -995,6 +1009,8 @@ export async function getBookingRequest(requestId: string) {
         processedByUser,
         createdByUser,
         marketingCampaignId: bookingRequest.marketingCampaign?.id || null,
+        // Add linked business info for backfill and replication
+        linkedBusiness,
       }
     }
   } catch (error) {
@@ -1632,6 +1648,217 @@ export async function adminApproveBookingRequest(requestId: string) {
     return { success: true, data: updatedRequest }
   } catch (error) {
     return handleServerActionError(error, 'adminApproveBookingRequest')
+  }
+}
+
+// ============================================
+// Business Backfill from Request
+// ============================================
+
+/**
+ * Preview what business fields would be backfilled when sending a booking request.
+ * 
+ * This function:
+ * 1. Finds the linked Business via linkedBusinessId (standardized approach)
+ * 2. Falls back to email lookup if businessId not provided
+ * 3. Compares shared fields to identify empty business fields that have values in the request
+ * 4. Returns preview data for confirmation dialog
+ * 
+ * @param formData - Form data from the booking request (must include linkedBusinessId for backfill)
+ * @param requestId - Optional existing request ID (for updates)
+ * @returns Preview of business backfill changes
+ */
+export async function previewBusinessBackfill(
+  formData: FormData,
+  requestId?: string
+): Promise<{
+  success: boolean
+  data?: BackfillPreviewResult & {
+    /** Formatted preview for UI display */
+    formattedChanges?: Array<{ label: string; value: string }>
+  }
+  error?: string
+}> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return { success: false, error: 'Authentication required' }
+  }
+
+  try {
+    // Extract identifiers from form data
+    const linkedBusinessId = formData.get('linkedBusinessId') as string
+    const partnerEmail = formData.get('partnerEmail') as string
+
+    // Use centralized utility to find business (single source of truth)
+    const business = await findLinkedBusinessFull({
+      businessId: linkedBusinessId,
+      email: partnerEmail,
+    })
+
+    // If no business found, no backfill possible
+    if (!business) {
+      return {
+        success: true,
+        data: {
+          success: true,
+          hasLinkedBusiness: false,
+          changes: [],
+        },
+      }
+    }
+
+    // Import the mapping to compare fields
+    const { REQUEST_TO_BUSINESS_FIELD_MAP } = await import('@/lib/business-backfill')
+
+    // Calculate changes by comparing form data with business fields
+    const changes: BackfillChange[] = []
+
+    for (const mapping of REQUEST_TO_BUSINESS_FIELD_MAP) {
+      const { requestField, businessField, label, vendorApiField } = mapping
+
+      // Get current business value
+      const businessValue = (business as Record<string, unknown>)[businessField]
+      const normalizedBusinessValue = normalizeValue(businessValue)
+
+      // Get request form value
+      const requestValue = formData.get(requestField) as string | null
+      const normalizedRequestValue = normalizeValue(requestValue)
+
+      // Only add if business field is empty but request has data
+      if (normalizedBusinessValue === null && normalizedRequestValue !== null) {
+        changes.push({
+          businessField,
+          label,
+          newValue: normalizedRequestValue,
+          vendorApiField,
+        })
+      }
+    }
+
+    // Format changes for UI
+    const formattedChanges = changes.map(c => ({
+      label: c.label,
+      value: c.newValue,
+    }))
+
+    return {
+      success: true,
+      data: {
+        success: true,
+        hasLinkedBusiness: true,
+        businessId: business.id,
+        businessName: business.name,
+        hasVendorId: !!business.osAdminVendorId,
+        vendorId: business.osAdminVendorId || undefined,
+        changes,
+        formattedChanges,
+      },
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'previewBusinessBackfill')
+  }
+}
+
+/**
+ * Helper function to normalize values for comparison
+ */
+function normalizeValue(value: unknown): string | null {
+  if (value === undefined || value === null || value === '') {
+    return null
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed === '' ? null : trimmed
+  }
+  return String(value)
+}
+
+/**
+ * Send a booking request WITH business backfill.
+ * 
+ * This is a wrapper around sendBookingRequest that also:
+ * 1. Saves/sends the booking request
+ * 2. Backfills empty business fields from the request
+ * 3. Syncs to external vendor API if applicable
+ * 
+ * @param formData - Form data from the booking request
+ * @param requestId - Optional existing request ID (for updates)
+ * @param backfillChanges - Pre-calculated changes to apply (from preview)
+ * @returns Combined result of request send and business backfill
+ */
+export async function sendBookingRequestWithBackfill(
+  formData: FormData,
+  requestId?: string,
+  backfillChanges?: BackfillChange[]
+): Promise<{
+  success: boolean
+  data?: BookingRequest
+  backfillResult?: BackfillExecuteResult
+  error?: string
+}> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return { success: false, error: 'Authentication required' }
+  }
+  const { userId } = authResult
+
+  try {
+    // First, send the booking request using the existing function
+    const sendResult = await sendBookingRequest(formData, requestId)
+
+    if (!sendResult.success || !sendResult.data) {
+      return {
+        success: false,
+        error: sendResult.error || 'Failed to send booking request',
+      }
+    }
+
+    const bookingRequest = sendResult.data
+
+    // If no backfill changes provided, return just the send result
+    if (!backfillChanges || backfillChanges.length === 0) {
+      return {
+        success: true,
+        data: bookingRequest,
+      }
+    }
+
+    // Get linkedBusinessId if provided (for requests created directly from Business page)
+    const linkedBusinessId = formData.get('linkedBusinessId') as string | null
+
+    // Execute the backfill
+    const backfillResult = await executeBackfillFromRequest(
+      bookingRequest.id,
+      backfillChanges,
+      { userId, businessId: linkedBusinessId || undefined }
+    )
+
+    // Log the combined activity
+    if (backfillResult.success && backfillResult.updatedFields.length > 0) {
+      await logActivity({
+        action: 'BACKFILL_BUSINESS',
+        entityType: 'BookingRequest',
+        entityId: bookingRequest.id,
+        entityName: bookingRequest.name,
+        details: {
+          changedFields: backfillResult.updatedFields,
+          metadata: {
+            businessId: backfillResult.businessId,
+            businessName: backfillResult.businessName,
+            vendorSynced: backfillResult.vendorSyncResult?.success ?? false,
+          },
+        },
+      })
+    }
+
+    // Return combined result
+    return {
+      success: true,
+      data: bookingRequest,
+      backfillResult,
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'sendBookingRequestWithBackfill')
   }
 }
 

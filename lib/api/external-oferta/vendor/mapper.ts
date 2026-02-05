@@ -82,7 +82,9 @@ export function mapBusinessToVendor(
     phoneNumber: business.contactPhone || null,
     website: business.website || null,
     managerName: business.contactName || null,
-    emailContact: business.contactEmail || null, // Same as main email
+    // emailContact should always match email - both come from business.contactEmail
+    // Note: backfill.ts also updates both fields together when email changes
+    emailContact: business.contactEmail || null,
     razonSocial: business.razonSocial || null,
     ruc: business.ruc || null,
     beneficiaryName: business.beneficiaryName || null,

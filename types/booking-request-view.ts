@@ -127,6 +127,13 @@ export interface BookingRequestViewData {
   
   // Marketing Campaign (populated if booked)
   marketingCampaignId?: string | null
+  
+  // Linked Business (for backfill and replication)
+  linkedBusiness?: {
+    id: string
+    name: string
+    contactEmail: string | null
+  } | null
 }
 
 // Field type enum

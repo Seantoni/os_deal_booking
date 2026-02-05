@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { auth, currentUser } from '@clerk/nextjs/server'
 import { headers } from 'next/headers'
+import { extractDisplayName, extractUserEmail } from '@/lib/auth/user-display'
 
 /**
  * Activity log action types
@@ -25,6 +26,10 @@ export type ActivityAction =
   | 'EXPORT'
   | 'IMPORT'
   | 'SETTINGS_UPDATE'
+  | 'BACKFILL_FROM_REQUEST'
+  | 'BACKFILL_BUSINESS'
+  | 'VENDOR_SYNC_SUCCESS'
+  | 'VENDOR_SYNC_FAILED'
 
 /**
  * Entity types that can be logged
@@ -120,18 +125,14 @@ export async function logActivity(params: LogActivityParams): Promise<void> {
       return
     }
 
-    // Get user details
+    // Get user details using centralized utility
     let userName: string | null = null
     let userEmail: string | null = null
     
     try {
       const user = await currentUser()
-      if (user) {
-        userName = user.firstName && user.lastName 
-          ? `${user.firstName} ${user.lastName}`.trim()
-          : user.firstName || user.username || null
-        userEmail = user.emailAddresses?.[0]?.emailAddress || null
-      }
+      userName = extractDisplayName(user)
+      userEmail = extractUserEmail(user)
     } catch (e) {
       // User details not critical, continue without them
     }
@@ -183,18 +184,14 @@ export async function logActivities(activities: LogActivityParams[]): Promise<vo
       return
     }
 
-    // Get user details once
+    // Get user details once using centralized utility
     let userName: string | null = null
     let userEmail: string | null = null
     
     try {
       const user = await currentUser()
-      if (user) {
-        userName = user.firstName && user.lastName 
-          ? `${user.firstName} ${user.lastName}`.trim()
-          : user.firstName || user.username || null
-        userEmail = user.emailAddresses?.[0]?.emailAddress || null
-      }
+      userName = extractDisplayName(user)
+      userEmail = extractUserEmail(user)
     } catch (e) {
       // Continue without user details
     }

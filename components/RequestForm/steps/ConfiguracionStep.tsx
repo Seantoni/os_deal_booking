@@ -17,9 +17,11 @@ interface ConfiguracionStepProps {
   updateFormData: (field: keyof BookingFormData, value: BookingFormData[keyof BookingFormData]) => void
   isPublicForm?: boolean // If true, disable date calculation
   isFieldRequired?: (fieldKey: string) => boolean
+  /** Callback when a business is selected (for backfill tracking) */
+  onBusinessSelect?: (businessId: string | null) => void
 }
 
-export default function ConfiguracionStep({ formData, errors, updateFormData, isPublicForm = false, isFieldRequired = () => false }: ConfiguracionStepProps) {
+export default function ConfiguracionStep({ formData, errors, updateFormData, isPublicForm = false, isFieldRequired = () => false, onBusinessSelect }: ConfiguracionStepProps) {
   const [daysUntilLaunch, setDaysUntilLaunch] = useState<number | null>(null)
   const [calculatingDate, setCalculatingDate] = useState(false)
   const [selectedBusiness, setSelectedBusiness] = useState<BusinessWithStatus | null>(null)
@@ -177,6 +179,9 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
             onChange={(businessName, business) => {
               updateFormData('businessName', businessName)
               setSelectedBusiness(business)
+              
+              // Notify parent of business selection for backfill tracking
+              onBusinessSelect?.(business?.id || null)
               
               // Auto-fill related fields when a business is selected
               if (business) {

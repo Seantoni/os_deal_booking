@@ -572,7 +572,7 @@ export default function BookingRequestViewModal({
       try {
         const businessName = requestData.name ? String(requestData.name).split(' | ')[0].trim() : ''
 
-        const payload: Partial<BookingFormData> = {
+        const payload: Partial<BookingFormData> & { linkedBusinessId?: string } = {
           businessName: businessName || '',
           partnerEmail: requestData.businessEmail ? String(requestData.businessEmail) : '',
           additionalEmails: Array.isArray(requestData.additionalEmails) ? (requestData.additionalEmails as string[]) : [],
@@ -583,6 +583,8 @@ export default function BookingRequestViewModal({
           subCategory3: requestData.subCategory3 ? String(requestData.subCategory3) : '',
           campaignDuration: requestData.campaignDuration ? String(requestData.campaignDuration) : '',
           campaignDurationUnit: (requestData.campaignDurationUnit as 'days' | 'months') || 'months',
+          // Pass businessId for backfill tracking (standardized approach)
+          linkedBusinessId: requestData.linkedBusiness?.id || undefined,
 
           redemptionMode: requestData.redemptionMode ? String(requestData.redemptionMode) : undefined,
           isRecurring: requestData.isRecurring ? String(requestData.isRecurring) : undefined,

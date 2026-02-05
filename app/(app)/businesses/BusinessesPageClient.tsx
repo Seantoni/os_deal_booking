@@ -411,6 +411,7 @@ export default function BusinessesPageClient({
   function handleCreateRequest(business: Business) {
     const params = new URLSearchParams()
     params.set('fromOpportunity', 'business')
+    params.set('businessId', business.id) // Pass businessId for backfill tracking
     params.set('businessName', business.name)
     params.set('businessEmail', business.contactEmail)
     params.set('contactName', business.contactName || '')
