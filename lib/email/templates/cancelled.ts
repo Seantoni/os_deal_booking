@@ -41,74 +41,107 @@ export function renderCancelledEmail(props: CancelledEmailProps): string {
   <![endif]-->
 </head>
 <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 0; width: 100% !important;">
-  
+
   <table border="0" cellpadding="0" cellspacing="0" width="100%" style="width: 100%; background-color: #f3f4f6;">
     <tr>
       <td align="center" style="padding: 20px 0;">
-        
+
         <!-- Main Container -->
-        <table border="0" cellpadding="0" cellspacing="0" width="600" style="width: 600px; max-width: 600px; background-color: #ffffff; margin: 0 auto; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-          
+        <table border="0" cellpadding="0" cellspacing="0" width="600" style="width: 600px; max-width: 600px; background-color: #ffffff; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);">
+
           <!-- Header -->
           <tr>
-            <td align="center" style="background-color: #ffffff; padding: 20px 30px; border-bottom: 3px solid #ea580c;">
-              <img src="https://oferta-uploads-prod.s3.us-east-1.amazonaws.com/pictures/others/OfertaSimple%20Assets/Asset%2075.png?_t=1743086513" alt="OfertaSimple" width="180" style="display: block; border: 0; max-width: 180px; width: 180px;" />
+            <td align="center" style="background-color: #e84c0f; padding: 20px 30px; border-bottom: 3px solid #c2410c;">
+              <img src="https://oferta-uploads-prod.s3.us-east-1.amazonaws.com/pictures/others/OfertaSimple%20Assets/OFS_Marca_Blanco_02.png?_t=1754077435" alt="OfertaSimple" width="180" style="display: block; border: 0; max-width: 180px; width: 180px;" />
             </td>
           </tr>
 
-          <!-- Main Title Area -->
+          <!-- Title -->
           <tr>
-            <td align="center" style="background-color: #fff7ed; padding: 40px 30px;">
-              <h1 style="margin: 0 0 10px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #ea580c; font-size: 24px; font-weight: 700; line-height: 1.3;">
+            <td align="center" style="background-color: #fff7ed; padding: 28px 30px;">
+              <div style="width: 48px; height: 48px; background-color: #ea580c; border-radius: 50%; margin: 0 auto 12px auto; display: block; text-align: center; line-height: 48px; color: #ffffff; font-size: 22px; font-weight: 700;">
+                !
+              </div>
+              <h1 style="margin: 0 0 8px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #c2410c; font-size: 22px; font-weight: 700; line-height: 1.3;">
                 Solicitud Cancelada
               </h1>
-              <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #9a3412; font-size: 16px; line-height: 1.5;">
+              <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #9a3412; font-size: 15px; line-height: 1.5;">
                 La solicitud de booking para <strong>${escapeHtml(requestName)}</strong> ha sido cancelada.
               </p>
             </td>
           </tr>
 
-          <!-- Details Box -->
+          <!-- Summary Card -->
           <tr>
-            <td style="padding: 0 30px 40px 30px;">
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; margin-top: -20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <td style="padding: 0 30px 28px 30px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; margin-top: -12px; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06);">
                 <tr>
-                  <td style="padding: 30px;">
-                    
-                    <div style="margin-bottom: 25px; border-bottom: 1px solid #f3f4f6; padding-bottom: 20px;">
-                      <h2 style="margin: 0 0 5px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 20px; color: #111827; font-weight: 700;">
-                        ${escapeHtml(requestName)}
+                  <td style="padding: 24px;">
+                    <div style="margin-bottom: 18px; border-left: 4px solid #e84c0f; padding-left: 10px;">
+                      <h2 style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 18px; color: #111827; font-weight: 700;">
+                        Resumen de la Solicitud
                       </h2>
-                      ${merchant ? `<div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #6b7280; font-size: 14px;">Merchant/Aliado: ${escapeHtml(merchant)}</div>` : ''}
                     </div>
 
-                    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #fff7ed; border-left: 4px solid #ea580c; border-radius: 0 8px 8px 0;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
                       <tr>
-                        <td style="padding: 20px;">
-                          <h3 style="margin: 0 0 10px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; text-transform: uppercase; color: #c2410c; letter-spacing: 0.5px;">
+                        <td style="padding-bottom: 12px;">
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Solicitud</div>
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; color: #111827; font-weight: 600;">${escapeHtml(requestName)}</div>
+                        </td>
+                      </tr>
+                      ${merchant ? `
+                      <tr>
+                        <td style="padding-bottom: 12px;">
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Merchant / Aliado</div>
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #111827;">${escapeHtml(merchant)}</div>
+                        </td>
+                      </tr>
+                      ` : ''}
+                      ${cancelledBy ? `
+                      <tr>
+                        <td>
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Cancelada por</div>
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #111827;">${escapeHtml(cancelledBy)}</div>
+                        </td>
+                      </tr>
+                      ` : ''}
+                    </table>
+
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 18px; background-color: #fff7ed; border-left: 4px solid #ea580c; border-radius: 0 8px 8px 0;">
+                      <tr>
+                        <td style="padding: 16px;">
+                          <h3 style="margin: 0 0 8px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; text-transform: uppercase; color: #c2410c; letter-spacing: 0.5px;">
                             Información de la Cancelación
                           </h3>
-                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #7c2d12; line-height: 1.6;">
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #7c2d12; line-height: 1.6;">
                             Esta solicitud ha sido cancelada por el equipo de OfertaSimple antes de ser procesada.
-                            ${cancelledBy ? `<br><br><strong>Cancelada por:</strong> ${escapeHtml(cancelledBy)}` : ''}
                           </div>
                         </td>
                       </tr>
                     </table>
 
-                    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 0 8px 8px 0; margin-top: 20px;">
-                      <tr>
-                        <td style="padding: 20px;">
-                          <h3 style="margin: 0 0 10px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; text-transform: uppercase; color: #1d4ed8; letter-spacing: 0.5px;">
-                            ¿Necesitas ayuda?
-                          </h3>
-                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #1e40af; line-height: 1.6;">
-                            Si tienes preguntas sobre esta cancelación o deseas enviar una nueva solicitud, puedes contactarnos en <a href="mailto:soporte@ofertasimple.com" style="color: #2563eb; text-decoration: underline;">soporte@ofertasimple.com</a>
-                          </div>
-                        </td>
-                      </tr>
-                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
 
+          <!-- Help -->
+          <tr>
+            <td style="padding: 0 30px 28px 30px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px;">
+                <tr>
+                  <td style="padding: 16px; text-align: center;">
+                    <h3 style="margin: 0 0 8px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; text-transform: uppercase; color: #1d4ed8; letter-spacing: 0.5px;">
+                      ¿Necesitas ayuda?
+                    </h3>
+                    <p style="margin: 0 0 12px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #1e40af; line-height: 1.6;">
+                      Si tienes preguntas sobre esta cancelación o deseas enviar una nueva solicitud, contáctanos.
+                    </p>
+                    <a href="mailto:soporte@ofertasimple.com" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; display: inline-block; padding: 10px 18px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600;">
+                      Contactar Soporte
+                    </a>
                   </td>
                 </tr>
               </table>
@@ -124,7 +157,7 @@ export function renderCancelledEmail(props: CancelledEmailProps): string {
             </td>
           </tr>
         </table>
-        
+
       </td>
     </tr>
   </table>
@@ -132,4 +165,3 @@ export function renderCancelledEmail(props: CancelledEmailProps): string {
 </html>
   `.trim()
 }
-

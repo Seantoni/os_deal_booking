@@ -40,8 +40,8 @@ export function renderAdminApprovalEmail(props: AdminApprovalEmailProps): string
   }
 
   const recipientMessage = recipientType === 'business'
-    ? 'Su solicitud de booking ha sido <strong style="color: #10b981;">aprobada internamente</strong> por el equipo de OfertaSimple.'
-    : 'La solicitud de booking ha sido <strong style="color: #10b981;">aprobada internamente</strong>.'
+    ? 'Su solicitud de booking ha sido <strong style="color: #16a34a;">aprobada internamente</strong> por el equipo de OfertaSimple.'
+    : 'La solicitud de booking ha sido <strong style="color: #16a34a;">aprobada internamente</strong>.'
 
   return `
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -62,14 +62,14 @@ export function renderAdminApprovalEmail(props: AdminApprovalEmailProps): string
   <![endif]-->
 </head>
 <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 0; width: 100% !important;">
-  
+
   <table border="0" cellpadding="0" cellspacing="0" width="100%" style="width: 100%; background-color: #f3f4f6;">
     <tr>
       <td align="center" style="padding: 20px 0;">
-        
+
         <!-- Main Container -->
-        <table border="0" cellpadding="0" cellspacing="0" width="600" style="width: 600px; max-width: 600px; background-color: #ffffff; margin: 0 auto; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-          
+        <table border="0" cellpadding="0" cellspacing="0" width="600" style="width: 600px; max-width: 600px; background-color: #ffffff; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);">
+
           <!-- Header -->
           <tr>
             <td align="center" style="background-color: #e84c0f; padding: 20px 30px; border-bottom: 3px solid #c2410c;">
@@ -77,69 +77,86 @@ export function renderAdminApprovalEmail(props: AdminApprovalEmailProps): string
             </td>
           </tr>
 
-          <!-- Main Title Area -->
+          <!-- Title -->
           <tr>
-            <td align="center" style="background-color: #ecfdf5; padding: 40px 30px;">
-              <div style="width: 64px; height: 64px; background-color: #10b981; border-radius: 50%; margin: 0 auto 15px auto; display: flex; align-items: center; justify-content: center;">
-                <span style="font-size: 32px; color: #ffffff;">✓</span>
+            <td align="center" style="background-color: #f8fafc; padding: 28px 30px;">
+              <div style="width: 48px; height: 48px; background-color: #16a34a; border-radius: 50%; margin: 0 auto 12px auto; display: block; text-align: center; line-height: 48px; color: #ffffff; font-size: 22px; font-weight: 700;">
+                ✓
               </div>
-              <h1 style="margin: 0 0 10px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #10b981; font-size: 24px; font-weight: 700; line-height: 1.3;">
+              <h1 style="margin: 0 0 8px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #16a34a; font-size: 22px; font-weight: 700; line-height: 1.3;">
                 Solicitud Aprobada
               </h1>
-              <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #4b5563; font-size: 16px; line-height: 1.5;">
+              <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #4b5563; font-size: 15px; line-height: 1.5;">
                 ${recipientMessage}
               </p>
             </td>
           </tr>
 
-          <!-- Approval Details Box -->
+          <!-- Summary Card -->
           <tr>
-            <td style="padding: 0 30px 40px 30px;">
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; margin-top: -20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <td style="padding: 0 30px 28px 30px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; margin-top: -12px; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06);">
                 <tr>
-                  <td style="padding: 30px;">
-                    
-                    <div style="margin-bottom: 25px; border-bottom: 1px solid #f3f4f6; padding-bottom: 20px;">
-                      <h2 style="margin: 0 0 5px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 20px; color: #111827; font-weight: 700;">
-                        ${escapeHtml(requestName)}
+                  <td style="padding: 24px;">
+                    <div style="margin-bottom: 18px; border-left: 4px solid #e84c0f; padding-left: 10px;">
+                      <h2 style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 18px; color: #111827; font-weight: 700;">
+                        Resumen de la Solicitud
                       </h2>
-                      ${merchant ? `<div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #6b7280; font-size: 14px;">Merchant/Aliado: ${escapeHtml(merchant)}</div>` : ''}
                     </div>
 
                     <table border="0" cellpadding="0" cellspacing="0" width="100%">
                       <tr>
-                        <td style="padding-bottom: 15px;">
+                        <td style="padding-bottom: 12px;">
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Solicitud</div>
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; color: #111827; font-weight: 600;">${escapeHtml(requestName)}</div>
+                        </td>
+                      </tr>
+                      ${merchant ? `
+                      <tr>
+                        <td style="padding-bottom: 12px;">
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Merchant / Aliado</div>
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #111827;">${escapeHtml(merchant)}</div>
+                        </td>
+                      </tr>
+                      ` : ''}
+                      <tr>
+                        <td style="padding-bottom: 12px;">
                           <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Negocio</div>
                           <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #111827;">${escapeHtml(businessName)}</div>
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #6b7280;">${escapeHtml(businessEmail)}</div>
                         </td>
                       </tr>
                       ${category ? `
                       <tr>
-                        <td style="padding-bottom: 15px;">
+                        <td style="padding-bottom: 12px;">
                           <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Categoría</div>
                           <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #111827;">${escapeHtml(category)}</div>
                         </td>
                       </tr>
                       ` : ''}
                       <tr>
-                        <td style="padding-bottom: 15px;">
-                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Fecha de Inicio</div>
-                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #111827;">${escapeHtml(startDate)}</div>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding-bottom: 15px;">
-                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Fecha de Finalización</div>
-                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #111827;">${escapeHtml(endDate)}</div>
+                        <td>
+                          <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                              <td width="50%" style="padding-right: 6px;">
+                                <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Fecha de Inicio</div>
+                                <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #111827;">${escapeHtml(startDate)}</div>
+                              </td>
+                              <td width="50%" style="padding-left: 6px;">
+                                <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Fecha de Finalización</div>
+                                <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #111827;">${escapeHtml(endDate)}</div>
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                       </tr>
                     </table>
 
                     <!-- Admin Approval Info -->
-                    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 20px; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 18px; background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;">
                       <tr>
-                        <td style="padding: 15px;">
-                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #166534; text-transform: uppercase; font-weight: 600; margin-bottom: 8px;">Aprobada por Administrador de OfertaSimple</div>
+                        <td style="padding: 14px;">
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11px; color: #166534; text-transform: uppercase; font-weight: 600; margin-bottom: 6px;">Aprobada por Administrador de OfertaSimple</div>
                           <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #15803d; font-weight: 600;">${escapeHtml(approvedByName)}</div>
                           <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #22c55e;">${escapeHtml(approvedByEmail)}</div>
                         </td>
@@ -147,11 +164,11 @@ export function renderAdminApprovalEmail(props: AdminApprovalEmailProps): string
                     </table>
 
                     <!-- Status Badge -->
-                    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 25px;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 18px;">
                       <tr>
-                        <td align="center" style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 12px;">
-                          <span style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #059669; font-weight: 600; font-size: 14px; display: inline-block;">
-                            ✓ Aprobada - Lista para ser programada
+                        <td align="center" style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 10px;">
+                          <span style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #059669; font-weight: 600; font-size: 13px; display: inline-block;">
+                            Aprobada - Lista para ser programada
                           </span>
                         </td>
                       </tr>
@@ -166,12 +183,12 @@ export function renderAdminApprovalEmail(props: AdminApprovalEmailProps): string
           <!-- Note for business -->
           ${recipientType === 'business' ? `
           <tr>
-            <td style="padding: 0 30px 30px 30px;">
+            <td style="padding: 0 30px 28px 30px;">
               <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px;">
                 <tr>
-                  <td style="padding: 15px;">
+                  <td style="padding: 14px;">
                     <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #92400e; line-height: 1.5;">
-                      <strong>Nota:</strong> Esta solicitud fue aprobada internamente por el equipo de OfertaSimple. 
+                      <strong>Nota:</strong> Esta solicitud fue aprobada internamente por el equipo de OfertaSimple.
                       Si recibió anteriormente un correo con botones de aprobación/rechazo, ya no es necesario utilizarlos.
                     </div>
                   </td>
@@ -190,7 +207,7 @@ export function renderAdminApprovalEmail(props: AdminApprovalEmailProps): string
             </td>
           </tr>
         </table>
-        
+
       </td>
     </tr>
   </table>
@@ -198,4 +215,3 @@ export function renderAdminApprovalEmail(props: AdminApprovalEmailProps): string
 </html>
   `.trim()
 }
-

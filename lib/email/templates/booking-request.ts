@@ -40,9 +40,9 @@ export function renderBookingRequestEmail(props: BookingRequestEmailProps): stri
     rejectUrl,
     requesterEmail,
     additionalInfo,
-  tncUrl,
-  bookingData,
-  hideActions = false,
+    tncUrl,
+    bookingData,
+    hideActions = false,
   } = props
 
   // Get data from bookingData
@@ -53,7 +53,7 @@ export function renderBookingRequestEmail(props: BookingRequestEmailProps): stri
       }
     : null
 
-const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
+  const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
 
   // Helpers
   const formatValue = (val: unknown): string => {
@@ -84,7 +84,7 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
     fields: Array<{ key: keyof BookingFormData | string; label: string; fullWidth?: boolean; value?: string }>
   ) => {
     if (!bookingData) return ''
-    
+
     // Filter fields that have values
     const filled = fields.filter(f => {
       if (f.value !== undefined) return f.value !== null && String(f.value).trim() !== ''
@@ -102,7 +102,7 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
           <td style="padding: 12px 0; border-bottom: 1px solid #f0f0f0; vertical-align: top;">
             <table border="0" cellpadding="0" cellspacing="0" width="100%" style="width: 100%;">
               <tr>
-                <td style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 4px;">
+                <td style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 4px;">
                   ${escapeHtml(f.label)}
                 </td>
               </tr>
@@ -121,7 +121,7 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
       <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 30px; width: 100%;">
         <tr>
           <td style="padding-bottom: 15px; border-left: 4px solid #e84c0f; padding-left: 10px;">
-            <h3 style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 18px; color: #111827; font-weight: 700;">
+            <h3 style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 17px; color: #111827; font-weight: 700;">
               ${title}
             </h3>
           </td>
@@ -150,14 +150,14 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
   const renderPricingOptions = () => {
     const pricingOptionsRaw = getBookingValue('pricingOptions')
     if (!pricingOptionsRaw || !Array.isArray(pricingOptionsRaw) || pricingOptionsRaw.length === 0) return ''
-    
+
     const pricingOptions = pricingOptionsRaw as PricingOption[]
-    
+
     return `
       <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 30px; width: 100%;">
         <tr>
           <td style="padding-bottom: 15px; border-left: 4px solid #e84c0f; padding-left: 10px;">
-            <h3 style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 18px; color: #111827; font-weight: 700;">
+            <h3 style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 17px; color: #111827; font-weight: 700;">
               Opciones de Precio
             </h3>
           </td>
@@ -169,15 +169,15 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
                 <table border="0" cellpadding="0" cellspacing="0" width="100%" style="width: 100%; margin-bottom: ${i === pricingOptions.length - 1 ? '0' : '20px'}; border-bottom: ${i === pricingOptions.length - 1 ? 'none' : '1px solid #e2e8f0'};">
                   <tr>
                     <td style="padding-bottom: ${i === pricingOptions.length - 1 ? '0' : '20px'};">
-                      <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 700; color: #111827; font-size: 16px; margin-bottom: 4px;">
+                      <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 700; color: #111827; font-size: 15px; margin-bottom: 4px;">
                         ${i + 1}. ${escapeHtml(opt.title)}
-          </div>
+                      </div>
                       ${opt.description ? `<div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #4b5563; font-size: 14px; margin-bottom: 8px;">${escapeHtml(opt.description)}</div>` : ''}
-                      
+
                       ${(opt.price && opt.realValue) || opt.quantity ? `
                         <table border="0" cellpadding="0" cellspacing="0" width="100%">
                           <tr>
-                            <td style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px;">
+                            <td style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px;">
                               ${opt.price && opt.realValue ? `
                                 <span style="color: #059669; font-weight: 600; background-color: #ecfdf5; padding: 2px 8px; border-radius: 4px; display: inline-block; margin-right: 10px; margin-bottom: 5px;">
                                   Precio: $${escapeHtml(String(opt.price))} / Valor: $${escapeHtml(String(opt.realValue))}
@@ -191,8 +191,8 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
                     </td>
                   </tr>
                 </table>
-        `).join('')}
-      </div>
+              `).join('')}
+            </div>
           </td>
         </tr>
       </table>
@@ -218,14 +218,14 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
   <![endif]-->
 </head>
 <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 0; width: 100% !important;">
-  
+
   <table border="0" cellpadding="0" cellspacing="0" width="100%" style="width: 100%; background-color: #f3f4f6;">
     <tr>
       <td align="center" style="padding: 20px 0;">
-        
+
         <!-- Main Container -->
-        <table border="0" cellpadding="0" cellspacing="0" width="600" style="width: 600px; max-width: 600px; background-color: #ffffff; margin: 0 auto; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-          
+        <table border="0" cellpadding="0" cellspacing="0" width="600" style="width: 600px; max-width: 600px; background-color: #ffffff; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);">
+
           <!-- Header -->
           <tr>
             <td align="center" style="background-color: #e84c0f; padding: 20px 30px; border-bottom: 3px solid #c2410c;">
@@ -235,62 +235,126 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
 
           <!-- Main Title Area -->
           <tr>
-            <td align="center" style="background-color: #f8fafc; padding: 40px 30px;">
-              <h1 style="margin: 0 0 10px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #111827; font-size: 24px; font-weight: 700; line-height: 1.3;">
+            <td align="center" style="background-color: #f8fafc; padding: 28px 30px;">
+              <h1 style="margin: 0 0 10px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #111827; font-size: 22px; font-weight: 700; line-height: 1.3;">
                 Solicitud de Aprobación
               </h1>
-              <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #4b5563; font-size: 16px; line-height: 1.5;">
+              <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #4b5563; font-size: 15px; line-height: 1.5;">
                 Se ha generado una nueva propuesta para <strong>${escapeHtml(merchant || requestName)}</strong>.
-                <br />Por favor revise los detalles y confirme su aprobación.
+                Por favor revise los detalles y confirme su aprobación.
               </p>
             </td>
-            </tr>
+          </tr>
 
-          <!-- Key Information Summary Box -->
+          <!-- Summary Card -->
           <tr>
-            <td style="padding: 0 30px;">
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; margin-top: -20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <td style="padding: 0 30px 24px 30px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; margin-top: -12px; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06);">
                 <tr>
-                  <td style="padding: 25px;">
+                  <td style="padding: 24px;">
+                    <div style="margin-bottom: 18px; border-left: 4px solid #e84c0f; padding-left: 10px;">
+                      <h2 style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 18px; color: #111827; font-weight: 700;">
+                        Resumen de la Solicitud
+                      </h2>
+                    </div>
+
                     <table border="0" cellpadding="0" cellspacing="0" width="100%">
                       <tr>
-                        <td width="50%" valign="top" style="padding-bottom: 15px;">
+                        <td style="padding-bottom: 12px;">
                           <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">Evento / Campaña</div>
                           <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; color: #111827; font-weight: 600; margin-top: 4px;">${escapeHtml(requestName)}</div>
                         </td>
-                        <td width="50%" valign="top" style="padding-bottom: 15px;">
+                      </tr>
+                      ${merchant ? `
+                      <tr>
+                        <td style="padding-bottom: 12px;">
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">Merchant / Aliado</div>
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #111827; margin-top: 4px;">${escapeHtml(merchant)}</div>
+                        </td>
+                      </tr>
+                      ` : ''}
+                      <tr>
+                        <td style="padding-bottom: 12px;">
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">Email del Negocio</div>
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #111827; margin-top: 4px;">${escapeHtml(businessEmail)}</div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding-bottom: 12px;">
                           <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">Categoría</div>
-                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; color: #111827; font-weight: 600; margin-top: 4px;">${escapeHtml(category || 'General')}</div>
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #111827; margin-top: 4px;">${escapeHtml(category || 'General')}</div>
                         </td>
-            </tr>
-            <tr>
-                        <td width="50%" valign="top" style="padding-top: 15px; border-top: 1px solid #f3f4f6;">
-                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">Fecha de Inicio</div>
-                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; color: #111827; font-weight: 600; margin-top: 4px;">${escapeHtml(startDate)}</div>
+                      </tr>
+                      <tr>
+                        <td>
+                          <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                              <td width="50%" style="padding-right: 6px;">
+                                <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">Fecha de Inicio</div>
+                                <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #111827; margin-top: 4px;">${escapeHtml(startDate)}</div>
+                              </td>
+                              <td width="50%" style="padding-left: 6px;">
+                                <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">Fecha de Fin</div>
+                                <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #111827; margin-top: 4px;">${escapeHtml(endDate)}</div>
+                              </td>
+                            </tr>
+                          </table>
                         </td>
-                        <td width="50%" valign="top" style="padding-top: 15px; border-top: 1px solid #f3f4f6;">
-                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">Fecha de Fin</div>
-                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; color: #111827; font-weight: 600; margin-top: 4px;">${escapeHtml(endDate)}</div>
-                        </td>
-            </tr>
+                      </tr>
                     </table>
                   </td>
-            </tr>
+                </tr>
               </table>
             </td>
-            </tr>
+          </tr>
+
+          <!-- Action Buttons -->
+          ${!hideActions ? `
+          <tr>
+            <td style="padding: 0 30px 24px 30px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e5e7eb; border-radius: 12px;">
+                <tr>
+                  <td align="center" style="padding: 22px;">
+                    <h3 style="margin: 0 0 16px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 17px; color: #111827;">¿Aprueba esta solicitud?</h3>
+
+                    <table border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
+                      <tr>
+                        <td align="center" style="padding-right: 6px;">
+                          <a href="${approveUrl}" target="_blank" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; font-weight: 700; color: #ffffff; text-decoration: none; display: inline-block; padding: 12px 20px; border-radius: 8px; background-color: #10b981; border: 1px solid #10b981;">
+                            Aprobar
+                          </a>
+                        </td>
+                        <td align="center" style="padding-left: 6px;">
+                          <a href="${rejectUrl}" target="_blank" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; font-weight: 700; color: #dc2626; text-decoration: none; display: inline-block; padding: 12px 20px; border-radius: 8px; border: 1px solid #fecaca; background-color: #fef2f2;">
+                            Rechazar
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <div style="margin-top: 12px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; line-height: 1.5;">
+                      Al hacer clic en "Aprobar", usted acepta los
+                      <a href="${termsLink}" style="color: #2563eb; text-decoration: underline;">Términos y Condiciones</a>
+                      de OfertaSimple.
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          ` : ''}
 
           <!-- Content Details -->
           <tr>
-            <td style="padding: 40px 30px;">
-              
+            <td style="padding: 30px;">
+
               ${renderSection('Información General', [
                 { key: 'merchant', label: 'Merchant / Aliado', value: merchant },
                 { key: 'businessEmail', label: 'Email del Negocio', value: businessEmail },
-        { key: 'campaignDuration', label: 'Duración de Campaña' },
-        { key: 'redemptionMode', label: 'Modalidad de Canje' },
+                { key: 'campaignDuration', label: 'Duración de Campaña' },
+                { key: 'redemptionMode', label: 'Modalidad de Canje' },
                 { key: 'isRecurring', label: 'Recurrencia' },
-        { key: 'paymentType', label: 'Tipo de Pago' },
+                { key: 'paymentType', label: 'Tipo de Pago' },
               ])}
 
               ${renderSection('Reseña y Contenido', [
@@ -302,7 +366,7 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
               ${renderSection('Condiciones y Políticas', [
                 { key: 'cancellationPolicy', label: 'Políticas de Cancelación' },
                 { key: 'additionalComments', label: 'Comentarios Adicionales' },
-        { key: 'validOnHolidays', label: 'Válido en Feriados' },
+                { key: 'validOnHolidays', label: 'Válido en Feriados' },
                 { key: 'appointmentRequired', label: 'Requiere Cita Previa' },
               ])}
 
@@ -311,7 +375,7 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
                 <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 30px; width: 100%;">
                   <tr>
                     <td style="padding-bottom: 15px; border-left: 4px solid #e84c0f; padding-left: 10px;">
-                      <h3 style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 18px; color: #111827; font-weight: 700;">
+                      <h3 style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 17px; color: #111827; font-weight: 700;">
                         Información Adicional${additionalInfoData.templateDisplayName ? ` (${escapeHtml(additionalInfoData.templateDisplayName)})` : ''}
                       </h3>
                     </td>
@@ -322,7 +386,7 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
                         ${additionalInfoData.fields.map(f => `
                           <tr>
                             <td style="padding: 12px 0; border-bottom: 1px solid #f0f0f0;">
-                              <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
+                              <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
                                 ${escapeHtml(f.label)}
                               </div>
                               <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #111827; line-height: 1.5;">
@@ -344,44 +408,10 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
                 { key: 'addressAndHours', label: 'Dirección y Horario' },
               ])}
 
-      <!-- Action Buttons -->
-              ${!hideActions ? `
-                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 40px; background-color: #f8fafc; border-radius: 12px;">
-                  <tr>
-                    <td align="center" style="padding: 30px;">
-                      <h3 style="margin: 0 0 20px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 18px; color: #111827;">¿Aprueba esta solicitud?</h3>
-                      
-                      <table border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
-                        <tr>
-                          <td align="center" style="border-radius: 8px; background-color: #10b981;">
-                            <a href="${approveUrl}" target="_blank" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; font-weight: bold; color: #ffffff; text-decoration: none; display: inline-block; padding: 16px 32px; border: 1px solid #10b981; border-radius: 8px;">
-                              ✓ APROBAR SOLICITUD
-                            </a>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td align="center" style="padding-top: 15px;">
-                            <a href="${rejectUrl}" target="_blank" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; font-weight: bold; color: #ef4444; text-decoration: none; display: inline-block; padding: 14px 24px;">
-                              Rechazar Solicitud
-                            </a>
-                          </td>
-                        </tr>
-                      </table>
-
-                      <div style="margin-top: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #6b7280; line-height: 1.5;">
-                        Al hacer clic en "Aprobar Solicitud", usted acepta los 
-                        <a href="${termsLink}" style="color: #2563eb; text-decoration: underline;">Términos y Condiciones</a>
-                        de OfertaSimple.
-        </div>
-                    </td>
-                  </tr>
-                </table>
-              ` : ''}
-
               <!-- Footer Info -->
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 40px; border-top: 1px solid #e5e7eb;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 30px; border-top: 1px solid #e5e7eb;">
                 <tr>
-                  <td align="center" style="padding-top: 20px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #9ca3af;">
+                  <td align="center" style="padding-top: 18px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #9ca3af;">
                     <p style="margin: 0 0 10px 0;">Solicitud enviada por: ${escapeHtml(requesterEmail || 'Equipo de OfertaSimple')}</p>
                     <p style="margin: 0;">&copy; ${new Date().getFullYear()} OfertaSimple. Todos los derechos reservados.</p>
                   </td>
@@ -390,7 +420,7 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
 
             </td>
           </tr>
-          
+
           <!-- Footer Branding -->
           <tr>
             <td align="center" style="background-color: #f9fafb; padding: 20px; border-top: 1px solid #e5e7eb;">
@@ -400,7 +430,7 @@ const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
             </td>
           </tr>
         </table>
-        
+
       </td>
     </tr>
   </table>

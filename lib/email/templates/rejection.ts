@@ -41,14 +41,14 @@ export function renderRejectionEmail(props: RejectionEmailProps): string {
   <![endif]-->
 </head>
 <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 0; width: 100% !important;">
-  
+
   <table border="0" cellpadding="0" cellspacing="0" width="100%" style="width: 100%; background-color: #f3f4f6;">
     <tr>
       <td align="center" style="padding: 20px 0;">
-        
+
         <!-- Main Container -->
-        <table border="0" cellpadding="0" cellspacing="0" width="600" style="width: 600px; max-width: 600px; background-color: #ffffff; margin: 0 auto; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
-          
+        <table border="0" cellpadding="0" cellspacing="0" width="600" style="width: 600px; max-width: 600px; background-color: #ffffff; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);">
+
           <!-- Header -->
           <tr>
             <td align="center" style="background-color: #e84c0f; padding: 20px 30px; border-bottom: 3px solid #c2410c;">
@@ -56,44 +56,62 @@ export function renderRejectionEmail(props: RejectionEmailProps): string {
             </td>
           </tr>
 
-          <!-- Main Title Area -->
+          <!-- Title -->
           <tr>
-            <td align="center" style="background-color: #fef2f2; padding: 40px 30px;">
-              <h1 style="margin: 0 0 10px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #dc2626; font-size: 24px; font-weight: 700; line-height: 1.3;">
+            <td align="center" style="background-color: #fef2f2; padding: 28px 30px;">
+              <div style="width: 48px; height: 48px; background-color: #dc2626; border-radius: 50%; margin: 0 auto 12px auto; display: block; text-align: center; line-height: 48px; color: #ffffff; font-size: 22px; font-weight: 700;">
+                !
+              </div>
+              <h1 style="margin: 0 0 8px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #b91c1c; font-size: 22px; font-weight: 700; line-height: 1.3;">
                 Solicitud Rechazada
               </h1>
-              <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #7f1d1d; font-size: 16px; line-height: 1.5;">
+              <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #7f1d1d; font-size: 15px; line-height: 1.5;">
                 La solicitud de booking para <strong>${escapeHtml(requestName)}</strong> no ha sido aprobada.
               </p>
             </td>
           </tr>
 
-          <!-- Details Box -->
+          <!-- Summary Card -->
           <tr>
-            <td style="padding: 0 30px 40px 30px;">
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; margin-top: -20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <td style="padding: 0 30px 28px 30px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; margin-top: -12px; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06);">
                 <tr>
-                  <td style="padding: 30px;">
-                    
-                    <div style="margin-bottom: 25px; border-bottom: 1px solid #f3f4f6; padding-bottom: 20px;">
-                      <h2 style="margin: 0 0 5px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 20px; color: #111827; font-weight: 700;">
-                        ${escapeHtml(requestName)}
+                  <td style="padding: 24px;">
+                    <div style="margin-bottom: 18px; border-left: 4px solid #e84c0f; padding-left: 10px;">
+                      <h2 style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 18px; color: #111827; font-weight: 700;">
+                        Resumen de la Solicitud
                       </h2>
-                      ${merchant ? `<div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #6b7280; font-size: 14px;">Merchant/Aliado: ${escapeHtml(merchant)}</div>` : ''}
                     </div>
 
-                    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #fff5f5; border-left: 4px solid #ef4444; border-radius: 0 8px 8px 0;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%">
                       <tr>
-                        <td style="padding: 20px;">
-                          <h3 style="margin: 0 0 10px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; text-transform: uppercase; color: #b91c1c; letter-spacing: 0.5px;">
+                        <td style="padding-bottom: 12px;">
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Solicitud</div>
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; color: #111827; font-weight: 600;">${escapeHtml(requestName)}</div>
+                        </td>
+                      </tr>
+                      ${merchant ? `
+                      <tr>
+                        <td style="padding-bottom: 12px;">
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Merchant / Aliado</div>
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #111827;">${escapeHtml(merchant)}</div>
+                        </td>
+                      </tr>
+                      ` : ''}
+                    </table>
+
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 18px; background-color: #fff5f5; border-left: 4px solid #ef4444; border-radius: 0 8px 8px 0;">
+                      <tr>
+                        <td style="padding: 16px;">
+                          <h3 style="margin: 0 0 8px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; text-transform: uppercase; color: #b91c1c; letter-spacing: 0.5px;">
                             Motivo del Rechazo
                           </h3>
-                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; color: #450a0a; line-height: 1.6; white-space: pre-wrap;">${escapeHtml(rejectionReason)}</div>
+                          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #450a0a; line-height: 1.6; white-space: pre-wrap;">${escapeHtml(rejectionReason)}</div>
                         </td>
                       </tr>
                     </table>
 
-                    <div style="margin-top: 25px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #6b7280; line-height: 1.5; text-align: center;">
+                    <div style="margin-top: 18px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; color: #6b7280; line-height: 1.5; text-align: center;">
                       Si tiene preguntas o desea discutir esta decisión, por favor contacte al equipo de aprobaciones.
                     </div>
 
@@ -112,7 +130,7 @@ export function renderRejectionEmail(props: RejectionEmailProps): string {
             </td>
           </tr>
         </table>
-        
+
       </td>
     </tr>
   </table>

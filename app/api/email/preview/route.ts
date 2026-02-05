@@ -13,10 +13,21 @@ import { renderBookingRequestEmail } from '@/lib/email/templates/booking-request
 import { renderRejectionEmail } from '@/lib/email/templates/rejection'
 import { renderTaskReminderEmail } from '@/lib/email/templates/task-reminder'
 import { renderCancelledEmail } from '@/lib/email/templates/cancelled'
+import { renderAdminApprovalEmail } from '@/lib/email/templates/admin-approval'
+import { renderCronFailureEmail } from '@/lib/email/templates/cron-failure'
+import { renderMentionNotificationEmail } from '@/lib/email/templates/mention-notification'
 import { getAppBaseUrl } from '@/lib/config/env'
 import { logger } from '@/lib/logger'
 
-type EmailTemplateType = 'booking-confirmation' | 'booking-request' | 'rejection' | 'task-reminder' | 'cancelled'
+type EmailTemplateType =
+  | 'booking-confirmation'
+  | 'booking-request'
+  | 'rejection'
+  | 'task-reminder'
+  | 'cancelled'
+  | 'admin-approval'
+  | 'cron-failure'
+  | 'mention-notification'
 
 export async function POST(req: Request) {
   try {
@@ -148,6 +159,43 @@ export async function POST(req: Request) {
           cancelledBy: 'admin@ofertasimple.com',
         })
         break
+      case 'admin-approval':
+        html = renderAdminApprovalEmail({
+          requestName: 'Ejemplo de Solicitud de Booking',
+          businessName: 'Restaurante Ejemplo',
+          businessEmail: 'negocio@ejemplo.com',
+          merchant: 'Restaurante Ejemplo',
+          category: 'Restaurantes',
+          startDate: '1 de enero de 2025',
+          endDate: '31 de enero de 2025',
+          approvedByName: 'María Rodríguez',
+          approvedByEmail: 'maria@ofertasimple.com',
+          recipientType: 'business',
+        })
+        break
+      case 'cron-failure':
+        html = renderCronFailureEmail({
+          jobName: 'task-reminders',
+          errorMessage: 'Error de conexión a la base de datos.',
+          startedAt: new Date(),
+          durationMs: 4210,
+          details: {
+            requestId: 'cron-req-123',
+            retry: 2,
+          },
+          appBaseUrl,
+        })
+        break
+      case 'mention-notification':
+        html = renderMentionNotificationEmail({
+          mentionedUserName: 'Juan Pérez',
+          authorName: 'Ana Gómez',
+          content: 'Revisemos esta propuesta antes de enviarla al cliente.',
+          entityType: 'opportunity',
+          entityId: 'opp-123',
+          businessName: 'Restaurante Ejemplo',
+        })
+        break
 
       default:
         return NextResponse.json(
@@ -169,4 +217,3 @@ export async function POST(req: Request) {
     )
   }
 }
-

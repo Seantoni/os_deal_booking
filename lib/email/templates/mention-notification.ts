@@ -1,6 +1,6 @@
 /**
  * Unified Mention Notification Email Template
- * 
+ *
  * Notifies users when they are mentioned in comments (marketing or opportunity)
  * Uses OfertaSimple branding
  */
@@ -118,8 +118,8 @@ export function renderMentionNotificationEmail(props: MentionNotificationEmailPr
   const entityUrl = `${appBaseUrl}${config.urlPath}`
 
   // Truncate content if too long
-  const truncatedContent = content.length > 300 
-    ? content.substring(0, 300) + '...' 
+  const truncatedContent = content.length > 300
+    ? content.substring(0, 300) + '...'
     : content
 
   // Build marketing-specific context section
@@ -143,76 +143,72 @@ export function renderMentionNotificationEmail(props: MentionNotificationEmailPr
   ` : ''
 
   return `
-<!DOCTYPE html>
-<html lang="es">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${config.title}</title>
   <!--[if mso]>
-  <noscript>
-    <xml>
-      <o:OfficeDocumentSettings>
-        <o:PixelsPerInch>96</o:PixelsPerInch>
-      </o:OfficeDocumentSettings>
-    </xml>
-  </noscript>
+  <style type="text/css">
+    body, table, td, p, h1, h2, h3, a { font-family: Arial, Helvetica, sans-serif !important; }
+  </style>
   <![endif]-->
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6; -webkit-font-smoothing: antialiased;">
-  
+<body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f3f4f6; -webkit-font-smoothing: antialiased;">
+
   <!-- Wrapper Table -->
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f3f4f6;">
     <tr>
-      <td align="center" style="padding: 24px 16px;">
-        
+      <td align="center" style="padding: 20px 0;">
+
         <!-- Main Content Table -->
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width: 520px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-          
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width: 600px; max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08); overflow: hidden;">
+
           <!-- Header with Logo -->
           <tr>
-            <td style="padding: 24px 24px 16px 24px; text-align: center; border-bottom: 1px solid #e5e7eb;">
-              <img src="https://ofertasimple.com/logo-dark.png" alt="OfertaSimple" width="140" style="display: inline-block; max-width: 140px; height: auto;">
+            <td style="padding: 20px 30px; text-align: center; background-color: #e84c0f; border-bottom: 3px solid #c2410c;">
+              <img src="https://oferta-uploads-prod.s3.us-east-1.amazonaws.com/pictures/others/OfertaSimple%20Assets/OFS_Marca_Blanco_02.png?_t=1754077435" alt="OfertaSimple" width="180" style="display: inline-block; max-width: 180px; height: auto;">
             </td>
           </tr>
-          
+
           <!-- Notification Icon -->
           <tr>
-            <td align="center" style="padding: 24px 24px 8px 24px;">
+            <td align="center" style="padding: 24px 24px 8px 24px; background-color: #f8fafc;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td style="background-color: ${config.iconBg}; border-radius: 50%; padding: 12px;">
-                    <span style="font-size: 24px;">${config.icon}</span>
+                    <span style="font-size: 22px;">${config.icon}</span>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
-          
+
           <!-- Title -->
           <tr>
-            <td style="padding: 8px 24px 4px 24px; text-align: center;">
+            <td style="padding: 8px 24px 4px 24px; text-align: center; background-color: #f8fafc;">
               <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: #111827;">
                 ${config.title}
               </h1>
             </td>
           </tr>
-          
+
           <!-- Subtitle -->
           <tr>
-            <td style="padding: 0 24px 16px 24px; text-align: center;">
+            <td style="padding: 0 24px 18px 24px; text-align: center; background-color: #f8fafc;">
               <p style="margin: 0; font-size: 14px; color: #6b7280;">
                 ${escapeHtml(authorName)} ${config.subtitle}
               </p>
             </td>
           </tr>
-          
+
           <!-- Context Info -->
           <tr>
             <td style="padding: 0 24px 16px 24px;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color: #ffffff; border-radius: 10px; border: 1px solid #e5e7eb;">
                 <tr>
-                  <td style="padding: 12px 16px;">
+                  <td style="padding: 14px 16px;">
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                       <tr>
                         <td style="padding-bottom: 8px;">
@@ -231,7 +227,7 @@ export function renderMentionNotificationEmail(props: MentionNotificationEmailPr
               </table>
             </td>
           </tr>
-          
+
           <!-- Comment Content -->
           <tr>
             <td style="padding: 0 24px 24px 24px;">
@@ -249,13 +245,13 @@ export function renderMentionNotificationEmail(props: MentionNotificationEmailPr
               </table>
             </td>
           </tr>
-          
+
           <!-- CTA Button -->
           <tr>
             <td align="center" style="padding: 0 24px 24px 24px;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td style="background-color: #f97316; border-radius: 8px;">
+                  <td style="background-color: ${config.accentColor}; border-radius: 8px;">
                     <a href="${entityUrl}" target="_blank" style="display: inline-block; padding: 12px 28px; font-size: 14px; font-weight: 600; color: #ffffff; text-decoration: none;">
                       ${config.buttonText}
                     </a>
@@ -264,7 +260,7 @@ export function renderMentionNotificationEmail(props: MentionNotificationEmailPr
               </table>
             </td>
           </tr>
-          
+
           <!-- Footer -->
           <tr>
             <td style="padding: 16px 24px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; border-radius: 0 0 12px 12px;">
@@ -282,13 +278,13 @@ export function renderMentionNotificationEmail(props: MentionNotificationEmailPr
               </table>
             </td>
           </tr>
-          
+
         </table>
-        
+
       </td>
     </tr>
   </table>
-  
+
 </body>
 </html>
   `.trim()
