@@ -110,12 +110,12 @@ export function EntityPageHeader({
   const showSavedFilters = savedFilters && savedFilters.length > 0 && (onFilterToggle || onFilterSelect)
 
   return (
-    <div className="bg-white border-b border-gray-200 px-4 py-2">
+    <div className="bg-white border-b border-gray-200 px-3 py-2 md:px-4">
       <div className="flex flex-col gap-2">
         {/* Top row: Search + Right Content */}
-        <div className="flex items-center justify-between gap-3">
-          {/* Search */}
-          <div className="flex-1 max-w-xs">
+        <div className="flex items-center gap-2 md:gap-3">
+          {/* Search — full width on mobile, constrained on desktop */}
+          <div className="flex-1 md:max-w-xs">
             <Input
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
@@ -131,7 +131,7 @@ export function EntityPageHeader({
         </div>
 
         {/* Filter Row */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+        <div className="flex items-center gap-1.5 md:gap-2 overflow-x-auto pb-1 no-scrollbar">
           {/* Optional content before filters (e.g., view toggle) */}
           {beforeFilters}
           

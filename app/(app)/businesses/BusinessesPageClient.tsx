@@ -38,7 +38,7 @@ import { Button } from '@/components/ui'
 
 // Local hooks and components
 import { useBusinessTableCounts, useBusinessPageState } from './hooks'
-import { BusinessTableRow, DealsTab } from './components'
+import { BusinessTableRow, DealsTab, BusinessMobileCard } from './components'
 
 // Tab type
 type PageTab = 'businesses' | 'deals'
@@ -512,9 +512,10 @@ export default function BusinessesPageClient({
 
   // Header right content
   const headerRightContent = (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
+      {/* Import/CSV — hidden on mobile, shown on desktop */}
       {isAdmin && (
-        <>
+        <div className="hidden md:flex items-center gap-2">
           <Button
             onClick={pageState.openUploadModal}
             variant="secondary"
@@ -533,7 +534,7 @@ export default function BusinessesPageClient({
           >
             CSV
           </Button>
-        </>
+        </div>
       )}
       <Button
         onClick={() => pageState.openBusinessModal(null)}
@@ -541,7 +542,8 @@ export default function BusinessesPageClient({
         size="sm"
         leftIcon={<AddIcon style={{ fontSize: 16 }} sx={{}} />}
       >
-        Nuevo Negocio
+        <span className="hidden sm:inline">Nuevo Negocio</span>
+        <span className="sm:hidden">Nuevo</span>
       </Button>
     </div>
   )
@@ -636,9 +638,9 @@ export default function BusinessesPageClient({
           />
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto p-0 md:p-4">
         {loadError ? (
-          <div className="p-6 bg-red-50 rounded-lg border border-red-200">
+          <div className="p-6 mx-4 mt-4 md:mx-0 md:mt-0 bg-red-50 rounded-lg border border-red-200">
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
                 <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -658,63 +660,107 @@ export default function BusinessesPageClient({
             </div>
           </div>
         ) : isLoading ? (
-          <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200 flex items-center gap-2">
+          <div className="p-6 mx-4 mt-4 md:mx-0 md:mt-0 text-sm text-gray-500 bg-white rounded-lg border border-gray-200 flex items-center gap-2">
             <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
             {searchLoading ? 'Buscando...' : 'Cargando...'}
           </div>
         ) : filteredBusinesses.length === 0 ? (
-          <EmptyTableState
-            icon={<FilterListIcon className="w-full h-full" />}
-            title="No se encontraron negocios"
-            description={
-              searchQuery || opportunityFilter !== 'all' || focusFilter !== 'all' || activeDealFilter || filterRules.length > 0
-                ? 'Intente ajustar su búsqueda o filtros' 
-                : 'Comience creando un nuevo negocio'
-            }
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <SearchIndicator />
-            
-            <div className="bg-white rounded-lg border border-gray-200">
-              <table className="w-full text-[13px] text-left">
-                <SortableTableHeader
-                  columns={COLUMNS}
-                  sortColumn={sortColumn}
-                  sortDirection={sortDirection}
-                  onSort={handleSort}
-                />
-                <tbody className="divide-y divide-slate-100">
-                  {filteredBusinesses.map((business, index) => (
-                    <BusinessTableRow
-                      key={business.id}
-                      business={business}
-                      index={index}
-                      activeFocus={businessActiveFocus.get(business.id)}
-                      isExpanded={pageState.isBusinessExpanded(business.id)}
-                      cachedDeals={pageState.getBusinessDeals(business.id)}
-                      activeDealUrl={activeDealUrls[business.id]}
-                      openOpportunityCount={businessOpenOpportunityCount.get(business.id) || 0}
-                      pendingRequestCount={businessPendingRequestCount.get(business.name.toLowerCase()) || 0}
-                      campaignCount={businessCampaignCounts[business.id] || 0}
-                      isAdmin={isAdmin}
-                      canEdit={canEditBusiness(business.id)}
-                      onRowClick={(b) => pageState.openBusinessModal(b)}
-                      onRowHover={handleRowHover}
-                      onToggleExpand={pageState.toggleExpandBusiness}
-                      onSetFocus={pageState.openFocusModal}
-                      onCreateOpportunity={pageState.openOpportunityModal}
-                      onCreateRequest={handleCreateRequest}
-                      onOpenCampaignModal={pageState.openCampaignModal}
-                      onOpenReassignmentModal={pageState.openReassignmentModal}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            
-            <PaginationControls />
+          <div className="px-4 pt-4 md:px-0 md:pt-0">
+            <EmptyTableState
+              icon={<FilterListIcon className="w-full h-full" />}
+              title="No se encontraron negocios"
+              description={
+                searchQuery || opportunityFilter !== 'all' || focusFilter !== 'all' || activeDealFilter || filterRules.length > 0
+                  ? 'Intente ajustar su búsqueda o filtros' 
+                  : 'Comience creando un nuevo negocio'
+              }
+            />
           </div>
+        ) : (
+          <>
+            {/* Mobile card list */}
+            <div className="md:hidden">
+              <SearchIndicator />
+              
+              {/* Results count */}
+              <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                  {filteredBusinesses.length} negocio{filteredBusinesses.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+
+              <div className="bg-white">
+                {filteredBusinesses.map((business) => (
+                  <BusinessMobileCard
+                    key={business.id}
+                    business={business}
+                    activeFocus={businessActiveFocus.get(business.id)}
+                    activeDealUrl={activeDealUrls[business.id]}
+                    openOpportunityCount={businessOpenOpportunityCount.get(business.id) || 0}
+                    pendingRequestCount={businessPendingRequestCount.get(business.name.toLowerCase()) || 0}
+                    campaignCount={businessCampaignCounts[business.id] || 0}
+                    isAdmin={isAdmin}
+                    canEdit={canEditBusiness(business.id)}
+                    onCardTap={(b: Business) => pageState.openBusinessModal(b)}
+                    onRowHover={handleRowHover}
+                    onSetFocus={pageState.openFocusModal}
+                    onCreateOpportunity={pageState.openOpportunityModal}
+                    onCreateRequest={handleCreateRequest}
+                    onOpenCampaignModal={pageState.openCampaignModal}
+                    onOpenReassignmentModal={pageState.openReassignmentModal}
+                  />
+                ))}
+              </div>
+
+              <div className="px-4 py-3">
+                <PaginationControls />
+              </div>
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
+              <SearchIndicator />
+              
+              <div className="bg-white rounded-lg border border-gray-200">
+                <table className="w-full text-[13px] text-left">
+                  <SortableTableHeader
+                    columns={COLUMNS}
+                    sortColumn={sortColumn}
+                    sortDirection={sortDirection}
+                    onSort={handleSort}
+                  />
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredBusinesses.map((business, index) => (
+                      <BusinessTableRow
+                        key={business.id}
+                        business={business}
+                        index={index}
+                        activeFocus={businessActiveFocus.get(business.id)}
+                        isExpanded={pageState.isBusinessExpanded(business.id)}
+                        cachedDeals={pageState.getBusinessDeals(business.id)}
+                        activeDealUrl={activeDealUrls[business.id]}
+                        openOpportunityCount={businessOpenOpportunityCount.get(business.id) || 0}
+                        pendingRequestCount={businessPendingRequestCount.get(business.name.toLowerCase()) || 0}
+                        campaignCount={businessCampaignCounts[business.id] || 0}
+                        isAdmin={isAdmin}
+                        canEdit={canEditBusiness(business.id)}
+                        onRowClick={(b) => pageState.openBusinessModal(b)}
+                        onRowHover={handleRowHover}
+                        onToggleExpand={pageState.toggleExpandBusiness}
+                        onSetFocus={pageState.openFocusModal}
+                        onCreateOpportunity={pageState.openOpportunityModal}
+                        onCreateRequest={handleCreateRequest}
+                        onOpenCampaignModal={pageState.openCampaignModal}
+                        onOpenReassignmentModal={pageState.openReassignmentModal}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              <PaginationControls />
+            </div>
+          </>
         )}
       </div>
         </>

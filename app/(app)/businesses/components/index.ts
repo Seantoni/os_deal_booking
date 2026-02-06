@@ -1,4 +1,6 @@
 export { BusinessTableRow } from './BusinessTableRow'
 export { BusinessActionButtons } from './BusinessActionButtons'
 export { BusinessExpandedDeals } from './BusinessExpandedDeals'
+export { BusinessMobileCard } from './BusinessMobileCard'
+export { BusinessMobileActionSheet } from './BusinessMobileActionSheet'
 export { DealsTab } from './DealsTab'

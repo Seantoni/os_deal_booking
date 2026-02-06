@@ -772,19 +772,19 @@ export default function OpportunityFormModal({
 
           {/* Reference Info Bar - 2-line layout */}
           {!loadingData && (
-            <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 space-y-1.5">
-              {/* Line 1: Action-oriented (What do I need to do?) */}
-              <div className="flex flex-wrap items-center gap-5 text-xs">
+            <div className="bg-gray-50 border-b border-gray-200 px-3 md:px-4 py-2 space-y-1.5">
+              {/* Line 1: Action-oriented — scrollable on mobile */}
+              <div className="flex items-center gap-3 md:gap-5 text-xs overflow-x-auto no-scrollbar pb-0.5">
                 {/* Tasks */}
                 {(activitySummary.nextTask || activitySummary.lastTask) && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Tareas</span>
                     {activitySummary.nextTask && (
                       <span className="flex items-center gap-1">
-                        <span className="font-semibold text-orange-600">
+                        <span className="font-semibold text-orange-600 whitespace-nowrap">
                           Próx: {new Date(activitySummary.nextTask.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
                         </span>
-                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded whitespace-nowrap ${
                           activitySummary.nextTask.days <= 0 ? 'bg-red-100 text-red-700' : 
                           activitySummary.nextTask.days <= 2 ? 'bg-amber-100 text-amber-700' : 
                           'bg-green-100 text-green-700'
@@ -794,11 +794,11 @@ export default function OpportunityFormModal({
                       </span>
                     )}
                     {activitySummary.lastTask && (
-                      <span className="flex items-center gap-1">
-                        <span className="text-[10px] text-gray-500">
+                      <span className="hidden md:flex items-center gap-1">
+                        <span className="text-[10px] text-gray-500 whitespace-nowrap">
                           Últ: {new Date(activitySummary.lastTask.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
                         </span>
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 whitespace-nowrap">
                           {activitySummary.lastTask.daysText}
                         </span>
                       </span>
@@ -808,14 +808,14 @@ export default function OpportunityFormModal({
                 
                 {/* Meetings */}
                 {(activitySummary.nextMeeting || activitySummary.lastMeeting) && (
-                  <div className="flex items-center gap-2 pl-5 border-l border-gray-300">
+                  <div className="flex items-center gap-2 pl-3 md:pl-5 border-l border-gray-300 flex-shrink-0">
                     <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Reuniones</span>
                     {activitySummary.nextMeeting && (
                       <span className="flex items-center gap-1">
-                        <span className="font-semibold text-blue-600">
+                        <span className="font-semibold text-blue-600 whitespace-nowrap">
                           Próx: {new Date(activitySummary.nextMeeting.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
                         </span>
-                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded whitespace-nowrap ${
                           activitySummary.nextMeeting.days <= 0 ? 'bg-red-100 text-red-700' : 
                           activitySummary.nextMeeting.days <= 2 ? 'bg-amber-100 text-amber-700' : 
                           'bg-green-100 text-green-700'
@@ -825,11 +825,11 @@ export default function OpportunityFormModal({
                       </span>
                     )}
                     {activitySummary.lastMeeting && (
-                      <span className="flex items-center gap-1">
-                        <span className="text-[10px] text-gray-500">
+                      <span className="hidden md:flex items-center gap-1">
+                        <span className="text-[10px] text-gray-500 whitespace-nowrap">
                           Últ: {new Date(activitySummary.lastMeeting.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
                         </span>
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 whitespace-nowrap">
                           {activitySummary.lastMeeting.daysText}
                         </span>
                       </span>
@@ -838,29 +838,29 @@ export default function OpportunityFormModal({
                 )}
               </div>
 
-              {/* Line 2: Context (Timeline + Owner) */}
-              <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500">
+              {/* Line 2: Context (Timeline + Owner) — wraps on mobile */}
+              <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs text-gray-500">
                 {/* Timeline dates */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
                   {opportunity?.createdAt && (
-                    <span className="text-gray-400">
+                    <span className="text-gray-400 whitespace-nowrap">
                       Creado: {new Date(opportunity.createdAt).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
                     </span>
                   )}
                   {(dynamicForm.getValue('startDate') || opportunity?.startDate) && (
-                    <span>
+                    <span className="whitespace-nowrap">
                       Inicio: {new Date(dynamicForm.getValue('startDate') || opportunity?.startDate!).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
                     </span>
                   )}
                   {(dynamicForm.getValue('closeDate') || opportunity?.closeDate) && (
-                    <span>
+                    <span className="whitespace-nowrap">
                       Cierre: {new Date(dynamicForm.getValue('closeDate') || opportunity?.closeDate!).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
                     </span>
                   )}
                 </div>
 
                 {/* Separator */}
-                <span className="text-gray-300">|</span>
+                <span className="text-gray-300 hidden sm:inline">|</span>
 
                 {/* Owner (required) */}
                 <ReferenceInfoBar.UserSelectItem
@@ -885,13 +885,13 @@ export default function OpportunityFormModal({
             />
           )}
 
-          {/* Tabs */}
+          {/* Tabs — scrollable on mobile */}
           <div className="bg-gray-50 border-b border-gray-200">
-            <div className="flex px-4 pt-2 -mb-px">
+            <div className="flex px-3 md:px-4 pt-2 -mb-px overflow-x-auto no-scrollbar">
               <button
                 type="button"
                 onClick={() => setActiveTab('details')}
-                className={`px-4 py-2.5 text-sm font-medium transition-all border border-b-0 rounded-t-lg -mb-px ${
+                className={`px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-all border border-b-0 rounded-t-lg -mb-px whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'details'
                     ? 'bg-white text-gray-900 border-gray-200'
                     : 'bg-transparent text-gray-500 border-transparent hover:text-gray-700'
@@ -902,7 +902,7 @@ export default function OpportunityFormModal({
               <button
                 type="button"
                 onClick={() => setActiveTab('activity')}
-                className={`px-4 py-2.5 text-sm font-medium transition-all border border-b-0 rounded-t-lg -mb-px ${
+                className={`px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-all border border-b-0 rounded-t-lg -mb-px whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'activity'
                     ? 'bg-white text-gray-900 border-gray-200'
                     : 'bg-transparent text-gray-500 border-transparent hover:text-gray-700'
@@ -913,7 +913,7 @@ export default function OpportunityFormModal({
               <button
                 type="button"
                 onClick={() => setActiveTab('chat')}
-                className={`px-4 py-2.5 text-sm font-medium transition-all border border-b-0 rounded-t-lg -mb-px ${
+                className={`px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-all border border-b-0 rounded-t-lg -mb-px whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'chat'
                     ? 'bg-white text-gray-900 border-gray-200'
                     : 'bg-transparent text-gray-500 border-transparent hover:text-gray-700'
@@ -924,7 +924,7 @@ export default function OpportunityFormModal({
               <button
                 type="button"
                 onClick={() => setActiveTab('history')}
-                className={`px-4 py-2.5 text-sm font-medium transition-all border border-b-0 rounded-t-lg -mb-px ${
+                className={`px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-all border border-b-0 rounded-t-lg -mb-px whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'history'
                     ? 'bg-white text-gray-900 border-gray-200'
                     : 'bg-transparent text-gray-500 border-transparent hover:text-gray-700'
@@ -935,9 +935,9 @@ export default function OpportunityFormModal({
             </div>
           </div>
 
-      <form id="opportunity-modal-form" onSubmit={handleSubmit} className="bg-white min-h-[500px] flex flex-col">
+      <form id="opportunity-modal-form" onSubmit={handleSubmit} className="bg-white min-h-[300px] md:min-h-[500px] flex flex-col">
             {error && (
-              <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
+              <div className="mx-3 md:mx-6 mt-3 md:mt-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
                 <ErrorOutlineIcon className="text-red-600 flex-shrink-0 mt-0.5" fontSize="small" />
                 <p className="text-sm text-red-800">{error}</p>
               </div>
@@ -1001,7 +1001,7 @@ export default function OpportunityFormModal({
             ) : null}
 
             {!loadingData && activeTab === 'activity' && (
-              <div className="p-6">
+              <div className="p-3 md:p-6">
                 {!opportunity ? (
                   <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
                     <EventIcon className="text-gray-400 mx-auto mb-3" style={{ fontSize: 48 }} />
@@ -1024,7 +1024,7 @@ export default function OpportunityFormModal({
             )}
 
             {!loadingData && activeTab === 'chat' && (
-              <div className="p-6 bg-white h-full">
+              <div className="p-3 md:p-6 bg-white h-full">
                 {!opportunity ? (
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
                     <span className="text-4xl mb-3 block">💬</span>

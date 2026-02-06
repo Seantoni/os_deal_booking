@@ -943,8 +943,9 @@ export default function BusinessFormModal({
             size="sm"
             onClick={() => router.push(`/businesses/${business.id}`)}
             leftIcon={<OpenInNewIcon fontSize="small" />}
+            title="Abrir página completa"
           >
-            Abrir página
+            <span className="hidden sm:inline">Abrir página</span>
           </Button>
         ) : undefined
       }
@@ -973,10 +974,10 @@ export default function BusinessFormModal({
         />
       }
     >
-      <form id="business-modal-form" onSubmit={handleSubmit} className="bg-gray-50 min-h-[500px] flex flex-col">
+      <form id="business-modal-form" onSubmit={handleSubmit} className="bg-gray-50 min-h-[300px] md:min-h-[500px] flex flex-col">
             {/* Read-only mode banner */}
             {!canEdit && business && (
-              <div className="mx-6 mt-4">
+              <div className="mx-3 md:mx-6 mt-3 md:mt-4">
                 <Alert variant="info" icon={<LockIcon fontSize="small" />}>
                   <span className="font-medium">Modo de solo lectura.</span> Solo puedes ver este negocio porque no está asignado a ti.
                 </Alert>
@@ -984,7 +985,7 @@ export default function BusinessFormModal({
             )}
 
             {error && (
-              <div className="mx-6 mt-4">
+              <div className="mx-3 md:mx-6 mt-3 md:mt-4">
                 <Alert variant="error" icon={<ErrorOutlineIcon fontSize="small" />}>
                   {error}
                 </Alert>

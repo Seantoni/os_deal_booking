@@ -168,9 +168,9 @@ export function ModalFooter({
   }[submitVariant]
 
   return (
-    <div className="flex justify-between items-center">
-      {leftContent && <div className="text-xs text-gray-500">{leftContent}</div>}
-      <div className="flex items-center gap-2 ml-auto">
+    <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
+      {leftContent && <div className="text-xs text-gray-500 hidden sm:block">{leftContent}</div>}
+      <div className="flex items-center gap-2 sm:ml-auto flex-wrap justify-end">
         {onCancel && (
           <Button type="button" onClick={onCancel} variant="ghost" size="sm">
             {cancelLabel}

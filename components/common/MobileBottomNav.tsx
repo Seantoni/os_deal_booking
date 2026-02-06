@@ -17,10 +17,7 @@ import HandshakeIcon from '@mui/icons-material/Handshake'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import SettingsIcon from '@mui/icons-material/Settings'
 import CloseIcon from '@mui/icons-material/Close'
-import MenuIcon from '@mui/icons-material/Menu'
-import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import CampaignIcon from '@mui/icons-material/Campaign'
-
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz'
 
 type NavItem = {
@@ -29,156 +26,236 @@ type NavItem = {
   Icon: React.ElementType
 }
 
-// Primary nav items (shown in bottom bar) - max 4 + More
+type NavSection = {
+  label: string
+  items: NavItem[]
+}
+
+// Primary nav items (shown in bottom bar): Business - Opps - Requests - Calendar
 const adminPrimaryNav: NavItem[] = [
-  { name: 'Opps', href: '/opportunities', Icon: HandshakeIcon },
   { name: 'Negocios', href: '/businesses', Icon: BusinessIcon },
-  { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
+  { name: 'Opps', href: '/opportunities', Icon: HandshakeIcon },
   { name: 'Requests', href: '/booking-requests', Icon: DescriptionIcon },
+  { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
 ]
 
 const salesPrimaryNav: NavItem[] = [
-  { name: 'Opps', href: '/opportunities', Icon: HandshakeIcon },
   { name: 'Negocios', href: '/businesses', Icon: BusinessIcon },
-  { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
+  { name: 'Opps', href: '/opportunities', Icon: HandshakeIcon },
   { name: 'Requests', href: '/booking-requests', Icon: DescriptionIcon },
+  { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
 ]
 
 const editorPrimaryNav: NavItem[] = []
 
-// Secondary nav items (shown in "More" menu)
-const adminSecondaryNav: NavItem[] = [
-  { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
-  { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
-  { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
-  { name: 'Marketing', href: '/marketing', Icon: AssignmentIcon },
-  { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
-  { name: 'Reservaciones', href: '/reservations', Icon: ListAltIcon },
-  { name: 'Leads', href: '/leads', Icon: PersonAddIcon },
-  { name: 'Asignaciones', href: '/assignments', Icon: AssignmentReturnIcon },
-  { name: 'Configuración', href: '/settings', Icon: SettingsIcon },
+// Secondary nav items (shown in "More" menu) — organized by sections
+const adminSecondarySections: NavSection[] = [
+  {
+    label: 'Monitoreo',
+    items: [
+      { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
+      { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
+    ],
+  },
+  {
+    label: 'Gestión',
+    items: [
+      { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
+      { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
+      { name: 'Marketing', href: '/marketing', Icon: AssignmentIcon },
+      { name: 'Reservaciones', href: '/reservations', Icon: ListAltIcon },
+    ],
+  },
+  {
+    label: 'Adquisición',
+    items: [
+      { name: 'Leads', href: '/leads', Icon: PersonAddIcon },
+      { name: 'Asignaciones', href: '/assignments', Icon: AssignmentReturnIcon },
+    ],
+  },
+  {
+    label: '',
+    items: [
+      { name: 'Configuración', href: '/settings', Icon: SettingsIcon },
+    ],
+  },
 ]
 
-const salesSecondaryNav: NavItem[] = [
-  { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
-  { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
-  { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
-  { name: 'Marketing', href: '/marketing', Icon: AssignmentIcon },
-  { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
-  { name: 'Reservaciones', href: '/reservations', Icon: ListAltIcon },
+const salesSecondarySections: NavSection[] = [
+  {
+    label: 'Monitoreo',
+    items: [
+      { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
+      { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
+    ],
+  },
+  {
+    label: 'Gestión',
+    items: [
+      { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
+      { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
+      { name: 'Marketing', href: '/marketing', Icon: AssignmentIcon },
+      { name: 'Reservaciones', href: '/reservations', Icon: ListAltIcon },
+    ],
+  },
 ]
 
-const editorSecondaryNav: NavItem[] = []
+const editorSecondarySections: NavSection[] = []
 
 export default function MobileBottomNav() {
   const pathname = usePathname()
   const { role, loading, moreMenuOpen, setMoreMenuOpen } = useSidebar()
   const [mounted, setMounted] = useState(false)
 
-  // Track client mount to prevent hydration mismatch
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  const { primaryNav, secondaryNav } = useMemo(() => {
+  const { primaryNav, secondarySections } = useMemo(() => {
     if (loading || !role) {
-      return { primaryNav: [], secondaryNav: [] }
+      return { primaryNav: [], secondarySections: [] }
     }
 
     const normalizedRole = role.toLowerCase().trim()
 
     switch (normalizedRole) {
       case 'admin':
-        return { primaryNav: adminPrimaryNav, secondaryNav: adminSecondaryNav }
+        return { primaryNav: adminPrimaryNav, secondarySections: adminSecondarySections }
       case 'sales':
-        return { primaryNav: salesPrimaryNav, secondaryNav: salesSecondaryNav }
+        return { primaryNav: salesPrimaryNav, secondarySections: salesSecondarySections }
       case 'editor':
-        return { primaryNav: editorPrimaryNav, secondaryNav: editorSecondaryNav }
+        return { primaryNav: editorPrimaryNav, secondarySections: editorSecondarySections }
       default:
-        return { primaryNav: [], secondaryNav: [] }
+        return { primaryNav: [], secondarySections: [] }
     }
   }, [role, loading])
 
-  // Return null until mounted AND role is loaded to prevent hydration mismatch
-  if (!mounted || loading || primaryNav.length === 0) return null
+  // Check if current path matches any secondary nav item (to highlight "Más")
+  const isOnSecondaryPage = useMemo(() => {
+    const allSecondaryHrefs = secondarySections.flatMap(s => s.items.map(i => i.href))
+    return allSecondaryHrefs.some(href => pathname === href || pathname?.startsWith(href + '/'))
+  }, [pathname, secondarySections])
 
-  const allNav = [...primaryNav, ...secondaryNav]
+  if (!mounted || loading || primaryNav.length === 0) return null
 
   return (
     <>
-      {/* Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 md:hidden pb-safe">
-        <div className="flex items-center justify-around h-16 px-1">
-          {primaryNav.map((item) => {
-            const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
-            const Icon = item.Icon
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMoreMenuOpen(false)}
-                className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${
-                  isActive ? 'text-blue-600' : 'text-gray-500 hover:text-gray-900'
-                }`}
-              >
-                <Icon className={isActive ? 'text-blue-600' : 'text-gray-500'} style={{ fontSize: 24 }} />
-                <span className="text-[10px] font-medium truncate max-w-[64px]">{item.name}</span>
-              </Link>
-            )
-          })}
-          
-          {/* More Button */}
-          <button
-            onClick={() => setMoreMenuOpen(true)}
-            className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${
-              moreMenuOpen ? 'text-blue-600' : 'text-gray-500 hover:text-gray-900'
-            }`}
-          >
-            <MoreHorizIcon style={{ fontSize: 24 }} />
-            <span className="text-[10px] font-medium">Más</span>
-          </button>
+      {/* Bottom Navigation Bar — floating pill, no background behind it */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden pointer-events-none" style={{ paddingBottom: 'env(safe-area-inset-bottom, 8px)' }}>
+        <div className="mx-4 mb-2 rounded-[22px] bg-white/75 backdrop-blur-2xl shadow-[0_0_0_0.5px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.1),0_12px_32px_rgba(0,0,0,0.08)] pointer-events-auto">
+          <div className="flex items-center justify-around h-[56px] px-1.5">
+            {primaryNav.map((item) => {
+              const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+              const Icon = item.Icon
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMoreMenuOpen(false)}
+                  className="flex flex-col items-center justify-center flex-1 h-full"
+                >
+                  {/* Icon — with pill behind when active */}
+                  <div className={`flex items-center justify-center w-9 h-[26px] rounded-full transition-all duration-200 ${
+                    isActive ? 'bg-blue-100' : ''
+                  }`}>
+                    <Icon
+                      style={{ fontSize: 22 }}
+                      className={`transition-colors duration-200 ${isActive ? 'text-blue-600' : 'text-gray-400'}`}
+                    />
+                  </div>
+                  {/* Label */}
+                  <span className={`text-[10px] mt-0.5 leading-none transition-colors duration-200 ${
+                    isActive ? 'text-blue-600 font-semibold' : 'text-gray-400 font-medium'
+                  }`}>
+                    {item.name}
+                  </span>
+                </Link>
+              )
+            })}
+            
+            {/* More Button */}
+            <button
+              onClick={() => setMoreMenuOpen(true)}
+              className="flex flex-col items-center justify-center flex-1 h-full"
+            >
+              <div className={`flex items-center justify-center w-9 h-[26px] rounded-full transition-all duration-200 ${
+                moreMenuOpen || isOnSecondaryPage ? 'bg-blue-100' : ''
+              }`}>
+                <MoreHorizIcon
+                  style={{ fontSize: 22 }}
+                  className={`transition-colors duration-200 ${moreMenuOpen || isOnSecondaryPage ? 'text-blue-600' : 'text-gray-400'}`}
+                />
+              </div>
+              <span className={`text-[10px] mt-0.5 leading-none transition-colors duration-200 ${
+                moreMenuOpen || isOnSecondaryPage ? 'text-blue-600 font-semibold' : 'text-gray-400 font-medium'
+              }`}>
+                Más
+              </span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Slide-in drawer (More Menu) */}
       {moreMenuOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
+          {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-[fadeIn_150ms_ease-out]"
             onClick={() => setMoreMenuOpen(false)}
           />
-          <div className="absolute inset-y-0 right-0 w-72 max-w-[85vw] bg-white shadow-2xl border-l border-gray-200 transform transition-transform duration-200 ease-out flex flex-col pb-safe">
-            <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100">
-              <span className="text-sm font-semibold text-gray-800 uppercase tracking-wide">Menú</span>
+          {/* Drawer panel — slides in from right */}
+          <div className="absolute inset-y-0 right-0 w-72 max-w-[85vw] bg-white shadow-[−16px_0_48px_rgba(0,0,0,0.12)] animate-[slideInRight_200ms_ease-out] flex flex-col pb-safe">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <span className="text-[13px] font-bold text-gray-900 uppercase tracking-wider">Menú</span>
               <button
                 onClick={() => setMoreMenuOpen(false)}
-                className="p-1 rounded-full hover:bg-gray-100"
+                className="p-1.5 rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors"
                 aria-label="Cerrar menú"
               >
-                <CloseIcon fontSize="small" className="text-gray-500" />
+                <CloseIcon style={{ fontSize: 18 }} className="text-gray-400" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto py-2">
-              <div className="flex flex-col px-2 space-y-1">
-                {secondaryNav.map((item) => {
-                  const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
-                  const Icon = item.Icon
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setMoreMenuOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm transition-colors ${
-                        isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      <Icon fontSize="small" className={isActive ? 'text-blue-600' : 'text-gray-500'} />
-                      <span className="font-medium">{item.name}</span>
-                    </Link>
-                  )
-                })}
-              </div>
+            {/* Sections */}
+            <div className="flex-1 overflow-y-auto py-3">
+              {secondarySections.map((section, sIdx) => (
+                <div key={sIdx} className={sIdx > 0 ? 'mt-2' : ''}>
+                  {/* Section label */}
+                  {section.label && (
+                    <div className="px-5 pb-1.5 pt-2">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{section.label}</span>
+                    </div>
+                  )}
+                  {/* Section items */}
+                  <div className="px-2.5">
+                    {section.items.map((item) => {
+                      const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
+                      const Icon = item.Icon
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setMoreMenuOpen(false)}
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] transition-colors ${
+                            isActive
+                              ? 'bg-blue-50 text-blue-700'
+                              : 'text-gray-700 hover:bg-gray-50 active:bg-gray-100'
+                          }`}
+                        >
+                          <Icon style={{ fontSize: 18 }} className={isActive ? 'text-blue-600' : 'text-gray-400'} />
+                          <span className="font-medium">{item.name}</span>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                  {/* Divider between sections */}
+                  {sIdx < secondarySections.length - 1 && section.label && (
+                    <div className="mx-5 mt-2 h-px bg-gray-100" />
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -186,4 +263,3 @@ export default function MobileBottomNav() {
     </>
   )
 }
-
