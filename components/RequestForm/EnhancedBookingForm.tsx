@@ -1,5 +1,10 @@
 'use client'
 
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
+import WarningAmberIcon from '@mui/icons-material/WarningAmber'
+import SyncIcon from '@mui/icons-material/Sync'
+import StorefrontIcon from '@mui/icons-material/Storefront'
 import { useState, useEffect, useCallback, useActionState, useTransition, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { saveBookingRequestDraft, sendBookingRequest, getBookingRequest } from '@/app/actions/booking'
@@ -27,6 +32,7 @@ import InformacionAdicionalStep from './steps/InformacionAdicionalStep'
 import ContenidoStep from './steps/ContenidoStep'
 import ValidacionStep from './steps/ValidacionStep'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import FullScreenLoader from '@/components/common/FullScreenLoader'
 import toast from 'react-hot-toast'
 
 // Action state types for React 19 useActionState
@@ -67,6 +73,14 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     error?: string
   } | null>(null)
   const [loadingBackfillPreview, setLoadingBackfillPreview] = useState(false)
+  // Vendor auto-creation result dialog (shown after direct send without backfill)
+  const [showVendorResultDialog, setShowVendorResultDialog] = useState(false)
+  const [vendorCreateResult, setVendorCreateResult] = useState<{
+    success?: boolean
+    externalVendorId?: number
+    error?: string
+    businessName?: string
+  } | null>(null)
   // Track linked business ID for backfill (from URL params when creating from Business)
   const [linkedBusinessId, setLinkedBusinessId] = useState<string | null>(null)
   
@@ -109,12 +123,26 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
       try {
         const result = await sendBookingRequest(submittedFormData, requestId)
         if (result.success) {
+          // If vendor was auto-created (or failed), show result dialog before redirecting
+          const vr = 'vendorResult' in result ? result.vendorResult : undefined
+          if (vr?.attempted) {
+            setVendorCreateResult({
+              success: vr.success,
+              externalVendorId: vr.externalVendorId,
+              error: vr.error,
+              businessName: vr.businessName,
+            })
+            setShowVendorResultDialog(true)
+            // Don't redirect yet — dialog close handler will redirect
+            return { success: true, error: null }
+          }
           toast.success('Solicitud enviada exitosamente')
           router.push('/booking-requests')
           return { success: true, error: null }
         } else {
-          toast.error('Error al enviar solicitud: ' + result.error)
-          return { success: false, error: result.error || 'Error desconocido' }
+          const errMsg = 'error' in result ? result.error : 'Error desconocido'
+          toast.error('Error al enviar solicitud: ' + errMsg)
+          return { success: false, error: errMsg || 'Error desconocido' }
         }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
@@ -831,6 +859,14 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     router.push('/booking-requests')
   }
 
+  // Handle vendor auto-creation result dialog close
+  const handleVendorResultClose = () => {
+    setShowVendorResultDialog(false)
+    setVendorCreateResult(null)
+    toast.success('Solicitud enviada exitosamente')
+    router.push('/booking-requests')
+  }
+
   // Regular submit (without backfill)
   const handleConfirmedSubmitRegular = () => {
     setShowConfirmDialog(false)
@@ -1157,11 +1193,22 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
               </div>
             )}
             
-            {backfillPreview?.hasVendorId && (
-              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                ⚡ También se sincronizará con OfertaSimple (Vendor API)
-              </p>
-            )}
+            {/* OfertaSimple sync info */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <SyncIcon style={{ fontSize: 14 }} className="text-gray-500" />
+                <p className="text-xs font-semibold text-gray-700">OfertaSimple Admin</p>
+              </div>
+              {backfillPreview?.hasVendorId ? (
+                <p className="text-xs text-gray-600">
+                  Los campos actualizados se sincronizarán automáticamente con el Vendor en OfertaSimple.
+                </p>
+              ) : (
+                <p className="text-xs text-gray-600">
+                  Se creará un nuevo Vendor en OfertaSimple con los datos de este negocio.
+                </p>
+              )}
+            </div>
             
             <p className="text-gray-500 text-xs pt-2 border-t border-gray-200">
               ¿Desea actualizar el negocio con estos datos y enviar la solicitud?
@@ -1185,9 +1232,10 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
           <div className="text-left space-y-3">
             {backfillResult?.success ? (
               <>
-                <p className="text-green-700 font-medium">
-                  ✅ Solicitud enviada exitosamente.
-                </p>
+                <div className="flex items-center gap-2 text-green-700 font-medium">
+                  <CheckCircleOutlineIcon style={{ fontSize: 18 }} />
+                  <span>Solicitud enviada exitosamente.</span>
+                </div>
                 
                 {backfillResult.fieldsUpdated && backfillResult.fieldsUpdated.length > 0 && (
                   <div className="bg-green-50 border border-green-200 rounded-lg p-3">
@@ -1201,15 +1249,17 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
                 )}
                 
                 {backfillResult.vendorSynced && (
-                  <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1">
-                    ⚡ Sincronizado con OfertaSimple (Vendor API)
-                  </p>
+                  <div className="flex items-center gap-1.5 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1.5">
+                    <SyncIcon style={{ fontSize: 14 }} />
+                    <span>Sincronizado con OfertaSimple (Vendor API)</span>
+                  </div>
                 )}
               </>
             ) : (
-              <p className="text-red-700">
-                ❌ {backfillResult?.error || 'Error desconocido'}
-              </p>
+              <div className="flex items-center gap-2 text-red-700">
+                <ErrorOutlineIcon style={{ fontSize: 18 }} />
+                <span>{backfillResult?.error || 'Error desconocido'}</span>
+              </div>
             )}
           </div>
         }
@@ -1218,6 +1268,61 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         confirmVariant={backfillResult?.success ? "success" : "danger"}
         onConfirm={handleBackfillResultClose}
         onCancel={handleBackfillResultClose}
+      />
+
+      {/* Vendor Auto-Creation Result Dialog */}
+      <ConfirmDialog
+        isOpen={showVendorResultDialog}
+        title="Solicitud Enviada"
+        message={
+          <div className="text-left space-y-3">
+            <div className="flex items-center gap-2 text-green-700 font-medium">
+              <CheckCircleOutlineIcon style={{ fontSize: 18 }} />
+              <span>Solicitud enviada exitosamente.</span>
+            </div>
+            
+            {vendorCreateResult?.success ? (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <StorefrontIcon style={{ fontSize: 14 }} className="text-blue-600" />
+                  <p className="text-xs font-semibold text-blue-800">
+                    Vendor creado en OfertaSimple
+                  </p>
+                </div>
+                <p className="text-sm text-blue-700">
+                  {vendorCreateResult.businessName && (
+                    <span className="font-medium">{vendorCreateResult.businessName}</span>
+                  )}
+                  {vendorCreateResult.externalVendorId && (
+                    <span className="text-blue-500 ml-1">(ID: {vendorCreateResult.externalVendorId})</span>
+                  )}
+                </p>
+              </div>
+            ) : vendorCreateResult?.error ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <WarningAmberIcon style={{ fontSize: 14 }} className="text-amber-600" />
+                  <p className="text-xs font-semibold text-amber-800">
+                    No se pudo crear el Vendor en OfertaSimple
+                  </p>
+                </div>
+                <p className="text-sm text-amber-700">
+                  {vendorCreateResult.error}
+                </p>
+                {vendorCreateResult.businessName && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    Negocio: {vendorCreateResult.businessName}
+                  </p>
+                )}
+              </div>
+            ) : null}
+          </div>
+        }
+        confirmText="Entendido"
+        cancelText=""
+        confirmVariant="success"
+        onConfirm={handleVendorResultClose}
+        onCancel={handleVendorResultClose}
       />
 
       {/* Loading overlay for backfill preview */}
@@ -1229,6 +1334,12 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
           </div>
         </div>
       )}
+
+      <FullScreenLoader
+        isLoading={isSubmitPending || isPending}
+        message="Enviando solicitud..."
+        subtitle="Procesando email y sincronizando datos"
+      />
     </div>
   )
 }

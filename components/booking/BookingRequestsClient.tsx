@@ -26,6 +26,7 @@ import BookingRequestMobileCard from './BookingRequestMobileCard'
 import toast from 'react-hot-toast'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import FullScreenLoader from '@/components/common/FullScreenLoader'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useSharedData } from '@/hooks/useSharedData'
 import { useUser } from '@clerk/nextjs'
@@ -1105,6 +1106,12 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
         confirmVariant={confirmDialog.options.confirmVariant}
         onConfirm={confirmDialog.handleConfirm}
         onCancel={confirmDialog.handleCancel}
+      />
+
+      <FullScreenLoader
+        isLoading={!!resendingId}
+        message="Reenviando solicitud..."
+        subtitle="Enviando email al negocio"
       />
     </div>
   )

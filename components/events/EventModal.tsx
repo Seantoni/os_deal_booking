@@ -26,6 +26,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import toast from 'react-hot-toast'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import FullScreenLoader from '@/components/common/FullScreenLoader'
 import ModalShell from '@/components/shared/ModalShell'
 import { Button, Input, Textarea, Alert } from '@/components/ui'
 
@@ -129,6 +130,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
   // React 19: useTransition for non-blocking UI during form actions
   const [isPending, startTransition] = useTransition()
   const loading = isPending
+  const [isBooking, setIsBooking] = useState(false)
   
   // React 19: useReducer for consolidated form state management
   const [formState, dispatch] = useReducer(formReducer, initialFormState)
@@ -574,6 +576,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
     if (onSuccess) {
       onSuccess(updatedEvent, 'book')
     }
+    setIsBooking(true)
 
     startTransition(async () => {
       try {
@@ -592,6 +595,9 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
           }
         }
         const externalApi = result?.data?.externalApi ?? null
+        // Dismiss loader before showing the result dialog
+        setIsBooking(false)
+
 
         // Small delay to ensure first dialog is fully closed before showing API result
         await new Promise(resolve => setTimeout(resolve, 100))
@@ -618,9 +624,9 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
           })
         }
         
-        // Close modal after user acknowledges the API result
         onClose()
       } catch (err) {
+        setIsBooking(false)
         // Optimistic update already rolled back via onSuccess
         const errorMsg = err instanceof Error ? err.message : 'Error al reservar el evento'
         setField('error', errorMsg)
@@ -906,6 +912,12 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
         onClose={() => setField('showBookingRequestModal', false)}
         requestId={linkedBookingRequest?.id || null}
         hideBackdrop={true}
+      />
+
+      <FullScreenLoader
+        isLoading={isBooking}
+        message="Reservando evento..."
+        subtitle="Enviando deal a OfertaSimple y procesando confirmación"
       />
     </>
   )

@@ -485,6 +485,57 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       })
     }
 
+    // Ensure linked business has a vendor in OfertaSimple (non-blocking)
+    // If the business exists but has no osAdminVendorId, create the vendor now
+    // so it's ready when the deal is sent on booking.
+    let vendorAutoCreateResult: { attempted: boolean; success?: boolean; externalVendorId?: number; error?: string; businessName?: string } = { attempted: false }
+    try {
+      const linkedBusinessId = formData.get('linkedBusinessId') as string | null
+      const opportunityId = formData.get('opportunityId') as string | null
+      
+      if (linkedBusinessId || opportunityId || businessEmail) {
+        const { findLinkedBusinessFull } = await import('@/lib/business/find-linked')
+        const linkedBusiness = await findLinkedBusinessFull({
+          businessId: linkedBusinessId,
+          opportunityId,
+          email: businessEmail,
+        })
+        
+        if (linkedBusiness && !linkedBusiness.osAdminVendorId) {
+          vendorAutoCreateResult.attempted = true
+          vendorAutoCreateResult.businessName = linkedBusiness.name
+          
+          // Ensure the business object has an email for the vendor API.
+          // The business record may not have contactEmail set yet, but the
+          // request always has businessEmail — use it as a fallback.
+          const businessForVendor = {
+            ...linkedBusiness,
+            contactEmail: linkedBusiness.contactEmail || businessEmail,
+          }
+          
+          const { sendVendorToExternalApi } = await import('@/lib/api/external-oferta')
+          const vendorResult = await sendVendorToExternalApi(businessForVendor as unknown as import('@/types').Business, {
+            userId,
+            triggeredBy: 'system',
+          })
+          vendorAutoCreateResult.success = vendorResult.success
+          if (vendorResult.success) {
+            vendorAutoCreateResult.externalVendorId = vendorResult.externalVendorId
+            logger.info(`Vendor auto-created for business "${linkedBusiness.name}" (ID: ${vendorResult.externalVendorId}) during request send`)
+          } else {
+            vendorAutoCreateResult.error = vendorResult.error
+            logger.warn(`Vendor auto-creation failed for business "${linkedBusiness.name}": ${vendorResult.error}`)
+          }
+        }
+      }
+    } catch (vendorError) {
+      // Non-blocking — don't fail the request send if vendor creation fails
+      vendorAutoCreateResult.attempted = true
+      vendorAutoCreateResult.success = false
+      vendorAutoCreateResult.error = vendorError instanceof Error ? vendorError.message : 'Unknown error'
+      logger.error('Error during vendor auto-creation on request send:', vendorError)
+    }
+
     // Get user information for email
     const user = await currentUser()
     const userEmail = user?.emailAddresses[0]?.emailAddress
@@ -630,7 +681,11 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
     })
 
     invalidateEntity('booking-requests')
-    return { success: true, data: bookingRequest }
+    return { 
+      success: true, 
+      data: bookingRequest,
+      vendorResult: vendorAutoCreateResult.attempted ? vendorAutoCreateResult : undefined,
+    }
   } catch (error) {
     return handleServerActionError(error, 'sendBookingRequest')
   }
@@ -1853,10 +1908,10 @@ export async function sendBookingRequestWithBackfill(
     // First, send the booking request using the existing function
     const sendResult = await sendBookingRequest(formData, requestId)
 
-    if (!sendResult.success || !sendResult.data) {
+    if (!sendResult.success || !('data' in sendResult) || !sendResult.data) {
       return {
         success: false,
-        error: sendResult.error || 'Failed to send booking request',
+        error: ('error' in sendResult ? sendResult.error : null) || 'Failed to send booking request',
       }
     }
 
