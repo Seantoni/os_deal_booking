@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
-import { handleServerActionError } from '@/lib/utils/server-actions'
+import { requireAdmin, handleServerActionError } from '@/lib/utils/server-actions'
 
 export type CronJobStatus = 'running' | 'success' | 'failed'
 
@@ -105,7 +105,7 @@ export async function completeCronJobLog(
 }
 
 /**
- * Get paginated cron job logs
+ * Get paginated cron job logs (admin only)
  */
 export async function getCronJobLogs(options: {
   page?: number
@@ -118,6 +118,11 @@ export async function getCronJobLogs(options: {
   totalCount?: number
   error?: string
 }> {
+  const authResult = await requireAdmin()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
   try {
     const { page = 0, pageSize = 20, jobName, status } = options
 
@@ -203,7 +208,7 @@ export async function cleanupOldCronJobLogs(
 }
 
 /**
- * Get summary stats for cron jobs
+ * Get summary stats for cron jobs (admin only)
  */
 export async function getCronJobStats(): Promise<{
   success: boolean
@@ -216,6 +221,11 @@ export async function getCronJobStats(): Promise<{
   }[]
   error?: string
 }> {
+  const authResult = await requireAdmin()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
   try {
     const oneDayAgo = new Date()
     oneDayAgo.setDate(oneDayAgo.getDate() - 1)

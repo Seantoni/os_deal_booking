@@ -3,10 +3,13 @@
 /**
  * Deal Metrics Server Actions
  * 
- * Syncs deal metrics from external Oferta API to local database
+ * Syncs deal metrics from external Oferta API to local database.
+ * All exported functions require authentication.
+ * syncDealMetrics requires admin role (triggers external API calls + bulk writes).
  */
 
 import { prisma } from '@/lib/prisma'
+import { requireAuth, requireAdmin } from '@/lib/utils/server-actions'
 import { fetchDealMetrics, fetchAllDealMetrics } from '@/lib/api/external-oferta/deal/metrics'
 import type { DealMetric } from '@/lib/api/external-oferta/deal/types'
 import type { Prisma } from '@prisma/client'
@@ -37,6 +40,12 @@ export async function syncDealMetrics(options: {
   userId?: string
   fetchAll?: boolean // If true, fetches all pages
 }): Promise<SyncMetricsResult> {
+  // Admin only — triggers external API calls, bulk writes, and auto-assignments
+  const authResult = await requireAdmin()
+  if (!('userId' in authResult)) {
+    return { success: false, message: authResult.error || 'Unauthorized' }
+  }
+
   const { sinceDays = 30, userId, fetchAll = false } = options
 
   // Calculate since date
@@ -344,6 +353,9 @@ async function updateBusinessMetricsForVendors(vendorIds: string[]): Promise<{ u
  * Get deal metrics summary
  */
 export async function getDealMetricsSummary() {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) return { totalDeals: 0, totalSnapshots: 0, latestSync: null }
+
   const [totalDeals, totalSnapshots, latestSync] = await Promise.all([
     prisma.dealMetrics.count(),
     prisma.dealMetricsSnapshot.count(),
@@ -364,6 +376,9 @@ export async function getDealMetricsSummary() {
  * Get recent deal metrics
  */
 export async function getRecentDealMetrics(limit = 20) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) return []
+
   return prisma.dealMetrics.findMany({
     orderBy: { lastSyncedAt: 'desc' },
     take: limit,
@@ -379,6 +394,9 @@ export async function getRecentDealMetrics(limit = 20) {
  * Get deal metrics by vendor ID (for business detail page)
  */
 export async function getDealMetricsByVendorId(vendorId: string) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) return { deals: [], summary: null }
+
   if (!vendorId) {
     return { deals: [], summary: null }
   }
@@ -534,6 +552,9 @@ export async function getDealMetricsPaginated(
     sortDirection?: 'asc' | 'desc'
   } & Record<string, string | number | boolean | undefined> = {}
 ): Promise<{ success: boolean; data?: FormattedDealMetric[]; total?: number; summary?: DealMetricsSummary; error?: string }> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) return { success: false, error: 'Unauthorized' }
+
   try {
   const {
     page = 0,
@@ -692,6 +713,9 @@ export async function getDealMetricsPaginated(
 export async function getDealMetricsCounts(
   filters?: Record<string, string | number | boolean | undefined>
 ): Promise<{ success: boolean; data?: Record<string, number>; error?: string }> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) return { success: false, error: 'Unauthorized' }
+
   try {
     const vendorId = filters?.vendorId as string | undefined
     const search = filters?.search as string | undefined
@@ -750,6 +774,9 @@ export async function searchDealMetrics(
   query: string,
   options?: { limit?: number } & Record<string, string | number | boolean | undefined>
 ): Promise<{ success: boolean; data?: FormattedDealMetric[]; error?: string }> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) return { success: false, error: 'Unauthorized' }
+
   try {
     const statusFilter = (options?.statusFilter as 'all' | 'active' | 'ended') || 'all'
     const vendorId = options?.vendorId as string | undefined
@@ -822,6 +849,9 @@ export async function searchDealMetrics(
  * Get unique vendor IDs for filter dropdown (with business names)
  */
 export async function getUniqueVendorIds(): Promise<{ id: string; dealCount: number; businessName: string | null }[]> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) return []
+
   const vendors = await prisma.dealMetrics.groupBy({
     by: ['externalVendorId'],
     _count: { id: true },
@@ -867,6 +897,9 @@ export async function getDealsByVendorId(
   vendorId: string,
   limit: number = 10
 ): Promise<{ success: boolean; data?: SimplifiedDeal[]; totalCount?: number; error?: string }> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) return { success: false, error: 'Unauthorized' }
+
   try {
     if (!vendorId) {
       return { success: false, error: 'Vendor ID is required' }
@@ -922,6 +955,9 @@ export async function getBusinessDealMetricsByVendorIds(
   vendorIds: string[]
 ): Promise<Map<string, BusinessDealMetricsSummary>> {
   const result = new Map<string, BusinessDealMetricsSummary>()
+  
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) return result
   
   if (vendorIds.length === 0) return result
 

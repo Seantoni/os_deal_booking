@@ -151,8 +151,12 @@ export async function POST(request: Request) {
  * Query params:
  * - site: 'rantanofertas' | 'oferta24' - which site to scan
  * - startFrom: number - starting index for chunked scan
- * - internal: 'true' - indicates self-invocation (skip auth)
+ * - internal: 'true' - indicates self-invocation (for logging only)
  * - logId: string - cron log ID to continue using
+ * 
+ * Auth: Bearer token via Authorization header (CRON_SECRET).
+ * Both Vercel Cron and internal chunk calls use the same header.
+ * Falls back to admin session auth when CRON_SECRET is not configured.
  */
 export async function GET(request: Request) {
   const startTime = Date.now()
@@ -161,28 +165,20 @@ export async function GET(request: Request) {
     const url = new URL(request.url)
     const site = url.searchParams.get('site') as SourceSite | null
     const startFrom = parseInt(url.searchParams.get('startFrom') || '0', 10)
-    const isInternalCall = url.searchParams.get('internal') === 'true'
-    const internalSecret = url.searchParams.get('secret')
     const existingLogId = url.searchParams.get('logId')
     
-    // Check for cron secret or internal call
-    // Vercel sends the secret in Authorization: Bearer <secret> format
+    // Auth: single path for both Vercel Cron and internal chunk calls.
+    // Both use Authorization: Bearer <CRON_SECRET> header.
     const authHeader = request.headers.get('authorization')
     const expectedSecret = process.env.CRON_SECRET
     
-    // Validate access
-    if (isInternalCall) {
-      // Internal calls must have matching secret
-      if (expectedSecret && internalSecret !== expectedSecret) {
-        return NextResponse.json({ error: 'Invalid internal secret' }, { status: 401 })
-      }
-    } else if (expectedSecret) {
-      // External calls (from Vercel Cron) must provide Bearer token
+    if (expectedSecret) {
+      // CRON_SECRET is configured: require matching Bearer token
       if (authHeader !== `Bearer ${expectedSecret}`) {
         return NextResponse.json({ error: 'Invalid cron secret' }, { status: 401 })
       }
     } else {
-      // No CRON_SECRET set, require auth
+      // Fail closed: no CRON_SECRET configured, require admin session auth
       const { userId } = await auth()
       if (!userId) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -334,6 +330,7 @@ export async function GET(request: Request) {
 
 /**
  * Trigger the next chunk of scanning (fire-and-forget)
+ * Auth is sent via Authorization header — never in the URL query string.
  */
 function triggerNextChunk(site: SourceSite, startFrom: number, secret?: string, logId?: string | null) {
   const baseUrl = getBaseUrl()
@@ -341,19 +338,23 @@ function triggerNextChunk(site: SourceSite, startFrom: number, secret?: string, 
   nextUrl.searchParams.set('site', site)
   nextUrl.searchParams.set('startFrom', startFrom.toString())
   nextUrl.searchParams.set('internal', 'true')
-  if (secret) {
-    nextUrl.searchParams.set('secret', secret)
-  }
   if (logId) {
     nextUrl.searchParams.set('logId', logId)
   }
   
-  logger.info(`Triggering next chunk: ${nextUrl.toString()}`)
+  // Log URL without secrets
+  logger.info(`Triggering next chunk: ${site} startFrom=${startFrom} logId=${logId || 'none'}`)
+  
+  // Build headers — send secret via Authorization header (same as Vercel Cron)
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (secret) {
+    headers['Authorization'] = `Bearer ${secret}`
+  }
   
   // Fire and forget - don't await
   fetch(nextUrl.toString(), {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
   }).catch(err => {
     logger.error('Failed to trigger next chunk:', err)
   })
