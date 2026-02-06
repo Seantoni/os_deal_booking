@@ -147,6 +147,37 @@ export async function getCronJobLogs(options: {
 }
 
 /**
+ * Mark stale "running" entries as failed.
+ * Called before starting a new scan to clean up jobs that got stuck
+ * (e.g. Vercel killed the function before completeCronJobLog ran).
+ */
+export async function markStaleCronJobsAsFailed(
+  jobName: CronJobName,
+  staleAfterMinutes: number = 10
+): Promise<{ markedCount: number }> {
+  const cutoff = new Date(Date.now() - staleAfterMinutes * 60 * 1000)
+
+  const result = await prisma.cronJobLog.updateMany({
+    where: {
+      jobName,
+      status: 'running',
+      startedAt: { lt: cutoff },
+    },
+    data: {
+      status: 'failed',
+      completedAt: new Date(),
+      error: `Marked as failed: stuck in "running" for over ${staleAfterMinutes} minutes (likely timed out)`,
+    },
+  })
+
+  if (result.count > 0) {
+    logger.warn(`[CronJobLog] Marked ${result.count} stale "${jobName}" runs as failed`)
+  }
+
+  return { markedCount: result.count }
+}
+
+/**
  * Delete cron job logs older than specified days
  */
 export async function cleanupOldCronJobLogs(

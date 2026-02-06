@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { getUserRole } from '@/lib/auth/roles'
 import { runFullScan, runSiteScan, runChunkedScan, SourceSite, ScanProgress } from '@/lib/scraping'
-import { startCronJobLog, completeCronJobLog, cleanupOldCronJobLogs } from '@/app/actions/cron-logs'
+import { startCronJobLog, completeCronJobLog, cleanupOldCronJobLogs, markStaleCronJobsAsFailed } from '@/app/actions/cron-logs'
 import { sendCronFailureEmail } from '@/lib/email/services/cron-failure'
 import { logger } from '@/lib/logger'
 
@@ -196,6 +196,9 @@ export async function GET(request: Request) {
     // If no site specified, start the scan sequence
     if (!site) {
       logger.info('Starting market-intelligence-scan cron job')
+      
+      // Clean up any previous runs stuck in "running" (e.g. Vercel killed the function)
+      await markStaleCronJobsAsFailed('market-intelligence-scan', 10)
       
       // Start cron job log at the beginning of the scan sequence
       const logResult = await startCronJobLog('market-intelligence-scan', 'cron')

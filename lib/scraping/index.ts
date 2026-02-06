@@ -39,6 +39,7 @@ export { scrapeDegusta } from './degusta'
 
 const MAX_DEALS_PER_SITE = 150 // 100 per site = 300 total max
 const CHUNK_SIZE = 25 // Process 25 deals per invocation to stay under Vercel timeout
+const CHUNK_TIMEOUT_MS = 4 * 60 * 1000 // 4 minutes — must be under Vercel's 5min maxDuration
 
 export { CHUNK_SIZE }
 
@@ -207,14 +208,63 @@ export interface ChunkedScanResult {
 }
 
 /**
- * Run a chunked scan - processes CHUNK_SIZE deals and returns continuation info
- * This is designed to stay under Vercel's timeout limit
+ * Run a chunked scan - processes CHUNK_SIZE deals and returns continuation info.
+ * This is designed to stay under Vercel's timeout limit.
+ *
+ * An overall CHUNK_TIMEOUT_MS guard ensures the function always returns
+ * before Vercel kills it, so the cron log can be completed properly.
  */
 export async function runChunkedScan(
   site: SourceSite,
   startFrom: number = 0,
   onProgress?: ProgressCallback,
   dealUrlsJson?: string // Serialized deal URLs for continuation
+): Promise<ChunkedScanResult> {
+  const startTime = Date.now()
+
+  // Race the actual work against an absolute timeout so the function
+  // always returns a result — even if the browser hangs on a page.
+  try {
+    return await Promise.race([
+      _runChunkedScanWork(site, startFrom, onProgress, dealUrlsJson),
+      new Promise<ChunkedScanResult>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`Chunk timed out after ${CHUNK_TIMEOUT_MS / 1000}s`)),
+          CHUNK_TIMEOUT_MS,
+        ),
+      ),
+    ])
+  } catch (error) {
+    const duration = (Date.now() - startTime) / 1000
+    const errorMsg = `Chunked scan timeout/error for ${site}: ${error instanceof Error ? error.message : 'Unknown'}`
+    console.error(errorMsg)
+
+    if (onProgress) {
+      onProgress({ site, phase: 'error', message: errorMsg })
+    }
+
+    return {
+      success: false,
+      dealsProcessed: 0,
+      dealsWithSales: 0,
+      newDeals: 0,
+      updatedDeals: 0,
+      errors: [errorMsg],
+      duration,
+      site,
+      totalAvailable: 0,
+      nextStartFrom: startFrom > 0 ? startFrom : undefined, // allow retry from same position
+      isComplete: false,
+    }
+  }
+}
+
+/** Inner implementation — extracted so it can be wrapped by the timeout race. */
+async function _runChunkedScanWork(
+  site: SourceSite,
+  startFrom: number,
+  onProgress?: ProgressCallback,
+  dealUrlsJson?: string,
 ): Promise<ChunkedScanResult> {
   const startTime = Date.now()
   const errors: string[] = []
