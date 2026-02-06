@@ -789,6 +789,9 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       <th className="px-4 py-3 font-medium">
                         <span>Origen</span>
                       </th>
+                      <th className="px-4 py-3 font-medium">
+                        <span>Deal ID</span>
+                      </th>
                       <th 
                         className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
                         onClick={() => handleSort('name')}
@@ -926,6 +929,15 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                           }`}>
                             {request.sourceType === 'public_link' ? 'Enlace Público' : 'Interno'}
                           </span>
+                        </TableCell>
+                        <TableCell>
+                          {request.dealId ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[12px] font-mono font-medium">
+                              {request.dealId}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-[13px]">—</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <span className="font-medium text-gray-900 truncate block text-[13px]">{request.name}</span>

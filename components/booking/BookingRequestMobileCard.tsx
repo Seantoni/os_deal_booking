@@ -149,6 +149,13 @@ export default function BookingRequestMobileCard({
             {request.sourceType === 'public_link' ? 'Enlace' : 'Interno'}
           </span>
 
+          {/* Deal ID */}
+          {request.dealId && (
+            <span className="inline-flex items-center px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[10px] font-mono font-medium">
+              #{request.dealId}
+            </span>
+          )}
+
           {/* Days badge */}
           {daysSinceCreated !== null && (
             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-50 text-gray-500">

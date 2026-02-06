@@ -604,14 +604,24 @@ export async function bookEvent(eventId: string) {
           
           if (bookingRequestData) {
             const { sendDealToExternalApi } = await import('@/lib/api/external-oferta')
-            externalApiResult = await sendDealToExternalApi(bookingRequestData, {
+            const apiResult = await sendDealToExternalApi(bookingRequestData, {
               userId,
               triggeredBy: 'system',
               // OfertaSimple dates should match the final booked event dates
               runAt: event.startDate,
               endAt: event.endDate,
             })
+            externalApiResult = apiResult
             logger.info('Deal sent to external API for booking request:', bookingRequest.id)
+            
+            // Store the external deal ID on the booking request for linking
+            if (apiResult.success && 'externalId' in apiResult && apiResult.externalId) {
+              await prisma.bookingRequest.update({
+                where: { id: bookingRequest.id },
+                data: { dealId: String(apiResult.externalId) },
+              })
+              logger.info('External deal ID stored on booking request:', bookingRequest.id, apiResult.externalId)
+            }
           } else {
             externalApiResult = { success: false, error: 'bookingRequestData not found' }
           }

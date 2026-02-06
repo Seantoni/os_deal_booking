@@ -20,6 +20,7 @@ export type BookingRequest = {
   status: BookingRequestStatus
   eventId: string | null
   opportunityId: string | null
+  dealId: string | null
   userId: string
   processedAt: Date | null
   processedBy: string | null
