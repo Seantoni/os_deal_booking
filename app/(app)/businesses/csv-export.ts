@@ -15,19 +15,10 @@ export const CSV_EXPORT_COLUMNS = [
   { key: 'contactName', label: 'Contacto', getValue: (b: Business) => b.contactName || '' },
   { key: 'contactEmail', label: 'Email', getValue: (b: Business) => b.contactEmail || '' },
   { key: 'contactPhone', label: 'Teléfono', getValue: (b: Business) => b.contactPhone || '' },
-  // Category
-  { key: 'category', label: 'Categoría', getValue: (b: Business) => {
-    if (!b.category) return ''
-    let cat = b.category.parentCategory
-    if (b.category.subCategory1) cat += ` > ${b.category.subCategory1}`
-    if (b.category.subCategory2) cat += ` > ${b.category.subCategory2}`
-    return cat
-  }},
+  // Category - export parent category only (matches form's parentOnly display mode)
+  { key: 'category', label: 'Categoría', getValue: (b: Business) => b.category?.parentCategory || '' },
   // Ownership
   { key: 'owner', label: 'Owner', getValue: (b: Business) => b.owner?.name || '' },
-  { key: 'salesReps', label: 'Sales Reps', getValue: (b: Business) => 
-    b.salesReps?.map(r => r.salesRep?.name || '').filter(Boolean).join(', ') || ''
-  },
   { key: 'salesTeam', label: 'Equipo', getValue: (b: Business) => b.salesTeam || '' },
   // Business info
   { key: 'tier', label: 'Tier', getValue: (b: Business) => b.tier?.toString() || '' },
@@ -44,9 +35,7 @@ export const CSV_EXPORT_COLUMNS = [
   { key: 'ruc', label: 'RUC', getValue: (b: Business) => b.ruc || '' },
   { key: 'razonSocial', label: 'Razón Social', getValue: (b: Business) => b.razonSocial || '' },
   // Location
-  { key: 'province', label: 'Provincia', getValue: (b: Business) => b.province || '' },
-  { key: 'district', label: 'Distrito', getValue: (b: Business) => b.district || '' },
-  { key: 'corregimiento', label: 'Corregimiento', getValue: (b: Business) => b.corregimiento || '' },
+  { key: 'provinceDistrictCorregimiento', label: 'Prov,Dist,Corr', getValue: (b: Business) => b.provinceDistrictCorregimiento || '' },
   { key: 'address', label: 'Dirección', getValue: (b: Business) => b.address || '' },
   { key: 'neighborhood', label: 'Barriada', getValue: (b: Business) => b.neighborhood || '' },
   // Payment info

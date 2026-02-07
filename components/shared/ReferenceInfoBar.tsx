@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline'
@@ -11,6 +11,9 @@ import HistoryIcon from '@mui/icons-material/History'
 import AssignmentIcon from '@mui/icons-material/Assignment'
 import GroupsIcon from '@mui/icons-material/Groups'
 import ScheduleIcon from '@mui/icons-material/Schedule'
+import LockIcon from '@mui/icons-material/Lock'
+import LockOpenIcon from '@mui/icons-material/LockOpen'
+import StorefrontIcon from '@mui/icons-material/Storefront'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import UserSelect from './UserSelect'
 
@@ -212,8 +215,12 @@ function UserSelectItem({
   }))
 
   const handleChange = (newUserId: string | null) => {
-    onChange(newUserId || '')
+    // Use special value '__unassigned__' to allow clearing the owner
+    onChange(newUserId || '__unassigned__')
   }
+
+  // Convert '__unassigned__' to null for display (shows placeholder)
+  const displayValue = userId === '__unassigned__' ? null : userId
 
   return (
     <Item 
@@ -221,7 +228,7 @@ function UserSelectItem({
       label={label}
     >
       <UserSelect
-        value={userId}
+        value={displayValue}
         onChange={handleChange}
         users={userOptions}
         canEdit={isAdmin}
@@ -319,6 +326,84 @@ function TextItem({
         />
       )}
     </Item>
+  )
+}
+
+// Vendor ID item with lock/unlock for admin users
+function VendorIdItem({
+  value,
+  onChange,
+  isAdmin,
+  placeholder = 'ID',
+  onLockChange,
+}: {
+  value: string
+  onChange?: (value: string) => void
+  isAdmin: boolean
+  placeholder?: string
+  onLockChange?: (locked: boolean) => void
+}) {
+  const [isUnlocked, setIsUnlocked] = useState(false)
+  // Track initial value to detect when switching to different business
+  const initialValueRef = useRef(value)
+  
+  // Reset lock state only when switching to a different business (initial value changes significantly)
+  useEffect(() => {
+    // Only reset if we're getting a completely different initial value (different business)
+    // Don't reset while user is typing
+    if (!isUnlocked && value !== initialValueRef.current) {
+      initialValueRef.current = value
+    }
+  }, [value, isUnlocked])
+
+  const hasValue = value && value.trim() !== ''
+  const canEdit = isAdmin && isUnlocked
+
+  const handleToggleLock = () => {
+    const newUnlocked = !isUnlocked
+    setIsUnlocked(newUnlocked)
+    onLockChange?.(!newUnlocked) // notify parent: locked = !unlocked
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <StorefrontIcon className="text-gray-400" style={{ fontSize: 14 }} />
+      <span className="font-medium text-gray-500">Vendor ID:</span>
+      
+      {canEdit ? (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange?.(e.target.value)}
+          placeholder={placeholder}
+          className="text-xs border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded px-2 py-0.5 bg-white shadow-sm w-20"
+        />
+      ) : (
+        <span className={hasValue ? 'text-gray-900 font-medium' : 'text-gray-400'}>
+          {value || placeholder}
+        </span>
+      )}
+      
+      {/* Lock/Unlock button - only for admin */}
+      {isAdmin && (
+        <button
+          type="button"
+          onClick={handleToggleLock}
+          className={`p-1 rounded transition-colors ${
+            isUnlocked
+              ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+              : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'
+          }`}
+          title={isUnlocked ? 'Click para bloquear' : 'Click para desbloquear edición (solo admin)'}
+        >
+          {isUnlocked ? (
+            <LockOpenIcon style={{ fontSize: 14 }} />
+          ) : (
+            <LockIcon style={{ fontSize: 14 }} />
+          )}
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -476,6 +561,9 @@ const Icons = {
   Task: AssignmentIcon,
   Meeting: GroupsIcon,
   Schedule: ScheduleIcon,
+  Lock: LockIcon,
+  LockOpen: LockOpenIcon,
+  Storefront: StorefrontIcon,
 }
 
 // Create compound component
@@ -487,6 +575,7 @@ const ReferenceInfoBar = Object.assign(ReferenceInfoBarComponent, {
   TeamSelectItem,
   UserDisplayItem,
   TextItem,
+  VendorIdItem,
   Section,
   ActivityPair,
   CompactDate,

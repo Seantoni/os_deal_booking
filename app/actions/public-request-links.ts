@@ -14,6 +14,7 @@ import { buildCategoryKey } from '@/lib/category-utils'
 import { getAppBaseUrl } from '@/lib/config/env'
 import { logger } from '@/lib/logger'
 import { generateRequestName, countBusinessRequests } from '@/lib/utils/request-naming'
+import { extractDisplayName, extractUserEmail } from '@/lib/auth/user-display'
 
 /**
  * Generate a public request link and send it via email
@@ -41,10 +42,10 @@ export async function generateAndSendPublicLink(recipientEmails: string | string
       return { success: false, error: 'No se proporcionaron direcciones de correo electrónico válidas' }
     }
 
-    // Get user information for email
+    // Get user information for email using centralized utility
     const user = await currentUser()
-    const userEmail = user?.emailAddresses[0]?.emailAddress
-    const userName = user?.firstName || user?.lastName ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : userEmail || 'Team Member'
+    const userEmail = extractUserEmail(user)
+    const userName = extractDisplayName(user) || userEmail || 'Team Member'
 
     // Generate unique token
     const token = generatePublicLinkToken()
@@ -258,19 +259,14 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
         accountNumber: fields.accountNumber,
         accountType: fields.accountType,
         addressAndHours: fields.addressAndHours,
-        province: fields.province,
-        district: fields.district,
-        corregimiento: fields.corregimiento,
+        provinceDistrictCorregimiento: fields.provinceDistrictCorregimiento,
         // Negocio: Reglas de Negocio y Restricciones
         includesTaxes: fields.includesTaxes,
         validOnHolidays: fields.validOnHolidays,
         hasExclusivity: fields.hasExclusivity,
         blackoutDates: fields.blackoutDates,
         exclusivityCondition: fields.exclusivityCondition,
-        giftVouchers: fields.giftVouchers,
         hasOtherBranches: fields.hasOtherBranches,
-        vouchersPerPerson: fields.vouchersPerPerson,
-        commission: fields.commission,
         // Descripción: Descripción y Canales de Venta
         redemptionMethods: redemptionMethodsJson,
         contactDetails: fields.contactDetails,

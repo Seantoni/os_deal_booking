@@ -130,7 +130,6 @@ interface BookingRequestData {
   businessReview?: string | null
   addressAndHours?: string | null
   paymentInstructions?: string | null
-  giftVouchers?: string | null
   dealImages?: Prisma.JsonValue
   socialMedia?: string | null
   contactDetails?: string | null
@@ -399,7 +398,6 @@ export async function sendDealToExternalApi(
     businessReview: bookingRequest.businessReview || '',
     addressAndHours: bookingRequest.addressAndHours || '',
     paymentInstructions: bookingRequest.paymentInstructions || '',
-    giftVouchers: bookingRequest.giftVouchers || 'Sí',
     dealImages: dealImages,
     socialMedia: bookingRequest.socialMedia || '',
     contactDetails: bookingRequest.contactDetails || '',
@@ -417,11 +415,43 @@ export async function sendDealToExternalApi(
     bookingRequest.subCategory2
   )
   
+  // Look up the linked business's external vendor ID for precise matching.
+  // Falls back to vendorName-only if no business/vendor is linked.
+  let resolvedVendorId: number | null = null
+  try {
+    const { prisma } = await import('@/lib/prisma')
+    
+    // Try via opportunityId → business → osAdminVendorId
+    if (bookingRequest.opportunityId) {
+      const opp = await prisma.opportunity.findUnique({
+        where: { id: bookingRequest.opportunityId },
+        select: { business: { select: { osAdminVendorId: true } } },
+      })
+      if (opp?.business?.osAdminVendorId) {
+        resolvedVendorId = parseInt(opp.business.osAdminVendorId, 10) || null
+      }
+    }
+    
+    // Fallback: look up business by email
+    if (!resolvedVendorId && bookingRequest.businessEmail) {
+      const business = await prisma.business.findFirst({
+        where: { contactEmail: bookingRequest.businessEmail },
+        select: { osAdminVendorId: true },
+      })
+      if (business?.osAdminVendorId) {
+        resolvedVendorId = parseInt(business.osAdminVendorId, 10) || null
+      }
+    }
+  } catch {
+    // Non-blocking — proceed without vendorId if lookup fails
+  }
+
   // Use mapper to build the payload (includes all pricing options properly)
   const payload = mapBookingFormToApi(formData as BookingFormData, {
     slug: generateSlug(businessName),
     expiresOn: calculateExpiresOn(finalEndAt || endDate, campaignMonths),
     categoryId: 17, // Hardcoded for now
+    vendorId: resolvedVendorId ?? undefined,
     // API requirement: day boundaries (00:00 and 23:59) in Panama time
     runAt: finalRunAt ? formatOfertaSimpleBoundary(finalRunAt, 'start') : null,
     endAt: finalEndAt ? formatOfertaSimpleBoundary(finalEndAt, 'end') : null,

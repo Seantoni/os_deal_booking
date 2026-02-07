@@ -14,7 +14,10 @@ export interface DropdownProps {
   items: DropdownItem[]
   onSelect: (value: string) => void
   placeholder?: string
+  /** @deprecated Use `value` instead - label will be computed from items */
   selectedLabel?: string
+  /** Current selected value - label is computed from items automatically */
+  value?: string
   fullWidth?: boolean
   className?: string
   buttonClassName?: string
@@ -32,6 +35,7 @@ export function Dropdown({
   onSelect,
   placeholder = 'Seleccionar...',
   selectedLabel,
+  value,
   fullWidth = false,
   className,
   buttonClassName,
@@ -41,6 +45,9 @@ export function Dropdown({
 }: DropdownProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  
+  // Compute display label: use selectedLabel if provided, otherwise derive from value
+  const displayLabel = selectedLabel ?? (value ? items.find(i => i.value === value)?.label : undefined)
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -81,7 +88,7 @@ export function Dropdown({
           buttonClassName
         )}
       >
-        <span className={cn('truncate', !selectedLabel && 'text-gray-400')}>{selectedLabel || placeholder}</span>
+        <span className={cn('truncate', !displayLabel && 'text-gray-400')}>{displayLabel || placeholder}</span>
         <svg
           className={cn('h-4 w-4 text-gray-400 transition-transform', open && 'rotate-180')}
           viewBox="0 0 20 20"

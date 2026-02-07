@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import { getOpportunitiesPaginated, searchOpportunities, getOpportunityCounts } from '@/app/actions/opportunities'
 import { deleteOpportunity } from '@/app/actions/crm'
-import type { Opportunity } from '@/types'
+import type { Opportunity, Business } from '@/types'
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban'
 import TableChartIcon from '@mui/icons-material/TableChart'
 import FilterListIcon from '@mui/icons-material/FilterList'
@@ -29,11 +29,13 @@ import { sortEntities } from '@/hooks/useEntityPage'
 import { 
   EntityPageHeader, 
   EmptyTableState, 
+  UserFilterDropdown,
   type FilterTab,
   type ColumnConfig,
 } from '@/components/shared'
 import { EntityTable, StatusPill, TableRow, TableCell } from '@/components/shared/table'
 import { Button } from '@/components/ui'
+import { OpportunityMobileCard } from './components'
 
 // Lazy load heavy modal components
 const OpportunityFormModal = dynamic(() => import('@/components/crm/opportunity/OpportunityFormModal'), {
@@ -64,7 +66,7 @@ const COLUMNS: ColumnConfig[] = [
 
 interface OpportunitiesPageClientProps {
   initialOpportunities?: Opportunity[]
-  initialBusinesses?: any[]
+  initialBusinesses?: Business[]
   initialTotal?: number
   initialCounts?: Record<string, number>
 }
@@ -131,6 +133,12 @@ export default function OpportunitiesPageClient({
   const stageFilter = (filters.stage as string) || 'all'
   const setStageFilter = useCallback((stage: string) => {
     updateFilter('stage', stage === 'all' ? undefined : stage)
+  }, [updateFilter])
+  
+  // Responsible filter (admin quick filter)
+  const responsibleFilter = (filters.responsibleId as string) || null
+  const setResponsibleFilter = useCallback((userId: string | null) => {
+    updateFilter('responsibleId', userId || undefined)
   }, [updateFilter])
   
   // Modal state
@@ -344,9 +352,7 @@ export default function OpportunitiesPageClient({
 
     if (business.razonSocial) params.legalName = business.razonSocial
     if (business.ruc) params.ruc = business.ruc
-    if (business.province) params.province = business.province
-    if (business.district) params.district = business.district
-    if (business.corregimiento) params.corregimiento = business.corregimiento
+    if (business.provinceDistrictCorregimiento) params.provinceDistrictCorregimiento = business.provinceDistrictCorregimiento
     if (business.bank) params.bank = business.bank
     if (business.beneficiaryName) params.bankAccountName = business.beneficiaryName
     if (business.accountNumber) params.accountNumber = business.accountNumber
@@ -478,9 +484,29 @@ export default function OpportunitiesPageClient({
     </div>
   )
 
-  // Right side content for header
+  // User filter dropdown options (from users in shared data)
+  const userFilterOptions = useMemo(() => {
+    return users.map(user => ({
+      id: user.clerkId,
+      name: user.name || user.email || user.clerkId,
+      email: user.email,
+    }))
+  }, [users])
+
+  // User filter dropdown (admin only)
+  const userFilter = isAdmin ? (
+    <UserFilterDropdown
+      users={userFilterOptions}
+      value={responsibleFilter}
+      onChange={setResponsibleFilter}
+      label="Responsable"
+      placeholder="Todos"
+    />
+  ) : undefined
+
+  // Right side content for header — Import/CSV hidden on mobile
   const headerRightContent = isAdmin ? (
-    <div className="flex items-center gap-2">
+    <div className="hidden md:flex items-center gap-2">
       <Button
         onClick={() => setUploadModalOpen(true)}
         variant="secondary"
@@ -517,29 +543,32 @@ export default function OpportunitiesPageClient({
         onFilterChange={setStageFilter}
         isAdmin={isAdmin}
         beforeFilters={viewToggle}
+        userFilter={userFilter}
         rightContent={headerRightContent}
         {...advancedFilterProps}
       />
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto p-0 md:p-4">
         {isLoading ? (
-          <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200 flex items-center gap-2">
+          <div className="p-6 mx-4 mt-4 md:mx-0 md:mt-0 text-sm text-gray-500 bg-white rounded-lg border border-gray-200 flex items-center gap-2">
             <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
             {searchLoading ? 'Buscando...' : 'Cargando...'}
           </div>
         ) : filteredOpportunities.length === 0 ? (
-          <EmptyTableState
-            icon={<FilterListIcon className="w-full h-full" />}
-            title="No se encontraron oportunidades"
-            description={
-              searchQuery || stageFilter !== 'all' || filterRules.length > 0
-                ? 'Intente ajustar su búsqueda o filtros' 
-                : 'Comience creando una nueva oportunidad'
-            }
-          />
+          <div className="px-4 pt-4 md:px-0 md:pt-0">
+            <EmptyTableState
+              icon={<FilterListIcon className="w-full h-full" />}
+              title="No se encontraron oportunidades"
+              description={
+                searchQuery || stageFilter !== 'all' || filterRules.length > 0
+                  ? 'Intente ajustar su búsqueda o filtros' 
+                  : 'Comience creando una nueva oportunidad'
+              }
+            />
+          </div>
         ) : viewMode === 'kanban' ? (
-          <div className="h-full overflow-x-auto pb-2">
+          <div className="h-full overflow-x-auto pb-2 p-4">
             <OpportunityKanban
               opportunities={filteredOpportunities}
               onUpdate={() => loadPage(currentPage)}
@@ -548,75 +577,105 @@ export default function OpportunitiesPageClient({
             />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <SearchIndicator />
+          <>
+            {/* Mobile card list */}
+            <div className="md:hidden">
+              <SearchIndicator />
 
-            <EntityTable
-              columns={COLUMNS}
-              sortColumn={sortColumn}
-              sortDirection={sortDirection}
-              onSort={handleSort}
-            >
-              {filteredOpportunities.map((opportunity, index) => (
-                <TableRow
-                  key={opportunity.id}
-                  index={index}
-                  onClick={() => handleEditOpportunity(opportunity)}
-                  onMouseEnter={handleRowHover}
-                >
-                  <TableCell>
-                    <span className="font-medium text-gray-900 text-[13px]">
-                      {opportunity.business?.name || 'Unknown Business'}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <StatusPill
-                      label={STAGE_LABELS[opportunity.stage] || opportunity.stage}
-                      tone={
-                        opportunity.stage === 'won'
-                          ? 'success'
-                          : opportunity.stage === 'lost'
-                            ? 'danger'
-                            : 'info'
-                      }
-                    />
-                  </TableCell>
-                  <TableCell className="text-[13px] text-gray-600">
-                    {new Date(opportunity.startDate).toLocaleDateString('en-US', {
-                      timeZone: PANAMA_TIMEZONE,
-                      month: 'short',
-                      day: 'numeric',
-                    })}
-                  </TableCell>
-                  <TableCell className="text-[13px] text-gray-600">
-                    {opportunity.closeDate ? (
-                      new Date(opportunity.closeDate).toLocaleDateString('en-US', {
+              {/* Results count */}
+              <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                  {filteredOpportunities.length} oportunidad{filteredOpportunities.length !== 1 ? 'es' : ''}
+                </span>
+              </div>
+
+              <div className="bg-white">
+                {filteredOpportunities.map((opportunity) => (
+                  <OpportunityMobileCard
+                    key={opportunity.id}
+                    opportunity={opportunity}
+                    onCardTap={handleEditOpportunity}
+                    onRowHover={handleRowHover}
+                  />
+                ))}
+              </div>
+
+              <div className="px-4 py-3">
+                <PaginationControls />
+              </div>
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
+              <SearchIndicator />
+
+              <EntityTable
+                columns={COLUMNS}
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
+              >
+                {filteredOpportunities.map((opportunity, index) => (
+                  <TableRow
+                    key={opportunity.id}
+                    index={index}
+                    onClick={() => handleEditOpportunity(opportunity)}
+                    onMouseEnter={handleRowHover}
+                  >
+                    <TableCell>
+                      <span className="font-medium text-gray-900 text-[13px]">
+                        {opportunity.business?.name || 'Unknown Business'}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <StatusPill
+                        label={STAGE_LABELS[opportunity.stage] || opportunity.stage}
+                        tone={
+                          opportunity.stage === 'won'
+                            ? 'success'
+                            : opportunity.stage === 'lost'
+                              ? 'danger'
+                              : 'info'
+                        }
+                      />
+                    </TableCell>
+                    <TableCell className="text-[13px] text-gray-600">
+                      {new Date(opportunity.startDate).toLocaleDateString('en-US', {
                         timeZone: PANAMA_TIMEZONE,
                         month: 'short',
                         day: 'numeric',
-                      })
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {opportunity.notes ? (
-                      <div className="text-[13px] text-gray-500 max-w-[240px] truncate" title={opportunity.notes}>
-                        {opportunity.notes}
-                      </div>
-                    ) : (
-                      <span className="text-gray-400 text-[13px]">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                    {/* Actions removed - row click opens edit modal */}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </EntityTable>
-            
-            <PaginationControls />
-          </div>
+                      })}
+                    </TableCell>
+                    <TableCell className="text-[13px] text-gray-600">
+                      {opportunity.closeDate ? (
+                        new Date(opportunity.closeDate).toLocaleDateString('en-US', {
+                          timeZone: PANAMA_TIMEZONE,
+                          month: 'short',
+                          day: 'numeric',
+                        })
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {opportunity.notes ? (
+                        <div className="text-[13px] text-gray-500 max-w-[240px] truncate" title={opportunity.notes}>
+                          {opportunity.notes}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-[13px]">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                      {/* Actions removed - row click opens edit modal */}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </EntityTable>
+              
+              <PaginationControls />
+            </div>
+          </>
         )}
       </div>
 

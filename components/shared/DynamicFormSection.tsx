@@ -24,6 +24,8 @@ interface DynamicFormSectionProps {
   categories?: CategoryRecord[]
   users?: UserOption[]
   businesses?: BusinessOption[]
+  // Category display mode: 'full' shows full path, 'parentOnly' shows only parent category
+  categoryDisplayMode?: 'full' | 'parentOnly'
   // Field-specific overrides
   fieldOverrides?: Record<string, { canEdit?: boolean }>
   // Field addons (custom elements to render next to specific fields)
@@ -33,6 +35,8 @@ interface DynamicFormSectionProps {
   collapsible?: boolean
   // Edit mode flag
   isEditMode?: boolean
+  // Field types to always hide (e.g., ['business-select'] to hide business selection)
+  hiddenFieldTypes?: string[]
 }
 
 function DynamicFormSection({
@@ -43,16 +47,20 @@ function DynamicFormSection({
   categories = [],
   users = [],
   businesses = [],
+  categoryDisplayMode = 'full',
   fieldOverrides = {},
   fieldAddons = {},
   defaultExpanded = true,
   collapsible = true,
   isEditMode = false,
+  hiddenFieldTypes = [],
 }: DynamicFormSectionProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
-  // Filter to only visible fields
-  const visibleFields = section.fields.filter(f => f.isVisible)
+  // Filter to only visible fields, excluding hidden field types
+  const visibleFields = section.fields.filter(f => 
+    f.isVisible && !hiddenFieldTypes.includes(f.definition?.type || '')
+  )
 
   if (visibleFields.length === 0) {
     return null
@@ -85,6 +93,7 @@ function DynamicFormSection({
                   categories={categories}
                   users={users}
                   businesses={businesses}
+                  categoryDisplayMode={categoryDisplayMode}
                   canEdit={override.canEdit}
                   isEditMode={isEditMode}
                 />
@@ -101,6 +110,7 @@ function DynamicFormSection({
                   categories={categories}
                   users={users}
                   businesses={businesses}
+                  categoryDisplayMode={categoryDisplayMode}
                   canEdit={nextOverride.canEdit}
                   isEditMode={isEditMode}
                 />
@@ -123,6 +133,7 @@ function DynamicFormSection({
                 categories={categories}
                 users={users}
                 businesses={businesses}
+                categoryDisplayMode={categoryDisplayMode}
                 canEdit={override.canEdit}
                 isEditMode={isEditMode}
               />

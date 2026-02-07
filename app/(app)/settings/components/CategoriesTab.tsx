@@ -239,9 +239,9 @@ export default function CategoriesTab({ settings, setSettings }: CategoriesTabPr
       hierarchy[pathParts[0]] = value
       return
     }
-    let current: any = hierarchy[pathParts[0]]
+    let current: { [key: string]: CategoryNode } = hierarchy[pathParts[0]] as { [key: string]: CategoryNode }
     for (let i = 1; i < pathParts.length - 1; i++) {
-      current = current[pathParts[i]]
+      current = current[pathParts[i]] as { [key: string]: CategoryNode }
     }
     current[pathParts[pathParts.length - 1]] = value
   }
@@ -307,11 +307,11 @@ export default function CategoriesTab({ settings, setSettings }: CategoriesTabPr
     const newLeaves = parentNode.filter(l => l !== itemName)
     
     // Create new object structure
-    const newParent: CategoryNode = {}
+    const newParent: { [key: string]: CategoryNode } = {}
     for (const leaf of newLeaves) {
-      (newParent as any)[leaf] = []
+      newParent[leaf] = []
     }
-    (newParent as any)[itemName] = {}
+    newParent[itemName] = {}
     
     setNodeAtPath(hierarchy, parentPath, newParent)
     setSettings({ ...settings, customCategories: hierarchy })

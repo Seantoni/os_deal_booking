@@ -10,6 +10,7 @@ import { getUserRole } from '@/lib/auth/roles'
 import { resend, EMAIL_CONFIG } from '@/lib/email/config'
 import { renderBookingRequestEmail } from '@/lib/email/templates/booking-request'
 import { resendBookingRequestEmail } from '@/lib/email/services/booking-request-resend'
+import { generateBookingRequestPDF, generateBookingRequestPDFFilename } from '@/lib/pdf'
 import { generateApprovalToken } from '@/lib/tokens'
 import type { BookingRequestStatus, BookingRequest } from '@/types'
 import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
@@ -22,6 +23,14 @@ import { parseDateInPanamaTime, parseEndDateInPanamaTime, PANAMA_TIMEZONE, forma
 import { buildCategoryKey } from '@/lib/category-utils'
 import { logActivity } from '@/lib/activity-log'
 import { generateRequestName, countBusinessRequests } from '@/lib/utils/request-naming'
+import { findLinkedBusiness, findLinkedBusinessFull } from '@/lib/business'
+import { 
+  previewBackfillFromRequest, 
+  executeBackfillFromRequest,
+  type BackfillChange,
+  type BackfillPreviewResult,
+  type BackfillExecuteResult,
+} from '@/lib/business-backfill'
 
 /**
  * Create or update a booking request as draft
@@ -117,6 +126,7 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
       userId,
       // Configuración: Configuración General y Vigencia
       campaignDuration: fields.campaignDuration,
+      campaignDurationUnit: fields.campaignDurationUnit || 'months',
       // Operatividad: Operatividad y Pagos
       redemptionMode: fields.redemptionMode,
       isRecurring: fields.isRecurring,
@@ -135,19 +145,14 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
       accountNumber: fields.accountNumber,
       accountType: fields.accountType,
       addressAndHours: fields.addressAndHours,
-      province: fields.province,
-      district: fields.district,
-      corregimiento: fields.corregimiento,
+      provinceDistrictCorregimiento: fields.provinceDistrictCorregimiento,
       // Negocio: Reglas de Negocio y Restricciones
       includesTaxes: fields.includesTaxes,
       validOnHolidays: fields.validOnHolidays,
       hasExclusivity: fields.hasExclusivity,
       blackoutDates: fields.blackoutDates,
       exclusivityCondition: fields.exclusivityCondition,
-      giftVouchers: fields.giftVouchers,
       hasOtherBranches: fields.hasOtherBranches,
-      vouchersPerPerson: fields.vouchersPerPerson,
-      commission: fields.commission,
       // Descripción: Descripción y Canales de Venta
       redemptionMethods: redemptionMethodsJson,
       contactDetails: fields.contactDetails,
@@ -207,11 +212,11 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
  * Send a booking request (changes status to pending)
  */
 export async function sendBookingRequest(formData: FormData, requestId?: string) {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
+  const { userId } = authResult
 
   try {
     const name = formData.get('name') as string
@@ -345,6 +350,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       userId,
       // Configuración: Configuración General y Vigencia
       campaignDuration: (formData.get('campaignDuration') as string) || null,
+      campaignDurationUnit: (formData.get('campaignDurationUnit') as string) || 'months',
       // Operatividad: Operatividad y Pagos
       redemptionMode: (formData.get('redemptionMode') as string) || null,
       isRecurring: (formData.get('isRecurring') as string) || null,
@@ -363,19 +369,14 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       accountNumber: (formData.get('accountNumber') as string) || null,
       accountType: (formData.get('accountType') as string) || null,
       addressAndHours: (formData.get('addressAndHours') as string) || null,
-      province: (formData.get('province') as string) || null,
-      district: (formData.get('district') as string) || null,
-      corregimiento: (formData.get('corregimiento') as string) || null,
+      provinceDistrictCorregimiento: (formData.get('provinceDistrictCorregimiento') as string) || null,
       // Negocio: Reglas de Negocio y Restricciones
       includesTaxes: (formData.get('includesTaxes') as string) || null,
       validOnHolidays: (formData.get('validOnHolidays') as string) || null,
       hasExclusivity: (formData.get('hasExclusivity') as string) || null,
       blackoutDates: (formData.get('blackoutDates') as string) || null,
       exclusivityCondition: (formData.get('exclusivityCondition') as string) || null,
-      giftVouchers: (formData.get('giftVouchers') as string) || null,
       hasOtherBranches: (formData.get('hasOtherBranches') as string) || null,
-      vouchersPerPerson: (formData.get('vouchersPerPerson') as string) || null,
-      commission: (formData.get('commission') as string) || null,
       // Descripción: Descripción y Canales de Venta
       redemptionMethods,
       contactDetails: (formData.get('contactDetails') as string) || null,
@@ -484,6 +485,57 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       })
     }
 
+    // Ensure linked business has a vendor in OfertaSimple (non-blocking)
+    // If the business exists but has no osAdminVendorId, create the vendor now
+    // so it's ready when the deal is sent on booking.
+    let vendorAutoCreateResult: { attempted: boolean; success?: boolean; externalVendorId?: number; error?: string; businessName?: string } = { attempted: false }
+    try {
+      const linkedBusinessId = formData.get('linkedBusinessId') as string | null
+      const opportunityId = formData.get('opportunityId') as string | null
+      
+      if (linkedBusinessId || opportunityId || businessEmail) {
+        const { findLinkedBusinessFull } = await import('@/lib/business/find-linked')
+        const linkedBusiness = await findLinkedBusinessFull({
+          businessId: linkedBusinessId,
+          opportunityId,
+          email: businessEmail,
+        })
+        
+        if (linkedBusiness && !linkedBusiness.osAdminVendorId) {
+          vendorAutoCreateResult.attempted = true
+          vendorAutoCreateResult.businessName = linkedBusiness.name
+          
+          // Ensure the business object has an email for the vendor API.
+          // The business record may not have contactEmail set yet, but the
+          // request always has businessEmail — use it as a fallback.
+          const businessForVendor = {
+            ...linkedBusiness,
+            contactEmail: linkedBusiness.contactEmail || businessEmail,
+          }
+          
+          const { sendVendorToExternalApi } = await import('@/lib/api/external-oferta')
+          const vendorResult = await sendVendorToExternalApi(businessForVendor as unknown as import('@/types').Business, {
+            userId,
+            triggeredBy: 'system',
+          })
+          vendorAutoCreateResult.success = vendorResult.success
+          if (vendorResult.success) {
+            vendorAutoCreateResult.externalVendorId = vendorResult.externalVendorId
+            logger.info(`Vendor auto-created for business "${linkedBusiness.name}" (ID: ${vendorResult.externalVendorId}) during request send`)
+          } else {
+            vendorAutoCreateResult.error = vendorResult.error
+            logger.warn(`Vendor auto-creation failed for business "${linkedBusiness.name}": ${vendorResult.error}`)
+          }
+        }
+      }
+    } catch (vendorError) {
+      // Non-blocking — don't fail the request send if vendor creation fails
+      vendorAutoCreateResult.attempted = true
+      vendorAutoCreateResult.success = false
+      vendorAutoCreateResult.error = vendorError instanceof Error ? vendorError.message : 'Unknown error'
+      logger.error('Error during vendor auto-creation on request send:', vendorError)
+    }
+
     // Get user information for email
     const user = await currentUser()
     const userEmail = user?.emailAddresses[0]?.emailAddress
@@ -533,6 +585,32 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       requesterEmail: userEmail,
     })
 
+    // Generate PDF summary for attachment
+    let pdfBuffer: Buffer | null = null
+    let pdfFilename: string | null = null
+    try {
+      logger.info('[BookingRequest] Generating PDF summary')
+      pdfBuffer = await generateBookingRequestPDF({
+        requestName: data.name!,
+        businessEmail: data.businessEmail!,
+        merchant: data.merchant || undefined,
+        category: categoryString,
+        parentCategory: data.parentCategory || undefined,
+        subCategory1: data.subCategory1 || undefined,
+        subCategory2: data.subCategory2 || undefined,
+        startDate: startDateTime,
+        endDate: endDateTime,
+        requesterEmail: userEmail,
+        additionalInfo: emailAdditionalInfo,
+        bookingData: data,
+      })
+      pdfFilename = generateBookingRequestPDFFilename(data.name!, data.merchant || undefined)
+      logger.info(`[BookingRequest] PDF generated: ${pdfFilename} (${pdfBuffer.length} bytes)`)
+    } catch (pdfError) {
+      logger.error('[BookingRequest] Error generating PDF, continuing without attachment:', pdfError)
+      // Don't fail the request if PDF generation fails - log and continue without attachment
+    }
+
     // Build list of all business recipients (primary + additional)
     const allRecipients = [businessEmail, ...additionalEmails.filter(e => e && e.trim())]
     const uniqueRecipients = [...new Set(allRecipients)]
@@ -546,8 +624,14 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
           replyTo: userEmail || EMAIL_CONFIG.replyTo,
           subject: `Solicitud de Reserva: ${name}${merchant ? ` (${merchant})` : ''}`,
           html: emailHtml,
+          attachments: pdfBuffer && pdfFilename ? [
+            {
+              filename: pdfFilename,
+              content: pdfBuffer.toString('base64'),
+            },
+          ] : undefined,
         })
-        logger.info(`Email sent to ${uniqueRecipients.join(', ')}`)
+        logger.info(`Email sent to ${uniqueRecipients.join(', ')}${pdfBuffer ? ' with PDF attachment' : ''}`)
       }
 
       // Send separate copy to requester without CTAs
@@ -573,8 +657,14 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
           replyTo: userEmail || EMAIL_CONFIG.replyTo,
           subject: `Copia de tu solicitud: ${name}${merchant ? ` (${merchant})` : ''}`,
           html: requesterHtml,
+          attachments: pdfBuffer && pdfFilename ? [
+            {
+              filename: pdfFilename,
+              content: pdfBuffer.toString('base64'),
+            },
+          ] : undefined,
         })
-        logger.info(`Requester copy sent to ${userEmail}`)
+        logger.info(`Requester copy sent to ${userEmail}${pdfBuffer ? ' with PDF attachment' : ''}`)
       }
     } catch (emailError) {
       logger.error('Error sending email:', emailError)
@@ -591,7 +681,11 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
     })
 
     invalidateEntity('booking-requests')
-    return { success: true, data: bookingRequest }
+    return { 
+      success: true, 
+      data: bookingRequest,
+      vendorResult: vendorAutoCreateResult.attempted ? vendorAutoCreateResult : undefined,
+    }
   } catch (error) {
     return handleServerActionError(error, 'sendBookingRequest')
   }
@@ -603,11 +697,11 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
  * - Sales: sees only their own requests
  */
 export async function getBookingRequests() {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
+  const { userId } = authResult
 
   try {
     const role = await getUserRole()
@@ -657,16 +751,17 @@ export async function getBookingRequestsPaginated(options: {
   sortBy?: string
   sortDirection?: 'asc' | 'desc'
   status?: string
+  creatorId?: string // Filter by creator (admin quick filter)
 } = {}) {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
+  const { userId } = authResult
 
   try {
     const role = await getUserRole()
-    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', status } = options
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', status, creatorId } = options
 
     // Build where clause based on role
     const whereClause: Prisma.BookingRequestWhereInput = {}
@@ -674,6 +769,11 @@ export async function getBookingRequestsPaginated(options: {
       whereClause.userId = userId
     } else if (role !== 'admin') {
       return { success: true, data: [], total: 0, page, pageSize }
+    }
+    
+    // Apply creator filter (admin quick filter)
+    if (creatorId && role === 'admin') {
+      whereClause.userId = creatorId
     }
 
     // Add status filter if provided
@@ -723,16 +823,17 @@ export async function getBookingRequestsPaginated(options: {
 export async function searchBookingRequests(query: string, options: {
   limit?: number
   status?: string
+  creatorId?: string // Filter by creator (admin quick filter)
 } = {}) {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
+  const { userId } = authResult
 
   try {
     const role = await getUserRole()
-    const { limit = 100, status } = options
+    const { limit = 100, status, creatorId } = options
 
     if (!query || query.trim().length < 2) {
       return { success: true, data: [] }
@@ -746,6 +847,11 @@ export async function searchBookingRequests(query: string, options: {
       roleFilter.userId = userId
     } else if (role !== 'admin') {
       return { success: true, data: [] }
+    }
+    
+    // Apply creator filter (admin quick filter)
+    if (creatorId && role === 'admin') {
+      roleFilter.userId = creatorId
     }
 
     // Add status filter if provided
@@ -775,6 +881,52 @@ export async function searchBookingRequests(query: string, options: {
 }
 
 /**
+ * Get booking request counts by status (for filter tabs)
+ */
+export async function getBookingRequestCounts(filters?: { creatorId?: string }) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    
+    // Build base where clause based on role
+    const baseWhere: Prisma.BookingRequestWhereInput = {}
+    if (role === 'sales') {
+      baseWhere.userId = userId
+    } else if (role !== 'admin') {
+      return { success: true, data: { all: 0, draft: 0, pending: 0, approved: 0, booked: 0, rejected: 0, cancelled: 0 } }
+    }
+    
+    // Apply creator filter (admin quick filter)
+    if (filters?.creatorId && role === 'admin') {
+      baseWhere.userId = filters.creatorId
+    }
+
+    // Get counts for each status in parallel
+    const [all, draft, pending, approved, booked, rejected, cancelled] = await Promise.all([
+      prisma.bookingRequest.count({ where: baseWhere }),
+      prisma.bookingRequest.count({ where: { ...baseWhere, status: 'draft' } }),
+      prisma.bookingRequest.count({ where: { ...baseWhere, status: 'pending' } }),
+      prisma.bookingRequest.count({ where: { ...baseWhere, status: 'approved' } }),
+      prisma.bookingRequest.count({ where: { ...baseWhere, status: 'booked' } }),
+      prisma.bookingRequest.count({ where: { ...baseWhere, status: 'rejected' } }),
+      prisma.bookingRequest.count({ where: { ...baseWhere, status: 'cancelled' } }),
+    ])
+
+    return { 
+      success: true, 
+      data: { all, draft, pending, approved, booked, rejected, cancelled }
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getBookingRequestCounts')
+  }
+}
+
+/**
  * Refresh booking requests data without full page refresh
  * This avoids Clerk API calls on booking request updates
  */
@@ -783,11 +935,11 @@ export async function refreshBookingRequests(): Promise<{
   data?: BookingRequest[]
   error?: string
 }> {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
+  const { userId } = authResult
 
   try {
     const role = await getUserRole()
@@ -872,10 +1024,9 @@ export async function getRequestsByBusiness(businessId: string) {
  * Get a booking request by opportunity ID
  */
 export async function getBookingRequestByOpportunityId(opportunityId: string) {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
 
   try {
@@ -898,11 +1049,11 @@ export async function getBookingRequestByOpportunityId(opportunityId: string) {
  * Get a single booking request by ID
  */
 export async function getBookingRequest(requestId: string) {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
+  const { userId } = authResult
 
   try {
     const role = await getUserRole()
@@ -924,23 +1075,26 @@ export async function getBookingRequest(requestId: string) {
       return { success: false, error: 'Unauthorized' }
     }
 
-    // Fetch user profiles for processedBy and userId (creator)
-    let processedByUser = null
-    let createdByUser = null
+    // Fetch user profiles for processedBy and userId (creator) in a single query
+    // This avoids N+1 by batching the lookups
+    const userClerkIds = [bookingRequest.processedBy, bookingRequest.userId].filter(Boolean) as string[]
+    const userProfiles = userClerkIds.length > 0
+      ? await prisma.userProfile.findMany({
+          where: { clerkId: { in: userClerkIds } },
+          select: { clerkId: true, name: true, email: true },
+        })
+      : []
 
-    if (bookingRequest.processedBy) {
-      processedByUser = await prisma.userProfile.findUnique({
-        where: { clerkId: bookingRequest.processedBy },
-        select: { name: true, email: true },
-      })
-    }
+    // Build lookup map for O(1) access
+    const userProfileMap = new Map(userProfiles.map(u => [u.clerkId, { name: u.name, email: u.email }]))
+    const processedByUser = bookingRequest.processedBy ? userProfileMap.get(bookingRequest.processedBy) || null : null
+    const createdByUser = bookingRequest.userId ? userProfileMap.get(bookingRequest.userId) || null : null
 
-    if (bookingRequest.userId) {
-      createdByUser = await prisma.userProfile.findUnique({
-        where: { clerkId: bookingRequest.userId },
-        select: { name: true, email: true },
-      })
-    }
+    // Find linked business info using centralized utility
+    const linkedBusiness = await findLinkedBusiness({
+      opportunityId: bookingRequest.opportunityId,
+      email: bookingRequest.businessEmail,
+    })
 
     return { 
       success: true, 
@@ -949,6 +1103,8 @@ export async function getBookingRequest(requestId: string) {
         processedByUser,
         createdByUser,
         marketingCampaignId: bookingRequest.marketingCampaign?.id || null,
+        // Add linked business info for backfill and replication
+        linkedBusiness,
       }
     }
   } catch (error) {
@@ -960,10 +1116,9 @@ export async function getBookingRequest(requestId: string) {
  * Delete a booking request
  */
 export async function deleteBookingRequest(requestId: string) {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
 
   try {
@@ -1083,10 +1238,9 @@ export async function updateBookingRequestStatus(
   requestId: string, 
   status: BookingRequestStatus
 ) {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
 
   try {
@@ -1248,10 +1402,13 @@ export async function resendBookingRequest(requestId: string, emails?: string | 
       })
     }
 
-    // Send emails to all recipients
+    // Send emails to all recipients.
+    // Spread the full record so the PDF has access to all form fields
+    // (pricing options, business details, etc.), overriding businessEmail per recipient.
     const results = await Promise.all(
       uniqueEmails.map(email => 
         resendBookingRequestEmail({
+          ...(bookingRequest as Record<string, unknown>),
           id: bookingRequest.id,
           name: bookingRequest.name,
           businessEmail: email,
@@ -1263,6 +1420,7 @@ export async function resendBookingRequest(requestId: string, emails?: string | 
           startDate: bookingRequest.startDate,
           endDate: bookingRequest.endDate,
           userId: bookingRequest.userId,
+          additionalInfo: bookingRequest.additionalInfo as { templateDisplayName?: string; fields?: Record<string, string> } | null,
         })
       )
     )
@@ -1588,6 +1746,221 @@ export async function adminApproveBookingRequest(requestId: string) {
     return { success: true, data: updatedRequest }
   } catch (error) {
     return handleServerActionError(error, 'adminApproveBookingRequest')
+  }
+}
+
+// ============================================
+// Business Backfill from Request
+// ============================================
+
+/**
+ * Preview what business fields would be backfilled when sending a booking request.
+ * 
+ * This function:
+ * 1. Finds the linked Business via linkedBusinessId (standardized approach)
+ * 2. Falls back to email lookup if businessId not provided
+ * 3. Compares shared fields to identify empty business fields that have values in the request
+ * 4. Returns preview data for confirmation dialog
+ * 
+ * @param formData - Form data from the booking request (must include linkedBusinessId for backfill)
+ * @param requestId - Optional existing request ID (for updates)
+ * @returns Preview of business backfill changes
+ */
+export async function previewBusinessBackfill(
+  formData: FormData,
+  requestId?: string
+): Promise<{
+  success: boolean
+  data?: BackfillPreviewResult & {
+    /** Formatted preview for UI display */
+    formattedChanges?: Array<{ label: string; value: string }>
+  }
+  error?: string
+}> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return { success: false, error: 'Authentication required' }
+  }
+
+  try {
+    // Extract identifiers from form data
+    const linkedBusinessId = formData.get('linkedBusinessId') as string
+    const partnerEmail = formData.get('partnerEmail') as string
+
+    // Use centralized utility to find business (single source of truth)
+    const business = await findLinkedBusinessFull({
+      businessId: linkedBusinessId,
+      email: partnerEmail,
+    })
+
+    // If no business found, no backfill possible
+    if (!business) {
+      return {
+        success: true,
+        data: {
+          success: true,
+          hasLinkedBusiness: false,
+          changes: [],
+        },
+      }
+    }
+
+    // Import the mapping to compare fields
+    const { REQUEST_TO_BUSINESS_FIELD_MAP } = await import('@/lib/business-backfill')
+
+    // Calculate changes by comparing form data with business fields
+    const changes: BackfillChange[] = []
+
+    for (const mapping of REQUEST_TO_BUSINESS_FIELD_MAP) {
+      const { requestField, businessField, label, vendorApiField } = mapping
+
+      // Get current business value
+      const businessValue = (business as Record<string, unknown>)[businessField]
+      const normalizedBusinessValue = normalizeValue(businessValue)
+
+      // Get request form value
+      const requestValue = formData.get(requestField) as string | null
+      const normalizedRequestValue = normalizeValue(requestValue)
+
+      // Add to changes if request has data AND values are different
+      if (normalizedRequestValue !== null && normalizedBusinessValue !== normalizedRequestValue) {
+        changes.push({
+          businessField,
+          label,
+          oldValue: normalizedBusinessValue,
+          newValue: normalizedRequestValue,
+          isUpdate: normalizedBusinessValue !== null, // true if overwriting existing value
+          vendorApiField,
+        })
+      }
+    }
+
+    // Format changes for UI (show old→new for updates)
+    const formattedChanges = changes.map(c => ({
+      label: c.label,
+      value: c.newValue,
+      oldValue: c.oldValue,
+      isUpdate: c.isUpdate,
+    }))
+
+    return {
+      success: true,
+      data: {
+        success: true,
+        hasLinkedBusiness: true,
+        businessId: business.id,
+        businessName: business.name,
+        hasVendorId: !!business.osAdminVendorId,
+        vendorId: business.osAdminVendorId || undefined,
+        changes,
+        formattedChanges,
+      },
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'previewBusinessBackfill')
+  }
+}
+
+/**
+ * Helper function to normalize values for comparison
+ */
+function normalizeValue(value: unknown): string | null {
+  if (value === undefined || value === null || value === '') {
+    return null
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed === '' ? null : trimmed
+  }
+  return String(value)
+}
+
+/**
+ * Send a booking request WITH business backfill.
+ * 
+ * This is a wrapper around sendBookingRequest that also:
+ * 1. Saves/sends the booking request
+ * 2. Backfills empty business fields from the request
+ * 3. Syncs to external vendor API if applicable
+ * 
+ * @param formData - Form data from the booking request
+ * @param requestId - Optional existing request ID (for updates)
+ * @param backfillChanges - Pre-calculated changes to apply (from preview)
+ * @returns Combined result of request send and business backfill
+ */
+export async function sendBookingRequestWithBackfill(
+  formData: FormData,
+  requestId?: string,
+  backfillChanges?: BackfillChange[]
+): Promise<{
+  success: boolean
+  data?: BookingRequest
+  backfillResult?: BackfillExecuteResult
+  error?: string
+}> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return { success: false, error: 'Authentication required' }
+  }
+  const { userId } = authResult
+
+  try {
+    // First, send the booking request using the existing function
+    const sendResult = await sendBookingRequest(formData, requestId)
+
+    if (!sendResult.success || !('data' in sendResult) || !sendResult.data) {
+      return {
+        success: false,
+        error: ('error' in sendResult ? sendResult.error : null) || 'Failed to send booking request',
+      }
+    }
+
+    const bookingRequest = sendResult.data
+
+    // If no backfill changes provided, return just the send result
+    if (!backfillChanges || backfillChanges.length === 0) {
+      return {
+        success: true,
+        data: bookingRequest,
+      }
+    }
+
+    // Get linkedBusinessId if provided (for requests created directly from Business page)
+    const linkedBusinessId = formData.get('linkedBusinessId') as string | null
+
+    // Execute the backfill
+    const backfillResult = await executeBackfillFromRequest(
+      bookingRequest.id,
+      backfillChanges,
+      { userId, businessId: linkedBusinessId || undefined }
+    )
+
+    // Log the combined activity
+    if (backfillResult.success && backfillResult.updatedFields.length > 0) {
+      await logActivity({
+        action: 'BACKFILL_BUSINESS',
+        entityType: 'BookingRequest',
+        entityId: bookingRequest.id,
+        entityName: bookingRequest.name,
+        details: {
+          changedFields: backfillResult.updatedFields,
+          metadata: {
+            businessId: backfillResult.businessId,
+            businessName: backfillResult.businessName,
+            vendorSynced: backfillResult.vendorSyncResult?.success ?? false,
+          },
+        },
+      })
+    }
+
+    // Return combined result
+    return {
+      success: true,
+      data: bookingRequest,
+      backfillResult,
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'sendBookingRequestWithBackfill')
   }
 }
 

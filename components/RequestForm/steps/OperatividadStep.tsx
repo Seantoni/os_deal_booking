@@ -24,15 +24,10 @@ export default function OperatividadStep({ formData, errors, updateFormData, isF
             items={[
               { value: 'Canje Simple', label: 'Canje Simple (Canje desde el día uno)' },
               { value: 'Canje Diferido', label: 'Canje Diferido' },
+              { value: 'Evento', label: 'Evento' },
               { value: 'Otro', label: 'Otro' },
             ]}
-            selectedLabel={
-                [
-                  { value: 'Canje Simple', label: 'Canje Simple (Canje desde el día uno)' },
-                  { value: 'Canje Diferido', label: 'Canje Diferido' },
-                  { value: 'Otro', label: 'Otro' },
-            ].find(o => o.value === formData.redemptionMode)?.label || 'Seleccionar...'
-            }
+            value={formData.redemptionMode}
             placeholder="Seleccionar..."
             onSelect={(value) => updateFormData('redemptionMode', value)}
           error={errors.redemptionMode}
@@ -46,12 +41,7 @@ export default function OperatividadStep({ formData, errors, updateFormData, isF
               { value: 'No', label: 'No' },
               { value: 'Sí', label: 'Sí' },
             ]}
-            selectedLabel={
-                [
-                  { value: 'No', label: 'No' },
-                  { value: 'Sí', label: 'Sí' },
-            ].find(o => o.value === formData.isRecurring)?.label || 'Seleccionar...'
-            }
+            value={formData.isRecurring}
             placeholder="Seleccionar..."
             onSelect={(value) => updateFormData('isRecurring', value)}
           error={errors.isRecurring}
@@ -77,20 +67,16 @@ export default function OperatividadStep({ formData, errors, updateFormData, isF
             fullWidth
             items={[
               { value: '', label: 'Seleccionar...' },
-              { value: 'QR Mensual', label: 'QR Mensual' },
-              { value: 'Transferencia', label: 'Transferencia' },
-              { value: 'Yappy', label: 'Yappy' },
-              { value: 'Otro', label: 'Otro' },
+              { value: 'QR - Daily', label: 'QR - Daily' },
+              { value: 'QR - Weekly', label: 'QR - Weekly' },
+              { value: 'QR - Monthly', label: 'QR - Monthly' },
+              { value: 'List - Weekly', label: 'List - Weekly' },
+              { value: 'List - Monthly', label: 'List - Monthly' },
+              { value: '50% en 7 días y 50% en 30 días', label: '50% en 7 días y 50% en 30 días' },
+              { value: 'EVENTO', label: 'EVENTO' },
+              { value: 'OTRO', label: 'OTRO' },
             ]}
-            selectedLabel={
-              [
-                { value: '', label: 'Seleccionar...' },
-                { value: 'QR Mensual', label: 'QR Mensual' },
-                { value: 'Transferencia', label: 'Transferencia' },
-                { value: 'Yappy', label: 'Yappy' },
-                { value: 'Otro', label: 'Otro' },
-              ].find(opt => opt.value === formData.paymentType)?.label || 'Seleccionar...'
-            }
+            value={formData.paymentType}
             placeholder="Seleccionar..."
             onSelect={(value) => updateFormData('paymentType', value)}
           error={errors.paymentType}

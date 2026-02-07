@@ -8,6 +8,7 @@ import { currentUser } from '@clerk/nextjs/server'
 import { invalidateEntity } from '@/lib/cache'
 import { parseFieldComments, type FieldComment } from '@/types'
 import { randomUUID } from 'crypto'
+import { extractDisplayName, extractUserEmail } from '@/lib/auth/user-display'
 
 /**
  * Get all field comments for a booking request
@@ -68,14 +69,14 @@ export async function addFieldComment(
 
     const existingComments = parseFieldComments(request.fieldComments)
 
-    // Create new comment
+    // Create new comment using centralized utilities for name/email
     const newComment: FieldComment = {
       id: randomUUID(),
       fieldKey,
       text: text.trim(),
       authorId: userId,
-      authorName: user.fullName || user.firstName || null,
-      authorEmail: user.emailAddresses[0]?.emailAddress || null,
+      authorName: extractDisplayName(user),
+      authorEmail: extractUserEmail(user),
       createdAt: new Date().toISOString(),
       updatedAt: null,
       editHistory: [],

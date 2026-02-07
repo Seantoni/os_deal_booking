@@ -8,7 +8,7 @@
 export type RequestFormFieldDefinition = {
   key: string
   label: string
-  type: 'text' | 'email' | 'date' | 'select' | 'textarea' | 'number' | 'checkbox' | 'array'
+  type: 'text' | 'email' | 'date' | 'select' | 'textarea' | 'number' | 'checkbox' | 'array' | 'location'
   /** If true, this field only appears for certain categories */
   categorySpecific?: boolean
   /** Category template this field belongs to */
@@ -82,9 +82,7 @@ export const REQUEST_FORM_STEPS: RequestFormStep[] = [
       { key: 'accountNumber', label: 'Número de Cuenta', type: 'text' },
       { key: 'accountType', label: 'Tipo de Cuenta', type: 'select' },
       { key: 'addressAndHours', label: 'Dirección y Horarios', type: 'textarea' },
-      { key: 'province', label: 'Provincia', type: 'text' },
-      { key: 'district', label: 'Distrito', type: 'text' },
-      { key: 'corregimiento', label: 'Corregimiento', type: 'text' },
+      { key: 'provinceDistrictCorregimiento', label: 'Provincia, Distrito, Corregimiento', type: 'location' },
     ],
   },
   {
@@ -98,10 +96,7 @@ export const REQUEST_FORM_STEPS: RequestFormStep[] = [
       { key: 'hasExclusivity', label: 'Tiene Exclusividad', type: 'select' },
       { key: 'blackoutDates', label: 'Fechas Blackout', type: 'text' },
       { key: 'exclusivityCondition', label: 'Condición de Exclusividad', type: 'textarea' },
-      { key: 'giftVouchers', label: 'Vouchers para Regalar', type: 'select' },
       { key: 'hasOtherBranches', label: 'Tiene Otras Sucursales', type: 'select' },
-      { key: 'vouchersPerPerson', label: 'Vouchers por Persona', type: 'number' },
-      { key: 'commission', label: 'Comisión', type: 'text' },
     ],
   },
   {
@@ -345,6 +340,199 @@ export const REQUEST_FORM_STEPS: RequestFormStep[] = [
       { key: 'childRequiresReservation', label: 'Requiere Reservación', type: 'select', categorySpecific: true, template: 'INFANTIL' },
       { key: 'childReservationAdvance', label: 'Anticipación Reserva', type: 'text', categorySpecific: true, template: 'INFANTIL' },
       { key: 'childCancellationPolicy', label: 'Política Cancelación', type: 'textarea', categorySpecific: true, template: 'INFANTIL' },
+      
+      // CURSO_COCINA Template
+      { key: 'cookingDishes', label: 'Platos a Preparar', type: 'textarea', categorySpecific: true, template: 'CURSO_COCINA' },
+      { key: 'cookingRequiresExperience', label: 'Requiere Experiencia', type: 'select', categorySpecific: true, template: 'CURSO_COCINA' },
+      { key: 'cookingDuration', label: 'Duración Clase', type: 'text', categorySpecific: true, template: 'CURSO_COCINA' },
+      { key: 'cookingSchedule', label: 'Fechas y Horarios', type: 'textarea', categorySpecific: true, template: 'CURSO_COCINA' },
+      { key: 'cookingAgeRange', label: 'Rango de Edad', type: 'text', categorySpecific: true, template: 'CURSO_COCINA' },
+      
+      // DONACION Template
+      { key: 'donationContactEmail', label: 'Email Contacto Donación', type: 'text', categorySpecific: true, template: 'DONACION' },
+      { key: 'donationReceiptDeadline', label: 'Límite Recibo Donación', type: 'text', categorySpecific: true, template: 'DONACION' },
+      
+      // CATERING Template
+      { key: 'cateringValidPickup', label: 'Válido Retiro', type: 'select', categorySpecific: true, template: 'CATERING' },
+      { key: 'cateringValidDelivery', label: 'Válido Delivery', type: 'select', categorySpecific: true, template: 'CATERING' },
+      { key: 'cateringDeliveryCost', label: 'Costo Delivery', type: 'select', categorySpecific: true, template: 'CATERING' },
+      { key: 'cateringDeliveryAreas', label: 'Áreas Delivery', type: 'textarea', categorySpecific: true, template: 'CATERING' },
+      { key: 'cateringOrderMethod', label: 'Método de Pedido', type: 'select', categorySpecific: true, template: 'CATERING' },
+      { key: 'cateringVouchersPerOrder', label: 'Vouchers por Orden', type: 'text', categorySpecific: true, template: 'CATERING' },
+      { key: 'cateringAdvanceTime', label: 'Tiempo Anticipación', type: 'text', categorySpecific: true, template: 'CATERING' },
+      { key: 'cateringIncludesEventService', label: 'Incluye Servicio Evento', type: 'select', categorySpecific: true, template: 'CATERING' },
+      { key: 'cateringEventServiceDuration', label: 'Duración Servicio', type: 'text', categorySpecific: true, template: 'CATERING' },
+      
+      // FOTOGRAFIA Template
+      { key: 'photoSessionDuration', label: 'Duración Sesión', type: 'text', categorySpecific: true, template: 'FOTOGRAFIA' },
+      { key: 'photoSessionLocation', label: 'Ubicación Sesión', type: 'select', categorySpecific: true, template: 'FOTOGRAFIA' },
+      { key: 'photoExteriorAreas', label: 'Áreas Exteriores', type: 'textarea', categorySpecific: true, template: 'FOTOGRAFIA' },
+      { key: 'photoSessionTypes', label: 'Tipos de Sesión', type: 'select', categorySpecific: true, template: 'FOTOGRAFIA' },
+      { key: 'photoAdditionalPeople', label: 'Personas Adicionales', type: 'textarea', categorySpecific: true, template: 'FOTOGRAFIA' },
+      { key: 'photoCombineVouchers', label: 'Combinar Vouchers', type: 'select', categorySpecific: true, template: 'FOTOGRAFIA' },
+      { key: 'photoPetsAllowed', label: 'Permite Mascotas', type: 'select', categorySpecific: true, template: 'FOTOGRAFIA' },
+      { key: 'photoPetsCost', label: 'Costo Mascotas', type: 'text', categorySpecific: true, template: 'FOTOGRAFIA' },
+      { key: 'photoOutfitChanges', label: 'Cambios de Ropa', type: 'text', categorySpecific: true, template: 'FOTOGRAFIA' },
+      { key: 'photoIncludesMakeup', label: 'Incluye Maquillaje', type: 'select', categorySpecific: true, template: 'FOTOGRAFIA' },
+      { key: 'photoDeliveryType', label: 'Tipo de Entrega', type: 'select', categorySpecific: true, template: 'FOTOGRAFIA' },
+      { key: 'photoValidWeekends', label: 'Válido Fines de Semana', type: 'textarea', categorySpecific: true, template: 'FOTOGRAFIA' },
+      
+      // OPTICAS Template
+      { key: 'opticsIncludesExam', label: 'Incluye Examen', type: 'select', categorySpecific: true, template: 'OPTICAS' },
+      { key: 'opticsIncludesPrescription', label: 'Incluye Receta', type: 'select', categorySpecific: true, template: 'OPTICAS' },
+      { key: 'opticsAppliesToContacts', label: 'Aplica Lentes Contacto', type: 'select', categorySpecific: true, template: 'OPTICAS' },
+      { key: 'opticsAppliesToSunglasses', label: 'Aplica Lentes Sol', type: 'select', categorySpecific: true, template: 'OPTICAS' },
+      { key: 'opticsFrameOnly', label: 'Solo Aro', type: 'select', categorySpecific: true, template: 'OPTICAS' },
+      { key: 'opticsAllBrands', label: 'Todas las Marcas', type: 'select', categorySpecific: true, template: 'OPTICAS' },
+      { key: 'opticsRestrictions', label: 'Restricciones', type: 'textarea', categorySpecific: true, template: 'OPTICAS' },
+      
+      // ALQUILER_VESTIDOS Template
+      { key: 'dressAvailableSizes', label: 'Tallas Disponibles', type: 'textarea', categorySpecific: true, template: 'ALQUILER_VESTIDOS' },
+      { key: 'dressIncludesTailoring', label: 'Incluye Entalle', type: 'select', categorySpecific: true, template: 'ALQUILER_VESTIDOS' },
+      { key: 'dressRequiresDeposit', label: 'Requiere Depósito', type: 'select', categorySpecific: true, template: 'ALQUILER_VESTIDOS' },
+      { key: 'dressDepositAmount', label: 'Monto Depósito', type: 'text', categorySpecific: true, template: 'ALQUILER_VESTIDOS' },
+      { key: 'dressPickupReturnPolicy', label: 'Política Retiro/Devolución', type: 'textarea', categorySpecific: true, template: 'ALQUILER_VESTIDOS' },
+      
+      // CEJAS_PESTANAS Template
+      { key: 'eyebrowValidForGender', label: 'Válido para Género', type: 'select', categorySpecific: true, template: 'CEJAS_PESTANAS' },
+      { key: 'eyebrowMinAge', label: 'Edad Mínima', type: 'text', categorySpecific: true, template: 'CEJAS_PESTANAS' },
+      { key: 'eyebrowResultsDuration', label: 'Duración Resultados', type: 'text', categorySpecific: true, template: 'CEJAS_PESTANAS' },
+      { key: 'eyebrowContraindications', label: 'Contraindicaciones', type: 'textarea', categorySpecific: true, template: 'CEJAS_PESTANAS' },
+      { key: 'eyebrowIncludesRetouch', label: 'Incluye Retoque', type: 'select', categorySpecific: true, template: 'CEJAS_PESTANAS' },
+      { key: 'eyebrowRetouchDetails', label: 'Detalles Retoque', type: 'text', categorySpecific: true, template: 'CEJAS_PESTANAS' },
+      { key: 'eyebrowUsesAnesthesia', label: 'Usa Anestesia', type: 'select', categorySpecific: true, template: 'CEJAS_PESTANAS' },
+      { key: 'eyebrowAftercare', label: 'Cuidados Posteriores', type: 'textarea', categorySpecific: true, template: 'CEJAS_PESTANAS' },
+      { key: 'eyebrowLashType', label: 'Tipo de Pestañas', type: 'select', categorySpecific: true, template: 'CEJAS_PESTANAS' },
+      { key: 'eyebrowPreviousTattoo', label: 'Tatuaje Previo', type: 'select', categorySpecific: true, template: 'CEJAS_PESTANAS' },
+      { key: 'eyebrowValidHolidays', label: 'Válido Feriados', type: 'select', categorySpecific: true, template: 'CEJAS_PESTANAS' },
+      
+      // CABELLO Template
+      { key: 'hairProductBrand', label: 'Marca Productos', type: 'text', categorySpecific: true, template: 'CABELLO' },
+      { key: 'hairFantasyColors', label: 'Colores Fantasía', type: 'select', categorySpecific: true, template: 'CABELLO' },
+      { key: 'hairRootRetouch', label: 'Retoque Raíz', type: 'select', categorySpecific: true, template: 'CABELLO' },
+      { key: 'hairPregnantAllowed', label: 'Permite Embarazadas', type: 'select', categorySpecific: true, template: 'CABELLO' },
+      { key: 'hairBlackBase', label: 'Base Negra', type: 'select', categorySpecific: true, template: 'CABELLO' },
+      { key: 'hairCalifornianaBalayage', label: 'Californiana/Balayage', type: 'select', categorySpecific: true, template: 'CABELLO' },
+      { key: 'hairResultsDuration', label: 'Duración Resultados', type: 'text', categorySpecific: true, template: 'CABELLO' },
+      { key: 'hairIsStraightening', label: 'Es Alisante', type: 'select', categorySpecific: true, template: 'CABELLO' },
+      { key: 'hairValidForGender', label: 'Válido para Género', type: 'select', categorySpecific: true, template: 'CABELLO' },
+      { key: 'hairMinAge', label: 'Edad Mínima', type: 'text', categorySpecific: true, template: 'CABELLO' },
+      { key: 'hairValidAllTypes', label: 'Válido Todo Tipo', type: 'select', categorySpecific: true, template: 'CABELLO' },
+      { key: 'hairLengthApplies', label: 'Largo Aplica', type: 'text', categorySpecific: true, template: 'CABELLO' },
+      { key: 'hairIncludesCut', label: 'Incluye Corte', type: 'select', categorySpecific: true, template: 'CABELLO' },
+      { key: 'hairContainsFormaldehyde', label: 'Contiene Formol', type: 'select', categorySpecific: true, template: 'CABELLO' },
+      { key: 'hairEffect', label: 'Efecto', type: 'textarea', categorySpecific: true, template: 'CABELLO' },
+      { key: 'hairLeaveInTime', label: 'Tiempo de Aplicación', type: 'text', categorySpecific: true, template: 'CABELLO' },
+      { key: 'hairAftercare', label: 'Cuidados Posteriores', type: 'textarea', categorySpecific: true, template: 'CABELLO' },
+      { key: 'hairContraindications', label: 'Contraindicaciones', type: 'textarea', categorySpecific: true, template: 'CABELLO' },
+      { key: 'hairValidHolidays', label: 'Válido Feriados', type: 'select', categorySpecific: true, template: 'CABELLO' },
+      
+      // MANICURE Template
+      { key: 'nailsDiabeticFoot', label: 'Pie Diabético', type: 'select', categorySpecific: true, template: 'MANICURE' },
+      { key: 'nailsPolishIncluded', label: 'Incluye Pintura', type: 'select', categorySpecific: true, template: 'MANICURE' },
+      { key: 'nailsPolishBrands', label: 'Marcas Pintura', type: 'text', categorySpecific: true, template: 'MANICURE' },
+      { key: 'nailsServiceType', label: 'Tipo de Servicio', type: 'select', categorySpecific: true, template: 'MANICURE' },
+      { key: 'nailsValidForGender', label: 'Válido para Género', type: 'select', categorySpecific: true, template: 'MANICURE' },
+      { key: 'nailsMinAge', label: 'Edad Mínima', type: 'text', categorySpecific: true, template: 'MANICURE' },
+      { key: 'nailsSemiPermRemoval', label: 'Remoción Semipermanente', type: 'select', categorySpecific: true, template: 'MANICURE' },
+      { key: 'nailsSemiPermRemovalCost', label: 'Costo Remoción', type: 'text', categorySpecific: true, template: 'MANICURE' },
+      { key: 'nailsSemiPermDuration', label: 'Duración Semipermanente', type: 'text', categorySpecific: true, template: 'MANICURE' },
+      { key: 'nailsAppointmentDuration', label: 'Duración Cita', type: 'text', categorySpecific: true, template: 'MANICURE' },
+      { key: 'nailsValidHolidays', label: 'Válido Feriados', type: 'select', categorySpecific: true, template: 'MANICURE' },
+      
+      // FACIALES Template
+      { key: 'facialDescription', label: 'Descripción Tratamiento', type: 'textarea', categorySpecific: true, template: 'FACIALES' },
+      { key: 'facialSpecificTreatments', label: 'Tratamientos Específicos', type: 'textarea', categorySpecific: true, template: 'FACIALES' },
+      { key: 'facialIncludesExtraction', label: 'Incluye Extracción', type: 'select', categorySpecific: true, template: 'FACIALES' },
+      { key: 'facialValidForGender', label: 'Válido para Género', type: 'select', categorySpecific: true, template: 'FACIALES' },
+      { key: 'facialMinAge', label: 'Edad Mínima', type: 'text', categorySpecific: true, template: 'FACIALES' },
+      { key: 'facialProductBrands', label: 'Marcas Productos', type: 'text', categorySpecific: true, template: 'FACIALES' },
+      { key: 'facialContraindications', label: 'Contraindicaciones', type: 'textarea', categorySpecific: true, template: 'FACIALES' },
+      { key: 'facialValidHolidays', label: 'Válido Feriados', type: 'select', categorySpecific: true, template: 'FACIALES' },
+      
+      // DEPILACION Template
+      { key: 'depilationValidForGender', label: 'Válido para Género', type: 'select', categorySpecific: true, template: 'DEPILACION' },
+      { key: 'depilationMinAge', label: 'Edad Mínima', type: 'text', categorySpecific: true, template: 'DEPILACION' },
+      { key: 'depilationSessionsNeeded', label: 'Sesiones Necesarias', type: 'text', categorySpecific: true, template: 'DEPILACION' },
+      { key: 'depilationTreatmentType', label: 'Tipo de Tratamiento', type: 'select', categorySpecific: true, template: 'DEPILACION' },
+      { key: 'depilationAppointmentDuration', label: 'Duración Cita', type: 'text', categorySpecific: true, template: 'DEPILACION' },
+      { key: 'depilationBikiniType', label: 'Tipo Bikini', type: 'select', categorySpecific: true, template: 'DEPILACION' },
+      { key: 'depilationIncludesPerianal', label: 'Incluye Perianal', type: 'select', categorySpecific: true, template: 'DEPILACION' },
+      { key: 'depilationContraindications', label: 'Contraindicaciones', type: 'textarea', categorySpecific: true, template: 'DEPILACION' },
+      { key: 'depilationWaxBrand', label: 'Marca de Cera', type: 'text', categorySpecific: true, template: 'DEPILACION' },
+      { key: 'depilationValidHolidays', label: 'Válido Feriados', type: 'select', categorySpecific: true, template: 'DEPILACION' },
+      
+      // REDUCTORES Template
+      { key: 'reducerValidForGender', label: 'Válido para Género', type: 'select', categorySpecific: true, template: 'REDUCTORES' },
+      { key: 'reducerMinAge', label: 'Edad Mínima', type: 'text', categorySpecific: true, template: 'REDUCTORES' },
+      { key: 'reducerAreasPerPackage', label: 'Áreas por Paquete', type: 'textarea', categorySpecific: true, template: 'REDUCTORES' },
+      { key: 'reducerTreatmentsPerVisit', label: 'Tratamientos por Visita', type: 'text', categorySpecific: true, template: 'REDUCTORES' },
+      { key: 'reducerAppointmentDuration', label: 'Duración Cita', type: 'text', categorySpecific: true, template: 'REDUCTORES' },
+      { key: 'reducerVisitFrequency', label: 'Frecuencia Visitas', type: 'text', categorySpecific: true, template: 'REDUCTORES' },
+      { key: 'reducerContraindications', label: 'Contraindicaciones', type: 'textarea', categorySpecific: true, template: 'REDUCTORES' },
+      { key: 'reducerPackageStartDeadline', label: 'Límite Inicio Paquete', type: 'text', categorySpecific: true, template: 'REDUCTORES' },
+      { key: 'reducerValidHolidays', label: 'Válido Feriados', type: 'select', categorySpecific: true, template: 'REDUCTORES' },
+      
+      // TRATAMIENTO_PIEL Template
+      { key: 'skinValidForGender', label: 'Válido para Género', type: 'select', categorySpecific: true, template: 'TRATAMIENTO_PIEL' },
+      { key: 'skinMinAge', label: 'Edad Mínima', type: 'text', categorySpecific: true, template: 'TRATAMIENTO_PIEL' },
+      { key: 'skinExpectedResults', label: 'Resultados Esperados', type: 'textarea', categorySpecific: true, template: 'TRATAMIENTO_PIEL' },
+      { key: 'skinSessionsNeeded', label: 'Sesiones Necesarias', type: 'text', categorySpecific: true, template: 'TRATAMIENTO_PIEL' },
+      { key: 'skinAftercare', label: 'Cuidados Posteriores', type: 'textarea', categorySpecific: true, template: 'TRATAMIENTO_PIEL' },
+      { key: 'skinContraindications', label: 'Contraindicaciones', type: 'textarea', categorySpecific: true, template: 'TRATAMIENTO_PIEL' },
+      { key: 'skinPackageStartDeadline', label: 'Límite Inicio Paquete', type: 'text', categorySpecific: true, template: 'TRATAMIENTO_PIEL' },
+      { key: 'skinValidHolidays', label: 'Válido Feriados', type: 'select', categorySpecific: true, template: 'TRATAMIENTO_PIEL' },
+      
+      // SERVICIO_AUTOS Template
+      { key: 'autoAppliesToVans', label: 'Aplica Minivans', type: 'select', categorySpecific: true, template: 'SERVICIO_AUTOS' },
+      { key: 'autoTintBrand', label: 'Marca Papel Ahumado', type: 'text', categorySpecific: true, template: 'SERVICIO_AUTOS' },
+      { key: 'autoHasWaitingRoom', label: 'Sala de Espera', type: 'select', categorySpecific: true, template: 'SERVICIO_AUTOS' },
+      { key: 'autoCleaningIncludes', label: 'Limpieza Incluye', type: 'textarea', categorySpecific: true, template: 'SERVICIO_AUTOS' },
+      { key: 'autoInteriorSeatsRemoved', label: 'Desmonta Asientos', type: 'select', categorySpecific: true, template: 'SERVICIO_AUTOS' },
+      { key: 'autoProductBrands', label: 'Marcas Productos', type: 'text', categorySpecific: true, template: 'SERVICIO_AUTOS' },
+      { key: 'autoPolishingMethod', label: 'Método Pulido', type: 'select', categorySpecific: true, template: 'SERVICIO_AUTOS' },
+      { key: 'autoExcludedModels', label: 'Modelos Excluidos', type: 'textarea', categorySpecific: true, template: 'SERVICIO_AUTOS' },
+      { key: 'autoAlarmDetails', label: 'Detalles Alarma', type: 'textarea', categorySpecific: true, template: 'SERVICIO_AUTOS' },
+      { key: 'autoServiceDuration', label: 'Duración Servicio', type: 'text', categorySpecific: true, template: 'SERVICIO_AUTOS' },
+      { key: 'autoValidHolidays', label: 'Válido Feriados', type: 'select', categorySpecific: true, template: 'SERVICIO_AUTOS' },
+      
+      // ALQUILER_AUTOS Template
+      { key: 'rentalDeposit', label: 'Depósito', type: 'text', categorySpecific: true, template: 'ALQUILER_AUTOS' },
+      { key: 'rentalCoveragePlans', label: 'Planes de Cobertura', type: 'textarea', categorySpecific: true, template: 'ALQUILER_AUTOS' },
+      { key: 'rentalMinAge', label: 'Edad Mínima', type: 'text', categorySpecific: true, template: 'ALQUILER_AUTOS' },
+      { key: 'rentalTransmission', label: 'Transmisión', type: 'select', categorySpecific: true, template: 'ALQUILER_AUTOS' },
+      { key: 'rentalModelsYears', label: 'Modelos y Años', type: 'textarea', categorySpecific: true, template: 'ALQUILER_AUTOS' },
+      { key: 'rentalMultipleLocations', label: 'Múltiples Ubicaciones', type: 'select', categorySpecific: true, template: 'ALQUILER_AUTOS' },
+      { key: 'rentalMultiLocationFee', label: 'Cargo Ubicación', type: 'text', categorySpecific: true, template: 'ALQUILER_AUTOS' },
+      { key: 'rentalValidHolidays', label: 'Válido Feriados', type: 'select', categorySpecific: true, template: 'ALQUILER_AUTOS' },
+      
+      // AC_AUTOS Template
+      { key: 'acAutoHasWaitingRoom', label: 'Sala de Espera', type: 'select', categorySpecific: true, template: 'AC_AUTOS' },
+      { key: 'acAutoVehicleTypes', label: 'Tipos de Vehículo', type: 'select', categorySpecific: true, template: 'AC_AUTOS' },
+      { key: 'acAutoServiceDescription', label: 'Descripción Servicio', type: 'textarea', categorySpecific: true, template: 'AC_AUTOS' },
+      { key: 'acAutoServiceDuration', label: 'Duración Servicio', type: 'text', categorySpecific: true, template: 'AC_AUTOS' },
+      { key: 'acAutoNonDismantled', label: 'Sin Desmontar', type: 'select', categorySpecific: true, template: 'AC_AUTOS' },
+      { key: 'acAutoFilterInfo', label: 'Info Filtro', type: 'text', categorySpecific: true, template: 'AC_AUTOS' },
+      { key: 'acAutoIncludesMaterials', label: 'Incluye Materiales', type: 'select', categorySpecific: true, template: 'AC_AUTOS' },
+      { key: 'acAutoValidHolidays', label: 'Válido Feriados', type: 'select', categorySpecific: true, template: 'AC_AUTOS' },
+      
+      // AC_CASAS Template
+      { key: 'acHomeMaintenanceIncludes', label: 'Mantenimiento Incluye', type: 'textarea', categorySpecific: true, template: 'AC_CASAS' },
+      { key: 'acHomeIncludesMaterials', label: 'Incluye Materiales', type: 'select', categorySpecific: true, template: 'AC_CASAS' },
+      { key: 'acHomeMaintenanceType', label: 'Tipo Mantenimiento', type: 'select', categorySpecific: true, template: 'AC_CASAS' },
+      { key: 'acHomeCoverageAreas', label: 'Áreas de Cobertura', type: 'textarea', categorySpecific: true, template: 'AC_CASAS' },
+      { key: 'acHomeValidHolidays', label: 'Válido Feriados', type: 'select', categorySpecific: true, template: 'AC_CASAS' },
+      
+      // ENTRENAMIENTO Template
+      { key: 'trainingSchedule', label: 'Horario Clases', type: 'textarea', categorySpecific: true, template: 'ENTRENAMIENTO' },
+      { key: 'trainingCanCombine', label: 'Puede Combinar', type: 'select', categorySpecific: true, template: 'ENTRENAMIENTO' },
+      { key: 'trainingRegularClientRestriction', label: 'Restricción Cliente Regular', type: 'select', categorySpecific: true, template: 'ENTRENAMIENTO' },
+      { key: 'trainingMembershipIncluded', label: 'Membresía Incluida', type: 'select', categorySpecific: true, template: 'ENTRENAMIENTO' },
+      { key: 'trainingValidForGender', label: 'Válido para Género', type: 'select', categorySpecific: true, template: 'ENTRENAMIENTO' },
+      { key: 'trainingMinAge', label: 'Edad Mínima', type: 'text', categorySpecific: true, template: 'ENTRENAMIENTO' },
+      { key: 'trainingMinMaxPeople', label: 'Min/Max Personas', type: 'text', categorySpecific: true, template: 'ENTRENAMIENTO' },
+      { key: 'trainingPackageStartDeadline', label: 'Límite Inicio Paquete', type: 'text', categorySpecific: true, template: 'ENTRENAMIENTO' },
+      { key: 'trainingValidHolidays', label: 'Válido Feriados', type: 'select', categorySpecific: true, template: 'ENTRENAMIENTO' },
     ],
   },
   {

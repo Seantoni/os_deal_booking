@@ -62,6 +62,7 @@ export const INITIAL_FORM_DATA: BookingFormData = {
   agencyContact: '',
   tentativeLaunchDate: '',
   campaignDuration: '3',
+  campaignDurationUnit: 'months',
   internalPeriod: '',
   
   // Operatividad: Operatividad y Pagos
@@ -85,11 +86,9 @@ export const INITIAL_FORM_DATA: BookingFormData = {
   bankAccountName: '',
   bank: '',
   accountNumber: '',
-  accountType: 'Ahorros',
+  accountType: '',
   addressAndHours: '',
-  province: '',
-  district: '',
-  corregimiento: '',
+  provinceDistrictCorregimiento: '',
   
   // Negocio: Reglas de Negocio
   includesTaxes: 'Sí',
@@ -97,10 +96,7 @@ export const INITIAL_FORM_DATA: BookingFormData = {
   hasExclusivity: 'No',
   blackoutDates: '',
   exclusivityCondition: '',
-  giftVouchers: 'Sí',
   hasOtherBranches: 'No',
-  vouchersPerPerson: '',
-  commission: '',
   
   // Descripción: Descripción y Canales
   redemptionMethods: [],

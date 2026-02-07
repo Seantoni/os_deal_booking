@@ -86,10 +86,7 @@ export type BusinessRulesFields = {
   hasExclusivity: string | null
   blackoutDates: string | null
   exclusivityCondition: string | null
-  giftVouchers: string | null
   hasOtherBranches: string | null
-  vouchersPerPerson: string | null
-  commission: string | null
 }
 
 /**

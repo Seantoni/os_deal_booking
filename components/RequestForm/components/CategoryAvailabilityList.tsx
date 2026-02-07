@@ -33,7 +33,8 @@ export default function CategoryAvailabilityList({ onCategorySelect }: CategoryA
     const calculateAvailabilities = async () => {
       setLoading(true)
       try {
-        const events = await getAllBookedEvents()
+        const eventsResult = await getAllBookedEvents()
+        const events = eventsResult.success ? eventsResult.data || [] : []
         const settings = getSettings()
         const categoryOptions = getCategoryOptions()
 

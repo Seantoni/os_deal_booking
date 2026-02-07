@@ -3,17 +3,64 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { unstable_cache } from 'next/cache'
+import { currentUser } from '@clerk/nextjs/server'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
 import { invalidateEntity } from '@/lib/cache'
 import { getUserRole, isAdmin } from '@/lib/auth/roles'
+import { getEditableBusinessIds, canEditBusiness } from '@/lib/auth/entity-access'
 import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
 import { logActivity } from '@/lib/activity-log'
-import { sendVendorToExternalApi } from '@/lib/api/external-oferta'
-import type { Business } from '@/types/business'
+import { getTodayInPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
+import { sendVendorToExternalApi, updateVendorInExternalApi, getChangedVendorFields } from '@/lib/api/external-oferta'
+import type { VendorFieldChange, ExternalOfertaVendorUpdateRequest, UpdateVendorResult } from '@/lib/api/external-oferta/vendor/types'
+import type { Business, Opportunity, BookingRequest, UserData } from '@/types'
+import type { Category } from '@prisma/client'
 
 // Extended where clause type to include reassignment fields not yet in Prisma schema
 type BusinessWhereClause = Prisma.BusinessWhereInput & {
   reassignmentStatus?: null | string
+}
+
+// Map column names to database fields for sorting
+const SORT_COLUMN_MAP: Record<string, string> = {
+  topSold: 'topSoldQuantity',
+  topRevenue: 'topRevenueAmount',
+  lastLaunch: 'lastLaunchDate',
+  deals360d: 'totalDeals360d',
+}
+
+/**
+ * Helper to resolve categoryId - handles both category IDs and parent category strings
+ * When displayMode="parentOnly" is used in CategorySelect, it returns parent strings like "Restaurantes"
+ * instead of category IDs. This function finds the first matching category.
+ * 
+ * @param categoryValue - Either a category ID (cuid) or a parent category string
+ * @returns The resolved category ID or null if not found
+ */
+async function resolveCategoryId(categoryValue: string | null): Promise<string | null> {
+  if (!categoryValue) return null
+  
+  // CUIDs are typically 25+ characters and don't contain spaces
+  // Parent category strings are usually shorter and may contain spaces
+  const looksLikeCuid = categoryValue.length >= 20 && !categoryValue.includes(' ')
+  
+  if (looksLikeCuid) {
+    // It looks like a category ID - verify it exists
+    const category = await prisma.category.findUnique({
+      where: { id: categoryValue },
+      select: { id: true },
+    })
+    return category?.id || null
+  }
+  
+  // It's likely a parent category string - find any matching category
+  const matchingCategory = await prisma.category.findFirst({
+    where: { parentCategory: categoryValue, isActive: true },
+    select: { id: true },
+    orderBy: { displayOrder: 'asc' },
+  })
+  
+  return matchingCategory?.id || null
 }
 
 /**
@@ -58,16 +105,12 @@ export async function getBusinesses() {
                 subCategory2: true,
               },
             },
-            salesReps: {
-              include: {
-                userProfile: {
-                  select: {
-                    id: true,
-                    clerkId: true,
-                    name: true,
-                    email: true,
-                  },
-                },
+            owner: {
+              select: {
+                id: true,
+                clerkId: true,
+                name: true,
+                email: true,
               },
             },
           },
@@ -126,6 +169,11 @@ export async function getBusinesses() {
 /**
  * Get businesses with pagination (cacheable, <2MB per page)
  * Supports filtering by opportunity status (with-open, without-open)
+ * 
+ * NOTE: Sales users can VIEW all businesses but only EDIT assigned ones.
+ * The response includes `editableBusinessIds` which is either:
+ * - null: User can edit all businesses (admin/editor)
+ * - string[]: Array of business IDs the user can edit
  */
 export async function getBusinessesPaginated(options: {
   page?: number
@@ -134,7 +182,14 @@ export async function getBusinessesPaginated(options: {
   sortDirection?: 'asc' | 'desc'
   opportunityFilter?: string // 'all' | 'with-open' | 'without-open'
   focusFilter?: string // 'all' | 'with-focus'
+  activeDealFilter?: boolean // Filter to businesses with active deals
+  ownerId?: string // Filter by owner (admin quick filter)
+  myBusinessesOnly?: boolean // Filter to show only businesses assigned to current user (for sales users)
+  advancedFilters?: string // JSON-serialized FilterRule[] for advanced field filtering
 } = {}) {
+  // Import here to avoid circular dependencies
+  const { buildPrismaWhere, parseAdvancedFilters } = await import('@/lib/filters/buildPrismaWhere')
+  
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
     return authResult
@@ -143,17 +198,24 @@ export async function getBusinessesPaginated(options: {
 
   try {
     const role = await getUserRole()
-    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', opportunityFilter, focusFilter } = options
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', opportunityFilter, focusFilter, activeDealFilter, ownerId: ownerFilter, myBusinessesOnly, advancedFilters } = options
 
     // Build where clause based on role
+    // Sales users can VIEW all businesses (no ownerId filter by default)
+    // They can only EDIT assigned ones (handled by editableBusinessIds)
     const whereClause: BusinessWhereClause = {}
     if (role === 'sales') {
-      whereClause.ownerId = userId
-      // Filter out businesses pending reassignment for sales reps
-      // Sales reps should not see businesses that have been flagged for reassignment
+      // Sales can view all businesses, but filter out those pending reassignment
       whereClause.reassignmentStatus = null
+      
+      // "My Businesses Only" filter - defaults to TRUE for sales users
+      // Only show all businesses if explicitly set to false
+      const showMyBusinessesOnly = myBusinessesOnly !== false
+      if (showMyBusinessesOnly) {
+        whereClause.ownerId = userId
+      }
     } else if (role === 'editor' || role === 'ere') {
-      return { success: true, data: [], total: 0, page, pageSize }
+      return { success: true, data: [], total: 0, page, pageSize, editableBusinessIds: [] as string[] }
     }
     // Admin sees all businesses (no reassignmentStatus filter)
     
@@ -180,21 +242,76 @@ export async function getBusinessesPaginated(options: {
       // We check for non-null focusPeriod here; expiration is handled client-side
       whereClause.focusPeriod = { not: null }
     }
+    
+    // Apply active deal filter if provided
+    if (activeDealFilter) {
+      // Find vendor IDs that have active deals (endAt > now)
+      const now = new Date()
+      const activeDealMetrics = await prisma.dealMetrics.findMany({
+        where: {
+          endAt: { gt: now },
+          externalVendorId: { not: null },
+        },
+        select: {
+          externalVendorId: true,
+        },
+        distinct: ['externalVendorId'],
+      })
+      
+      const activeVendorIds = activeDealMetrics
+        .map(dm => dm.externalVendorId)
+        .filter((id): id is string => id !== null)
+      
+      // Filter businesses to those with osAdminVendorId in the active vendor list
+      if (activeVendorIds.length > 0) {
+        whereClause.osAdminVendorId = { in: activeVendorIds }
+      } else {
+        // No active deals, return empty result
+        whereClause.osAdminVendorId = { in: [] }
+      }
+    }
+    
+    // Apply owner filter (admin quick filter)
+    if (ownerFilter) {
+      whereClause.ownerId = ownerFilter
+    }
+    
+    // Apply advanced filters (field-based filtering from AdvancedFilterBuilder)
+    if (advancedFilters) {
+      const filterRules = parseAdvancedFilters(advancedFilters)
+      if (filterRules.length > 0) {
+        const advancedWhere = buildPrismaWhere(filterRules)
+        if (Object.keys(advancedWhere).length > 0) {
+          // Snapshot existing conditions into a new object to avoid circular refs,
+          // then reset whereClause and combine with AND.
+          const existingConditions = { ...whereClause }
+          for (const key of Object.keys(whereClause)) {
+            delete (whereClause as Record<string, unknown>)[key]
+          }
+          whereClause.AND = [existingConditions, advancedWhere]
+        }
+      }
+    }
 
     // Get total count (with filters applied)
     const total = await prisma.business.count({ where: whereClause })
 
-    // Build orderBy - focused businesses first, then by specified sort
-    // Note: In PostgreSQL, ASC puts NULLs LAST, DESC puts NULLs FIRST
-    const orderByArray: Record<string, 'asc' | 'desc'>[] = []
+    // Build orderBy array - all sorting is now native Prisma
+    // Using Prisma's extended orderBy syntax for NULL handling
+    type OrderByItem = Record<string, 'asc' | 'desc' | { sort: 'asc' | 'desc'; nulls: 'first' | 'last' }>
+    const orderByArray: OrderByItem[] = []
     
     // Sort focused businesses first (those with focusPeriod) - asc puts non-null first (NULLs last)
     orderByArray.push({ focusPeriod: 'asc' })
     
     // Then apply user's sort
-    if (sortBy === 'name') {
+    const dbColumn = SORT_COLUMN_MAP[sortBy]
+    if (dbColumn) {
+      // Deal metrics column - always put NULLs last so actual data appears first
+      orderByArray.push({ [dbColumn]: { sort: sortDirection, nulls: 'last' } })
+    } else if (sortBy === 'name') {
       orderByArray.push({ name: sortDirection })
-    } else if (sortBy === 'contactName') {
+    } else if (sortBy === 'contact') {
       orderByArray.push({ contactName: sortDirection })
     } else {
       orderByArray.push({ createdAt: sortDirection })
@@ -213,16 +330,12 @@ export async function getBusinessesPaginated(options: {
             subCategory2: true,
           },
         },
-        salesReps: {
-          include: {
-            userProfile: {
-              select: {
-                id: true,
-                clerkId: true,
-                name: true,
-                email: true,
-              },
-            },
+        owner: {
+          select: {
+            id: true,
+            clerkId: true,
+            name: true,
+            email: true,
           },
         },
       },
@@ -264,6 +377,10 @@ export async function getBusinessesPaginated(options: {
       customFields: customFieldsByBusinessId.get(biz.id) || {},
     }))
 
+    // Get editable business IDs for this user
+    // null = can edit all (admin/editor), string[] = specific IDs user can edit
+    const editableBusinessIds = await getEditableBusinessIds()
+
     return { 
       success: true, 
       data: businessesWithCustomFields, 
@@ -271,6 +388,7 @@ export async function getBusinessesPaginated(options: {
       page, 
       pageSize,
       totalPages: Math.ceil(total / pageSize),
+      editableBusinessIds,
     }
   } catch (error) {
     return handleServerActionError(error, 'getBusinessesPaginated')
@@ -278,10 +396,37 @@ export async function getBusinessesPaginated(options: {
 }
 
 /**
- * Get business counts by opportunity status (for filter tabs)
- * Returns: all, with-open (has open opportunities), without-open (no open opportunities)
+ * Get business IDs that the current user can edit
+ * Returns null if user can edit all (admin/editor), or array of editable IDs
+ * 
+ * Used by UI to determine which businesses should show edit controls
  */
-export async function getBusinessCounts() {
+export async function fetchEditableBusinessIds(): Promise<{
+  success: boolean
+  data?: string[] | null
+  error?: string
+}> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    const editableIds = await getEditableBusinessIds()
+    return { success: true, data: editableIds }
+  } catch (error) {
+    return handleServerActionError(error, 'fetchEditableBusinessIds')
+  }
+}
+
+/**
+ * Get business counts by opportunity status (for filter tabs)
+ * Returns: all, with-open (has open opportunities), without-open (no open opportunities), with-active-deal
+ */
+export async function getBusinessCounts(filters?: { ownerId?: string; myBusinessesOnly?: boolean; advancedFilters?: string }) {
+  // Import here to avoid circular dependencies
+  const { buildPrismaWhere, parseAdvancedFilters } = await import('@/lib/filters/buildPrismaWhere')
+  
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
     return authResult
@@ -292,15 +437,61 @@ export async function getBusinessCounts() {
     const role = await getUserRole()
     
     // Build base where clause based on role
+    // Sales users can VIEW all businesses, so no ownerId filter needed for counts by default
     const baseWhere: Record<string, unknown> = {}
     if (role === 'sales') {
-      baseWhere.ownerId = userId
+      // Sales can view all businesses, but filter out those pending reassignment
+      baseWhere.reassignmentStatus = null
+      
+      // "My Businesses Only" filter - defaults to TRUE for sales users
+      // Only show all businesses if explicitly set to false
+      const showMyBusinessesOnly = filters?.myBusinessesOnly !== false
+      if (showMyBusinessesOnly) {
+        baseWhere.ownerId = userId
+      }
     } else if (role === 'editor' || role === 'ere') {
-      return { success: true, data: { all: 0, 'with-open': 0, 'without-open': 0, 'with-focus': 0 } }
+      return { success: true, data: { all: 0, 'with-open': 0, 'without-open': 0, 'with-focus': 0, 'with-active-deal': 0 } }
+    }
+    
+    // Apply owner filter (admin quick filter)
+    if (filters?.ownerId) {
+      baseWhere.ownerId = filters.ownerId
+    }
+    
+    // Apply advanced filters
+    if (filters?.advancedFilters) {
+      const filterRules = parseAdvancedFilters(filters.advancedFilters)
+      if (filterRules.length > 0) {
+        const advancedWhere = buildPrismaWhere(filterRules)
+        if (Object.keys(advancedWhere).length > 0) {
+          const existingConditions = Object.keys(baseWhere).length > 0 ? [{ ...baseWhere }] : []
+          const combinedWhere = existingConditions.length > 0
+            ? { AND: [...existingConditions, advancedWhere] }
+            : advancedWhere
+          Object.assign(baseWhere, combinedWhere)
+        }
+      }
     }
 
+    // Get active vendor IDs with active deals
+    const now = new Date()
+    const activeDealMetrics = await prisma.dealMetrics.findMany({
+      where: {
+        endAt: { gt: now },
+        externalVendorId: { not: null },
+      },
+      select: {
+        externalVendorId: true,
+      },
+      distinct: ['externalVendorId'],
+    })
+    
+    const activeVendorIds = activeDealMetrics
+      .map(dm => dm.externalVendorId)
+      .filter((id): id is string => id !== null)
+
     // Get counts in parallel
-    const [all, withOpen, withoutOpen, withFocus] = await Promise.all([
+    const [all, withOpen, withoutOpen, withFocus, withActiveDeal] = await Promise.all([
       prisma.business.count({ where: baseWhere }),
       prisma.business.count({ 
         where: { 
@@ -324,14 +515,290 @@ export async function getBusinessCounts() {
           focusPeriod: { not: null }
         } 
       }),
+      activeVendorIds.length > 0
+        ? prisma.business.count({
+            where: {
+              ...baseWhere,
+              osAdminVendorId: { in: activeVendorIds },
+            },
+          })
+        : Promise.resolve(0),
     ])
 
     return { 
       success: true, 
-      data: { all, 'with-open': withOpen, 'without-open': withoutOpen, 'with-focus': withFocus }
+      data: { all, 'with-open': withOpen, 'without-open': withoutOpen, 'with-focus': withFocus, 'with-active-deal': withActiveDeal }
     }
   } catch (error) {
     return handleServerActionError(error, 'getBusinessCounts')
+  }
+}
+
+/**
+ * Get active deal URLs for businesses (lazy loaded)
+ * Returns: activeDealUrls (businessId -> dealUrl)
+ * Only includes businesses that have at least one active deal
+ */
+export async function getBusinessActiveDealUrls() {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    
+    // Build base where clause based on role
+    const baseWhere: Record<string, unknown> = {}
+    if (role === 'sales') {
+      baseWhere.ownerId = userId
+    } else if (role === 'editor' || role === 'ere') {
+      return { 
+        success: true, 
+        data: {} as Record<string, string>
+      }
+    }
+
+    // Get all businesses (with role filter applied)
+    const businesses = await prisma.business.findMany({
+      where: {
+        ...baseWhere,
+        osAdminVendorId: { not: null }, // Only businesses with vendor ID
+      },
+      select: {
+        id: true,
+        osAdminVendorId: true,
+      },
+    })
+
+    if (businesses.length === 0) {
+      return { success: true, data: {} as Record<string, string> }
+    }
+
+    // Get vendor IDs
+    const vendorIds = businesses
+      .map(b => b.osAdminVendorId)
+      .filter((id): id is string => id !== null)
+
+    // Find active deals (endAt > now) for these vendors
+    const now = new Date()
+    const activeDeals = await prisma.dealMetrics.findMany({
+      where: {
+        externalVendorId: { in: vendorIds },
+        endAt: { gt: now },
+        dealUrl: { not: null },
+      },
+      select: {
+        externalVendorId: true,
+        dealUrl: true,
+      },
+      orderBy: { netRevenue: 'desc' }, // Get the highest revenue active deal per vendor
+      distinct: ['externalVendorId'],
+    })
+
+    // Create map: businessId -> activeDealUrl
+    const vendorToBusinessId = new Map(businesses.map(b => [b.osAdminVendorId, b.id]))
+    const activeDealUrls: Record<string, string> = {}
+    
+    for (const deal of activeDeals) {
+      if (deal.externalVendorId && deal.dealUrl) {
+        const businessId = vendorToBusinessId.get(deal.externalVendorId)
+        if (businessId) {
+          activeDealUrls[businessId] = deal.dealUrl
+        }
+      }
+    }
+
+    return { 
+      success: true, 
+      data: activeDealUrls 
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getBusinessActiveDealUrls')
+  }
+}
+
+/**
+ * Get counts for business table display (lazy loaded)
+ * Returns: openOpportunityCounts (businessId -> count), pendingRequestCounts (businessName lowercase -> count)
+ * This is much more efficient than loading all opportunities and requests
+ */
+export async function getBusinessTableCounts() {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    
+    // Build base where clause based on role
+    const baseWhere: Record<string, unknown> = {}
+    if (role === 'sales') {
+      baseWhere.ownerId = userId
+    } else if (role === 'editor' || role === 'ere') {
+      return { 
+        success: true, 
+        data: { 
+          openOpportunityCounts: {} as Record<string, number>, 
+          pendingRequestCounts: {} as Record<string, number> 
+        } 
+      }
+    }
+
+    // Get open opportunity counts per business using groupBy
+    const opportunityCounts = await prisma.opportunity.groupBy({
+      by: ['businessId'],
+      where: {
+        stage: { notIn: ['won', 'lost'] },
+        // For sales users, only count opportunities they own
+        ...(role === 'sales' ? { responsibleId: userId } : {}),
+      },
+      _count: { id: true },
+    })
+
+    // Get pending request counts per merchant name
+    const requestCounts = await prisma.bookingRequest.groupBy({
+      by: ['merchant'],
+      where: {
+        status: 'pending',
+        merchant: { not: null },
+      },
+      _count: { id: true },
+    })
+
+    // Convert to Record objects
+    const openOpportunityCounts: Record<string, number> = {}
+    for (const opp of opportunityCounts) {
+      if (opp.businessId) {
+        openOpportunityCounts[opp.businessId] = opp._count.id
+      }
+    }
+
+    const pendingRequestCounts: Record<string, number> = {}
+    for (const req of requestCounts) {
+      if (req.merchant) {
+        pendingRequestCounts[req.merchant.toLowerCase()] = req._count.id
+      }
+    }
+
+    return { 
+      success: true, 
+      data: { openOpportunityCounts, pendingRequestCounts } 
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getBusinessTableCounts')
+  }
+}
+
+/**
+ * Get all data needed for BusinessFormModal in a single request
+ * Replaces multiple separate fetches for categories, users, opportunities, requests
+ */
+export async function getBusinessFormData(businessId?: string | null) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    const admin = role === 'admin'
+
+    // Build parallel fetch promises
+    const fetchPromises: Promise<unknown>[] = [
+      // Categories (always needed)
+      prisma.category.findMany({
+        where: { isActive: true },
+        orderBy: [{ displayOrder: 'asc' }, { parentCategory: 'asc' }],
+      }),
+    ]
+
+    // Users (only for admin)
+    if (admin) {
+      fetchPromises.push(
+        prisma.userProfile.findMany({
+          where: { isActive: true },
+          select: {
+            id: true,
+            clerkId: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+          orderBy: { name: 'asc' },
+        })
+      )
+    } else {
+      fetchPromises.push(Promise.resolve([]))
+    }
+
+    // Business-specific data (only if editing existing business)
+    if (businessId) {
+      // Opportunities for this business
+      fetchPromises.push(
+        prisma.opportunity.findMany({
+          where: { businessId },
+          include: {
+            business: {
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    categoryKey: true,
+                    parentCategory: true,
+                    subCategory1: true,
+                    subCategory2: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        })
+      )
+
+      // Get business name for request lookup
+      const business = await prisma.business.findUnique({
+        where: { id: businessId },
+        select: { name: true },
+      })
+      const businessName = business?.name?.toLowerCase() || ''
+
+      // Requests matching this business name
+      fetchPromises.push(
+        businessName
+          ? prisma.bookingRequest.findMany({
+              where: {
+                merchant: { mode: 'insensitive', equals: businessName },
+              },
+              orderBy: { createdAt: 'desc' },
+              take: 50, // Limit to recent requests
+            })
+          : Promise.resolve([])
+      )
+    } else {
+      // New business - no business-specific data
+      fetchPromises.push(Promise.resolve([]))
+      fetchPromises.push(Promise.resolve([]))
+    }
+
+    const [categories, users, opportunities, requests] = await Promise.all(fetchPromises)
+
+    return {
+      success: true,
+      data: {
+        categories: categories as Category[],
+        users: users as UserData[],
+        opportunities: opportunities as Opportunity[],
+        requests: requests as BookingRequest[],
+      },
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getBusinessFormData')
   }
 }
 
@@ -350,26 +817,20 @@ export async function updateBusinessFocus(
   const { userId } = authResult
 
   try {
-    // Get business with salesReps to check permissions
+    // Get business to check permissions
     const business = await prisma.business.findUnique({
       where: { id: businessId },
-      include: {
-        salesReps: {
-          select: { salesRepId: true }
-        }
-      }
     })
 
     if (!business) {
       return { success: false, error: 'Business not found' }
     }
 
-    // Check permissions: must be admin or assigned sales rep
+    // Check permissions: must be admin or owner
     const admin = await isAdmin()
-    const isAssignedRep = business.salesReps.some(rep => rep.salesRepId === userId)
     const isOwner = business.ownerId === userId
 
-    if (!admin && !isAssignedRep && !isOwner) {
+    if (!admin && !isOwner) {
       return { success: false, error: 'No tienes permiso para modificar el foco de este negocio' }
     }
 
@@ -390,16 +851,12 @@ export async function updateBusinessFocus(
             subCategory2: true,
           },
         },
-        salesReps: {
-          include: {
-            userProfile: {
-              select: {
-                id: true,
-                clerkId: true,
-                name: true,
-                email: true,
-              },
-            },
+        owner: {
+          select: {
+            id: true,
+            clerkId: true,
+            name: true,
+            email: true,
           },
         },
       },
@@ -438,9 +895,14 @@ export async function updateBusinessFocus(
 /**
  * Search businesses across ALL records (server-side search)
  * Used when user types in search bar - searches name, contactName, contactEmail, contactPhone
+ * 
+ * NOTE: Sales users can VIEW all businesses but only EDIT assigned ones.
  */
 export async function searchBusinesses(query: string, options: {
   limit?: number
+  ownerId?: string // Filter by owner (admin quick filter)
+  activeDealFilter?: boolean // Filter to businesses with active deals
+  myBusinessesOnly?: boolean // Filter to show only businesses owned by current user (for sales users)
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -450,22 +912,62 @@ export async function searchBusinesses(query: string, options: {
 
   try {
     const role = await getUserRole()
-    const { limit = 100 } = options
+    const { limit = 100, ownerId: ownerFilter, activeDealFilter, myBusinessesOnly } = options
 
     if (!query || query.trim().length < 2) {
-      return { success: true, data: [] }
+      return { success: true, data: [], editableBusinessIds: null as string[] | null }
     }
 
     const searchTerm = query.trim()
 
     // Build where clause based on role
+    // Sales users can VIEW all businesses (no ownerId filter by default)
     const roleFilter: BusinessWhereClause = {}
     if (role === 'sales') {
-      roleFilter.ownerId = userId
-      // Filter out businesses pending reassignment
+      // Sales can view all businesses, but filter out those pending reassignment
       roleFilter.reassignmentStatus = null
+      
+      // "My Businesses Only" filter - defaults to TRUE for sales users
+      // Only show all businesses if explicitly set to false
+      const showMyBusinessesOnly = myBusinessesOnly !== false
+      if (showMyBusinessesOnly) {
+        roleFilter.ownerId = userId
+      }
     } else if (role === 'editor' || role === 'ere') {
-      return { success: true, data: [] }
+      return { success: true, data: [], editableBusinessIds: [] as string[] }
+    }
+    
+    // Apply owner filter (admin quick filter)
+    if (ownerFilter) {
+      roleFilter.ownerId = ownerFilter
+    }
+
+    // Apply active deal filter if provided
+    if (activeDealFilter) {
+      // Find vendor IDs that have active deals (endAt > now)
+      const now = new Date()
+      const activeDealMetrics = await prisma.dealMetrics.findMany({
+        where: {
+          endAt: { gt: now },
+          externalVendorId: { not: null },
+        },
+        select: {
+          externalVendorId: true,
+        },
+        distinct: ['externalVendorId'],
+      })
+      
+      const activeVendorIds = activeDealMetrics
+        .map(dm => dm.externalVendorId)
+        .filter((id): id is string => id !== null)
+      
+      // Filter businesses to those with osAdminVendorId in the active vendor list
+      if (activeVendorIds.length > 0) {
+        roleFilter.osAdminVendorId = { in: activeVendorIds }
+      } else {
+        // No active deals, return empty result
+        roleFilter.osAdminVendorId = { in: [] }
+      }
     }
 
     // Search across multiple fields with OR
@@ -489,16 +991,12 @@ export async function searchBusinesses(query: string, options: {
             subCategory2: true,
           },
         },
-        salesReps: {
-          include: {
-            userProfile: {
-              select: {
-                id: true,
-                clerkId: true,
-                name: true,
-                email: true,
-              },
-            },
+        owner: {
+          select: {
+            id: true,
+            clerkId: true,
+            name: true,
+            email: true,
           },
         },
       },
@@ -541,7 +1039,10 @@ export async function searchBusinesses(query: string, options: {
       customFields: customFieldsByBusinessId.get(biz.id) || {},
     }))
 
-    return { success: true, data: businessesWithCustomFields }
+    // Get editable business IDs for this user
+    const editableBusinessIds = await getEditableBusinessIds()
+
+    return { success: true, data: businessesWithCustomFields, editableBusinessIds }
   } catch (error) {
     return handleServerActionError(error, 'searchBusinesses')
   }
@@ -569,16 +1070,12 @@ export async function getBusiness(businessId: string) {
             subCategory2: true,
           },
         },
-        salesReps: {
-          include: {
-            userProfile: {
-              select: {
-                id: true,
-                clerkId: true,
-                name: true,
-                email: true,
-              },
-            },
+        owner: {
+          select: {
+            id: true,
+            clerkId: true,
+            name: true,
+            email: true,
           },
         },
         opportunities: {
@@ -615,7 +1112,6 @@ export async function createBusiness(formData: FormData) {
     const contactPhone = formData.get('contactPhone') as string
     const contactEmail = formData.get('contactEmail') as string
     const categoryId = formData.get('categoryId') as string | null
-    const salesRepIds = formData.getAll('salesRepIds') as string[] // Array of clerkIds
     const salesTeam = formData.get('salesTeam') as string | null
     const website = formData.get('website') as string | null
     const instagram = formData.get('instagram') as string | null
@@ -623,9 +1119,7 @@ export async function createBusiness(formData: FormData) {
     const tier = formData.get('tier') ? parseInt(formData.get('tier') as string) : null
     const ruc = formData.get('ruc') as string | null
     const razonSocial = formData.get('razonSocial') as string | null
-    const province = formData.get('province') as string | null
-    const district = formData.get('district') as string | null
-    const corregimiento = formData.get('corregimiento') as string | null
+    const provinceDistrictCorregimiento = formData.get('provinceDistrictCorregimiento') as string | null
     const accountManager = formData.get('accountManager') as string | null
     const ere = formData.get('ere') as string | null
     const salesType = formData.get('salesType') as string | null
@@ -659,29 +1153,29 @@ export async function createBusiness(formData: FormData) {
             subCategory2: true,
           },
         },
-        salesReps: true,
+        owner: {
+          select: {
+            id: true,
+            clerkId: true,
+            name: true,
+            email: true,
+          },
+        },
       },
     })
 
     if (existingBusiness) {
-      // Get owner info if ownerId exists
-      let ownerInfo: { name: string | null; email: string | null } | null = null
-      if (existingBusiness.ownerId) {
-        const ownerProfile = await prisma.userProfile.findUnique({
-          where: { clerkId: existingBusiness.ownerId },
-          select: { name: true, email: true },
-        })
-        ownerInfo = ownerProfile
-      }
       return { 
         success: false, 
         error: 'Business already exists', 
-        existingBusiness: { ...existingBusiness, owner: ownerInfo }
+        existingBusiness
       }
     }
 
-    if (!name || !contactName || !contactPhone || !contactEmail) {
-      return { success: false, error: 'Missing required fields' }
+    // Only 'name' is always required at server level (canSetRequired: false in form config)
+    // Other field requirements are determined by admin in Settings → Entity Fields
+    if (!name) {
+      return { success: false, error: 'Campos requeridos faltantes: Business Name' }
     }
 
     // Create business with sales reps
@@ -698,9 +1192,7 @@ export async function createBusiness(formData: FormData) {
       tier: tier || null,
       ruc: ruc || null,
       razonSocial: razonSocial || null,
-      province: province || null,
-      district: district || null,
-      corregimiento: corregimiento || null,
+      provinceDistrictCorregimiento: provinceDistrictCorregimiento || null,
       accountManager: accountManager || null,
       ere: ere || null,
       salesType: salesType || null,
@@ -715,22 +1207,21 @@ export async function createBusiness(formData: FormData) {
       address: address || null,
       neighborhood: neighborhood || null,
       osAdminVendorId: osAdminVendorId || null,
-      salesReps: {
-        create: salesRepIds.map((clerkId) => ({
-          salesRepId: clerkId,
-        })),
-      },
     }
 
-    // Set ownerId if userId exists
+    // Set owner if userId exists
     if (userId) {
-      businessData.ownerId = userId
+      businessData.owner = {
+        connect: { clerkId: userId }
+      }
     }
 
     // Use relation field for category
-    if (categoryId) {
+    // Resolve categoryId which may be a real ID or a parent category string
+    const resolvedCategoryId = await resolveCategoryId(categoryId)
+    if (resolvedCategoryId) {
       businessData.category = {
-        connect: { id: categoryId },
+        connect: { id: resolvedCategoryId },
       }
     }
 
@@ -746,7 +1237,14 @@ export async function createBusiness(formData: FormData) {
             subCategory2: true,
           },
         },
-        salesReps: true,
+        owner: {
+          select: {
+            id: true,
+            clerkId: true,
+            name: true,
+            email: true,
+          },
+        },
       },
     })
 
@@ -756,7 +1254,19 @@ export async function createBusiness(formData: FormData) {
     try {
       // Convert Prisma result to Business type for the mapper
       // Use unknown intermediate cast as Prisma types have different shapes
-      const businessForApi = business as unknown as Business
+      let businessForApi = business as unknown as Business
+      
+      // If contactEmail is empty, use the current user's email as fallback for vendor API
+      // This ensures the vendor can be created even if contact email wasn't provided
+      if (!businessForApi.contactEmail) {
+        const user = await currentUser()
+        const userEmail = user?.emailAddresses?.[0]?.emailAddress
+        if (userEmail) {
+          businessForApi = { ...businessForApi, contactEmail: userEmail }
+          console.log(`[createBusiness] Using user email as fallback for vendor API: ${userEmail}`)
+        }
+      }
+      
       vendorApiResult = await sendVendorToExternalApi(businessForApi, {
         userId,
         triggeredBy: 'manual',
@@ -800,7 +1310,14 @@ export async function createBusiness(formData: FormData) {
                 subCategory2: true,
               },
             },
-            salesReps: true,
+            owner: {
+              select: {
+                id: true,
+                clerkId: true,
+                name: true,
+                email: true,
+              },
+            },
           },
         })
       : business
@@ -830,6 +1347,16 @@ export async function updateBusiness(businessId: string, formData: FormData) {
   }
 
   try {
+    // Check if user can edit this business
+    // Sales users can VIEW all businesses but only EDIT assigned ones
+    const editPermission = await canEditBusiness(businessId)
+    if (!editPermission.canEdit) {
+      return { 
+        success: false, 
+        error: 'No tienes permiso para editar este negocio. Solo puedes editar negocios que te han sido asignados.' 
+      }
+    }
+
     // Fetch current business data for comparison
     const currentBusiness = await prisma.business.findUnique({
       where: { id: businessId },
@@ -840,7 +1367,6 @@ export async function updateBusiness(businessId: string, formData: FormData) {
     const contactPhone = formData.get('contactPhone') as string
     const contactEmail = formData.get('contactEmail') as string
     const categoryId = formData.get('categoryId') as string | null
-    const salesRepIds = formData.getAll('salesRepIds') as string[]
     const salesTeam = formData.get('salesTeam') as string | null
     const website = formData.get('website') as string | null
     const instagram = formData.get('instagram') as string | null
@@ -848,9 +1374,7 @@ export async function updateBusiness(businessId: string, formData: FormData) {
     const tier = formData.get('tier') ? parseInt(formData.get('tier') as string) : null
     const ruc = formData.get('ruc') as string | null
     const razonSocial = formData.get('razonSocial') as string | null
-    const province = formData.get('province') as string | null
-    const district = formData.get('district') as string | null
-    const corregimiento = formData.get('corregimiento') as string | null
+    const provinceDistrictCorregimiento = formData.get('provinceDistrictCorregimiento') as string | null
     const accountManager = formData.get('accountManager') as string | null
     const ere = formData.get('ere') as string | null
     const salesType = formData.get('salesType') as string | null
@@ -866,21 +1390,19 @@ export async function updateBusiness(businessId: string, formData: FormData) {
     const neighborhood = formData.get('neighborhood') as string | null
     const osAdminVendorId = formData.get('osAdminVendorId') as string | null
 
-    if (!name || !contactName || !contactPhone || !contactEmail) {
-      return { success: false, error: 'Missing required fields' }
+    // Only 'name' is always required at server level (canSetRequired: false in form config)
+    // Other field requirements are determined by admin in Settings → Entity Fields
+    if (!name) {
+      return { success: false, error: 'Campos requeridos faltantes: Business Name' }
     }
 
     // Check if user is admin to allow owner editing
     const admin = await isAdmin()
-    const ownerId = admin && formData.get('ownerId') ? (formData.get('ownerId') as string) : undefined
+    const ownerIdRaw = formData.get('ownerId') as string | null
+    // Handle special '__unassigned__' value to clear owner
+    const ownerId = admin && ownerIdRaw ? (ownerIdRaw === '__unassigned__' ? '__unassigned__' : ownerIdRaw) : undefined
 
-    // Update business and sales reps
-    // First, delete existing sales rep associations
-    await prisma.businessSalesRep.deleteMany({
-      where: { businessId },
-    })
-
-    // Then update business and create new associations
+    // Update business
     const updateData: Record<string, unknown> = {
       name,
       contactName,
@@ -893,9 +1415,7 @@ export async function updateBusiness(businessId: string, formData: FormData) {
       tier: tier || null,
       ruc: ruc || null,
       razonSocial: razonSocial || null,
-      province: province || null,
-      district: district || null,
-      corregimiento: corregimiento || null,
+      provinceDistrictCorregimiento: provinceDistrictCorregimiento || null,
       accountManager: accountManager || null,
       ere: ere || null,
       salesType: salesType || null,
@@ -910,27 +1430,36 @@ export async function updateBusiness(businessId: string, formData: FormData) {
       address: address || null,
       neighborhood: neighborhood || null,
       osAdminVendorId: osAdminVendorId || null,
-      salesReps: {
-        create: salesRepIds.map((clerkId) => ({
-          salesRepId: clerkId,
-        })),
-      },
     }
 
     // Use relation field for category
-    if (categoryId) {
+    // Resolve categoryId which may be a real ID or a parent category string
+    const resolvedCategoryId = await resolveCategoryId(categoryId)
+    if (resolvedCategoryId) {
       updateData.category = {
-        connect: { id: categoryId },
+        connect: { id: resolvedCategoryId },
       }
-    } else {
+    } else if (categoryId === null || categoryId === '') {
+      // Explicitly clearing the category
       updateData.category = {
         disconnect: true,
       }
     }
+    // If categoryId was provided but couldn't be resolved, don't change the category
 
     // Only update owner if admin
     if (admin && ownerId) {
-      updateData.ownerId = ownerId
+      if (ownerId === '__unassigned__') {
+        // Clear the owner - disconnect the relation
+        updateData.owner = {
+          disconnect: true
+        }
+      } else {
+        // Connect to the specified owner
+        updateData.owner = {
+          connect: { clerkId: ownerId }
+        }
+      }
     }
 
     const business = await prisma.business.update({
@@ -946,7 +1475,14 @@ export async function updateBusiness(businessId: string, formData: FormData) {
             subCategory2: true,
           },
         },
-        salesReps: true,
+        owner: {
+          select: {
+            id: true,
+            clerkId: true,
+            name: true,
+            email: true,
+          },
+        },
       },
     })
 
@@ -1050,8 +1586,9 @@ export async function getBusinessesWithBookingStatus() {
   }
 
   try {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    // Use Panama timezone for date comparison
+    const todayStr = getTodayInPanama()
+    const today = parseDateInPanamaTime(todayStr)
 
     // Get all businesses with basic info
     const businesses = await prisma.business.findMany({
@@ -1076,9 +1613,7 @@ export async function getBusinessesWithBookingStatus() {
         description: true,
         ruc: true,
         razonSocial: true,
-        province: true,
-        district: true,
-        corregimiento: true,
+        provinceDistrictCorregimiento: true,
         bank: true,
         beneficiaryName: true,
         accountNumber: true,
@@ -1141,208 +1676,185 @@ export async function getBusinessesWithBookingStatus() {
   }
 }
 
+// Note: Bulk import (BulkBusinessRow, BulkUpsertResult, bulkUpsertBusinesses) 
+// has been moved to app/actions/business-bulk.ts
+// Import from there: import { bulkUpsertBusinesses, type BulkBusinessRow, type BulkUpsertResult } from '@/app/actions/business-bulk'
+
 /**
- * Bulk upsert businesses from CSV import
- * Admin only
+ * Preview changes that would be synced to external vendor API
+ * Returns the list of field changes without actually sending them
  */
-export interface BulkBusinessRow {
-  id?: string
-  name: string
-  contactName?: string
-  contactEmail?: string
-  contactPhone?: string
-  category?: string // Full category path (e.g., "Food > Restaurants > Italian")
-  owner?: string
-  salesReps?: string
-  salesTeam?: string
-  // Location
-  province?: string
-  district?: string
-  corregimiento?: string
-  address?: string
-  neighborhood?: string
-  // Legal/Tax
-  ruc?: string
-  razonSocial?: string
-  // Online presence
-  website?: string
-  instagram?: string
-  description?: string
-  // Business info
-  tier?: string
-  accountManager?: string
-  ere?: string
-  salesType?: string
-  isAsesor?: string
-  osAsesor?: string
-  // Payment
-  paymentPlan?: string
-  bank?: string
-  beneficiaryName?: string
-  accountNumber?: string
-  accountType?: string
-  emailPaymentContacts?: string
-  // External IDs
-  osAdminVendorId?: string
-}
-
-export interface BulkUpsertResult {
-  created: number
-  updated: number
-  errors: string[]
-}
-
-export async function bulkUpsertBusinesses(
-  rows: BulkBusinessRow[]
-): Promise<{ success: boolean; data?: BulkUpsertResult; error?: string }> {
-  const authResult = await requireAuth()
-  if (!('userId' in authResult)) {
-    return authResult
+export async function previewVendorSync(
+  businessId: string,
+  newValues: Record<string, string | null | undefined>
+): Promise<{ 
+  success: boolean
+  data?: { 
+    changes: VendorFieldChange[]
+    vendorId: string 
   }
-  const { userId } = authResult
-
-  // Check admin access
-  if (!(await isAdmin())) {
-    return { success: false, error: 'Admin access required' }
-  }
-
+  error?: string 
+}> {
   try {
-    let created = 0
-    let updated = 0
-    const errors: string[] = []
+    // Require admin
+    const adminCheck = await isAdmin()
+    if (!adminCheck) {
+      return { success: false, error: 'Solo administradores pueden sincronizar con OfertaSimple' }
+    }
 
-    // Get all users for owner/salesReps lookup
-    const allUsers = await prisma.userProfile.findMany({
-      select: { id: true, clerkId: true, name: true, email: true },
-    })
-    const userByName = new Map(allUsers.map(u => [(u.name || '').toLowerCase(), u]))
-    const userByEmail = new Map(allUsers.map(u => [(u.email || '').toLowerCase(), u]))
-
-    // Get all categories for lookup
-    const allCategories = await prisma.category.findMany()
-    const categoryByPath = new Map<string, string>()
-    allCategories.forEach(cat => {
-      let path = cat.parentCategory
-      if (cat.subCategory1) path += ` > ${cat.subCategory1}`
-      if (cat.subCategory2) path += ` > ${cat.subCategory2}`
-      categoryByPath.set(path.toLowerCase(), cat.id)
+    // Get current business
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      include: { category: true },
     })
 
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i]
-      const rowNum = i + 2 // +2 for 1-indexed and header row
+    if (!business) {
+      return { success: false, error: 'Negocio no encontrado' }
+    }
 
-      try {
-        // Validate required fields for new records
-        if (!row.id && !row.name) {
-          errors.push(`Fila ${rowNum}: Nombre es requerido para nuevos registros`)
-          continue
-        }
+    if (!business.osAdminVendorId) {
+      return { success: false, error: 'Este negocio no tiene un Vendor ID de OfertaSimple' }
+    }
 
-        // Find owner by name or email
-        let ownerId: string | null = null
-        if (row.owner) {
-          const ownerLower = row.owner.toLowerCase()
-          const ownerUser = userByName.get(ownerLower) || userByEmail.get(ownerLower)
-          if (ownerUser) {
-            ownerId = ownerUser.clerkId
-          }
-        }
+    // Get changed fields
+    const { changes } = getChangedVendorFields(business as unknown as Business, newValues)
 
-        // Find category by path
-        let categoryId: string | null = null
-        if (row.category) {
-          categoryId = categoryByPath.get(row.category.toLowerCase()) || null
-        }
+    return {
+      success: true,
+      data: {
+        changes,
+        vendorId: business.osAdminVendorId,
+      },
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'previewVendorSync')
+  }
+}
 
-        // Build data object with all fields
-        const data = {
-          name: row.name,
-          contactName: row.contactName || '',
-          contactEmail: row.contactEmail || '',
-          contactPhone: row.contactPhone || '',
-          categoryId,
-          ownerId,
-          salesTeam: row.salesTeam || null,
-          // Location
-          province: row.province || null,
-          district: row.district || null,
-          corregimiento: row.corregimiento || null,
-          address: row.address || null,
-          neighborhood: row.neighborhood || null,
-          // Legal/Tax
-          ruc: row.ruc || null,
-          razonSocial: row.razonSocial || null,
-          // Online presence
-          website: row.website || null,
-          instagram: row.instagram || null,
-          description: row.description || null,
-          // Business info
-          tier: row.tier ? parseInt(row.tier, 10) || null : null,
-          accountManager: row.accountManager || null,
-          ere: row.ere || null,
-          salesType: row.salesType || null,
-          isAsesor: row.isAsesor || null,
-          osAsesor: row.osAsesor || null,
-          // Payment
-          paymentPlan: row.paymentPlan || null,
-          bank: row.bank || null,
-          beneficiaryName: row.beneficiaryName || null,
-          accountNumber: row.accountNumber || null,
-          accountType: row.accountType || null,
-          emailPaymentContacts: row.emailPaymentContacts || null,
-          // External IDs
-          osAdminVendorId: row.osAdminVendorId || null,
-        }
+/**
+ * Sync business changes to external vendor API
+ * 
+ * This function:
+ * 1. Validates admin permissions
+ * 2. Saves business locally first (auto-save)
+ * 3. Calculates changed fields
+ * 4. Sends PATCH to external API with only changed fields
+ * 
+ * @param businessId - Business ID to sync
+ * @param formData - Form data with new values (used for local save)
+ * @returns Result with sync status and updated business
+ */
+export async function syncVendorToExternal(
+  businessId: string,
+  formData: FormData
+): Promise<{
+  success: boolean
+  data?: {
+    business: Business
+    syncResult: UpdateVendorResult
+    fieldsUpdated: number
+  }
+  error?: string
+}> {
+  try {
+    // Require admin
+    const adminCheck = await isAdmin()
+    if (!adminCheck) {
+      return { success: false, error: 'Solo administradores pueden sincronizar con OfertaSimple' }
+    }
 
-        if (row.id) {
-          // Update existing
-          const existing = await prisma.business.findUnique({ where: { id: row.id } })
-          if (!existing) {
-            errors.push(`Fila ${rowNum}: No se encontró negocio con ID ${row.id}`)
-            continue
-          }
+    const authResult = await requireAuth()
+    if (!('userId' in authResult)) {
+      return { success: false, error: 'No autorizado' }
+    }
+    const { userId } = authResult
 
-          await prisma.business.update({
-            where: { id: row.id },
-            data,
-          })
-          updated++
-        } else {
-          // Create new - check for duplicate name
-          const existingByName = await prisma.business.findFirst({
-            where: { name: { equals: row.name, mode: 'insensitive' } },
-          })
-          
-          if (existingByName) {
-            errors.push(`Fila ${rowNum}: Ya existe un negocio con el nombre "${row.name}"`)
-            continue
-          }
+    // Get current business before update
+    const currentBusiness = await prisma.business.findUnique({
+      where: { id: businessId },
+      include: { category: true },
+    })
 
-          await prisma.business.create({ data })
-          created++
-        }
-      } catch (err) {
-        errors.push(`Fila ${rowNum}: ${err instanceof Error ? err.message : 'Error desconocido'}`)
+    if (!currentBusiness) {
+      return { success: false, error: 'Negocio no encontrado' }
+    }
+
+    if (!currentBusiness.osAdminVendorId) {
+      return { success: false, error: 'Este negocio no tiene un Vendor ID de OfertaSimple' }
+    }
+
+    // Extract form values into a record
+    const newValues: Record<string, string | null> = {}
+    for (const [key, value] of formData.entries()) {
+      if (typeof value === 'string') {
+        newValues[key] = value || null
       }
     }
 
-    // Invalidate cache
-    await invalidateEntity('businesses')
+    // Get changed fields for API (before saving locally)
+    const { changes, apiPayload } = getChangedVendorFields(
+      currentBusiness as unknown as Business, 
+      newValues
+    )
+
+    // If no changes, return early
+    if (changes.length === 0) {
+      return { 
+        success: false, 
+        error: 'No hay cambios para sincronizar' 
+      }
+    }
+
+    // Step 1: Save locally first (auto-save)
+    const updateResult = await updateBusiness(businessId, formData)
+    if (!updateResult.success || !updateResult.data) {
+      return { 
+        success: false, 
+        error: `Error al guardar localmente: ${updateResult.error || 'Error desconocido'}` 
+      }
+    }
+
+    // Step 2: Send PATCH to external API
+    const syncResult = await updateVendorInExternalApi(
+      currentBusiness.osAdminVendorId,
+      apiPayload,
+      {
+        userId,
+        triggeredBy: 'manual',
+      }
+    )
 
     // Log activity
     await logActivity({
-      action: 'IMPORT',
+      action: 'SEND',
       entityType: 'Business',
-      entityId: 'bulk',
-      details: { 
-        newValues: { created, updated, errorCount: errors.length },
+      entityId: businessId,
+      details: {
+        newValues: {
+          vendorId: currentBusiness.osAdminVendorId,
+          fieldsUpdated: changes.length,
+          syncSuccess: syncResult.success,
+          syncError: syncResult.error,
+        },
       },
     })
 
-    return { success: true, data: { created, updated, errors } }
+    if (!syncResult.success) {
+      return {
+        success: false,
+        error: `Guardado local exitoso, pero error al sincronizar: ${syncResult.error}`,
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        business: updateResult.data,
+        syncResult,
+        fieldsUpdated: changes.length,
+      },
+    }
   } catch (error) {
-    return handleServerActionError(error, 'bulkUpsertBusinesses')
+    return handleServerActionError(error, 'syncVendorToExternal')
   }
 }
-

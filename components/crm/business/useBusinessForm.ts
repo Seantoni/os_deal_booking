@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { getAllUsers, getOpportunitiesByBusiness } from '@/app/actions/crm'
-import { getCategories } from '@/app/actions/categories'
-import { getRequestsByBusiness } from '@/app/actions/booking-requests'
+import { getBusinessFormData } from '@/app/actions/businesses'
 import type { Business, Opportunity, BookingRequest, UserData } from '@/types'
 import type { Category } from '@prisma/client'
 
@@ -43,59 +41,54 @@ export function useBusinessForm({
   const businessRef = useRef(business)
   businessRef.current = business
 
-  // Load business-specific data (opportunities, requests)
+  // Load business-specific data using single batched request
   const loadFormData = useCallback(async () => {
     const currentBusiness = businessRef.current
 
     // Reset reference bar fields
-    setOwnerId(currentBusiness?.ownerId || currentUserId || '')
+    // For existing businesses: use ownerId if set, otherwise '__unassigned__' to allow clearing
+    // For new businesses: default to current user
+    const ownerValue = currentBusiness 
+      ? (currentBusiness.ownerId || '__unassigned__')
+      : (currentUserId || '__unassigned__')
+    setOwnerId(ownerValue)
     setSalesTeam(currentBusiness?.salesTeam || '')
     setOpportunities([])
     setRequests([])
 
+    // If we have all preloaded data for a new business, skip the fetch entirely
+    const hasAllPreloadedData = (preloadedCategories && preloadedCategories.length > 0) && 
+                                 (preloadedUsers && preloadedUsers.length > 0)
+    
+    if (!currentBusiness && hasAllPreloadedData) {
+      // New business with all preloaded data - no need to fetch
+      return
+    }
+
     setLoadingData(true)
     try {
-      // Build fetch promises - only fetch what's not preloaded
-      const fetchPromises: Promise<{ success: boolean; data?: unknown; error?: string }>[] = []
-      const fetchKeys: string[] = []
-
-      // Categories (skip if preloaded)
-      if (!preloadedCategories || preloadedCategories.length === 0) {
-        fetchPromises.push(getCategories())
-        fetchKeys.push('categories')
-      }
-
-      // Users (skip if preloaded, only fetch for admin)
-      if (isAdmin && (!preloadedUsers || preloadedUsers.length === 0)) {
-        fetchPromises.push(getAllUsers())
-        fetchKeys.push('users')
-      }
-
-      // Business-specific data (always fetch if editing)
-      if (currentBusiness) {
-        fetchPromises.push(getOpportunitiesByBusiness(currentBusiness.id))
-        fetchKeys.push('opportunities')
-        fetchPromises.push(getRequestsByBusiness(currentBusiness.id))
-        fetchKeys.push('requests')
-      }
-
-      // Parallel fetch
-      if (fetchPromises.length > 0) {
-        const results = await Promise.all(fetchPromises)
-        fetchKeys.forEach((key, index) => {
-          const result = results[index]
-          if (result.success && result.data) {
-            if (key === 'categories') setCategories(result.data as Category[])
-            else if (key === 'users') setUsers(result.data as UserData[])
-            else if (key === 'opportunities') setOpportunities(result.data as Opportunity[])
-            else if (key === 'requests') setRequests(result.data as BookingRequest[])
-          }
-        })
+      // Single batched request for all form data
+      const result = await getBusinessFormData(currentBusiness?.id)
+      
+      if (result.success && result.data) {
+        // Only update categories/users if not preloaded
+        if (!preloadedCategories || preloadedCategories.length === 0) {
+          setCategories(result.data.categories)
+        }
+        if (!preloadedUsers || preloadedUsers.length === 0) {
+          setUsers(result.data.users)
+        }
+        
+        // Business-specific data (opportunities, requests) always from response
+        if (currentBusiness) {
+          setOpportunities(result.data.opportunities)
+          setRequests(result.data.requests)
+        }
       }
     } finally {
       setLoadingData(false)
     }
-  }, [currentUserId, preloadedCategories, preloadedUsers, isAdmin])
+  }, [currentUserId, preloadedCategories, preloadedUsers])
 
   // Main load effect
   useEffect(() => {

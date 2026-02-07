@@ -73,6 +73,7 @@ export default function PublicBookingForm({ token }: PublicBookingFormProps) {
 
       // Configuración fields
       formDataToSubmit.append('campaignDuration', formData.campaignDuration || '')
+      formDataToSubmit.append('campaignDurationUnit', formData.campaignDurationUnit || 'months')
 
       // Operatividad fields
       formDataToSubmit.append('redemptionMode', formData.redemptionMode || '')

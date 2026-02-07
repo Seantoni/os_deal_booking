@@ -135,7 +135,7 @@ export default function MarketIntelligenceClient() {
     
     try {
       // Use SSE for real-time progress
-      const response = await fetch('/api/market-intelligence/scan', {
+      const response = await fetch('/api/cron/market-intelligence-scan', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

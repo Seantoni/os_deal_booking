@@ -4,7 +4,7 @@ import { useState, useRef } from 'react'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import EventIcon from '@mui/icons-material/Event'
-import { formatISODateOnly, daysUntil } from '@/lib/date'
+import { formatISODateOnly, daysUntil, getTodayInPanama, formatDateForPanama } from '@/lib/date'
 import AttachFileIcon from '@mui/icons-material/AttachFile'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
@@ -47,9 +47,11 @@ interface MarketingOptionCardProps {
   }
   optionLabel: string
   canEdit: boolean
+  canComment?: boolean // Separate permission for comments (includes sales)
   saving: boolean
   draggingImage?: string | null // URL of image being dragged from gallery
   users?: UserOption[] // Users for responsible dropdown
+  defaultExpanded?: boolean // Start expanded (e.g., when coming from inbox)
   onTogglePlanned: (optionId: string, isPlanned: boolean) => Promise<void>
   onToggleCompleted: (optionId: string, isCompleted: boolean) => Promise<void>
   onUpdateDueDate: (optionId: string, dueDate: Date | null) => Promise<void>
@@ -63,9 +65,11 @@ export default function MarketingOptionCard({
   option,
   optionLabel,
   canEdit,
+  canComment,
   saving,
   draggingImage,
   users = [],
+  defaultExpanded = false,
   onTogglePlanned,
   onToggleCompleted,
   onUpdateDueDate,
@@ -74,7 +78,9 @@ export default function MarketingOptionCard({
   onRemoveAttachment,
   onImageDrop,
 }: MarketingOptionCardProps) {
-  const [expanded, setExpanded] = useState(false)
+  // Use canComment for chat if provided, otherwise fall back to canEdit
+  const canAddComments = canComment ?? canEdit
+  const [expanded, setExpanded] = useState(defaultExpanded)
   const [uploading, setUploading] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
@@ -207,7 +213,10 @@ export default function MarketingOptionCard({
     await onRemoveAttachment(option.id, url)
   }
 
-const isOverdue = option.dueDate && new Date(option.dueDate) < new Date() && !option.isCompleted
+// Check overdue using Panama timezone
+const todayStr = getTodayInPanama()
+const dueDateStr = option.dueDate ? formatDateForPanama(new Date(option.dueDate)) : null
+const isOverdue = dueDateStr && dueDateStr < todayStr && !option.isCompleted
   const daysLeft = option.dueDate ? daysUntil(option.dueDate) : null
 
   // Determine if this card can receive a drop
@@ -458,7 +467,7 @@ const isOverdue = option.dueDate && new Date(option.dueDate) < new Date() && !op
 
           {/* Activity / Chat Section */}
           <div className="p-3 bg-white">
-            <OptionChatThread optionId={option.id} canEdit={canEdit} />
+            <OptionChatThread optionId={option.id} canEdit={canAddComments} />
           </div>
         </div>
       )}

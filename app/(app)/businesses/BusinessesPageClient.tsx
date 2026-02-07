@@ -1,26 +1,47 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { deleteBusiness, getOpportunities } from '@/app/actions/crm'
-import { getBusinessesPaginated, searchBusinesses, getBusinessCounts } from '@/app/actions/businesses'
-import { getBookingRequests } from '@/app/actions/booking-requests'
-import type { BookingRequest } from '@/types'
-import type { Business, Opportunity } from '@/types'
+import { deleteBusiness } from '@/app/actions/crm'
+import { getBusinessesPaginated, searchBusinesses, getBusinessCounts, getBusinessTableCounts, fetchEditableBusinessIds } from '@/app/actions/businesses'
+import type { Business } from '@/types'
 import AddIcon from '@mui/icons-material/Add'
 import FilterListIcon from '@mui/icons-material/FilterList'
-import OpenInNewIcon from '@mui/icons-material/OpenInNew'
-import HandshakeIcon from '@mui/icons-material/Handshake'
-import DescriptionIcon from '@mui/icons-material/Description'
 import DownloadIcon from '@mui/icons-material/Download'
 import UploadIcon from '@mui/icons-material/Upload'
-import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
-import MoreVertIcon from '@mui/icons-material/MoreVert'
+import StorefrontIcon from '@mui/icons-material/Storefront'
+import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import type { ParsedCsvRow } from '@/lib/utils/csv-export'
 import CsvUploadModal, { type CsvUploadPreview, type CsvUploadResult } from '@/components/common/CsvUploadModal'
 import { exportBusinessesToCsv } from './csv-export'
 import { CSV_IMPORT_HEADERS, previewBusinessImport, confirmBusinessImport } from './csv-import'
+import toast from 'react-hot-toast'
+import { getActiveFocus, type FocusPeriod } from '@/lib/utils/focus-period'
+import { useConfirmDialog } from '@/hooks/useConfirmDialog'
+import ConfirmDialog from '@/components/common/ConfirmDialog'
+import { useUserRole } from '@/hooks/useUserRole'
+import { useSharedData } from '@/hooks/useSharedData'
+import { useFormConfigCache } from '@/hooks/useFormConfigCache'
+import { usePaginatedSearch } from '@/hooks/usePaginatedSearch'
+import { useAdvancedFilters } from '@/hooks/useAdvancedFilters'
+import { sortEntities } from '@/hooks/useEntityPage'
+import { 
+  EntityPageHeader, 
+  EmptyTableState, 
+  UserFilterDropdown,
+  SortableTableHeader,
+  type FilterTab,
+  type ColumnConfig,
+} from '@/components/shared'
+import { Button } from '@/components/ui'
+
+// Local hooks and components
+import { useBusinessTableCounts, useBusinessPageState } from './hooks'
+import { BusinessTableRow, DealsTab, BusinessMobileCard } from './components'
+
+// Tab type
+type PageTab = 'businesses' | 'deals'
 
 // Lazy load heavy modal components
 const BusinessFormModal = dynamic(() => import('@/components/crm/business/BusinessFormModal'), {
@@ -42,52 +63,59 @@ const ReassignmentModal = dynamic(() => import('@/components/crm/business/Reassi
   loading: () => null,
   ssr: false,
 })
-import toast from 'react-hot-toast'
-import { getActiveFocus, FOCUS_PERIOD_LABELS, type FocusPeriod } from '@/lib/utils/focus-period'
-import { useConfirmDialog } from '@/hooks/useConfirmDialog'
-import ConfirmDialog from '@/components/common/ConfirmDialog'
-import { useUserRole } from '@/hooks/useUserRole'
-import { useSharedData } from '@/hooks/useSharedData'
-import { useFormConfigCache } from '@/hooks/useFormConfigCache'
-import { usePaginatedSearch } from '@/hooks/usePaginatedSearch'
-import { useAdvancedFilters } from '@/hooks/useAdvancedFilters'
-import { sortEntities } from '@/hooks/useEntityPage'
-import { logger } from '@/lib/logger'
-import { 
-  EntityPageHeader, 
-  EmptyTableState, 
-  type FilterTab,
-  type ColumnConfig,
-} from '@/components/shared'
-import { Button } from '@/components/ui'
-import { EntityTable, TableRow, TableCell } from '@/components/shared/table'
+
+const AssignCampaignModal = dynamic(() => import('@/components/crm/business/AssignCampaignModal'), {
+  loading: () => null,
+  ssr: false,
+})
+
+// Actions column header with grouped labels - matches button layout
+// Button sizes: 30px each (18px icon + 12px padding), gap-1 = 4px, divider mx-1 = 8px
+const ActionsColumnHeader = () => (
+  <div className="flex items-center justify-end text-[10px] font-medium normal-case tracking-normal">
+    {/* Admin group: Focus, Campaign, Reassignment - 3 buttons + 2 gaps = 98px */}
+    <div className="flex items-center justify-center text-amber-600" style={{ width: '98px' }}>
+      <span>Admin</span>
+    </div>
+    {/* Divider space */}
+    <div style={{ width: '10px' }} />
+    {/* Crear group: Opportunity, Request - 2 buttons + 1 gap = 64px */}
+    <div className="flex items-center justify-center text-blue-600" style={{ width: '64px' }}>
+      <span>Crear</span>
+    </div>
+    {/* Divider space */}
+    <div style={{ width: '10px' }} />
+    {/* Ver group: Open Full Page - 1 button = 30px */}
+    <div className="flex items-center justify-center text-slate-600" style={{ width: '30px' }}>
+      <span>Ver</span>
+    </div>
+  </div>
+)
 
 // Table columns configuration
 const COLUMNS: ColumnConfig[] = [
+  { key: 'expand', label: '', width: 'w-4' },
   { key: 'name', label: 'Nombre del Negocio', sortable: true },
-  { key: 'contact', label: 'Contacto', sortable: true },
-  { key: 'email', label: 'Correo' },
-  { key: 'phone', label: 'Teléfono' },
   { key: 'category', label: 'Categoría', sortable: true },
-  { key: 'netRev360', label: 'Ing. Neto (360d)', sortable: true, align: 'right' },
-  { key: 'reps', label: 'Reps' },
-  { key: 'openOpps', label: 'Opps Abiertas', sortable: true, align: 'center', width: 'w-20' },
-  { key: 'pendingReqs', label: 'Solic. Pendientes', sortable: true, align: 'center', width: 'w-24' },
-  { key: 'actions', label: '', width: 'w-20' },
+  { key: 'tier', label: 'Tier', sortable: true, align: 'center', width: 'w-14' },
+  { key: 'owner', label: 'Propietario', sortable: true },
+  { key: 'topSold', label: 'Top #', sortable: true, align: 'right' },
+  { key: 'topRevenue', label: 'Top $', sortable: true, align: 'right' },
+  { key: 'lastLaunch', label: 'Lanz.', sortable: true, align: 'center' },
+  { key: 'deals360d', label: '#Deals', sortable: true, align: 'center' },
+  { key: 'openOpps', label: 'Opps', sortable: true, align: 'center', width: 'w-14' },
+  { key: 'pendingReqs', label: 'Solic.', sortable: true, align: 'center', width: 'w-14' },
+  { key: 'actions', label: <ActionsColumnHeader />, align: 'right' },
 ]
 
 interface BusinessesPageClientProps {
   initialBusinesses?: Business[]
-  initialOpportunities?: Opportunity[]
-  initialRequests?: BookingRequest[]
   initialTotal?: number
   initialCounts?: Record<string, number>
 }
 
 export default function BusinessesPageClient({
   initialBusinesses,
-  initialOpportunities,
-  initialRequests,
   initialTotal = 0,
   initialCounts,
 }: BusinessesPageClientProps = {}) {
@@ -95,17 +123,56 @@ export default function BusinessesPageClient({
   const searchParams = useSearchParams()
   const { role: userRole } = useUserRole()
   const isAdmin = userRole === 'admin'
+  const confirmDialog = useConfirmDialog()
   
-  // Get shared/cached data for categories and users
+  // Track which businesses the current user can edit
+  // null = can edit all (admin/editor), string[] = specific IDs
+  const [editableBusinessIds, setEditableBusinessIds] = useState<string[] | null>(null)
+  const editableIdsLoadedRef = useRef(false)
+  
+  // Fetch editable business IDs on mount
+  useEffect(() => {
+    if (editableIdsLoadedRef.current) return
+    editableIdsLoadedRef.current = true
+    
+    fetchEditableBusinessIds().then(result => {
+      if (result.success) {
+        setEditableBusinessIds(result.data ?? null)
+      }
+    })
+  }, [])
+  
+  // Helper to check if user can edit a specific business
+  const canEditBusiness = useCallback((businessId: string): boolean => {
+    // null means can edit all (admin/editor)
+    if (editableBusinessIds === null) return true
+    return editableBusinessIds.includes(businessId)
+  }, [editableBusinessIds])
+  
+  // Shared data for categories and users
   const { categories, users } = useSharedData()
   
-  // Get form config cache for prefetching
+  // Form config cache for prefetching
   const { prefetch: prefetchFormConfig } = useFormConfigCache()
   
-  // Advanced filters hook
+  // Advanced filters
   const { headerProps: advancedFilterProps, filterRules, applyFiltersToData } = useAdvancedFilters<Business>('businesses')
   
-  // Use the reusable paginated search hook (now with server-side filtering)
+  // Table counts (lazy-loaded opportunity/request counts, deal URLs, campaign counts)
+  const {
+    businessOpenOpportunityCount,
+    businessPendingRequestCount,
+    businessHasOpenOpportunity,
+    businessCampaignCounts,
+    activeDealUrls,
+    refreshTableCounts,
+    refreshCampaignCounts,
+  } = useBusinessTableCounts({ isAdmin })
+  
+  // Page state (modals, expanded rows, action menus)
+  const pageState = useBusinessPageState()
+  
+  // Paginated search hook
   const {
     data: businesses,
     setData: setBusinesses,
@@ -113,6 +180,7 @@ export default function BusinessesPageClient({
     setSearchResults,
     loading,
     searchLoading,
+    error: loadError,
     searchQuery,
     handleSearchChange,
     isSearching,
@@ -121,6 +189,7 @@ export default function BusinessesPageClient({
     sortDirection,
     handleSort,
     loadPage,
+    reload,
     filters,
     updateFilter,
     counts,
@@ -137,35 +206,53 @@ export default function BusinessesPageClient({
     entityName: 'negocios',
   })
 
-  // Additional state for opportunities and requests (initialized from server)
-  const [opportunities, setOpportunities] = useState<Opportunity[]>(initialOpportunities || [])
-  const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>(initialRequests || [])
-  
-  // Opportunity filter is now managed by the hook
+  // Filter state (managed by paginated search hook)
   const opportunityFilter = (filters.opportunityFilter as 'all' | 'with-open' | 'without-open') || 'all'
   const setOpportunityFilter = useCallback((filter: 'all' | 'with-open' | 'without-open') => {
     updateFilter('opportunityFilter', filter === 'all' ? undefined : filter)
   }, [updateFilter])
   
-  // Focus filter is also managed by the hook
   const focusFilter = (filters.focusFilter as 'all' | 'with-focus') || 'all'
   const setFocusFilter = useCallback((filter: 'all' | 'with-focus') => {
     updateFilter('focusFilter', filter === 'all' ? undefined : filter)
   }, [updateFilter])
   
-  // Modal state
-  const [businessModalOpen, setBusinessModalOpen] = useState(false)
-  const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null)
-  const [opportunityModalOpen, setOpportunityModalOpen] = useState(false)
-  const [selectedBusinessForOpportunity, setSelectedBusinessForOpportunity] = useState<Business | null>(null)
-  const [uploadModalOpen, setUploadModalOpen] = useState(false)
-  const [focusModalOpen, setFocusModalOpen] = useState(false)
-  const [selectedBusinessForFocus, setSelectedBusinessForFocus] = useState<Business | null>(null)
-  const [reassignmentModalOpen, setReassignmentModalOpen] = useState(false)
-  const [selectedBusinessForReassignment, setSelectedBusinessForReassignment] = useState<Business | null>(null)
-  const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null) // Track which row has open menu
+  const ownerFilter = (filters.ownerId as string) || null
+  const setOwnerFilter = useCallback((userId: string | null) => {
+    updateFilter('ownerId', userId || undefined)
+  }, [updateFilter])
   
-  const confirmDialog = useConfirmDialog()
+  const activeDealFilter = (filters.activeDealFilter as boolean) || false
+  const setActiveDealFilter = useCallback((enabled: boolean) => {
+    if (enabled) {
+      updateFilter('activeDealFilter', true)
+      updateFilter('opportunityFilter', undefined)
+      updateFilter('focusFilter', undefined)
+    } else {
+      updateFilter('activeDealFilter', undefined)
+    }
+  }, [updateFilter])
+  
+  // "My Businesses Only" filter - for sales users to filter to their assigned businesses
+  // Server defaults to TRUE for sales users, so undefined means "my businesses"
+  // Only when explicitly set to false will it show all businesses
+  const isSalesUser = userRole === 'sales'
+  const myBusinessesOnly = isSalesUser 
+    ? (filters.myBusinessesOnly !== false) // Default true for sales, false only when explicitly set
+    : false
+  const setMyBusinessesOnly = useCallback((enabled: boolean) => {
+    // For sales users: true = show my businesses (default), false = show all
+    updateFilter('myBusinessesOnly', enabled ? undefined : false)
+  }, [updateFilter])
+
+  // Sync advanced filter rules to pagination (for server-side filtering)
+  useEffect(() => {
+    if (filterRules.length > 0) {
+      updateFilter('advancedFilters', JSON.stringify(filterRules))
+    } else {
+      updateFilter('advancedFilters', undefined)
+    }
+  }, [filterRules, updateFilter])
 
   // Handle opening business from URL query params or sessionStorage
   useEffect(() => {
@@ -176,8 +263,7 @@ export default function BusinessesPageClient({
       if (allBusinesses.length > 0) {
         const business = allBusinesses.find(b => b.id === openBusinessId)
         if (business) {
-          setSelectedBusiness(business)
-          setBusinessModalOpen(true)
+          pageState.openBusinessModal(business)
           return
         }
       }
@@ -189,83 +275,11 @@ export default function BusinessesPageClient({
       if (allBusinesses.length > 0) {
         const business = allBusinesses.find(b => b.id === openFromUrl)
         if (business) {
-          setSelectedBusiness(business)
-          setBusinessModalOpen(true)
+          pageState.openBusinessModal(business)
         }
       }
     }
-  }, [searchParams, businesses, searchResults])
-
-  // Close action menu when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (actionMenuOpen && !(event.target as Element).closest('.relative')) {
-        setActionMenuOpen(null)
-      }
-    }
-    if (actionMenuOpen) {
-      document.addEventListener('click', handleClickOutside)
-    }
-    return () => document.removeEventListener('click', handleClickOutside)
-  }, [actionMenuOpen])
-
-  // Load opportunities and booking requests alongside businesses
-  useEffect(() => {
-    if (initialOpportunities?.length || initialRequests?.length) {
-      return
-    }
-    
-    async function loadOpportunitiesAndRequests() {
-      try {
-        const [oppsResult, reqsResult] = await Promise.all([
-          getOpportunities(),
-          getBookingRequests(),
-        ])
-        if (oppsResult.success && oppsResult.data) {
-          setOpportunities(oppsResult.data)
-        }
-        if (reqsResult.success && reqsResult.data) {
-          setBookingRequests(reqsResult.data)
-        }
-      } catch (error) {
-        logger.error('Failed to load opportunities/requests:', error)
-      }
-    }
-    loadOpportunitiesAndRequests()
-  }, [initialOpportunities, initialRequests])
-
-  // Map of business IDs to count of open opportunities
-  const businessOpenOpportunityCount = useMemo(() => {
-    const map = new Map<string, number>()
-    opportunities.forEach(opp => {
-      const isOpen = opp.stage !== 'won' && opp.stage !== 'lost'
-      if (opp.businessId && isOpen) {
-        map.set(opp.businessId, (map.get(opp.businessId) || 0) + 1)
-      }
-    })
-    return map
-  }, [opportunities])
-
-  // Map of business names to count of pending requests
-  const businessPendingRequestCount = useMemo(() => {
-    const map = new Map<string, number>()
-    bookingRequests.forEach(req => {
-      if (req.status === 'pending' && req.merchant) {
-        const merchantLower = req.merchant.toLowerCase()
-        map.set(merchantLower, (map.get(merchantLower) || 0) + 1)
-      }
-    })
-    return map
-  }, [bookingRequests])
-
-  // Helper to check if business has open opportunity
-  const businessHasOpenOpportunity = useMemo(() => {
-    const map = new Map<string, boolean>()
-    businessOpenOpportunityCount.forEach((count, businessId) => {
-      if (count > 0) map.set(businessId, true)
-    })
-    return map
-  }, [businessOpenOpportunityCount])
+  }, [searchParams, businesses, searchResults, pageState])
 
   // Determine which businesses to display
   const displayBusinesses = searchResults !== null ? searchResults : businesses
@@ -284,7 +298,6 @@ export default function BusinessesPageClient({
 
   // Filter tabs with counts
   const filterTabs: FilterTab[] = useMemo(() => {
-    // When searching, use client-side counts
     if (isSearching) {
       const baseBusinesses = displayBusinesses
       return [
@@ -295,7 +308,6 @@ export default function BusinessesPageClient({
       ]
     }
     
-    // Use server-side counts
     return [
       { id: 'all', label: 'All', count: counts.all ?? initialTotal },
       { id: 'with-focus', label: 'Con Foco', count: counts['with-focus'] ?? 0 },
@@ -309,17 +321,20 @@ export default function BusinessesPageClient({
     switch (column) {
       case 'name':
         return business.name.toLowerCase()
-      case 'contact':
-        return (business.contactName || '').toLowerCase()
-      case 'email':
-        return business.contactEmail.toLowerCase()
-      case 'phone':
-        return business.contactPhone.toLowerCase()
       case 'category':
         return (business.category?.parentCategory || '').toLowerCase()
-      case 'netRev360':
-        if (business.sourceType !== 'api') return null
-        return business.metrics?.net_rev_360_days ?? null
+      case 'tier':
+        return business.tier ?? 999 // Put null tiers at the end
+      case 'owner':
+        return (business.owner?.name || business.owner?.email || '').toLowerCase()
+      case 'topSold':
+        return business.topSoldQuantity ?? 0
+      case 'topRevenue':
+        return business.topRevenueAmount ? Number(business.topRevenueAmount) : 0
+      case 'lastLaunch':
+        return business.lastLaunchDate ? new Date(business.lastLaunchDate).getTime() : 0
+      case 'deals360d':
+        return business.totalDeals360d ?? 0
       case 'openOpps':
         return businessOpenOpportunityCount.get(business.id) || 0
       case 'pendingReqs':
@@ -329,29 +344,27 @@ export default function BusinessesPageClient({
     }
   }, [businessOpenOpportunityCount, businessPendingRequestCount])
 
-  // Filter and sort businesses (client-side for filters when searching)
+  // Filter and sort businesses
   const filteredBusinesses = useMemo(() => {
     let filtered = displayBusinesses
 
-    // Only apply client-side filters when searching (server doesn't filter search results)
     if (isSearching) {
-      // Apply opportunity filter
+      // Client-side filtering for search results (server filters don't apply to search)
       if (opportunityFilter === 'with-open') {
         filtered = filtered.filter(b => businessHasOpenOpportunity.get(b.id))
       } else if (opportunityFilter === 'without-open') {
         filtered = filtered.filter(b => !businessHasOpenOpportunity.get(b.id))
       }
       
-      // Apply focus filter
       if (focusFilter === 'with-focus') {
         filtered = filtered.filter(b => businessActiveFocus.has(b.id))
       }
+      
+      // Apply advanced filters client-side for search results only
+      // (paginated data is filtered server-side via advancedFilters param)
+      filtered = applyFiltersToData(filtered)
     }
 
-    // Apply advanced filters (always, both for paginated and search results)
-    filtered = applyFiltersToData(filtered)
-
-    // Client-side sort for search results
     if (isSearching && sortColumn) {
       return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
     }
@@ -359,25 +372,16 @@ export default function BusinessesPageClient({
     return filtered
   }, [displayBusinesses, opportunityFilter, focusFilter, businessHasOpenOpportunity, businessActiveFocus, isSearching, sortColumn, sortDirection, getSortValue, applyFiltersToData])
 
-  // Prefetch form config when hovering over "New Business" button
+  // Prefetch handlers
   const handleNewBusinessHover = useCallback(() => {
     prefetchFormConfig('business')
   }, [prefetchFormConfig])
 
-  function handleCreateBusiness() {
-    setSelectedBusiness(null)
-    setBusinessModalOpen(true)
-  }
-
-  function handleEditBusiness(business: Business) {
-    setSelectedBusiness(business)
-    setBusinessModalOpen(true)
-  }
-  
   const handleRowHover = useCallback(() => {
     prefetchFormConfig('business')
   }, [prefetchFormConfig])
 
+  // Business CRUD handlers
   async function handleDeleteBusiness(businessId: string) {
     const confirmed = await confirmDialog.confirm({
       title: 'Delete Business',
@@ -403,36 +407,11 @@ export default function BusinessesPageClient({
     }
   }
 
-  function handleCreateOpportunity(business: Business) {
-    setSelectedBusinessForOpportunity(business)
-    setOpportunityModalOpen(true)
-  }
-
-  function handleSetFocus(business: Business) {
-    setSelectedBusinessForFocus(business)
-    setFocusModalOpen(true)
-  }
-
-  function handleDownloadCsv() {
-    const count = exportBusinessesToCsv(filteredBusinesses)
-    toast.success(`Exported ${count} businesses`)
-  }
-
-  async function handleUploadPreview(rows: ParsedCsvRow[]): Promise<CsvUploadPreview> {
-    return previewBusinessImport(rows, businesses)
-  }
-
-  async function handleUploadConfirm(rows: ParsedCsvRow[]): Promise<CsvUploadResult> {
-    const result = await confirmBusinessImport(rows)
-    if (result.created > 0 || result.updated > 0) {
-      loadPage(currentPage)
-    }
-    return result
-  }
-
+  // Create request (navigates to booking request form)
   function handleCreateRequest(business: Business) {
     const params = new URLSearchParams()
     params.set('fromOpportunity', 'business')
+    params.set('businessId', business.id) // Pass businessId for backfill tracking
     params.set('businessName', business.name)
     params.set('businessEmail', business.contactEmail)
     params.set('contactName', business.contactName || '')
@@ -447,9 +426,7 @@ export default function BusinessesPageClient({
     
     if (business.razonSocial) params.set('legalName', business.razonSocial)
     if (business.ruc) params.set('ruc', business.ruc)
-    if (business.province) params.set('province', business.province)
-    if (business.district) params.set('district', business.district)
-    if (business.corregimiento) params.set('corregimiento', business.corregimiento)
+    if (business.provinceDistrictCorregimiento) params.set('provinceDistrictCorregimiento', business.provinceDistrictCorregimiento)
     if (business.address) params.set('address', business.address)
     if (business.neighborhood) params.set('neighborhood', business.neighborhood)
     if (business.bank) params.set('bank', business.bank)
@@ -471,13 +448,76 @@ export default function BusinessesPageClient({
     router.push(`/booking-requests/new?${params.toString()}`)
   }
 
-  // Right side content for header
+  // CSV handlers
+  function handleDownloadCsv() {
+    const count = exportBusinessesToCsv(filteredBusinesses)
+    toast.success(`Exported ${count} businesses`)
+  }
+
+  async function handleUploadPreview(rows: ParsedCsvRow[]): Promise<CsvUploadPreview> {
+    return previewBusinessImport(rows, businesses)
+  }
+
+  async function handleUploadConfirm(rows: ParsedCsvRow[]): Promise<CsvUploadResult> {
+    const result = await confirmBusinessImport(rows)
+    if (result.created > 0 || result.updated > 0) {
+      loadPage(currentPage)
+    }
+    return result
+  }
+
+  // User filter dropdown options
+  const userFilterOptions = useMemo(() => {
+    return users.map(user => ({
+      id: user.clerkId,
+      name: user.name || user.email || user.clerkId,
+      email: user.email,
+    }))
+  }, [users])
+
+  // User filter dropdown (admin only)
+  const userFilter = isAdmin ? (
+    <UserFilterDropdown
+      users={userFilterOptions}
+      value={ownerFilter}
+      onChange={setOwnerFilter}
+      label="Owner"
+      placeholder="Todos"
+    />
+  ) : undefined
+
+  // "My Businesses Only" toggle button (for sales users)
+  const myBusinessesToggle = isSalesUser ? (
+    <Button
+      onClick={() => setMyBusinessesOnly(!myBusinessesOnly)}
+      variant={myBusinessesOnly ? "primary" : "secondary"}
+      size="sm"
+      className="flex-shrink-0"
+    >
+      Mis Negocios
+    </Button>
+  ) : null
+
+  // Active deal toggle button
+  const activeDealToggle = (
+    <Button
+      onClick={() => setActiveDealFilter(!activeDealFilter)}
+      variant={activeDealFilter ? "primary" : "secondary"}
+      size="sm"
+      className="flex-shrink-0"
+    >
+      Deal Activo {counts['with-active-deal'] !== undefined && `(${counts['with-active-deal']})`}
+    </Button>
+  )
+
+  // Header right content
   const headerRightContent = (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
+      {/* Import/CSV — hidden on mobile, shown on desktop */}
       {isAdmin && (
-        <>
+        <div className="hidden md:flex items-center gap-2">
           <Button
-            onClick={() => setUploadModalOpen(true)}
+            onClick={pageState.openUploadModal}
             variant="secondary"
             size="sm"
             leftIcon={<UploadIcon style={{ fontSize: 16 }} />}
@@ -494,245 +534,248 @@ export default function BusinessesPageClient({
           >
             CSV
           </Button>
-        </>
+        </div>
       )}
       <Button
-        onClick={handleCreateBusiness}
+        onClick={() => pageState.openBusinessModal(null)}
         onMouseEnter={handleNewBusinessHover}
         size="sm"
         leftIcon={<AddIcon style={{ fontSize: 16 }} sx={{}} />}
       >
-        Nuevo Negocio
+        <span className="hidden sm:inline">Nuevo Negocio</span>
+        <span className="sm:hidden">Nuevo</span>
       </Button>
     </div>
   )
 
   const isLoading = loading || searchLoading
 
+  // Tab state
+  const [activeTab, setActiveTab] = useState<PageTab>(() => {
+    // Check URL for initial tab
+    const tabParam = searchParams.get('tab')
+    return tabParam === 'deals' ? 'deals' : 'businesses'
+  })
+
+  // Update URL when tab changes
+  const handleTabChange = useCallback((tab: PageTab) => {
+    setActiveTab(tab)
+    const params = new URLSearchParams(searchParams.toString())
+    if (tab === 'businesses') {
+      params.delete('tab')
+    } else {
+      params.set('tab', tab)
+    }
+    router.replace(`/businesses${params.toString() ? `?${params.toString()}` : ''}`, { scroll: false })
+  }, [router, searchParams])
+
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* Header with Search and Filters */}
-      <EntityPageHeader
-        entityType="businesses"
-        searchPlaceholder="Buscar en todos los negocios..."
-        searchQuery={searchQuery}
-        onSearchChange={handleSearchChange}
-        filterTabs={filterTabs}
-        activeFilter={focusFilter === 'with-focus' ? 'with-focus' : opportunityFilter}
-        onFilterChange={(id) => {
-          if (id === 'with-focus') {
-            setFocusFilter('with-focus')
-            setOpportunityFilter('all') // Clear opportunity filter when focus filter is active
-          } else {
-            setFocusFilter('all') // Clear focus filter when opportunity filter is selected
-            setOpportunityFilter(id as 'all' | 'with-open' | 'without-open')
-          }
-        }}
-        isAdmin={isAdmin}
-        rightContent={headerRightContent}
-        {...advancedFilterProps}
-      />
+      {/* Main Page Tabs */}
+      <div className="bg-white border-b border-gray-200 px-4 pt-3">
+        <div className="flex gap-1">
+          <button
+            onClick={() => handleTabChange('businesses')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${
+              activeTab === 'businesses'
+                ? 'bg-gray-100 text-gray-900 border-b-2 border-blue-500'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            <StorefrontIcon style={{ fontSize: 18 }} />
+            Negocios
+          </button>
+          <button
+            onClick={() => handleTabChange('deals')}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${
+              activeTab === 'deals'
+                ? 'bg-gray-100 text-gray-900 border-b-2 border-blue-500'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+            }`}
+          >
+            <TrendingUpIcon style={{ fontSize: 18 }} />
+            Deals
+          </button>
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'deals' ? (
+        <DealsTab />
+      ) : (
+        <>
+          {/* Header with Search and Filters */}
+          <EntityPageHeader
+            entityType="businesses"
+            searchPlaceholder="Buscar en todos los negocios..."
+            searchQuery={searchQuery}
+            onSearchChange={handleSearchChange}
+            filterTabs={filterTabs}
+            activeFilter={focusFilter === 'with-focus' ? 'with-focus' : opportunityFilter}
+            onFilterChange={(id) => {
+              if (activeDealFilter) {
+                setActiveDealFilter(false)
+              }
+              
+              if (id === 'with-focus') {
+                setFocusFilter('with-focus')
+                setOpportunityFilter('all')
+              } else {
+                setFocusFilter('all')
+                setOpportunityFilter(id as 'all' | 'with-open' | 'without-open')
+              }
+            }}
+            isAdmin={isAdmin}
+            userFilter={userFilter}
+            beforeFilters={
+              <div className="flex items-center gap-2">
+                {myBusinessesToggle}
+                {activeDealToggle}
+              </div>
+            }
+            rightContent={headerRightContent}
+            {...advancedFilterProps}
+          />
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4">
-        {isLoading ? (
-          <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200 flex items-center gap-2">
+      <div className="flex-1 overflow-auto p-0 md:p-4">
+        {loadError ? (
+          <div className="p-6 mx-4 mt-4 md:mx-0 md:mt-0 bg-red-50 rounded-lg border border-red-200">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-red-800">Error al cargar negocios</h3>
+                <p className="text-sm text-red-600 mt-1">{loadError}</p>
+                <button
+                  onClick={() => reload()}
+                  className="mt-3 text-sm font-medium text-red-700 hover:text-red-800 underline"
+                >
+                  Intentar de nuevo
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : isLoading ? (
+          <div className="p-6 mx-4 mt-4 md:mx-0 md:mt-0 text-sm text-gray-500 bg-white rounded-lg border border-gray-200 flex items-center gap-2">
             <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
             {searchLoading ? 'Buscando...' : 'Cargando...'}
           </div>
         ) : filteredBusinesses.length === 0 ? (
-          <EmptyTableState
-            icon={<FilterListIcon className="w-full h-full" />}
-            title="No se encontraron negocios"
-            description={
-              searchQuery || opportunityFilter !== 'all' || focusFilter !== 'all' || filterRules.length > 0
-                ? 'Intente ajustar su búsqueda o filtros' 
-                : 'Comience creando un nuevo negocio'
-            }
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            {/* Search indicator from hook */}
-            <SearchIndicator />
-            
-            <EntityTable
-              columns={COLUMNS}
-              sortColumn={sortColumn}
-              sortDirection={sortDirection}
-              onSort={handleSort}
-            >
-              {filteredBusinesses.map((business, index) => {
-                const activeFocus = businessActiveFocus.get(business.id)
-                return (
-                <TableRow
-                  key={business.id}
-                  index={index}
-                  onClick={() => handleEditBusiness(business)}
-                  onMouseEnter={handleRowHover}
-                  className={activeFocus ? 'bg-amber-50/50 hover:bg-amber-50' : undefined}
-                >
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900 text-[13px]">
-                        {business.name}
-                      </span>
-                      {activeFocus && (
-                        <span 
-                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-medium"
-                          title={`Foco: ${FOCUS_PERIOD_LABELS[activeFocus]}`}
-                        >
-                          <CenterFocusStrongIcon style={{ fontSize: 12 }} />
-                          {FOCUS_PERIOD_LABELS[activeFocus].charAt(0)}
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-[13px] text-gray-600">
-                    {business.contactName || <span className="text-gray-400">-</span>}
-                  </TableCell>
-                  <TableCell className="text-[13px] text-gray-500 break-all">
-                    {business.contactEmail || <span className="text-gray-400">-</span>}
-                  </TableCell>
-                  <TableCell className="text-[13px] text-gray-500 whitespace-nowrap">
-                    {business.contactPhone || <span className="text-gray-400">-</span>}
-                  </TableCell>
-                  <TableCell>
-                    {business.category ? (
-                      <span className="text-xs text-gray-600">
-                        {business.category.parentCategory}
-                        {business.category.subCategory1 && ` › ${business.category.subCategory1}`}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400 text-xs">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell align="right">
-                    {business.sourceType === 'api' && business.metrics?.net_rev_360_days !== undefined ? (
-                      <span className="text-xs font-semibold text-gray-900">
-                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(
-                          business.metrics?.net_rev_360_days ?? 0
-                        )}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400 text-xs">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {business.salesReps && business.salesReps.length > 0 ? (
-                      <span className="text-xs text-gray-600">
-                        {business.salesReps.map(rep => rep.salesRep?.name?.split(' ')[0] || '?').join(', ')}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400 text-xs">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell align="center">
-                    {(() => {
-                      const count = businessOpenOpportunityCount.get(business.id) || 0
-                      return count > 0 ? (
-                        <span className="inline-flex px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">
-                          {count}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )
-                    })()}
-                  </TableCell>
-                  <TableCell align="center">
-                    {(() => {
-                      const count = businessPendingRequestCount.get(business.name.toLowerCase()) || 0
-                      return count > 0 ? (
-                        <span className="inline-flex px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded text-xs font-medium">
-                          {count}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">-</span>
-                      )
-                    })()}
-                  </TableCell>
-                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => handleSetFocus(business)}
-                        className={`p-1.5 rounded transition-colors ${
-                          activeFocus 
-                            ? 'bg-amber-100 text-amber-600 hover:bg-amber-200' 
-                            : 'hover:bg-amber-50 text-gray-400 hover:text-amber-600'
-                        }`}
-                        title={activeFocus ? `Foco: ${FOCUS_PERIOD_LABELS[activeFocus]}` : 'Establecer Foco'}
-                      >
-                        <CenterFocusStrongIcon style={{ fontSize: 18 }} />
-                      </button>
-                      <button
-                        onClick={() => handleCreateOpportunity(business)}
-                        className="p-1.5 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
-                        title="Create Opportunity"
-                      >
-                        <HandshakeIcon style={{ fontSize: 18 }} />
-                      </button>
-                      <button
-                        onClick={() => handleCreateRequest(business)}
-                        className="p-1.5 rounded hover:bg-green-50 text-gray-400 hover:text-green-600 transition-colors"
-                        title="Create Request"
-                      >
-                        <DescriptionIcon style={{ fontSize: 18 }} />
-                      </button>
-                      <button
-                        onClick={() => router.push(`/businesses/${business.id}`)}
-                        className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600 transition-colors"
-                        title="Open full page"
-                      >
-                        <OpenInNewIcon style={{ fontSize: 18 }} />
-                      </button>
-                      {/* Action Menu (Acción) */}
-                      <div className="relative">
-                        <button
-                          onClick={() => setActionMenuOpen(actionMenuOpen === business.id ? null : business.id)}
-                          className="p-1.5 rounded hover:bg-purple-50 text-gray-400 hover:text-purple-600 transition-colors"
-                          title="Acción"
-                        >
-                          <MoreVertIcon style={{ fontSize: 18 }} />
-                        </button>
-                        {actionMenuOpen === business.id && (
-                          <div className="absolute right-0 top-full mt-1 z-50 w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
-                            <button
-                              onClick={() => {
-                                setSelectedBusinessForReassignment(business)
-                                setReassignmentModalOpen(true)
-                                setActionMenuOpen(null)
-                              }}
-                              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
-                            >
-                              Reasignar / Sacar
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )})}
-            </EntityTable>
-            
-            {/* Pagination controls from hook */}
-            <PaginationControls />
+          <div className="px-4 pt-4 md:px-0 md:pt-0">
+            <EmptyTableState
+              icon={<FilterListIcon className="w-full h-full" />}
+              title="No se encontraron negocios"
+              description={
+                searchQuery || opportunityFilter !== 'all' || focusFilter !== 'all' || activeDealFilter || filterRules.length > 0
+                  ? 'Intente ajustar su búsqueda o filtros' 
+                  : 'Comience creando un nuevo negocio'
+              }
+            />
           </div>
+        ) : (
+          <>
+            {/* Mobile card list */}
+            <div className="md:hidden">
+              <SearchIndicator />
+              
+              {/* Results count */}
+              <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                  {filteredBusinesses.length} negocio{filteredBusinesses.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+
+              <div className="bg-white">
+                {filteredBusinesses.map((business) => (
+                  <BusinessMobileCard
+                    key={business.id}
+                    business={business}
+                    activeFocus={businessActiveFocus.get(business.id)}
+                    activeDealUrl={activeDealUrls[business.id]}
+                    openOpportunityCount={businessOpenOpportunityCount.get(business.id) || 0}
+                    pendingRequestCount={businessPendingRequestCount.get(business.name.toLowerCase()) || 0}
+                    campaignCount={businessCampaignCounts[business.id] || 0}
+                    isAdmin={isAdmin}
+                    canEdit={canEditBusiness(business.id)}
+                    onCardTap={(b: Business) => pageState.openBusinessModal(b)}
+                    onRowHover={handleRowHover}
+                    onSetFocus={pageState.openFocusModal}
+                    onCreateOpportunity={pageState.openOpportunityModal}
+                    onCreateRequest={handleCreateRequest}
+                    onOpenCampaignModal={pageState.openCampaignModal}
+                    onOpenReassignmentModal={pageState.openReassignmentModal}
+                  />
+                ))}
+              </div>
+
+              <div className="px-4 py-3">
+                <PaginationControls />
+              </div>
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
+              <SearchIndicator />
+              
+              <div className="bg-white rounded-lg border border-gray-200">
+                <table className="w-full text-[13px] text-left">
+                  <SortableTableHeader
+                    columns={COLUMNS}
+                    sortColumn={sortColumn}
+                    sortDirection={sortDirection}
+                    onSort={handleSort}
+                  />
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredBusinesses.map((business, index) => (
+                      <BusinessTableRow
+                        key={business.id}
+                        business={business}
+                        index={index}
+                        activeFocus={businessActiveFocus.get(business.id)}
+                        isExpanded={pageState.isBusinessExpanded(business.id)}
+                        cachedDeals={pageState.getBusinessDeals(business.id)}
+                        activeDealUrl={activeDealUrls[business.id]}
+                        openOpportunityCount={businessOpenOpportunityCount.get(business.id) || 0}
+                        pendingRequestCount={businessPendingRequestCount.get(business.name.toLowerCase()) || 0}
+                        campaignCount={businessCampaignCounts[business.id] || 0}
+                        isAdmin={isAdmin}
+                        canEdit={canEditBusiness(business.id)}
+                        onRowClick={(b) => pageState.openBusinessModal(b)}
+                        onRowHover={handleRowHover}
+                        onToggleExpand={pageState.toggleExpandBusiness}
+                        onSetFocus={pageState.openFocusModal}
+                        onCreateOpportunity={pageState.openOpportunityModal}
+                        onCreateRequest={handleCreateRequest}
+                        onOpenCampaignModal={pageState.openCampaignModal}
+                        onOpenReassignmentModal={pageState.openReassignmentModal}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              <PaginationControls />
+            </div>
+          </>
         )}
       </div>
+        </>
+      )}
 
-      {/* Modal */}
+      {/* Business Form Modal */}
       <BusinessFormModal
-        isOpen={businessModalOpen}
-        onClose={() => {
-          setBusinessModalOpen(false)
-          setSelectedBusiness(null)
-        }}
-        business={selectedBusiness}
+        isOpen={pageState.businessModalOpen}
+        onClose={pageState.closeBusinessModal}
+        business={pageState.selectedBusiness}
         onSuccess={(newBusiness) => {
-          if (selectedBusiness) {
-            setBusinesses(prev => prev.map(b => b.id === selectedBusiness.id ? newBusiness : b))
+          if (pageState.selectedBusiness) {
+            setBusinesses(prev => prev.map(b => b.id === pageState.selectedBusiness!.id ? newBusiness : b))
             if (searchResults) {
-              setSearchResults(prev => prev?.map(b => b.id === selectedBusiness.id ? newBusiness : b) || null)
+              setSearchResults(prev => prev?.map(b => b.id === pageState.selectedBusiness!.id ? newBusiness : b) || null)
             }
           } else {
             setBusinesses(prev => [newBusiness, ...prev])
@@ -743,27 +786,23 @@ export default function BusinessesPageClient({
         }}
         preloadedCategories={categories}
         preloadedUsers={users}
+        canEdit={pageState.selectedBusiness ? canEditBusiness(pageState.selectedBusiness.id) : true}
       />
 
       {/* Opportunity Modal */}
-      {opportunityModalOpen && selectedBusinessForOpportunity && (
+      {pageState.opportunityModalOpen && pageState.selectedBusinessForOpportunity && (
         <OpportunityFormModal
-          isOpen={opportunityModalOpen}
-          onClose={() => {
-            setOpportunityModalOpen(false)
-            setSelectedBusinessForOpportunity(null)
-          }}
+          isOpen={pageState.opportunityModalOpen}
+          onClose={pageState.closeOpportunityModal}
           opportunity={null}
-          initialBusinessId={selectedBusinessForOpportunity.id}
-          onSuccess={() => {
+          initialBusinessId={pageState.selectedBusinessForOpportunity.id}
+          onSuccess={(opportunity) => {
             toast.success('Opportunity created successfully')
-            setOpportunityModalOpen(false)
-            setSelectedBusinessForOpportunity(null)
-            getOpportunities().then(result => {
-              if (result.success && result.data) {
-                setOpportunities(result.data)
-              }
-            })
+            pageState.closeOpportunityModal()
+            refreshTableCounts()
+            // Redirect to opportunities page with the new opportunity open
+            sessionStorage.setItem('openOpportunityId', opportunity.id)
+            router.push('/opportunities')
           }}
           preloadedBusinesses={businesses}
           preloadedCategories={categories}
@@ -772,20 +811,16 @@ export default function BusinessesPageClient({
       )}
 
       {/* Focus Period Modal */}
-      {focusModalOpen && selectedBusinessForFocus && (
+      {pageState.focusModalOpen && pageState.selectedBusinessForFocus && (
         <FocusPeriodModal
-          isOpen={focusModalOpen}
-          onClose={() => {
-            setFocusModalOpen(false)
-            setSelectedBusinessForFocus(null)
-          }}
-          businessId={selectedBusinessForFocus.id}
-          businessName={selectedBusinessForFocus.name}
-          currentFocusPeriod={selectedBusinessForFocus.focusPeriod}
-          currentFocusSetAt={selectedBusinessForFocus.focusSetAt}
+          isOpen={pageState.focusModalOpen}
+          onClose={pageState.closeFocusModal}
+          businessId={pageState.selectedBusinessForFocus.id}
+          businessName={pageState.selectedBusinessForFocus.name}
+          currentFocusPeriod={pageState.selectedBusinessForFocus.focusPeriod}
+          currentFocusSetAt={pageState.selectedBusinessForFocus.focusSetAt}
           onSuccess={(updatedFocus) => {
-            // Update the business in state
-            const businessId = selectedBusinessForFocus.id
+            const businessId = pageState.selectedBusinessForFocus!.id
             setBusinesses(prev => prev.map(b => 
               b.id === businessId 
                 ? { ...b, focusPeriod: updatedFocus, focusSetAt: updatedFocus ? new Date().toISOString() : null }
@@ -798,29 +833,34 @@ export default function BusinessesPageClient({
                   : b
               ) || null)
             }
-            setFocusModalOpen(false)
-            setSelectedBusinessForFocus(null)
+            pageState.closeFocusModal()
           }}
         />
       )}
 
       {/* Reassignment Modal */}
-      {reassignmentModalOpen && selectedBusinessForReassignment && (
+      {pageState.reassignmentModalOpen && pageState.selectedBusinessForReassignment && (
         <ReassignmentModal
-          isOpen={reassignmentModalOpen}
-          onClose={() => {
-            setReassignmentModalOpen(false)
-            setSelectedBusinessForReassignment(null)
-          }}
-          businessId={selectedBusinessForReassignment.id}
-          businessName={selectedBusinessForReassignment.name}
+          isOpen={pageState.reassignmentModalOpen}
+          onClose={pageState.closeReassignmentModal}
+          businessId={pageState.selectedBusinessForReassignment.id}
+          businessName={pageState.selectedBusinessForReassignment.name}
           onSuccess={() => {
-            // Business will be filtered out since it now has reassignmentStatus
-            // Reload to reflect the change
             if (!isSearching) {
               loadPage(currentPage)
             }
           }}
+        />
+      )}
+
+      {/* Campaign Assignment Modal */}
+      {pageState.campaignModalOpen && pageState.selectedBusinessForCampaign && (
+        <AssignCampaignModal
+          isOpen={pageState.campaignModalOpen}
+          onClose={pageState.closeCampaignModal}
+          businessId={pageState.selectedBusinessForCampaign.id}
+          businessName={pageState.selectedBusinessForCampaign.name}
+          onSuccess={refreshCampaignCounts}
         />
       )}
 
@@ -838,8 +878,8 @@ export default function BusinessesPageClient({
 
       {/* CSV Upload Modal */}
       <CsvUploadModal
-        isOpen={uploadModalOpen}
-        onClose={() => setUploadModalOpen(false)}
+        isOpen={pageState.uploadModalOpen}
+        onClose={pageState.closeUploadModal}
         entityName="Negocios"
         expectedHeaders={CSV_IMPORT_HEADERS}
         idField="ID"

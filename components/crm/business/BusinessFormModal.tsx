@@ -4,6 +4,9 @@ import { useEffect, useState, useMemo, useCallback, useActionState, useTransitio
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { createBusiness, updateBusiness, createOpportunity } from '@/app/actions/crm'
+import { previewVendorSync, syncVendorToExternal } from '@/app/actions/businesses'
+import { formatValueForDisplay } from '@/lib/api/external-oferta/vendor/mapper'
+import type { VendorFieldChange } from '@/lib/api/external-oferta/vendor/types'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
 import { useCachedFormConfig } from '@/hooks/useFormConfigCache'
@@ -60,6 +63,9 @@ interface BusinessFormModalProps {
   // Pre-loaded data to skip fetching (passed from parent page)
   preloadedCategories?: Category[]
   preloadedUsers?: UserData[]
+  // Read-only mode for viewing without edit permission
+  // Sales users can VIEW all businesses but only EDIT assigned ones
+  canEdit?: boolean
 }
 
 export default function BusinessFormModal({ 
@@ -69,6 +75,7 @@ export default function BusinessFormModal({
   onSuccess,
   preloadedCategories,
   preloadedUsers,
+  canEdit = true, // Default to true for backwards compatibility
 }: BusinessFormModalProps) {
   // CreateResult type - existingBusiness uses Record for flexibility with Prisma's return type
   type CreateResult = {
@@ -87,6 +94,13 @@ export default function BusinessFormModal({
   // Confirm dialog for pre-confirmation and vendor API result
   const vendorConfirmDialog = useConfirmDialog()
   const vendorResultDialog = useConfirmDialog()
+  
+  // Sync dialog for PATCH updates
+  const syncConfirmDialog = useConfirmDialog()
+  const syncResultDialog = useConfirmDialog()
+  const [syncLoading, setSyncLoading] = useState(false)
+  const [syncChanges, setSyncChanges] = useState<VendorFieldChange[]>([])
+  const [syncVendorId, setSyncVendorId] = useState<string | null>(null)
   
   // Show pre-confirmation dialog before creating vendor
   const confirmVendorCreation = async (): Promise<boolean> => {
@@ -146,6 +160,184 @@ export default function BusinessFormModal({
       confirmVariant: isOk ? 'success' : 'danger',
     })
   }
+
+  // Handle sync to OfertaSimple (PATCH)
+  const handleSyncToOfertaSimple = async () => {
+    if (!business?.id || !business?.osAdminVendorId) return
+    
+    setError('')
+    setSyncLoading(true)
+    
+    try {
+      // Step 1: Preview changes
+      // Include salesTeam from ReferenceInfoBar state (not part of dynamicForm)
+      const allValues = { ...dynamicForm.getAllValues(), salesTeam }
+      const previewResult = await previewVendorSync(business.id, allValues)
+      
+      if (!previewResult.success || !previewResult.data) {
+        setError(previewResult.error || 'Error al obtener cambios')
+        setSyncLoading(false)
+        return
+      }
+      
+      const { changes, vendorId } = previewResult.data
+      
+      // If no API-syncable changes, offer to save locally only
+      if (changes.length === 0) {
+        setSyncLoading(false)
+        
+        const saveLocallyContent = (
+          <div className="text-left space-y-3">
+            <p className="text-gray-700 text-sm">
+              No se detectaron cambios en campos sincronizables con OfertaSimple.
+            </p>
+            <p className="text-gray-600 text-sm">
+              Si realizó cambios en otros campos (como notas, equipo, etc.), estos se guardarán localmente sin sincronizar con la API.
+            </p>
+          </div>
+        )
+        
+        const confirmed = await syncConfirmDialog.confirm({
+          title: 'Sin cambios para API',
+          message: saveLocallyContent,
+          confirmText: 'Guardar Localmente',
+          cancelText: 'Cancelar',
+          confirmVariant: 'primary',
+        })
+        
+        if (!confirmed) return
+        
+        // Save locally without API sync
+        setSyncLoading(true)
+        const formData = buildFormData()
+        const updateResult = await updateBusiness(business.id, formData)
+        setSyncLoading(false)
+        
+        if (updateResult.success && updateResult.data) {
+          // Show success confirmation
+          const successContent = (
+            <div className="text-left space-y-2">
+              <p className="text-green-700 font-medium">
+                ✅ Cambios guardados localmente.
+              </p>
+              <p className="text-gray-600 text-sm">
+                Los cambios se guardaron en el sistema pero no se sincronizaron con OfertaSimple (no había cambios en campos sincronizables).
+              </p>
+            </div>
+          )
+          
+          await syncResultDialog.confirm({
+            title: 'Guardado Exitoso',
+            message: successContent,
+            confirmText: 'Entendido',
+            cancelText: '',
+            confirmVariant: 'success',
+          })
+          
+          onSuccess(updateResult.data)
+          onClose()
+        } else {
+          setError(updateResult.error || 'Error al guardar')
+        }
+        return
+      }
+      
+      setSyncChanges(changes)
+      setSyncVendorId(vendorId)
+      setSyncLoading(false)
+      
+      // Step 2: Show confirmation dialog with changes
+      const changesContent = (
+        <div className="text-left space-y-3">
+          <p className="text-gray-700 text-sm">
+            Se enviarán los siguientes cambios a OfertaSimple:
+          </p>
+          <ul className="space-y-1.5 text-sm">
+            {changes.map((change) => (
+              <li key={change.fieldKey} className="flex items-start gap-2">
+                {change.isNew ? (
+                  <span className="text-green-600 font-medium">+</span>
+                ) : (
+                  <span className="text-amber-600 font-medium">●</span>
+                )}
+                <span className="text-gray-700">
+                  <span className="font-medium">{change.label}:</span>{' '}
+                  {change.isNew ? (
+                    <span className="text-green-700">{formatValueForDisplay(change.newValue)}</span>
+                  ) : (
+                    <>
+                      <span className="text-gray-400 line-through">{formatValueForDisplay(change.oldValue)}</span>
+                      <span className="mx-1">→</span>
+                      <span className="text-amber-700">{formatValueForDisplay(change.newValue)}</span>
+                    </>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-gray-500 text-xs pt-2 border-t border-gray-200">
+            Vendor ID: {vendorId}
+          </p>
+        </div>
+      )
+      
+      const confirmed = await syncConfirmDialog.confirm({
+        title: 'Sincronizar con OfertaSimple',
+        message: changesContent,
+        confirmText: 'Sincronizar',
+        cancelText: 'Cancelar',
+        confirmVariant: 'primary',
+      })
+      
+      if (!confirmed) return
+      
+      // Step 3: Execute sync (auto-saves locally + PATCH to API)
+      setSyncLoading(true)
+      const formData = buildFormData()
+      const syncResult = await syncVendorToExternal(business.id, formData)
+      setSyncLoading(false)
+      
+      // Step 4: Show result dialog
+      const isOk = syncResult.success
+      const resultContent = (
+        <div className="text-left space-y-2">
+          <p className={isOk ? 'text-green-700 font-medium' : 'text-red-700 font-medium'}>
+            {isOk 
+              ? `✅ ${syncResult.data?.fieldsUpdated} campo(s) sincronizado(s) exitosamente.` 
+              : '❌ Error al sincronizar con OfertaSimple.'}
+          </p>
+          
+          {!isOk && syncResult.error && (
+            <p className="text-gray-700 text-sm">
+              <span className="font-medium">Error:</span> {syncResult.error}
+            </p>
+          )}
+          
+          <p className="text-gray-500 text-xs pt-2 border-t border-gray-200">
+            Puede ver más detalles en Settings → API Logs.
+          </p>
+        </div>
+      )
+      
+      await syncResultDialog.confirm({
+        title: isOk ? 'Sincronización Exitosa' : 'Error de Sincronización',
+        message: resultContent,
+        confirmText: 'Entendido',
+        cancelText: '',
+        confirmVariant: isOk ? 'success' : 'danger',
+      })
+      
+      // If successful, refresh the business data
+      if (isOk && syncResult.data?.business) {
+        onSuccess(syncResult.data.business)
+      }
+      
+    } catch (err) {
+      setError('Error inesperado al sincronizar')
+      setSyncLoading(false)
+    }
+  }
+
   const router = useRouter()
   const { user } = useUser()
   const { isAdmin } = useUserRole()
@@ -204,9 +396,7 @@ export default function BusinessFormModal({
       tier: business.tier?.toString() || null,
       ruc: business.ruc || null,
       razonSocial: business.razonSocial || null,
-      province: business.province || null,
-      district: business.district || null,
-      corregimiento: business.corregimiento || null,
+      provinceDistrictCorregimiento: business.provinceDistrictCorregimiento || null,
       accountManager: business.accountManager || null,
       ere: business.ere || null,
       salesType: business.salesType || null,
@@ -242,6 +432,9 @@ export default function BusinessFormModal({
   // State to track pending vendor result for showing dialog after action completes
   const [pendingVendorResult, setPendingVendorResult] = useState<CreateResult['vendorApiResult'] | null>(null)
   
+  // State to hold successful business for closing after vendor dialog
+  const [pendingSuccessBusiness, setPendingSuccessBusiness] = useState<Business | null>(null)
+
   // React 19: useActionState for save/update business action
   const [saveState, saveAction, isSavePending] = useActionState<FormActionState, FormData>(
     async (_prevState, formData) => {
@@ -259,11 +452,16 @@ export default function BusinessFormModal({
             console.warn('Failed to save custom fields:', customFieldResult.error)
           }
           
-          // Store vendor result to show dialog after action completes
+          // For new businesses with vendor result, show dialog BEFORE closing
+          // User must acknowledge the dialog before modal closes
           if (isNewBusiness && result.vendorApiResult) {
             setPendingVendorResult(result.vendorApiResult)
+            setPendingSuccessBusiness(result.data)
+            // Don't close yet - will close after dialog is acknowledged
+            return { success: true, error: null }
           }
           
+          // No vendor dialog needed - close immediately
           onSuccess(result.data)
           onClose()
           return { success: true, error: null }
@@ -290,25 +488,56 @@ export default function BusinessFormModal({
   )
   
   // Show vendor result dialog when pendingVendorResult is set
+  // After user acknowledges, close the modal
   useEffect(() => {
     if (pendingVendorResult) {
       showVendorResultDialog(pendingVendorResult).then(() => {
         setPendingVendorResult(null)
+        // Now close the modal after user acknowledged the vendor result
+        if (pendingSuccessBusiness) {
+          onSuccess(pendingSuccessBusiness)
+          setPendingSuccessBusiness(null)
+          onClose()
+        }
       })
     }
-  }, [pendingVendorResult])
+  }, [pendingVendorResult, pendingSuccessBusiness, onSuccess, onClose])
 
   // State to hold the newly created business for opening opportunity modal
   const [createdBusiness, setCreatedBusiness] = useState<Business | null>(null)
+
+  // Helper to validate required fields and return missing ones
+  const validateRequiredFields = useCallback(() => {
+    const allValues = dynamicForm.getAllValues()
+    const missingFields: string[] = []
+    
+    // Check dynamic form sections for required fields
+    if (dynamicForm.initialized) {
+      for (const section of dynamicForm.sections) {
+        for (const field of section.fields) {
+          if (field.isRequired && field.isVisible) {
+            const value = allValues[field.fieldKey]
+            if (!value || (typeof value === 'string' && value.trim() === '')) {
+              // Get label from definition (built-in) or customFieldLabel (custom)
+              const label = field.definition?.label || field.customFieldLabel || field.fieldKey
+              missingFields.push(label)
+            }
+          }
+        }
+      }
+    }
+    
+    return missingFields
+  }, [dynamicForm])
 
   // React 19: useActionState for create business & opportunity action
   const [createWithOppState, createWithOppAction, isCreateWithOppPending] = useActionState<FormActionState, FormData>(
     async (_prevState, formData) => {
       try {
-        const allValues = dynamicForm.getAllValues()
+        const missingFields = validateRequiredFields()
         
-        if (!allValues.name || !allValues.contactName || !allValues.contactPhone || !allValues.contactEmail) {
-          const errorMsg = 'Por favor complete todos los campos requeridos'
+        if (missingFields.length > 0) {
+          const errorMsg = `Campos requeridos faltantes: ${missingFields.join(', ')}`
           setError(errorMsg)
           return { success: false, error: errorMsg }
         }
@@ -412,6 +641,7 @@ export default function BusinessFormModal({
     
     // Flag to trigger pre-fill logic in EnhancedBookingForm
     params.set('fromOpportunity', 'business')
+    params.set('businessId', business.id) // Pass businessId for backfill tracking
     
     // Basic business info
     params.set('businessName', business.name)
@@ -431,9 +661,7 @@ export default function BusinessFormModal({
     if (business.ruc) params.set('ruc', business.ruc)
     
     // Location info
-    if (business.province) params.set('province', business.province)
-    if (business.district) params.set('district', business.district)
-    if (business.corregimiento) params.set('corregimiento', business.corregimiento)
+    if (business.provinceDistrictCorregimiento) params.set('provinceDistrictCorregimiento', business.provinceDistrictCorregimiento)
     if (business.address) params.set('address', business.address)
     if (business.neighborhood) params.set('neighborhood', business.neighborhood)
     
@@ -472,10 +700,14 @@ export default function BusinessFormModal({
       await loadFormData()
       onSuccess(business)
     } else if (createdBusiness) {
-      // New business was just created - close everything and notify parent
-      setCreatedBusiness(null)
+      // New business was just created - notify parent, close modal, and redirect to opportunity
       onSuccess(createdBusiness)
+      setCreatedBusiness(null)
       onClose()
+      
+      // Redirect to opportunities page with the new opportunity open
+      sessionStorage.setItem('openOpportunityId', opportunity.id)
+      router.push('/opportunities')
     }
   }
 
@@ -501,9 +733,7 @@ export default function BusinessFormModal({
     if (allValues.tier) formData.append('tier', allValues.tier)
     if (allValues.ruc) formData.append('ruc', allValues.ruc)
     if (allValues.razonSocial) formData.append('razonSocial', allValues.razonSocial)
-    if (allValues.province) formData.append('province', allValues.province)
-    if (allValues.district) formData.append('district', allValues.district)
-    if (allValues.corregimiento) formData.append('corregimiento', allValues.corregimiento)
+    if (allValues.provinceDistrictCorregimiento) formData.append('provinceDistrictCorregimiento', allValues.provinceDistrictCorregimiento)
     if (allValues.accountManager) formData.append('accountManager', allValues.accountManager)
     if (allValues.ere) formData.append('ere', allValues.ere)
     if (allValues.salesType) formData.append('salesType', allValues.salesType)
@@ -526,6 +756,20 @@ export default function BusinessFormModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+    
+    // Validate required fields first
+    const missingFields = validateRequiredFields()
+    if (missingFields.length > 0) {
+      setError(`Campos requeridos faltantes: ${missingFields.join(', ')}`)
+      return
+    }
+    
+    // For existing businesses with vendor ID (admin only) - use sync flow
+    const usesSyncFlow = !!business && isAdmin && !!business.osAdminVendorId
+    if (usesSyncFlow) {
+      await handleSyncToOfertaSimple()
+      return
+    }
     
     // For new businesses, ask confirmation before creating vendor
     const isNewBusiness = !business
@@ -560,6 +804,9 @@ export default function BusinessFormModal({
   }
 
   const isEditMode = !!business
+  
+  // Show "Guardar y Sincronizar" for admin + existing business with vendor ID
+  const shouldShowSyncButton = isEditMode && isAdmin && !!business?.osAdminVendorId
 
   // Prepare categories and users for dynamic fields
   const categoryOptions = useMemo(() => categories.map(cat => ({
@@ -598,35 +845,39 @@ export default function BusinessFormModal({
     return keys
   }, [dynamicForm.initialized, dynamicForm.sections])
 
-  // Extract only locked field values as a stable string for comparison
-  // This prevents recalculating fieldOverrides on every keystroke in non-locked fields
+  // Extract only INITIAL locked field values as a stable string for comparison
+  // Use initialValues (not current values) to determine which fields had data when modal opened
+  // This prevents fields from getting locked when user starts typing in empty fields
   const lockedFieldValuesKey = useMemo(() => {
     const entries: string[] = []
     for (const key of lockedFieldKeys) {
-      entries.push(`${key}:${dynamicForm.values[key] || ''}`)
+      entries.push(`${key}:${initialValues[key] || ''}`)
     }
     return entries.join('|')
-  }, [lockedFieldKeys, dynamicForm.values])
+  }, [lockedFieldKeys, initialValues])
 
-  // Build field overrides based on locked field values only
+  // Build field overrides based on INITIAL values only
+  // Fields that had data when modal opened should be locked; empty fields stay editable
   const fieldOverrides: Record<string, { canEdit?: boolean }> = useMemo(() => {
     const overrides: Record<string, { canEdit?: boolean }> = {}
     
     for (const fieldKey of lockedFieldKeys) {
-      const currentValue = dynamicForm.values[fieldKey]
-      const hasValue = currentValue && currentValue.trim() !== ''
+      // Use INITIAL value to determine if field should be locked
+      const initialValue = initialValues[fieldKey]
+      const hadInitialValue = initialValue && initialValue.trim() !== ''
       
-      if (isEditMode && hasValue) {
+      if (isEditMode && hadInitialValue) {
+        // Field had data when modal opened - lock it unless admin unlocks
         const canEdit = isAdmin && unlockedFields[fieldKey] === true
         overrides[fieldKey] = { canEdit }
       } else {
+        // Field was empty initially - keep it editable
         overrides[fieldKey] = { canEdit: true }
       }
     }
     
     return overrides
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lockedFieldKeys, lockedFieldValuesKey, isEditMode, isAdmin, unlockedFields])
+  }, [lockedFieldKeys, initialValues, isEditMode, isAdmin, unlockedFields])
 
   // Field addons (lock icons for fields with canEditAfterCreation in edit mode for admin)
   const fieldAddons: Record<string, React.ReactElement> = useMemo(() => {
@@ -635,10 +886,11 @@ export default function BusinessFormModal({
     if (!isEditMode || !isAdmin) return addons
     
     for (const fieldKey of lockedFieldKeys) {
-      const currentValue = dynamicForm.values[fieldKey]
-      const hasValue = currentValue && currentValue.trim() !== ''
+      // Use INITIAL value to determine if lock icon should show
+      const initialValue = initialValues[fieldKey]
+      const hadInitialValue = initialValue && initialValue.trim() !== ''
       
-      if (hasValue) {
+      if (hadInitialValue) {
         const isUnlocked = unlockedFields[fieldKey] || false
         addons[fieldKey] = (
           <div className="flex flex-col items-start gap-1">
@@ -669,8 +921,7 @@ export default function BusinessFormModal({
     }
     
     return addons
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, isAdmin, lockedFieldKeys, lockedFieldValuesKey, unlockedFields, toggleFieldUnlock])
+  }, [isEditMode, isAdmin, lockedFieldKeys, initialValues, unlockedFields, toggleFieldUnlock])
 
   // Early return if modal is not open - saves rendering work
   if (!isOpen) return null
@@ -692,21 +943,23 @@ export default function BusinessFormModal({
             size="sm"
             onClick={() => router.push(`/businesses/${business.id}`)}
             leftIcon={<OpenInNewIcon fontSize="small" />}
+            title="Abrir página completa"
           >
-            Abrir página
+            <span className="hidden sm:inline">Abrir página</span>
           </Button>
         ) : undefined
       }
       footer={
         <ModalFooter
           onCancel={onClose}
-          submitLabel="Guardar"
-          submitLoading={loading || loadingData || dynamicForm.loading}
-          submitDisabled={loading || loadingData || dynamicForm.loading}
-          leftContent="* Campos requeridos"
+          cancelLabel={canEdit ? 'Cancelar' : 'Cerrar'}
+          submitLabel={canEdit ? (shouldShowSyncButton ? 'Guardar y Sincronizar' : 'Guardar') : undefined}
+          submitLoading={loading || loadingData || dynamicForm.loading || (shouldShowSyncButton && syncLoading)}
+          submitDisabled={loading || loadingData || dynamicForm.loading || (shouldShowSyncButton && syncLoading)}
+          leftContent={canEdit ? '* Campos requeridos' : undefined}
           formId="business-modal-form"
           additionalActions={
-            !business ? (
+            canEdit && !business ? (
               <Button
                 type="button"
                 onClick={handleCreateBusinessAndOpportunity}
@@ -721,9 +974,18 @@ export default function BusinessFormModal({
         />
       }
     >
-      <form id="business-modal-form" onSubmit={handleSubmit} className="bg-gray-50 min-h-[500px] flex flex-col">
+      <form id="business-modal-form" onSubmit={handleSubmit} className="bg-gray-50 min-h-[300px] md:min-h-[500px] flex flex-col">
+            {/* Read-only mode banner */}
+            {!canEdit && business && (
+              <div className="mx-3 md:mx-6 mt-3 md:mt-4">
+                <Alert variant="info" icon={<LockIcon fontSize="small" />}>
+                  <span className="font-medium">Modo de solo lectura.</span> Solo puedes ver este negocio porque no está asignado a ti.
+                </Alert>
+              </div>
+            )}
+
             {error && (
-              <div className="mx-6 mt-4">
+              <div className="mx-3 md:mx-6 mt-3 md:mt-4">
                 <Alert variant="error" icon={<ErrorOutlineIcon fontSize="small" />}>
                   {error}
                 </Alert>
@@ -737,11 +999,11 @@ export default function BusinessFormModal({
                 {/* Reference Info Bar (special section - not from form config) */}
                 <ReferenceInfoBar>
                   <ReferenceInfoBar.CreatedDateItem entity={business} />
-                  <ReferenceInfoBar.TextItem
-                    label="Vendor ID"
+                  <ReferenceInfoBar.VendorIdItem
                     value={allFormValues.osAdminVendorId || ''}
-                    placeholder="OS Admin ID"
-                    readOnly
+                    onChange={(val) => dynamicForm.setValue('osAdminVendorId', val)}
+                    isAdmin={isAdmin}
+                    placeholder="Sin ID"
                   />
                   <ReferenceInfoBar.UserSelectItem
                     label="Propietario"
@@ -789,11 +1051,12 @@ export default function BusinessFormModal({
                     section={section}
                     values={allFormValues}
                     onChange={dynamicForm.setValue}
-                    disabled={loading}
+                    disabled={loading || !canEdit}
                     categories={categoryOptions}
                     users={userOptions}
-                    fieldOverrides={fieldOverrides}
-                    fieldAddons={fieldAddons}
+                    categoryDisplayMode="parentOnly"
+                    fieldOverrides={canEdit ? fieldOverrides : undefined}
+                    fieldAddons={canEdit ? fieldAddons : undefined}
                       defaultExpanded={!shouldCollapse}
                     collapsible={true}
                   />
@@ -906,7 +1169,7 @@ export default function BusinessFormModal({
       zIndex={80}
     />
     
-    {/* Vendor API result dialog - z-80 to be above ModalShell (z-70) */}
+    {/* Vendor API result dialog - z-90 to be clearly above ModalShell (z-70) and other dialogs */}
     <ConfirmDialog
       isOpen={vendorResultDialog.isOpen}
       title={vendorResultDialog.options.title}
@@ -916,6 +1179,32 @@ export default function BusinessFormModal({
       confirmVariant={vendorResultDialog.options.confirmVariant}
       onConfirm={vendorResultDialog.handleConfirm}
       onCancel={vendorResultDialog.handleCancel}
+      zIndex={90}
+    />
+
+    {/* Sync confirmation dialog - z-80 to be above ModalShell (z-70) */}
+    <ConfirmDialog
+      isOpen={syncConfirmDialog.isOpen}
+      title={syncConfirmDialog.options.title}
+      message={syncConfirmDialog.options.message}
+      confirmText={syncConfirmDialog.options.confirmText}
+      cancelText={syncConfirmDialog.options.cancelText}
+      confirmVariant={syncConfirmDialog.options.confirmVariant}
+      onConfirm={syncConfirmDialog.handleConfirm}
+      onCancel={syncConfirmDialog.handleCancel}
+      zIndex={80}
+    />
+
+    {/* Sync result dialog - z-80 to be above ModalShell (z-70) */}
+    <ConfirmDialog
+      isOpen={syncResultDialog.isOpen}
+      title={syncResultDialog.options.title}
+      message={syncResultDialog.options.message}
+      confirmText={syncResultDialog.options.confirmText}
+      cancelText={syncResultDialog.options.cancelText}
+      confirmVariant={syncResultDialog.options.confirmVariant}
+      onConfirm={syncResultDialog.handleConfirm}
+      onCancel={syncResultDialog.handleCancel}
       zIndex={80}
     />
   </>

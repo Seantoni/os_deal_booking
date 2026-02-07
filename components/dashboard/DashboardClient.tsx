@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { getDashboardStats, getPendingBookings, type DashboardFilters } from '@/app/actions/dashboard'
 import { getInboxItems, dismissInboxItem } from '@/app/actions/inbox'
+import { getPendingComments, type PendingCommentItem } from '@/app/actions/comments'
 import { useSharedData } from '@/hooks/useSharedData'
 import { formatRelativeTime } from '@/lib/date'
 
@@ -19,6 +20,7 @@ import CampaignIcon from '@mui/icons-material/Campaign'
 import CheckIcon from '@mui/icons-material/Check'
 import EventIcon from '@mui/icons-material/Event'
 import ScheduleIcon from '@mui/icons-material/Schedule'
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline'
 import { Select } from '@/components/ui/Select'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -66,6 +68,7 @@ interface DashboardClientProps {
     stats: DashboardStats | null
     inboxItems: InboxItem[]
     pendingBookings: PendingBookingItem[]
+    pendingComments: PendingCommentItem[]
   }
 }
 
@@ -80,6 +83,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
   const [stats, setStats] = useState<DashboardStats | null>(initialData?.stats || null)
   const [inboxItems, setInboxItems] = useState<InboxItem[]>(initialData?.inboxItems || [])
   const [pendingBookings, setPendingBookings] = useState<PendingBookingItem[]>(initialData?.pendingBookings || [])
+  const [pendingComments, setPendingComments] = useState<PendingCommentItem[]>(initialData?.pendingComments || [])
   const [error, setError] = useState<string | null>(null)
   const [filters, setFilters] = useState<DashboardFilters>({
     userId: '',
@@ -150,11 +154,12 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
     setLoading(true)
     setError(null)
     try {
-      // Parallel fetch stats, inbox, and pending bookings (users come from shared context)
-      const [statsResult, inboxResult, pendingResult] = await Promise.all([
+      // Parallel fetch stats, inbox, pending bookings, and pending comments (users come from shared context)
+      const [statsResult, inboxResult, pendingResult, pendingCommentsResult] = await Promise.all([
         getDashboardStats(filters),
         getInboxItems(),
         getPendingBookings(),
+        getPendingComments(),
       ])
 
       if (statsResult.success && 'data' in statsResult && statsResult.data) {
@@ -172,6 +177,10 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
 
       if (pendingResult.success && pendingResult.data) {
         setPendingBookings(pendingResult.data)
+      }
+
+      if (pendingCommentsResult.success && pendingCommentsResult.data) {
+        setPendingComments(pendingCommentsResult.data)
       }
     } catch (error) {
       console.error('Failed to load dashboard data:', error)
@@ -294,8 +303,8 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
           </div>
         </div>
 
-        {/* Priority Row: Pending Bookings + Inbox side by side */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Priority Row: Pending Bookings + Inbox + Pending Comments side by side */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Pending Bookings Widget - Compact */}
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
@@ -421,6 +430,64 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
               </button>
             )}
           </div>
+
+          {/* Pending Comments Widget - Compact */}
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1 bg-purple-50 rounded">
+                  <ChatBubbleOutlineIcon className="text-purple-500" style={{ fontSize: 16 }} />
+                </div>
+                <h3 className="text-sm font-semibold text-gray-900">Sin Respuesta</h3>
+              </div>
+              {pendingComments.length > 0 && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full">
+                  {pendingComments.length}
+                </span>
+              )}
+            </div>
+            <div className="max-h-[180px] overflow-y-auto">
+              {pendingComments.length === 0 ? (
+                <div className="flex items-center justify-center py-6 text-center">
+                  <p className="text-xs text-gray-400">Sin comentarios pendientes</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-50">
+                  {pendingComments.slice(0, 5).map((item) => (
+                    <button
+                      key={`${item.type}-${item.id}`}
+                      onClick={() => router.push(item.linkUrl)}
+                      className="w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-3"
+                    >
+                      {item.type === 'opportunity' ? (
+                        <HandshakeIcon className="text-orange-400" style={{ fontSize: 14 }} />
+                      ) : (
+                        <CampaignIcon className="text-purple-400" style={{ fontSize: 14 }} />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-gray-900 truncate">
+                            {item.author.name || 'Usuario'}
+                          </span>
+                          <span className="text-[10px] text-gray-400">{formatRelativeTime(item.createdAt)}</span>
+                        </div>
+                        <p className="text-[10px] text-gray-500 truncate">{truncateContent(item.content, 40)}</p>
+                        <p className="text-[9px] text-gray-400 truncate">{item.entityName}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {pendingComments.length > 5 && (
+              <button
+                onClick={() => router.push('/settings')}
+                className="w-full px-4 py-2 text-[10px] text-purple-600 hover:bg-purple-50 font-medium border-t border-gray-100"
+              >
+                Ver más en Settings →
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Stats Row - Compact horizontal cards */}
@@ -516,7 +583,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {stats?.teamPerformance?.map((member: any, index: number) => (
+                  {stats?.teamPerformance?.map((member, index) => (
                     <tr 
                       key={member.userId} 
                       className={`${member.isCurrentUser ? 'bg-blue-50/40' : 'hover:bg-gray-50/50'}`}

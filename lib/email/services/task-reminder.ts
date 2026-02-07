@@ -9,6 +9,7 @@ import { resend, EMAIL_CONFIG } from '../config'
 import { renderTaskReminderEmail, type TaskForEmail } from '../templates/task-reminder'
 import { getAppBaseUrl } from '@/lib/config/env'
 import { logger } from '@/lib/logger'
+import { getTodayInPanama, formatDateForPanama, parseDateInPanamaTime, parseEndDateInPanamaTime } from '@/lib/date/timezone'
 
 interface UserTasksGroup {
   userId: string
@@ -22,19 +23,10 @@ interface UserTasksGroup {
  * Get all tasks that are due today or overdue, grouped by responsible user
  */
 async function getTasksByResponsibleUser(): Promise<UserTasksGroup[]> {
-  // Get today's date range (start of day to end of day in Panama timezone)
-  const now = new Date()
-  // Convert to Panama time
-  const panamaOffset = -5 * 60 // Panama is UTC-5
-  const localOffset = now.getTimezoneOffset()
-  const offsetDiff = panamaOffset - localOffset
-  
-  const panamaDate = new Date(now.getTime() + offsetDiff * 60 * 1000)
-  const todayStart = new Date(panamaDate)
-  todayStart.setHours(0, 0, 0, 0)
-  
-  const todayEnd = new Date(panamaDate)
-  todayEnd.setHours(23, 59, 59, 999)
+  // Get today's date range in Panama timezone
+  const todayStr = getTodayInPanama()
+  const todayStart = parseDateInPanamaTime(todayStr)
+  const todayEnd = parseEndDateInPanamaTime(todayStr)
 
   // Get all incomplete tasks that are due today or overdue
   const tasks = await prisma.task.findMany({
@@ -102,10 +94,9 @@ async function getTasksByResponsibleUser(): Promise<UserTasksGroup[]> {
     }
 
     const userGroup = tasksByUser.get(responsibleId)!
-    const taskDate = new Date(task.date)
-    taskDate.setHours(0, 0, 0, 0)
     
-    const todayCompare = new Date(todayStart)
+    // Compare dates using Panama timezone
+    const taskDateStr = formatDateForPanama(new Date(task.date))
     
     const taskForEmail: TaskForEmail = {
       id: task.id,
@@ -123,7 +114,7 @@ async function getTasksByResponsibleUser(): Promise<UserTasksGroup[]> {
       },
     }
 
-    if (taskDate.getTime() < todayCompare.getTime()) {
+    if (taskDateStr < todayStr) {
       userGroup.overdueTasks.push(taskForEmail)
     } else {
       userGroup.dueTodayTasks.push(taskForEmail)
@@ -134,10 +125,10 @@ async function getTasksByResponsibleUser(): Promise<UserTasksGroup[]> {
 }
 
 /**
- * Send task reminder email to a single user
+ * Build email payload for a single user
  */
-async function sendTaskReminderToUser(userTasks: UserTasksGroup): Promise<{ success: boolean; error?: string }> {
-  const appBaseUrl = getAppBaseUrl()
+function buildEmailPayload(userTasks: UserTasksGroup, appBaseUrl: string) {
+  const totalTasks = userTasks.dueTodayTasks.length + userTasks.overdueTasks.length
   
   const html = renderTaskReminderEmail({
     userName: userTasks.userName,
@@ -146,34 +137,30 @@ async function sendTaskReminderToUser(userTasks: UserTasksGroup): Promise<{ succ
     appBaseUrl,
   })
 
-  const totalTasks = userTasks.dueTodayTasks.length + userTasks.overdueTasks.length
-
-  try {
-    const result = await resend.emails.send({
-      from: EMAIL_CONFIG.from,
-      to: userTasks.userEmail,
-      replyTo: EMAIL_CONFIG.replyTo,
-      subject: `📋 Tienes ${totalTasks} tarea${totalTasks !== 1 ? 's' : ''} pendiente${totalTasks !== 1 ? 's' : ''} - OfertaSimple`,
-      html,
-    })
-
-    if (result.error) {
-      logger.error(`Failed to send task reminder to ${userTasks.userEmail}:`, result.error)
-      return { success: false, error: result.error.message }
-    }
-
-    logger.info(`Task reminder sent to ${userTasks.userEmail} (${totalTasks} tasks)`)
-    return { success: true }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    logger.error(`Error sending task reminder to ${userTasks.userEmail}:`, error)
-    return { success: false, error: errorMessage }
+  return {
+    from: EMAIL_CONFIG.from,
+    to: userTasks.userEmail,
+    replyTo: EMAIL_CONFIG.replyTo,
+    subject: `📋 Tienes ${totalTasks} tarea${totalTasks !== 1 ? 's' : ''} pendiente${totalTasks !== 1 ? 's' : ''} - OfertaSimple`,
+    html,
   }
 }
 
 /**
- * Send all task reminder emails
- * Returns summary of sent emails
+ * Split array into chunks of specified size
+ */
+function chunkArray<T>(array: T[], size: number): T[][] {
+  const chunks: T[][] = []
+  for (let i = 0; i < array.length; i += size) {
+    chunks.push(array.slice(i, i + size))
+  }
+  return chunks
+}
+
+/**
+ * Send all task reminder emails using batch API
+ * Uses Resend's batch endpoint to send up to 100 emails per request
+ * This is more efficient and avoids rate limiting (2 req/sec limit)
  */
 export async function sendAllTaskReminders(): Promise<{
   success: boolean
@@ -189,31 +176,70 @@ export async function sendAllTaskReminders(): Promise<{
 
   try {
     const userTaskGroups = await getTasksByResponsibleUser()
+    const appBaseUrl = getAppBaseUrl()
 
     logger.info(`Found ${userTaskGroups.length} users with pending tasks`)
 
+    // Filter out users with no tasks and build email payloads
+    const emailPayloads: { email: ReturnType<typeof buildEmailPayload>; userEmail: string }[] = []
+    
     for (const userTasks of userTaskGroups) {
       const totalTasks = userTasks.dueTodayTasks.length + userTasks.overdueTasks.length
       
-      // Skip if no tasks (shouldn't happen, but just in case)
       if (totalTasks === 0) {
         skipped++
         continue
       }
 
-      const result = await sendTaskReminderToUser(userTasks)
+      emailPayloads.push({
+        email: buildEmailPayload(userTasks, appBaseUrl),
+        userEmail: userTasks.userEmail,
+      })
+    }
+
+    if (emailPayloads.length === 0) {
+      logger.info('No task reminder emails to send')
+      return { success: true, sent: 0, failed: 0, skipped, errors: [] }
+    }
+
+    // Send in batches of 100 (Resend batch limit)
+    const BATCH_SIZE = 100
+    const batches = chunkArray(emailPayloads, BATCH_SIZE)
+
+    logger.info(`Sending ${emailPayloads.length} emails in ${batches.length} batch(es)`)
+
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i]
       
-      if (result.success) {
-        sent++
-      } else {
-        failed++
+      try {
+        const result = await resend.batch.send(batch.map(b => b.email))
+
         if (result.error) {
-          errors.push(`${userTasks.userEmail}: ${result.error}`)
+          // Batch-level error - all emails in this batch failed
+          logger.error(`Batch ${i + 1} failed:`, result.error)
+          failed += batch.length
+          for (const item of batch) {
+            errors.push(`${item.userEmail}: ${result.error.message}`)
+          }
+        } else if (result.data) {
+          // Batch succeeded - all emails in this batch were sent
+          sent += batch.length
+          logger.info(`Batch ${i + 1} sent ${batch.length} emails`)
+        }
+      } catch (error) {
+        // Network or unexpected error - all emails in batch failed
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        logger.error(`Batch ${i + 1} exception:`, error)
+        failed += batch.length
+        for (const item of batch) {
+          errors.push(`${item.userEmail}: ${errorMessage}`)
         }
       }
 
-      // Small delay between emails to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 100))
+      // Delay between batches to stay under rate limit (2 req/sec)
+      if (i < batches.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 550))
+      }
     }
 
     logger.info(`Task reminders complete: ${sent} sent, ${failed} failed, ${skipped} skipped`)

@@ -20,18 +20,18 @@ export default function AppLayout({ children, title, subtitle, actions }: AppLay
     <PageContent>
       {/* 
         Container with padding to account for sidebar
-        Full height minus global header (h-14 = 56px)
+        Edge-to-edge on mobile, padded card on desktop
       */}
-      <div className="p-3 h-full">
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm h-full flex flex-col overflow-hidden">
-          {/* Page header with title and actions */}
-          <div className="border-b border-gray-200 px-5 py-3 flex-shrink-0 bg-white">
+      <div className="p-0 md:p-3 h-full">
+        <div className="bg-white md:rounded-2xl md:border md:border-slate-200/80 md:shadow-sm h-full flex flex-col overflow-hidden">
+          {/* Page header with title and actions — hidden on mobile to save space */}
+          <div className="hidden md:block border-b border-gray-200 px-5 py-3 flex-shrink-0 bg-white">
             <PageHeader title={title} subtitle={subtitle} actions={actions} />
           </div>
           
           {/* Page content - scrollable */}
-          {/* Add bottom padding on mobile to account for bottom nav */}
-          <div className="flex-1 overflow-auto pb-16 md:pb-0 bg-gray-50/30">
+          {/* Add bottom padding on mobile to account for floating bottom nav pill */}
+          <div className="flex-1 overflow-auto pb-20 md:pb-0 bg-gray-50/30">
             {children}
           </div>
         </div>

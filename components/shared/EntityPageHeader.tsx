@@ -29,8 +29,10 @@ interface EntityPageHeaderProps {
   
   /** Saved filters configuration (optional) */
   savedFilters?: SavedFilter[]
-  activeFilterId?: string | null
-  onFilterSelect?: (filter: SavedFilter | null) => void
+  activeFilterIds?: string[] // Multi-select support
+  activeFilterId?: string | null // Legacy single-select support
+  onFilterToggle?: (filter: SavedFilter) => void // Multi-select handler
+  onFilterSelect?: (filter: SavedFilter | null) => void // Legacy single-select handler
   
   /** Advanced filters (optional) */
   onAdvancedFiltersChange?: (rules: FilterRule[]) => void
@@ -44,6 +46,9 @@ interface EntityPageHeaderProps {
   
   /** Optional content between search and filters (e.g., view toggle) */
   beforeFilters?: ReactNode
+  
+  /** Optional user filter dropdown (admin quick filter) - appears after saved filters with separator */
+  userFilter?: ReactNode
 }
 
 /**
@@ -87,25 +92,30 @@ export function EntityPageHeader({
   activeFilter,
   onFilterChange,
   savedFilters,
+  activeFilterIds,
   activeFilterId,
+  onFilterToggle,
   onFilterSelect,
   onAdvancedFiltersChange,
   onSavedFiltersChange,
   isAdmin,
   rightContent,
   beforeFilters,
+  userFilter,
 }: EntityPageHeaderProps) {
-  const activeFilterObject = savedFilters?.find(f => f.id === activeFilterId) || null
+  // Support both multi-select and legacy single-select
+  const effectiveActiveIds = activeFilterIds || (activeFilterId ? [activeFilterId] : [])
+  const activeFilterObject = savedFilters?.find(f => effectiveActiveIds.includes(f.id)) || null
   const showAdvancedFilters = isAdmin && entityType && onAdvancedFiltersChange && onSavedFiltersChange
-  const showSavedFilters = savedFilters && savedFilters.length > 0 && onFilterSelect
+  const showSavedFilters = savedFilters && savedFilters.length > 0 && (onFilterToggle || onFilterSelect)
 
   return (
-    <div className="bg-white border-b border-gray-200 px-4 py-2">
+    <div className="bg-white border-b border-gray-200 px-3 py-2 md:px-4">
       <div className="flex flex-col gap-2">
         {/* Top row: Search + Right Content */}
-        <div className="flex items-center justify-between gap-3">
-          {/* Search */}
-          <div className="flex-1 max-w-xs">
+        <div className="flex items-center gap-2 md:gap-3">
+          {/* Search — full width on mobile, constrained on desktop */}
+          <div className="flex-1 md:max-w-xs">
             <Input
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
@@ -121,7 +131,7 @@ export function EntityPageHeader({
         </div>
 
         {/* Filter Row */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+        <div className="flex items-center gap-1.5 md:gap-2 overflow-x-auto pb-1 no-scrollbar">
           {/* Optional content before filters (e.g., view toggle) */}
           {beforeFilters}
           
@@ -141,11 +151,21 @@ export function EntityPageHeader({
               <div className="flex-shrink-0">
                 <SavedFiltersBar
                   savedFilters={savedFilters!}
-                  activeFilterId={activeFilterId || null}
-                  onFilterSelect={onFilterSelect!}
+                  activeFilterIds={effectiveActiveIds}
+                  activeFilterId={activeFilterId}
+                  onFilterToggle={onFilterToggle}
+                  onFilterSelect={onFilterSelect}
                   isAdmin={isAdmin}
                 />
               </div>
+            </>
+          )}
+
+          {/* User Filter (Admin Quick Filter) - After saved filters */}
+          {userFilter && (
+            <>
+              <div className="h-5 w-px bg-gray-300 mx-1 flex-shrink-0"></div>
+              {userFilter}
             </>
           )}
         </div>

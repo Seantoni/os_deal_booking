@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
 import { invalidateEntity, invalidateDashboard } from '@/lib/cache'
 import { getUserRole, isAdmin } from '@/lib/auth/roles'
+import { getTodayInPanama, formatDateForPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
 import type { Task } from '@/types'
 
 export interface TaskWithOpportunity extends Task {
@@ -18,6 +19,12 @@ export interface TaskWithOpportunity extends Task {
       contactPhone: string
       contactEmail: string
     }
+    responsible: {
+      id: string
+      clerkId: string
+      name: string | null
+      email: string | null
+    } | null
   }
 }
 
@@ -26,7 +33,7 @@ export interface TaskWithOpportunity extends Task {
  * - Admin sees all tasks
  * - Sales sees tasks from opportunities where they are responsible
  */
-export async function getUserTasks(): Promise<{
+export async function getUserTasks(filters?: { responsibleId?: string }): Promise<{
   success: boolean
   data?: TaskWithOpportunity[]
   error?: string
@@ -53,6 +60,13 @@ export async function getUserTasks(): Promise<{
       return { success: true, data: [] }
     }
     // Admin sees all (no where clause)
+    
+    // Apply responsible filter (admin quick filter)
+    if (filters?.responsibleId && role === 'admin') {
+      whereClause.opportunity = {
+        responsibleId: filters.responsibleId,
+      }
+    }
 
     const tasks = await prisma.task.findMany({
       where: whereClause,
@@ -62,6 +76,7 @@ export async function getUserTasks(): Promise<{
             id: true,
             stage: true,
             name: true,
+            responsibleId: true,
             business: {
               select: {
                 id: true,
@@ -80,10 +95,24 @@ export async function getUserTasks(): Promise<{
       ],
     })
 
-    // Cast category to the expected union type
+    // Get all unique responsibleIds and fetch user info
+    const responsibleIds = [...new Set(tasks.map(t => t.opportunity.responsibleId).filter((id): id is string => id !== null))]
+    const users = responsibleIds.length > 0
+      ? await prisma.userProfile.findMany({
+          where: { clerkId: { in: responsibleIds } },
+          select: { id: true, clerkId: true, name: true, email: true },
+        })
+      : []
+    const userMap = new Map(users.map(u => [u.clerkId, u]))
+
+    // Map tasks with responsible user info
     const typedTasks = tasks.map((task) => ({
       ...task,
       category: task.category as 'meeting' | 'todo',
+      opportunity: {
+        ...task.opportunity,
+        responsible: task.opportunity.responsibleId ? userMap.get(task.opportunity.responsibleId) || null : null,
+      },
     }))
 
     return { success: true, data: typedTasks as TaskWithOpportunity[] }
@@ -101,6 +130,7 @@ export async function getTasksPaginated(options: {
   sortBy?: string
   sortDirection?: 'asc' | 'desc'
   filter?: 'all' | 'pending' | 'completed' | 'overdue'
+  responsibleId?: string // Filter by responsible (admin quick filter)
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -110,7 +140,7 @@ export async function getTasksPaginated(options: {
 
   try {
     const role = await getUserRole()
-    const { page = 0, pageSize = 50, sortBy = 'date', sortDirection = 'asc', filter = 'all' } = options
+    const { page = 0, pageSize = 50, sortBy = 'date', sortDirection = 'asc', filter = 'all', responsibleId } = options
 
     // Build where clause based on role
     const whereClause: Record<string, unknown> = {}
@@ -119,17 +149,22 @@ export async function getTasksPaginated(options: {
     } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: [], total: 0, page, pageSize }
     }
+    
+    // Apply responsible filter (admin quick filter)
+    if (responsibleId && role === 'admin') {
+      whereClause.opportunity = { responsibleId }
+    }
 
-    // Add filter
-    const now = new Date()
-    now.setHours(0, 0, 0, 0)
+    // Add filter (using Panama timezone)
+    const todayStr = getTodayInPanama()
+    const todayPanama = parseDateInPanamaTime(todayStr)
     if (filter === 'pending') {
       whereClause.completed = false
     } else if (filter === 'completed') {
       whereClause.completed = true
     } else if (filter === 'overdue') {
       whereClause.completed = false
-      whereClause.date = { lt: now }
+      whereClause.date = { lt: todayPanama }
     }
 
     // Get total count
@@ -144,6 +179,7 @@ export async function getTasksPaginated(options: {
             id: true,
             stage: true,
             name: true,
+            responsibleId: true,
             business: {
               select: {
                 id: true,
@@ -164,9 +200,24 @@ export async function getTasksPaginated(options: {
       take: pageSize,
     })
 
-    const typedTasks = tasks.map((task: { category: string }) => ({
+    // Get all unique responsibleIds and fetch user info
+    const responsibleIds = [...new Set(tasks.map(t => t.opportunity.responsibleId).filter((id): id is string => id !== null))]
+    const users = responsibleIds.length > 0
+      ? await prisma.userProfile.findMany({
+          where: { clerkId: { in: responsibleIds } },
+          select: { id: true, clerkId: true, name: true, email: true },
+        })
+      : []
+    const userMap = new Map(users.map(u => [u.clerkId, u]))
+
+    // Map tasks with responsible user info
+    const typedTasks = tasks.map((task) => ({
       ...task,
       category: task.category as 'meeting' | 'todo',
+      opportunity: {
+        ...task.opportunity,
+        responsible: task.opportunity.responsibleId ? userMap.get(task.opportunity.responsibleId) || null : null,
+      },
     }))
 
     return { 
@@ -187,6 +238,7 @@ export async function getTasksPaginated(options: {
  */
 export async function searchTasks(query: string, options: {
   limit?: number
+  responsibleId?: string // Filter by responsible (admin quick filter)
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -196,7 +248,7 @@ export async function searchTasks(query: string, options: {
 
   try {
     const role = await getUserRole()
-    const { limit = 100 } = options
+    const { limit = 100, responsibleId } = options
 
     if (!query || query.trim().length < 2) {
       return { success: true, data: [] }
@@ -210,6 +262,11 @@ export async function searchTasks(query: string, options: {
       roleFilter.opportunity = { responsibleId: userId }
     } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: [] }
+    }
+    
+    // Apply responsible filter (admin quick filter)
+    if (responsibleId && role === 'admin') {
+      roleFilter.opportunity = { responsibleId }
     }
 
     // Search across task title, notes, and business name
@@ -228,6 +285,7 @@ export async function searchTasks(query: string, options: {
             id: true,
             stage: true,
             name: true,
+            responsibleId: true,
             business: {
               select: {
                 id: true,
@@ -247,9 +305,24 @@ export async function searchTasks(query: string, options: {
       take: limit,
     })
 
-    const typedTasks = tasks.map((task: { category: string }) => ({
+    // Get all unique responsibleIds and fetch user info
+    const responsibleIds = [...new Set(tasks.map(t => t.opportunity.responsibleId).filter((id): id is string => id !== null))]
+    const users = responsibleIds.length > 0
+      ? await prisma.userProfile.findMany({
+          where: { clerkId: { in: responsibleIds } },
+          select: { id: true, clerkId: true, name: true, email: true },
+        })
+      : []
+    const userMap = new Map(users.map(u => [u.clerkId, u]))
+
+    // Map tasks with responsible user info
+    const typedTasks = tasks.map((task) => ({
       ...task,
       category: task.category as 'meeting' | 'todo',
+      opportunity: {
+        ...task.opportunity,
+        responsible: task.opportunity.responsibleId ? userMap.get(task.opportunity.responsibleId) || null : null,
+      },
     }))
 
     return { success: true, data: typedTasks as TaskWithOpportunity[] }
@@ -311,9 +384,10 @@ async function updateOpportunityActivityDates(opportunityId: string) {
     orderBy: { date: 'asc' },
   })
 
-  const now = new Date()
-  const futureTasks = allTasks.filter((t) => !t.completed && new Date(t.date) >= now)
-  const pastTasks = allTasks.filter((t) => t.completed || new Date(t.date) < now)
+  // Use Panama timezone for date comparisons
+  const todayStrActivity = getTodayInPanama()
+  const futureTasks = allTasks.filter((t) => !t.completed && formatDateForPanama(new Date(t.date)) >= todayStrActivity)
+  const pastTasks = allTasks.filter((t) => t.completed || formatDateForPanama(new Date(t.date)) < todayStrActivity)
 
   const nextActivityDate = futureTasks.length > 0 ? new Date(futureTasks[0].date) : null
   const lastActivityDate = pastTasks.length > 0 ? new Date(pastTasks[pastTasks.length - 1].date) : null
@@ -327,3 +401,51 @@ async function updateOpportunityActivityDates(opportunityId: string) {
   })
 }
 
+/**
+ * Get task counts by status (for filter tabs)
+ */
+export async function getTaskCounts(filters?: { responsibleId?: string }) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    
+    // Build base where clause based on role
+    const baseWhere: Record<string, unknown> = {}
+    if (role === 'sales') {
+      baseWhere.opportunity = { responsibleId: userId }
+    } else if (role === 'editor' || role === 'ere') {
+      return { success: true, data: { all: 0, pending: 0, completed: 0, overdue: 0, meetings: 0, todos: 0 } }
+    }
+    
+    // Apply responsible filter (admin quick filter)
+    if (filters?.responsibleId && role === 'admin') {
+      baseWhere.opportunity = { responsibleId: filters.responsibleId }
+    }
+
+    // Use Panama timezone for overdue calculation
+    const todayStrCounts = getTodayInPanama()
+    const todayPanamaCounts = parseDateInPanamaTime(todayStrCounts)
+
+    // Get counts in parallel
+    const [all, pending, completed, overdue, meetings, todos] = await Promise.all([
+      prisma.task.count({ where: baseWhere }),
+      prisma.task.count({ where: { ...baseWhere, completed: false } }),
+      prisma.task.count({ where: { ...baseWhere, completed: true } }),
+      prisma.task.count({ where: { ...baseWhere, completed: false, date: { lt: todayPanamaCounts } } }),
+      prisma.task.count({ where: { ...baseWhere, category: 'meeting' } }),
+      prisma.task.count({ where: { ...baseWhere, category: 'todo' } }),
+    ])
+
+    return { 
+      success: true, 
+      data: { all, pending, completed, overdue, meetings, todos }
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getTaskCounts')
+  }
+}

@@ -6,19 +6,7 @@ import { invalidateEntity } from '@/lib/cache'
 import { getUserRole } from '@/lib/auth/roles'
 import { logActivity } from '@/lib/activity-log'
 
-export type ReassignmentType = 'reasignar' | 'sacar'
-
-// Type for sales rep relation
-type SalesRepRelation = {
-  id: string
-  salesRepId: string
-  userProfile: {
-    id: string
-    clerkId: string
-    name: string | null
-    email: string | null
-  }
-}
+export type ReassignmentType = 'reasignar' | 'sacar' | 'recurrente'
 
 // Business include config for consistent queries
 const businessInclude = {
@@ -31,16 +19,12 @@ const businessInclude = {
       subCategory2: true,
     },
   },
-  salesReps: {
-    include: {
-      userProfile: {
-        select: {
-          id: true,
-          clerkId: true,
-          name: true,
-          email: true,
-        },
-      },
+  owner: {
+    select: {
+      id: true,
+      clerkId: true,
+      name: true,
+      email: true,
     },
   },
 }
@@ -65,7 +49,12 @@ interface BusinessWithReassignment {
     subCategory1: string | null
     subCategory2: string | null
   } | null
-  salesReps?: SalesRepRelation[]
+  owner?: {
+    id: string
+    clerkId: string
+    name: string | null
+    email: string | null
+  } | null
   [key: string]: unknown
 }
 
@@ -116,7 +105,8 @@ export async function requestReassignment(
     }
 
     // Update business with reassignment info using raw query for new fields
-    const status = type === 'reasignar' ? 'pending_reassign' : 'pending_removal'
+    // 'recurrente' uses 'pending_reassign' status since the action is to reassign
+    const status = type === 'sacar' ? 'pending_removal' : 'pending_reassign'
     await prisma.$executeRaw`
       UPDATE businesses 
       SET 
@@ -131,7 +121,7 @@ export async function requestReassignment(
 
     // Log activity
     await logActivity({
-      action: type === 'reasignar' ? 'ASSIGN' : 'STATUS_CHANGE',
+      action: type === 'sacar' ? 'STATUS_CHANGE' : 'ASSIGN',
       entityType: 'Business',
       entityId: businessId,
       entityName: business.name,
@@ -229,11 +219,6 @@ export async function getAssignmentsPaginated(options: {
     const transformedBusinesses = businesses.map(biz => {
       return {
         ...biz,
-        salesReps: (biz.salesReps || []).map((sr: SalesRepRelation) => ({
-          id: sr.id,
-          salesRepId: sr.salesRepId,
-          salesRep: sr.userProfile,
-        })),
         reassignmentRequester: biz.reassignmentRequestedBy 
           ? requesterMap.get(biz.reassignmentRequestedBy) || null
           : null,
@@ -259,7 +244,7 @@ export async function getAssignmentsCounts() {
   }
 
   try {
-    const [total, reasignar, sacar] = await Promise.all([
+    const [total, reasignar, sacar, recurrente] = await Promise.all([
       prisma.business.count({
         where: { reassignmentStatus: { not: null } } as never,
       }),
@@ -269,6 +254,9 @@ export async function getAssignmentsCounts() {
       prisma.business.count({
         where: { reassignmentType: 'sacar' } as never,
       }),
+      prisma.business.count({
+        where: { reassignmentType: 'recurrente' } as never,
+      }),
     ])
 
     return {
@@ -277,6 +265,7 @@ export async function getAssignmentsCounts() {
         all: total,
         reasignar,
         sacar,
+        recurrente,
       },
     }
   } catch (error) {
@@ -468,20 +457,83 @@ export async function searchAssignments(query: string) {
       take: 50,
     }) as unknown as BusinessWithReassignment[]
 
-    // Transform salesReps structure
-    const transformedBusinesses = businesses.map(biz => {
-      return {
-        ...biz,
-        salesReps: (biz.salesReps || []).map((sr: SalesRepRelation) => ({
-          id: sr.id,
-          salesRepId: sr.salesRepId,
-          salesRep: sr.userProfile,
-        })),
+    return { success: true, data: businesses }
+  } catch (error) {
+    return handleServerActionError(error, 'searchAssignments')
+  }
+}
+
+/**
+ * Auto-add recurring business to assignments
+ * Called during deal metrics sync when a business has >2 deals in 360 days
+ * Only for businesses with salesTeam = 'Outside Sales' or null/blank
+ * 
+ * @param businessId - The business ID to add
+ * @param businessName - The business name for logging
+ * @param ownerId - Current owner ID to preserve
+ * @returns Result indicating if business was added
+ */
+export async function autoAddRecurringBusiness(
+  businessId: string,
+  businessName: string,
+  ownerId: string | null
+): Promise<{ added: boolean; reason?: string }> {
+  try {
+    // Check if already has pending reassignment
+    const businessWithReassignment = await prisma.$queryRaw<Array<{ 
+      reassignmentStatus: string | null
+      salesTeam: string | null 
+    }>>`
+      SELECT "reassignmentStatus", "salesTeam" FROM businesses WHERE id = ${businessId}
+    `
+    
+    if (!businessWithReassignment[0]) {
+      return { added: false, reason: 'Business not found' }
+    }
+
+    // Skip if already in assignments list
+    if (businessWithReassignment[0].reassignmentStatus) {
+      return { added: false, reason: 'Already has pending reassignment' }
+    }
+
+    // Only process businesses with salesTeam = 'Outside Sales' or null/blank
+    const salesTeam = businessWithReassignment[0].salesTeam
+    if (salesTeam && salesTeam !== 'Outside Sales') {
+      return { added: false, reason: `Excluded: salesTeam is ${salesTeam}` }
+    }
+
+    // Add to assignments with type 'recurrente'
+    await prisma.$executeRaw`
+      UPDATE businesses 
+      SET 
+        "reassignmentStatus" = 'pending_reassign',
+        "reassignmentType" = 'recurrente',
+        "reassignmentRequestedBy" = 'system-cron',
+        "reassignmentRequestedAt" = ${new Date()},
+        "reassignmentReason" = 'Auto: Negocio recurrente (más de 2 deals en 360 días)',
+        "reassignmentPreviousOwner" = ${ownerId}
+      WHERE id = ${businessId}
+    `
+
+    // Log activity
+    await logActivity({
+      action: 'ASSIGN',
+      entityType: 'Business',
+      entityId: businessId,
+      entityName: businessName,
+      details: {
+        metadata: { 
+          type: 'recurrente',
+          action: 'auto_reassignment_requested',
+          reason: 'More than 2 deals in 360 days',
+          source: 'deal-metrics-sync'
+        }
       }
     })
 
-    return { success: true, data: transformedBusinesses }
+    return { added: true }
   } catch (error) {
-    return handleServerActionError(error, 'searchAssignments')
+    console.error(`Failed to auto-add recurring business ${businessId}:`, error)
+    return { added: false, reason: error instanceof Error ? error.message : 'Unknown error' }
   }
 }

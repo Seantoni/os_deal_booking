@@ -3,6 +3,7 @@
 import { memo } from 'react'
 import { Input, Select, Textarea } from '@/components/ui'
 import CategorySelect from './CategorySelect'
+import ProvDistCorrSelect from './ProvDistCorrSelect'
 import type { FormFieldWithDefinition, BuiltinFieldDefinition, CategoryRecord } from '@/types'
 import type { SelectOption } from '@/app/actions/custom-fields'
 
@@ -28,6 +29,8 @@ interface DynamicFormFieldProps {
   categories?: CategoryRecord[]
   users?: UserOption[]
   businesses?: BusinessOption[]
+  // Category display mode: 'full' shows full path, 'parentOnly' shows only parent category
+  categoryDisplayMode?: 'full' | 'parentOnly'
   // Override props
   canEdit?: boolean // For fields like 'name' that have special edit rules
   // Is this an existing entity (edit mode)?
@@ -52,6 +55,7 @@ function DynamicFormField({
   categories = [],
   users = [],
   businesses = [],
+  categoryDisplayMode = 'full',
   canEdit = true,
   isEditMode = false,
 }: DynamicFormFieldProps) {
@@ -94,11 +98,27 @@ function DynamicFormField({
           value={value}
           onValueChange={onChange}
           categories={categories}
+          displayMode={categoryDisplayMode}
           label={label}
           required={isRequired}
           disabled={fieldDisabled}
           helpText={helpText}
           placeholder="Seleccionar categoría..."
+          size="sm"
+        />
+      )
+
+    case 'location':
+      // ProvDistCorr select - use shared ProvDistCorrSelect component with search
+      return (
+        <ProvDistCorrSelect
+          value={value}
+          onChange={onChange}
+          label={label}
+          required={isRequired}
+          disabled={fieldDisabled}
+          helpText={helpText}
+          placeholder="Seleccionar ubicación..."
           size="sm"
         />
       )

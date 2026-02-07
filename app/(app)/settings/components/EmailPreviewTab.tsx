@@ -6,14 +6,22 @@ import EmailIcon from '@mui/icons-material/Email'
 import SendIcon from '@mui/icons-material/Send'
 import RefreshIcon from '@mui/icons-material/Refresh'
 
-type EmailTemplateType = 'booking-confirmation' | 'booking-request' | 'rejection' | 'task-reminder' | 'cancelled'
+type EmailTemplateType = 
+  | 'booking-confirmation' 
+  | 'booking-request' 
+  | 'admin-approval'
+  | 'rejection' 
+  | 'cancelled'
+  | 'task-reminder'
+  | 'mention-notification'
+  | 'cron-failure'
 
 interface EmailPreviewTabProps {
   isAdmin: boolean
 }
 
 export default function EmailPreviewTab({ isAdmin }: EmailPreviewTabProps) {
-  const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplateType>('booking-confirmation')
+  const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplateType>('booking-request')
   const [testEmail, setTestEmail] = useState('')
   const [sending, setSending] = useState(false)
   const [previewHtml, setPreviewHtml] = useState('')
@@ -91,6 +99,17 @@ export default function EmailPreviewTab({ isAdmin }: EmailPreviewTabProps) {
     }
   }
 
+  const templates: { id: EmailTemplateType; label: string }[] = [
+    { id: 'booking-request', label: 'Solicitud de Booking' },
+    { id: 'booking-confirmation', label: 'Confirmación de Booking' },
+    { id: 'admin-approval', label: 'Aprobación Admin' },
+    { id: 'rejection', label: 'Rechazo' },
+    { id: 'cancelled', label: 'Cancelación' },
+    { id: 'task-reminder', label: 'Recordatorio de Tareas' },
+    { id: 'mention-notification', label: 'Notificación Mención' },
+    { id: 'cron-failure', label: 'Falla Cron Job' },
+  ]
+
   return (
     <div className="space-y-4">
       {/* Template Selector */}
@@ -99,18 +118,13 @@ export default function EmailPreviewTab({ isAdmin }: EmailPreviewTabProps) {
           Seleccionar Plantilla de Email
         </label>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          {[
-            { id: 'booking-confirmation' as const, label: 'Confirmación de Booking' },
-            { id: 'booking-request' as const, label: 'Solicitud de Booking' },
-            { id: 'rejection' as const, label: 'Rechazo' },
-            { id: 'task-reminder' as const, label: 'Recordatorio de Tareas' },
-          ].map((template) => (
+          {templates.map((template) => (
             <button
               key={template.id}
               onClick={() => handleTemplateChange(template.id)}
               className={`px-3 py-2 text-xs font-medium rounded border transition-colors ${
                 selectedTemplate === template.id
-                  ? 'bg-blue-600 text-white border-blue-600'
+                  ? 'bg-[#e84c0f] text-white border-[#e84c0f]'
                   : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
               }`}
             >
@@ -131,12 +145,12 @@ export default function EmailPreviewTab({ isAdmin }: EmailPreviewTabProps) {
             value={testEmail}
             onChange={(e) => setTestEmail(e.target.value)}
             placeholder="email@ejemplo.com"
-            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-[#e84c0f] focus:border-transparent"
           />
           <button
             onClick={handleSendTestEmail}
             disabled={sending || !testEmail.trim()}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-4 py-2 text-sm bg-[#e84c0f] text-white rounded hover:bg-[#c2410c] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             <SendIcon fontSize="small" style={{ fontSize: 16 }} />
             {sending ? 'Enviando...' : 'Enviar'}
@@ -179,4 +193,3 @@ export default function EmailPreviewTab({ isAdmin }: EmailPreviewTabProps) {
     </div>
   )
 }
-

@@ -61,6 +61,7 @@ export interface BookingRequestViewData {
 
   // Step 1: Configuración General y Vigencia
   campaignDuration: string | null
+  campaignDurationUnit: string | null
 
   // Step 2: Operatividad y Pagos
   redemptionMode: string | null
@@ -82,9 +83,7 @@ export interface BookingRequestViewData {
   accountNumber: string | null
   accountType: string | null
   addressAndHours: string | null
-  province: string | null
-  district: string | null
-  corregimiento: string | null
+  provinceDistrictCorregimiento: string | null
 
   // Step 5: Reglas de Negocio y Restricciones
   includesTaxes: string | null
@@ -92,10 +91,7 @@ export interface BookingRequestViewData {
   hasExclusivity: string | null
   blackoutDates: string | null
   exclusivityCondition: string | null
-  giftVouchers: string | null
   hasOtherBranches: string | null
-  vouchersPerPerson: string | null
-  commission: string | null
 
   // Step 6: Descripción y Canales de Venta
   redemptionMethods: string[] | null
@@ -131,6 +127,13 @@ export interface BookingRequestViewData {
   
   // Marketing Campaign (populated if booked)
   marketingCampaignId?: string | null
+  
+  // Linked Business (for backfill and replication)
+  linkedBusiness?: {
+    id: string
+    name: string
+    contactEmail: string | null
+  } | null
 }
 
 // Field type enum

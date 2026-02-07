@@ -1,0 +1,1 @@
+export { OpportunityMobileCard } from './OpportunityMobileCard'

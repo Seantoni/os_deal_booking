@@ -6,3 +6,4 @@
 export * from './types'
 export * from './mapper'
 export * from './client'
+export * from './metrics'

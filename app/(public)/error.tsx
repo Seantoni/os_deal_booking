@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 import * as Sentry from '@sentry/nextjs'
 import { logger } from '@/lib/logger'
-import { PublicPageHeader } from '@/components/shared/public-pages/PublicPageHeader'
+import { PublicPageLayout } from '@/components/shared/public-pages/PublicPageLayout'
 
 interface ErrorPageProps {
   error: Error & { digest?: string }
@@ -33,77 +33,62 @@ export default function PublicError({ error, reset }: ErrorPageProps) {
   }, [error])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-xl overflow-hidden">
-        {/* Header with Logo */}
-        <PublicPageHeader />
+    <PublicPageLayout title="Error inesperado">
+      <div className="text-center">
+        {/* Error Icon */}
+        <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-[#ff3b30] shadow-lg shadow-red-500/20 mb-6">
+          <svg
+            className="h-8 w-8 text-white"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            aria-hidden="true"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+        </div>
 
-        <div className="p-8 text-center">
-          {/* Error Icon */}
-          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-6">
-            <svg
-              className="h-8 w-8 text-red-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          </div>
+        {/* Message */}
+        <p className="text-[#86868b] mb-6 leading-relaxed">
+          Ha ocurrido un problema al cargar esta página. Por favor, intenta de nuevo.
+        </p>
 
-          {/* Title */}
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            Error inesperado
-          </h1>
-
-          {/* Message */}
-          <p className="text-gray-600 mb-6">
-            Ha ocurrido un problema al cargar esta página. Por favor, intenta de nuevo.
-          </p>
-
-          {/* Error details (development only) */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-left">
-              <p className="text-sm font-mono text-red-800 break-all">
-                {error.message}
+        {/* Error details (development only) */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="bg-[#fff5f5] border border-[#ff3b30]/20 rounded-xl p-4 mb-6 text-left">
+            <p className="text-sm font-mono text-[#ff3b30] break-all">
+              {error.message}
+            </p>
+            {error.digest && (
+              <p className="text-xs text-[#ff3b30]/80 mt-2">
+                Digest: {error.digest}
               </p>
-              {error.digest && (
-                <p className="text-xs text-red-600 mt-2">
-                  Digest: {error.digest}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="space-y-3">
-            <button
-              onClick={reset}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
-            >
-              Intentar de nuevo
-            </button>
-            
-            <Link
-              href="/"
-              className="block w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors"
-            >
-              Volver al inicio
-            </Link>
+            )}
           </div>
+        )}
 
-          {/* Footer */}
-          <p className="text-xs text-gray-500 mt-6">
-            OS Deals Booking - OfertaSimple
-          </p>
+        {/* Actions */}
+        <div className="space-y-3">
+          <button
+            onClick={reset}
+            className="w-full bg-[#e84c0f] hover:bg-[#c2410c] text-white font-semibold py-3 px-4 rounded-full transition-colors text-sm"
+          >
+            Intentar de nuevo
+          </button>
+          
+          <Link
+            href="/"
+            className="block w-full bg-[#f5f5f7] hover:bg-[#e5e5e5] text-[#1d1d1f] font-semibold py-3 px-4 rounded-full transition-colors text-sm"
+          >
+            Volver al inicio
+          </Link>
         </div>
       </div>
-    </div>
+    </PublicPageLayout>
   )
 }

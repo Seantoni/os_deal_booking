@@ -4,6 +4,7 @@ import type { UserRole } from '@/lib/constants'
 
 /**
  * Define which roles can access which pages
+ * IMPORTANT: This uses default-deny - pages NOT listed here will be blocked
  */
 export const PAGE_ACCESS: Record<string, UserRole[]> = {
   '/events': ['admin', 'sales'],
@@ -18,10 +19,14 @@ export const PAGE_ACCESS: Record<string, UserRole[]> = {
   '/booking-requests/edit': ['admin', 'sales'], // Matches /booking-requests/edit/[id]
   '/reservations': ['admin', 'sales'],
   '/deals': ['admin', 'sales', 'editor'],
-  '/marketing': ['admin', 'marketing'],
+  '/marketing': ['admin', 'marketing', 'sales'],
   '/market-intelligence': ['admin'],
+  '/leads-negocios': ['admin'],
   '/settings': ['admin'],
   '/activity-log': ['admin'],
+  // Additional pages that were missing
+  '/assignments': ['admin'],
+  '/campaigns': ['admin', 'marketing', 'sales'],
 }
 
 /**
@@ -64,8 +69,10 @@ export async function canAccessPage(pathname: string): Promise<boolean> {
   }
   
   if (!allowedRoles) {
-    // If page is not in the list, allow access (for backward compatibility)
-    return true
+    // Default-deny: if page is not in the list, deny access
+    // This prevents accidental exposure of new pages
+    console.warn(`[Page Access] Denied access to unlisted page: ${pathname}`)
+    return false
   }
   
   return allowedRoles.includes(role)

@@ -32,6 +32,17 @@ export type {
 // User types
 export type { UserRole, UserProfile, UserData } from './user'
 
+// Shared primitives and entity refs
+export type {
+  Nullable,
+  DateLike,
+  DecimalLike,
+  CategoryRef,
+  UserBaseRef,
+  UserRef,
+  BusinessRef,
+} from './shared'
+
 // Settings types
 export type { BusinessException, BookingSettings, RequestFieldConfig, RequestFormFieldsConfig } from './settings'
 
@@ -95,3 +106,7 @@ export {
   getBuiltinFieldDefinition,
   DEFAULT_SECTIONS,
 } from './form-config'
+
+// Campaign types
+export type { SalesCampaign, BusinessCampaign, CampaignStatus } from './campaign'
+export { getCampaignStatus, isCampaignSelectable } from './campaign'

@@ -120,6 +120,54 @@ export const BUSINESS_TIER_OPTIONS = [
 ]
 
 /**
+ * Account type options
+ */
+export const ACCOUNT_TYPE_OPTIONS = [
+  { value: 'Cuenta de Ahorros', label: 'Cuenta de Ahorros' },
+  { value: 'Cuenta Corriente', label: 'Cuenta Corriente' },
+]
+
+/**
+ * Payment plan options
+ */
+export const PAYMENT_PLAN_OPTIONS = [
+  { value: 'QR - Daily', label: 'QR - Daily' },
+  { value: 'QR - Weekly', label: 'QR - Weekly' },
+  { value: 'QR - Monthly', label: 'QR - Monthly' },
+  { value: 'List - Weekly', label: 'List - Weekly' },
+  { value: 'List - Monthly', label: 'List - Monthly' },
+  { value: '50% en 7 días y 50% en 30 días', label: '50% en 7 días y 50% en 30 días' },
+  { value: 'EVENTO', label: 'EVENTO' },
+  { value: 'OTRO', label: 'OTRO' },
+]
+
+/**
+ * Focus period options
+ */
+export const FOCUS_PERIOD_OPTIONS = [
+  { value: '1_week', label: '1 Semana' },
+  { value: '2_weeks', label: '2 Semanas' },
+  { value: '1_month', label: '1 Mes' },
+  { value: '3_months', label: '3 Meses' },
+]
+
+/**
+ * Sales type options
+ */
+export const SALES_TYPE_OPTIONS = [
+  { value: 'nuevo', label: 'Nuevo' },
+  { value: 'existente', label: 'Existente' },
+]
+
+/**
+ * Is Asesor options
+ */
+export const IS_ASESOR_OPTIONS = [
+  { value: 'si', label: 'Sí' },
+  { value: 'no', label: 'No' },
+]
+
+/**
  * Lead stage options
  * Re-exported from centralized constants
  */
@@ -153,40 +201,129 @@ export const DEAL_FIELDS: FilterFieldDefinition[] = [
  * Field definitions for Opportunities
  */
 export const OPPORTUNITY_FIELDS: FilterFieldDefinition[] = [
+  // Opportunity Details
+  { key: 'name', label: 'Opportunity Name', type: 'text' },
   { key: 'stage', label: 'Stage', type: 'select', options: OPPORTUNITY_STAGE_OPTIONS },
+  { key: 'hasRequest', label: 'Has Request', type: 'boolean' },
+  { key: 'notes', label: 'Notes', type: 'text' },
+  { key: 'lostReason', label: 'Lost Reason', type: 'text' },
+  
+  // Dates
   { key: 'startDate', label: 'Start Date', type: 'date' },
   { key: 'closeDate', label: 'Close Date', type: 'date' },
   { key: 'nextActivityDate', label: 'Next Activity Date', type: 'date' },
   { key: 'lastActivityDate', label: 'Last Activity Date', type: 'date' },
-  { key: 'hasRequest', label: 'Has Request', type: 'boolean' },
-  { key: 'notes', label: 'Notes', type: 'text' },
-  { key: 'lostReason', label: 'Lost Reason', type: 'text' },
   { key: 'createdAt', label: 'Created Date', type: 'date' },
   { key: 'updatedAt', label: 'Updated Date', type: 'date' },
-  // Fields from linked Business
+  
+  // Assignment
+  { key: 'responsible.name', label: 'Responsible Name', type: 'text' },
+  
+  // Linked Business - Basic Info
   { key: 'business.name', label: 'Business Name', type: 'text' },
-  { key: 'business.contactEmail', label: 'Contact Email', type: 'text' },
   { key: 'business.tier', label: 'Business Tier', type: 'select', options: BUSINESS_TIER_OPTIONS },
+  { key: 'business.description', label: 'Business Description', type: 'text' },
+  { key: 'business.category.parentCategory', label: 'Business Category', type: 'text' },
+  
+  // Linked Business - Contact
+  { key: 'business.contactName', label: 'Contact Name', type: 'text' },
+  { key: 'business.contactEmail', label: 'Contact Email', type: 'text' },
+  { key: 'business.contactPhone', label: 'Contact Phone', type: 'text' },
+  
+  // Linked Business - Online Presence
+  { key: 'business.website', label: 'Business Website', type: 'text' },
+  { key: 'business.instagram', label: 'Business Instagram', type: 'text' },
+  
+  // Linked Business - Sales & Assignment
   { key: 'business.salesTeam', label: 'Sales Team', type: 'select', options: SALES_TEAM_OPTIONS },
+  { key: 'business.salesType', label: 'Sales Type', type: 'select', options: SALES_TYPE_OPTIONS },
+  { key: 'business.accountManager', label: 'Account Manager', type: 'text' },
+  { key: 'business.ere', label: 'ERE', type: 'text' },
+  { key: 'business.owner.name', label: 'Business Owner', type: 'text' },
+  { key: 'business.focusPeriod', label: 'Business Focus Period', type: 'select', options: FOCUS_PERIOD_OPTIONS },
+  
+  // Linked Business - Fiscal / Legal
+  { key: 'business.razonSocial', label: 'Razón Social', type: 'text' },
+  { key: 'business.ruc', label: 'RUC y DV', type: 'text' },
+  
+  // Linked Business - Location
+  { key: 'business.address', label: 'Business Address', type: 'text' },
+  { key: 'business.neighborhood', label: 'Business Neighborhood', type: 'text' },
+  { key: 'business.provinceDistrictCorregimiento', label: 'Provincia, Distrito, Corregimiento', type: 'text' },
+  
+  // Linked Business - Banking / Payment
+  { key: 'business.bank', label: 'Business Bank', type: 'text' },
+  { key: 'business.accountType', label: 'Business Account Type', type: 'select', options: ACCOUNT_TYPE_OPTIONS },
+  { key: 'business.paymentPlan', label: 'Business Payment Plan', type: 'select', options: PAYMENT_PLAN_OPTIONS },
+  
+  // Linked Business - External IDs
+  { key: 'business.osAdminVendorId', label: 'OS Admin Vendor ID', type: 'text' },
+  
+  // Linked Business - Metrics
+  { key: 'business.topSoldQuantity', label: 'Business Top Sold Quantity', type: 'number' },
+  { key: 'business.topRevenueAmount', label: 'Business Top Revenue', type: 'number' },
+  { key: 'business.totalDeals360d', label: 'Business Total Deals (360d)', type: 'number' },
+  { key: 'business.lastLaunchDate', label: 'Business Last Launch Date', type: 'date' },
 ]
 
 /**
  * Field definitions for Businesses
  */
 export const BUSINESS_FIELDS: FilterFieldDefinition[] = [
+  // Basic Information
   { key: 'name', label: 'Business Name', type: 'text' },
+  { key: 'tier', label: 'Tier', type: 'select', options: BUSINESS_TIER_OPTIONS },
+  { key: 'description', label: 'Description', type: 'text' },
+  { key: 'category.parentCategory', label: 'Category', type: 'text' },
+  
+  // Contact Details
   { key: 'contactName', label: 'Contact Name', type: 'text' },
   { key: 'contactEmail', label: 'Contact Email', type: 'text' },
   { key: 'contactPhone', label: 'Contact Phone', type: 'text' },
-  { key: 'tier', label: 'Tier', type: 'select', options: BUSINESS_TIER_OPTIONS },
-  { key: 'salesTeam', label: 'Sales Team', type: 'select', options: SALES_TEAM_OPTIONS },
+  
+  // Online Presence
   { key: 'website', label: 'Website', type: 'text' },
   { key: 'instagram', label: 'Instagram', type: 'text' },
-  { key: 'description', label: 'Description', type: 'text' },
+  
+  // Sales & Assignment
+  { key: 'salesTeam', label: 'Sales Team', type: 'select', options: SALES_TEAM_OPTIONS },
+  { key: 'salesType', label: 'Sales Type', type: 'select', options: SALES_TYPE_OPTIONS },
+  { key: 'isAsesor', label: 'Es Asesor', type: 'select', options: IS_ASESOR_OPTIONS },
+  { key: 'osAsesor', label: 'OS Asesor', type: 'text' },
+  { key: 'accountManager', label: 'Account Manager', type: 'text' },
+  { key: 'ere', label: 'ERE', type: 'text' },
+  { key: 'owner.name', label: 'Owner Name', type: 'text' },
+  { key: 'focusPeriod', label: 'Focus Period', type: 'select', options: FOCUS_PERIOD_OPTIONS },
+  
+  // Fiscal / Legal
+  { key: 'razonSocial', label: 'Razón Social', type: 'text' },
+  { key: 'ruc', label: 'RUC y DV', type: 'text' },
+  
+  // Location
+  { key: 'address', label: 'Dirección', type: 'text' },
+  { key: 'neighborhood', label: 'Barrio / Urbanización', type: 'text' },
+  { key: 'provinceDistrictCorregimiento', label: 'Provincia, Distrito, Corregimiento', type: 'text' },
+  
+  // Banking / Payment
+  { key: 'bank', label: 'Banco', type: 'text' },
+  { key: 'beneficiaryName', label: 'Nombre en Cuenta Bancaria', type: 'text' },
+  { key: 'accountNumber', label: 'Número de Cuenta', type: 'text' },
+  { key: 'accountType', label: 'Tipo de Cuenta', type: 'select', options: ACCOUNT_TYPE_OPTIONS },
+  { key: 'paymentPlan', label: 'Plan de Pago', type: 'select', options: PAYMENT_PLAN_OPTIONS },
+  { key: 'emailPaymentContacts', label: 'Emails para Pagos', type: 'text' },
+  
+  // External IDs
+  { key: 'osAdminVendorId', label: 'OS Admin Vendor ID', type: 'text' },
+  
+  // Metrics (denormalized from DealMetrics)
+  { key: 'topSoldQuantity', label: 'Top Sold Quantity', type: 'number' },
+  { key: 'topRevenueAmount', label: 'Top Revenue Amount', type: 'number' },
+  { key: 'totalDeals360d', label: 'Total Deals (360 days)', type: 'number' },
+  { key: 'lastLaunchDate', label: 'Last Launch Date', type: 'date' },
+  
+  // Dates
   { key: 'createdAt', label: 'Created Date', type: 'date' },
   { key: 'updatedAt', label: 'Updated Date', type: 'date' },
-  // Fields from linked Category
-  { key: 'category.parentCategory', label: 'Category', type: 'text' },
 ]
 
 /**

@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
-import { deleteBookingRequest, resendBookingRequest, bulkDeleteBookingRequests, bulkUpdateBookingRequestStatus, refreshBookingRequests, cancelBookingRequest, getBookingRequest } from '@/app/actions/booking'
+import { deleteBookingRequest, resendBookingRequest, bulkDeleteBookingRequests, bulkUpdateBookingRequestStatus, cancelBookingRequest, getBookingRequest, getBookingRequestsPaginated, searchBookingRequests, getBookingRequestCounts } from '@/app/actions/booking'
 import type { BookingRequest } from '@/types'
 import type { BookingRequestStatus } from '@/lib/constants'
 import AddIcon from '@mui/icons-material/Add'
@@ -22,15 +22,19 @@ import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank'
 import { formatShortDate } from '@/lib/date'
 import NewRequestModal from './NewRequestModal'
 import ResendRequestModal from './ResendRequestModal'
+import BookingRequestMobileCard from './BookingRequestMobileCard'
 import toast from 'react-hot-toast'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import FullScreenLoader from '@/components/common/FullScreenLoader'
 import { useUserRole } from '@/hooks/useUserRole'
+import { useSharedData } from '@/hooks/useSharedData'
 import { useUser } from '@clerk/nextjs'
 import { Button, Input } from '@/components/ui'
-import { FilterTabs } from '@/components/shared'
+import { FilterTabs, UserFilterDropdown } from '@/components/shared'
 import { TableRow, TableCell } from '@/components/shared/table'
 import { translateStatus, translateLabel } from '@/lib/utils/translations'
+import { logger } from '@/lib/logger'
 
 // Lazy load heavy modal component
 const BookingRequestViewModal = dynamic(() => import('@/components/booking/request-view/BookingRequestViewModal'), {
@@ -46,6 +50,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
   const router = useRouter()
   const searchParams = useSearchParams()
   const { role: userRole } = useUserRole()
+  const { users } = useSharedData()
   const { user } = useUser()
   const currentUserId = user?.id || null
   const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>(initialBookingRequests)
@@ -63,8 +68,20 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkActionLoading, setBulkActionLoading] = useState(false)
   const [visibleCount, setVisibleCount] = useState(50)
+  const [creatorFilter, setCreatorFilter] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
   
   const isAdmin = userRole === 'admin'
+  
+  // User filter dropdown options
+  const userFilterOptions = useMemo(() => {
+    return users.map(u => ({
+      id: u.clerkId,
+      name: u.name || u.email || u.clerkId,
+      email: u.email,
+    }))
+  }, [users])
 
   // Prefetch cache for booking request details (improves modal load time)
   const prefetchedRequestsRef = useRef<Set<string>>(new Set())
@@ -80,24 +97,64 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     })
   }, [])
 
-  // Refresh booking requests data without full page refresh
-  // This avoids Clerk API calls on booking request updates
-  const refreshData = useCallback(async () => {
-    const result = await refreshBookingRequests()
-    if (result.success && result.data) {
-      setBookingRequests(result.data as BookingRequest[])
+  // Load booking requests with optional filters (server-side)
+  const loadData = useCallback(async (options?: { creatorId?: string; status?: string }) => {
+    setLoading(true)
+    try {
+      const result = await getBookingRequestsPaginated({
+        pageSize: 500, // Load more to maintain current UX
+        sortBy: 'createdAt',
+        sortDirection: 'desc',
+        status: options?.status,
+        creatorId: options?.creatorId,
+      })
+      if (result.success && result.data) {
+        setBookingRequests(result.data as BookingRequest[])
+      }
+      
+      // Also refresh counts
+      const countsResult = await getBookingRequestCounts({ creatorId: options?.creatorId })
+      if (countsResult.success && countsResult.data) {
+        setStatusCounts(countsResult.data)
+      }
+    } catch (error) {
+      logger.error('Failed to load booking requests:', error)
+    } finally {
+      setLoading(false)
     }
   }, [])
 
-  // Read search query from URL params on mount
+  // Refresh data with current filters
+  const refreshData = useCallback(async () => {
+    await loadData({ creatorId: creatorFilter || undefined })
+  }, [loadData, creatorFilter])
+  
+  // Reload when creator filter changes
+  useEffect(() => {
+    if (creatorFilter !== null || isAdmin) {
+      loadData({ creatorId: creatorFilter || undefined })
+    }
+  }, [creatorFilter, loadData, isAdmin])
+
+  // Read search query and view param from URL params on mount
   useEffect(() => {
     // Read from both searchParams and window.location to ensure we catch it
     const searchParam = searchParams.get('search') || new URLSearchParams(window.location.search).get('search')
+    const viewParam = searchParams.get('view') || new URLSearchParams(window.location.search).get('view')
+    
     if (searchParam) {
       setSearchQuery(searchParam)
-      // Clean up URL after reading
+    }
+    
+    if (viewParam) {
+      setViewRequestId(viewParam)
+    }
+    
+    // Clean up URL after reading
+    if (searchParam || viewParam) {
       const currentParams = new URLSearchParams(window.location.search)
       currentParams.delete('search')
+      currentParams.delete('view')
       const newUrl = currentParams.toString() 
         ? `${window.location.pathname}?${currentParams.toString()}`
         : window.location.pathname
@@ -296,16 +353,22 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     })
   }
 
-  // Calculate status counts
-  const statusCounts = useMemo(() => ({
-    all: bookingRequests.length,
-    draft: bookingRequests.filter(r => r.status === 'draft').length,
-    pending: bookingRequests.filter(r => r.status === 'pending').length,
-    approved: bookingRequests.filter(r => r.status === 'approved').length,
-    booked: bookingRequests.filter(r => r.status === 'booked').length,
-    rejected: bookingRequests.filter(r => r.status === 'rejected').length,
-    cancelled: bookingRequests.filter(r => r.status === 'cancelled').length,
-  }), [bookingRequests])
+  // Calculate status counts (use server counts when available, fallback to client-side)
+  const displayCounts = useMemo(() => {
+    if (Object.keys(statusCounts).length > 0) {
+      return statusCounts
+    }
+    // Fallback to client-side counts
+    return {
+      all: bookingRequests.length,
+      draft: bookingRequests.filter(r => r.status === 'draft').length,
+      pending: bookingRequests.filter(r => r.status === 'pending').length,
+      approved: bookingRequests.filter(r => r.status === 'approved').length,
+      booked: bookingRequests.filter(r => r.status === 'booked').length,
+      rejected: bookingRequests.filter(r => r.status === 'rejected').length,
+      cancelled: bookingRequests.filter(r => r.status === 'cancelled').length,
+    }
+  }, [bookingRequests, statusCounts])
 
   // Handle column sort
   const handleSort = (column: string) => {
@@ -518,44 +581,62 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header with Search and Filters */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-4">
-            {/* Search */}
-          <div className="flex-1 max-w-md">
-            <Input
+      <div className="bg-white border-b border-gray-200 px-3 py-2 md:px-4 md:py-3">
+        <div className="flex flex-col gap-2 md:gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
+            {/* Search — full width on mobile, constrained on desktop */}
+            <div className="flex-1 md:max-w-md">
+              <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar solicitudes..."
-              size="sm"
-              leftIcon={<SearchIcon className="w-4 h-4" />}
+                placeholder="Buscar solicitudes..."
+                size="sm"
+                leftIcon={<SearchIcon className="w-4 h-4" />}
               />
             </div>
 
-            {/* New Request Button */}
+            {/* Right side: New Request Button */}
             <Button
               onClick={() => setShowNewRequestModal(true)}
               size="sm"
               leftIcon={<AddIcon fontSize="small" />}
+              className="flex-shrink-0"
             >
-              Nueva Solicitud
+              <span className="hidden sm:inline">Nueva Solicitud</span>
+              <span className="sm:hidden">Nueva</span>
             </Button>
           </div>
 
-          {/* Status Tabs */}
-          <FilterTabs
-            items={[
-              { id: 'all', label: 'Todo', count: statusCounts.all },
-              { id: 'draft', label: 'Borrador', count: statusCounts.draft },
-              { id: 'pending', label: 'Pendiente', count: statusCounts.pending },
-              { id: 'approved', label: 'Aprobado', count: statusCounts.approved },
-              { id: 'booked', label: 'Reservado', count: statusCounts.booked },
-              { id: 'rejected', label: 'Rechazado', count: statusCounts.rejected },
-              { id: 'cancelled', label: 'Cancelado', count: statusCounts.cancelled },
-            ]}
-            activeId={statusFilter}
-            onChange={(id) => setStatusFilter(id as typeof statusFilter)}
-          />
+          {/* Status Tabs Row */}
+          <div className="flex items-center gap-1.5 md:gap-2 overflow-x-auto pb-1 no-scrollbar">
+            <FilterTabs
+              items={[
+                { id: 'all', label: 'Todo', count: displayCounts.all },
+                { id: 'draft', label: 'Borrador', count: displayCounts.draft },
+                { id: 'pending', label: 'Pendiente', count: displayCounts.pending },
+                { id: 'approved', label: 'Aprobado', count: displayCounts.approved },
+                { id: 'booked', label: 'Reservado', count: displayCounts.booked },
+                { id: 'rejected', label: 'Rechazado', count: displayCounts.rejected },
+                { id: 'cancelled', label: 'Cancelado', count: displayCounts.cancelled },
+              ]}
+              activeId={statusFilter}
+              onChange={(id) => setStatusFilter(id as typeof statusFilter)}
+            />
+            
+            {/* User Filter (Admin Quick Filter) */}
+            {isAdmin && (
+              <>
+                <div className="h-5 w-px bg-gray-300 mx-1 flex-shrink-0"></div>
+                <UserFilterDropdown
+                  users={userFilterOptions}
+                  value={creatorFilter}
+                  onChange={setCreatorFilter}
+                  label="Creador"
+                  placeholder="Todos"
+                />
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -611,9 +692,9 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
       )}
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto p-0 md:p-4">
         {filteredRequests.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          <div className="bg-white md:rounded-lg md:shadow-sm md:border md:border-gray-200 overflow-hidden mx-4 mt-4 md:mx-0 md:mt-0">
             <div className="h-64 flex flex-col items-center justify-center text-gray-500">
             <FilterListIcon className="w-12 h-12 text-gray-400 mb-3" />
             <p className="text-sm font-medium text-gray-900">No se encontraron solicitudes</p>
@@ -625,306 +706,42 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
             </div>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-gray-50 border-b border-gray-200 font-medium text-gray-500">
-                  <tr>
-                    {isAdmin && (
-                      <th className="px-4 py-[5px] w-12">
-                        <button
-                          onClick={handleSelectAll}
-                          className="flex items-center justify-center w-5 h-5 rounded border border-gray-300 hover:bg-gray-100 transition-colors"
-                          title={allFilteredSelected ? 'Deseleccionar todo' : 'Seleccionar todo'}
-                        >
-                          {allFilteredSelected ? (
-                            <CheckBoxIcon className="w-4 h-4 text-blue-600" />
-                          ) : someFilteredSelected ? (
-                            <div className="w-4 h-4 border-2 border-blue-600 bg-blue-100 rounded" />
-                          ) : (
-                            <CheckBoxOutlineBlankIcon className="w-4 h-4 text-gray-400" />
-                          )}
-                        </button>
-                      </th>
-                    )}
-                    <th 
-                      className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
-                      onClick={() => handleSort('status')}
-                    >
-                      <div className="flex items-center gap-1">
-                        <span>Estado</span>
-                        {sortColumn === 'status' && (
-                          sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                        )}
-                      </div>
-                    </th>
-                    <th className="px-4 py-3 font-medium">
-                      <span>Origen</span>
-                    </th>
-                    <th 
-                      className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
-                      onClick={() => handleSort('name')}
-                    >
-                      <div className="flex items-center gap-1">
-                        <span>Nombre</span>
-                        {sortColumn === 'name' && (
-                          sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                        )}
-                      </div>
-                    </th>
-                    <th 
-                      className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
-                      onClick={() => handleSort('email')}
-                    >
-                      <div className="flex items-center gap-1">
-                        <span>Correo</span>
-                        {sortColumn === 'email' && (
-                          sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                        )}
-                      </div>
-                    </th>
-                    <th 
-                      className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
-                      onClick={() => handleSort('startDate')}
-                    >
-                      <div className="flex items-center gap-1">
-                        <span>Fechas</span>
-                        {sortColumn === 'startDate' && (
-                          sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                        )}
-                      </div>
-                    </th>
-                    <th 
-                      className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
-                      onClick={() => handleSort('createdAt')}
-                    >
-                      <div className="flex items-center gap-1">
-                        <span>Creado</span>
-                        {sortColumn === 'createdAt' && (
-                          sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                        )}
-                      </div>
-                    </th>
-                    <th 
-                      className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
-                      onClick={() => handleSort('days')}
-                    >
-                      <div className="flex items-center gap-1">
-                        <span>Días</span>
-                        {sortColumn === 'days' && (
-                          sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                        )}
-                      </div>
-                    </th>
-                    <th 
-                      className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
-                      onClick={() => handleSort('sent')}
-                    >
-                      <div className="flex items-center gap-1">
-                        <span>Enviado</span>
-                        {sortColumn === 'sent' && (
-                          sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                        )}
-                      </div>
-                    </th>
-                    <th 
-                      className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
-                      onClick={() => handleSort('processed')}
-                    >
-                      <div className="flex items-center gap-1">
-                        <span>Procesado</span>
-                        {sortColumn === 'processed' && (
-                          sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                        )}
-                      </div>
-                    </th>
-                    <th className="px-4 py-3 font-medium">Razón de Rechazo</th>
-                    <th className="px-4 py-3 font-medium text-right">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                {visibleRequests.map((request, index) => {
+          <>
+            {/* Mobile card list */}
+            <div className="md:hidden">
+              {/* Results count */}
+              <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                  {filteredRequests.length} solicitud{filteredRequests.length !== 1 ? 'es' : ''}
+                </span>
+              </div>
+
+              <div className="bg-white">
+                {visibleRequests.map((request) => {
                   const sentDate = getSentDate(request)
-                  const daysSinceCreated = daysSince(request.createdAt)
-                  const daysSinceSent = sentDate ? daysSince(sentDate) : null
-                  const daysSinceProcessed = request.processedAt ? daysSince(request.processedAt) : null
-                  
-                  // Determine row background color for pending requests or alternating stripes
-                  // Even rows: white
-                  // Odd rows: light blue/slate for better contrast
-                  // Logic moved to TableRow component, but we handle pending override here
-                  let rowBgColor = ''
-                  
-                  // Pending status gets priority coloring
-                  if (request.status === 'pending' && daysSinceSent !== null) {
-                    if (daysSinceSent <= 2) {
-                      rowBgColor = 'bg-green-50/30 hover:bg-green-50/50'
-                    } else if (daysSinceSent > 2 && daysSinceSent <= 5) {
-                      rowBgColor = 'bg-orange-50/30 hover:bg-orange-50/50'
-                    } else {
-                      rowBgColor = 'bg-red-50/30 hover:bg-red-50/50'
-                    }
-                  }
-                  
-                    return (
-                    <TableRow
+                  const dSinceCreated = daysSince(request.createdAt)
+                  const dSinceSent = sentDate ? daysSince(sentDate) : null
+
+                  return (
+                    <BookingRequestMobileCard
                       key={request.id}
-                      index={index}
-                      className={rowBgColor}
-                      onClick={() => setViewRequestId(request.id)}
-                      onMouseEnter={() => handleRowHover(request.id)}
-                    >
-                      {isAdmin && (
-                        <TableCell>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleSelectOne(request.id)
-                            }}
-                            className="flex items-center justify-center w-5 h-5 rounded border border-gray-300 hover:bg-gray-100 transition-colors"
-                            title={selectedIds.has(request.id) ? 'Deseleccionar' : 'Seleccionar'}
-                          >
-                            {selectedIds.has(request.id) ? (
-                              <CheckBoxIcon className="w-4 h-4 text-blue-600" />
-                            ) : (
-                              <CheckBoxOutlineBlankIcon className="w-4 h-4 text-gray-400" />
-                            )}
-                          </button>
-                        </TableCell>
-                      )}
-                      <TableCell>
-                        {getStatusBadge(request.status, request.status === 'pending' ? daysSinceSent : null)}
-                      </TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-0.5 rounded text-[13px] font-medium ${
-                          request.sourceType === 'public_link' 
-                            ? 'bg-purple-50 text-purple-700' 
-                            : 'bg-gray-50 text-gray-700'
-                        }`}>
-                          {request.sourceType === 'public_link' ? 'Enlace Público' : 'Interno'}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-medium text-gray-900 truncate block text-[13px]">{request.name}</span>
-                      </TableCell>
-                      <TableCell className="text-gray-600">
-                        <span className="truncate block max-w-[180px] text-[13px]">{request.businessEmail}</span>
-                      </TableCell>
-                      <TableCell className="text-gray-600">
-                        <span className="whitespace-nowrap text-[13px]">
-                          {formatDateShortYear(request.startDate)} - {formatDateShortYear(request.endDate)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-gray-600">
-                        <span className="whitespace-nowrap text-[13px]">{formatShortDate(request.createdAt)}</span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-medium text-gray-900 text-[13px]">
-                          {daysSinceCreated !== null ? `${daysSinceCreated}` : '—'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-gray-600">
-                        <span className="whitespace-nowrap text-[13px]">{formatShortDate(sentDate)}</span>
-                      </TableCell>
-                      <TableCell className="text-gray-600">
-                        <span className="whitespace-nowrap text-[13px]">{formatShortDate(request.processedAt)}</span>
-                      </TableCell>
-                      <TableCell>
-                        {request.status === 'rejected' && request.rejectionReason ? (
-                          <div className="max-w-[200px]">
-                            <p className="text-[13px] text-red-700 line-clamp-2" title={request.rejectionReason}>
-                              {request.rejectionReason}
-                            </p>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 text-[13px]">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell align="right" className="relative">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setViewRequestId(request.id)
-                            }}
-                            variant="ghost"
-                            size="sm"
-                            className="p-1.5"
-                            title="Ver solicitud"
-                          >
-                            <VisibilityIcon fontSize="small" />
-                          </Button>
-                          {/* Cancel button - visible to creator or admin, only for draft/pending */}
-                          {(request.status === 'draft' || request.status === 'pending') && 
-                           (request.userId === currentUserId || isAdmin) && (
-                            <Button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleCancel(request)
-                              }}
-                              variant="ghost"
-                              size="sm"
-                              className="p-1.5 hover:text-orange-600 hover:bg-orange-50"
-                              loading={cancellingId === request.id}
-                              title="Cancelar solicitud"
-                            >
-                              <BlockIcon fontSize="small" />
-                            </Button>
-                          )}
-                    {request.status === 'draft' && (
-                      <Button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                router.push(`/booking-requests/edit/${request.id}`)
-                              }}
-                              variant="ghost"
-                              size="sm"
-                              className="p-1.5"
-                        title="Editar solicitud"
-                      >
-                        <EditIcon fontSize="small" />
-                      </Button>
-                    )}
-                          {(request.status === 'draft' || request.status === 'pending') && (
-                            <Button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                openResendModal(request)
-                              }}
-                              variant="ghost"
-                              size="sm"
-                              className="p-1.5 hover:text-green-600 hover:bg-green-50"
-                              loading={resendingId === request.id}
-                              title="Reenviar correo"
-                            >
-                              <SendIcon fontSize="small" />
-                            </Button>
-                          )}
-                    {isAdmin && (
-                      <Button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDelete(request.id)
-                        }}
-                        variant="ghost"
-                        size="sm"
-                        className="p-1.5 hover:text-red-600 hover:bg-red-50"
-                        loading={deletingId === request.id}
-                        title="Eliminar solicitud"
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </Button>
-                    )}
-                  </div>
-                      </TableCell>
-                    </TableRow>
+                      request={request}
+                      daysSinceSent={dSinceSent}
+                      daysSinceCreated={dSinceCreated}
+                      isAdmin={isAdmin}
+                      currentUserId={currentUserId}
+                      onView={(id) => setViewRequestId(id)}
+                      onResend={(r) => openResendModal(r)}
+                      onCancel={handleCancel}
+                      onDelete={handleDelete}
+                      onHover={handleRowHover}
+                    />
                   )
                 })}
-                </tbody>
-              </table>
               </div>
+
               {visibleCount < filteredRequests.length && (
-                <div className="p-4 border-t border-gray-100 text-center">
+                <div className="p-4 text-center">
                   <Button
                     variant="secondary"
                     size="sm"
@@ -934,7 +751,326 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                   </Button>
                 </div>
               )}
-          </div>
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-gray-50 border-b border-gray-200 font-medium text-gray-500">
+                    <tr>
+                      {isAdmin && (
+                        <th className="px-4 py-[5px] w-12">
+                          <button
+                            onClick={handleSelectAll}
+                            className="flex items-center justify-center w-5 h-5 rounded border border-gray-300 hover:bg-gray-100 transition-colors"
+                            title={allFilteredSelected ? 'Deseleccionar todo' : 'Seleccionar todo'}
+                          >
+                            {allFilteredSelected ? (
+                              <CheckBoxIcon className="w-4 h-4 text-blue-600" />
+                            ) : someFilteredSelected ? (
+                              <div className="w-4 h-4 border-2 border-blue-600 bg-blue-100 rounded" />
+                            ) : (
+                              <CheckBoxOutlineBlankIcon className="w-4 h-4 text-gray-400" />
+                            )}
+                          </button>
+                        </th>
+                      )}
+                      <th 
+                        className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort('status')}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Estado</span>
+                          {sortColumn === 'status' && (
+                            sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                          )}
+                        </div>
+                      </th>
+                      <th className="px-4 py-3 font-medium">
+                        <span>Origen</span>
+                      </th>
+                      <th className="px-4 py-3 font-medium">
+                        <span>Deal ID</span>
+                      </th>
+                      <th 
+                        className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort('name')}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Nombre</span>
+                          {sortColumn === 'name' && (
+                            sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort('email')}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Correo</span>
+                          {sortColumn === 'email' && (
+                            sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort('startDate')}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Fechas</span>
+                          {sortColumn === 'startDate' && (
+                            sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort('createdAt')}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Creado</span>
+                          {sortColumn === 'createdAt' && (
+                            sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort('days')}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Días</span>
+                          {sortColumn === 'days' && (
+                            sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort('sent')}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Enviado</span>
+                          {sortColumn === 'sent' && (
+                            sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort('processed')}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>Procesado</span>
+                          {sortColumn === 'processed' && (
+                            sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                          )}
+                        </div>
+                      </th>
+                      <th className="px-4 py-3 font-medium">Razón de Rechazo</th>
+                      <th className="px-4 py-3 font-medium text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                  {visibleRequests.map((request, index) => {
+                    const sentDate = getSentDate(request)
+                    const daysSinceCreated = daysSince(request.createdAt)
+                    const daysSinceSent = sentDate ? daysSince(sentDate) : null
+                    const daysSinceProcessed = request.processedAt ? daysSince(request.processedAt) : null
+                    
+                    let rowBgColor = ''
+                    
+                    if (request.status === 'pending' && daysSinceSent !== null) {
+                      if (daysSinceSent <= 2) {
+                        rowBgColor = 'bg-green-50/30 hover:bg-green-50/50'
+                      } else if (daysSinceSent > 2 && daysSinceSent <= 5) {
+                        rowBgColor = 'bg-orange-50/30 hover:bg-orange-50/50'
+                      } else {
+                        rowBgColor = 'bg-red-50/30 hover:bg-red-50/50'
+                      }
+                    }
+                    
+                      return (
+                      <TableRow
+                        key={request.id}
+                        index={index}
+                        className={rowBgColor}
+                        onClick={() => setViewRequestId(request.id)}
+                        onMouseEnter={() => handleRowHover(request.id)}
+                      >
+                        {isAdmin && (
+                          <TableCell>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleSelectOne(request.id)
+                              }}
+                              className="flex items-center justify-center w-5 h-5 rounded border border-gray-300 hover:bg-gray-100 transition-colors"
+                              title={selectedIds.has(request.id) ? 'Deseleccionar' : 'Seleccionar'}
+                            >
+                              {selectedIds.has(request.id) ? (
+                                <CheckBoxIcon className="w-4 h-4 text-blue-600" />
+                              ) : (
+                                <CheckBoxOutlineBlankIcon className="w-4 h-4 text-gray-400" />
+                              )}
+                            </button>
+                          </TableCell>
+                        )}
+                        <TableCell>
+                          {getStatusBadge(request.status, request.status === 'pending' ? daysSinceSent : null)}
+                        </TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-0.5 rounded text-[13px] font-medium ${
+                            request.sourceType === 'public_link' 
+                              ? 'bg-purple-50 text-purple-700' 
+                              : 'bg-gray-50 text-gray-700'
+                          }`}>
+                            {request.sourceType === 'public_link' ? 'Enlace Público' : 'Interno'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {request.dealId ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[12px] font-mono font-medium">
+                              {request.dealId}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-[13px]">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-medium text-gray-900 truncate block text-[13px]">{request.name}</span>
+                        </TableCell>
+                        <TableCell className="text-gray-600">
+                          <span className="truncate block max-w-[180px] text-[13px]">{request.businessEmail}</span>
+                        </TableCell>
+                        <TableCell className="text-gray-600">
+                          <span className="whitespace-nowrap text-[13px]">
+                            {formatDateShortYear(request.startDate)} - {formatDateShortYear(request.endDate)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-gray-600">
+                          <span className="whitespace-nowrap text-[13px]">{formatShortDate(request.createdAt)}</span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-medium text-gray-900 text-[13px]">
+                            {daysSinceCreated !== null ? `${daysSinceCreated}` : '—'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-gray-600">
+                          <span className="whitespace-nowrap text-[13px]">{formatShortDate(sentDate)}</span>
+                        </TableCell>
+                        <TableCell className="text-gray-600">
+                          <span className="whitespace-nowrap text-[13px]">{formatShortDate(request.processedAt)}</span>
+                        </TableCell>
+                        <TableCell>
+                          {request.status === 'rejected' && request.rejectionReason ? (
+                            <div className="max-w-[200px]">
+                              <p className="text-[13px] text-red-700 line-clamp-2" title={request.rejectionReason}>
+                                {request.rejectionReason}
+                              </p>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 text-[13px]">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell align="right" className="relative">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setViewRequestId(request.id)
+                              }}
+                              variant="ghost"
+                              size="sm"
+                              className="p-1.5"
+                              title="Ver solicitud"
+                            >
+                              <VisibilityIcon fontSize="small" />
+                            </Button>
+                            {(request.status === 'draft' || request.status === 'pending') && 
+                             (request.userId === currentUserId || isAdmin) && (
+                              <Button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleCancel(request)
+                                }}
+                                variant="ghost"
+                                size="sm"
+                                className="p-1.5 hover:text-orange-600 hover:bg-orange-50"
+                                loading={cancellingId === request.id}
+                                title="Cancelar solicitud"
+                              >
+                                <BlockIcon fontSize="small" />
+                              </Button>
+                            )}
+                      {request.status === 'draft' && (
+                        <Button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  router.push(`/booking-requests/edit/${request.id}`)
+                                }}
+                                variant="ghost"
+                                size="sm"
+                                className="p-1.5"
+                          title="Editar solicitud"
+                        >
+                          <EditIcon fontSize="small" />
+                        </Button>
+                      )}
+                            {(request.status === 'draft' || request.status === 'pending') && (
+                              <Button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  openResendModal(request)
+                                }}
+                                variant="ghost"
+                                size="sm"
+                                className="p-1.5 hover:text-green-600 hover:bg-green-50"
+                                loading={resendingId === request.id}
+                                title="Reenviar correo"
+                              >
+                                <SendIcon fontSize="small" />
+                              </Button>
+                            )}
+                      {isAdmin && (
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDelete(request.id)
+                          }}
+                          variant="ghost"
+                          size="sm"
+                          className="p-1.5 hover:text-red-600 hover:bg-red-50"
+                          loading={deletingId === request.id}
+                          title="Eliminar solicitud"
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </Button>
+                      )}
+                    </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                  </tbody>
+                </table>
+                </div>
+                {visibleCount < filteredRequests.length && (
+                  <div className="p-4 border-t border-gray-100 text-center">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setVisibleCount((c) => c + 50)}
+                    >
+                      Cargar Más
+                    </Button>
+                  </div>
+                )}
+            </div>
+          </>
         )}
       </div>
 
@@ -970,6 +1106,12 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
         confirmVariant={confirmDialog.options.confirmVariant}
         onConfirm={confirmDialog.handleConfirm}
         onCancel={confirmDialog.handleCancel}
+      />
+
+      <FullScreenLoader
+        isLoading={!!resendingId}
+        message="Reenviando solicitud..."
+        subtitle="Enviando email al negocio"
       />
     </div>
   )

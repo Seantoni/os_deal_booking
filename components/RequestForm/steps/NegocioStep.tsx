@@ -26,13 +26,7 @@ export default function NegocioStep({ formData, errors, updateFormData, isFieldR
               { value: 'No', label: 'No' },
               { value: 'Exento', label: 'Exento' },
             ]}
-            selectedLabel={
-                [
-                  { value: 'Sí', label: 'Sí (Incluye impuestos)' },
-                  { value: 'No', label: 'No' },
-                  { value: 'Exento', label: 'Exento' },
-            ].find(o => o.value === formData.includesTaxes)?.label || 'Seleccionar...'
-            }
+            value={formData.includesTaxes}
             placeholder="Seleccionar..."
             onSelect={(value) => updateFormData('includesTaxes', value)}
           error={errors.includesTaxes}
@@ -46,12 +40,7 @@ export default function NegocioStep({ formData, errors, updateFormData, isFieldR
               { value: 'Sí', label: 'Sí' },
               { value: 'No', label: 'No' },
             ]}
-            selectedLabel={
-                [
-                  { value: 'Sí', label: 'Sí' },
-                  { value: 'No', label: 'No' },
-            ].find(o => o.value === formData.validOnHolidays)?.label || 'Seleccionar...'
-            }
+            value={formData.validOnHolidays}
             placeholder="Seleccionar..."
             onSelect={(value) => updateFormData('validOnHolidays', value)}
           error={errors.validOnHolidays}
@@ -65,12 +54,7 @@ export default function NegocioStep({ formData, errors, updateFormData, isFieldR
               { value: 'No', label: 'No' },
               { value: 'Sí', label: 'Sí' },
             ]}
-            selectedLabel={
-                [
-                  { value: 'No', label: 'No' },
-                  { value: 'Sí', label: 'Sí' },
-            ].find(o => o.value === formData.hasExclusivity)?.label || 'Seleccionar...'
-            }
+            value={formData.hasExclusivity}
             placeholder="Seleccionar..."
             onSelect={(value) => updateFormData('hasExclusivity', value)}
           error={errors.hasExclusivity}
@@ -100,25 +84,6 @@ export default function NegocioStep({ formData, errors, updateFormData, isFieldR
         )}
 
           <Dropdown
-          label="Vouchers para Regalar"
-          required={isFieldRequired('giftVouchers')}
-            fullWidth
-            items={[
-              { value: 'Sí', label: 'Sí' },
-              { value: 'No', label: 'No' },
-            ]}
-            selectedLabel={
-                [
-                  { value: 'Sí', label: 'Sí' },
-                  { value: 'No', label: 'No' },
-            ].find(o => o.value === formData.giftVouchers)?.label || 'Seleccionar...'
-            }
-            placeholder="Seleccionar..."
-            onSelect={(value) => updateFormData('giftVouchers', value)}
-          error={errors.giftVouchers}
-        />
-
-          <Dropdown
           label="¿Tiene otra sucursal que no es válida?"
           required={isFieldRequired('hasOtherBranches')}
             fullWidth
@@ -126,12 +91,7 @@ export default function NegocioStep({ formData, errors, updateFormData, isFieldR
               { value: 'No', label: 'No' },
               { value: 'Sí', label: 'Sí' },
             ]}
-            selectedLabel={
-                [
-                  { value: 'No', label: 'No' },
-                  { value: 'Sí', label: 'Sí' },
-            ].find(o => o.value === formData.hasOtherBranches)?.label || 'Seleccionar...'
-            }
+            value={formData.hasOtherBranches}
             placeholder="Seleccionar..."
             onSelect={(value) => updateFormData('hasOtherBranches', value)}
           error={errors.hasOtherBranches}
@@ -144,25 +104,6 @@ export default function NegocioStep({ formData, errors, updateFormData, isFieldR
             </p>
           </div>
         )}
-
-          <Input
-          label="Vouchers por Persona"
-          required={isFieldRequired('vouchersPerPerson')}
-            type="number"
-            value={formData.vouchersPerPerson}
-            onChange={(e) => updateFormData('vouchersPerPerson', e.target.value)}
-            placeholder="Límite de vouchers"
-          error={errors.vouchersPerPerson}
-        />
-
-          <Input
-          label="Comisión"
-          required={isFieldRequired('commission')}
-            value={formData.commission}
-            onChange={(e) => updateFormData('commission', e.target.value)}
-            placeholder="% de comisión"
-          error={errors.commission}
-          />
       </div>
     </div>
   )

@@ -14,26 +14,27 @@ import { logActivity } from '@/lib/activity-log'
 import { logger } from '@/lib/logger'
 
 export async function createEvent(formData: FormData) {
-  const authResult = await requireAuth()
-  if (!('userId' in authResult)) {
-    throw new Error(authResult.error || 'Unauthorized')
-  }
-  const { userId } = authResult
+  try {
+    const authResult = await requireAuth()
+    if (!('userId' in authResult)) {
+      return { success: false, error: authResult.error || 'Unauthorized' }
+    }
+    const { userId } = authResult
 
-  const name = formData.get('name') as string
-  const description = formData.get('description') as string
-  const category = formData.get('category') as string
-  const parentCategory = formData.get('parentCategory') as string
-  const subCategory1 = formData.get('subCategory1') as string
-  const subCategory2 = formData.get('subCategory2') as string
-  const merchant = formData.get('merchant') as string
-  const startDate = formData.get('startDate') as string
-  const endDate = formData.get('endDate') as string
-  const bookingRequestId = formData.get('bookingRequestId') as string | null
+    const name = formData.get('name') as string
+    const description = formData.get('description') as string
+    const category = formData.get('category') as string
+    const parentCategory = formData.get('parentCategory') as string
+    const subCategory1 = formData.get('subCategory1') as string
+    const subCategory2 = formData.get('subCategory2') as string
+    const merchant = formData.get('merchant') as string
+    const startDate = formData.get('startDate') as string
+    const endDate = formData.get('endDate') as string
+    const bookingRequestId = formData.get('bookingRequestId') as string | null
 
-  if (!name || !startDate || !endDate) {
-    throw new Error('Missing required fields')
-  }
+    if (!name || !startDate || !endDate) {
+      return { success: false, error: 'Missing required fields' }
+    }
 
   // Parse dates in Panama timezone for consistency
   const startDateTime = parseDateInPanamaTime(startDate)
@@ -112,7 +113,6 @@ export async function createEvent(formData: FormData) {
           businessReview: true,
           addressAndHours: true,
           paymentInstructions: true,
-          giftVouchers: true,
           dealImages: true,
           socialMedia: true,
           contactDetails: true,
@@ -142,75 +142,83 @@ export async function createEvent(formData: FormData) {
 
   invalidateEntity('events')
 
-  // Log activity
-  await logActivity({
-    action: 'CREATE',
-    entityType: 'Event',
-    entityId: event.id,
-    entityName: event.name,
-    details: {
-      metadata: {
-        category: event.category,
-        merchant: event.merchant,
-        startDate: event.startDate,
-        endDate: event.endDate
+    // Log activity
+    await logActivity({
+      action: 'CREATE',
+      entityType: 'Event',
+      entityId: event.id,
+      entityName: event.name,
+      details: {
+        metadata: {
+          category: event.category,
+          merchant: event.merchant,
+          startDate: event.startDate,
+          endDate: event.endDate
+        }
       }
-    }
-  })
+    })
 
-  return event
+    return { success: true, data: event }
+  } catch (error) {
+    return handleServerActionError(error, 'createEvent')
+  }
 }
 
 export async function getEvents() {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return []
-  }
-
-  // Check user role
-  const role = await getUserRole()
-
-  // Cache key includes userId and role for proper cache invalidation
-  const cacheKey = `events-${userId}-${role}`
-
-  const getCachedEvents = unstable_cache(
-    async () => {
-      // Return pending, approved, pre-booked, and booked events
-      // Filtering by booking status happens in the UI (CalendarView)
-      // IMPORTANT: All users see ALL booked and pre-booked events, but only their own pending/approved events
-      return await prisma.event.findMany({
-        where: {
-          OR: [
-            // All booked events (visible to everyone)
-            { status: 'booked' },
-            // All pre-booked events (visible to everyone)
-            { status: 'pre-booked' },
-            // Approved events (filtered by user role)
-            {
-              status: 'approved',
-              ...(role === 'admin' ? {} : { userId })
-            },
-            // Pending events (filtered by user role) - for drag and drop functionality
-            {
-              status: 'pending',
-              ...(role === 'admin' ? {} : { userId })
-            }
-          ]
-        },
-        orderBy: {
-          startDate: 'asc',
-        },
-      })
-    },
-    [cacheKey],
-    {
-      tags: ['events'],
-      revalidate: CACHE_REVALIDATE_SECONDS,
+  try {
+    const authResult = await requireAuth()
+    if (!('userId' in authResult)) {
+      return { success: true, data: [] } // Return empty for unauthenticated users
     }
-  )
+    const { userId } = authResult
 
-  return await getCachedEvents()
+    // Check user role
+    const role = await getUserRole()
+
+    // Cache key includes userId and role for proper cache invalidation
+    const cacheKey = `events-${userId}-${role}`
+
+    const getCachedEvents = unstable_cache(
+      async () => {
+        // Return pending, approved, pre-booked, and booked events
+        // Filtering by booking status happens in the UI (CalendarView)
+        // IMPORTANT: All users see ALL booked and pre-booked events, but only their own pending/approved events
+        return await prisma.event.findMany({
+          where: {
+            OR: [
+              // All booked events (visible to everyone)
+              { status: 'booked' },
+              // All pre-booked events (visible to everyone)
+              { status: 'pre-booked' },
+              // Approved events (filtered by user role)
+              {
+                status: 'approved',
+                ...(role === 'admin' ? {} : { userId })
+              },
+              // Pending events (filtered by user role) - for drag and drop functionality
+              {
+                status: 'pending',
+                ...(role === 'admin' ? {} : { userId })
+              }
+            ]
+          },
+          orderBy: {
+            startDate: 'asc',
+          },
+        })
+      },
+      [cacheKey],
+      {
+        tags: ['events'],
+        revalidate: CACHE_REVALIDATE_SECONDS,
+      }
+    )
+
+    const events = await getCachedEvents()
+    return { success: true, data: events }
+  } catch (error) {
+    return handleServerActionError(error, 'getEvents')
+  }
 }
 
 /**
@@ -223,11 +231,11 @@ export async function refreshCalendarData(): Promise<{
   bookingRequests?: BookingRequest[]
   error?: string
 }> {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
+  const { userId } = authResult
 
   try {
     const role = await getUserRole()
@@ -277,7 +285,7 @@ export async function refreshCalendarData(): Promise<{
 }
 
 // Type aliases for refreshCalendarData
-type Event = Awaited<ReturnType<typeof getEvents>>[0]
+type Event = Awaited<ReturnType<typeof prisma.event.findMany>>[0]
 type BookingRequest = Awaited<ReturnType<typeof prisma.bookingRequest.findMany>>[0]
 
 /**
@@ -285,46 +293,50 @@ type BookingRequest = Awaited<ReturnType<typeof prisma.bookingRequest.findMany>>
  * Used for date calculation to ensure accurate availability
  */
 export async function getAllBookedEvents() {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return []
+  try {
+    const authResult = await requireAuth()
+    if (!('userId' in authResult)) {
+      return { success: true, data: [] } // Return empty for unauthenticated users
+    }
+
+    // Return all booked and pre-booked events (no user filtering)
+    // Both statuses count for restrictions (days apart, deals per day)
+    const events = await prisma.event.findMany({
+      where: {
+        status: { in: ['booked', 'pre-booked'] }
+      },
+      orderBy: {
+        startDate: 'asc',
+      },
+    })
+
+    return { success: true, data: events }
+  } catch (error) {
+    return handleServerActionError(error, 'getAllBookedEvents')
   }
-
-  // Return all booked and pre-booked events (no user filtering)
-  // Both statuses count for restrictions (days apart, deals per day)
-  const events = await prisma.event.findMany({
-    where: {
-      status: { in: ['booked', 'pre-booked'] }
-    },
-    orderBy: {
-      startDate: 'asc',
-    },
-  })
-
-  return events
 }
 
 export async function updateEvent(eventId: string, formData: FormData) {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    throw new Error('Unauthorized')
-  }
+  try {
+    const authResult = await requireAuth()
+    if (!('userId' in authResult)) {
+      return authResult
+    }
+    const { userId } = authResult
 
-  const name = formData.get('name') as string
-  const description = formData.get('description') as string
-  const category = formData.get('category') as string
-  const parentCategory = formData.get('parentCategory') as string
-  const subCategory1 = formData.get('subCategory1') as string
-  const subCategory2 = formData.get('subCategory2') as string
-  const merchant = formData.get('merchant') as string
-  const startDate = formData.get('startDate') as string
-  const endDate = formData.get('endDate') as string
+    const name = formData.get('name') as string
+    const description = formData.get('description') as string
+    const category = formData.get('category') as string
+    const parentCategory = formData.get('parentCategory') as string
+    const subCategory1 = formData.get('subCategory1') as string
+    const subCategory2 = formData.get('subCategory2') as string
+    const merchant = formData.get('merchant') as string
+    const startDate = formData.get('startDate') as string
+    const endDate = formData.get('endDate') as string
 
-  if (!name || !startDate || !endDate) {
-    throw new Error('Missing required fields')
-  }
+    if (!name || !startDate || !endDate) {
+      return { success: false, error: 'Missing required fields' }
+    }
 
   // Parse dates in Panama timezone for consistency
   const startDateTime = parseDateInPanamaTime(startDate)
@@ -415,70 +427,77 @@ export async function updateEvent(eventId: string, formData: FormData) {
     })
   }
 
-  // Log activity
-  await logActivity({
-    action: 'UPDATE',
-    entityType: 'Event',
-    entityId: event.id,
-    entityName: event.name,
-    details: {
-      changedFields,
-      previousValues,
-      newValues
-    }
-  })
+    // Log activity
+    await logActivity({
+      action: 'UPDATE',
+      entityType: 'Event',
+      entityId: event.id,
+      entityName: event.name,
+      details: {
+        changedFields,
+        previousValues,
+        newValues
+      }
+    })
 
-  return event
+    return { success: true, data: event }
+  } catch (error) {
+    return handleServerActionError(error, 'updateEvent')
+  }
 }
 
 export async function deleteEvent(eventId: string) {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    throw new Error('Unauthorized')
+  try {
+    const authResult = await requireAuth()
+    if (!('userId' in authResult)) {
+      return authResult
+    }
+
+    // Only admins can delete events
+    const role = await getUserRole()
+    if (role !== 'admin') {
+      return { success: false, error: 'Unauthorized: Admin access required' }
+    }
+
+    const deletedEvent = await prisma.event.delete({
+      where: {
+        id: eventId,
+      },
+    })
+
+    invalidateEntity('events')
+
+    // Log activity
+    await logActivity({
+      action: 'DELETE',
+      entityType: 'Event',
+      entityId: eventId,
+      entityName: deletedEvent.name
+    })
+
+    return { success: true }
+  } catch (error) {
+    return handleServerActionError(error, 'deleteEvent')
   }
-
-  // Only admins can delete events
-  const role = await getUserRole()
-  if (role !== 'admin') {
-    throw new Error('Unauthorized: Admin access required')
-  }
-
-  const deletedEvent = await prisma.event.delete({
-    where: {
-      id: eventId,
-    },
-  })
-
-  invalidateEntity('events')
-
-  // Log activity
-  await logActivity({
-    action: 'DELETE',
-    entityType: 'Event',
-    entityId: eventId,
-    entityName: deletedEvent.name
-  })
 }
 
 /**
  * Book an approved event (changes status from 'approved' to 'booked')
  */
 export async function bookEvent(eventId: string) {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    throw new Error('Unauthorized')
-  }
-
-  // Check user role - only admins can book events
-  const role = await getUserRole()
-  
-  if (role !== 'admin') {
-    throw new Error('Only admins can book events')
-  }
-
   try {
+    const authResult = await requireAuth()
+    if (!('userId' in authResult)) {
+      return authResult
+    }
+    const { userId } = authResult
+
+    // Check user role - only admins can book events
+    const role = await getUserRole()
+    
+    if (role !== 'admin') {
+      return { success: false, error: 'Only admins can book events' }
+    }
     let externalApiResult:
       | { success: true; externalId?: number; logId?: string }
       | { success: false; error?: string; logId?: string }
@@ -572,7 +591,6 @@ export async function bookEvent(eventId: string) {
               businessReview: true,
               addressAndHours: true,
               paymentInstructions: true,
-              giftVouchers: true,
               dealImages: true,
               socialMedia: true,
               contactDetails: true,
@@ -586,14 +604,24 @@ export async function bookEvent(eventId: string) {
           
           if (bookingRequestData) {
             const { sendDealToExternalApi } = await import('@/lib/api/external-oferta')
-            externalApiResult = await sendDealToExternalApi(bookingRequestData, {
+            const apiResult = await sendDealToExternalApi(bookingRequestData, {
               userId,
               triggeredBy: 'system',
               // OfertaSimple dates should match the final booked event dates
               runAt: event.startDate,
               endAt: event.endDate,
             })
+            externalApiResult = apiResult
             logger.info('Deal sent to external API for booking request:', bookingRequest.id)
+            
+            // Store the external deal ID on the booking request for linking
+            if (apiResult.success && 'externalId' in apiResult && apiResult.externalId) {
+              await prisma.bookingRequest.update({
+                where: { id: bookingRequest.id },
+                data: { dealId: String(apiResult.externalId) },
+              })
+              logger.info('External deal ID stored on booking request:', bookingRequest.id, apiResult.externalId)
+            }
           } else {
             externalApiResult = { success: false, error: 'bookingRequestData not found' }
           }
@@ -636,17 +664,14 @@ export async function bookEvent(eventId: string) {
     })
 
     return {
-      event: updatedEvent,
-      externalApi: externalApiResult,
+      success: true,
+      data: {
+        event: updatedEvent,
+        externalApi: externalApiResult,
+      }
     }
-
-    return { success: true, data: event }
   } catch (error) {
-    logger.error('Error booking event:', error)
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Failed to book event' 
-    }
+    return handleServerActionError(error, 'bookEvent')
   }
 }
 
@@ -654,74 +679,80 @@ export async function bookEvent(eventId: string) {
  * Reject an approved event with a reason (changes status to 'rejected' and sends email)
  */
 export async function rejectEvent(eventId: string, rejectionReason: string) {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    throw new Error('Unauthorized')
-  }
+  try {
+    const authResult = await requireAuth()
+    if (!('userId' in authResult)) {
+      return authResult
+    }
+    const { userId } = authResult
 
-  // Get the event and its linked booking request
-  const event = await prisma.event.findUnique({
-    where: { id: eventId },
-  })
-
-  if (!event) {
-    throw new Error('Event not found')
-  }
-
-  if (event.status !== 'approved' && event.status !== 'pending') {
-    throw new Error('Only pending or approved events can be rejected')
-  }
-
-  // Get booking request to send email
-  let bookingRequest = null
-  if (event.bookingRequestId) {
-    bookingRequest = await prisma.bookingRequest.findUnique({
-      where: { id: event.bookingRequestId },
-    })
-  }
-
-  // Update event status to rejected
-  await prisma.event.update({
-    where: { id: eventId },
-    data: { status: 'rejected' },
-  })
-
-  // Update linked booking request if it exists
-  if (event.bookingRequestId && bookingRequest) {
-    await prisma.bookingRequest.update({
-      where: { id: event.bookingRequestId },
-      data: { 
-        status: 'rejected',
-        processedAt: new Date(),
-        processedBy: userId,
-        rejectionReason,
-      },
+    // Get the event and its linked booking request
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
     })
 
-    // Send rejection email
-    try {
-      const { sendRejectionEmail } = await import('@/lib/email/services/rejection')
-      await sendRejectionEmail(bookingRequest, rejectionReason)
-    } catch (emailError) {
-      logger.error('Error sending rejection email:', emailError)
-      // Don't fail the rejection if email fails
+    if (!event) {
+      return { success: false, error: 'Event not found' }
     }
+
+    if (event.status !== 'approved' && event.status !== 'pending') {
+      return { success: false, error: 'Only pending or approved events can be rejected' }
+    }
+
+    // Get booking request to send email
+    let bookingRequest = null
+    if (event.bookingRequestId) {
+      bookingRequest = await prisma.bookingRequest.findUnique({
+        where: { id: event.bookingRequestId },
+      })
+    }
+
+    // Update event status to rejected
+    await prisma.event.update({
+      where: { id: eventId },
+      data: { status: 'rejected' },
+    })
+
+    // Update linked booking request if it exists
+    if (event.bookingRequestId && bookingRequest) {
+      await prisma.bookingRequest.update({
+        where: { id: event.bookingRequestId },
+        data: { 
+          status: 'rejected',
+          processedAt: new Date(),
+          processedBy: userId,
+          rejectionReason,
+        },
+      })
+
+      // Send rejection email
+      try {
+        const { sendRejectionEmail } = await import('@/lib/email/services/rejection')
+        await sendRejectionEmail(bookingRequest, rejectionReason)
+      } catch (emailError) {
+        logger.error('Error sending rejection email:', emailError)
+        // Don't fail the rejection if email fails
+      }
+    }
+
+    invalidateEntities(['events', 'booking-requests'])
+
+    // Log activity
+    await logActivity({
+      action: 'REJECT',
+      entityType: 'Event',
+      entityId: eventId,
+      entityName: event.name,
+      details: {
+        statusChange: { from: event.status, to: 'rejected' },
+        metadata: { rejectionReason }
+      }
+    })
+
+    return { success: true }
+  } catch (error) {
+    return handleServerActionError(error, 'rejectEvent')
   }
-
-  invalidateEntities(['events', 'booking-requests'])
-
-  // Log activity
-  await logActivity({
-    action: 'REJECT',
-    entityType: 'Event',
-    entityId: eventId,
-    entityName: event.name,
-    details: {
-      statusChange: { from: event.status, to: 'rejected' },
-      metadata: { rejectionReason }
-    }
-  })
 }
 
 /**
@@ -733,15 +764,15 @@ export async function calculateNextAvailableDateAction(
   parentCategory: string | null,
   merchant: string | null
 ): Promise<{ success: boolean; date?: string; daysUntilLaunch?: number; error?: string }> {
-  const { userId } = await auth()
-  
-  if (!userId) {
-    return { success: false, error: 'Unauthorized' }
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
   }
 
   try {
     // Get all booked events (regardless of user) for accurate date calculation
-    const events = await getAllBookedEvents()
+    const eventsResult = await getAllBookedEvents()
+    const events = eventsResult.success ? eventsResult.data || [] : []
 
     // Get settings (use DEFAULT_SETTINGS on server)
     const { DEFAULT_SETTINGS } = await import('@/lib/settings')

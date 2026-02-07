@@ -18,6 +18,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import HistoryIcon from '@mui/icons-material/History'
 import CampaignIcon from '@mui/icons-material/Campaign'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 
 // Sidebar item type
@@ -33,7 +34,8 @@ const adminSidebarConfig = {
   // Monitor & Analyze (top - high-level overview)
   monitorItems: [
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
-    { name: 'Inteligencia', href: '/market-intelligence', Icon: TrendingUpIcon },
+    { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
+    { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
   ],
   // Work (daily execution - heart of the product)
   workItems: [
@@ -46,15 +48,14 @@ const adminSidebarConfig = {
   // Acquire & Grow (less frequent)
   acquireItems: [
     { name: 'Leads', href: '/leads', Icon: PersonAddIcon },
-    { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
-    { name: 'Marketing', href: '/marketing', Icon: CampaignIcon },
+    { name: 'Marketing', href: '/marketing', Icon: AutoAwesomeIcon },
   ],
   // Admin-only management
   adminItems: [
     { name: 'Asignaciones', href: '/assignments', Icon: AssignmentReturnIcon },
+    { name: 'Leads Neg.', href: '/leads-negocios', Icon: TrendingUpIcon },
   ],
   bottomItems: [
-    { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
     { name: 'Actividad', href: '/activity-log', Icon: HistoryIcon },
     { name: 'Configuración', href: '/settings', Icon: SettingsIcon },
   ],
@@ -63,6 +64,8 @@ const adminSidebarConfig = {
 const salesSidebarConfig = {
   monitorItems: [
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
+    { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
+    { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
   ],
   workItems: [
     { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
@@ -71,30 +74,26 @@ const salesSidebarConfig = {
     { name: 'Negocios', href: '/businesses', Icon: BusinessIcon },
     { name: 'Opps', href: '/opportunities', Icon: HandshakeIcon },
   ],
-  acquireItems: [
-    { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
-  ],
+  acquireItems: [] as SidebarItem[],
   adminItems: [] as SidebarItem[],
-  bottomItems: [
-    { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
-  ],
+  bottomItems: [] as SidebarItem[],
 }
 
 const editorSidebarConfig = {
   monitorItems: [] as SidebarItem[],
   workItems: [] as SidebarItem[],
-  acquireItems: [
-    { name: 'Ofertas', href: '/deals', Icon: AssignmentIcon },
-  ],
+  acquireItems: [] as SidebarItem[],
   adminItems: [] as SidebarItem[],
   bottomItems: [] as SidebarItem[],
 }
 
 const marketingSidebarConfig = {
-  monitorItems: [] as SidebarItem[],
+  monitorItems: [
+    { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
+  ],
   workItems: [] as SidebarItem[],
   acquireItems: [
-    { name: 'Marketing', href: '/marketing', Icon: CampaignIcon },
+    { name: 'Marketing', href: '/marketing', Icon: AutoAwesomeIcon },
   ],
   adminItems: [] as SidebarItem[],
   bottomItems: [] as SidebarItem[],
@@ -159,19 +158,19 @@ export default function HamburgerMenu() {
       )}
 
       {/* Sidebar Menu - Hidden on mobile (md:block) */}
-      <div className={`hidden md:block absolute top-3 left-2 bottom-3 bg-white/95 backdrop-blur-xl border border-slate-200/60 shadow-md rounded-xl transform transition-all duration-300 ease-in-out ${
-        isOpen ? 'translate-x-0' : '-translate-x-[calc(100%+16px)]'
-      } w-[78px]`} style={{ zIndex: isCalendarPage ? 50 : 30 }}>
+      <div className={`hidden md:block absolute top-3 left-1.5 bottom-3 bg-white/95 backdrop-blur-xl border border-slate-200/60 shadow-md rounded-xl transform transition-all duration-300 ease-in-out ${
+        isOpen ? 'translate-x-0' : '-translate-x-[calc(100%+12px)]'
+      } w-[66px]`} style={{ zIndex: isCalendarPage ? 50 : 30 }}>
         <div className={`h-full flex flex-col`}>
           {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto py-2 px-1.5 scrollbar-hide">
+          <nav className="flex-1 overflow-y-auto py-1.5 px-1 scrollbar-hide">
             {(!mounted || loading) ? (
               // Shimmer loading effect
               <div className="space-y-0.5">
                 {[...Array(6)].map((_, i) => (
                   <div
                     key={i}
-                    className="flex flex-col items-center justify-center py-1.5 rounded animate-pulse"
+                    className="flex flex-col items-center justify-center py-1 rounded animate-pulse"
                   >
                     <div className="w-4 h-4 bg-slate-100 rounded"></div>
                     <div className="w-6 h-1 bg-slate-100 rounded mt-0.5"></div>
@@ -179,10 +178,10 @@ export default function HamburgerMenu() {
                 ))}
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {/* Monitor & Analyze (Dashboard on top) */}
                 {sidebarConfig.monitorItems.length > 0 && (
-                  <div className="space-y-1">
+                  <div className="space-y-0.5">
                     {sidebarConfig.monitorItems.map((item) => {
                       const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
                       const Icon = item.Icon
@@ -195,14 +194,14 @@ export default function HamburgerMenu() {
                               setIsOpen(false)
                             }
                           }}
-                          className={`group flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-all duration-200 ${
+                          className={`group flex flex-col items-center justify-center py-1.5 px-1 rounded-lg transition-all duration-200 ${
                             isActive 
                               ? 'bg-orange-100 text-orange-600' 
                               : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                           }`}
                         >
-                          <Icon style={{ fontSize: '1.1rem' }} className={isActive ? 'text-orange-600' : ''} />
-                          <span className={`text-[10px] font-medium mt-1 leading-tight truncate w-full text-center ${
+                          <Icon style={{ fontSize: '1rem' }} className={isActive ? 'text-orange-600' : ''} />
+                          <span className={`text-[9px] font-medium mt-0.5 leading-tight truncate w-full text-center ${
                             isActive ? 'text-orange-600' : 'text-slate-500 group-hover:text-slate-700'
                           }`}>
                             {item.name}
@@ -215,12 +214,12 @@ export default function HamburgerMenu() {
 
                 {/* Separator */}
                 {sidebarConfig.monitorItems.length > 0 && sidebarConfig.workItems.length > 0 && (
-                  <div className="h-px bg-slate-200/60 mx-2" />
+                  <div className="h-px bg-slate-200/60 mx-1.5" />
                 )}
 
                 {/* Work (daily execution) */}
                 {sidebarConfig.workItems.length > 0 && (
-                  <div className="space-y-1">
+                  <div className="space-y-0.5">
                     {sidebarConfig.workItems.map((item) => {
                       const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
                       const Icon = item.Icon
@@ -233,14 +232,14 @@ export default function HamburgerMenu() {
                               setIsOpen(false)
                             }
                           }}
-                          className={`group flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-all duration-200 ${
+                          className={`group flex flex-col items-center justify-center py-1.5 px-1 rounded-lg transition-all duration-200 ${
                             isActive 
                               ? 'bg-orange-100 text-orange-600' 
                               : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                           }`}
                         >
-                          <Icon style={{ fontSize: '1.1rem' }} className={isActive ? 'text-orange-600' : ''} />
-                          <span className={`text-[10px] font-medium mt-1 leading-tight truncate w-full text-center ${
+                          <Icon style={{ fontSize: '1rem' }} className={isActive ? 'text-orange-600' : ''} />
+                          <span className={`text-[9px] font-medium mt-0.5 leading-tight truncate w-full text-center ${
                             isActive ? 'text-orange-600' : 'text-slate-500 group-hover:text-slate-700'
                           }`}>
                             {item.name}
@@ -253,12 +252,12 @@ export default function HamburgerMenu() {
 
                 {/* Separator */}
                 {sidebarConfig.workItems.length > 0 && sidebarConfig.acquireItems.length > 0 && (
-                  <div className="h-px bg-slate-200/60 mx-2" />
+                  <div className="h-px bg-slate-200/60 mx-1.5" />
                 )}
 
                 {/* Acquire & Grow */}
                 {sidebarConfig.acquireItems.length > 0 && (
-                  <div className="space-y-1">
+                  <div className="space-y-0.5">
                     {sidebarConfig.acquireItems.map((item) => {
                       const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
                       const Icon = item.Icon
@@ -271,14 +270,14 @@ export default function HamburgerMenu() {
                               setIsOpen(false)
                             }
                           }}
-                          className={`group flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-all duration-200 ${
+                          className={`group flex flex-col items-center justify-center py-1.5 px-1 rounded-lg transition-all duration-200 ${
                             isActive 
                               ? 'bg-orange-100 text-orange-600' 
                               : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                           }`}
                         >
-                          <Icon style={{ fontSize: '1.1rem' }} className={isActive ? 'text-orange-600' : ''} />
-                          <span className={`text-[10px] font-medium mt-1 leading-tight truncate w-full text-center ${
+                          <Icon style={{ fontSize: '1rem' }} className={isActive ? 'text-orange-600' : ''} />
+                          <span className={`text-[9px] font-medium mt-0.5 leading-tight truncate w-full text-center ${
                             isActive ? 'text-orange-600' : 'text-slate-500 group-hover:text-slate-700'
                           }`}>
                             {item.name}
@@ -291,12 +290,12 @@ export default function HamburgerMenu() {
 
                 {/* Separator */}
                 {sidebarConfig.acquireItems.length > 0 && sidebarConfig.adminItems.length > 0 && (
-                  <div className="h-px bg-slate-200/60 mx-2" />
+                  <div className="h-px bg-slate-200/60 mx-1.5" />
                 )}
 
                 {/* Admin-only (Assignments, etc.) */}
                 {sidebarConfig.adminItems.length > 0 && (
-                  <div className="space-y-1">
+                  <div className="space-y-0.5">
                     {sidebarConfig.adminItems.map((item) => {
                       const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
                       const Icon = item.Icon
@@ -309,14 +308,14 @@ export default function HamburgerMenu() {
                               setIsOpen(false)
                             }
                           }}
-                          className={`group flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-all duration-200 ${
+                          className={`group flex flex-col items-center justify-center py-1.5 px-1 rounded-lg transition-all duration-200 ${
                             isActive 
                               ? 'bg-purple-100 text-purple-600' 
                               : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                           }`}
                         >
-                          <Icon style={{ fontSize: '1.1rem' }} className={isActive ? 'text-purple-600' : ''} />
-                          <span className={`text-[10px] font-medium mt-1 leading-tight truncate w-full text-center ${
+                          <Icon style={{ fontSize: '1rem' }} className={isActive ? 'text-purple-600' : ''} />
+                          <span className={`text-[9px] font-medium mt-0.5 leading-tight truncate w-full text-center ${
                             isActive ? 'text-purple-600' : 'text-slate-500 group-hover:text-slate-700'
                           }`}>
                             {item.name}
@@ -332,8 +331,8 @@ export default function HamburgerMenu() {
 
           {/* Bottom Section - Settings */}
           {mounted && !loading && sidebarConfig.bottomItems.length > 0 && (
-            <div className="px-1.5 pb-2 pt-2 border-t border-slate-200/60">
-              <div className="space-y-1">
+            <div className="px-1 pb-1.5 pt-1 border-t border-slate-200/60">
+              <div className="space-y-0.5">
                 {sidebarConfig.bottomItems.map((item) => {
                   const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
                   const Icon = item.Icon
@@ -346,14 +345,14 @@ export default function HamburgerMenu() {
                           setIsOpen(false)
                         }
                       }}
-                      className={`group flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-all duration-200 ${
+                      className={`group flex flex-col items-center justify-center py-1.5 px-1 rounded-lg transition-all duration-200 ${
                         isActive 
                           ? 'bg-orange-100 text-orange-600' 
                           : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
                       }`}
                     >
-                      <Icon style={{ fontSize: '1.1rem' }} className={isActive ? 'text-orange-600' : ''} />
-                      <span className={`text-[10px] font-medium mt-1 leading-tight truncate w-full text-center ${
+                      <Icon style={{ fontSize: '1rem' }} className={isActive ? 'text-orange-600' : ''} />
+                      <span className={`text-[9px] font-medium mt-0.5 leading-tight truncate w-full text-center ${
                         isActive ? 'text-orange-600' : 'text-slate-500 group-hover:text-slate-700'
                       }`}>
                         {item.name}

@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import GroupsIcon from '@mui/icons-material/Groups'
+import OpenInNewIcon from '@mui/icons-material/OpenInNew'
+import PersonIcon from '@mui/icons-material/Person'
 import type { Task } from '@/types'
 import { Button, Input, Select, Textarea } from '@/components/ui'
 import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
-import { getTodayInPanama } from '@/lib/date/timezone'
+import { getTodayInPanama, formatDateForPanama } from '@/lib/date/timezone'
 
 // Meeting data structure stored as JSON in notes
 export interface MeetingData {
@@ -53,6 +55,8 @@ interface TaskModalProps {
   error?: string
   businessName?: string // For auto-filling "Reunión con"
   forCompletion?: boolean // When true, outcome fields are required before saving
+  responsibleName?: string | null // Name of the responsible user
+  onViewOpportunity?: () => void // Callback to open opportunity modal
 }
 
 export default function TaskModal({ 
@@ -64,6 +68,8 @@ export default function TaskModal({
   error,
   businessName = '',
   forCompletion = false,
+  responsibleName,
+  onViewOpportunity,
 }: TaskModalProps) {
   const [taskCategory, setTaskCategory] = useState<'meeting' | 'todo'>('todo')
   
@@ -91,11 +97,7 @@ export default function TaskModal({
     if (task) {
       setTaskCategory(task.category)
       // Format the task date in Panama timezone for the date input
-      const taskDateObj = new Date(task.date)
-      const year = taskDateObj.getUTCFullYear()
-      const month = String(taskDateObj.getUTCMonth() + 1).padStart(2, '0')
-      const day = String(taskDateObj.getUTCDate()).padStart(2, '0')
-      setTaskDate(`${year}-${month}-${day}`)
+      setTaskDate(formatDateForPanama(new Date(task.date)))
       
       if (task.category === 'meeting') {
         // Parse meeting data from notes
@@ -240,6 +242,7 @@ export default function TaskModal({
       icon={isMeeting ? <GroupsIcon fontSize="small" /> : undefined}
       iconColor={isMeeting ? 'blue' : 'orange'}
       maxWidth={isMeeting ? '2xl' : 'md'}
+      autoHeight={true}
       footer={
         <ModalFooter
           onCancel={onClose}
@@ -255,6 +258,28 @@ export default function TaskModal({
           {(error || validationError) && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800">
               {validationError || error}
+            </div>
+          )}
+
+          {/* Context Info: Responsible & Opportunity Link */}
+          {task && (responsibleName || onViewOpportunity) && (
+            <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
+              {responsibleName && (
+                <div className="flex items-center gap-1.5">
+                  <PersonIcon style={{ fontSize: 14 }} />
+                  <span>{responsibleName}</span>
+                </div>
+              )}
+              {onViewOpportunity && businessName && (
+                <button
+                  type="button"
+                  onClick={onViewOpportunity}
+                  className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+                >
+                  <span>{businessName}</span>
+                  <OpenInNewIcon style={{ fontSize: 14 }} />
+                </button>
+              )}
             </div>
           )}
           

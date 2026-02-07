@@ -7,8 +7,8 @@ import type { SortDirection } from '@/hooks/useEntityPage'
 export interface ColumnConfig {
   /** Unique key for the column (used for sorting) */
   key: string
-  /** Display label */
-  label: string
+  /** Display label (string or custom React node) */
+  label: string | React.ReactNode
   /** Whether this column is sortable */
   sortable?: boolean
   /** Text alignment */

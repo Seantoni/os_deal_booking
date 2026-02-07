@@ -131,12 +131,6 @@ export default function BookingRequestSection({ deal, onViewRequest }: BookingRe
           )}
           
           {/* Payment Info */}
-          {request.commission && (
-            <div>
-              <span className="text-gray-500 text-xs">Comisión</span>
-              <p className="text-gray-900 font-medium text-green-700">{request.commission}</p>
-            </div>
-          )}
           {request.paymentType && (
             <div>
               <span className="text-gray-500 text-xs">Tipo de Pago</span>

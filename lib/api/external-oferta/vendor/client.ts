@@ -8,7 +8,13 @@ import { logApiCall } from '../shared/logger'
 import { formatValidationError } from '../shared/http'
 import { EXTERNAL_VENDOR_API_URL, EXTERNAL_API_TOKEN } from '../shared/constants'
 import { mapBusinessToVendor, validateVendorRequest } from './mapper'
-import type { ExternalOfertaVendorRequest, ExternalOfertaVendorResponse, SendVendorResult } from './types'
+import type { 
+  ExternalOfertaVendorRequest, 
+  ExternalOfertaVendorResponse, 
+  SendVendorResult,
+  ExternalOfertaVendorUpdateRequest,
+  UpdateVendorResult,
+} from './types'
 import type { Business } from '@/types/business'
 import { prisma } from '@/lib/prisma'
 
@@ -223,4 +229,152 @@ export async function sendVendorToExternalApi(
   }
 
   return result
+}
+
+// ============================================
+// PATCH - Update existing vendor
+// ============================================
+
+/**
+ * Update an existing vendor in the external OfertaSimple API
+ * 
+ * This function:
+ * 1. Sends changed fields via PATCH to /external/api/vendors/{id}
+ * 2. Only sends fields that have changed (not the full payload)
+ * 
+ * @param vendorId - External vendor ID (osAdminVendorId)
+ * @param changedFields - Only the fields that changed
+ * @param options - Additional options
+ * @returns Result with success status
+ * 
+ * @example
+ * ```typescript
+ * const result = await updateVendorInExternalApi('12345', { phoneNumber: '555-9999' })
+ * if (result.success) {
+ *   console.log('Updated vendor:', result.externalVendorId)
+ * }
+ * ```
+ */
+export async function updateVendorInExternalApi(
+  vendorId: string,
+  changedFields: ExternalOfertaVendorUpdateRequest,
+  options?: {
+    userId?: string
+    triggeredBy?: 'manual' | 'cron' | 'webhook' | 'system'
+  }
+): Promise<UpdateVendorResult> {
+  const startTime = Date.now()
+  const endpoint = `${EXTERNAL_VENDOR_API_URL}/${vendorId}`
+
+  // Check if API is configured
+  if (!EXTERNAL_API_TOKEN) {
+    const error = 'API token not configured'
+    const logId = await logApiCall({
+      endpoint,
+      method: 'PATCH',
+      requestBody: changedFields,
+      userId: options?.userId,
+      triggeredBy: options?.triggeredBy || 'manual',
+      durationMs: Date.now() - startTime,
+      response: {
+        statusCode: 0,
+        success: false,
+        errorMessage: error,
+      },
+    })
+    return { success: false, error, logId }
+  }
+
+  // Check if there are fields to update
+  const fieldCount = Object.keys(changedFields).length
+  if (fieldCount === 0) {
+    return { 
+      success: false, 
+      error: 'No fields to update',
+      externalVendorId: parseInt(vendorId, 10) || undefined,
+    }
+  }
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${EXTERNAL_API_TOKEN}`,
+        'User-Agent': 'OfertaSimpleBooking/1.0',
+      },
+      body: JSON.stringify(changedFields),
+    })
+
+    const durationMs = Date.now() - startTime
+    const responseText = await response.text()
+
+    let responseData: ExternalOfertaVendorResponse | Record<string, unknown>
+    let isJson = false
+    try {
+      responseData = JSON.parse(responseText)
+      isJson = true
+    } catch {
+      responseData = { raw: responseText.substring(0, 500) }
+    }
+
+    const typedResponse = responseData as ExternalOfertaVendorResponse & { status?: string; error?: string; message?: string }
+    const success = response.ok && isJson && typedResponse.status === 'success'
+    const externalVendorId = typedResponse.id || parseInt(vendorId, 10) || undefined
+
+    let errorMessage: string | undefined
+    if (!success) {
+      if (response.status === 404) {
+        errorMessage = `Vendor not found: ${vendorId}`
+      } else if (response.status === 422) {
+        errorMessage = formatValidationError(responseData, responseText)
+      } else {
+        errorMessage = typedResponse.error || typedResponse.message || `HTTP ${response.status}`
+      }
+    }
+
+    const logId = await logApiCall({
+      endpoint,
+      method: 'PATCH',
+      requestBody: changedFields,
+      userId: options?.userId,
+      triggeredBy: options?.triggeredBy || 'manual',
+      durationMs,
+      response: {
+        statusCode: response.status,
+        body: isJson ? (responseData as Record<string, unknown>) : undefined,
+        raw: responseText.substring(0, 4000),
+        success,
+        errorMessage,
+        externalId: externalVendorId,
+      },
+    })
+
+    return {
+      success,
+      externalVendorId,
+      fieldsUpdated: success ? fieldCount : 0,
+      error: success ? undefined : errorMessage,
+      logId,
+    }
+  } catch (error) {
+    const durationMs = Date.now() - startTime
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+    const logId = await logApiCall({
+      endpoint,
+      method: 'PATCH',
+      requestBody: changedFields,
+      userId: options?.userId,
+      triggeredBy: options?.triggeredBy || 'manual',
+      durationMs,
+      response: {
+        statusCode: 0,
+        success: false,
+        errorMessage,
+      },
+    })
+
+    return { success: false, error: errorMessage, logId }
+  }
 }

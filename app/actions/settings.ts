@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { requireAuth, handleServerActionError, ServerActionResponse } from '@/lib/utils/server-actions'
+import { requireAdmin, handleServerActionError, ServerActionResponse } from '@/lib/utils/server-actions'
 import type { BookingSettings, RequestFormFieldsConfig } from '@/types'
 import { DEFAULT_SETTINGS } from '@/lib/settings'
 import { logger } from '@/lib/logger'
@@ -68,7 +68,8 @@ export async function saveSettingsToDB(
   settings: BookingSettings,
   userId?: string
 ): Promise<ServerActionResponse<void>> {
-  const authResult = await requireAuth()
+  // Require admin role - global settings should not be editable by regular users
+  const authResult = await requireAdmin()
   if (!('userId' in authResult)) {
     return authResult
   }
@@ -115,7 +116,8 @@ export async function saveSettingsToDB(
  * Reset settings to defaults
  */
 export async function resetSettingsToDefaults(): Promise<ServerActionResponse<void>> {
-  const authResult = await requireAuth()
+  // Require admin role - global settings should not be reset by regular users
+  const authResult = await requireAdmin()
   if (!('userId' in authResult)) {
     return authResult
   }

@@ -25,8 +25,9 @@ import EventIcon from '@mui/icons-material/Event'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import toast from 'react-hot-toast'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
-import { useModalEscape } from '@/hooks/useModalEscape'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import FullScreenLoader from '@/components/common/FullScreenLoader'
+import ModalShell from '@/components/shared/ModalShell'
 import { Button, Input, Textarea, Alert } from '@/components/ui'
 
 // ============================================================================
@@ -124,14 +125,12 @@ interface EventModalProps {
 }
 
 export default function EventModal({ isOpen, onClose, selectedDate, selectedEndDate, eventToEdit, bookingRequestId, allEvents = [], userRole = 'sales', readOnly = false, onSuccess }: EventModalProps) {
-  // Close modal on Escape key
-  useModalEscape(isOpen, onClose)
-  
   const confirmDialog = useConfirmDialog()
 
   // React 19: useTransition for non-blocking UI during form actions
   const [isPending, startTransition] = useTransition()
   const loading = isPending
+  const [isBooking, setIsBooking] = useState(false)
   
   // React 19: useReducer for consolidated form state management
   const [formState, dispatch] = useReducer(formReducer, initialFormState)
@@ -482,16 +481,23 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
     const proceedSave = () => {
       startTransition(async () => {
         try {
-          let result: Event
           if (eventToEdit) {
-            result = await updateEvent(eventToEdit.id, formData)
-            if (onSuccess) {
-              onSuccess(result, 'update')
+            const result = await updateEvent(eventToEdit.id, formData)
+            if (!result.success) {
+              setField('error', result.error || 'Error al actualizar el evento')
+              return
+            }
+            if (onSuccess && result.data) {
+              onSuccess(result.data, 'update')
             }
           } else {
-            result = await createEvent(formData)
-            if (onSuccess) {
-              onSuccess(result, 'create')
+            const result = await createEvent(formData)
+            if (!result.success) {
+              setField('error', result.error || 'Error al crear el evento')
+              return
+            }
+            if (onSuccess && result.data) {
+              onSuccess(result.data, 'create')
             }
           }
           
@@ -570,57 +576,57 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
     if (onSuccess) {
       onSuccess(updatedEvent, 'book')
     }
+    setIsBooking(true)
 
     startTransition(async () => {
       try {
         // Import the book function
         const { bookEvent } = await import('@/app/actions/events')
         const result = await bookEvent(eventToEdit.id) as {
-          event?: unknown
-          externalApi?: {
-            success: boolean
-            externalId?: number
-            error?: string
-            logId?: string
-          } | null
+          success: boolean
+          data?: {
+            event?: unknown
+            externalApi?: {
+              success: boolean
+              externalId?: number
+              error?: string
+              logId?: string
+            } | null
+          }
         }
-        toast.success('Evento reservado exitosamente')
+        const externalApi = result?.data?.externalApi ?? null
+        // Dismiss loader before showing the result dialog
+        setIsBooking(false)
 
-        const externalApi = result?.externalApi ?? null
 
-        // Show external API result (success/failure) after booking
+        // Small delay to ensure first dialog is fully closed before showing API result
+        await new Promise(resolve => setTimeout(resolve, 100))
+
+        // Show external API result dialog on top of EventModal (don't close modal)
         if (externalApi) {
           const isOk = externalApi.success === true
-          const lines: string[] = []
-          lines.push(isOk ? 'Deal was sent to OfertaSimple successfully.' : 'Deal FAILED to send to OfertaSimple.')
-          if (externalApi.success && externalApi.externalId) {
-            lines.push(`OfertaSimple Deal ID: ${externalApi.externalId}`)
-          }
-          if (!externalApi.success && externalApi.error) lines.push(`Error: ${externalApi.error}`)
-          if (externalApi.logId) lines.push(`Log ID: ${externalApi.logId}`)
-          lines.push('Check Settings → API Logs for full request/response details.')
-
           await confirmDialog.confirm({
-            title: isOk ? 'OfertaSimple: Success' : 'OfertaSimple: Failed',
-            message: lines.join('\n'),
+            title: isOk ? 'OfertaSimple: Éxito' : 'OfertaSimple: Error',
+            message: isOk 
+              ? `El evento fue reservado y enviado a OfertaSimple exitosamente.\n\nDeal ID: #${externalApi.externalId || 'N/A'}\n\nPuedes ver los detalles en Settings → API Logs.`
+              : `El evento fue reservado pero falló el envío a OfertaSimple.\n\nError: ${externalApi.error || 'Error desconocido'}\n\nRevisa Settings → API Logs para más detalles.`,
             confirmText: 'OK',
-            cancelText: 'Close',
+            cancelText: '',
             confirmVariant: isOk ? 'success' : 'danger',
           })
         } else {
-          // No external API call was attempted (e.g. no booking request linked)
           await confirmDialog.confirm({
-            title: 'OfertaSimple',
-            message: 'No external API call was made for this booking (no linked booking request or missing data).',
+            title: 'Evento Reservado',
+            message: 'El evento fue reservado exitosamente.\n\nNo se realizó envío a OfertaSimple (sin solicitud vinculada o datos faltantes).',
             confirmText: 'OK',
-            cancelText: 'Close',
+            cancelText: '',
             confirmVariant: 'primary',
           })
         }
-
-        // onSuccess callback already called for optimistic update
+        
         onClose()
       } catch (err) {
+        setIsBooking(false)
         // Optimistic update already rolled back via onSuccess
         const errorMsg = err instanceof Error ? err.message : 'Error al reservar el evento'
         setField('error', errorMsg)
@@ -662,42 +668,18 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
 
   return (
     <>
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-gray-900/20 z-40 transition-opacity"
-        onClick={onClose}
-      />
-
-      {/* Modal Container */}
-      <div className={`fixed inset-0 z-50 flex items-center justify-center md:p-3 pointer-events-none transition-all duration-300 ${
-        showBookingRequestModal ? 'md:justify-start' : ''
-      }`}>
-        {/* Modal Panel - Mobile: full screen, Desktop: centered */}
-        <div 
-          className="w-full max-w-2xl bg-white shadow-2xl md:rounded-xl flex flex-col h-full md:h-[85vh] pointer-events-auto transform transition-all duration-300 overflow-hidden"
-          style={showBookingRequestModal ? { 
-            marginLeft: 'calc(25% - 320px)', // Center in left half (50% / 2 - half modal width)
-            maxWidth: '640px' 
-          } : undefined}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 flex-shrink-0">
-            <h2 className="text-sm font-bold text-gray-900">
-              {readOnly ? 'Ver Evento' : (eventToEdit ? 'Editar Evento' : 'Crear Evento')}
-            </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-500 transition-colors p-1"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Form - Scrollable content */}
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto divide-y divide-gray-100">
+      <ModalShell
+        isOpen={isOpen}
+        onClose={onClose}
+        title={readOnly ? 'Ver Evento' : (eventToEdit ? 'Editar Evento' : 'Crear Evento')}
+        icon={<EventIcon fontSize="small" />}
+        iconColor="blue"
+        maxWidth="2xl"
+        autoHeight={true}
+        backdropClassName={showBookingRequestModal ? 'md:justify-start' : ''}
+      >
+        {/* Form - Scrollable content */}
+        <form onSubmit={handleSubmit} className="divide-y divide-gray-100">
             {/* Linked Booking Request - Top Banner */}
             {linkedBookingRequest && (
               <button
@@ -908,11 +890,10 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                 )}
               </div>
             </div>
-          </form>
-        </div>
-      </div>
+        </form>
+      </ModalShell>
 
-      {/* Confirm Dialog */}
+      {/* Confirm Dialog - z-index 80 to appear above ModalShell (z-70) */}
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
         title={confirmDialog.options.title}
@@ -922,6 +903,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
         confirmVariant={confirmDialog.options.confirmVariant}
         onConfirm={confirmDialog.handleConfirm}
         onCancel={confirmDialog.handleCancel}
+        zIndex={80}
       />
 
       {/* Booking Request View Modal */}
@@ -930,6 +912,12 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
         onClose={() => setField('showBookingRequestModal', false)}
         requestId={linkedBookingRequest?.id || null}
         hideBackdrop={true}
+      />
+
+      <FullScreenLoader
+        isLoading={isBooking}
+        message="Reservando evento..."
+        subtitle="Enviando deal a OfertaSimple y procesando confirmación"
       />
     </>
   )

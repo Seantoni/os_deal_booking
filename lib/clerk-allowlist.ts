@@ -29,9 +29,10 @@ export async function addToClerkAllowlist(email: string): Promise<{ success: boo
         notify: false, // Don't send email notification
       })
       return { success: true }
-    } catch (createError: any) {
+    } catch (createError: unknown) {
       // If identifier already exists, that's fine - return success
-      if (createError?.status === 400 || createError?.message?.includes('already exists') || createError?.message?.includes('duplicate')) {
+      const err = createError as { status?: number; message?: string }
+      if (err?.status === 400 || err?.message?.includes('already exists') || err?.message?.includes('duplicate')) {
         return { success: true }
       }
       // Otherwise, re-throw to be caught by outer catch

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { getBookingRequest } from '@/app/actions/booking-requests'
 import { useModalEscape } from '@/hooks/useModalEscape'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
+import type { BookingRequestViewData, PricingOption } from '@/types'
 import CloseIcon from '@mui/icons-material/Close'
 import DescriptionIcon from '@mui/icons-material/Description'
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
@@ -24,7 +25,7 @@ interface BookingRequestModalProps {
 }
 
 export default function BookingRequestModal({ isOpen, onClose, requestId }: BookingRequestModalProps) {
-  const [request, setRequest] = useState<any>(null)
+  const [request, setRequest] = useState<BookingRequestViewData | null>(null)
   const [loading, setLoading] = useState(false)
 
   // Close modal on Escape key
@@ -303,7 +304,7 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
               )}
 
               {/* Location */}
-              {(request.addressAndHours || request.province || request.district) && (
+              {(request.addressAndHours || request.provinceDistrictCorregimiento) && (
                 <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                   <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
                     <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Ubicación</h3>
@@ -318,22 +319,10 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
                         </div>
                       </div>
                     )}
-                    {request.province && (
-                      <div>
-                        <p className="text-xs font-medium text-gray-600">Provincia</p>
-                        <p className="text-sm text-gray-900 mt-0.5">{request.province}</p>
-                      </div>
-                    )}
-                    {request.district && (
-                      <div>
-                        <p className="text-xs font-medium text-gray-600">Distrito</p>
-                        <p className="text-sm text-gray-900 mt-0.5">{request.district}</p>
-                      </div>
-                    )}
-                    {request.corregimiento && (
-                      <div>
-                        <p className="text-xs font-medium text-gray-600">Corregimiento</p>
-                        <p className="text-sm text-gray-900 mt-0.5">{request.corregimiento}</p>
+                    {request.provinceDistrictCorregimiento && (
+                      <div className="col-span-2">
+                        <p className="text-xs font-medium text-gray-600">Provincia, Distrito, Corregimiento</p>
+                        <p className="text-sm text-gray-900 mt-0.5">{request.provinceDistrictCorregimiento}</p>
                       </div>
                     )}
                   </div>
@@ -341,7 +330,7 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
               )}
 
               {/* Operations & Payments */}
-              {(request.redemptionMode || request.paymentType || request.commission) && (
+              {(request.redemptionMode || request.paymentType) && (
                 <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                   <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
                     <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Operatividad y Pagos</h3>
@@ -357,12 +346,6 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
                       <div>
                         <p className="text-xs font-medium text-gray-600">Tipo de Pago</p>
                         <p className="text-sm text-gray-900 mt-0.5">{request.paymentType}</p>
-                      </div>
-                    )}
-                    {request.commission && (
-                      <div>
-                        <p className="text-xs font-medium text-gray-600">Comisión</p>
-                        <p className="text-sm text-gray-900 mt-0.5">{request.commission}</p>
                       </div>
                     )}
                     {request.isRecurring && (
@@ -382,7 +365,7 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
               )}
 
               {/* Business Rules */}
-              {(request.includesTaxes || request.validOnHolidays || request.vouchersPerPerson || request.hasExclusivity) && (
+              {(request.includesTaxes || request.validOnHolidays || request.hasExclusivity) && (
                 <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                   <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
                     <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Reglas de Negocio</h3>
@@ -398,18 +381,6 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
                       <div>
                         <p className="text-xs font-medium text-gray-600">Válido en Feriados</p>
                         <p className="text-sm text-gray-900 mt-0.5">{request.validOnHolidays}</p>
-                      </div>
-                    )}
-                    {request.vouchersPerPerson && (
-                      <div>
-                        <p className="text-xs font-medium text-gray-600">Vouchers por Persona</p>
-                        <p className="text-sm text-gray-900 mt-0.5">{request.vouchersPerPerson}</p>
-                      </div>
-                    )}
-                    {request.giftVouchers && (
-                      <div>
-                        <p className="text-xs font-medium text-gray-600">Vouchers para Regalar</p>
-                        <p className="text-sm text-gray-900 mt-0.5">{request.giftVouchers}</p>
                       </div>
                     )}
                     {request.hasExclusivity && (
@@ -441,7 +412,7 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
                     <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Opciones de Compra</h3>
                   </div>
                   <div className="p-4 space-y-3">
-                    {request.pricingOptions.map((option: any, idx: number) => (
+                    {(request.pricingOptions as PricingOption[]).map((option, idx) => (
                       <div key={idx} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                         <div className="flex justify-between items-start">
                           <div>

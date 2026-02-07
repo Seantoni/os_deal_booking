@@ -360,6 +360,7 @@ export async function deleteOptionComment(commentId: string): Promise<{
 
 /**
  * Toggle a reaction on a comment
+ * Also auto-dismisses the comment from inbox when adding a reaction
  */
 export async function toggleCommentReaction(
   commentId: string,
@@ -388,12 +389,14 @@ export async function toggleCommentReaction(
       return { success: false, error: 'Cannot react to a deleted comment' }
     }
 
-    // Get current reactions
+    // Get current reactions and dismissedBy
     const currentReactions = (comment.reactions as Record<string, string[]>) || {}
+    const dismissedBy = (comment.dismissedBy as string[]) || []
 
     // Toggle user's reaction
     const emojiReactions = currentReactions[emoji] || []
     const userIndex = emojiReactions.indexOf(userId)
+    const isAddingReaction = userIndex < 0
 
     if (userIndex >= 0) {
       // Remove reaction
@@ -408,12 +411,20 @@ export async function toggleCommentReaction(
       currentReactions[emoji] = [...emojiReactions, userId]
     }
 
+    // Build update data
+    const updateData: { reactions: Record<string, string[]>; dismissedBy?: string[] } = {
+      reactions: currentReactions,
+    }
+
+    // Auto-dismiss from inbox when adding a reaction (not when removing)
+    if (isAddingReaction && !dismissedBy.includes(userId)) {
+      updateData.dismissedBy = [...dismissedBy, userId]
+    }
+
     // Update the comment
     await prisma.marketingOptionComment.update({
       where: { id: commentId },
-      data: {
-        reactions: currentReactions,
-      },
+      data: updateData,
     })
 
     return { success: true, data: currentReactions }

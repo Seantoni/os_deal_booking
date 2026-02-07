@@ -1,6 +1,6 @@
 import { getDaysDifference, getMaxDuration } from './categories'
 import { getBusinessException, type BusinessException } from './settings'
-import { getDateComponentsInPanama } from './date/timezone'
+import { getDateComponentsInPanama, getTodayInPanama, parseDateInPanamaTime } from './date/timezone'
 import { buildCategoryKey, getEventCategoryKey, categoryKeysMatch } from './category-utils'
 import type { Event } from '@/types'
 import { logger } from './logger'
@@ -124,11 +124,9 @@ export function check30DayMerchantRule(
   })
   
   for (const event of merchantEvents) {
-    const eventEnd = new Date(event.endDate)
-    const endYear = eventEnd.getUTCFullYear()
-    const endMonth = eventEnd.getUTCMonth()
-    const endDay = eventEnd.getUTCDate()
-    const eventEndLocal = new Date(endYear, endMonth, endDay)
+    // Use Panama timezone for event end date
+    const eventEndPanama = getDateComponentsInPanama(new Date(event.endDate))
+    const eventEndLocal = new Date(eventEndPanama.year, eventEndPanama.month - 1, eventEndPanama.day)
     
     // Calculate days between event end and new start
     const daysSince = Math.floor((newStartDate.getTime() - eventEndLocal.getTime()) / (1000 * 60 * 60 * 24))
@@ -202,11 +200,10 @@ export function calculateNextAvailableDate(
       }
     }
     
-    // Start from provided date or today
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    // Start from provided date or today (using Panama timezone)
+    const todayStr = getTodayInPanama()
+    const today = parseDateInPanamaTime(todayStr)
     let testDate = startFromDate ? new Date(startFromDate) : new Date(today)
-    testDate.setHours(0, 0, 0, 0)
     
     // Ensure we start from today or later
     if (testDate < today) {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useOptimistic, useTransition } from 'react'
 import dynamic from 'next/dynamic'
-import { getUserTasks, toggleTaskComplete, type TaskWithOpportunity } from '@/app/actions/tasks'
+import { getUserTasks, toggleTaskComplete, getTaskCounts, type TaskWithOpportunity } from '@/app/actions/tasks'
 import { updateTask, deleteTask } from '@/app/actions/opportunities'
 import { getOpportunity } from '@/app/actions/crm'
 import type { Opportunity } from '@/types'
@@ -10,6 +10,7 @@ import toast from 'react-hot-toast'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useUserRole } from '@/hooks/useUserRole'
+import { useSharedData } from '@/hooks/useSharedData'
 import { useFormConfigCache } from '@/hooks/useFormConfigCache'
 import AssignmentIcon from '@mui/icons-material/Assignment'
 import GroupsIcon from '@mui/icons-material/Groups'
@@ -19,9 +20,10 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PhoneIcon from '@mui/icons-material/Phone'
 import EmailIcon from '@mui/icons-material/Email'
 import PersonIcon from '@mui/icons-material/Person'
-import { formatShortDate, formatRelativeTime } from '@/lib/date'
+import { formatShortDate, formatRelativeTime, getTodayInPanama, formatDateForPanama } from '@/lib/date'
 import {
   EntityPageHeader,
+  UserFilterDropdown,
   type FilterTab,
   type ColumnConfig
 } from '@/components/shared'
@@ -79,6 +81,7 @@ type FilterType = 'all' | 'pending' | 'completed' | 'overdue' | 'meetings' | 'to
 
 export default function TasksPageClient() {
   const { isAdmin } = useUserRole()
+  const { users } = useSharedData()
   const confirmDialog = useConfirmDialog()
   
   // Get form config cache for prefetching
@@ -87,7 +90,18 @@ export default function TasksPageClient() {
   const [tasks, setTasks] = useState<TaskWithOpportunity[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all')
+  const [activeFilter, setActiveFilter] = useState<FilterType>('pending')
+  const [responsibleFilter, setResponsibleFilter] = useState<string | null>(null)
+  const [serverCounts, setServerCounts] = useState<Record<string, number>>({})
+  
+  // User filter dropdown options
+  const userFilterOptions = useMemo(() => {
+    return users.map(u => ({
+      id: u.clerkId,
+      name: u.name || u.email || u.clerkId,
+      email: u.email,
+    }))
+  }, [users])
   const [taskModalOpen, setTaskModalOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState<TaskWithOpportunity | null>(null)
   const [savingTask, setSavingTask] = useState(false)
@@ -112,14 +126,20 @@ export default function TasksPageClient() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   // Load tasks
-  const loadTasks = useCallback(async () => {
+  const loadTasks = useCallback(async (filters?: { responsibleId?: string }) => {
     setLoading(true)
     try {
-      const result = await getUserTasks()
+      const result = await getUserTasks(filters)
       if (result.success && result.data) {
         setTasks(result.data)
       } else {
         toast.error(result.error || 'Failed to load tasks')
+      }
+      
+      // Also load counts
+      const countsResult = await getTaskCounts(filters)
+      if (countsResult.success && countsResult.data) {
+        setServerCounts(countsResult.data)
       }
     } catch (error) {
       toast.error('Failed to load tasks')
@@ -129,8 +149,8 @@ export default function TasksPageClient() {
   }, [])
 
   useEffect(() => {
-    loadTasks()
-  }, [loadTasks])
+    loadTasks({ responsibleId: responsibleFilter || undefined })
+  }, [loadTasks, responsibleFilter])
 
   // Handle sort
   const handleSort = (column: string) => {
@@ -146,9 +166,8 @@ export default function TasksPageClient() {
   const filteredTasks = useMemo(() => {
     let filtered = optimisticTasks
 
-    // Apply status filter
-    const now = new Date()
-    now.setHours(0, 0, 0, 0)
+    // Apply status filter (using Panama timezone)
+    const todayStr = getTodayInPanama()
 
     switch (activeFilter) {
       case 'pending':
@@ -158,7 +177,7 @@ export default function TasksPageClient() {
         filtered = filtered.filter(t => t.completed)
         break
       case 'overdue':
-        filtered = filtered.filter(t => !t.completed && new Date(t.date) < now)
+        filtered = filtered.filter(t => !t.completed && formatDateForPanama(new Date(t.date)) < todayStr)
         break
       case 'meetings':
         filtered = filtered.filter(t => t.category === 'meeting')
@@ -195,19 +214,22 @@ export default function TasksPageClient() {
     })
   }, [filteredTasks, sortColumn, sortDirection])
 
-  // Count for filters - uses optimisticTasks for instant UI feedback
+  // Count for filters - uses server counts when available, falls back to optimistic counts
   const counts = useMemo(() => {
-    const now = new Date()
-    now.setHours(0, 0, 0, 0)
+    if (Object.keys(serverCounts).length > 0) {
+      return serverCounts
+    }
+    // Fallback to client-side counts (using Panama timezone)
+    const todayStr = getTodayInPanama()
     return {
       all: optimisticTasks.length,
       pending: optimisticTasks.filter(t => !t.completed).length,
       completed: optimisticTasks.filter(t => t.completed).length,
-      overdue: optimisticTasks.filter(t => !t.completed && new Date(t.date) < now).length,
+      overdue: optimisticTasks.filter(t => !t.completed && formatDateForPanama(new Date(t.date)) < todayStr).length,
       meetings: optimisticTasks.filter(t => t.category === 'meeting').length,
       todos: optimisticTasks.filter(t => t.category === 'todo').length,
     }
-  }, [optimisticTasks])
+  }, [optimisticTasks, serverCounts])
 
   // React 19: Handle toggle complete using useOptimistic for instant UI update
   const handleToggleComplete = (task: TaskWithOpportunity) => {
@@ -331,21 +353,19 @@ export default function TasksPageClient() {
     }
   }
 
-  // Check if task is overdue
+  // Check if task is overdue (using Panama timezone)
   const isOverdue = (task: TaskWithOpportunity) => {
     if (task.completed) return false
-    const now = new Date()
-    now.setHours(0, 0, 0, 0)
-    return new Date(task.date) < now
+    const todayStr = getTodayInPanama()
+    const taskDateStr = formatDateForPanama(new Date(task.date))
+    return taskDateStr < todayStr
   }
 
-  // Check if task is due today
+  // Check if task is due today (using Panama timezone)
   const isDueToday = (task: TaskWithOpportunity) => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const taskDate = new Date(task.date)
-    taskDate.setHours(0, 0, 0, 0)
-    return taskDate.getTime() === today.getTime()
+    const todayStr = getTodayInPanama()
+    const taskDateStr = formatDateForPanama(new Date(task.date))
+    return taskDateStr === todayStr
   }
 
   const filterTabs: FilterTab[] = [
@@ -368,6 +388,15 @@ export default function TasksPageClient() {
         activeFilter={activeFilter}
         onFilterChange={(id) => setActiveFilter(id as FilterType)}
         isAdmin={isAdmin}
+        userFilter={isAdmin ? (
+          <UserFilterDropdown
+            users={userFilterOptions}
+            value={responsibleFilter}
+            onChange={setResponsibleFilter}
+            label="Responsable"
+            placeholder="Todos"
+          />
+        ) : undefined}
       />
 
       {/* Content */}
@@ -566,6 +595,11 @@ export default function TasksPageClient() {
         error={taskError}
         businessName={selectedTask?.opportunity?.business?.name || ''}
         forCompletion={forCompletion}
+        responsibleName={selectedTask?.opportunity?.responsible?.name || selectedTask?.opportunity?.responsible?.email}
+        onViewOpportunity={selectedTask?.opportunityId ? () => {
+          setTaskModalOpen(false)
+          handleViewOpportunity(selectedTask.opportunityId)
+        } : undefined}
       />
 
       {/* Opportunity Modal */}

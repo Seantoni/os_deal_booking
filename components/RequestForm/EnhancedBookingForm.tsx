@@ -1,8 +1,18 @@
 'use client'
 
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
+import WarningAmberIcon from '@mui/icons-material/WarningAmber'
+import SyncIcon from '@mui/icons-material/Sync'
+import StorefrontIcon from '@mui/icons-material/Storefront'
 import { useState, useEffect, useCallback, useActionState, useTransition, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { saveBookingRequestDraft, sendBookingRequest, getBookingRequest } from '@/app/actions/booking'
+import { 
+  previewBusinessBackfill, 
+  sendBookingRequestWithBackfill,
+} from '@/app/actions/booking-requests'
+import type { BackfillChange } from '@/lib/business-backfill'
 import type { BookingFormData } from './types'
 import { STEPS, INITIAL_FORM_DATA, getStepKeyByIndex, getStepIndexByKey, getStepIdByKey } from './constants'
 import { validateStep, buildFormDataForSubmit, getErrorFieldLabels } from './request_form_utils'
@@ -22,6 +32,7 @@ import InformacionAdicionalStep from './steps/InformacionAdicionalStep'
 import ContenidoStep from './steps/ContenidoStep'
 import ValidacionStep from './steps/ValidacionStep'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import FullScreenLoader from '@/components/common/FullScreenLoader'
 import toast from 'react-hot-toast'
 
 // Action state types for React 19 useActionState
@@ -45,6 +56,33 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   const [requiredFields, setRequiredFields] = useState<RequestFormFieldsConfig>({})
   const [loadingEdit, setLoadingEdit] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  
+  // Business backfill state
+  const [backfillPreview, setBackfillPreview] = useState<{
+    businessName?: string
+    hasVendorId?: boolean
+    changes: BackfillChange[]
+    formattedChanges?: Array<{ label: string; value: string; oldValue?: string | null; isUpdate?: boolean }>
+  } | null>(null)
+  const [showBackfillDialog, setShowBackfillDialog] = useState(false)
+  const [showBackfillResultDialog, setShowBackfillResultDialog] = useState(false)
+  const [backfillResult, setBackfillResult] = useState<{
+    success: boolean
+    fieldsUpdated?: string[]
+    vendorSynced?: boolean
+    error?: string
+  } | null>(null)
+  const [loadingBackfillPreview, setLoadingBackfillPreview] = useState(false)
+  // Vendor auto-creation result dialog (shown after direct send without backfill)
+  const [showVendorResultDialog, setShowVendorResultDialog] = useState(false)
+  const [vendorCreateResult, setVendorCreateResult] = useState<{
+    success?: boolean
+    externalVendorId?: number
+    error?: string
+    businessName?: string
+  } | null>(null)
+  // Track linked business ID for backfill (from URL params when creating from Business)
+  const [linkedBusinessId, setLinkedBusinessId] = useState<string | null>(null)
   
   // Ref for the scrollable form container
   const formContainerRef = useRef<HTMLDivElement>(null)
@@ -85,12 +123,26 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
       try {
         const result = await sendBookingRequest(submittedFormData, requestId)
         if (result.success) {
+          // If vendor was auto-created (or failed), show result dialog before redirecting
+          const vr = 'vendorResult' in result ? result.vendorResult : undefined
+          if (vr?.attempted) {
+            setVendorCreateResult({
+              success: vr.success,
+              externalVendorId: vr.externalVendorId,
+              error: vr.error,
+              businessName: vr.businessName,
+            })
+            setShowVendorResultDialog(true)
+            // Don't redirect yet — dialog close handler will redirect
+            return { success: true, error: null }
+          }
           toast.success('Solicitud enviada exitosamente')
           router.push('/booking-requests')
           return { success: true, error: null }
         } else {
-          toast.error('Error al enviar solicitud: ' + result.error)
-          return { success: false, error: result.error || 'Error desconocido' }
+          const errMsg = 'error' in result ? result.error : 'Error desconocido'
+          toast.error('Error al enviar solicitud: ' + errMsg)
+          return { success: false, error: errMsg || 'Error desconocido' }
         }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
@@ -155,6 +207,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
               startDate: data.startDate ? new Date(data.startDate).toISOString().split('T')[0] : '',
               endDate: data.endDate ? new Date(data.endDate).toISOString().split('T')[0] : '',
               campaignDuration: data.campaignDuration || '',
+              campaignDurationUnit: (data.campaignDurationUnit as 'days' | 'months') || 'months',
               opportunityId: data.opportunityId || '',
               
               // Operatividad
@@ -177,9 +230,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
               accountNumber: data.accountNumber || '',
               accountType: data.accountType || '',
               addressAndHours: data.addressAndHours || '',
-              province: data.province || '',
-              district: data.district || '',
-              corregimiento: data.corregimiento || '',
+              provinceDistrictCorregimiento: data.provinceDistrictCorregimiento || '',
               
               // Negocio
               includesTaxes: data.includesTaxes || '',
@@ -187,10 +238,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
               hasExclusivity: data.hasExclusivity || '',
               blackoutDates: data.blackoutDates || '',
               exclusivityCondition: data.exclusivityCondition || '',
-              giftVouchers: data.giftVouchers || '',
               hasOtherBranches: data.hasOtherBranches || '',
-              vouchersPerPerson: data.vouchersPerPerson || '',
-              commission: data.commission || '',
               
               // Descripción
               redemptionMethods: Array.isArray(data.redemptionMethods) ? data.redemptionMethods : [],
@@ -230,6 +278,11 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
             return updatedData
           })
           
+          // Set linkedBusinessId for backfill tracking when editing existing request
+          if (data.linkedBusiness?.id) {
+            setLinkedBusinessId(data.linkedBusiness.id)
+          }
+          
           toast.success('Solicitud cargada para continuar editando')
         } else {
           toast.error('Error al cargar la solicitud: ' + (result.error || 'No encontrada'))
@@ -252,12 +305,11 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     const isReplicate = searchParams.get('replicate') === 'true'
     const replicateKey = searchParams.get('replicateKey')
     const fromOpportunity = searchParams.get('fromOpportunity')
+    const businessIdParam = searchParams.get('businessId') // Direct business link for backfill
     const partnerEmail = searchParams.get('partnerEmail')
     const legalName = searchParams.get('legalName')
     const ruc = searchParams.get('ruc')
-    const province = searchParams.get('province')
-    const district = searchParams.get('district')
-    const corregimiento = searchParams.get('corregimiento')
+    const provinceDistrictCorregimiento = searchParams.get('provinceDistrictCorregimiento')
     const bank = searchParams.get('bank')
     const bankAccountName = searchParams.get('bankAccountName')
     const accountNumber = searchParams.get('accountNumber')
@@ -269,15 +321,57 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     const website = searchParams.get('website')
     const instagram = searchParams.get('instagram')
     
+    // Track linked business ID for backfill
+    if (businessIdParam) {
+      setLinkedBusinessId(businessIdParam)
+    }
+    
     // Handle replication (fast path) - load payload from sessionStorage to avoid huge URLs
     if (replicateKey) {
+      const raw = sessionStorage.getItem(`replicate:${replicateKey}`)
+      // If payload is missing, it may have been consumed by a previous render (React Strict Mode)
+      // or the session expired - silently skip in this case
+      if (!raw) {
+        return
+      }
+      
       try {
-        const raw = sessionStorage.getItem(`replicate:${replicateKey}`)
-        if (!raw) throw new Error('Missing replicate payload')
-        const payload = JSON.parse(raw) as Partial<BookingFormData>
-        setFormData(prev => ({ ...prev, ...payload }))
-        // One-time use
+        const payload = JSON.parse(raw) as Partial<BookingFormData> & { linkedBusinessId?: string }
+        
+        // Extract linkedBusinessId for backfill tracking
+        if (payload.linkedBusinessId) {
+          setLinkedBusinessId(payload.linkedBusinessId)
+        }
+        
+        // Also load additionalInfo if available (contains template-specific fields)
+        // Structure: { templateName, templateDisplayName, fields: { fieldName: value, ... } }
+        const additionalInfoRaw = sessionStorage.getItem(`replicate:${replicateKey}:additionalInfo`)
+        const additionalInfo = additionalInfoRaw 
+          ? JSON.parse(additionalInfoRaw) as { templateName?: string; templateDisplayName?: string; fields?: Record<string, string> } 
+          : null
+        
+        // One-time use - clean up storage BEFORE updating state to prevent double processing
         sessionStorage.removeItem(`replicate:${replicateKey}`)
+        if (additionalInfoRaw) {
+          sessionStorage.removeItem(`replicate:${replicateKey}:additionalInfo`)
+        }
+        
+        // Remove linkedBusinessId from payload before spreading (it's not a form field)
+        const formPayload = { ...payload }
+        delete (formPayload as Record<string, unknown>).linkedBusinessId
+        
+        // Merge payload and additionalInfo.fields into form data
+        setFormData(prev => ({
+          ...prev,
+          ...formPayload as Partial<BookingFormData>,
+          // Spread additionalInfo.fields (the template-specific fields like eventStartTime, restaurantValidDineIn, etc.)
+          ...(additionalInfo?.fields && typeof additionalInfo.fields === 'object'
+            ? Object.fromEntries(
+                Object.entries(additionalInfo.fields).map(([key, value]) => [key, value ?? ''])
+              )
+            : {}),
+        }))
+        
         toast.success('Solicitud replicada (desde memoria)')
       } catch (e) {
         console.error('Failed to load replicate payload', e)
@@ -315,6 +409,10 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         if (subCategory3Param) newData.subCategory3 = subCategory3Param
         const campaignDurationParam = searchParams.get('campaignDuration')
         if (campaignDurationParam) newData.campaignDuration = campaignDurationParam
+        const campaignDurationUnitParam = searchParams.get('campaignDurationUnit')
+        if (campaignDurationUnitParam === 'days' || campaignDurationUnitParam === 'months') {
+          newData.campaignDurationUnit = campaignDurationUnitParam
+        }
         
         // Step 2: Operatividad
         const redemptionModeParam = searchParams.get('redemptionMode')
@@ -351,12 +449,8 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         if (accountTypeParam) newData.accountType = accountTypeParam
         const addressAndHoursParam = searchParams.get('addressAndHours')
         if (addressAndHoursParam) newData.addressAndHours = addressAndHoursParam
-        const provinceParam = searchParams.get('province')
-        if (provinceParam) newData.province = provinceParam
-        const districtParam = searchParams.get('district')
-        if (districtParam) newData.district = districtParam
-        const corregimientoParam = searchParams.get('corregimiento')
-        if (corregimientoParam) newData.corregimiento = corregimientoParam
+        const provinceDistrictCorregimientoParam = searchParams.get('provinceDistrictCorregimiento')
+        if (provinceDistrictCorregimientoParam) newData.provinceDistrictCorregimiento = provinceDistrictCorregimientoParam
         
         // Step 5: Negocio
         const includesTaxesParam = searchParams.get('includesTaxes')
@@ -369,14 +463,8 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         if (blackoutDatesParam) newData.blackoutDates = blackoutDatesParam
         const exclusivityConditionParam = searchParams.get('exclusivityCondition')
         if (exclusivityConditionParam) newData.exclusivityCondition = exclusivityConditionParam
-        const giftVouchersParam = searchParams.get('giftVouchers')
-        if (giftVouchersParam) newData.giftVouchers = giftVouchersParam
         const hasOtherBranchesParam = searchParams.get('hasOtherBranches')
         if (hasOtherBranchesParam) newData.hasOtherBranches = hasOtherBranchesParam
-        const vouchersPerPersonParam = searchParams.get('vouchersPerPerson')
-        if (vouchersPerPersonParam) newData.vouchersPerPerson = vouchersPerPersonParam
-        const commissionParam = searchParams.get('commission')
-        if (commissionParam) newData.commission = commissionParam
         
         // Step 6: Descripción
         const redemptionMethodsParam = searchParams.get('redemptionMethods')
@@ -452,15 +540,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
       const businessEmail = searchParams.get('businessEmail')
       const contactName = searchParams.get('contactName')
       const contactPhone = searchParams.get('contactPhone')
-      const parentCategory = searchParams.get('parentCategory')
-      const subCategory1 = searchParams.get('subCategory1')
-      const subCategory2 = searchParams.get('subCategory2')
-
-
-      // Build category value for compatibility with CategorySelect
-      const categoryValue = parentCategory 
-        ? `${parentCategory}${subCategory1 ? ' > ' + subCategory1 : ''}${subCategory2 ? ' > ' + subCategory2 : ''}`
-        : ''
+      // Category is NOT pre-filled - user must select manually
 
       setFormData(prev => {
         const addressAndHoursFromBusiness = [address, neighborhood].filter(Boolean).join(', ')
@@ -476,22 +556,17 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         redemptionContactEmail: businessEmail || partnerEmail || prev.redemptionContactEmail,
         approverName: contactName || prev.approverName,
         approverEmail: businessEmail || partnerEmail || prev.approverEmail,
-        category: categoryValue || prev.category,
-        parentCategory: parentCategory || prev.parentCategory,
-        subCategory1: subCategory1 || prev.subCategory1,
-        subCategory2: subCategory2 || prev.subCategory2,
+        // Category fields not pre-filled - user must select
         // Only set opportunityId if it's a real opportunity ID (not the "business" flag)
         opportunityId: fromOpportunity !== 'business' ? fromOpportunity : '',
           legalName: legalName || prev.legalName,
           rucDv: ruc || prev.rucDv,
-          province: province || prev.province,
-          district: district || prev.district,
-          corregimiento: corregimiento || prev.corregimiento,
+          provinceDistrictCorregimiento: provinceDistrictCorregimiento || prev.provinceDistrictCorregimiento,
           bank: bank || prev.bank,
           bankAccountName: bankAccountName || prev.bankAccountName,
           accountNumber: accountNumber || prev.accountNumber,
           accountType: accountType || prev.accountType,
-          paymentInstructions: paymentPlan || prev.paymentInstructions,
+          paymentType: paymentPlan || prev.paymentType,
           addressAndHours: addressAndHoursFromBusiness || prev.addressAndHours,
           socialMedia: socialFromBusiness || prev.socialMedia,
           contactDetails: website || prev.contactDetails,
@@ -666,7 +741,8 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   }
 
   // React 19: Handler that shows confirmation dialog before submit
-  const handleSubmit = () => {
+  // Now includes backfill preview check
+  const handleSubmit = async () => {
     // Check essential fields before submission
     const missingFields: string[] = []
     if (!formData.businessName) missingFields.push('businessName')
@@ -690,17 +766,119 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
       return
     }
     
-    // Show confirmation dialog
+    // Check for business backfill changes if there's a linkedBusinessId
+    // This is now the standardized approach - all entry points pass businessId
+    if (linkedBusinessId) {
+      setLoadingBackfillPreview(true)
+      try {
+        const formDataToSend = buildFormDataForSubmit(formData)
+        formDataToSend.append('linkedBusinessId', linkedBusinessId)
+        const preview = await previewBusinessBackfill(formDataToSend, requestId)
+        
+        if (preview.success && preview.data?.hasLinkedBusiness && preview.data.changes.length > 0) {
+          // Store preview and show backfill confirmation dialog
+          setBackfillPreview({
+            businessName: preview.data.businessName,
+            hasVendorId: preview.data.hasVendorId,
+            changes: preview.data.changes,
+            formattedChanges: preview.data.formattedChanges,
+          })
+          setShowBackfillDialog(true)
+          setLoadingBackfillPreview(false)
+          return
+        }
+      } catch (error) {
+        console.error('Error previewing backfill:', error)
+        // Continue with regular submit on error
+      }
+      setLoadingBackfillPreview(false)
+    }
+    
+    // No backfill needed - show regular confirmation dialog
     setShowConfirmDialog(true)
   }
 
-  // Actually execute the submit after confirmation
-  const handleConfirmedSubmit = () => {
+  // Handle confirmed submit WITH backfill
+  const handleConfirmedSubmitWithBackfill = async () => {
+    setShowBackfillDialog(false)
+    
+    if (!backfillPreview) {
+      // Fallback to regular submit
+      handleConfirmedSubmitRegular()
+      return
+    }
+    
+    startTransition(async () => {
+      const formDataToSend = buildFormDataForSubmit(formData)
+      // If we have a direct businessId link, add it for backfill execution
+      if (linkedBusinessId) {
+        formDataToSend.append('linkedBusinessId', linkedBusinessId)
+      }
+      
+      try {
+        const result = await sendBookingRequestWithBackfill(
+          formDataToSend,
+          requestId,
+          backfillPreview.changes
+        )
+        
+        if (result.success) {
+          // Show result dialog with backfill info
+          setBackfillResult({
+            success: true,
+            fieldsUpdated: result.backfillResult?.updatedFields,
+            vendorSynced: result.backfillResult?.vendorSyncResult?.success,
+          })
+          setShowBackfillResultDialog(true)
+        } else {
+          toast.error('Error al enviar solicitud: ' + result.error)
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
+        toast.error('Error: ' + errorMsg)
+      }
+      
+      // Clear backfill preview
+      setBackfillPreview(null)
+    })
+  }
+
+  // Handle skip backfill (send without updating business)
+  const handleSkipBackfill = () => {
+    setShowBackfillDialog(false)
+    setBackfillPreview(null)
+    // Show regular confirmation dialog
+    setShowConfirmDialog(true)
+  }
+
+  // Handle backfill result dialog close
+  const handleBackfillResultClose = () => {
+    setShowBackfillResultDialog(false)
+    setBackfillResult(null)
+    toast.success('Solicitud enviada exitosamente')
+    router.push('/booking-requests')
+  }
+
+  // Handle vendor auto-creation result dialog close
+  const handleVendorResultClose = () => {
+    setShowVendorResultDialog(false)
+    setVendorCreateResult(null)
+    toast.success('Solicitud enviada exitosamente')
+    router.push('/booking-requests')
+  }
+
+  // Regular submit (without backfill)
+  const handleConfirmedSubmitRegular = () => {
     setShowConfirmDialog(false)
     startTransition(() => {
       const formDataToSend = buildFormDataForSubmit(formData)
       submitAction(formDataToSend)
     })
+  }
+
+  // Actually execute the submit after confirmation (legacy, now calls regular)
+  const handleConfirmedSubmit = () => {
+    handleConfirmedSubmitRegular()
   }
 
   const addPricingOption = () => {
@@ -767,9 +945,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
                     label: opt.label,
                     description: opt.parent,
                   }))}
-                  selectedLabel={
-                    categoryOptions.find(opt => opt.value === formData.category)?.label || formData.category || ''
-                  }
+                  value={formData.category || ''}
                   placeholder="Buscar y seleccionar categoría"
                   onSelect={(value) => {
                     const option = categoryOptions.find(o => o.value === value)
@@ -841,6 +1017,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
                     errors={errors}
                     updateFormData={updateFormData}
                     isFieldRequired={isFieldRequired}
+                    onBusinessSelect={(businessId) => setLinkedBusinessId(businessId)}
                   />
                 )}
 
@@ -961,7 +1138,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         />
       </div>
 
-      {/* Submit Confirmation Dialog */}
+      {/* Submit Confirmation Dialog (no backfill) */}
       <ConfirmDialog
         isOpen={showConfirmDialog}
         title="Confirmar Envío"
@@ -973,6 +1150,195 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         onCancel={() => setShowConfirmDialog(false)}
         loading={isSubmitPending}
         loadingText="Enviando..."
+      />
+
+      {/* Backfill Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showBackfillDialog}
+        title="Actualizar Datos del Negocio"
+        message={
+          <div className="text-left space-y-3">
+            <p className="text-gray-700 text-sm">
+              Se detectaron cambios en esta solicitud que pueden actualizar el negocio <strong>{backfillPreview?.businessName}</strong>.
+            </p>
+            
+            {backfillPreview?.formattedChanges && backfillPreview.formattedChanges.length > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-xs font-semibold text-blue-800 mb-2">Campos a actualizar:</p>
+                <ul className="space-y-1.5 text-sm">
+                  {backfillPreview.formattedChanges.map((change, idx) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      {change.isUpdate ? (
+                        <>
+                          <span className="text-amber-600 font-medium">~</span>
+                          <span className="text-gray-700">
+                            <span className="font-medium">{change.label}:</span>{' '}
+                            <span className="text-red-500 line-through">{change.oldValue}</span>
+                            {' → '}
+                            <span className="text-green-700">{change.value}</span>
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-green-600 font-medium">+</span>
+                          <span className="text-gray-700">
+                            <span className="font-medium">{change.label}:</span>{' '}
+                            <span className="text-green-700">{change.value}</span>
+                          </span>
+                        </>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {/* OfertaSimple sync info */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <SyncIcon style={{ fontSize: 14 }} className="text-gray-500" />
+                <p className="text-xs font-semibold text-gray-700">OfertaSimple Admin</p>
+              </div>
+              {backfillPreview?.hasVendorId ? (
+                <p className="text-xs text-gray-600">
+                  Los campos actualizados se sincronizarán automáticamente con el Vendor en OfertaSimple.
+                </p>
+              ) : (
+                <p className="text-xs text-gray-600">
+                  Se creará un nuevo Vendor en OfertaSimple con los datos de este negocio.
+                </p>
+              )}
+            </div>
+            
+            <p className="text-gray-500 text-xs pt-2 border-t border-gray-200">
+              ¿Desea actualizar el negocio con estos datos y enviar la solicitud?
+            </p>
+          </div>
+        }
+        confirmText="Actualizar y Enviar"
+        cancelText="Solo Enviar"
+        confirmVariant="primary"
+        onConfirm={handleConfirmedSubmitWithBackfill}
+        onCancel={handleSkipBackfill}
+        loading={isSubmitPending || isPending}
+        loadingText="Enviando..."
+      />
+
+      {/* Backfill Result Dialog */}
+      <ConfirmDialog
+        isOpen={showBackfillResultDialog}
+        title={backfillResult?.success ? "Solicitud Enviada" : "Error"}
+        message={
+          <div className="text-left space-y-3">
+            {backfillResult?.success ? (
+              <>
+                <div className="flex items-center gap-2 text-green-700 font-medium">
+                  <CheckCircleOutlineIcon style={{ fontSize: 18 }} />
+                  <span>Solicitud enviada exitosamente.</span>
+                </div>
+                
+                {backfillResult.fieldsUpdated && backfillResult.fieldsUpdated.length > 0 && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <p className="text-xs font-semibold text-green-800 mb-1">
+                      Negocio actualizado ({backfillResult.fieldsUpdated.length} campo{backfillResult.fieldsUpdated.length > 1 ? 's' : ''}):
+                    </p>
+                    <p className="text-sm text-green-700">
+                      {backfillResult.fieldsUpdated.join(', ')}
+                    </p>
+                  </div>
+                )}
+                
+                {backfillResult.vendorSynced && (
+                  <div className="flex items-center gap-1.5 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1.5">
+                    <SyncIcon style={{ fontSize: 14 }} />
+                    <span>Sincronizado con OfertaSimple (Vendor API)</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex items-center gap-2 text-red-700">
+                <ErrorOutlineIcon style={{ fontSize: 18 }} />
+                <span>{backfillResult?.error || 'Error desconocido'}</span>
+              </div>
+            )}
+          </div>
+        }
+        confirmText="Entendido"
+        cancelText=""
+        confirmVariant={backfillResult?.success ? "success" : "danger"}
+        onConfirm={handleBackfillResultClose}
+        onCancel={handleBackfillResultClose}
+      />
+
+      {/* Vendor Auto-Creation Result Dialog */}
+      <ConfirmDialog
+        isOpen={showVendorResultDialog}
+        title="Solicitud Enviada"
+        message={
+          <div className="text-left space-y-3">
+            <div className="flex items-center gap-2 text-green-700 font-medium">
+              <CheckCircleOutlineIcon style={{ fontSize: 18 }} />
+              <span>Solicitud enviada exitosamente.</span>
+            </div>
+            
+            {vendorCreateResult?.success ? (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <StorefrontIcon style={{ fontSize: 14 }} className="text-blue-600" />
+                  <p className="text-xs font-semibold text-blue-800">
+                    Vendor creado en OfertaSimple
+                  </p>
+                </div>
+                <p className="text-sm text-blue-700">
+                  {vendorCreateResult.businessName && (
+                    <span className="font-medium">{vendorCreateResult.businessName}</span>
+                  )}
+                  {vendorCreateResult.externalVendorId && (
+                    <span className="text-blue-500 ml-1">(ID: {vendorCreateResult.externalVendorId})</span>
+                  )}
+                </p>
+              </div>
+            ) : vendorCreateResult?.error ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <WarningAmberIcon style={{ fontSize: 14 }} className="text-amber-600" />
+                  <p className="text-xs font-semibold text-amber-800">
+                    No se pudo crear el Vendor en OfertaSimple
+                  </p>
+                </div>
+                <p className="text-sm text-amber-700">
+                  {vendorCreateResult.error}
+                </p>
+                {vendorCreateResult.businessName && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    Negocio: {vendorCreateResult.businessName}
+                  </p>
+                )}
+              </div>
+            ) : null}
+          </div>
+        }
+        confirmText="Entendido"
+        cancelText=""
+        confirmVariant="success"
+        onConfirm={handleVendorResultClose}
+        onCancel={handleVendorResultClose}
+      />
+
+      {/* Loading overlay for backfill preview */}
+      {loadingBackfillPreview && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 flex items-center gap-3">
+            <div className="animate-spin h-5 w-5 border-2 border-blue-500 border-t-transparent rounded-full" />
+            <span className="text-gray-700 font-medium">Verificando datos del negocio...</span>
+          </div>
+        </div>
+      )}
+
+      <FullScreenLoader
+        isLoading={isSubmitPending || isPending}
+        message="Enviando solicitud..."
+        subtitle="Procesando email y sincronizando datos"
       />
     </div>
   )

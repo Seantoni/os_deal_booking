@@ -7,80 +7,76 @@ datasource db {
 }
 
 model BookingRequest {
-  id                     String                  @id @default(cuid())
-  name                   String
-  category               String?
-  parentCategory         String?
-  subCategory1           String?
-  subCategory2           String?
-  subCategory3           String?
-  merchant               String?
-  businessEmail          String
-  startDate              DateTime
-  endDate                DateTime
-  status                 String                  @default("draft")
-  userId                 String
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
-  eventId                String?
-  processedAt            DateTime?
-  processedBy            String?
-  rejectionReason        String?
-  accountNumber          String?
-  accountType            String?
-  additionalComments     String?
-  addressAndHours        String?
-  bank                   String?
-  bankAccountName        String?
-  blackoutDates          String?
-  businessReview         String?
-  campaignDuration       String?
-  cancellationPolicy     String?
-  commission             String?
-  contactDetails         String?
-  corregimiento          String?
-  district               String?
-  exclusivityCondition   String?
-  giftVouchers           String?
-  hasExclusivity         String?
-  hasOtherBranches       String?
-  includesTaxes          String?
-  isRecurring            String?
-  legalName              String?
-  marketValidation       String?
-  paymentInstructions    String?
-  paymentType            String?
-  pricingOptions         Json?
-  province               String?
-  recurringOfferLink     String?
-  redemptionContactEmail String?
-  redemptionContactName  String?
-  redemptionContactPhone String?
-  redemptionMethods      Json?
-  redemptionMode         String?
-  rucDv                  String?
-  socialMedia            String?
-  validOnHolidays        String?
-  vouchersPerPerson      String?
-  opportunityId          String?
-  dealId                 String?                 @unique
-  publicLinkToken        String?                 @unique
-  sourceType             String                  @default("internal")
-  fieldComments          Json?
-  additionalEmails       Json?
-  additionalInfo         Json?
-  subCategory4           String?
-  dealImages             Json?
-  aboutCompany           String?
-  aboutOffer             String?
-  goodToKnow             String?
-  whatWeLike             String?
-  shortTitle             String?
-  offerMargin            String?
-  publicRequestLink      PublicRequestLink?      @relation(fields: [publicLinkToken], references: [token])
-  deal                   Deal?
-  externalApiRequests    ExternalApiRequest[]
-  marketingCampaign      MarketingCampaign?
+  id                            String               @id @default(cuid())
+  name                          String
+  category                      String?
+  parentCategory                String?
+  subCategory1                  String?
+  subCategory2                  String?
+  subCategory3                  String?
+  merchant                      String?
+  businessEmail                 String
+  startDate                     DateTime
+  endDate                       DateTime
+  status                        String               @default("draft")
+  userId                        String
+  createdAt                     DateTime             @default(now())
+  updatedAt                     DateTime             @updatedAt
+  eventId                       String?
+  processedAt                   DateTime?
+  processedBy                   String?
+  rejectionReason               String?
+  accountNumber                 String?
+  accountType                   String?
+  additionalComments            String?
+  addressAndHours               String?
+  bank                          String?
+  bankAccountName               String?
+  blackoutDates                 String?
+  businessReview                String?
+  campaignDuration              String?
+  campaignDurationUnit          String?              @default("months") // 'days' or 'months'
+  cancellationPolicy            String?
+  contactDetails                String?
+  provinceDistrictCorregimiento String?
+  exclusivityCondition          String?
+  hasExclusivity                String?
+  hasOtherBranches              String?
+  includesTaxes                 String?
+  isRecurring                   String?
+  legalName                     String?
+  marketValidation              String?
+  paymentInstructions           String?
+  paymentType                   String?
+  pricingOptions                Json?
+  recurringOfferLink            String?
+  redemptionContactEmail        String?
+  redemptionContactName         String?
+  redemptionContactPhone        String?
+  redemptionMethods             Json?
+  redemptionMode                String?
+  rucDv                         String?
+  socialMedia                   String?
+  validOnHolidays               String?
+  opportunityId                 String?
+  dealId                        String?              @unique
+  publicLinkToken               String?              @unique
+  sourceType                    String               @default("internal")
+  fieldComments                 Json?
+  additionalEmails              Json?
+  additionalInfo                Json?
+  subCategory4                  String?
+  dealImages                    Json?
+  aboutCompany                  String?
+  aboutOffer                    String?
+  goodToKnow                    String?
+  whatWeLike                    String?
+  shortTitle                    String?
+  offerMargin                   String?
+  publicRequestLink             PublicRequestLink?   @relation(fields: [publicLinkToken], references: [token])
+  deal                          Deal?
+  externalApiRequests           ExternalApiRequest[]
+  marketingCampaign             MarketingCampaign?
 
   @@index([businessEmail])
   @@index([dealId])
@@ -125,15 +121,16 @@ model Event {
 }
 
 model UserProfile {
-  id              String             @id @default(cuid())
-  clerkId         String             @unique
+  id              String         @id @default(cuid())
+  clerkId         String         @unique
   email           String?
   name            String?
-  role            String             @default("sales")
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  isActive        Boolean            @default(true)
-  businessReps    BusinessSalesRep[]
+  role            String         @default("sales")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  isActive        Boolean        @default(true)
+  ownedBusinesses Business[]     @relation("BusinessOwner")
+  entityAccess    EntityAccess[] // Items this user has been granted access to
 
   @@index([clerkId])
   @@index([email])
@@ -179,12 +176,12 @@ model ActivityLog {
 }
 
 model AllowedEmail {
-  id                String              @id @default(cuid())
-  email             String              @unique
-  isActive          Boolean             @default(true)
+  id                String           @id @default(cuid())
+  email             String           @unique
+  isActive          Boolean          @default(true)
   notes             String?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
   createdBy         String
   clerkInvitationId String?
   invitationStatus  String?
@@ -201,76 +198,76 @@ model AllowedEmail {
   @@map("allowed_emails")
 }
 
-model BusinessSalesRep {
-  id          String      @id @default(cuid())
-  businessId  String
-  salesRepId  String
-  createdAt   DateTime    @default(now())
-  business    Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  userProfile UserProfile @relation(fields: [salesRepId], references: [clerkId], onDelete: Cascade)
-
-  @@unique([businessId, salesRepId])
-  @@index([businessId])
-  @@index([salesRepId])
-  @@map("business_sales_reps")
-}
-
 model Business {
-  id                   String              @id @default(cuid())
-  name                 String
-  contactName          String
-  contactPhone         String
-  contactEmail         String
-  categoryId           String?
-  createdAt            DateTime            @default(now())
-  updatedAt            DateTime            @updatedAt
-  description          String?
-  instagram            String?
-  ownerId              String?
-  salesTeam            String?
-  tier                 Int?
-  website              String?
-  leadId               String?             @unique
-  sourceType           String              @default("manual")
-  metrics              Json?
-  accountManager       String?
-  accountNumber        String?
-  accountType          String?
-  address              String?
-  bank                 String?
-  beneficiaryName      String?
-  corregimiento        String?
-  district             String?
-  emailPaymentContacts String?
-  ere                  String?
-  isAsesor             String?
-  neighborhood         String?
-  osAsesor             String?
-  paymentPlan          String?
-  province             String?
-  razonSocial          String?
-  ruc                  String?
-  salesType            String?
-  osAdminVendorId      String?
-  focusPeriod          String?
-  focusSetAt           DateTime?
+  id                            String             @id @default(cuid())
+  name                          String
+  contactName                   String
+  contactPhone                  String
+  contactEmail                  String
+  categoryId                    String?
+  createdAt                     DateTime           @default(now())
+  updatedAt                     DateTime           @updatedAt
+  description                   String?
+  instagram                     String?
+  ownerId                       String?
+  salesTeam                     String?
+  tier                          Int?
+  website                       String?
+  leadId                        String?            @unique
+  sourceType                    String             @default("manual")
+  metrics                       Json?
+  accountManager                String?
+  accountNumber                 String?
+  accountType                   String?
+  address                       String?
+  bank                          String?
+  beneficiaryName               String?
+  provinceDistrictCorregimiento String?
+  emailPaymentContacts          String?
+  ere                           String?
+  isAsesor                      String?
+  neighborhood                  String?
+  osAsesor                      String?
+  paymentPlan                   String?
+  razonSocial                   String?
+  ruc                           String?
+  salesType                     String?
+  osAdminVendorId               String?
+  focusPeriod                   String?
+  focusSetAt                    DateTime?
   // Reassignment tracking
-  reassignmentStatus      String?   // null (normal), 'pending_reassign', 'pending_removal'
-  reassignmentType        String?   // 'reasignar' or 'sacar'
-  reassignmentRequestedBy String?   // clerkId of who requested
-  reassignmentRequestedAt DateTime?
-  reassignmentReason      String?   // required notes explaining the request
-  reassignmentPreviousOwner String? // to restore if cancelled
-  salesReps            BusinessSalesRep[]
-  category             Category?           @relation(fields: [categoryId], references: [id])
-  lead                 Lead?
-  opportunities        Opportunity[]
+  reassignmentStatus            String? // null (normal), 'pending_reassign', 'pending_removal'
+  reassignmentType              String? // 'reasignar' or 'sacar'
+  reassignmentRequestedBy       String? // clerkId of who requested
+  reassignmentRequestedAt       DateTime?
+  reassignmentReason            String? // required notes explaining the request
+  reassignmentPreviousOwner     String? // to restore if cancelled
+  // Deal metrics aggregates (updated during sync for fast sorting)
+  topSoldQuantity               Int?
+  topSoldDealUrl                String?
+  topRevenueAmount              Decimal?           @db.Decimal(12, 2)
+  topRevenueDealUrl             String?
+  lastLaunchDate                DateTime?
+  totalDeals360d                Int?
+  metricsLastSyncedAt           DateTime?
+  owner                         UserProfile?       @relation("BusinessOwner", fields: [ownerId], references: [clerkId])
+  category                      Category?          @relation(fields: [categoryId], references: [id])
+  lead                          Lead?
+  opportunities                 Opportunity[]
+  dealMetrics                   DealMetrics[]
+  campaigns                     BusinessCampaign[]
+  eventLeads                    EventLead[]
+  restaurantLeads               RestaurantLead[]
 
   @@index([categoryId])
   @@index([leadId])
   @@index([name])
   @@index([ownerId])
   @@index([reassignmentStatus])
+  @@index([topSoldQuantity])
+  @@index([topRevenueAmount])
+  @@index([lastLaunchDate])
+  @@index([totalDeals360d])
   @@map("businesses")
 }
 
@@ -312,23 +309,23 @@ model CompetitorDealSnapshot {
 }
 
 model CompetitorDeal {
-  id              String                    @id @default(cuid())
-  sourceUrl       String                    @unique
+  id              String                   @id @default(cuid())
+  sourceUrl       String                   @unique
   sourceSite      String
   merchantName    String
   dealTitle       String
-  originalPrice   Decimal                   @db.Decimal(10, 2)
-  offerPrice      Decimal                   @db.Decimal(10, 2)
+  originalPrice   Decimal                  @db.Decimal(10, 2)
+  offerPrice      Decimal                  @db.Decimal(10, 2)
   discountPercent Int
-  totalSold       Int                       @default(0)
+  totalSold       Int                      @default(0)
   imageUrl        String?
-  status          String                    @default("active")
-  isTracking      Boolean                   @default(true)
-  firstSeenAt     DateTime                  @default(now())
-  lastScannedAt   DateTime                  @default(now())
+  status          String                   @default("active")
+  isTracking      Boolean                  @default(true)
+  firstSeenAt     DateTime                 @default(now())
+  lastScannedAt   DateTime                 @default(now())
   expiresAt       DateTime?
-  createdAt       DateTime                  @default(now())
-  updatedAt       DateTime                  @updatedAt
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
   tag             String?
   snapshots       CompetitorDealSnapshot[]
 
@@ -430,6 +427,50 @@ model ExternalApiRequest {
   @@index([success])
   @@index([userId])
   @@map("external_api_requests")
+}
+
+// ============================================
+// Deal Metrics (synced from external Oferta API)
+// ============================================
+
+model DealMetrics {
+  id                String                @id @default(cuid())
+  externalDealId    String                @unique // deal_id from external API (e.g. "D44381")
+  externalVendorId  String? // vendor_id from external API
+  businessId        String? // Link to internal Business (via osAdminVendorId)
+  dealName          String? // deal_name from external API
+  quantitySold      Int                   @default(0)
+  netRevenue        Decimal               @db.Decimal(12, 2)
+  margin            Decimal               @db.Decimal(12, 2)
+  dealUrl           String?
+  runAt             DateTime?
+  endAt             DateTime?
+  externalUpdatedAt DateTime? // updated_at from external API
+  lastSyncedAt      DateTime              @default(now())
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  snapshots         DealMetricsSnapshot[]
+  business          Business?             @relation(fields: [businessId], references: [id])
+
+  @@index([externalDealId])
+  @@index([externalVendorId])
+  @@index([businessId])
+  @@index([lastSyncedAt])
+  @@map("deal_metrics")
+}
+
+model DealMetricsSnapshot {
+  id            String      @id @default(cuid())
+  dealMetricsId String
+  quantitySold  Int
+  netRevenue    Decimal     @db.Decimal(12, 2)
+  margin        Decimal     @db.Decimal(12, 2)
+  snapshotAt    DateTime    @default(now())
+  dealMetrics   DealMetrics @relation(fields: [dealMetricsId], references: [id], onDelete: Cascade)
+
+  @@index([dealMetricsId])
+  @@index([snapshotAt])
+  @@map("deal_metrics_snapshots")
 }
 
 model FormFieldConfig {
@@ -544,24 +585,24 @@ model MarketingOptionComment {
 }
 
 model MarketingOption {
-  id             String                    @id @default(cuid())
+  id             String                   @id @default(cuid())
   campaignId     String
   platform       String
   optionType     String
-  isPlanned      Boolean                   @default(false)
-  isCompleted    Boolean                   @default(false)
+  isPlanned      Boolean                  @default(false)
+  isCompleted    Boolean                  @default(false)
   dueDate        DateTime?
   completedAt    DateTime?
   completedBy    String?
   notes          String?
   mediaUrls      Json?
-  createdAt      DateTime                  @default(now())
-  updatedAt      DateTime                  @updatedAt
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
   notesUpdatedAt DateTime?
   notesUpdatedBy String?
   responsibleId  String?
   comments       MarketingOptionComment[]
-  campaign       MarketingCampaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaign       MarketingCampaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
   @@unique([campaignId, platform, optionType])
   @@index([campaignId])
@@ -573,27 +614,27 @@ model MarketingOption {
 }
 
 model Opportunity {
-  id                   String               @id @default(cuid())
-  businessId           String
-  stage                String               @default("iniciacion")
-  startDate            DateTime
-  closeDate            DateTime?
-  notes                String?
-  userId               String
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
-  lastActivityDate     DateTime?
-  nextActivityDate     DateTime?
-  responsibleId        String?
-  hasRequest           Boolean              @default(false)
-  bookingRequestId     String?
-  dealId               String?              @unique
-  lostReason           String?
-  name                 String?
-  deal                 Deal?
-  business             Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  comments             OpportunityComment[]
-  tasks                Task[]
+  id               String               @id @default(cuid())
+  businessId       String
+  stage            String               @default("iniciacion")
+  startDate        DateTime
+  closeDate        DateTime?
+  notes            String?
+  userId           String
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  lastActivityDate DateTime?
+  nextActivityDate DateTime?
+  responsibleId    String?
+  hasRequest       Boolean              @default(false)
+  bookingRequestId String?
+  dealId           String?              @unique
+  lostReason       String?
+  name             String?
+  deal             Deal?
+  business         Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  comments         OpportunityComment[]
+  tasks            Task[]
 
   @@index([bookingRequestId])
   @@index([businessId])
@@ -693,4 +734,168 @@ model Task {
   @@index([date])
   @@index([opportunityId])
   @@map("tasks")
+}
+
+// ============================================
+// Cron Job Logs (for tracking scheduled jobs)
+// ============================================
+
+model CronJobLog {
+  id          String    @id @default(cuid())
+  jobName     String // e.g. 'deal-metrics-sync', 'task-reminders', 'market-intelligence-scan'
+  status      String // 'running', 'success', 'failed'
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  durationMs  Int?
+  message     String?
+  details     Json? // Stats, counts, etc.
+  error       String? // Error message if failed
+  triggeredBy String    @default("cron") // 'cron' or 'manual'
+  createdAt   DateTime  @default(now())
+
+  @@index([jobName])
+  @@index([status])
+  @@index([startedAt])
+  @@index([createdAt])
+  @@map("cron_job_logs")
+}
+
+// ============================================
+// Sales Campaigns (for grouping businesses)
+// ============================================
+
+model SalesCampaign {
+  id            String   @id @default(cuid())
+  name          String
+  runAt         DateTime
+  endAt         DateTime
+  minBusinesses Int?
+  maxBusinesses Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdBy     String?
+
+  businesses BusinessCampaign[]
+
+  @@index([runAt])
+  @@index([endAt])
+  @@index([createdBy])
+  @@map("sales_campaigns")
+}
+
+model BusinessCampaign {
+  id         String   @id @default(cuid())
+  businessId String
+  campaignId String
+  assignedAt DateTime @default(now())
+  assignedBy String?
+
+  business Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  campaign SalesCampaign @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+
+  @@unique([businessId, campaignId])
+  @@index([businessId])
+  @@index([campaignId])
+  @@index([assignedAt])
+  @@map("business_campaigns")
+}
+
+// ============================================
+// Event Leads (scraped from ticket sites)
+// ============================================
+
+model EventLead {
+  id                 String   @id @default(cuid())
+  sourceUrl          String   @unique
+  sourceSite         String // 'ticketplus' | 'panatickets'
+  eventName          String
+  eventDate          String? // Raw date string from card (e.g., "27 FEB", "9 ABR")
+  eventPlace         String? // Venue name
+  promoter           String? // Who is promoting the event (from scraping)
+  promoterBusinessId String? // Linked business (promoter) - user-selected
+  imageUrl           String?
+  price              String? // Price text (may have range)
+  status             String   @default("active")
+  firstSeenAt        DateTime @default(now())
+  lastScannedAt      DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  promoterBusiness Business? @relation(fields: [promoterBusinessId], references: [id], onDelete: SetNull)
+
+  @@index([sourceSite])
+  @@index([status])
+  @@index([firstSeenAt])
+  @@index([lastScannedAt])
+  @@index([eventName])
+  @@index([promoterBusinessId])
+  @@map("event_leads")
+}
+
+model ProvDistCorr {
+  id    String @id @default(cuid())
+  value String @unique // e.g. "BOCAS DEL TORO,CHANGUINOLA,LAS TABLAS"
+
+  createdAt DateTime @default(now())
+
+  @@map("prov_dist_corr")
+}
+
+// ============================================
+// Restaurant Leads (scraped from Degusta, etc.)
+// ============================================
+
+model RestaurantLead {
+  id                String   @id @default(cuid())
+  sourceUrl         String   @unique
+  sourceSite        String // 'degusta'
+  name              String
+  cuisine           String? // Food type (e.g., "Japonesa, Asiática, Fusion")
+  address           String?
+  neighborhood      String?
+  pricePerPerson    Decimal? @db.Decimal(10, 2) // Average price per person
+  discount          String? // Discount text (e.g., "10% OFF")
+  votes             Int? // Number of votes/reviews
+  foodRating        Decimal? @db.Decimal(3, 1) // e.g., 4.8
+  serviceRating     Decimal? @db.Decimal(3, 1)
+  ambientRating     Decimal? @db.Decimal(3, 1)
+  imageUrl          String?
+  matchedBusinessId String? // Linked business (auto or manual matched)
+  matchConfidence   Decimal? @db.Decimal(3, 2) // Match confidence 0.00-1.00
+  firstSeenAt       DateTime @default(now())
+  lastScannedAt     DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  matchedBusiness Business? @relation(fields: [matchedBusinessId], references: [id], onDelete: SetNull)
+
+  @@index([sourceSite])
+  @@index([firstSeenAt])
+  @@index([lastScannedAt])
+  @@index([name])
+  @@index([cuisine])
+  @@index([matchedBusinessId])
+  @@map("restaurant_leads")
+}
+
+// Item-level access control - grants specific users access to specific entities
+// regardless of their role. Works across: business, opportunity, deal, eventLead, etc.
+model EntityAccess {
+  id          String    @id @default(cuid())
+  userId      String // UserProfile.id of user who has access
+  entityType  String // 'business' | 'opportunity' | 'deal' | 'eventLead' | 'bookingRequest'
+  entityId    String // ID of the specific item
+  accessLevel String    @default("view") // 'view' | 'edit' | 'manage'
+  grantedBy   String // UserProfile.id of admin who granted access
+  grantedAt   DateTime  @default(now())
+  expiresAt   DateTime? // Optional expiration date
+  notes       String? // Why access was granted
+
+  user UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, entityType, entityId])
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("entity_access")
 }

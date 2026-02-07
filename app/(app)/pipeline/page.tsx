@@ -27,7 +27,7 @@ export default async function PipelinePage() {
   return (
     <AppLayout title="Pipeline">
       <PipelinePageClient 
-        initialData={pipelineData as any} 
+        initialData={pipelineData} 
         initialTotal={initialTotal}
       />
     </AppLayout>

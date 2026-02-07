@@ -17,9 +17,11 @@ interface ConfiguracionStepProps {
   updateFormData: (field: keyof BookingFormData, value: BookingFormData[keyof BookingFormData]) => void
   isPublicForm?: boolean // If true, disable date calculation
   isFieldRequired?: (fieldKey: string) => boolean
+  /** Callback when a business is selected (for backfill tracking) */
+  onBusinessSelect?: (businessId: string | null) => void
 }
 
-export default function ConfiguracionStep({ formData, errors, updateFormData, isPublicForm = false, isFieldRequired = () => false }: ConfiguracionStepProps) {
+export default function ConfiguracionStep({ formData, errors, updateFormData, isPublicForm = false, isFieldRequired = () => false, onBusinessSelect }: ConfiguracionStepProps) {
   const [daysUntilLaunch, setDaysUntilLaunch] = useState<number | null>(null)
   const [calculatingDate, setCalculatingDate] = useState(false)
   const [selectedBusiness, setSelectedBusiness] = useState<BusinessWithStatus | null>(null)
@@ -43,7 +45,8 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
         try {
           // Fetch ALL booked events (regardless of user) and settings
           // This ensures accurate date calculation based on all reserved dates
-          const events = await getAllBookedEvents()
+          const eventsResult = await getAllBookedEvents()
+          const events = eventsResult.success ? eventsResult.data || [] : []
           const settings = getSettings()
           
           // Build standardized category key for matching
@@ -132,16 +135,22 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
   }
 
   const campaignDuration = formData.campaignDuration || '3'
+  const campaignDurationUnit = formData.campaignDurationUnit || 'months'
   const startDateFormatted = formData.startDate ? formatDate(formData.startDate) : 'X'
   const endDateFormatted = formData.endDate ? formatDate(formData.endDate) : 'Y'
   
-  // Calculate redemption validity date (end date + campaign duration in months)
+  // Calculate redemption validity date (end date + campaign duration in days or months)
   const calculateRedemptionDate = (): string => {
     if (!formData.endDate) return 'Z'
     const endDate = new Date(formData.endDate + 'T00:00:00')
-    const months = parseInt(campaignDuration) || 3
+    const duration = parseInt(campaignDuration) || 3
     const redemptionDate = new Date(endDate)
-    redemptionDate.setMonth(redemptionDate.getMonth() + months)
+    
+    if (campaignDurationUnit === 'days') {
+      redemptionDate.setDate(redemptionDate.getDate() + duration)
+    } else {
+      redemptionDate.setMonth(redemptionDate.getMonth() + duration)
+    }
     return formatDate(redemptionDate.toISOString().split('T')[0])
   }
   
@@ -171,6 +180,9 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
               updateFormData('businessName', businessName)
               setSelectedBusiness(business)
               
+              // Notify parent of business selection for backfill tracking
+              onBusinessSelect?.(business?.id || null)
+              
               // Auto-fill related fields when a business is selected
               if (business) {
                 // Contact info
@@ -187,28 +199,19 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
                   updateFormData('redemptionContactPhone', business.contactPhone)
                 }
                 
-                // Category from business
-                if (business.category) {
-                  const categoryValue = `${business.category.parentCategory}${business.category.subCategory1 ? ' > ' + business.category.subCategory1 : ''}${business.category.subCategory2 ? ' > ' + business.category.subCategory2 : ''}`
-                  updateFormData('category', categoryValue)
-                  updateFormData('parentCategory', business.category.parentCategory)
-                  updateFormData('subCategory1', business.category.subCategory1 || '')
-                  updateFormData('subCategory2', business.category.subCategory2 || '')
-                }
+                // Category is NOT auto-filled - user must select manually
                 
                 // Fiscal info
                 if (business.razonSocial) updateFormData('legalName', business.razonSocial)
                 if (business.ruc) updateFormData('rucDv', business.ruc)
-                if (business.province) updateFormData('province', business.province)
-                if (business.district) updateFormData('district', business.district)
-                if (business.corregimiento) updateFormData('corregimiento', business.corregimiento)
+                if (business.provinceDistrictCorregimiento) updateFormData('provinceDistrictCorregimiento', business.provinceDistrictCorregimiento)
                 
                 // Bank info
                 if (business.bank) updateFormData('bank', business.bank)
                 if (business.beneficiaryName) updateFormData('bankAccountName', business.beneficiaryName)
                 if (business.accountNumber) updateFormData('accountNumber', business.accountNumber)
                 if (business.accountType) updateFormData('accountType', business.accountType)
-                if (business.paymentPlan) updateFormData('paymentInstructions', business.paymentPlan)
+                if (business.paymentPlan) updateFormData('paymentType', business.paymentPlan)
                 
                 // Address
                 const addressParts = [business.address, business.neighborhood].filter(Boolean)
@@ -269,18 +272,50 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
           </div>
         </div>
 
-          <Input
-          label="Duración de Campaña"
-          required={isFieldRequired('campaignDuration')}
-            value={formData.campaignDuration || '3'}
-            onChange={(e) => updateFormData('campaignDuration', e.target.value)}
-            placeholder="Ej: 2 meses"
-          helperText="Periodo de canje a publicar en campaña"
-        />
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Duración de Campaña {isFieldRequired('campaignDuration') && <span className="text-red-500">*</span>}
+          </label>
+          <div className="flex gap-2">
+            <Input
+              value={formData.campaignDuration}
+              onChange={(e) => updateFormData('campaignDuration', e.target.value)}
+              placeholder="3"
+              type="number"
+              min="1"
+              className="flex-1"
+            />
+            <div className="inline-flex rounded-lg bg-gray-100 p-0.5">
+              <button
+                type="button"
+                onClick={() => updateFormData('campaignDurationUnit', 'days')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                  (formData.campaignDurationUnit || 'months') === 'days'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Días
+              </button>
+              <button
+                type="button"
+                onClick={() => updateFormData('campaignDurationUnit', 'months')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
+                  (formData.campaignDurationUnit || 'months') === 'months'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Meses
+              </button>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 mt-1.5">Periodo de canje a publicar en campaña</p>
+        </div>
 
         <div>
           <Input
-            label="Fecha de Inicio (Run At)"
+            label="Fecha de lanzamiento estimada"
             required={isFieldRequired('startDate')}
             type="date"
             value={formData.startDate}
@@ -312,13 +347,36 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
       </div>
 
         {(formData.startDate || formData.endDate) && (
-          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-6 shadow-sm">
-            <p className="text-sm text-blue-900 leading-relaxed font-medium">
-              {daysUntilLaunch !== null && daysUntilLaunch >= 0 && (
-                <>Oferta puede lanzar en <span className="font-bold">{daysUntilLaunch} {daysUntilLaunch === 1 ? 'día' : 'días'}</span>. </>
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
+              {daysUntilLaunch !== null && daysUntilLaunch >= 0 ? (
+                <div className="bg-white/60 rounded-lg px-3 py-2">
+                  <p className="text-xs text-gray-500">Lanza en</p>
+                  <p className="text-sm font-semibold text-blue-700">{daysUntilLaunch} {daysUntilLaunch === 1 ? 'día' : 'días'}</p>
+                </div>
+              ) : (
+                <div className="bg-white/60 rounded-lg px-3 py-2">
+                  <p className="text-xs text-gray-500">Lanza en</p>
+                  <p className="text-sm font-semibold text-gray-400">—</p>
+                </div>
               )}
-              Oferta durará {campaignDuration} {campaignDuration === '1' ? 'mes' : 'meses'} lanzando el <span className="font-bold">{startDateFormatted}</span> y terminando el <span className="font-bold">{endDateFormatted}</span> y válido para canje hasta el <span className="font-bold">{redemptionDateFormatted}</span>. Total días activos en el sitio: <span className="font-bold">{totalDays} {totalDays === 1 ? 'día' : 'días'}</span>.
-            </p>
+              <div className="bg-white/60 rounded-lg px-3 py-2">
+                <p className="text-xs text-gray-500">Inicio</p>
+                <p className="text-sm font-semibold text-gray-800">{startDateFormatted || '—'}</p>
+              </div>
+              <div className="bg-white/60 rounded-lg px-3 py-2">
+                <p className="text-xs text-gray-500">Fin</p>
+                <p className="text-sm font-semibold text-gray-800">{endDateFormatted || '—'}</p>
+              </div>
+              <div className="bg-white/60 rounded-lg px-3 py-2">
+                <p className="text-xs text-gray-500">Días activos</p>
+                <p className="text-sm font-semibold text-gray-800">{totalDays || '—'}</p>
+              </div>
+              <div className="bg-white/60 rounded-lg px-3 py-2">
+                <p className="text-xs text-gray-500">Canje hasta</p>
+                <p className="text-sm font-semibold text-green-700">{redemptionDateFormatted || '—'}</p>
+              </div>
+            </div>
           </div>
         )}
     </div>

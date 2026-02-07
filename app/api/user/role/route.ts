@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     const { userId } = await auth()
     
     if (!userId) {
-      return NextResponse.json({ role: 'sales' }, { status: 200 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Always fetch fresh from database to ensure sync
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
       }
     })
   } catch (error) {
-    return NextResponse.json({ role: 'sales' }, { status: 200 })
+    return NextResponse.json({ error: 'Failed to get role' }, { status: 500 })
   }
 }
 

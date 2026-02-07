@@ -15,7 +15,7 @@ export type FieldSource = 'builtin' | 'custom'
 export interface BuiltinFieldDefinition {
   key: string
   label: string
-  type: 'text' | 'textarea' | 'number' | 'date' | 'select' | 'checkbox' | 'email' | 'phone' | 'url' | 'category' | 'user-select' | 'business-select' | 'stage-select'
+  type: 'text' | 'textarea' | 'number' | 'date' | 'select' | 'checkbox' | 'email' | 'phone' | 'url' | 'category' | 'user-select' | 'business-select' | 'stage-select' | 'location'
   defaultRequired: boolean // Whether field is required by default
   canHide: boolean // Whether field can be hidden (some fields like 'name' might be always required)
   canSetRequired: boolean // Whether admin can change required status
@@ -97,16 +97,14 @@ export const BUSINESS_BUILTIN_FIELDS: BuiltinFieldDefinition[] = [
   // Location fields
   { key: 'address', label: 'Dirección', type: 'text', defaultRequired: false, canHide: true, canSetRequired: true },
   { key: 'neighborhood', label: 'Barrio / Urbanización', type: 'text', defaultRequired: false, canHide: true, canSetRequired: true },
-  { key: 'province', label: 'Provincia', type: 'text', defaultRequired: false, canHide: true, canSetRequired: true },
-  { key: 'district', label: 'Distrito', type: 'text', defaultRequired: false, canHide: true, canSetRequired: true },
-  { key: 'corregimiento', label: 'Corregimiento', type: 'text', defaultRequired: false, canHide: true, canSetRequired: true },
+  { key: 'provinceDistrictCorregimiento', label: 'Provincia, Distrito, Corregimiento', type: 'location', defaultRequired: false, canHide: true, canSetRequired: true },
   // Banking fields
   { key: 'bank', label: 'Banco', type: 'text', defaultRequired: false, canHide: true, canSetRequired: true },
   { key: 'beneficiaryName', label: 'Nombre en Cuenta Bancaria', type: 'text', defaultRequired: false, canHide: true, canSetRequired: true },
   { key: 'accountNumber', label: 'Número de Cuenta', type: 'text', defaultRequired: false, canHide: true, canSetRequired: true },
   { key: 'accountType', label: 'Tipo de Cuenta', type: 'select', defaultRequired: false, canHide: true, canSetRequired: true, options: [
-    { value: 'Ahorros', label: 'Ahorros' },
-    { value: 'Corriente', label: 'Corriente' },
+    { value: 'Cuenta de Ahorros', label: 'Cuenta de Ahorros' },
+    { value: 'Cuenta Corriente', label: 'Cuenta Corriente' },
   ]},
   { key: 'paymentPlan', label: 'Plan de Pago', type: 'text', defaultRequired: false, canHide: true, canSetRequired: true },
   { key: 'emailPaymentContacts', label: 'Emails para Pagos', type: 'text', defaultRequired: false, canHide: true, canSetRequired: true, helpText: 'Separar múltiples emails con comas' },
@@ -185,7 +183,7 @@ export const DEFAULT_SECTIONS: Record<FormEntityType, { name: string; fields: st
     { name: 'Contact Details', fields: ['contactName', 'contactPhone', 'contactEmail'] },
     { name: 'Online Presence', fields: ['website', 'instagram', 'salesTeam'] },
     { name: 'Datos Fiscales', fields: ['razonSocial', 'ruc'] },
-    { name: 'Ubicación', fields: ['address', 'neighborhood', 'province', 'district', 'corregimiento'] },
+    { name: 'Ubicación', fields: ['address', 'neighborhood', 'provinceDistrictCorregimiento'] },
     { name: 'Datos Bancarios', fields: ['bank', 'beneficiaryName', 'accountNumber', 'accountType', 'paymentPlan', 'emailPaymentContacts'] },
   ],
   opportunity: [

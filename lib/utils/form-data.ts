@@ -55,6 +55,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
 
   // Configuración: Configuración General y Vigencia
   campaignDuration: string | null
+  campaignDurationUnit: string | null
 
   // Operatividad: Operatividad y Pagos
   redemptionMode: string | null
@@ -76,9 +77,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
   accountNumber: string | null
   accountType: string | null
   addressAndHours: string | null
-  province: string | null
-  district: string | null
-  corregimiento: string | null
+  provinceDistrictCorregimiento: string | null
 
   // Negocio: Reglas de Negocio y Restricciones
   includesTaxes: string | null
@@ -86,10 +85,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
   hasExclusivity: string | null
   blackoutDates: string | null
   exclusivityCondition: string | null
-  giftVouchers: string | null
   hasOtherBranches: string | null
-  vouchersPerPerson: string | null
-  commission: string | null
 
   // Descripción: Descripción y Canales de Venta
   redemptionMethods: string[] | null
@@ -138,6 +134,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
 
     // Configuración: Configuración General y Vigencia
     campaignDuration: getFormDataString(formData, 'campaignDuration'),
+    campaignDurationUnit: getFormDataString(formData, 'campaignDurationUnit'),
 
     // Operatividad: Operatividad y Pagos
     redemptionMode: getFormDataString(formData, 'redemptionMode'),
@@ -159,9 +156,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
     accountNumber: getFormDataString(formData, 'accountNumber'),
     accountType: getFormDataString(formData, 'accountType'),
     addressAndHours: getFormDataString(formData, 'addressAndHours'),
-    province: getFormDataString(formData, 'province'),
-    district: getFormDataString(formData, 'district'),
-    corregimiento: getFormDataString(formData, 'corregimiento'),
+    provinceDistrictCorregimiento: getFormDataString(formData, 'provinceDistrictCorregimiento'),
 
     // Negocio: Reglas de Negocio y Restricciones
     includesTaxes: getFormDataString(formData, 'includesTaxes'),
@@ -169,10 +164,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
     hasExclusivity: getFormDataString(formData, 'hasExclusivity'),
     blackoutDates: getFormDataString(formData, 'blackoutDates'),
     exclusivityCondition: getFormDataString(formData, 'exclusivityCondition'),
-    giftVouchers: getFormDataString(formData, 'giftVouchers'),
     hasOtherBranches: getFormDataString(formData, 'hasOtherBranches'),
-    vouchersPerPerson: getFormDataString(formData, 'vouchersPerPerson'),
-    commission: getFormDataString(formData, 'commission'),
 
     // Descripción: Descripción y Canales de Venta
     redemptionMethods: parseFormDataJsonField(formData, 'redemptionMethods') as string[] | null,

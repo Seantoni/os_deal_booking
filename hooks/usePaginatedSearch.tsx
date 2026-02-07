@@ -86,6 +86,9 @@ interface UsePaginatedSearchReturn<T> {
   /** Loading state for search */
   searchLoading: boolean
   
+  /** Error state - set when data fails to load */
+  error: string | null
+  
   /** Current search query */
   searchQuery: string
   
@@ -182,6 +185,7 @@ export function usePaginatedSearch<T>({
   const [currentPage, setCurrentPage] = useState(0)
   const [loading, setLoading] = useState(!initialData)
   const [searchLoading, setSearchLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('')
@@ -225,6 +229,7 @@ export function usePaginatedSearch<T>({
   // Load paginated data
   const loadPage = useCallback(async (page: number = 0) => {
     setLoading(true)
+    setError(null)
     try {
       const result = await fetchPaginated({
         page,
@@ -237,9 +242,16 @@ export function usePaginatedSearch<T>({
         setData(result.data as T[])
         setTotalCount(result.total || 0)
         setCurrentPage(page)
+      } else if (!result.success) {
+        const errorMsg = result.error || `Error al cargar ${entityName}`
+        setError(errorMsg)
+        logger.error(`Failed to load ${entityName}:`, errorMsg)
+        toast.error(errorMsg)
       }
-    } catch (error) {
-      logger.error(`Failed to load ${entityName}:`, error)
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : `Error al cargar ${entityName}`
+      setError(errorMsg)
+      logger.error(`Failed to load ${entityName}:`, err)
       toast.error(`Error al cargar ${entityName}`)
     } finally {
       setLoading(false)
@@ -261,7 +273,7 @@ export function usePaginatedSearch<T>({
 
     setSearchLoading(true)
     try {
-      const result = await searchFn(query, { limit: 100 })
+      const result = await searchFn(query, { limit: 100, ...filters })
       if (result.success && result.data) {
         setSearchResults(result.data as T[])
       }
@@ -271,7 +283,7 @@ export function usePaginatedSearch<T>({
     } finally {
       setSearchLoading(false)
     }
-  }, [searchFn])
+  }, [searchFn, filters])
 
   // Handle search input change with debounce
   const handleSearchChange = useCallback((query: string) => {
@@ -303,17 +315,27 @@ export function usePaginatedSearch<T>({
     }
   }, [])
 
-  // Handle sort
+  // Handle sort - just update state, effect will trigger reload
   const handleSort = useCallback((column: string) => {
     const newDirection = sortColumn === column && sortDirection === 'asc' ? 'desc' : 'asc'
     setSortColumn(column)
     setSortDirection(newDirection)
-    
-    // For paginated mode, reload from server with new sort
+    // Don't call loadPage here - the effect below will handle it
+    // This ensures the state is updated before the fetch
+  }, [sortColumn, sortDirection])
+  
+  // Effect to reload when sort changes (skips initial render)
+  const sortMountedRef = useRef(false)
+  useEffect(() => {
+    if (!sortMountedRef.current) {
+      sortMountedRef.current = true
+      return
+    }
+    // Only reload if not searching (search results are sorted client-side)
     if (!isSearching) {
       loadPage(0)
     }
-  }, [sortColumn, sortDirection, isSearching, loadPage])
+  }, [sortColumn, sortDirection]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Set filters (will trigger refetch)
   const setFilters = useCallback((newFilters: FilterParams) => {
@@ -357,6 +379,14 @@ export function usePaginatedSearch<T>({
       return
     }
     loadPage(0)
+    // Also refresh counts when filters change
+    if (fetchCounts) {
+      refreshCounts()
+    }
+    // Re-run search if in search mode
+    if (isSearching && searchQuery) {
+      performSearch(searchQuery)
+    }
   }, [filters]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pagination Controls Component
@@ -422,6 +452,7 @@ export function usePaginatedSearch<T>({
     setSearchResults,
     loading,
     searchLoading,
+    error,
     searchQuery,
     handleSearchChange,
     clearSearch,

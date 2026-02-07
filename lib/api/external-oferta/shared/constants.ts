@@ -6,6 +6,7 @@
 // API Endpoints
 export const EXTERNAL_DEAL_API_URL = process.env.EXTERNAL_OFERTA_API_URL || 'https://ofertasimple.com/external/api/deals'
 export const EXTERNAL_VENDOR_API_URL = process.env.EXTERNAL_OFERTA_VENDOR_API_URL || 'https://ofertasimple.com/external/api/vendors'
+export const EXTERNAL_DEAL_METRICS_API_URL = process.env.EXTERNAL_OFERTA_METRICS_API_URL || 'https://ofertasimple.com/external/api/deal-metrics'
 
 // API Token (shared between deal and vendor APIs)
 export const EXTERNAL_API_TOKEN = process.env.EXTERNAL_OFERTA_API_TOKEN

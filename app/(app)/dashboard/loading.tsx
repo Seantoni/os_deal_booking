@@ -12,9 +12,9 @@ export default function DashboardLoading() {
           <div className="h-6 bg-gray-100 rounded-lg w-32"></div>
         </div>
 
-        {/* Priority Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[1, 2].map((i) => (
+        {/* Priority Row: Por Reservar + Inbox + Sin Respuesta */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
             <div key={i} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">

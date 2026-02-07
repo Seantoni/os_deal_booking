@@ -10,6 +10,8 @@
 
 import { NextResponse } from 'next/server'
 import { sendAllTaskReminders } from '@/lib/email'
+import { startCronJobLog, completeCronJobLog, cleanupOldCronJobLogs } from '@/app/actions/cron-logs'
+import { sendCronFailureEmail } from '@/lib/email/services/cron-failure'
 import { logger } from '@/lib/logger'
 
 // Vercel cron jobs require this export to configure the schedule
@@ -39,9 +41,11 @@ function verifyCronSecret(request: Request): boolean {
 }
 
 export async function GET(request: Request) {
+  const startTime = Date.now()
+
   // Verify the request is from Vercel Cron
   if (!verifyCronSecret(request)) {
-    logger.warn('Unauthorized cron request attempted')
+    logger.warn('Unauthorized cron request attempted for task-reminders')
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }
@@ -49,13 +53,49 @@ export async function GET(request: Request) {
   }
 
   logger.info('Starting task reminder cron job')
-  const startTime = Date.now()
+
+  // Start cron job log
+  const logResult = await startCronJobLog('task-reminders', 'cron')
+  const logId = logResult.logId
 
   try {
     const result = await sendAllTaskReminders()
-    const duration = Date.now() - startTime
+    const durationMs = Date.now() - startTime
 
-    logger.info(`Task reminder cron job completed in ${duration}ms`, {
+    // Complete the log
+    if (logId) {
+      await completeCronJobLog(logId, result.success ? 'success' : 'failed', {
+        message: `Task reminders: ${result.sent} sent, ${result.failed} failed, ${result.skipped} skipped`,
+        details: {
+          sent: result.sent,
+          failed: result.failed,
+          skipped: result.skipped,
+          errors: result.errors.length > 0 ? result.errors : undefined,
+        },
+        error: result.errors.length > 0 ? result.errors.join('; ') : undefined,
+      })
+    }
+
+    // If there were failures, send notification
+    if (result.failed > 0) {
+      await sendCronFailureEmail({
+        jobName: 'task-reminders',
+        errorMessage: `${result.failed} emails failed to send`,
+        startedAt: new Date(startTime),
+        durationMs,
+        details: {
+          sent: result.sent,
+          failed: result.failed,
+          skipped: result.skipped,
+          errors: result.errors,
+        },
+      })
+    }
+
+    // Cleanup old logs
+    await cleanupOldCronJobLogs(30)
+
+    logger.info(`Task reminder cron job completed in ${durationMs}ms`, {
       sent: result.sent,
       failed: result.failed,
       skipped: result.skipped,
@@ -64,7 +104,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: result.success,
       message: `Task reminders processed: ${result.sent} sent, ${result.failed} failed, ${result.skipped} skipped`,
-      duration: `${duration}ms`,
+      duration: `${durationMs}ms`,
       details: {
         sent: result.sent,
         failed: result.failed,
@@ -74,7 +114,24 @@ export async function GET(request: Request) {
     })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const durationMs = Date.now() - startTime
+
     logger.error('Task reminder cron job failed:', error)
+
+    // Complete the log as failed
+    if (logId) {
+      await completeCronJobLog(logId, 'failed', {
+        error: errorMessage,
+      })
+    }
+
+    // Send failure notification
+    await sendCronFailureEmail({
+      jobName: 'task-reminders',
+      errorMessage,
+      startedAt: new Date(startTime),
+      durationMs,
+    })
 
     return NextResponse.json(
       {

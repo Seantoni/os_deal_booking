@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import PersonRemoveIcon from '@mui/icons-material/PersonRemove'
+import RepeatIcon from '@mui/icons-material/Repeat'
 import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn'
 import { Button } from '@/components/ui'
 import { requestReassignment, type ReassignmentType } from '@/app/actions/assignments'
@@ -37,6 +38,13 @@ const REASSIGNMENT_OPTIONS: Array<{
     description: 'Este negocio debe ser removido de mi cartera',
     icon: <PersonRemoveIcon style={{ fontSize: 24 }} />,
     color: 'orange',
+  },
+  {
+    value: 'recurrente',
+    label: 'Recurrente',
+    description: 'Este negocio es recurrente y necesita revisión de asignación',
+    icon: <RepeatIcon style={{ fontSize: 24 }} />,
+    color: 'purple',
   },
 ]
 
@@ -77,11 +85,12 @@ export default function ReassignmentModal({
       const result = await requestReassignment(businessId, selectedType, reason.trim())
       
       if (result.success) {
-        toast.success(
-          selectedType === 'reasignar'
-            ? `Solicitud de reasignación enviada para ${businessName}`
-            : `Solicitud para sacar ${businessName} enviada`
-        )
+        const successMessages: Record<ReassignmentType, string> = {
+          reasignar: `Solicitud de reasignación enviada para ${businessName}`,
+          sacar: `Solicitud para sacar ${businessName} enviada`,
+          recurrente: `Solicitud de negocio recurrente enviada para ${businessName}`,
+        }
+        toast.success(successMessages[selectedType])
         onSuccess?.()
         handleClose()
       } else {
@@ -141,13 +150,19 @@ export default function ReassignmentModal({
                   selectedType === option.value
                     ? option.color === 'blue'
                       ? 'border-blue-400 bg-blue-50 text-blue-700 shadow-sm'
+                      : option.color === 'purple'
+                      ? 'border-purple-400 bg-purple-50 text-purple-700 shadow-sm'
                       : 'border-orange-400 bg-orange-50 text-orange-700 shadow-sm'
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700'
                 }`}
               >
                 <span className={
                   selectedType === option.value
-                    ? option.color === 'blue' ? 'text-blue-500' : 'text-orange-500'
+                    ? option.color === 'blue' 
+                      ? 'text-blue-500' 
+                      : option.color === 'purple'
+                      ? 'text-purple-500'
+                      : 'text-orange-500'
                     : 'text-gray-400'
                 }>
                   {option.icon}

@@ -42,7 +42,7 @@ interface MarketingCampaignModalProps {
   onClose: () => void
   campaignId: string | null
   onSuccess?: () => void
-  initialOptionId?: string | null // Option to highlight/scroll to (from inbox)
+  initialOptionId?: string | null // Option ID to expand its platform (from inbox)
 }
 
 // Platform icon mapping
@@ -77,16 +77,15 @@ export default function MarketingCampaignModal({
   // Close modal on Escape key
   useModalEscape(isOpen, onClose)
   
-  const { isAdmin, isMarketing } = useUserRole()
+  const { isAdmin, isMarketing, isSales } = useUserRole()
   const canEdit = isAdmin || isMarketing
+  const canComment = isAdmin || isMarketing || isSales // Sales can only add comments
 
   const [expandedPlatforms, setExpandedPlatforms] = useState<Record<string, boolean>>({
     instagram: true,
     tiktok: true,
     ofertasimple: true,
   })
-  const [highlightedOptionId, setHighlightedOptionId] = useState<string | null>(null)
-  const optionRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const [copyInput, setCopyInput] = useState('')
   const [copyDirty, setCopyDirty] = useState(false)
   const [scriptInput, setScriptInput] = useState('')
@@ -141,52 +140,43 @@ export default function MarketingCampaignModal({
     }
   }, [isOpen, canEdit])
 
-  // Handle initialOptionId - expand platform and scroll to option
+  // Sync copy and script inputs when campaign data loads
   useEffect(() => {
-    if (initialOptionId && !loading && optionsByPlatform) {
+    if (campaign && !copyDirty && campaign.generatedCopy) {
+      setCopyInput(campaign.generatedCopy)
+    }
+    if (campaign && !scriptDirty && campaign.videoScript) {
+      setScriptInput(campaign.videoScript)
+    }
+  }, [campaign?.id, campaign?.generatedCopy, campaign?.videoScript]) // Only run when campaign data changes
+
+  // Expand only the platform containing the initial option (from inbox), collapse others
+  const hasHandledInitialOption = useRef(false)
+  useEffect(() => {
+    if (initialOptionId && optionsByPlatform && !loading && !hasHandledInitialOption.current) {
       // Find which platform contains this option
       for (const [platform, options] of Object.entries(optionsByPlatform)) {
-        const option = options.find((o: { id: string }) => o.id === initialOptionId)
-        if (option) {
-          // Expand the platform
-          setExpandedPlatforms(prev => ({ ...prev, [platform]: true }))
-          // Set highlighted option
-          setHighlightedOptionId(initialOptionId)
-          
-          // Scroll to option after a short delay to allow DOM to update
-          setTimeout(() => {
-            const optionElement = optionRefs.current[initialOptionId]
-            if (optionElement) {
-              optionElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            }
-          }, 300)
-          
-          // Remove highlight after 3 seconds
-          setTimeout(() => {
-            setHighlightedOptionId(null)
-          }, 3000)
+        const found = options.find((o: { id: string }) => o.id === initialOptionId)
+        if (found) {
+          hasHandledInitialOption.current = true
+          // Expand only this platform, collapse all others
+          setExpandedPlatforms({
+            instagram: platform === 'instagram',
+            tiktok: platform === 'tiktok',
+            ofertasimple: platform === 'ofertasimple',
+          })
           break
         }
       }
     }
-  }, [initialOptionId, loading, optionsByPlatform])
+  }, [initialOptionId, optionsByPlatform, loading])
 
-  // Sync copy input with campaign data when it loads
-  useState(() => {
-    if (campaign?.generatedCopy && !copyDirty) {
-      setCopyInput(campaign.generatedCopy)
+  // Reset the flag when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      hasHandledInitialOption.current = false
     }
-  })
-
-  // Update copy input when campaign loads
-  if (campaign?.generatedCopy && copyInput === '' && !copyDirty) {
-    setCopyInput(campaign.generatedCopy)
-  }
-
-  // Update script input when campaign loads
-  if (campaign?.videoScript && scriptInput === '' && !scriptDirty) {
-    setScriptInput(campaign.videoScript)
-  }
+  }, [isOpen])
 
   const togglePlatform = (platform: string, event: React.MouseEvent) => {
     // Prevent scroll position from jumping when expanding/collapsing
@@ -657,24 +647,17 @@ const handleSaveCopy = async () => {
                                     const optionConfig = config.options.find(
                                       (o) => o.type === option.optionType
                                     )
-                                    const isHighlighted = highlightedOptionId === option.id
                                     return (
-                                      <div
+                                      <MarketingOptionCard
                                         key={option.id}
-                                        ref={(el) => { optionRefs.current[option.id] = el }}
-                                        className={`transition-all duration-500 ${
-                                          isHighlighted
-                                            ? 'ring-2 ring-blue-500 ring-offset-2 rounded-lg bg-blue-50/50'
-                                            : ''
-                                        }`}
-                                      >
-                                        <MarketingOptionCard
                                           option={option}
                                           optionLabel={optionConfig?.label || option.optionType}
                                           canEdit={canEdit}
+                                        canComment={canComment}
                                           saving={saving}
                                           draggingImage={draggingImage}
                                           users={users}
+                                        defaultExpanded={initialOptionId === option.id}
                                           onTogglePlanned={toggleOptionPlanned}
                                           onToggleCompleted={toggleOptionCompleted}
                                           onUpdateDueDate={updateOptionDueDate}
@@ -683,7 +666,6 @@ const handleSaveCopy = async () => {
                                           onRemoveAttachment={removeAttachment}
                                           onImageDrop={handleImageDropOnOption}
                                         />
-                                      </div>
                                     )
                                   })}
                                 </div>

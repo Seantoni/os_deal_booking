@@ -5,11 +5,40 @@ import { getSavedFilters, type SavedFilter, type FilterRule, type EntityType } f
 import { applyFilters } from '@/lib/filters/applyFilters'
 
 /**
+ * Combine filter rules from multiple saved filters with AND logic
+ */
+function combineFilterRules(activeFilterIds: string[], savedFilters: SavedFilter[]): FilterRule[] {
+  if (activeFilterIds.length === 0) {
+    return []
+  }
+
+  const combinedRules: FilterRule[] = []
+  
+  activeFilterIds.forEach((filterId, filterIndex) => {
+    const filter = savedFilters.find(f => f.id === filterId)
+    if (filter && filter.filters.length > 0) {
+      filter.filters.forEach((rule, ruleIndex) => {
+        // All rules are combined with AND
+        // Only the very first rule of the very first filter keeps its original conjunction
+        const useAnd = filterIndex > 0 || ruleIndex > 0
+        combinedRules.push({
+          ...rule,
+          id: `${filterId}_${rule.id}`, // Ensure unique IDs
+          conjunction: useAnd ? 'AND' : rule.conjunction,
+        })
+      })
+    }
+  })
+  
+  return combinedRules
+}
+
+/**
  * Hook for managing advanced filters with saved filters support.
  * 
  * Provides:
  * - Loading and caching of saved filters from the database
- * - State management for active filter and filter rules
+ * - State management for active filters (supports multiple with AND)
  * - Props bundle to spread into EntityPageHeader
  * - Utility function to apply filters to data
  * 
@@ -28,8 +57,10 @@ import { applyFilters } from '@/lib/filters/applyFilters'
  */
 export function useAdvancedFilters<T extends Record<string, unknown>>(entityType: EntityType) {
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([])
-  const [activeFilterId, setActiveFilterId] = useState<string | null>(null)
-  const [filterRules, setFilterRules] = useState<FilterRule[]>([])
+  // Support multiple active filters (combined with AND)
+  const [activeFilterIds, setActiveFilterIds] = useState<string[]>([])
+  // Manual filter rules (from AdvancedFilterBuilder)
+  const [manualFilterRules, setManualFilterRules] = useState<FilterRule[]>([])
   const [loading, setLoading] = useState(true)
 
   // Load saved filters on mount
@@ -70,22 +101,45 @@ export function useAdvancedFilters<T extends Record<string, unknown>>(entityType
     }
   }, [entityType])
 
-  // Handle selecting a saved filter
+  // Compute filter rules from active saved filters (synchronous - no effect delay)
+  const savedFilterRules = useMemo(() => {
+    return combineFilterRules(activeFilterIds, savedFilters)
+  }, [activeFilterIds, savedFilters])
+
+  // Final filter rules: either from saved filters or from manual builder
+  const filterRules = manualFilterRules.length > 0 ? manualFilterRules : savedFilterRules
+
+  // Handle toggling a saved filter (multi-select with AND)
+  const handleFilterToggle = useCallback((filter: SavedFilter) => {
+    // Clear manual rules when toggling saved filters
+    setManualFilterRules([])
+    setActiveFilterIds(prev => {
+      const isActive = prev.includes(filter.id)
+      if (isActive) {
+        // Remove filter
+        return prev.filter(id => id !== filter.id)
+      } else {
+        // Add filter
+        return [...prev, filter.id]
+      }
+    })
+  }, [])
+
+  // Legacy single-select handler (for backward compatibility)
   const handleFilterSelect = useCallback((filter: SavedFilter | null) => {
+    setManualFilterRules([])
     if (filter) {
-      setActiveFilterId(filter.id)
-      setFilterRules(filter.filters)
+      setActiveFilterIds([filter.id])
     } else {
-      setActiveFilterId(null)
-      setFilterRules([])
+      setActiveFilterIds([])
     }
   }, [])
 
   // Handle changes from the advanced filter builder
   const handleAdvancedFiltersChange = useCallback((rules: FilterRule[]) => {
-    setFilterRules(rules)
+    setManualFilterRules(rules)
     // Clear saved filter selection when manually changing rules
-    setActiveFilterId(null)
+    setActiveFilterIds([])
   }, [])
 
   // Utility function to apply filters to data
@@ -94,36 +148,45 @@ export function useAdvancedFilters<T extends Record<string, unknown>>(entityType
     return applyFilters(data, filterRules)
   }, [filterRules])
 
-  // Get the active filter object (for passing to AdvancedFilterBuilder)
-  const activeFilter = useMemo(() => {
-    return savedFilters.find(f => f.id === activeFilterId) || null
-  }, [savedFilters, activeFilterId])
+  // Get the active filter objects
+  const activeFilters = useMemo(() => {
+    return savedFilters.filter(f => activeFilterIds.includes(f.id))
+  }, [savedFilters, activeFilterIds])
+
+  // Legacy: get first active filter (for backward compatibility)
+  const activeFilterId = activeFilterIds.length > 0 ? activeFilterIds[0] : null
+  const activeFilter = activeFilters.length > 0 ? activeFilters[0] : null
 
   // Clear all filters
   const clearFilters = useCallback(() => {
-    setFilterRules([])
-    setActiveFilterId(null)
+    setManualFilterRules([])
+    setActiveFilterIds([])
   }, [])
 
   // Props bundle for EntityPageHeader
   const headerProps = useMemo(() => ({
     savedFilters,
-    activeFilterId,
-    onFilterSelect: handleFilterSelect,
+    activeFilterIds,
+    activeFilterId, // Legacy support
+    onFilterToggle: handleFilterToggle,
+    onFilterSelect: handleFilterSelect, // Legacy support
     onAdvancedFiltersChange: handleAdvancedFiltersChange,
     onSavedFiltersChange: reloadSavedFilters,
-  }), [savedFilters, activeFilterId, handleFilterSelect, handleAdvancedFiltersChange, reloadSavedFilters])
+  }), [savedFilters, activeFilterIds, activeFilterId, handleFilterToggle, handleFilterSelect, handleAdvancedFiltersChange, reloadSavedFilters])
 
   return {
     // State
     savedFilters,
-    activeFilterId,
-    activeFilter,
+    activeFilterIds,
+    activeFilterId, // Legacy support
+    activeFilters,
+    activeFilter, // Legacy support
     filterRules,
     loading,
     
     // Actions
-    handleFilterSelect,
+    handleFilterToggle,
+    handleFilterSelect, // Legacy support
     handleAdvancedFiltersChange,
     reloadSavedFilters,
     clearFilters,

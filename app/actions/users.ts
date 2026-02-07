@@ -90,6 +90,69 @@ export async function updateUserRole(clerkId: string, role: UserRole) {
 }
 
 /**
+ * Delete user profile (admin only)
+ * This removes the user from the local database but does NOT delete them from Clerk
+ * Also clears ownerId from businesses owned by this user
+ */
+export async function deleteUserProfile(clerkId: string) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    // Check if user is admin
+    const admin = await isAdmin()
+    if (!admin) {
+      return { success: false, error: 'Unauthorized: Admin access required' }
+    }
+
+    // Prevent admin from deleting themselves
+    if (clerkId === authResult.userId) {
+      return { success: false, error: 'You cannot delete your own account' }
+    }
+
+    // Get user info before deleting for logging
+    const user = await prisma.userProfile.findUnique({
+      where: { clerkId },
+      select: { email: true, name: true },
+    })
+
+    if (!user) {
+      return { success: false, error: 'User not found' }
+    }
+
+    // Use transaction to ensure consistency
+    await prisma.$transaction(async (tx) => {
+      // Clear ownerId on businesses where this user is the owner
+      const clearedBusinesses = await tx.business.updateMany({
+        where: { ownerId: clerkId },
+        data: { ownerId: null },
+      })
+
+      if (clearedBusinesses.count > 0) {
+        logger.info(`Cleared ownerId from ${clearedBusinesses.count} businesses for user ${clerkId}`)
+      }
+
+      // Delete user profile
+      await tx.userProfile.delete({
+        where: { clerkId },
+      })
+    })
+
+    // Invalidate cache
+    invalidateUserCache(clerkId)
+    invalidateEntity('businesses')
+
+    logger.info(`User profile deleted: ${user.email} (${clerkId})`)
+
+    return { success: true, data: { email: user.email, name: user.name } }
+  } catch (error) {
+    return handleServerActionError(error, 'deleteUserProfile')
+  }
+}
+
+/**
  * Sync preview result type
  */
 export type SyncPreview = {

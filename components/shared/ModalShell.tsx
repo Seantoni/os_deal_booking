@@ -18,6 +18,7 @@ interface ModalShellProps {
   footer?: ReactNode
   hideBackdrop?: boolean
   backdropClassName?: string
+  autoHeight?: boolean // When true, modal adapts to content height instead of fixed 85vh
 }
 
 const maxWidthClasses = {
@@ -52,6 +53,7 @@ export default function ModalShell({
   footer,
   hideBackdrop = false,
   backdropClassName,
+  autoHeight = false,
 }: ModalShellProps) {
   // Close modal on Escape key
   useModalEscape(isOpen, onClose)
@@ -74,9 +76,13 @@ export default function ModalShell({
       {/* Mobile: full screen, no padding. Desktop: centered with padding */}
       <div className="fixed inset-0 z-[70] flex items-center justify-center md:p-3 pointer-events-none">
         {/* Modal Panel */}
-        {/* Mobile: full height, no rounded corners. Desktop: 85vh max, rounded */}
+        {/* Mobile: full height, no rounded corners. Desktop: 85vh max (or auto-height), rounded */}
         <div
-          className={`w-full ${maxWidthClasses[maxWidth]} bg-white shadow-2xl md:rounded-xl flex flex-col h-full md:h-[85vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${
+          className={`w-full ${maxWidthClasses[maxWidth]} bg-white shadow-2xl md:rounded-xl flex flex-col ${
+            autoHeight 
+              ? 'h-full md:h-auto md:max-h-[85vh]' 
+              : 'h-full md:h-[85vh]'
+          } pointer-events-auto transform transition-all duration-300 overflow-hidden ${
             isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
           }`}
         >
@@ -114,7 +120,7 @@ export default function ModalShell({
           )}
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto">
+          <div className={autoHeight ? 'overflow-y-auto' : 'flex-1 overflow-y-auto'}>
             {children}
           </div>
 
@@ -141,6 +147,7 @@ interface ModalFooterProps {
   additionalActions?: ReactNode
   leftContent?: ReactNode
   formId?: string // Custom form ID (default: 'modal-form')
+  hideSubmit?: boolean // Hide the submit button (for read-only modals)
 }
 
 export function ModalFooter({
@@ -161,9 +168,9 @@ export function ModalFooter({
   }[submitVariant]
 
   return (
-    <div className="flex justify-between items-center">
-      {leftContent && <div className="text-xs text-gray-500">{leftContent}</div>}
-      <div className="flex items-center gap-2 ml-auto">
+    <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
+      {leftContent && <div className="text-xs text-gray-500 hidden sm:block">{leftContent}</div>}
+      <div className="flex items-center gap-2 sm:ml-auto flex-wrap justify-end">
         {onCancel && (
           <Button type="button" onClick={onCancel} variant="ghost" size="sm">
             {cancelLabel}

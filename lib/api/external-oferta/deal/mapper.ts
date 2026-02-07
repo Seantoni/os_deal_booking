@@ -161,7 +161,7 @@ export function mapBookingFormToApi(
 
     // Address/Location
     vendorAddress: formData.addressAndHours || null,
-    // appLocation: Could derive from province/district - TODO
+    // appLocation: Could derive from provinceDistrictCorregimiento - TODO
 
     // Images
     images: images.length > 0 ? images : null,
@@ -188,8 +188,8 @@ export function mapBookingFormToApi(
 
     // Boolean flags (with sensible defaults)
     couponEnabled: false,
-    secretDeal: false,
-    gift: stringToBoolean(formData.giftVouchers, true),
+    secretDeal: true, // Default to true - new deals start as secret until ready to publish
+    gift: true, // Default to true (gift vouchers enabled by default)
     isActive: true,
     showDiscount: true,
     limitedQuantity: false,

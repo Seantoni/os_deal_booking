@@ -7,7 +7,7 @@ import { createOpportunity, updateOpportunity, createTask, updateTask, deleteTas
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
 import { useCachedFormConfig } from '@/hooks/useFormConfigCache'
-import { getTodayInPanama } from '@/lib/date/timezone'
+import { getTodayInPanama, formatDateForPanama } from '@/lib/date/timezone'
 import type { Opportunity, OpportunityStage, Task, Business, UserData } from '@/types'
 import type { Category } from '@prisma/client'
 import HandshakeIcon from '@mui/icons-material/Handshake'
@@ -145,6 +145,7 @@ export default function OpportunityFormModal({
 
   // Build initial values from opportunity entity
   // Note: categoryId, tier, contactName, contactPhone, contactEmail come from the linked business
+  // categoryId uses parent category string for parentOnly display mode
   const initialValues = useMemo((): Record<string, string | null> => {
     if (!opportunity) {
       // For new opportunities, look up business data from preloaded businesses
@@ -154,9 +155,9 @@ export default function OpportunityFormModal({
       
       return {
         businessId: initialBusinessId || null,
-        startDate: new Date().toISOString().split('T')[0],
-        // Include business data if available
-        categoryId: preloadedBusiness?.categoryId || null,
+        startDate: getTodayInPanama(),
+        // Include business data if available - use parent category for parentOnly mode
+        categoryId: preloadedBusiness?.category?.parentCategory || null,
         tier: preloadedBusiness?.tier?.toString() || null,
         contactName: preloadedBusiness?.contactName || null,
         contactPhone: preloadedBusiness?.contactPhone || null,
@@ -166,11 +167,12 @@ export default function OpportunityFormModal({
     const business = opportunity.business
     return {
       businessId: opportunity.businessId || null,
-      startDate: opportunity.startDate ? new Date(opportunity.startDate).toISOString().split('T')[0] : null,
-      closeDate: opportunity.closeDate ? new Date(opportunity.closeDate).toISOString().split('T')[0] : null,
+      // Use Panama timezone for date display
+      startDate: opportunity.startDate ? formatDateForPanama(new Date(opportunity.startDate)) : null,
+      closeDate: opportunity.closeDate ? formatDateForPanama(new Date(opportunity.closeDate)) : null,
       notes: opportunity.notes || null,
-      // These come from the linked business
-      categoryId: business?.categoryId || null,
+      // These come from the linked business - use parent category for parentOnly mode
+      categoryId: business?.category?.parentCategory || null,
       tier: business?.tier?.toString() || null,
       contactName: business?.contactName || null,
       contactPhone: business?.contactPhone || null,
@@ -192,21 +194,22 @@ export default function OpportunityFormModal({
   const activitySummary = useMemo(() => {
     if (!tasks.length) return { nextTask: null, lastTask: null, nextMeeting: null, lastMeeting: null }
 
+    // Use Panama timezone for date comparisons
     const getTaskDateStr = (date: Date | string) => {
-      const d = new Date(date)
-      const year = d.getUTCFullYear()
-      const month = String(d.getUTCMonth() + 1).padStart(2, '0')
-      const day = String(d.getUTCDate()).padStart(2, '0')
-      return `${year}-${month}-${day}`
+      return formatDateForPanama(new Date(date))
     }
     const todayStr = getTodayInPanama()
-    const todayParts = todayStr.split('-').map(Number)
-    const todayDate = new Date(todayParts[0], todayParts[1] - 1, todayParts[2])
 
-    // Helper to calculate days difference
+    // Helper to calculate days difference (using Panama timezone)
     const getDaysDiff = (date: Date | string) => {
-      const d = new Date(date)
-      const taskDate = new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+      const taskDateStr = formatDateForPanama(new Date(date))
+      const taskParts = taskDateStr.split('-').map(Number)
+      const todayParts = todayStr.split('-').map(Number)
+      
+      // Create dates at midnight for comparison
+      const taskDate = new Date(taskParts[0], taskParts[1] - 1, taskParts[2])
+      const todayDate = new Date(todayParts[0], todayParts[1] - 1, todayParts[2])
+      
       const diffTime = taskDate.getTime() - todayDate.getTime()
       return Math.round(diffTime / (1000 * 60 * 60 * 24))
     }
@@ -273,8 +276,9 @@ export default function OpportunityFormModal({
       const allBusinesses = [...(businesses || []), ...(preloadedBusinesses || [])]
       const selectedBusiness = allBusinesses.find((b) => b.id === businessId)
       if (selectedBusiness) {
-        if (selectedBusiness.categoryId) {
-          dynamicForm.setValue('categoryId', selectedBusiness.categoryId)
+        // Use parent category for parentOnly mode
+        if (selectedBusiness.category?.parentCategory) {
+          dynamicForm.setValue('categoryId', selectedBusiness.category.parentCategory)
         }
         if (selectedBusiness.tier) {
           dynamicForm.setValue('tier', selectedBusiness.tier.toString())
@@ -333,8 +337,7 @@ export default function OpportunityFormModal({
         formData.append('startDate', allValues.startDate || '')
         if (allValues.closeDate) formData.append('closeDate', allValues.closeDate)
         if (allValues.notes) formData.append('notes', allValues.notes)
-        // For existing opportunities, only admin can change responsible
-        // For new opportunities, always send the responsible (defaults to creator)
+        // Responsible is required
         if (responsibleId) formData.append('responsibleId', responsibleId)
         if (allValues.categoryId) formData.append('categoryId', allValues.categoryId)
         if (allValues.tier) formData.append('tier', allValues.tier)
@@ -375,6 +378,13 @@ export default function OpportunityFormModal({
     e.preventDefault()
     setError('')
 
+    // Validate required fields
+    // Check for empty or '__unassigned__' value (from UserSelectItem)
+    if (!responsibleId || responsibleId === '__unassigned__') {
+      setError('Debe seleccionar un responsable para la oportunidad')
+      return
+    }
+
     startSubmitTransition(async () => {
       try {
         const allValues = dynamicForm.getAllValues()
@@ -384,9 +394,8 @@ export default function OpportunityFormModal({
         formData.append('startDate', allValues.startDate || '')
         if (allValues.closeDate) formData.append('closeDate', allValues.closeDate)
         if (allValues.notes) formData.append('notes', allValues.notes)
-        // For existing opportunities, only admin can change responsible
-        // For new opportunities, always send the responsible (defaults to creator)
-        if (responsibleId) formData.append('responsibleId', responsibleId)
+        // Responsible is required
+        formData.append('responsibleId', responsibleId)
         if (allValues.categoryId) formData.append('categoryId', allValues.categoryId)
         if (allValues.tier) formData.append('tier', allValues.tier)
         if (allValues.contactName) formData.append('contactName', allValues.contactName)
@@ -605,7 +614,8 @@ export default function OpportunityFormModal({
       const formData = new FormData()
       formData.append('category', task.category)
       formData.append('title', task.title)
-      formData.append('date', new Date(task.date).toISOString().split('T')[0])
+      // Use Panama timezone for task date
+      formData.append('date', formatDateForPanama(new Date(task.date)))
       formData.append('completed', newCompletedState.toString())
       formData.append('notes', task.notes || '')
 
@@ -651,6 +661,7 @@ export default function OpportunityFormModal({
     // Build query parameters with business data for pre-filling the booking form
     const params = new URLSearchParams()
     params.set('fromOpportunity', opportunity.id)
+    params.set('businessId', linkedBusiness.id) // Pass businessId for backfill tracking
     params.set('businessName', linkedBusiness.name || '')
     if (linkedBusiness.contactEmail) params.set('businessEmail', linkedBusiness.contactEmail)
     if (linkedBusiness.contactName) params.set('contactName', linkedBusiness.contactName)
@@ -668,9 +679,7 @@ export default function OpportunityFormModal({
     if (linkedBusiness.ruc) params.set('ruc', linkedBusiness.ruc)
     
     // Location info
-    if (linkedBusiness.province) params.set('province', linkedBusiness.province)
-    if (linkedBusiness.district) params.set('district', linkedBusiness.district)
-    if (linkedBusiness.corregimiento) params.set('corregimiento', linkedBusiness.corregimiento)
+    if (linkedBusiness.provinceDistrictCorregimiento) params.set('provinceDistrictCorregimiento', linkedBusiness.provinceDistrictCorregimiento)
     if (linkedBusiness.address) params.set('address', linkedBusiness.address)
     if (linkedBusiness.neighborhood) params.set('neighborhood', linkedBusiness.neighborhood)
     
@@ -708,6 +717,12 @@ export default function OpportunityFormModal({
     email: u.email,
   })), [users])
 
+  // Combine loaded businesses with preloaded businesses (deduplicated)
+  const allBusinesses = useMemo(() => {
+    const combined = [...(businesses || []), ...(preloadedBusinesses || [])]
+    return combined.filter((b, i, arr) => arr.findIndex(x => x.id === b.id) === i)
+  }, [businesses, preloadedBusinesses])
+
   if (!isOpen) return null
 
   const isEditMode = !!opportunity
@@ -717,7 +732,7 @@ export default function OpportunityFormModal({
     <ModalShell
       isOpen={isOpen}
       onClose={onClose}
-      title={opportunity ? (opportunity.business?.name || 'Editar Oportunidad') : 'Nueva Oportunidad'}
+      title={opportunity ? (opportunity.business?.name || 'Editar Oportunidad') : (linkedBusiness?.name || 'Nueva Oportunidad')}
       subtitle="Oportunidad"
       icon={<HandshakeIcon fontSize="medium" />}
       iconColor="orange"
@@ -727,7 +742,7 @@ export default function OpportunityFormModal({
             onCancel={onClose}
             submitLabel="Guardar"
             submitLoading={loading || loadingData || dynamicForm.loading}
-            submitDisabled={loading || loadingData || dynamicForm.loading}
+            submitDisabled={loading || loadingData || dynamicForm.loading || !responsibleId || responsibleId === '__unassigned__'}
             leftContent="* Campos requeridos"
             formId="opportunity-modal-form"
           />
@@ -757,19 +772,19 @@ export default function OpportunityFormModal({
 
           {/* Reference Info Bar - 2-line layout */}
           {!loadingData && (
-            <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 space-y-1.5">
-              {/* Line 1: Action-oriented (What do I need to do?) */}
-              <div className="flex flex-wrap items-center gap-5 text-xs">
+            <div className="bg-gray-50 border-b border-gray-200 px-3 md:px-4 py-2 space-y-1.5">
+              {/* Line 1: Action-oriented — scrollable on mobile */}
+              <div className="flex items-center gap-3 md:gap-5 text-xs overflow-x-auto no-scrollbar pb-0.5">
                 {/* Tasks */}
                 {(activitySummary.nextTask || activitySummary.lastTask) && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Tareas</span>
                     {activitySummary.nextTask && (
                       <span className="flex items-center gap-1">
-                        <span className="font-semibold text-orange-600">
+                        <span className="font-semibold text-orange-600 whitespace-nowrap">
                           Próx: {new Date(activitySummary.nextTask.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
                         </span>
-                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded whitespace-nowrap ${
                           activitySummary.nextTask.days <= 0 ? 'bg-red-100 text-red-700' : 
                           activitySummary.nextTask.days <= 2 ? 'bg-amber-100 text-amber-700' : 
                           'bg-green-100 text-green-700'
@@ -779,11 +794,11 @@ export default function OpportunityFormModal({
                       </span>
                     )}
                     {activitySummary.lastTask && (
-                      <span className="flex items-center gap-1">
-                        <span className="text-[10px] text-gray-500">
+                      <span className="hidden md:flex items-center gap-1">
+                        <span className="text-[10px] text-gray-500 whitespace-nowrap">
                           Últ: {new Date(activitySummary.lastTask.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
                         </span>
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 whitespace-nowrap">
                           {activitySummary.lastTask.daysText}
                         </span>
                       </span>
@@ -793,14 +808,14 @@ export default function OpportunityFormModal({
                 
                 {/* Meetings */}
                 {(activitySummary.nextMeeting || activitySummary.lastMeeting) && (
-                  <div className="flex items-center gap-2 pl-5 border-l border-gray-300">
+                  <div className="flex items-center gap-2 pl-3 md:pl-5 border-l border-gray-300 flex-shrink-0">
                     <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Reuniones</span>
                     {activitySummary.nextMeeting && (
                       <span className="flex items-center gap-1">
-                        <span className="font-semibold text-blue-600">
+                        <span className="font-semibold text-blue-600 whitespace-nowrap">
                           Próx: {new Date(activitySummary.nextMeeting.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
                         </span>
-                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded whitespace-nowrap ${
                           activitySummary.nextMeeting.days <= 0 ? 'bg-red-100 text-red-700' : 
                           activitySummary.nextMeeting.days <= 2 ? 'bg-amber-100 text-amber-700' : 
                           'bg-green-100 text-green-700'
@@ -810,11 +825,11 @@ export default function OpportunityFormModal({
                       </span>
                     )}
                     {activitySummary.lastMeeting && (
-                      <span className="flex items-center gap-1">
-                        <span className="text-[10px] text-gray-500">
+                      <span className="hidden md:flex items-center gap-1">
+                        <span className="text-[10px] text-gray-500 whitespace-nowrap">
                           Últ: {new Date(activitySummary.lastMeeting.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
                         </span>
-                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 whitespace-nowrap">
                           {activitySummary.lastMeeting.daysText}
                         </span>
                       </span>
@@ -823,38 +838,38 @@ export default function OpportunityFormModal({
                 )}
               </div>
 
-              {/* Line 2: Context (Timeline + Owner) */}
-              <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500">
+              {/* Line 2: Context (Timeline + Owner) — wraps on mobile */}
+              <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs text-gray-500">
                 {/* Timeline dates */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
                   {opportunity?.createdAt && (
-                    <span className="text-gray-400">
+                    <span className="text-gray-400 whitespace-nowrap">
                       Creado: {new Date(opportunity.createdAt).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
                     </span>
                   )}
                   {(dynamicForm.getValue('startDate') || opportunity?.startDate) && (
-                    <span>
+                    <span className="whitespace-nowrap">
                       Inicio: {new Date(dynamicForm.getValue('startDate') || opportunity?.startDate!).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
                     </span>
                   )}
                   {(dynamicForm.getValue('closeDate') || opportunity?.closeDate) && (
-                    <span>
+                    <span className="whitespace-nowrap">
                       Cierre: {new Date(dynamicForm.getValue('closeDate') || opportunity?.closeDate!).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
                     </span>
                   )}
                 </div>
 
                 {/* Separator */}
-                <span className="text-gray-300">|</span>
+                <span className="text-gray-300 hidden sm:inline">|</span>
 
-                {/* Owner */}
+                {/* Owner (required) */}
                 <ReferenceInfoBar.UserSelectItem
-                  label="Responsable"
+                  label="Responsable *"
                   userId={responsibleId}
                   users={users}
                   isAdmin={isAdmin}
                   onChange={setResponsibleId}
-                  placeholder="Sin asignar"
+                  placeholder="Seleccionar..."
                 />
               </div>
             </div>
@@ -870,13 +885,13 @@ export default function OpportunityFormModal({
             />
           )}
 
-          {/* Tabs */}
+          {/* Tabs — scrollable on mobile */}
           <div className="bg-gray-50 border-b border-gray-200">
-            <div className="flex px-4 pt-2 -mb-px">
+            <div className="flex px-3 md:px-4 pt-2 -mb-px overflow-x-auto no-scrollbar">
               <button
                 type="button"
                 onClick={() => setActiveTab('details')}
-                className={`px-4 py-2.5 text-sm font-medium transition-all border border-b-0 rounded-t-lg -mb-px ${
+                className={`px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-all border border-b-0 rounded-t-lg -mb-px whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'details'
                     ? 'bg-white text-gray-900 border-gray-200'
                     : 'bg-transparent text-gray-500 border-transparent hover:text-gray-700'
@@ -887,7 +902,7 @@ export default function OpportunityFormModal({
               <button
                 type="button"
                 onClick={() => setActiveTab('activity')}
-                className={`px-4 py-2.5 text-sm font-medium transition-all border border-b-0 rounded-t-lg -mb-px ${
+                className={`px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-all border border-b-0 rounded-t-lg -mb-px whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'activity'
                     ? 'bg-white text-gray-900 border-gray-200'
                     : 'bg-transparent text-gray-500 border-transparent hover:text-gray-700'
@@ -898,7 +913,7 @@ export default function OpportunityFormModal({
               <button
                 type="button"
                 onClick={() => setActiveTab('chat')}
-                className={`px-4 py-2.5 text-sm font-medium transition-all border border-b-0 rounded-t-lg -mb-px ${
+                className={`px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-all border border-b-0 rounded-t-lg -mb-px whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'chat'
                     ? 'bg-white text-gray-900 border-gray-200'
                     : 'bg-transparent text-gray-500 border-transparent hover:text-gray-700'
@@ -909,7 +924,7 @@ export default function OpportunityFormModal({
               <button
                 type="button"
                 onClick={() => setActiveTab('history')}
-                className={`px-4 py-2.5 text-sm font-medium transition-all border border-b-0 rounded-t-lg -mb-px ${
+                className={`px-3 md:px-4 py-2 md:py-2.5 text-xs md:text-sm font-medium transition-all border border-b-0 rounded-t-lg -mb-px whitespace-nowrap flex-shrink-0 ${
                   activeTab === 'history'
                     ? 'bg-white text-gray-900 border-gray-200'
                     : 'bg-transparent text-gray-500 border-transparent hover:text-gray-700'
@@ -920,9 +935,9 @@ export default function OpportunityFormModal({
             </div>
           </div>
 
-      <form id="opportunity-modal-form" onSubmit={handleSubmit} className="bg-white min-h-[500px] flex flex-col">
+      <form id="opportunity-modal-form" onSubmit={handleSubmit} className="bg-white min-h-[300px] md:min-h-[500px] flex flex-col">
             {error && (
-              <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
+              <div className="mx-3 md:mx-6 mt-3 md:mt-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
                 <ErrorOutlineIcon className="text-red-600 flex-shrink-0 mt-0.5" fontSize="small" />
                 <p className="text-sm text-red-800">{error}</p>
               </div>
@@ -947,10 +962,12 @@ export default function OpportunityFormModal({
                     disabled={loading}
                     categories={categoryOptions}
                     users={userOptions}
-                    businesses={businesses}
+                    businesses={allBusinesses}
+                    categoryDisplayMode="parentOnly"
                       defaultExpanded={!shouldCollapse}
                     collapsible={true}
                     isEditMode={isEditMode}
+                    hiddenFieldTypes={['business-select']}
                   />
                   )
                 })}
@@ -974,7 +991,7 @@ export default function OpportunityFormModal({
                   />
                 )}
 
-                {opportunity && linkedBusiness && (
+                {linkedBusiness && (
                   <LinkedBusinessSection
                     business={linkedBusiness}
                     onEdit={handleEditBusiness}
@@ -984,7 +1001,7 @@ export default function OpportunityFormModal({
             ) : null}
 
             {!loadingData && activeTab === 'activity' && (
-              <div className="p-6">
+              <div className="p-3 md:p-6">
                 {!opportunity ? (
                   <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
                     <EventIcon className="text-gray-400 mx-auto mb-3" style={{ fontSize: 48 }} />
@@ -1007,7 +1024,7 @@ export default function OpportunityFormModal({
             )}
 
             {!loadingData && activeTab === 'chat' && (
-              <div className="p-6 bg-white h-full">
+              <div className="p-3 md:p-6 bg-white h-full">
                 {!opportunity ? (
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
                     <span className="text-4xl mb-3 block">💬</span>
@@ -1062,6 +1079,7 @@ export default function OpportunityFormModal({
             error={error}
             businessName={linkedBusiness?.name || opportunity?.business?.name || ''}
             forCompletion={!!completingTaskId}
+            responsibleName={opportunity?.responsible?.name || opportunity?.responsible?.email}
           />
         </Suspense>
       )}
@@ -1088,6 +1106,7 @@ export default function OpportunityFormModal({
         </Suspense>
       )}
 
+      {/* ConfirmDialog - z-index 80 to appear above ModalShell (z-70) */}
       {confirmDialog.isOpen && (
         <Suspense fallback={null}>
           <ConfirmDialog
@@ -1099,6 +1118,7 @@ export default function OpportunityFormModal({
             confirmVariant={confirmDialog.options.confirmVariant}
             onConfirm={confirmDialog.handleConfirm}
             onCancel={confirmDialog.handleCancel}
+            zIndex={80}
           />
         </Suspense>
       )}

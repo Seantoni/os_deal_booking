@@ -110,9 +110,7 @@ const BASE_SECTIONS: SectionDefinition[] = [
     title: 'Ubicación',
     fields: [
       { key: 'addressAndHours', label: 'Dirección y Horario' },
-      { key: 'province', label: 'Provincia' },
-      { key: 'district', label: 'Distrito' },
-      { key: 'corregimiento', label: 'Corregimiento' },
+      { key: 'provinceDistrictCorregimiento', label: 'Provincia, Distrito, Corregimiento' },
     ],
   },
   {
@@ -123,10 +121,7 @@ const BASE_SECTIONS: SectionDefinition[] = [
       { key: 'hasExclusivity', label: 'Tiene Exclusividad' },
       { key: 'exclusivityCondition', label: 'Condición de Exclusividad' },
       { key: 'blackoutDates', label: 'Fechas Blackout' },
-      { key: 'giftVouchers', label: 'Vouchers para Regalar' },
       { key: 'hasOtherBranches', label: 'Tiene Otras Sucursales' },
-      { key: 'vouchersPerPerson', label: 'Vouchers por Persona' },
-      { key: 'commission', label: 'Comisión' },
     ],
   },
   {
@@ -577,7 +572,7 @@ export default function BookingRequestViewModal({
       try {
         const businessName = requestData.name ? String(requestData.name).split(' | ')[0].trim() : ''
 
-        const payload: Partial<BookingFormData> = {
+        const payload: Partial<BookingFormData> & { linkedBusinessId?: string } = {
           businessName: businessName || '',
           partnerEmail: requestData.businessEmail ? String(requestData.businessEmail) : '',
           additionalEmails: Array.isArray(requestData.additionalEmails) ? (requestData.additionalEmails as string[]) : [],
@@ -587,6 +582,9 @@ export default function BookingRequestViewModal({
           subCategory2: requestData.subCategory2 ? String(requestData.subCategory2) : '',
           subCategory3: requestData.subCategory3 ? String(requestData.subCategory3) : '',
           campaignDuration: requestData.campaignDuration ? String(requestData.campaignDuration) : '',
+          campaignDurationUnit: (requestData.campaignDurationUnit as 'days' | 'months') || 'months',
+          // Pass businessId for backfill tracking (standardized approach)
+          linkedBusinessId: requestData.linkedBusiness?.id || undefined,
 
           redemptionMode: requestData.redemptionMode ? String(requestData.redemptionMode) : undefined,
           isRecurring: requestData.isRecurring ? String(requestData.isRecurring) : undefined,
@@ -605,19 +603,14 @@ export default function BookingRequestViewModal({
           accountNumber: requestData.accountNumber ? String(requestData.accountNumber) : undefined,
           accountType: requestData.accountType ? String(requestData.accountType) : undefined,
           addressAndHours: requestData.addressAndHours ? String(requestData.addressAndHours) : undefined,
-          province: requestData.province ? String(requestData.province) : undefined,
-          district: requestData.district ? String(requestData.district) : undefined,
-          corregimiento: requestData.corregimiento ? String(requestData.corregimiento) : undefined,
+          provinceDistrictCorregimiento: requestData.provinceDistrictCorregimiento ? String(requestData.provinceDistrictCorregimiento) : undefined,
 
           includesTaxes: requestData.includesTaxes ? String(requestData.includesTaxes) : undefined,
           validOnHolidays: requestData.validOnHolidays ? String(requestData.validOnHolidays) : undefined,
           hasExclusivity: requestData.hasExclusivity ? String(requestData.hasExclusivity) : undefined,
           blackoutDates: requestData.blackoutDates ? String(requestData.blackoutDates) : undefined,
           exclusivityCondition: requestData.exclusivityCondition ? String(requestData.exclusivityCondition) : undefined,
-          giftVouchers: requestData.giftVouchers ? String(requestData.giftVouchers) : undefined,
           hasOtherBranches: requestData.hasOtherBranches ? String(requestData.hasOtherBranches) : undefined,
-          vouchersPerPerson: requestData.vouchersPerPerson ? String(requestData.vouchersPerPerson) : undefined,
-          commission: requestData.commission ? String(requestData.commission) : undefined,
 
           redemptionMethods: Array.isArray(requestData.redemptionMethods) ? requestData.redemptionMethods : undefined,
           contactDetails: requestData.contactDetails ? String(requestData.contactDetails) : undefined,
@@ -683,7 +676,8 @@ export default function BookingRequestViewModal({
 
       {/* Modal Container */}
       {/* Mobile: full screen, Desktop: centered with padding */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center md:p-3 pointer-events-none">
+      {/* z-[80] to appear above ModalShell (z-[70]) when opened from EventModal */}
+      <div className="fixed inset-0 z-[80] flex items-center justify-center md:p-3 pointer-events-none">
         {/* Modal Panel */}
         {/* Mobile: full height, no rounded. Desktop: 85vh max, rounded */}
         <div className={`w-full max-w-5xl bg-white shadow-2xl md:rounded-xl flex flex-col h-full md:h-[85vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${
@@ -1293,7 +1287,7 @@ export default function BookingRequestViewModal({
         onCancel={() => setShowApproveConfirm(false)}
         loading={approving}
         loadingText="Aprobando..."
-        zIndex={60}
+        zIndex={90}
       />
 
       {/* Cancel Request Confirmation Modal */}
@@ -1323,7 +1317,7 @@ export default function BookingRequestViewModal({
         onCancel={() => setShowCancelConfirm(false)}
         loading={cancelling}
         loadingText="Cancelando..."
-        zIndex={60}
+        zIndex={90}
       />
 
       {/* Marketing Campaign Modal */}

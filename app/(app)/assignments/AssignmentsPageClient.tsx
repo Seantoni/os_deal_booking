@@ -7,6 +7,7 @@ import type { Business } from '@/types'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import PersonRemoveIcon from '@mui/icons-material/PersonRemove'
+import RepeatIcon from '@mui/icons-material/Repeat'
 import CheckIcon from '@mui/icons-material/Check'
 import CloseIcon from '@mui/icons-material/Close'
 import PersonIcon from '@mui/icons-material/Person'
@@ -94,14 +95,14 @@ export default function AssignmentsPageClient({
   // Data state
   const [assignments, setAssignments] = useState<AssignmentBusiness[]>(initialAssignments)
   const [total, setTotal] = useState(initialTotal)
-  const [counts, setCounts] = useState(initialCounts || { all: 0, reasignar: 0, sacar: 0 })
+  const [counts, setCounts] = useState(initialCounts || { all: 0, reasignar: 0, sacar: 0, recurrente: 0 })
   const [loading, setLoading] = useState(false)
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<AssignmentBusiness[] | null>(null)
   
   // Filters and pagination
-  const [typeFilter, setTypeFilter] = useState<'all' | 'reasignar' | 'sacar'>('all')
+  const [typeFilter, setTypeFilter] = useState<'all' | 'reasignar' | 'sacar' | 'recurrente'>('all')
   const [currentPage, setCurrentPage] = useState(0)
   const [sortColumn, setSortColumn] = useState<string | null>('reassignmentRequestedAt')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
@@ -284,6 +285,7 @@ export default function AssignmentsPageClient({
     { id: 'all', label: 'Todos', count: counts.all },
     { id: 'reasignar', label: 'Reasignar', count: counts.reasignar },
     { id: 'sacar', label: 'Sacar', count: counts.sacar },
+    { id: 'recurrente', label: 'Recurrente', count: counts.recurrente },
   ]
 
   // Filter sales users only
@@ -304,7 +306,7 @@ export default function AssignmentsPageClient({
         onSearchChange={handleSearchChange}
         filterTabs={filterTabs}
         activeFilter={typeFilter}
-        onFilterChange={(id) => setTypeFilter(id as 'all' | 'reasignar' | 'sacar')}
+        onFilterChange={(id) => setTypeFilter(id as 'all' | 'reasignar' | 'sacar' | 'recurrente')}
         isAdmin={true}
         {...advancedFilterProps}
       />
@@ -367,6 +369,14 @@ export default function AssignmentsPageClient({
                         <SwapHorizIcon style={{ fontSize: 14 }} />
                         Reasignar
                       </span>
+                    ) : assignment.reassignmentType === 'recurrente' ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium">
+                        <RepeatIcon style={{ fontSize: 14 }} />
+                        Recurrente
+                        {assignment.reassignmentRequestedBy === 'system-cron' && (
+                          <span className="ml-1 px-1 py-0.5 bg-purple-200 text-purple-800 rounded text-[10px]">Auto</span>
+                        )}
+                      </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-xs font-medium">
                         <PersonRemoveIcon style={{ fontSize: 14 }} />
@@ -375,7 +385,10 @@ export default function AssignmentsPageClient({
                     )}
                   </TableCell>
                   <TableCell className="text-[13px] text-gray-600">
-                    {assignment.reassignmentRequester?.name || assignment.reassignmentRequestedBy || '-'}
+                    {assignment.reassignmentRequestedBy === 'system-cron' 
+                      ? <span className="text-purple-600 font-medium">Sistema (Auto)</span>
+                      : (assignment.reassignmentRequester?.name || assignment.reassignmentRequestedBy || '-')
+                    }
                   </TableCell>
                   <TableCell className="text-[13px] text-gray-600">
                     {assignment.previousOwner?.name || assignment.reassignmentPreviousOwner || '-'}

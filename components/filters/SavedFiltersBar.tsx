@@ -9,19 +9,28 @@ import type { SavedFilter } from '@/app/actions/filters'
 
 interface SavedFiltersBarProps {
   savedFilters: SavedFilter[]
-  activeFilterId: string | null
-  onFilterSelect: (filter: SavedFilter | null) => void
+  activeFilterIds?: string[] // Multi-select support
+  activeFilterId?: string | null // Legacy single-select support
+  onFilterToggle?: (filter: SavedFilter) => void // Multi-select handler
+  onFilterSelect?: (filter: SavedFilter | null) => void // Legacy single-select handler
   isAdmin?: boolean
 }
 
 export default function SavedFiltersBar({
   savedFilters,
+  activeFilterIds = [],
   activeFilterId,
+  onFilterToggle,
   onFilterSelect,
   isAdmin = false,
 }: SavedFiltersBarProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Determine active filter IDs (support both new and legacy props)
+  const effectiveActiveIds = activeFilterIds.length > 0 
+    ? activeFilterIds 
+    : (activeFilterId ? [activeFilterId] : [])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -38,11 +47,36 @@ export default function SavedFiltersBar({
     return null
   }
 
-  const activeFilter = savedFilters.find(f => f.id === activeFilterId)
+  const isFilterActive = (filterId: string) => effectiveActiveIds.includes(filterId)
+  const activeCount = effectiveActiveIds.length
   
-  // Show first 3 filters as quick chips, rest in dropdown
-  const quickFilters = savedFilters.slice(0, 3)
-  const dropdownFilters = savedFilters.slice(3)
+  // Show first 5 filters as quick chips, rest in dropdown
+  const quickFilters = savedFilters.slice(0, 5)
+  const dropdownFilters = savedFilters.slice(5)
+  const hasActiveInDropdown = dropdownFilters.some(f => isFilterActive(f.id))
+
+  // Handle filter click - supports both multi-select and legacy single-select
+  const handleFilterClick = (filter: SavedFilter) => {
+    if (onFilterToggle) {
+      // Multi-select mode
+      onFilterToggle(filter)
+    } else if (onFilterSelect) {
+      // Legacy single-select mode
+      onFilterSelect(isFilterActive(filter.id) ? null : filter)
+    }
+  }
+
+  // Handle clear all filters
+  const handleClearAll = () => {
+    if (onFilterToggle) {
+      // Clear by toggling each active filter off
+      savedFilters
+        .filter(f => isFilterActive(f.id))
+        .forEach(f => onFilterToggle(f))
+    } else if (onFilterSelect) {
+      onFilterSelect(null)
+    }
+  }
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
@@ -50,21 +84,24 @@ export default function SavedFiltersBar({
       <div className="flex items-center gap-1.5 text-xs text-gray-500">
         <FilterListIcon className="w-4 h-4" />
         <span className="font-medium">Filtros:</span>
+        {activeCount > 1 && (
+          <span className="text-[10px] text-blue-600 font-medium">(AND)</span>
+        )}
       </div>
 
       {/* Quick filter chips */}
       {quickFilters.map(filter => (
         <button
           key={filter.id}
-          onClick={() => onFilterSelect(activeFilterId === filter.id ? null : filter)}
+          onClick={() => handleFilterClick(filter)}
           className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all ${
-            activeFilterId === filter.id
+            isFilterActive(filter.id)
               ? 'bg-blue-600 text-white shadow-sm'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
         >
           {filter.name}
-          {activeFilterId === filter.id && (
+          {isFilterActive(filter.id) && (
             <CheckIcon className="w-3.5 h-3.5 ml-1 inline" />
           )}
         </button>
@@ -76,13 +113,13 @@ export default function SavedFiltersBar({
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             className={`px-3 py-1.5 text-xs font-medium rounded-full transition-all flex items-center gap-1 ${
-              dropdownFilters.some(f => f.id === activeFilterId)
+              hasActiveInDropdown
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            {dropdownFilters.some(f => f.id === activeFilterId)
-              ? activeFilter?.name
+            {hasActiveInDropdown
+              ? `${dropdownFilters.filter(f => isFilterActive(f.id)).length} seleccionados`
               : `+${dropdownFilters.length} más`}
             <ExpandMoreIcon className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
@@ -92,16 +129,13 @@ export default function SavedFiltersBar({
               {dropdownFilters.map(filter => (
                 <button
                   key={filter.id}
-                  onClick={() => {
-                    onFilterSelect(activeFilterId === filter.id ? null : filter)
-                    setIsDropdownOpen(false)
-                  }}
+                  onClick={() => handleFilterClick(filter)}
                   className={`w-full px-3 py-2 text-xs text-left flex items-center justify-between hover:bg-gray-50 ${
-                    activeFilterId === filter.id ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                    isFilterActive(filter.id) ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
                   }`}
                 >
                   {filter.name}
-                  {activeFilterId === filter.id && (
+                  {isFilterActive(filter.id) && (
                     <CheckIcon className="w-4 h-4 text-blue-600" />
                   )}
                 </button>
@@ -111,14 +145,14 @@ export default function SavedFiltersBar({
         </div>
       )}
 
-      {/* Clear filter button */}
-      {activeFilterId && (
+      {/* Clear all filters button */}
+      {activeCount > 0 && (
         <button
-          onClick={() => onFilterSelect(null)}
+          onClick={handleClearAll}
           className="px-2 py-1.5 text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
         >
           <CloseIcon className="w-3.5 h-3.5" />
-          Limpiar
+          Limpiar{activeCount > 1 ? ` (${activeCount})` : ''}
         </button>
       )}
     </div>

@@ -8,7 +8,7 @@ import { getUserRole, isAdmin } from '@/lib/auth/roles'
 import type { OpportunityStage } from '@/types'
 import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
 import { logActivity } from '@/lib/activity-log'
-import { getTodayInPanama } from '@/lib/date/timezone'
+import { getTodayInPanama, parseDateInPanamaTime, formatDateForPanama } from '@/lib/date/timezone'
 
 /**
  * Get all opportunities (cached, minimal data for lists)
@@ -118,6 +118,7 @@ export async function getOpportunitiesPaginated(options: {
   sortBy?: string
   sortDirection?: 'asc' | 'desc'
   stage?: string // Filter by stage (e.g., 'iniciacion', 'reunion', etc.)
+  responsibleId?: string // Filter by responsible (admin quick filter)
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -127,7 +128,7 @@ export async function getOpportunitiesPaginated(options: {
 
   try {
     const role = await getUserRole()
-    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', stage } = options
+    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', stage, responsibleId } = options
 
     // Build where clause based on role
     const whereClause: Record<string, unknown> = {}
@@ -135,6 +136,11 @@ export async function getOpportunitiesPaginated(options: {
       whereClause.responsibleId = userId
     } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: [], total: 0, page, pageSize }
+    }
+    
+    // Apply responsible filter (admin quick filter - overrides role filter for admin)
+    if (responsibleId && role === 'admin') {
+      whereClause.responsibleId = responsibleId
     }
     
     // Apply stage filter if provided (and not 'all')
@@ -195,7 +201,7 @@ export async function getOpportunitiesPaginated(options: {
  * Get opportunity counts by stage (for filter tabs)
  * Returns counts for all, iniciacion, reunion, propuesta_enviada, propuesta_aprobada, won, lost
  */
-export async function getOpportunityCounts() {
+export async function getOpportunityCounts(filters?: { responsibleId?: string }) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
     return authResult
@@ -211,6 +217,11 @@ export async function getOpportunityCounts() {
       baseWhere.responsibleId = userId
     } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: { all: 0, iniciacion: 0, reunion: 0, propuesta_enviada: 0, propuesta_aprobada: 0, won: 0, lost: 0 } }
+    }
+    
+    // Apply responsible filter (admin quick filter)
+    if (filters?.responsibleId && role === 'admin') {
+      baseWhere.responsibleId = filters.responsibleId
     }
 
     // Get counts for each stage in parallel
@@ -234,10 +245,188 @@ export async function getOpportunityCounts() {
 }
 
 /**
+ * Get all data needed for OpportunityFormModal in a single request
+ * Replaces multiple separate fetches for businesses, categories, users, tasks, business details, booking request
+ */
+export async function getOpportunityFormData(opportunityId?: string | null, businessId?: string | null) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    const admin = role === 'admin'
+
+    // Build where clause for businesses based on role
+    const businessWhere: Record<string, unknown> = {}
+    if (role === 'sales') {
+      businessWhere.ownerId = userId
+    } else if (role === 'editor' || role === 'ere') {
+      return { 
+        success: true, 
+        data: { 
+          businesses: [], 
+          categories: [], 
+          users: [], 
+          tasks: [], 
+          linkedBusiness: null, 
+          linkedBookingRequest: null 
+        } 
+      }
+    }
+
+    // Build parallel fetch promises
+    const fetchPromises: Promise<unknown>[] = [
+      // Businesses (with category)
+      prisma.business.findMany({
+        where: businessWhere,
+        include: {
+          category: {
+            select: {
+              id: true,
+              categoryKey: true,
+              parentCategory: true,
+              subCategory1: true,
+              subCategory2: true,
+            },
+          },
+        },
+        orderBy: { name: 'asc' },
+      }),
+      // Categories
+      prisma.category.findMany({
+        where: { isActive: true },
+        orderBy: [{ displayOrder: 'asc' }, { parentCategory: 'asc' }],
+      }),
+    ]
+
+    // Users (only for admin)
+    if (admin) {
+      fetchPromises.push(
+        prisma.userProfile.findMany({
+          where: { isActive: true },
+          select: {
+            id: true,
+            clerkId: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+          orderBy: { name: 'asc' },
+        })
+      )
+    } else {
+      fetchPromises.push(Promise.resolve([]))
+    }
+
+    // Execute main fetches
+    const [businesses, categories, users] = await Promise.all(fetchPromises) as [unknown[], unknown[], unknown[]]
+
+    // If editing an existing opportunity, fetch opportunity-specific data
+    let tasks: unknown[] = []
+    let linkedBusiness = null
+    let linkedBookingRequest = null
+
+    if (opportunityId) {
+      // Fetch opportunity details to get businessId and bookingRequestId
+      const opportunity = await prisma.opportunity.findUnique({
+        where: { id: opportunityId },
+        select: {
+          businessId: true,
+          hasRequest: true,
+          bookingRequestId: true,
+        },
+      })
+
+      if (opportunity) {
+        const oppFetches: Promise<unknown>[] = [
+          // Tasks for this opportunity
+          prisma.task.findMany({
+            where: { opportunityId },
+            orderBy: { date: 'asc' },
+          }),
+        ]
+
+        // Business details
+        if (opportunity.businessId) {
+          oppFetches.push(
+            prisma.business.findUnique({
+              where: { id: opportunity.businessId },
+              include: {
+                category: {
+                  select: {
+                    id: true,
+                    categoryKey: true,
+                    parentCategory: true,
+                    subCategory1: true,
+                    subCategory2: true,
+                  },
+                },
+              },
+            })
+          )
+        } else {
+          oppFetches.push(Promise.resolve(null))
+        }
+
+        // Booking request if exists
+        if (opportunity.hasRequest && opportunity.bookingRequestId) {
+          oppFetches.push(
+            prisma.bookingRequest.findUnique({
+              where: { id: opportunity.bookingRequestId },
+            })
+          )
+        } else {
+          oppFetches.push(Promise.resolve(null))
+        }
+
+        const [tasksResult, businessResult, requestResult] = await Promise.all(oppFetches)
+        tasks = (tasksResult as unknown[]) || []
+        linkedBusiness = businessResult
+        linkedBookingRequest = requestResult
+      }
+    } else if (businessId) {
+      // New opportunity with initial business - just fetch business details
+      linkedBusiness = await prisma.business.findUnique({
+        where: { id: businessId },
+        include: {
+          category: {
+            select: {
+              id: true,
+              categoryKey: true,
+              parentCategory: true,
+              subCategory1: true,
+              subCategory2: true,
+            },
+          },
+        },
+      })
+    }
+
+    return {
+      success: true,
+      data: {
+        businesses,
+        categories,
+        users,
+        tasks,
+        linkedBusiness,
+        linkedBookingRequest,
+      },
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getOpportunityFormData')
+  }
+}
+
+/**
  * Search opportunities across ALL records (server-side search)
  */
 export async function searchOpportunities(query: string, options: {
   limit?: number
+  responsibleId?: string // Filter by responsible (admin quick filter)
 } = {}) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -247,7 +436,7 @@ export async function searchOpportunities(query: string, options: {
 
   try {
     const role = await getUserRole()
-    const { limit = 100 } = options
+    const { limit = 100, responsibleId } = options
 
     if (!query || query.trim().length < 2) {
       return { success: true, data: [] }
@@ -255,13 +444,18 @@ export async function searchOpportunities(query: string, options: {
 
     const searchTerm = query.trim()
 
-        // Build where clause based on role
+    // Build where clause based on role
     const roleFilter: Record<string, unknown> = {}
-        if (role === 'sales') {
+    if (role === 'sales') {
       roleFilter.responsibleId = userId
-        } else if (role === 'editor' || role === 'ere') {
+    } else if (role === 'editor' || role === 'ere') {
       return { success: true, data: [] }
-        }
+    }
+    
+    // Apply responsible filter (admin quick filter)
+    if (responsibleId && role === 'admin') {
+      roleFilter.responsibleId = responsibleId
+    }
 
     // Search across business name, contact, and notes
         const opportunities = await prisma.opportunity.findMany({
@@ -363,7 +557,14 @@ export async function getOpportunity(opportunityId: string) {
                 subCategory2: true,
               },
             },
-            salesReps: true,
+            owner: {
+              select: {
+                id: true,
+                clerkId: true,
+                name: true,
+                email: true,
+              },
+            },
           },
         },
         tasks: {
@@ -402,11 +603,17 @@ export async function createOpportunity(formData: FormData) {
     const notes = formData.get('notes') as string | null
     const responsibleId = formData.get('responsibleId') as string | null
 
-    if (!businessId || !stage || !startDate) {
-      return { success: false, error: 'Missing required fields' }
+    // Only businessId and stage are always required (canSetRequired: false in form config)
+    // startDate requirement is determined by admin in Settings → Entity Fields
+    const missingFields: string[] = []
+    if (!businessId) missingFields.push('Business')
+    if (!stage) missingFields.push('Stage')
+    
+    if (missingFields.length > 0) {
+      return { success: false, error: `Campos requeridos faltantes: ${missingFields.join(', ')}` }
     }
 
-    const startDateTime = new Date(startDate)
+    const startDateTime = startDate ? new Date(startDate) : new Date()
     const closeDateTime = closeDate ? new Date(closeDate) : null
 
     // Set responsible to current user by default if not provided
@@ -479,11 +686,13 @@ export async function updateOpportunity(opportunityId: string, formData: FormDat
     const lostReason = formData.get('lostReason') as string | null
     const responsibleId = formData.get('responsibleId') as string | null
 
-    if (!stage || !startDate) {
-      return { success: false, error: 'Missing required fields' }
+    // Only stage is always required for updates (canSetRequired: false in form config)
+    // startDate requirement is determined by admin in Settings → Entity Fields
+    if (!stage) {
+      return { success: false, error: 'Campos requeridos faltantes: Stage' }
     }
 
-    const startDateTime = new Date(startDate)
+    const startDateTime = startDate ? new Date(startDate) : null
     const closeDateTime = closeDate ? new Date(closeDate) : null
 
     // Check if user is admin to allow responsible editing
@@ -497,10 +706,14 @@ export async function updateOpportunity(opportunityId: string, formData: FormDat
 
     const updateData: Record<string, unknown> = {
       stage,
-      startDate: startDateTime,
       closeDate: closeDateTime,
       notes: notes || null,
       lostReason: lostReason || null,
+    }
+    
+    // Only update startDate if provided
+    if (startDateTime) {
+      updateData.startDate = startDateTime
     }
 
     // Only update responsible if admin
@@ -545,8 +758,8 @@ export async function updateOpportunity(opportunityId: string, formData: FormDat
         // We'll log this as part of changes, but action will be STATUS_CHANGE if stage changed
       }
 
-      // Check date fields
-      if (currentOpportunity.startDate.getTime() !== startDateTime.getTime()) {
+      // Check date fields (only if startDate was provided)
+      if (startDateTime && currentOpportunity.startDate.getTime() !== startDateTime.getTime()) {
         changedFields.push('startDate')
         previousValues.startDate = currentOpportunity.startDate
         newValues.startDate = startDateTime
@@ -777,7 +990,8 @@ export async function createTask(formData: FormData) {
       return { success: false, error: 'Invalid task category' }
     }
 
-    const taskDate = new Date(date)
+    // Create date in Panama timezone to preserve the intended day
+    const taskDate = parseDateInPanamaTime(date)
     
     // Check if task date is in the past - auto-complete if so
     const todayStr = getTodayInPanama() // YYYY-MM-DD in Panama timezone
@@ -821,8 +1035,10 @@ export async function createTask(formData: FormData) {
         orderBy: { date: 'asc' },
       })
 
-      const futureTasks = allTasks.filter((t) => !t.completed && new Date(t.date) >= new Date())
-      const pastTasks = allTasks.filter((t) => t.completed || new Date(t.date) < new Date())
+      // Use Panama timezone for date comparisons
+      const todayStr = getTodayInPanama()
+      const futureTasks = allTasks.filter((t) => !t.completed && formatDateForPanama(new Date(t.date)) >= todayStr)
+      const pastTasks = allTasks.filter((t) => t.completed || formatDateForPanama(new Date(t.date)) < todayStr)
 
       const nextActivityDate = futureTasks.length > 0 ? new Date(futureTasks[0].date) : null
       const lastActivityDate = pastTasks.length > 0 ? new Date(pastTasks[pastTasks.length - 1].date) : null
@@ -867,7 +1083,8 @@ export async function updateTask(taskId: string, formData: FormData) {
       return { success: false, error: 'Invalid task category' }
     }
 
-    const taskDate = new Date(date)
+    // Create date in Panama timezone to preserve the intended day
+    const taskDate = parseDateInPanamaTime(date)
 
     // Get opportunity ID before updating
     const existingTask = await prisma.task.findUnique({
@@ -920,14 +1137,15 @@ export async function updateTask(taskId: string, formData: FormData) {
       })
     }
 
-    // Update opportunity's nextActivityDate and lastActivityDate
+    // Update opportunity's nextActivityDate and lastActivityDate (using Panama timezone)
     const allTasks = await prisma.task.findMany({
       where: { opportunityId: existingTask.opportunityId },
       orderBy: { date: 'asc' },
     })
 
-    const futureTasks = allTasks.filter((t) => !t.completed && new Date(t.date) >= new Date())
-    const pastTasks = allTasks.filter((t) => t.completed || new Date(t.date) < new Date())
+    const todayStrUpdate = getTodayInPanama()
+    const futureTasks = allTasks.filter((t) => !t.completed && formatDateForPanama(new Date(t.date)) >= todayStrUpdate)
+    const pastTasks = allTasks.filter((t) => t.completed || formatDateForPanama(new Date(t.date)) < todayStrUpdate)
 
     const nextActivityDate = futureTasks.length > 0 ? new Date(futureTasks[0].date) : null
     const lastActivityDate = pastTasks.length > 0 ? new Date(pastTasks[pastTasks.length - 1].date) : null
@@ -990,14 +1208,15 @@ export async function deleteTask(taskId: string) {
       },
     })
 
-    // Update opportunity's nextActivityDate and lastActivityDate
+    // Update opportunity's nextActivityDate and lastActivityDate (using Panama timezone)
     const allTasks = await prisma.task.findMany({
       where: { opportunityId: task.opportunityId },
       orderBy: { date: 'asc' },
     })
 
-    const futureTasks = allTasks.filter((t) => !t.completed && new Date(t.date) >= new Date())
-    const pastTasks = allTasks.filter((t) => t.completed || new Date(t.date) < new Date())
+    const todayStrDelete = getTodayInPanama()
+    const futureTasks = allTasks.filter((t) => !t.completed && formatDateForPanama(new Date(t.date)) >= todayStrDelete)
+    const pastTasks = allTasks.filter((t) => t.completed || formatDateForPanama(new Date(t.date)) < todayStrDelete)
 
     const nextActivityDate = futureTasks.length > 0 ? new Date(futureTasks[0].date) : null
     const lastActivityDate = pastTasks.length > 0 ? new Date(pastTasks[pastTasks.length - 1].date) : null
@@ -1083,6 +1302,16 @@ export async function bulkUpsertOpportunities(
     })
     const businessByName = new Map(allBusinesses.map(b => [b.name.toLowerCase(), b]))
 
+    // Pre-fetch all existing opportunities that will be updated (avoids N+1)
+    const existingIds = rows.filter(r => r.id).map(r => r.id!)
+    const existingOpportunities = existingIds.length > 0
+      ? await prisma.opportunity.findMany({
+          where: { id: { in: existingIds } },
+          select: { id: true, businessId: true },
+        })
+      : []
+    const existingOpportunityMap = new Map(existingOpportunities.map(o => [o.id, o]))
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
       const rowNum = i + 2 // +2 for 1-indexed and header row
@@ -1144,8 +1373,8 @@ export async function bulkUpsertOpportunities(
         }
 
         if (row.id) {
-          // Update existing
-          const existing = await prisma.opportunity.findUnique({ where: { id: row.id } })
+          // Update existing - use pre-fetched map instead of individual query
+          const existing = existingOpportunityMap.get(row.id)
           if (!existing) {
             errors.push(`Fila ${rowNum}: No se encontró oportunidad con ID ${row.id}`)
             continue

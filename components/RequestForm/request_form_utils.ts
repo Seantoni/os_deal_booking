@@ -62,7 +62,8 @@ export const validateStep = (
   stepKey?: string
 ): Record<string, string> => {
   const newErrors: Record<string, string> = {}
-  const isRequired = (fieldKey: string) => requiredFields?.[fieldKey]?.required === true
+  // Use truthy check (not strict equality) to handle both boolean true and string "true"
+  const isRequired = (fieldKey: string) => !!requiredFields?.[fieldKey]?.required
   const templateName = getTemplateName(
     formData.parentCategory,
     formData.subCategory1,
@@ -76,6 +77,22 @@ export const validateStep = (
     ? REQUEST_FORM_STEPS.find((s) => s.key === mappedKey)
     : REQUEST_FORM_STEPS.find((s) => s.id === step)
 
+  /**
+   * Evaluates if a showWhen condition is met for a field
+   */
+  const isShowWhenConditionMet = (showWhen: { field: string; value: string | string[] } | undefined): boolean => {
+    if (!showWhen) return true // No condition means always show
+    
+    const dependentValue = formData[showWhen.field as keyof BookingFormData]
+    const requiredValue = showWhen.value
+    
+    // Check if the condition is met
+    if (Array.isArray(requiredValue)) {
+      return requiredValue.includes(dependentValue as string)
+    }
+    return dependentValue === requiredValue
+  }
+
   const shouldValidateField = (fieldKey: string): boolean => {
     if (!stepDef) return false
     // Skip nested/array sub-fields (e.g., pricingOptions.title) - these are handled by step-specific validation
@@ -84,9 +101,41 @@ export const validateStep = (
     if (!def) return false
     if (def.categorySpecific && def.template) {
       if (!templateName || templateName !== def.template) return false
+      
+      // For category-specific fields, also check the template's showWhen condition
+      const template = FIELD_TEMPLATES[templateName]
+      if (template) {
+        const templateFieldConfig = template.fields.find(f => f.name === fieldKey)
+        if (templateFieldConfig?.showWhen && !isShowWhenConditionMet(templateFieldConfig.showWhen)) {
+          return false // Field is hidden by showWhen condition
+        }
+      }
     }
+    
+    // Conditional fields: only validate if the condition is met
     if (fieldKey === 'recurringOfferLink' && formData.isRecurring !== 'Sí') return false
+    if (fieldKey === 'exclusivityCondition' && formData.hasExclusivity !== 'Sí') return false
+    
     return isRequired(fieldKey)
+  }
+  
+  /**
+   * Check if a template field should be validated based on its showWhen condition
+   */
+  const shouldValidateTemplateField = (fieldName: string): boolean => {
+    if (!templateName || !FIELD_TEMPLATES[templateName]) return false
+    
+    const template = FIELD_TEMPLATES[templateName]
+    const fieldConfig = template.fields.find(f => f.name === fieldName)
+    
+    if (!fieldConfig) return false
+    
+    // Check showWhen condition
+    if (fieldConfig.showWhen) {
+      return isShowWhenConditionMet(fieldConfig.showWhen)
+    }
+    
+    return true // No showWhen means always validate if required
   }
 
   const isEmpty = (value: unknown) => {
@@ -135,10 +184,6 @@ export const validateStep = (
       // Optional fields, no strict validation
       break
     case 6:
-      // Descripción: Descripción y Canales
-      // No strict validation, all fields are optional
-      break
-    case 7:
       // Estructura: Estructura de Oferta
       // Validate pricing options: realValue must be greater than price, both must be positive
       const pricingOptionsToValidate = Array.isArray(formData.pricingOptions) ? formData.pricingOptions : []
@@ -193,13 +238,30 @@ export const validateStep = (
         })
       }
       break
+    case 7:
+      // Información Adicional: Category-specific fields (dynamic)
+      // Validate template fields with showWhen conditions
+      if (templateName && FIELD_TEMPLATES[templateName]) {
+        const template = FIELD_TEMPLATES[templateName]
+        template.fields.forEach(fieldConfig => {
+          const fieldKey = fieldConfig.name
+          // Only validate if required AND visible (showWhen condition met)
+          if (isRequired(fieldKey) && shouldValidateTemplateField(fieldKey)) {
+            const value = formData[fieldKey as keyof BookingFormData]
+            if (isEmpty(value)) {
+              newErrors[fieldKey] = 'Requerido'
+            }
+          }
+        })
+      }
+      break
     case 8:
-      // Políticas: Políticas y Revisión
+      // Contenido: AI-generated content fields
       // Optional fields, no strict validation
       break
     case 9:
-      // Información Adicional: Información Adicional (Category-specific)
-      // All fields are optional
+      // Validación: Final review step
+      // No validation needed, just review
       break
   }
 
@@ -227,6 +289,7 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
   
   // Configuración: Configuración General y Vigencia
   fd.append('campaignDuration', formData.campaignDuration || '')
+  fd.append('campaignDurationUnit', formData.campaignDurationUnit || 'months')
   
   // Operatividad: Operatividad y Pagos
   fd.append('redemptionMode', formData.redemptionMode || '')
@@ -248,9 +311,7 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
   fd.append('accountNumber', formData.accountNumber || '')
   fd.append('accountType', formData.accountType || '')
   fd.append('addressAndHours', formData.addressAndHours || '')
-  fd.append('province', formData.province || '')
-  fd.append('district', formData.district || '')
-  fd.append('corregimiento', formData.corregimiento || '')
+  fd.append('provinceDistrictCorregimiento', formData.provinceDistrictCorregimiento || '')
   
   // Negocio: Reglas de Negocio y Restricciones
   fd.append('includesTaxes', formData.includesTaxes || '')
@@ -258,10 +319,7 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
   fd.append('hasExclusivity', formData.hasExclusivity || '')
   fd.append('blackoutDates', formData.blackoutDates || '')
   fd.append('exclusivityCondition', formData.exclusivityCondition || '')
-  fd.append('giftVouchers', formData.giftVouchers || '')
   fd.append('hasOtherBranches', formData.hasOtherBranches || '')
-  fd.append('vouchersPerPerson', formData.vouchersPerPerson || '')
-  fd.append('commission', formData.commission || '')
   
   // Descripción: Descripción y Canales de Venta
   fd.append('redemptionMethods', JSON.stringify(formData.redemptionMethods || []))

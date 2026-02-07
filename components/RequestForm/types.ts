@@ -10,6 +10,7 @@ export type BookingFormData = {
   agencyContact: string
   tentativeLaunchDate: string
   campaignDuration: string
+  campaignDurationUnit: 'days' | 'months' // Unit for campaign duration calculation
   internalPeriod: string
   
   // Operatividad: Operatividad y Pagos
@@ -35,9 +36,7 @@ export type BookingFormData = {
   accountNumber: string
   accountType: string
   addressAndHours: string
-  province: string
-  district: string
-  corregimiento: string
+  provinceDistrictCorregimiento: string
   
   // Negocio: Reglas de Negocio y Restricciones
   includesTaxes: string
@@ -45,10 +44,7 @@ export type BookingFormData = {
   hasExclusivity: string
   blackoutDates: string
   exclusivityCondition: string
-  giftVouchers: string
   hasOtherBranches: string
-  vouchersPerPerson: string
-  commission: string
   
   // Descripción: Descripción y Canales de Venta
   redemptionMethods: string[]

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import BusinessIcon from '@mui/icons-material/Business'
 import EmailIcon from '@mui/icons-material/Email'
@@ -31,10 +31,13 @@ const BookingRequestViewModal = dynamic(() => import('@/components/booking/reque
   loading: () => <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"><div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div></div>,
   ssr: false,
 })
+import LockIcon from '@mui/icons-material/Lock'
 import OpportunitiesSection from '@/components/crm/business/OpportunitiesSection'
 import RequestsSection from '@/components/crm/business/RequestsSection'
+import DealMetricsSection from '@/components/crm/business/DealMetricsSection'
 import { getOpportunitiesByBusiness } from '@/app/actions/crm'
 import { getRequestsByBusiness } from '@/app/actions/booking-requests'
+import { fetchEditableBusinessIds } from '@/app/actions/businesses'
 import type { Business, Opportunity, BookingRequest } from '@/types'
 
 function InfoRow({ label, value, icon, isLink, href }: { label: string; value?: string | null; icon?: React.ReactNode; isLink?: boolean; href?: string }) {
@@ -90,6 +93,7 @@ interface BusinessDetailClientProps {
 
 export default function BusinessDetailClient({ business: initialBusiness }: BusinessDetailClientProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [business, setBusiness] = useState<Business>(initialBusiness)
   const [searchQuery, setSearchQuery] = useState('')
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -100,8 +104,33 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [requests, setRequests] = useState<BookingRequest[]>([])
   const [loadingData, setLoadingData] = useState(true)
+  
+  // Track if user can edit this business
+  // null = loading, true = can edit, false = view only
+  const [canEdit, setCanEdit] = useState<boolean | null>(null)
 
-  const [activeTab, setActiveTab] = useState<'pipeline' | 'details'>('pipeline')
+  // Initialize tab from URL param or default to 'pipeline'
+  const tabParam = searchParams.get('tab')
+  const initialTab = (tabParam === 'metrics' || tabParam === 'details') ? tabParam : 'pipeline'
+  const [activeTab, setActiveTab] = useState<'pipeline' | 'metrics' | 'details'>(initialTab)
+  
+  // Fetch edit permissions on mount
+  useEffect(() => {
+    fetchEditableBusinessIds().then(result => {
+      if (result.success && result.data !== undefined) {
+        // null means can edit all, otherwise check if this business ID is in the list
+        const editableIds = result.data
+        if (editableIds === null) {
+          setCanEdit(true)
+        } else {
+          setCanEdit(editableIds.includes(initialBusiness.id))
+        }
+      } else {
+        // On error, default to no edit permission
+        setCanEdit(false)
+      }
+    })
+  }, [initialBusiness.id])
 
   const handleEditSuccess = (updatedBusiness: Business) => {
     setBusiness(updatedBusiness)
@@ -150,6 +179,7 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
     
     // Flag to trigger pre-fill logic in EnhancedBookingForm
     params.set('fromOpportunity', 'business')
+    params.set('businessId', business.id) // Pass businessId for backfill tracking
     
     // Basic business info
     params.set('businessName', business.name)
@@ -170,9 +200,7 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
     if (business.ruc) params.set('ruc', business.ruc)
     
     // Location info
-    if (business.province) params.set('province', business.province)
-    if (business.district) params.set('district', business.district)
-    if (business.corregimiento) params.set('corregimiento', business.corregimiento)
+    if (business.provinceDistrictCorregimiento) params.set('provinceDistrictCorregimiento', business.provinceDistrictCorregimiento)
     if (business.address) params.set('address', business.address)
     if (business.neighborhood) params.set('neighborhood', business.neighborhood)
     
@@ -230,9 +258,9 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
   }
 
   // Helper to render field if it matches search
-  const renderField = (label: string, value?: string | null, props?: any) => {
+  const renderField = (label: string, value?: string | null, props?: { icon?: React.ReactNode; isLink?: boolean; href?: string | null }) => {
     if (!matchesSearch(value, label)) return null
-    return <InfoRow label={label} value={value} {...props} />
+    return <InfoRow label={label} value={value} {...props} href={props?.href ?? undefined} />
   }
 
   return (
@@ -259,6 +287,15 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
                     : 'bg-slate-100 text-slate-600'
                 }`}>
                   {business.sourceType === 'api' ? 'API' : 'Manual'}
+                </span>
+                {/* Owner badge */}
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded ${
+                  business.owner?.name || business.owner?.email
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'bg-gray-100 text-gray-500'
+                }`}>
+                  <PersonIcon style={{ fontSize: 10 }} />
+                  {business.owner?.name || business.owner?.email || 'Sin asignar'}
                 </span>
                 {business.metrics?.net_rev_360_days !== undefined && (
                   <span className="px-1.5 py-0.5 text-[10px] font-mono font-medium bg-emerald-100 text-emerald-700 rounded">
@@ -293,18 +330,31 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
               />
             </div>
           )}
+          
+          {/* Read-only indicator */}
+          {canEdit === false && (
+            <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
+              <LockIcon style={{ fontSize: 12 }} />
+              <span className="hidden sm:inline">Solo lectura</span>
+            </span>
+          )}
+          
           <Button
             onClick={() => setIsOpportunityModalOpen(true)}
-              size="xs"
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+            disabled={canEdit === false || canEdit === null}
+            size="xs"
+            className={canEdit === false ? 'opacity-50 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}
+            title={canEdit === false ? 'Sin permiso de edición' : 'Crear Oportunidad'}
           >
               <AddIcon style={{ fontSize: 14 }} />
               <span className="hidden sm:inline ml-1">Opportunity</span>
           </Button>
           <Button
             onClick={handleCreateRequest}
-              size="xs"
-              className="bg-green-600 hover:bg-green-700 text-white"
+            disabled={canEdit === false || canEdit === null}
+            size="xs"
+            className={canEdit === false ? 'opacity-50 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}
+            title={canEdit === false ? 'Sin permiso de edición' : 'Crear Solicitud'}
           >
               <DescriptionIcon style={{ fontSize: 14 }} />
               <span className="hidden sm:inline ml-1">Request</span>
@@ -312,10 +362,11 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
           <Button
             onClick={() => setIsEditModalOpen(true)}
             variant="secondary"
-              size="xs"
+            size="xs"
+            title={canEdit === false ? 'Ver detalles (solo lectura)' : 'Editar'}
           >
               <EditIcon style={{ fontSize: 14 }} />
-              <span className="hidden sm:inline ml-1">Edit</span>
+              <span className="hidden sm:inline ml-1">{canEdit === false ? 'Ver' : 'Edit'}</span>
           </Button>
           </div>
         </div>
@@ -332,6 +383,16 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
           }`}
         >
           Pipeline
+        </button>
+        <button
+          onClick={() => setActiveTab('metrics')}
+          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+            activeTab === 'metrics'
+              ? 'bg-white text-slate-900 shadow-sm'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          Metrics
         </button>
         <button
           onClick={() => setActiveTab('details')}
@@ -365,6 +426,14 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
           </div>
         )}
 
+        {/* Metrics Tab */}
+        {activeTab === 'metrics' && (
+          <DealMetricsSection
+            vendorId={business.osAdminVendorId}
+            businessName={business.name}
+          />
+        )}
+
         {/* Details Tab */}
         {activeTab === 'details' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -378,9 +447,7 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
               </Section>
 
               <Section title="Location" icon={<LocationOnIcon fontSize="small" />}>
-                {renderField("Province", business.province)}
-                {renderField("District", business.district)}
-                {renderField("Corregimiento", business.corregimiento)}
+                {renderField("Prov, Dist, Corr", business.provinceDistrictCorregimiento)}
                 {renderField("Address", business.address)}
                 {renderField("Neighborhood", business.neighborhood)}
               </Section>
@@ -393,7 +460,6 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
             <div className="space-y-4">
               <Section title="Assignments & Relationships" icon={<PersonIcon fontSize="small" />}>
                 {renderField("Owner", business.owner?.name || business.owner?.email || business.ownerId)}
-                {renderField("Sales Reps", business.salesReps && business.salesReps.length > 0 ? business.salesReps.map((rep) => rep.salesRep?.name || rep.salesRep?.email || 'Rep').join(', ') : null)}
                 {renderField("Source", business.sourceType)}
               </Section>
 
@@ -426,6 +492,7 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
         onClose={() => setIsEditModalOpen(false)}
         business={business}
         onSuccess={handleEditSuccess}
+        canEdit={canEdit ?? false}
       />
 
       {/* Opportunity Modal */}

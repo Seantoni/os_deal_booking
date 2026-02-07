@@ -44,7 +44,6 @@ export type Deal = {
     redemptionContactPhone: string | null
     legalName: string | null
     rucDv: string | null
-    commission: string | null
     paymentType: string | null
     businessReview: string | null
     campaignDuration: string | null

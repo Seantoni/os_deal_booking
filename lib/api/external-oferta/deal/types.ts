@@ -142,3 +142,37 @@ export interface SendDealResult {
   error?: string
   logId?: string
 }
+
+// ============================================
+// Deal Metrics API Types (GET /deal-metrics)
+// ============================================
+
+export interface DealMetric {
+  vendor_id: string
+  deal_id: string | number // API may return number or string
+  deal_name?: string       // Deal name from API
+  quantity_sold: number
+  net_revenue: number
+  margin: number
+  run_at: string
+  end_at: string
+  url: string
+  updated_at: string
+}
+
+export interface DealMetricsResponse {
+  since: string
+  data_as_of: string
+  limit: number
+  offset: number
+  total: number
+  returned: number
+  deals: DealMetric[]
+}
+
+export interface FetchMetricsResult {
+  success: boolean
+  data?: DealMetricsResponse
+  error?: string
+  logId?: string
+}
