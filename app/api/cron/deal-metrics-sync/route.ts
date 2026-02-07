@@ -58,10 +58,12 @@ export async function GET(request: Request) {
 
   try {
     // Sync deal metrics for the last 1 day
+    // _internal: true bypasses Clerk auth (already verified by CRON_SECRET above)
     const result = await syncDealMetrics({
       sinceDays: 1,
       userId: 'system-cron',
       fetchAll: true,
+      _internal: true,
     })
 
     const durationMs = Date.now() - startTime

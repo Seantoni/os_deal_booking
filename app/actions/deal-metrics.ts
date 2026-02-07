@@ -39,11 +39,15 @@ export async function syncDealMetrics(options: {
   sinceDays?: number
   userId?: string
   fetchAll?: boolean // If true, fetches all pages
+  _internal?: boolean // Set by cron route (already verified CRON_SECRET)
 }): Promise<SyncMetricsResult> {
-  // Admin only — triggers external API calls, bulk writes, and auto-assignments
-  const authResult = await requireAdmin()
-  if (!('userId' in authResult)) {
-    return { success: false, message: authResult.error || 'Unauthorized' }
+  // Skip Clerk auth when called internally by cron (already verified by CRON_SECRET)
+  if (!options._internal) {
+    // Admin only — triggers external API calls, bulk writes, and auto-assignments
+    const authResult = await requireAdmin()
+    if (!('userId' in authResult)) {
+      return { success: false, message: authResult.error || 'Unauthorized' }
+    }
   }
 
   const { sinceDays = 30, userId, fetchAll = false } = options
