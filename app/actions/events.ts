@@ -27,7 +27,8 @@ export async function createEvent(formData: FormData) {
     const parentCategory = formData.get('parentCategory') as string
     const subCategory1 = formData.get('subCategory1') as string
     const subCategory2 = formData.get('subCategory2') as string
-    const merchant = formData.get('merchant') as string
+    const business = formData.get('business') as string
+    const businessId = formData.get('businessId') as string | null
     const startDate = formData.get('startDate') as string
     const endDate = formData.get('endDate') as string
     const bookingRequestId = formData.get('bookingRequestId') as string | null
@@ -62,7 +63,8 @@ export async function createEvent(formData: FormData) {
       parentCategory: parentCategory || null,
       subCategory1: subCategory1 || null,
       subCategory2: subCategory2 || null,
-      merchant: merchant || null,
+      business: business || null,
+      businessId: businessId || null,
       startDate: startDateTime,
       endDate: endDateTime,
       status: eventStatus, // Direct admin creation = 'pre-booked', from booking request = 'booked'
@@ -151,7 +153,7 @@ export async function createEvent(formData: FormData) {
       details: {
         metadata: {
           category: event.category,
-          merchant: event.merchant,
+          business: event.business,
           startDate: event.startDate,
           endDate: event.endDate
         }
@@ -330,7 +332,8 @@ export async function updateEvent(eventId: string, formData: FormData) {
     const parentCategory = formData.get('parentCategory') as string
     const subCategory1 = formData.get('subCategory1') as string
     const subCategory2 = formData.get('subCategory2') as string
-    const merchant = formData.get('merchant') as string
+    const business = formData.get('business') as string
+    const businessId = formData.get('businessId') as string | null
     const startDate = formData.get('startDate') as string
     const endDate = formData.get('endDate') as string
 
@@ -372,7 +375,8 @@ export async function updateEvent(eventId: string, formData: FormData) {
       parentCategory: parentCategory || null,
       subCategory1: subCategory1 || null,
       subCategory2: subCategory2 || null,
-      merchant: merchant || null,
+      business: business || null,
+      businessId: businessId || null,
       startDate: startDateTime,
       endDate: endDateTime,
     },
@@ -399,7 +403,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
     }
 
     // Compare other fields
-    const simpleFields = ['name', 'description', 'category', 'parentCategory', 'subCategory1', 'subCategory2', 'merchant']
+    const simpleFields = ['name', 'description', 'category', 'parentCategory', 'subCategory1', 'subCategory2', 'business', 'businessId']
     
     // Helper values map for comparison
     const updateValues: Record<string, any> = {
@@ -409,7 +413,8 @@ export async function updateEvent(eventId: string, formData: FormData) {
       parentCategory: parentCategory || null,
       subCategory1: subCategory1 || null,
       subCategory2: subCategory2 || null,
-      merchant: merchant || null,
+      business: business || null,
+      businessId: businessId || null,
     }
 
     simpleFields.forEach(field => {

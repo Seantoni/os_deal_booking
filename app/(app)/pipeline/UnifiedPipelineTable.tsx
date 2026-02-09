@@ -204,7 +204,7 @@ export default function UnifiedPipelineTable({
     rows.push({
       id: item.event.id,
       title: item.event.name,
-      merchant: item.event.merchant,
+      merchant: item.event.business,
       createdAt: eventCreatedAt,
       phaseStartDate: eventCreatedAt, // Pre-booked events start in Event phase
       reservedStartDate: item.event.startDate ? new Date(item.event.startDate) : undefined,

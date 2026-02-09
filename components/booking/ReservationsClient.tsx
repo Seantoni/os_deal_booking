@@ -56,7 +56,7 @@ export default function ReservationsClient({ events: initialEvents, usersMap = {
     return events.filter(event => 
       event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       event.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      event.merchant?.toLowerCase().includes(searchTerm.toLowerCase())
+      event.business?.toLowerCase().includes(searchTerm.toLowerCase())
     )
   }, [events, searchTerm])
 
@@ -252,7 +252,7 @@ return (
                         )}
                       </td>
                       <td className="px-4 py-[5px] text-gray-600">
-                        {event.merchant || '-'}
+                        {event.business || '-'}
                       </td>
                       <td className="px-4 py-[5px] text-gray-600">
                         {usersMap[event.userId]?.name || usersMap[event.userId]?.email || '-'}

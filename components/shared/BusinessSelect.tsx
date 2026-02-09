@@ -66,6 +66,7 @@ export default function BusinessSelect({
   const [searchQuery, setSearchQuery] = useState('')
   const [businesses, setBusinesses] = useState<BusinessWithStatus[]>([])
   const [loading, setLoading] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [selectedBusiness, setSelectedBusiness] = useState<BusinessWithStatus | null>(null)
   const [showWarning, setShowWarning] = useState(false)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 })
@@ -79,14 +80,19 @@ export default function BusinessSelect({
       if (businesses.length > 0) return // Already fetched
       
       setLoading(true)
+      setFetchError(null)
       try {
         const { getBusinessesWithBookingStatus } = await import('@/app/actions/businesses')
         const result = await getBusinessesWithBookingStatus()
         if (result.success && result.data) {
           setBusinesses(result.data)
+        } else {
+          const errorMessage = 'error' in result ? result.error : undefined
+          setFetchError(errorMessage || 'No se pudieron cargar los negocios')
         }
       } catch (err) {
         console.error('Failed to fetch businesses:', err)
+        setFetchError('No se pudieron cargar los negocios')
       } finally {
         setLoading(false)
       }
@@ -269,6 +275,7 @@ export default function BusinessSelect({
       </div>
 
       {error && <span className="text-xs text-red-600">{error}</span>}
+      {fetchError && <span className="text-xs text-red-600">{fetchError}</span>}
 
       {/* Warning banner for active bookings */}
       {showWarning && selectedBusiness && (selectedBusiness.hasFutureBooking || selectedBusiness.hasActiveRequest) && (

@@ -158,7 +158,8 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
       formData.set('subCategory1', event.subCategory1 || '')
       formData.set('subCategory2', event.subCategory2 || '')
       formData.set('subCategory3', event.subCategory3 || '')
-      formData.set('merchant', event.merchant || '')
+      formData.set('business', event.business || '')
+      formData.set('businessId', event.businessId || '')
       formData.set('startDate', formatDateForServer(newStartDate))
       formData.set('endDate', formatDateForServer(newEndDate))
       
@@ -192,7 +193,8 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
       formData.set('subCategory1', event.subCategory1 || '')
       formData.set('subCategory2', event.subCategory2 || '')
       formData.set('subCategory3', event.subCategory3 || '')
-      formData.set('merchant', event.merchant || '')
+      formData.set('business', event.business || '')
+      formData.set('businessId', event.businessId || '')
       
       // Keep original start date, only update end date
       const originalStart = new Date(event.startDate)

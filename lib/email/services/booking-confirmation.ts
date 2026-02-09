@@ -15,7 +15,7 @@ export async function sendBookingConfirmationEmail(
     parentCategory: string | null
     subCategory1: string | null
     subCategory2: string | null
-    merchant: string | null
+    business: string | null
     startDate: Date
     endDate: Date
   },
@@ -48,7 +48,7 @@ export async function sendBookingConfirmationEmail(
     // Create booking confirmation email HTML
     const emailHtml = renderBookingConfirmationEmail({
       eventName: event.name,
-      merchant: event.merchant || undefined,
+      merchant: event.business || undefined,
       category: categoryDisplay || undefined,
       startDate: formatDateForEmail(event.startDate),
       endDate: formatDateForEmail(event.endDate),
@@ -73,4 +73,3 @@ export async function sendBookingConfirmationEmail(
     throw error
   }
 }
-

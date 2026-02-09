@@ -439,6 +439,8 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       data.category
     )
 
+    const linkedBusinessId = formData.get('linkedBusinessId') as string | null
+
     // Create a pending event in the calendar
     if (bookingRequest.eventId) {
       // Update existing event
@@ -451,7 +453,8 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
           parentCategory: data.parentCategory,
           subCategory1: data.subCategory1,
           subCategory2: data.subCategory2,
-          merchant: data.merchant,
+          business: data.merchant,
+          businessId: linkedBusinessId || undefined,
           startDate: startDateTime,
           endDate: endDateTime,
           status: 'pending',
@@ -469,7 +472,8 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
           parentCategory: data.parentCategory,
           subCategory1: data.subCategory1,
           subCategory2: data.subCategory2,
-          merchant: data.merchant,
+          business: data.merchant,
+          businessId: linkedBusinessId || null,
           startDate: startDateTime,
           endDate: endDateTime,
           status: 'pending',
@@ -490,7 +494,6 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
     // so it's ready when the deal is sent on booking.
     let vendorAutoCreateResult: { attempted: boolean; success?: boolean; externalVendorId?: number; error?: string; businessName?: string } = { attempted: false }
     try {
-      const linkedBusinessId = formData.get('linkedBusinessId') as string | null
       const opportunityId = formData.get('opportunityId') as string | null
       
       if (linkedBusinessId || opportunityId || businessEmail) {
@@ -1217,7 +1220,7 @@ export async function updateBookingRequest(requestId: string, formData: FormData
           subCategory1: fields.subCategory1 || undefined,
           subCategory2: fields.subCategory2 || undefined,
           subCategory3: fields.subCategory3 || undefined,
-          merchant: fields.merchant || undefined,
+          business: fields.merchant || undefined,
           startDate: startDateTime || undefined,
           endDate: endDateTime || undefined,
         },
@@ -1963,4 +1966,3 @@ export async function sendBookingRequestWithBackfill(
     return handleServerActionError(error, 'sendBookingRequestWithBackfill')
   }
 }
-

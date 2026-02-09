@@ -86,10 +86,10 @@ return (
                           )}
                         </div>
                       <div className="flex items-center gap-2 mt-0.5">
-                        {event.merchant && (
-                          <span className="text-[11px] text-slate-500 truncate">{event.merchant}</span>
+                        {event.business && (
+                          <span className="text-[11px] text-slate-500 truncate">{event.business}</span>
                         )}
-                        {event.merchant && event.parentCategory && (
+                        {event.business && event.parentCategory && (
                           <span className="text-slate-300">•</span>
                         )}
                         {event.parentCategory && (

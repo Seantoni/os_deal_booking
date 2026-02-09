@@ -84,9 +84,9 @@ if (events.length === 0) {
                   </span>
                 )}
               </div>
-              {event.merchant && (
+              {event.business && (
                 <p className="text-gray-700 text-sm font-medium mt-1">
-                  Aliado: {event.merchant}
+                  Aliado: {event.business}
                 </p>
               )}
               {event.description && (

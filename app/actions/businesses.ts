@@ -1627,19 +1627,18 @@ export async function getBusinessesWithBookingStatus() {
       },
     })
 
-    // Get all future booked events (by merchant name matching business name)
-    const futureBookedEvents = await prisma.event.findMany({
-      where: {
-        status: 'booked',
-        endDate: { gte: today },
-      },
-      select: {
-        merchant: true,
-      },
-    })
+    // Get all future booked events (by business name matching business name)
+    // Use raw query against the physical DB column ("merchant") for compatibility
+    // with schema transitions where Prisma client generation may lag behind.
+    const futureBookedEvents = await prisma.$queryRaw<Array<{ business: string | null }>>`
+      SELECT "merchant" AS "business"
+      FROM "Event"
+      WHERE "status" = 'booked'
+        AND "endDate" >= ${today}
+    `
     const bookedMerchants = new Set(
       futureBookedEvents
-        .map(e => e.merchant?.toLowerCase())
+        .map(e => e.business?.toLowerCase())
         .filter(Boolean) as string[]
     )
 

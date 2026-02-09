@@ -18,7 +18,7 @@ export default function EventSearchResults({ events, searchQuery, onEventClick, 
     return (
       event.name.toLowerCase().includes(query) ||
       event.description?.toLowerCase().includes(query) ||
-      event.merchant?.toLowerCase().includes(query) ||
+      event.business?.toLowerCase().includes(query) ||
       event.category?.toLowerCase().includes(query) ||
       event.parentCategory?.toLowerCase().includes(query) ||
       event.subCategory1?.toLowerCase().includes(query) ||
@@ -103,7 +103,7 @@ export default function EventSearchResults({ events, searchQuery, onEventClick, 
                       </div>
                     </td>
                       <td className="px-4 py-[5px] whitespace-nowrap">
-                      <span className="text-sm text-gray-700">{event.merchant || '-'}</span>
+                      <span className="text-sm text-gray-700">{event.business || '-'}</span>
                     </td>
                       <td className="px-4 py-[5px]">
                         <span className="text-sm text-gray-600">{getCategoryDisplay(event)}</span>

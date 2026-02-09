@@ -4,7 +4,7 @@ import { createEvent, updateEvent, deleteEvent, bookEvent, rejectEvent, refreshC
 import { useState, useEffect, useCallback, useTransition, useReducer } from 'react'
 import dynamic from 'next/dynamic'
 import CategorySelect from '@/components/shared/CategorySelect'
-import BusinessSelect, { type BusinessWithStatus } from '@/components/shared/BusinessSelect'
+import BusinessSelect from '@/components/shared/BusinessSelect'
 import { getMaxDuration, getDaysDifference, getCategoryOptions, getCategoryColors, SEVEN_DAY_CATEGORIES } from '@/lib/categories'
 import type { CategoryOption } from '@/lib/categories'
 import { checkUniquenesViolation, check30DayMerchantRule, getDailyLimitStatus, getEventsOnDate, calculateNextAvailableDate } from '@/lib/event-validation'
@@ -37,7 +37,8 @@ type FormState = {
   // Form fields
   name: string
   description: string
-  merchant: string
+  business: string
+  businessId: string
   startDate: string
   endDate: string
   categoryOption: CategoryOption | null
@@ -49,7 +50,7 @@ type FormState = {
   error: string
   durationWarning: string
   uniquenessWarning: string
-  merchantWarning: string
+  businessWarning: string
   dailyLimitWarnings: string[]
   dateAdjustmentInfo: string
 }
@@ -57,14 +58,15 @@ type FormState = {
 type FormAction =
   | { type: 'SET_FIELD'; field: keyof FormState; value: FormState[keyof FormState] }
   | { type: 'SET_FORM_DATA'; payload: Partial<FormState> }
-  | { type: 'SET_WARNINGS'; payload: Pick<FormState, 'durationWarning' | 'uniquenessWarning' | 'merchantWarning' | 'dailyLimitWarnings' | 'dateAdjustmentInfo'> }
+  | { type: 'SET_WARNINGS'; payload: Pick<FormState, 'durationWarning' | 'uniquenessWarning' | 'businessWarning' | 'dailyLimitWarnings' | 'dateAdjustmentInfo'> }
   | { type: 'CLEAR_WARNINGS' }
   | { type: 'RESET_FORM' }
 
 const initialFormState: FormState = {
   name: '',
   description: '',
-  merchant: '',
+  business: '',
+  businessId: '',
   startDate: '',
   endDate: '',
   categoryOption: null,
@@ -74,7 +76,7 @@ const initialFormState: FormState = {
   error: '',
   durationWarning: '',
   uniquenessWarning: '',
-  merchantWarning: '',
+  businessWarning: '',
   dailyLimitWarnings: [],
   dateAdjustmentInfo: '',
 }
@@ -93,7 +95,7 @@ function formReducer(state: FormState, action: FormAction): FormState {
         error: '',
         durationWarning: '',
         uniquenessWarning: '',
-        merchantWarning: '',
+        businessWarning: '',
         dailyLimitWarnings: [],
         dateAdjustmentInfo: '',
       }
@@ -135,9 +137,9 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
   // React 19: useReducer for consolidated form state management
   const [formState, dispatch] = useReducer(formReducer, initialFormState)
   const {
-    name, description, merchant, startDate, endDate, categoryOption,
+    name, description, business, businessId, startDate, endDate, categoryOption,
     showRejectionField, rejectionReason, showBookingRequestModal,
-    error, durationWarning, uniquenessWarning, merchantWarning, dailyLimitWarnings, dateAdjustmentInfo,
+    error, durationWarning, uniquenessWarning, businessWarning, dailyLimitWarnings, dateAdjustmentInfo,
   } = formState
   
   // Separate state for data that doesn't fit the form pattern
@@ -215,7 +217,8 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
         setFormData({
           name: eventToEdit.name,
           description: descriptionToUse,
-          merchant: linkedBookingRequest?.merchant || eventToEdit.merchant || '',
+          business: linkedBookingRequest?.merchant || eventToEdit.business || '',
+          businessId: eventToEdit.businessId || '',
           startDate: formatDateForPanama(new Date(eventToEdit.startDate)),
           endDate: formatDateForPanama(new Date(eventToEdit.endDate)),
         })
@@ -269,7 +272,8 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
         setFormData({
           name: linkedBookingRequest.name || '',
           description: desc,
-          merchant: linkedBookingRequest.merchant || '',
+          business: linkedBookingRequest.merchant || '',
+          businessId: '',
         })
         
         // Set category from booking request
@@ -348,7 +352,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
     // Compute all warnings together
     let newDurationWarning = ''
     let newUniquenessWarning = ''
-    let newMerchantWarning = ''
+    let newBusinessWarning = ''
     const newDailyLimitWarnings: string[] = []
     
     // Duration validation (check business exceptions first)
@@ -357,8 +361,8 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       
       // Check for business exception on duration
       let maxDuration = getMaxDuration(parentCategory)
-      if (merchant) {
-        const exceptionDuration = getBusinessException(merchant, 'duration', userSettings.businessExceptions)
+      if (business) {
+        const exceptionDuration = getBusinessException(business, 'duration', userSettings.businessExceptions)
         if (exceptionDuration !== null) {
           maxDuration = exceptionDuration
         }
@@ -383,26 +387,27 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
     }
     
     // 30-day merchant rule (with business exceptions)
-    if (merchant) {
-      const merchantCheck = check30DayMerchantRule(
+    if (business) {
+      const businessCheck = check30DayMerchantRule(
         allEvents, 
-        merchant, 
+        business, 
         start, 
         eventToEdit?.id,
         userSettings.merchantRepeatDays,
-        userSettings.businessExceptions
+        userSettings.businessExceptions,
+        businessId || null
       )
       
-      if (merchantCheck.violated && merchantCheck.lastEvent) {
-        const requiredDays = merchantCheck.daysUntilAllowed! + Math.floor((start.getTime() - new Date(merchantCheck.lastEvent.endDate).getTime()) / (1000 * 60 * 60 * 24))
-        newMerchantWarning = `El negocio "${merchant}" tuvo una oferta hace menos de ${requiredDays} días. Debe esperar ${merchantCheck.daysUntilAllowed} días más.`
+      if (businessCheck.violated && businessCheck.lastEvent) {
+        const requiredDays = businessCheck.daysUntilAllowed! + Math.floor((start.getTime() - new Date(businessCheck.lastEvent.endDate).getTime()) / (1000 * 60 * 60 * 24))
+        newBusinessWarning = `El negocio "${business}" tuvo una oferta hace menos de ${requiredDays} días. Debe esperar ${businessCheck.daysUntilAllowed} días más.`
       }
     }
     
     // Daily limit check for all days in range (check for daily limit exemption)
     // Check if this merchant is exempt from daily limits
-    const isDailyLimitExempt = merchant 
-      ? getBusinessException(merchant, 'dailyLimitExempt', userSettings.businessExceptions) === 1
+    const isDailyLimitExempt = business 
+      ? getBusinessException(business, 'dailyLimitExempt', userSettings.businessExceptions) === 1
       : false
     
     if (!isDailyLimitExempt) {
@@ -429,17 +434,17 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       payload: {
         durationWarning: newDurationWarning,
         uniquenessWarning: newUniquenessWarning,
-        merchantWarning: newMerchantWarning,
+        businessWarning: newBusinessWarning,
         dailyLimitWarnings: newDailyLimitWarnings,
         dateAdjustmentInfo: '',
       },
     })
     
-  }, [startDate, endDate, categoryOption, merchant, allEvents, eventToEdit, userSettings])
+  }, [startDate, endDate, categoryOption, business, businessId, allEvents, eventToEdit, userSettings])
 
   // Check if all required fields are filled
   const hasEmptyRequiredFields = () => {
-    return !name || !categoryOption || !merchant || !startDate || !endDate
+    return !name || !categoryOption || !business || !startDate || !endDate
   }
 
   // Only required fields block guardado; advertencias no bloquean
@@ -474,7 +479,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
     const warningMessages: string[] = []
     if (durationWarning) warningMessages.push(durationWarning)
     if (uniquenessWarning) warningMessages.push(uniquenessWarning)
-    if (merchantWarning) warningMessages.push(merchantWarning)
+    if (businessWarning) warningMessages.push(businessWarning)
     if (dailyLimitWarnings.length > 0) warningMessages.push(...dailyLimitWarnings)
 
     // React 19: Wrap async save in startTransition
@@ -715,7 +720,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
             )}
 
             {/* Warnings Section - Collapsed */}
-            {(error || durationWarning || uniquenessWarning || merchantWarning || dailyLimitWarnings.length > 0 || dateAdjustmentInfo || hasEmptyRequiredFields()) && (
+            {(error || durationWarning || uniquenessWarning || businessWarning || dailyLimitWarnings.length > 0 || dateAdjustmentInfo || hasEmptyRequiredFields()) && (
               <div className="px-4 py-2 space-y-1.5 bg-gray-50">
                 {hasEmptyRequiredFields() && (
                   <Alert variant="error" icon={<BlockIcon fontSize="small" />}>
@@ -725,7 +730,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
             {error && <Alert variant="error">{error}</Alert>}
                 {durationWarning && <Alert variant="warning">{durationWarning}</Alert>}
                 {uniquenessWarning && <Alert variant="warning">{uniquenessWarning}</Alert>}
-                {merchantWarning && <Alert variant="warning">{merchantWarning}</Alert>}
+                {businessWarning && <Alert variant="warning">{businessWarning}</Alert>}
                 {dateAdjustmentInfo && <Alert variant="info">{dateAdjustmentInfo}</Alert>}
                 {dailyLimitWarnings.length > 0 && (
                   <Alert variant="error">
@@ -740,20 +745,21 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
               {readOnly ? (
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Negocio</span>
-                  <span className="text-sm font-semibold text-gray-900">{merchant}</span>
+                  <span className="text-sm font-semibold text-gray-900">{business}</span>
                   </div>
               ) : (
                 <BusinessSelect
-                  value={merchant}
-                  onChange={(businessName) => {
-                    setField('merchant', businessName)
+                  value={business}
+                  onChange={(businessName, selectedBusiness) => {
+                    setField('business', businessName)
+                    setField('businessId', selectedBusiness?.id || '')
                     if (!eventToEdit && startDate) {
                       setField('name', generateEventName(businessName, startDate))
                     }
                   }}
                   label="Negocio *"
                   required
-                  error={!merchant ? 'Requerido' : undefined}
+                  error={!business ? 'Requerido' : undefined}
                 />
               )}
             </div>
@@ -789,7 +795,8 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
               )}
             </div>
               </div>
-            <input type="hidden" name="merchant" value={merchant} />
+            <input type="hidden" name="business" value={business} />
+            <input type="hidden" name="businessId" value={businessId} />
 
               {/* Dates Row */}
               <div className="grid grid-cols-2 gap-3">
@@ -804,8 +811,8 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                     if (readOnly) return
                     const newDate = e.target.value
                     setField('startDate', newDate)
-                    if (!eventToEdit && merchant) {
-                      setField('name', generateEventName(merchant, newDate))
+                    if (!eventToEdit && business) {
+                      setField('name', generateEventName(business, newDate))
                     }
                   }}
                 readOnly={readOnly}

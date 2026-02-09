@@ -462,7 +462,7 @@ export async function getPendingBookings(): Promise<{
       select: {
         id: true,
         name: true,
-        merchant: true,
+        business: true,
         startDate: true,
         endDate: true,
         status: true,
@@ -477,7 +477,7 @@ export async function getPendingBookings(): Promise<{
     const data: PendingBookingItem[] = pendingEvents.map(event => ({
       id: event.id,
       name: event.name,
-      businessName: event.merchant,
+      businessName: event.business,
       startDate: event.startDate,
       endDate: event.endDate,
       status: event.status,
@@ -495,4 +495,3 @@ export async function getPendingBookings(): Promise<{
     }
   }
 }
-

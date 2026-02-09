@@ -107,12 +107,13 @@ export function check30DayMerchantRule(
   newStartDate: Date,
   excludeEventId?: string,
   merchantRepeatDays?: number,
-  businessExceptions?: BusinessException[]
+  businessExceptions?: BusinessException[],
+  businessId?: string | null
 ): { violated: boolean; lastEvent?: Event; daysUntilAllowed?: number } {
-  if (!merchant) return { violated: false }
+  if (!merchant && !businessId) return { violated: false }
   
   // Check for business exception
-  const exceptionDays = businessExceptions 
+  const exceptionDays = merchant && businessExceptions 
     ? getBusinessException(merchant, 'repeatDays', businessExceptions)
     : null
   
@@ -120,7 +121,11 @@ export function check30DayMerchantRule(
   
   const merchantEvents = events.filter(event => {
     if (excludeEventId && event.id === excludeEventId) return false
-    return event.merchant === merchant
+    if (businessId) {
+      if (event.businessId) return event.businessId === businessId
+      return merchant ? event.business === merchant : false
+    }
+    return merchant ? event.business === merchant : false
   })
   
   for (const event of merchantEvents) {

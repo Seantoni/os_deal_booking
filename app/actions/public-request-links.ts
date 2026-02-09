@@ -296,7 +296,7 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
         parentCategory: bookingRequest.parentCategory,
         subCategory1: bookingRequest.subCategory1,
         subCategory2: bookingRequest.subCategory2,
-        merchant: bookingRequest.merchant,
+        business: bookingRequest.merchant,
         startDate: startDateTime,
         endDate: endDateTime,
         status: 'approved', // Create as approved to match booking request status and enable book/reject actions
@@ -388,4 +388,3 @@ function renderPublicLinkEmail({
 </html>
   `
 }
-
