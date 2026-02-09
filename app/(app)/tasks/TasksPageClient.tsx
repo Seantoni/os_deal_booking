@@ -400,9 +400,9 @@ export default function TasksPageClient() {
       />
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4 bg-gray-50">
+      <div className="flex-1 overflow-auto p-0 md:p-4 bg-gray-50">
         {loading ? (
-          <div className="space-y-2">
+          <div className="space-y-2 p-4 md:p-0">
             {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="bg-white rounded-lg p-4 animate-pulse">
                 <div className="flex items-center gap-3">
@@ -417,7 +417,7 @@ export default function TasksPageClient() {
             ))}
           </div>
         ) : sortedTasks.length === 0 ? (
-          <div className="bg-white rounded-lg p-8 text-center border border-gray-200">
+          <div className="bg-white rounded-lg p-8 text-center border border-gray-200 mx-4 md:mx-0">
             <AssignmentIcon className="text-gray-400 mx-auto mb-3" style={{ fontSize: 48 }} />
             <p className="text-gray-500 font-medium">No hay tareas</p>
             <p className="text-sm text-gray-500 mt-1">
@@ -427,157 +427,322 @@ export default function TasksPageClient() {
             </p>
           </div>
         ) : (
-          <EntityTable
-            columns={COLUMNS}
-            sortColumn={sortColumn}
-            sortDirection={sortDirection}
-            onSort={handleSort}
-          >
-            {sortedTasks.map((task, index) => {
-              const overdue = isOverdue(task)
-              const today = isDueToday(task)
+          <>
+            {/* Mobile list */}
+            <div className="md:hidden">
+              <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                  {sortedTasks.length} tarea{sortedTasks.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="bg-white">
+                {sortedTasks.map((task) => {
+                  const overdue = isOverdue(task)
+                  const today = isDueToday(task)
+                  const stageLabel = STAGE_LABELS[task.opportunity?.stage || ''] || task.opportunity?.stage || '-'
+                  const stageColor = STAGE_COLORS[task.opportunity?.stage || ''] || 'bg-gray-100 text-gray-600'
+                  const businessName = task.opportunity?.business?.name || '-'
+                  const contactName = task.opportunity?.business?.contactName || '-'
+                  const contactEmail = task.opportunity?.business?.contactEmail
+                  const contactPhone = task.opportunity?.business?.contactPhone
 
-              return (
-                <TableRow 
-                  key={task.id} 
-                  index={index}
-                  onClick={() => handleEditTask(task)}
-                  onMouseEnter={() => prefetchFormConfig('opportunity')}
-                  className={task.completed ? 'opacity-60' : ''}
-                >
-                  {/* Status */}
-                  <TableCell align="center" className="w-10" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={() => handleToggleComplete(task)}
-                      className={`transition-colors ${
-                        task.completed
-                          ? 'text-green-500 hover:text-green-600'
-                          : 'text-gray-400 hover:text-gray-500'
+                  return (
+                    <div
+                      key={task.id}
+                      onClick={() => handleEditTask(task)}
+                      onMouseEnter={() => prefetchFormConfig('opportunity')}
+                      className={`px-4 py-3 border-b border-gray-100 active:bg-gray-50 ${
+                        task.completed ? 'opacity-70' : ''
                       }`}
-                      title={task.completed ? 'Marcar como pendiente' : 'Marcar como completada'}
+                      role="button"
+                      tabIndex={0}
                     >
-                      {task.completed ? (
-                        <CheckCircleIcon fontSize="small" />
-                      ) : (
-                        <RadioButtonUncheckedIcon fontSize="small" />
-                      )}
-                    </button>
-                  </TableCell>
-
-                  {/* Title */}
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className={`font-medium whitespace-nowrap text-[13px] ${task.completed ? 'line-through text-gray-500' : 'text-slate-900'}`}>
-                        {task.title}
-                      </span>
-                      {task.notes && (
-                        <span className="text-slate-400 text-xs truncate max-w-[200px]" title={task.notes}>
-                          - {task.notes}
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-
-                  {/* Category */}
-                  <TableCell align="center">
-                    <div className="flex justify-center">
-                      {task.category === 'meeting' ? (
-                        <div className="text-blue-600" title="Reunión">
-                          <GroupsIcon fontSize="small" />
-                        </div>
-                      ) : (
-                        <div className="text-orange-600" title="To-do">
-                          <AssignmentIcon fontSize="small" />
-                        </div>
-                      )}
-                    </div>
-                  </TableCell>
-
-                  {/* Date */}
-                  <TableCell>
-                    <span className={`text-[13px] whitespace-nowrap ${
-                      overdue 
-                        ? 'text-red-600 font-medium' 
-                        : today 
-                        ? 'text-orange-600 font-medium' 
-                        : 'text-slate-700'
-                    }`}>
-                      {formatShortDate(task.date)}
-                    </span>
-                  </TableCell>
-
-                  {/* Business */}
-                  <TableCell>
-                    <span className="text-[13px] text-slate-900 truncate block max-w-[180px]" title={task.opportunity?.business?.name || ''}>
-                      {task.opportunity?.business?.name || '-'}
-                    </span>
-                  </TableCell>
-
-                  {/* Stage */}
-                  <TableCell>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
-                      STAGE_COLORS[task.opportunity?.stage || ''] || 'bg-gray-100 text-gray-600'
-                    }`}>
-                      {STAGE_LABELS[task.opportunity?.stage || ''] || task.opportunity?.stage || '-'}
-                    </span>
-                  </TableCell>
-
-                  {/* Contact Name */}
-                  <TableCell>
-                    <span className="text-[13px] text-slate-600 truncate block max-w-[120px]" title={task.opportunity?.business?.contactName || ''}>
-                      {task.opportunity?.business?.contactName || '-'}
-                    </span>
-                  </TableCell>
-
-                  {/* Contact Email */}
-                  <TableCell>
-                    {task.opportunity?.business?.contactEmail ? (
-                      <a 
-                        href={`mailto:${task.opportunity.business.contactEmail}`}
-                        className="text-[13px] text-blue-600 hover:underline truncate block max-w-[180px]"
-                        onClick={(e) => e.stopPropagation()}
-                        title={task.opportunity.business.contactEmail}
-                      >
-                        {task.opportunity.business.contactEmail}
-                      </a>
-                    ) : (
-                      <span className="text-[13px] text-slate-400">-</span>
-                    )}
-                  </TableCell>
-
-                  {/* Contact Phone */}
-                  <TableCell>
-                    {task.opportunity?.business?.contactPhone ? (
-                      <a 
-                        href={`tel:${task.opportunity.business.contactPhone}`}
-                        className="text-[13px] text-blue-600 hover:underline whitespace-nowrap"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {task.opportunity.business.contactPhone}
-                      </a>
-                    ) : (
-                      <span className="text-[13px] text-slate-400">-</span>
-                    )}
-                  </TableCell>
-
-                  {/* Actions */}
-                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center justify-end gap-1">
-                      {task.opportunityId && (
+                      <div className="flex items-start gap-3">
                         <button
-                          onClick={() => handleViewOpportunity(task.opportunityId)}
-                          className="p-1.5 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
-                          title="Ver Oportunidad"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleToggleComplete(task)
+                          }}
+                          className={`mt-0.5 transition-colors ${
+                            task.completed
+                              ? 'text-green-500 hover:text-green-600'
+                              : 'text-gray-400 hover:text-gray-500'
+                          }`}
+                          title={task.completed ? 'Marcar como pendiente' : 'Marcar como completada'}
+                          aria-label={task.completed ? 'Marcar como pendiente' : 'Marcar como completada'}
                         >
-                          <OpenInNewIcon style={{ fontSize: 18 }} />
+                          {task.completed ? (
+                            <CheckCircleIcon fontSize="small" />
+                          ) : (
+                            <RadioButtonUncheckedIcon fontSize="small" />
+                          )}
                         </button>
-                      )}
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className={`font-semibold text-[14px] truncate ${task.completed ? 'line-through text-gray-500' : 'text-slate-900'}`}>
+                                  {task.title}
+                                </span>
+                                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                  task.category === 'meeting'
+                                    ? 'bg-blue-50 text-blue-700'
+                                    : 'bg-orange-50 text-orange-700'
+                                }`}>
+                                  {task.category === 'meeting' ? (
+                                    <GroupsIcon style={{ fontSize: 12 }} />
+                                  ) : (
+                                    <AssignmentIcon style={{ fontSize: 12 }} />
+                                  )}
+                                  {task.category === 'meeting' ? 'Reunión' : 'To-do'}
+                                </span>
+                              </div>
+                              {task.notes && (
+                                <p className="text-xs text-slate-500 truncate mt-0.5" title={task.notes}>
+                                  {task.notes}
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="flex flex-col items-end gap-0.5">
+                              <span className={`text-[12px] font-medium whitespace-nowrap ${
+                                overdue
+                                  ? 'text-red-600'
+                                  : today
+                                  ? 'text-orange-600'
+                                  : 'text-slate-700'
+                              }`}>
+                                {formatShortDate(task.date)}
+                              </span>
+                              {(overdue || today) && (
+                                <span className={`text-[10px] uppercase tracking-wide ${
+                                  overdue ? 'text-red-500' : 'text-orange-500'
+                                }`}>
+                                  {overdue ? 'Vencida' : 'Hoy'}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="mt-2 flex items-center gap-2 text-xs text-slate-700">
+                            <span className="truncate" title={businessName}>
+                              {businessName}
+                            </span>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${stageColor}`}>
+                              {stageLabel}
+                            </span>
+                          </div>
+
+                          <div className="mt-2 flex items-center gap-2 text-xs text-slate-600">
+                            <PersonIcon style={{ fontSize: 14 }} />
+                            <span className="truncate" title={contactName}>
+                              {contactName}
+                            </span>
+                          </div>
+
+                          {(contactEmail || contactPhone) && (
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              {contactEmail && (
+                                <a
+                                  href={`mailto:${contactEmail}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1 rounded-full bg-blue-50 text-blue-700 px-2 py-1 text-[11px]"
+                                  title={contactEmail}
+                                >
+                                  <EmailIcon style={{ fontSize: 12 }} />
+                                  <span className="truncate max-w-[180px]">{contactEmail}</span>
+                                </a>
+                              )}
+                              {contactPhone && (
+                                <a
+                                  href={`tel:${contactPhone}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1 rounded-full bg-slate-100 text-slate-700 px-2 py-1 text-[11px]"
+                                >
+                                  <PhoneIcon style={{ fontSize: 12 }} />
+                                  <span className="whitespace-nowrap">{contactPhone}</span>
+                                </a>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {task.opportunityId && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleViewOpportunity(task.opportunityId)
+                            }}
+                            className="p-1.5 rounded-full hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
+                            title="Ver Oportunidad"
+                            aria-label="Ver Oportunidad"
+                          >
+                            <OpenInNewIcon style={{ fontSize: 18 }} />
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-          </EntityTable>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block">
+              <EntityTable
+                columns={COLUMNS}
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
+              >
+                {sortedTasks.map((task, index) => {
+                  const overdue = isOverdue(task)
+                  const today = isDueToday(task)
+
+                  return (
+                    <TableRow 
+                      key={task.id} 
+                      index={index}
+                      onClick={() => handleEditTask(task)}
+                      onMouseEnter={() => prefetchFormConfig('opportunity')}
+                      className={task.completed ? 'opacity-60' : ''}
+                    >
+                      {/* Status */}
+                      <TableCell align="center" className="w-10" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => handleToggleComplete(task)}
+                          className={`transition-colors ${
+                            task.completed
+                              ? 'text-green-500 hover:text-green-600'
+                              : 'text-gray-400 hover:text-gray-500'
+                          }`}
+                          title={task.completed ? 'Marcar como pendiente' : 'Marcar como completada'}
+                        >
+                          {task.completed ? (
+                            <CheckCircleIcon fontSize="small" />
+                          ) : (
+                            <RadioButtonUncheckedIcon fontSize="small" />
+                          )}
+                        </button>
+                      </TableCell>
+
+                      {/* Title */}
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className={`font-medium whitespace-nowrap text-[13px] ${task.completed ? 'line-through text-gray-500' : 'text-slate-900'}`}>
+                            {task.title}
+                          </span>
+                          {task.notes && (
+                            <span className="text-slate-400 text-xs truncate max-w-[200px]" title={task.notes}>
+                              - {task.notes}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+
+                      {/* Category */}
+                      <TableCell align="center">
+                        <div className="flex justify-center">
+                          {task.category === 'meeting' ? (
+                            <div className="text-blue-600" title="Reunión">
+                              <GroupsIcon fontSize="small" />
+                            </div>
+                          ) : (
+                            <div className="text-orange-600" title="To-do">
+                              <AssignmentIcon fontSize="small" />
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+
+                      {/* Date */}
+                      <TableCell>
+                        <span className={`text-[13px] whitespace-nowrap ${
+                          overdue 
+                            ? 'text-red-600 font-medium' 
+                            : today 
+                            ? 'text-orange-600 font-medium' 
+                            : 'text-slate-700'
+                        }`}>
+                          {formatShortDate(task.date)}
+                        </span>
+                      </TableCell>
+
+                      {/* Business */}
+                      <TableCell>
+                        <span className="text-[13px] text-slate-900 truncate block max-w-[180px]" title={task.opportunity?.business?.name || ''}>
+                          {task.opportunity?.business?.name || '-'}
+                        </span>
+                      </TableCell>
+
+                      {/* Stage */}
+                      <TableCell>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
+                          STAGE_COLORS[task.opportunity?.stage || ''] || 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {STAGE_LABELS[task.opportunity?.stage || ''] || task.opportunity?.stage || '-'}
+                        </span>
+                      </TableCell>
+
+                      {/* Contact Name */}
+                      <TableCell>
+                        <span className="text-[13px] text-slate-600 truncate block max-w-[120px]" title={task.opportunity?.business?.contactName || ''}>
+                          {task.opportunity?.business?.contactName || '-'}
+                        </span>
+                      </TableCell>
+
+                      {/* Contact Email */}
+                      <TableCell>
+                        {task.opportunity?.business?.contactEmail ? (
+                          <a 
+                            href={`mailto:${task.opportunity.business.contactEmail}`}
+                            className="text-[13px] text-blue-600 hover:underline truncate block max-w-[180px]"
+                            onClick={(e) => e.stopPropagation()}
+                            title={task.opportunity.business.contactEmail}
+                          >
+                            {task.opportunity.business.contactEmail}
+                          </a>
+                        ) : (
+                          <span className="text-[13px] text-slate-400">-</span>
+                        )}
+                      </TableCell>
+
+                      {/* Contact Phone */}
+                      <TableCell>
+                        {task.opportunity?.business?.contactPhone ? (
+                          <a 
+                            href={`tel:${task.opportunity.business.contactPhone}`}
+                            className="text-[13px] text-blue-600 hover:underline whitespace-nowrap"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {task.opportunity.business.contactPhone}
+                          </a>
+                        ) : (
+                          <span className="text-[13px] text-slate-400">-</span>
+                        )}
+                      </TableCell>
+
+                      {/* Actions */}
+                      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          {task.opportunityId && (
+                            <button
+                              onClick={() => handleViewOpportunity(task.opportunityId)}
+                              className="p-1.5 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
+                              title="Ver Oportunidad"
+                            >
+                              <OpenInNewIcon style={{ fontSize: 18 }} />
+                            </button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </EntityTable>
+            </div>
+          </>
         )}
       </div>
 
