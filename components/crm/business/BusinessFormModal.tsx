@@ -623,6 +623,9 @@ export default function BusinessFormModal({
   }
 
   function handleCreateNewOpportunity() {
+    // Only allow if user has edit permission
+    if (!canEdit) return
+
     // Open opportunity modal to create a new opportunity for this business
     setSelectedOpportunity(null)
     setOpportunityModalOpen(true)
@@ -634,7 +637,7 @@ export default function BusinessFormModal({
   }
 
   function handleCreateRequest() {
-    if (!business) return
+    if (!business || !canEdit) return
     
     // Build query parameters with business data for pre-filling
     const params = new URLSearchParams()
@@ -1079,6 +1082,7 @@ export default function BusinessFormModal({
                       onEditOpportunity={handleEditOpportunity}
                       onCreateNew={handleCreateNewOpportunity}
                       businessName={business.name}
+                      canEdit={canEdit}
                     />
                   </Suspense>
                 )}
@@ -1091,6 +1095,7 @@ export default function BusinessFormModal({
                       onViewRequest={handleViewRequest}
                       onCreateRequest={handleCreateRequest}
                       businessName={business.name}
+                      canEdit={canEdit}
                     />
                   </Suspense>
                 )}

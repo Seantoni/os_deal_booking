@@ -15,6 +15,7 @@ interface OpportunitiesSectionProps {
   onEditOpportunity: (opportunity: Opportunity) => void
   onCreateNew: () => void
   businessName?: string
+  canEdit?: boolean
 }
 
 const ITEMS_PER_PAGE = 5
@@ -26,6 +27,7 @@ export default function OpportunitiesSection({
   onEditOpportunity,
   onCreateNew,
   businessName,
+  canEdit = true,
 }: OpportunitiesSectionProps) {
   const [currentPage, setCurrentPage] = useState(1)
   const [filter, setFilter] = useState<FilterType>('all')
@@ -117,7 +119,8 @@ export default function OpportunitiesSection({
           <button
             type="button"
             onClick={onCreateNew}
-            className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-white bg-orange-600 rounded hover:bg-orange-700 transition-colors"
+            disabled={!canEdit}
+            className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-white bg-orange-600 rounded hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-orange-600"
           >
             <AddIcon style={{ fontSize: 14 }} />
             <span className="hidden sm:inline">Nuevo</span>
@@ -184,7 +187,7 @@ export default function OpportunitiesSection({
                 ? 'Aún no hay oportunidades'
                 : `No hay oportunidades ${filter === 'all' ? '' : filter === 'open' ? 'abiertas' : filter === 'won' ? 'ganadas' : 'perdidas'}`}
             </p>
-            {opportunities.length === 0 && (
+            {opportunities.length === 0 && canEdit && (
               <button
                 type="button"
                 onClick={onCreateNew}

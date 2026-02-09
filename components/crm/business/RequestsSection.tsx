@@ -15,6 +15,7 @@ interface RequestsSectionProps {
   onViewRequest: (request: BookingRequest) => void
   onCreateRequest?: () => void
   businessName?: string
+  canEdit?: boolean
 }
 
 const ITEMS_PER_PAGE = 5
@@ -26,6 +27,7 @@ export default function RequestsSection({
   onViewRequest,
   onCreateRequest,
   businessName,
+  canEdit = true,
 }: RequestsSectionProps) {
   const [currentPage, setCurrentPage] = useState(1)
   const [filter, setFilter] = useState<FilterType>('all')
@@ -99,7 +101,7 @@ export default function RequestsSection({
               </span>
             )}
           </div>
-          {onCreateRequest && (
+          {onCreateRequest && canEdit && (
             <button
               type="button"
               onClick={onCreateRequest}

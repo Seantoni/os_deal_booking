@@ -169,11 +169,17 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
   }
 
   const handleCreateNewOpportunity = () => {
+    // Only allow if user has edit permission
+    if (canEdit === false) return
+
     setSelectedOpportunity(null)
     setIsOpportunityModalOpen(true)
   }
 
   const handleCreateRequest = () => {
+    // Only allow if user has edit permission
+    if (canEdit === false) return
+
     // Build query parameters with business data (matching OpportunityFormModal behavior)
     const params = new URLSearchParams()
     
@@ -416,12 +422,14 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
               onEditOpportunity={handleEditOpportunity}
               onCreateNew={handleCreateNewOpportunity}
               businessName={business.name}
+              canEdit={canEdit ?? true}
             />
 
             <RequestsSection
               requests={requests}
               onViewRequest={handleViewRequest}
               businessName={business.name}
+              canEdit={canEdit ?? true}
             />
           </div>
         )}
