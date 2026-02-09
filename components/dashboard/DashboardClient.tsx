@@ -47,6 +47,25 @@ interface DashboardStats {
     total: number
     byStatus: Record<string, number>
   }
+  businesses: {
+    created: number
+    quarterTotal: number
+    quarterMonths: Array<{
+      month: string
+      label: string
+      count: number
+    }>
+    quarterWeeks: Array<{
+      week: number
+      start: Date
+      end: Date
+      count: number
+    }>
+    wow: {
+      currentWeek: number
+      previousWeek: number
+    }
+  }
   teamPerformance: Array<{
     userId: string
     name: string
@@ -219,6 +238,18 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
   }
 
   const getPercent = (val: number, total: number) => total > 0 ? Math.round((val / total) * 100) : 0
+  const getWowDelta = (current: number, previous: number) => {
+    if (previous === 0 && current === 0) return { value: 0, direction: 'flat' as const }
+    if (previous === 0) return { value: 100, direction: 'up' as const }
+    const delta = Math.round(((current - previous) / previous) * 100)
+    if (delta === 0) return { value: 0, direction: 'flat' as const }
+    return { value: Math.abs(delta), direction: delta > 0 ? 'up' as const : 'down' as const }
+  }
+  const formatWeekRange = (start: Date, end: Date) => {
+    const startLabel = new Date(start).toLocaleDateString('es-PA', { day: '2-digit', month: 'short' })
+    const endLabel = new Date(end).toLocaleDateString('es-PA', { day: '2-digit', month: 'short' })
+    return `${startLabel} - ${endLabel}`
+  }
 
   // Loading state handled by loading.tsx
   if (loading && !stats) {
@@ -664,6 +695,81 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
             </div>
           </div>
 
+        </div>
+
+        {/* Goals Section (Current Quarter) */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+            <div className="p-1 bg-emerald-50 rounded">
+              <GroupIcon className="text-emerald-500" style={{ fontSize: 16 }} />
+            </div>
+            <h3 className="text-sm font-semibold text-gray-900">Metas</h3>
+          </div>
+          <div className="p-4 space-y-3">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <div className="text-[10px] font-semibold text-gray-500 uppercase">Nuevos Negocios (Q Actual)</div>
+                <div className="mt-1 text-2xl font-bold text-gray-900">
+                  {stats?.businesses?.quarterTotal || 0}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {(() => {
+                  const wow = stats?.businesses?.wow
+                  const delta = wow ? getWowDelta(wow.currentWeek || 0, wow.previousWeek || 0) : null
+                  const color = delta?.direction === 'up' ? 'text-emerald-600 bg-emerald-50' :
+                    delta?.direction === 'down' ? 'text-red-600 bg-red-50' : 'text-gray-500 bg-gray-100'
+                  const arrow = delta?.direction === 'up' ? '▲' : delta?.direction === 'down' ? '▼' : '•'
+                  const label = delta ? `WoW ${arrow} ${delta.value}%` : 'WoW • 0%'
+                  return (
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${color}`}>
+                      {label}
+                    </span>
+                  )
+                })()}
+                <div className="text-[10px] text-gray-400">Por mes</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {stats?.businesses?.quarterMonths?.map((month) => (
+                <div key={month.month} className="rounded-lg border border-gray-100 bg-gray-50/60 p-3">
+                  <div className="text-[10px] font-semibold text-gray-500 uppercase">{month.label}</div>
+                  <div className="mt-1 text-xl font-bold text-gray-900">{month.count}</div>
+                </div>
+              ))}
+            </div>
+            <div className="border border-gray-100 rounded-lg overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-gray-50/80 border-b border-gray-100">
+                    <th className="px-3 py-2 font-semibold text-gray-500 text-left">Semana</th>
+                    <th className="px-3 py-2 font-semibold text-gray-500 text-left">Rango</th>
+                    <th className="px-3 py-2 font-semibold text-gray-500 text-right">Nuevos</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {stats?.businesses?.quarterWeeks?.map((week, index) => (
+                    <tr key={week.week} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}>
+                      <td className="px-3 py-2 text-gray-700 font-medium">Semana {week.week}</td>
+                      <td className="px-3 py-2 text-gray-500">{formatWeekRange(week.start, week.end)}</td>
+                      <td className="px-3 py-2 text-right">
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">
+                          {week.count}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {(!stats?.businesses?.quarterWeeks || stats.businesses.quarterWeeks.length === 0) && (
+                    <tr>
+                      <td colSpan={3} className="px-3 py-4 text-center text-gray-400">
+                        Sin semanas en este trimestre
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
       </div>

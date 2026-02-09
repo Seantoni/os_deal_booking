@@ -32,13 +32,16 @@ async function fetchDashboardStatsInternal(filters: DashboardFilters = {}, userP
 
     const { startDate, endDate } = filters
 
-    // Date filter logic
+    const parseDateStart = (value: string) => new Date(`${value}T00:00:00`)
+    const parseDateEnd = (value: string) => new Date(`${value}T23:59:59.999`)
+
+    // Date filter logic (inclusive end date)
     const dateFilter: Prisma.DateTimeFilter = {}
     if (startDate) {
-      dateFilter.gte = new Date(startDate)
+      dateFilter.gte = parseDateStart(startDate)
     }
     if (endDate) {
-      dateFilter.lte = new Date(endDate)
+      dateFilter.lte = parseDateEnd(endDate)
     }
 
     // 1. Main Stats Queries (Scoped to current user if Sales, or filtered user if Admin)
@@ -130,6 +133,115 @@ async function fetchDashboardStatsInternal(filters: DashboardFilters = {}, userP
       acc[br.status] = (acc[br.status] || 0) + 1
       return acc
     }, {} as Record<string, number>)
+
+    // Business Stats (new businesses created)
+    const businessWhere: Prisma.BusinessWhereInput = {
+      ...(Object.keys(dateFilter).length > 0 ? { createdAt: dateFilter } : {}),
+      ...(mainStatsUserId ? { ownerId: mainStatsUserId } : {}),
+    }
+
+    const businessCreatedCount = await prisma.business.count({
+      where: businessWhere,
+    })
+
+    // Businesses created in current quarter (monthly breakdown)
+    const now = new Date()
+    const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3
+    const quarterStart = new Date(now.getFullYear(), quarterStartMonth, 1)
+    const quarterEnd = new Date(now.getFullYear(), quarterStartMonth + 3, 0, 23, 59, 59, 999)
+    const quarterWhere: Prisma.BusinessWhereInput = {
+      createdAt: { gte: quarterStart, lte: quarterEnd },
+      ...(mainStatsUserId ? { ownerId: mainStatsUserId } : {}),
+    }
+
+    const businessesThisQuarter = await prisma.business.findMany({
+      where: quarterWhere,
+      select: { createdAt: true },
+    })
+
+    const monthCounts = new Map<number, number>()
+    for (let i = 0; i < 3; i += 1) {
+      monthCounts.set(quarterStartMonth + i, 0)
+    }
+    for (const business of businessesThisQuarter) {
+      const monthIndex = business.createdAt.getMonth()
+      if (monthCounts.has(monthIndex)) {
+        monthCounts.set(monthIndex, (monthCounts.get(monthIndex) || 0) + 1)
+      }
+    }
+
+    const businessesByMonth = Array.from(monthCounts.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([monthIndex, count]) => ({
+        month: `${now.getFullYear()}-${String(monthIndex + 1).padStart(2, '0')}`,
+        label: new Date(now.getFullYear(), monthIndex, 15).toLocaleDateString('es-PA', { month: 'short' }),
+        count,
+      }))
+
+    // Week-over-week (current vs previous week)
+    const startOfWeek = (date: Date) => {
+      const base = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+      const day = base.getDay()
+      const diff = (day === 0 ? -6 : 1) - day // Monday as week start
+      base.setDate(base.getDate() + diff)
+      base.setHours(0, 0, 0, 0)
+      return base
+    }
+
+    const currentWeekStart = startOfWeek(now)
+    const currentWeekEnd = new Date(currentWeekStart)
+    currentWeekEnd.setDate(currentWeekEnd.getDate() + 6)
+    currentWeekEnd.setHours(23, 59, 59, 999)
+
+    const previousWeekStart = new Date(currentWeekStart)
+    previousWeekStart.setDate(previousWeekStart.getDate() - 7)
+    const previousWeekEnd = new Date(previousWeekStart)
+    previousWeekEnd.setDate(previousWeekEnd.getDate() + 6)
+    previousWeekEnd.setHours(23, 59, 59, 999)
+
+    const weekBaseFilter = mainStatsUserId ? { ownerId: mainStatsUserId } : {}
+    const [currentWeekCount, previousWeekCount] = await Promise.all([
+      prisma.business.count({
+        where: {
+          ...weekBaseFilter,
+          createdAt: { gte: currentWeekStart, lte: currentWeekEnd },
+        },
+      }),
+      prisma.business.count({
+        where: {
+          ...weekBaseFilter,
+          createdAt: { gte: previousWeekStart, lte: previousWeekEnd },
+        },
+      }),
+    ])
+
+    // Weekly breakdown inside current quarter
+    const quarterWeeks: Array<{ start: Date; end: Date }> = []
+    let cursor = startOfWeek(quarterStart)
+    while (cursor <= quarterEnd) {
+      const weekStart = new Date(cursor)
+      const weekEnd = new Date(weekStart)
+      weekEnd.setDate(weekEnd.getDate() + 6)
+      weekEnd.setHours(23, 59, 59, 999)
+      quarterWeeks.push({ start: weekStart, end: weekEnd })
+      cursor.setDate(cursor.getDate() + 7)
+    }
+
+    const weeklyCountMap = new Map<number, number>()
+    for (const business of businessesThisQuarter) {
+      const weekStart = startOfWeek(business.createdAt)
+      weeklyCountMap.set(weekStart.getTime(), (weeklyCountMap.get(weekStart.getTime()) || 0) + 1)
+    }
+
+    const businessesByWeek = quarterWeeks.map((week, index) => {
+      const count = weeklyCountMap.get(week.start.getTime()) || 0
+      return {
+        week: index + 1,
+        start: week.start,
+        end: week.end,
+        count,
+      }
+    })
 
     // 4. Team Performance (Leaderboard)
     // If Sales, fetch ALL sales users for comparison.
@@ -225,6 +337,16 @@ async function fetchDashboardStatsInternal(filters: DashboardFilters = {}, userP
         bookings: {
           total: bookingRequests.length,
           byStatus: bookingStats,
+        },
+        businesses: {
+          created: businessCreatedCount,
+          quarterTotal: businessesThisQuarter.length,
+          quarterMonths: businessesByMonth,
+          quarterWeeks: businessesByWeek,
+          wow: {
+            currentWeek: currentWeekCount,
+            previousWeek: previousWeekCount,
+          },
         },
         teamPerformance,
         isSalesUser, // Pass this flag to client
