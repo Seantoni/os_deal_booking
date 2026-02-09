@@ -99,7 +99,9 @@ model Event {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   category         String?
-  merchant         String?
+  business         String?  @map("merchant")
+  businessId       String?
+  linkedBusiness   Business? @relation(fields: [businessId], references: [id])
   parentCategory   String?
   subCategory1     String?
   subCategory2     String?
@@ -109,8 +111,9 @@ model Event {
   subCategory4     String?
 
   @@index([bookingRequestId])
+  @@index([businessId])
   @@index([category])
-  @@index([merchant])
+  @@index([business], map: "Event_merchant_idx")
   @@index([parentCategory])
   @@index([status])
   @@index([subCategory1])
@@ -258,6 +261,7 @@ model Business {
   campaigns                     BusinessCampaign[]
   eventLeads                    EventLead[]
   restaurantLeads               RestaurantLead[]
+  events                        Event[]
 
   @@index([categoryId])
   @@index([leadId])
