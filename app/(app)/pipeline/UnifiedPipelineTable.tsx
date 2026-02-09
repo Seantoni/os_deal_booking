@@ -48,7 +48,7 @@ type PreBookedEventItem = {
     startDate: Date
     endDate: Date
     status: string
-    merchant: string | null
+    business: string | null
     parentCategory: string | null
     subCategory1: string | null
     subCategory2: string | null

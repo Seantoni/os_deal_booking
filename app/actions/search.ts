@@ -203,7 +203,7 @@ async function searchBookingRequests(searchTerm: string, isIdSearch: boolean, ro
 
   const orConditions: Prisma.BookingRequestWhereInput[] = [
     { name: { contains: searchTerm, mode: 'insensitive' } },
-    { business: { contains: searchTerm, mode: 'insensitive' } },
+    { merchant: { contains: searchTerm, mode: 'insensitive' } },
     { businessEmail: { contains: searchTerm, mode: 'insensitive' } },
     { status: { contains: searchTerm, mode: 'insensitive' } },
   ]
@@ -286,7 +286,7 @@ async function searchEvents(searchTerm: string, isIdSearch: boolean, role: strin
   const orConditions: Prisma.EventWhereInput[] = [
     { name: { contains: searchTerm, mode: 'insensitive' } },
     { description: { contains: searchTerm, mode: 'insensitive' } },
-    { merchant: { contains: searchTerm, mode: 'insensitive' } },
+    { business: { contains: searchTerm, mode: 'insensitive' } },
     { status: { contains: searchTerm, mode: 'insensitive' } },
   ]
 

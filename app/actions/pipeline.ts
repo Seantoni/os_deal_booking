@@ -28,7 +28,7 @@ type PipelineEvent = {
   startDate: Date
   endDate: Date
   status: string
-  merchant: string | null
+  business: string | null
   parentCategory: string | null
   subCategory1: string | null
   subCategory2: string | null
@@ -207,7 +207,7 @@ export async function getPipelineData() {
         const formattedPreBookedEvents = preBookedEvents.map(event => ({
           event: {
             id: event.id, name: event.name, startDate: event.startDate, endDate: event.endDate,
-            status: event.status, merchant: event.business, parentCategory: event.parentCategory,
+            status: event.status, business: event.business, parentCategory: event.parentCategory,
             subCategory1: event.subCategory1, subCategory2: event.subCategory2, createdAt: event.createdAt,
           },
         }))
@@ -353,7 +353,7 @@ export async function getPipelineDataPaginated(options: {
         data: {
           event: {
             id: event.id, name: event.name, startDate: event.startDate, endDate: event.endDate,
-            status: event.status, merchant: event.business, parentCategory: event.parentCategory,
+            status: event.status, business: event.business, parentCategory: event.parentCategory,
             subCategory1: event.subCategory1, subCategory2: event.subCategory2, createdAt: event.createdAt,
           }
         }
@@ -511,7 +511,7 @@ export async function searchPipelineData(query: string, options: { limit?: numbe
         ...requestWhere,
         OR: [
           { name: { contains: query, mode: 'insensitive' } },
-          { business: { contains: query, mode: 'insensitive' } },
+          { merchant: { contains: query, mode: 'insensitive' } },
           { businessEmail: { contains: query, mode: 'insensitive' } },
         ],
       },
@@ -576,7 +576,7 @@ export async function searchPipelineData(query: string, options: { limit?: numbe
         ...eventWhere,
         OR: [
           { name: { contains: query, mode: 'insensitive' } },
-          { merchant: { contains: query, mode: 'insensitive' } },
+          { business: { contains: query, mode: 'insensitive' } },
         ],
       },
       orderBy: { createdAt: 'desc' },
