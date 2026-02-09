@@ -58,6 +58,10 @@ export default function MarketIntelligenceClient() {
   } | null>(null)
   const [loadingStats, setLoadingStats] = useState(false)
   const [showCharts, setShowCharts] = useState(false)
+  const [showMoMCharts, setShowMoMCharts] = useState(false)
+  
+  // Commission scenario for Net Rev estimation
+  const [commissionPercent, setCommissionPercent] = useState(15)
   
   // Modal
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null)
@@ -90,7 +94,7 @@ export default function MarketIntelligenceClient() {
   const loadDailyStats = useCallback(async () => {
     setLoadingStats(true)
     try {
-      const stats = await getCompetitorDealsDailyStats(30, sourceSite || undefined)
+      const stats = await getCompetitorDealsDailyStats(90, sourceSite || undefined)
       setDailyStats(stats)
     } catch (error) {
       console.error('Failed to load daily stats:', error)
@@ -106,7 +110,13 @@ export default function MarketIntelligenceClient() {
     loadDeals()
   }, [loadDeals])
   
-  // Load daily stats when charts are shown or source filter changes
+  // Load daily stats on mount and when source filter changes
+  // (needed for summary cards + MoM even when DoD charts are hidden)
+  useEffect(() => {
+    loadDailyStats()
+  }, [loadDailyStats])
+
+  // Reload when charts are toggled on (in case source changed while hidden)
   useEffect(() => {
     if (showCharts) {
       loadDailyStats()
@@ -228,7 +238,7 @@ export default function MarketIntelligenceClient() {
     }
   }
   
-const formatCurrency = (value: number) => {
+  const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -236,6 +246,75 @@ const formatCurrency = (value: number) => {
       maximumFractionDigits: 0,
     }).format(value)
   }
+
+  // Summary aggregations — use daily stats totals (covers ALL deals, not just current page)
+  // Falls back to current page deals if daily stats aren't loaded yet
+  const summaryTotals = dailyStats ? (() => {
+    const firstDataDayIdx = dailyStats.salesPerDay.findIndex(d => d.totalSold > 0)
+    const totalSold = dailyStats.salesPerDay.reduce((sum, d, i) => sum + (i === firstDataDayIdx ? 0 : d.totalSold), 0)
+    const grossRevenue = dailyStats.revenuePerDay.reduce((sum, d, i) => sum + (i === firstDataDayIdx ? 0 : d.grossRevenue), 0)
+    const dealsCount = dailyStats.launchesPerDay.reduce((sum, d, i) => sum + (i === firstDataDayIdx ? 0 : d.count), 0)
+    return {
+      deals: dealsCount,
+      totalSold,
+      grossRevenue,
+      netRevenue: grossRevenue * (commissionPercent / 100),
+      fromStats: true,
+    }
+  })() : {
+    deals: total,
+    totalSold: deals.reduce((sum, d) => sum + d.totalSold, 0),
+    grossRevenue: deals.reduce((sum, d) => sum + d.grossRevenue, 0),
+    get netRevenue() { return this.grossRevenue * (commissionPercent / 100) },
+    fromStats: false,
+  }
+
+  // Aggregate daily stats into monthly for MoM charts
+  const monthlyStats = dailyStats ? (() => {
+    const monthMap = new Map<string, { deals: number; totalSold: number; grossRevenue: number }>()
+    
+    // Include ALL days in MoM aggregation (don't skip initial scraping day —
+    // monthly aggregation smooths out any single-day anomalies)
+    // Aggregate from ALL three arrays to capture any metric that has data
+    const allDays = Math.max(
+      dailyStats.revenuePerDay.length,
+      dailyStats.salesPerDay.length,
+      dailyStats.launchesPerDay.length
+    )
+    
+    for (let i = 0; i < allDays; i++) {
+      const revDay = dailyStats.revenuePerDay[i]
+      const salesDay = dailyStats.salesPerDay[i]
+      const launchDay = dailyStats.launchesPerDay[i]
+      
+      // Use any available date key
+      const dateStr = revDay?.date || salesDay?.date || launchDay?.date
+      if (!dateStr) continue
+      
+      const monthKey = dateStr.substring(0, 7) // "YYYY-MM"
+      const existing = monthMap.get(monthKey) || { deals: 0, totalSold: 0, grossRevenue: 0 }
+      existing.deals += launchDay?.count || 0
+      existing.totalSold += salesDay?.totalSold || 0
+      existing.grossRevenue += revDay?.grossRevenue || 0
+      monthMap.set(monthKey, existing)
+    }
+    
+    return Array.from(monthMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .filter(([, data]) => data.deals > 0 || data.totalSold > 0 || data.grossRevenue > 0)
+      .map(([month, data]) => {
+        // Parse "YYYY-MM" manually to avoid timezone offset issues
+        // (new Date('2026-02-01') in UTC-5 becomes Jan 31 → wrong month label)
+        const [year, mo] = month.split('-').map(Number)
+        const label = new Date(year, mo - 1, 15).toLocaleDateString('es-ES', { month: 'short', year: '2-digit' })
+        return {
+          month,
+          label,
+          ...data,
+          netRevenue: data.grossRevenue * (commissionPercent / 100),
+        }
+      })
+  })() : []
   
   const getSiteLabel = (site: string) => {
     const labels: Record<string, string> = {
@@ -428,12 +507,198 @@ const formatCurrency = (value: number) => {
           </Button>
         </div>
       </div>
+
+      {/* Commission Input */}
+      <div className="flex items-center gap-2 mb-4">
+        <label className="text-xs text-gray-500 font-medium">Comisión Avg:</label>
+        <div className="flex items-center gap-1">
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step={1}
+            value={commissionPercent}
+            onChange={(e) => setCommissionPercent(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
+            className="w-14 text-center text-xs font-semibold border border-gray-300 rounded-md px-1.5 py-1 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+          />
+          <span className="text-xs text-gray-500 font-medium">%</span>
+        </div>
+        <span className="text-[10px] text-gray-400">Aplicado a Net Rev en MoM</span>
+      </div>
       
-      {/* Charts Section */}
+      {/* MoM Charts Section (Collapsible) */}
+      {dailyStats && monthlyStats.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 overflow-hidden">
+          <button
+            onClick={() => setShowMoMCharts(!showMoMCharts)}
+            className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+          >
+            <h3 className="text-sm font-semibold text-gray-900">
+              Estadísticas Mes a Mes (MoM)
+            </h3>
+            <span className={`text-gray-400 transition-transform ${showMoMCharts ? 'rotate-180' : ''}`}>
+              <TrendingUpIcon style={{ fontSize: 18 }} />
+            </span>
+          </button>
+          
+          {showMoMCharts && (
+            <div className="px-4 pb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Deals per Month */}
+                <div>
+                  <h4 className="text-xs font-medium text-gray-700 mb-3">Deals por Mes</h4>
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <div className="h-32 flex items-end gap-1">
+                      {monthlyStats.map((m) => {
+                        const max = Math.max(...monthlyStats.map(x => x.deals), 1)
+                        const heightPx = Math.max((m.deals / max) * 100, m.deals > 0 ? 8 : 2)
+                        return (
+                          <div key={m.month} className="flex-1 flex flex-col justify-end items-center group relative">
+                            <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap z-10">
+                              {m.deals}
+                            </div>
+                            <div
+                              className="w-full rounded-t bg-gradient-to-t from-blue-500 to-blue-300 hover:opacity-80 transition-all cursor-pointer"
+                              style={{ height: `${heightPx}px` }}
+                              title={`${m.label}: ${m.deals} deals`}
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div className="flex justify-between mt-2 text-[9px] text-gray-500">
+                      {monthlyStats.map(m => <span key={m.month}>{m.label}</span>)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Gross Revenue per Month */}
+                <div>
+                  <h4 className="text-xs font-medium text-gray-700 mb-3">Gross Revenue por Mes</h4>
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <div className="h-32 flex items-end gap-1">
+                      {monthlyStats.map((m) => {
+                        const max = Math.max(...monthlyStats.map(x => x.grossRevenue), 1)
+                        const heightPx = Math.max((m.grossRevenue / max) * 100, m.grossRevenue > 0 ? 8 : 2)
+                        return (
+                          <div key={m.month} className="flex-1 flex flex-col justify-end items-center group relative">
+                            <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap z-10">
+                              {formatCurrency(m.grossRevenue)}
+                            </div>
+                            <div
+                              className="w-full rounded-t bg-gradient-to-t from-emerald-600 to-emerald-400 hover:opacity-80 transition-all cursor-pointer"
+                              style={{ height: `${heightPx}px` }}
+                              title={`${m.label}: ${formatCurrency(m.grossRevenue)}`}
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div className="flex justify-between mt-2 text-[9px] text-gray-500">
+                      {monthlyStats.map(m => <span key={m.month}>{m.label}</span>)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Net Revenue per Month */}
+                <div>
+                  <h4 className="text-xs font-medium text-gray-700 mb-3">Net Revenue por Mes ({commissionPercent}%)</h4>
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <div className="h-32 flex items-end gap-1">
+                      {monthlyStats.map((m) => {
+                        const max = Math.max(...monthlyStats.map(x => x.netRevenue), 1)
+                        const heightPx = Math.max((m.netRevenue / max) * 100, m.netRevenue > 0 ? 8 : 2)
+                        return (
+                          <div key={m.month} className="flex-1 flex flex-col justify-end items-center group relative">
+                            <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap z-10">
+                              {formatCurrency(m.netRevenue)}
+                            </div>
+                            <div
+                              className="w-full rounded-t bg-gradient-to-t from-teal-600 to-teal-400 hover:opacity-80 transition-all cursor-pointer"
+                              style={{ height: `${heightPx}px` }}
+                              title={`${m.label}: ${formatCurrency(m.netRevenue)}`}
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div className="flex justify-between mt-2 text-[9px] text-gray-500">
+                      {monthlyStats.map(m => <span key={m.month}>{m.label}</span>)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sold Qty per Month */}
+                <div>
+                  <h4 className="text-xs font-medium text-gray-700 mb-3">Vendidos por Mes</h4>
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <div className="h-32 flex items-end gap-1">
+                      {monthlyStats.map((m) => {
+                        const max = Math.max(...monthlyStats.map(x => x.totalSold), 1)
+                        const heightPx = Math.max((m.totalSold / max) * 100, m.totalSold > 0 ? 8 : 2)
+                        return (
+                          <div key={m.month} className="flex-1 flex flex-col justify-end items-center group relative">
+                            <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap z-10">
+                              {m.totalSold.toLocaleString()}
+                            </div>
+                            <div
+                              className="w-full rounded-t bg-gradient-to-t from-purple-500 to-purple-300 hover:opacity-80 transition-all cursor-pointer"
+                              style={{ height: `${heightPx}px` }}
+                              title={`${m.label}: ${m.totalSold.toLocaleString()} vendidos`}
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div className="flex justify-between mt-2 text-[9px] text-gray-500">
+                      {monthlyStats.map(m => <span key={m.month}>{m.label}</span>)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* MoM Summary Table */}
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-gray-500">
+                      <th className="text-left py-1.5 font-medium">Mes</th>
+                      <th className="text-right py-1.5 font-medium">Deals</th>
+                      <th className="text-right py-1.5 font-medium">Vendidos</th>
+                      <th className="text-right py-1.5 font-medium">Gross Rev</th>
+                      <th className="text-right py-1.5 font-medium">Net Rev ({commissionPercent}%)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthlyStats.map((m) => (
+                      <tr key={m.month} className="border-b border-gray-100">
+                        <td className="py-1.5 font-medium text-gray-700">{m.label}</td>
+                        <td className="text-right py-1.5 text-gray-600">{m.deals.toLocaleString()}</td>
+                        <td className="text-right py-1.5 text-gray-600">{m.totalSold.toLocaleString()}</td>
+                        <td className="text-right py-1.5 text-gray-600">{formatCurrency(m.grossRevenue)}</td>
+                        <td className="text-right py-1.5 font-medium text-emerald-700">{formatCurrency(m.netRevenue)}</td>
+                      </tr>
+                    ))}
+                    <tr className="border-t-2 border-gray-300 font-semibold">
+                      <td className="py-1.5 text-gray-900">Total</td>
+                      <td className="text-right py-1.5 text-gray-900">{monthlyStats.reduce((s, m) => s + m.deals, 0).toLocaleString()}</td>
+                      <td className="text-right py-1.5 text-gray-900">{monthlyStats.reduce((s, m) => s + m.totalSold, 0).toLocaleString()}</td>
+                      <td className="text-right py-1.5 text-gray-900">{formatCurrency(monthlyStats.reduce((s, m) => s + m.grossRevenue, 0))}</td>
+                      <td className="text-right py-1.5 text-emerald-700">{formatCurrency(monthlyStats.reduce((s, m) => s + m.netRevenue, 0))}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Charts Section (DoD) */}
       {showCharts && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
           <h3 className="text-sm font-semibold text-gray-900 mb-4">
-            Estadísticas de los Últimos 30 Días
+            Estadísticas Diarias (DoD)
             {sourceSite && (
               <span className="ml-2 text-xs font-normal text-gray-500">
                 ({sourceSite === 'rantanofertas' ? 'RantanOfertas' : 'Oferta24'})
@@ -447,24 +712,29 @@ const formatCurrency = (value: number) => {
               <span className="ml-2 text-sm text-gray-500">Cargando estadísticas...</span>
             </div>
           ) : dailyStats && dailyStats.launchesPerDay.length > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* Find the first day with actual data (initial scraping day to exclude) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Show last 30 days only for DoD charts (full 90 days used by MoM) */}
               {(() => {
+                const DOD_DAYS = 30
+                const dodLaunches = dailyStats.launchesPerDay.slice(-DOD_DAYS)
+                const dodSales = dailyStats.salesPerDay.slice(-DOD_DAYS)
+                const dodRevenue = dailyStats.revenuePerDay.slice(-DOD_DAYS)
+                
                 // Find index of first day with significant sales data (initial scraping day)
-                const firstDataDayIndex = dailyStats.salesPerDay.findIndex(d => d.totalSold > 0)
+                const firstDataDayIndex = dodSales.findIndex(d => d.totalSold > 0)
                 const isInitialScrapingDay = (index: number) => index === firstDataDayIndex
                 
                 return (
                   <>
               {/* Launches Per Day Chart */}
               <div>
-                <h4 className="text-xs font-medium text-gray-700 mb-3">Ofertas Lanzadas por Día</h4>
+                <h4 className="text-xs font-medium text-gray-700 mb-3">Ofertas Lanzadas por Día (30d)</h4>
                 <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                   <div className="h-44 flex items-end gap-[2px]">
-                    {dailyStats.launchesPerDay.map((day, index) => {
+                    {dodLaunches.map((day, index) => {
                       // Skip initial scraping day as it has inflated data
                       const adjustedCount = isInitialScrapingDay(index) ? 0 : day.count
-                      const adjustedData = dailyStats.launchesPerDay.map((d, i) => isInitialScrapingDay(i) ? 0 : d.count)
+                      const adjustedData = dodLaunches.map((d, i) => isInitialScrapingDay(i) ? 0 : d.count)
                       const maxCount = Math.max(...adjustedData, 1)
                       const heightPx = Math.max((adjustedCount / maxCount) * 140, adjustedCount > 0 ? 8 : 2) // 140px max for bars
                       // Parse date as local timezone
@@ -497,7 +767,7 @@ const formatCurrency = (value: number) => {
                     })}
                   </div>
                   <div className="flex justify-between mt-1 text-[7px] text-gray-500">
-                    {dailyStats.launchesPerDay.filter((_, i) => i % 7 === 0).map(day => {
+                    {dodLaunches.filter((_, i) => i % 7 === 0).map(day => {
                       const dateParts = day.date.split('-')
                       return (
                         <span key={day.date}>
@@ -507,23 +777,21 @@ const formatCurrency = (value: number) => {
                     })}
                   </div>
                   <div className="mt-2 text-xs text-gray-500 text-center">
-                    Total: {dailyStats.launchesPerDay.reduce((sum, d, i) => sum + (isInitialScrapingDay(i) ? 0 : d.count), 0)} ofertas en {dailyStats.launchesPerDay.length - 1} días
+                    Total: {dodLaunches.reduce((sum, d, i) => sum + (isInitialScrapingDay(i) ? 0 : d.count), 0)} ofertas en {dodLaunches.length} días
                   </div>
                 </div>
               </div>
               
               {/* Sales Per Day Chart */}
               <div>
-                <h4 className="text-xs font-medium text-gray-700 mb-3">Ventas por Día</h4>
+                <h4 className="text-xs font-medium text-gray-700 mb-3">Ventas por Día (30d)</h4>
                 <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                   <div className="h-44 flex items-end gap-[2px]">
-                    {dailyStats.salesPerDay.map((day, index) => {
-                      // Skip initial scraping day as it has inflated data
+                    {dodSales.map((day, index) => {
                       const adjustedSales = isInitialScrapingDay(index) ? 0 : day.totalSold
-                      const adjustedData = dailyStats.salesPerDay.map((d, i) => isInitialScrapingDay(i) ? 0 : d.totalSold)
+                      const adjustedData = dodSales.map((d, i) => isInitialScrapingDay(i) ? 0 : d.totalSold)
                       const maxSales = Math.max(...adjustedData, 1)
-                      const heightPx = Math.max((adjustedSales / maxSales) * 140, adjustedSales > 0 ? 8 : 2) // 140px max for bars
-                      // Parse date as local timezone
+                      const heightPx = Math.max((adjustedSales / maxSales) * 140, adjustedSales > 0 ? 8 : 2)
                       const dateParts = day.date.split('-')
                       const date = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]))
                       const today = new Date()
@@ -531,7 +799,6 @@ const formatCurrency = (value: number) => {
                       
                       return (
                         <div key={day.date} className="flex-1 min-w-[4px] flex flex-col justify-end items-center group relative">
-                          {/* Value label on hover */}
                           {adjustedSales > 0 && (
                             <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap z-10">
                               {adjustedSales.toLocaleString()}
@@ -553,7 +820,7 @@ const formatCurrency = (value: number) => {
                     })}
                   </div>
                   <div className="flex justify-between mt-1 text-[7px] text-gray-500">
-                    {dailyStats.salesPerDay.filter((_, i) => i % 7 === 0).map(day => {
+                    {dodSales.filter((_, i) => i % 7 === 0).map(day => {
                       const dateParts = day.date.split('-')
                       return (
                         <span key={day.date}>
@@ -563,23 +830,21 @@ const formatCurrency = (value: number) => {
                     })}
                   </div>
                   <div className="mt-2 text-xs text-gray-500 text-center">
-                    Total: {dailyStats.salesPerDay.reduce((sum, d, i) => sum + (isInitialScrapingDay(i) ? 0 : d.totalSold), 0).toLocaleString()} ventas
+                    Total: {dodSales.reduce((sum, d, i) => sum + (isInitialScrapingDay(i) ? 0 : d.totalSold), 0).toLocaleString()} ventas
                   </div>
                 </div>
               </div>
               
               {/* Gross Revenue Per Day Chart */}
               <div>
-                <h4 className="text-xs font-medium text-gray-700 mb-3">Gross Revenue por Día</h4>
+                <h4 className="text-xs font-medium text-gray-700 mb-3">Gross Revenue por Día (30d)</h4>
                 <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                   <div className="h-44 flex items-end gap-[2px]">
-                    {dailyStats.revenuePerDay.map((day, index) => {
-                      // Skip initial scraping day as it has inflated data
+                    {dodRevenue.map((day, index) => {
                       const adjustedRevenue = isInitialScrapingDay(index) ? 0 : day.grossRevenue
-                      const adjustedData = dailyStats.revenuePerDay.map((d, i) => isInitialScrapingDay(i) ? 0 : d.grossRevenue)
+                      const adjustedData = dodRevenue.map((d, i) => isInitialScrapingDay(i) ? 0 : d.grossRevenue)
                       const maxRevenue = Math.max(...adjustedData, 1)
-                      const heightPx = Math.max((adjustedRevenue / maxRevenue) * 140, adjustedRevenue > 0 ? 8 : 2) // 140px max for bars
-                      // Parse date as local timezone
+                      const heightPx = Math.max((adjustedRevenue / maxRevenue) * 140, adjustedRevenue > 0 ? 8 : 2)
                       const dateParts = day.date.split('-')
                       const date = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]))
                       const today = new Date()
@@ -587,7 +852,6 @@ const formatCurrency = (value: number) => {
                       
                       return (
                         <div key={day.date} className="flex-1 min-w-[4px] flex flex-col justify-end items-center group relative">
-                          {/* Value label on hover */}
                           {adjustedRevenue > 0 && (
                             <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap z-10">
                               {formatCurrency(adjustedRevenue)}
@@ -609,7 +873,7 @@ const formatCurrency = (value: number) => {
                     })}
                   </div>
                   <div className="flex justify-between mt-1 text-[7px] text-gray-500">
-                    {dailyStats.revenuePerDay.filter((_, i) => i % 7 === 0).map(day => {
+                    {dodRevenue.filter((_, i) => i % 7 === 0).map(day => {
                       const dateParts = day.date.split('-')
                       return (
                         <span key={day.date}>
@@ -619,7 +883,60 @@ const formatCurrency = (value: number) => {
                     })}
                   </div>
                   <div className="mt-2 text-xs text-gray-500 text-center">
-                    Total: {formatCurrency(dailyStats.revenuePerDay.reduce((sum, d, i) => sum + (isInitialScrapingDay(i) ? 0 : d.grossRevenue), 0))}
+                    Total: {formatCurrency(dodRevenue.reduce((sum, d, i) => sum + (isInitialScrapingDay(i) ? 0 : d.grossRevenue), 0))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Net Revenue Per Day Chart */}
+              <div>
+                <h4 className="text-xs font-medium text-gray-700 mb-3">Net Revenue por Día ({commissionPercent}%, 30d)</h4>
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="h-44 flex items-end gap-[2px]">
+                    {dodRevenue.map((day, index) => {
+                      const netRev = isInitialScrapingDay(index) ? 0 : day.grossRevenue * (commissionPercent / 100)
+                      const adjustedData = dodRevenue.map((d, i) => isInitialScrapingDay(i) ? 0 : d.grossRevenue * (commissionPercent / 100))
+                      const maxNet = Math.max(...adjustedData, 1)
+                      const heightPx = Math.max((netRev / maxNet) * 140, netRev > 0 ? 8 : 2)
+                      const dateParts = day.date.split('-')
+                      const date = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]))
+                      const today = new Date()
+                      const isToday = date.toDateString() === today.toDateString()
+                      
+                      return (
+                        <div key={day.date} className="flex-1 min-w-[4px] flex flex-col justify-end items-center group relative">
+                          {netRev > 0 && (
+                            <div className="absolute -top-5 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap z-10">
+                              {formatCurrency(netRev)}
+                            </div>
+                          )}
+                          <div 
+                            className={`w-full rounded-t transition-all cursor-pointer ${
+                              isToday 
+                                ? 'bg-gradient-to-t from-teal-500 to-teal-300' 
+                                : netRev > 0
+                                  ? 'bg-gradient-to-t from-teal-600 to-teal-400'
+                                  : 'bg-gray-200'
+                            } hover:opacity-80`}
+                            style={{ height: `${heightPx}px` }}
+                            title={`${day.date}: ${formatCurrency(netRev)} (${commissionPercent}% of ${formatCurrency(day.grossRevenue)})`}
+                          />
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="flex justify-between mt-1 text-[7px] text-gray-500">
+                    {dodRevenue.filter((_, i) => i % 7 === 0).map(day => {
+                      const dateParts = day.date.split('-')
+                      return (
+                        <span key={day.date}>
+                          {parseInt(dateParts[2])}/{parseInt(dateParts[1])}
+                        </span>
+                      )
+                    })}
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500 text-center">
+                    Total: {formatCurrency(dodRevenue.reduce((sum, d, i) => sum + (isInitialScrapingDay(i) ? 0 : d.grossRevenue * (commissionPercent / 100)), 0))}
                   </div>
                 </div>
               </div>
