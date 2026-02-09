@@ -204,11 +204,12 @@ export async function GET(request: Request) {
       const result = await runChunkedScan('oferta24', 0)
       
       // Oferta24 typically completes in one go, then start RantanOfertas
+      // Await trigger to ensure the request is sent before this function exits
       if (result.nextStartFrom !== undefined) {
-        triggerNextChunk('oferta24', result.nextStartFrom, expectedSecret, logId)
+        await triggerNextChunk('oferta24', result.nextStartFrom, expectedSecret, logId)
       } else {
         // Oferta24 complete, start RantanOfertas
-        triggerNextChunk('rantanofertas', 0, expectedSecret, logId)
+        await triggerNextChunk('rantanofertas', 0, expectedSecret, logId)
       }
       
       return NextResponse.json({
@@ -232,12 +233,13 @@ export async function GET(request: Request) {
     const result = await runChunkedScan(site, startFrom)
     
     // Trigger next chunk or next site
+    // Await trigger to ensure the request is sent before this function exits
     if (result.nextStartFrom !== undefined) {
       // More deals to process for this site
-      triggerNextChunk(site, result.nextStartFrom, expectedSecret, existingLogId)
+      await triggerNextChunk(site, result.nextStartFrom, expectedSecret, existingLogId)
     } else if (site === 'oferta24') {
       // Oferta24 complete, start RantanOfertas
-      triggerNextChunk('rantanofertas', 0, expectedSecret, existingLogId)
+      await triggerNextChunk('rantanofertas', 0, expectedSecret, existingLogId)
     } else if (site === 'rantanofertas' && result.isComplete) {
       // Scan is fully done - complete the log
       const durationMs = Date.now() - startTime
@@ -329,10 +331,12 @@ export async function GET(request: Request) {
 }
 
 /**
- * Trigger the next chunk of scanning (fire-and-forget)
+ * Trigger the next chunk of scanning.
+ * Awaited before returning the response so Vercel doesn't kill the
+ * function before the outgoing HTTP request completes.
  * Auth is sent via Authorization header — never in the URL query string.
  */
-function triggerNextChunk(site: SourceSite, startFrom: number, secret?: string, logId?: string | null) {
+async function triggerNextChunk(site: SourceSite, startFrom: number, secret?: string, logId?: string | null): Promise<void> {
   const baseUrl = getBaseUrl()
   const nextUrl = new URL('/api/cron/market-intelligence-scan', baseUrl)
   nextUrl.searchParams.set('site', site)
@@ -351,11 +355,16 @@ function triggerNextChunk(site: SourceSite, startFrom: number, secret?: string, 
     headers['Authorization'] = `Bearer ${secret}`
   }
   
-  // Fire and forget - don't await
-  fetch(nextUrl.toString(), {
-    method: 'GET',
-    headers,
-  }).catch(err => {
+  try {
+    // Await the fetch to ensure the request is sent before the function exits.
+    // We only wait for the response status (not the body) — the next chunk
+    // runs independently once the server accepts the request.
+    const res = await fetch(nextUrl.toString(), {
+      method: 'GET',
+      headers,
+    })
+    logger.info(`Next chunk triggered: ${site} startFrom=${startFrom} status=${res.status}`)
+  } catch (err) {
     logger.error('Failed to trigger next chunk:', err)
-  })
+  }
 }
