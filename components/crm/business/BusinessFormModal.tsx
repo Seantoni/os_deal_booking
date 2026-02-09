@@ -766,9 +766,9 @@ export default function BusinessFormModal({
       setError(`Campos requeridos faltantes: ${missingFields.join(', ')}`)
       return
     }
-    
-    // For existing businesses with vendor ID (admin only) - use sync flow
-    const usesSyncFlow = !!business && isAdmin && !!business.osAdminVendorId
+
+    // For existing businesses with vendor ID (admin or owner) - use sync flow
+    const usesSyncFlow = !!business && (isAdmin || isBusinessOwner) && !!business.osAdminVendorId
     if (usesSyncFlow) {
       await handleSyncToOfertaSimple()
       return
@@ -807,9 +807,12 @@ export default function BusinessFormModal({
   }
 
   const isEditMode = !!business
-  
-  // Show "Guardar y Sincronizar" for admin + existing business with vendor ID
-  const shouldShowSyncButton = isEditMode && isAdmin && !!business?.osAdminVendorId
+
+  // Check if current user is the business owner
+  const isBusinessOwner = business?.ownerId === user?.id
+
+  // Show "Guardar y Sincronizar" for (admin OR business owner) + existing business with vendor ID
+  const shouldShowSyncButton = isEditMode && (isAdmin || isBusinessOwner) && !!business?.osAdminVendorId
 
   // Prepare categories and users for dynamic fields
   const categoryOptions = useMemo(() => categories.map(cat => ({

@@ -21,6 +21,7 @@ interface TaskManagerProps {
   onDeleteTask: (taskId: string) => void
   onToggleComplete: (task: Task) => void
   isAdmin?: boolean
+  readOnly?: boolean
 }
 
 type TaskFilter = 'all' | 'task' | 'meeting'
@@ -32,6 +33,7 @@ export default function TaskManager({
   onDeleteTask,
   onToggleComplete,
   isAdmin = false,
+  readOnly = false,
 }: TaskManagerProps) {
   const [filter, setFilter] = useState<TaskFilter>('all')
   const todayStr = getTodayInPanama() // YYYY-MM-DD in Panama timezone
@@ -71,16 +73,18 @@ export default function TaskManager({
       <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
         <EventIcon className="text-gray-400 mx-auto mb-3" style={{ fontSize: 48 }} />
         <p className="text-sm text-gray-500 mb-2">No hay tareas aún</p>
-        <Button
-          type="button"
-          onClick={onAddTask}
-          variant="secondary"
-          size="sm"
-          leftIcon={<AddIcon fontSize="small" />}
-          className="border-orange-200 text-orange-600 hover:bg-orange-50"
-        >
-          Crear Primera Tarea
-        </Button>
+        {!readOnly && (
+          <Button
+            type="button"
+            onClick={onAddTask}
+            variant="secondary"
+            size="sm"
+            leftIcon={<AddIcon fontSize="small" />}
+            className="border-orange-200 text-orange-600 hover:bg-orange-50"
+          >
+            Crear Primera Tarea
+          </Button>
+        )}
       </div>
     )
   }
@@ -129,25 +133,28 @@ export default function TaskManager({
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
             <h3 className="text-sm font-bold text-gray-700">Tareas Pendientes</h3>
-            <Button
-              type="button"
-              onClick={onAddTask}
-              size="xs"
-              leftIcon={<AddIcon style={{ fontSize: 14 }} />}
-              className="bg-orange-600 hover:bg-orange-700"
-            >
-              Nueva Tarea
-            </Button>
+            {!readOnly && (
+              <Button
+                type="button"
+                onClick={onAddTask}
+                size="xs"
+                leftIcon={<AddIcon style={{ fontSize: 14 }} />}
+                className="bg-orange-600 hover:bg-orange-700"
+              >
+                Nueva Tarea
+              </Button>
+            )}
           </div>
           <div className="p-2 space-y-0">
             {futureTasks.map((task) => (
               <TaskItem
                 key={task.id}
                 task={task}
-                onEdit={onEditTask}
-                onDelete={onDeleteTask}
-                onToggleComplete={onToggleComplete}
+                onEdit={readOnly ? undefined : onEditTask}
+                onDelete={readOnly ? undefined : onDeleteTask}
+                onToggleComplete={readOnly ? undefined : onToggleComplete}
                 isAdmin={isAdmin}
+                readOnly={readOnly}
               />
             ))}
           </div>
@@ -159,7 +166,7 @@ export default function TaskManager({
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
             <h3 className="text-sm font-bold text-gray-700">Tareas Pasadas</h3>
-            {futureTasks.length === 0 && (
+            {!readOnly && futureTasks.length === 0 && (
               <Button
                 type="button"
                 onClick={onAddTask}
@@ -176,11 +183,12 @@ export default function TaskManager({
               <TaskItem
                 key={task.id}
                 task={task}
-                onEdit={onEditTask}
-                onDelete={onDeleteTask}
-                onToggleComplete={onToggleComplete}
+                onEdit={readOnly ? undefined : onEditTask}
+                onDelete={readOnly ? undefined : onDeleteTask}
+                onToggleComplete={readOnly ? undefined : onToggleComplete}
                 isPast
                 isAdmin={isAdmin}
+                readOnly={readOnly}
               />
             ))}
           </div>
@@ -206,13 +214,15 @@ function TaskItem({
   onToggleComplete,
   isPast = false,
   isAdmin = false,
+  readOnly = false,
 }: {
   task: Task
-  onEdit: (task: Task) => void
-  onDelete: (taskId: string) => void
-  onToggleComplete: (task: Task) => void
+  onEdit?: (task: Task) => void
+  onDelete?: (taskId: string) => void
+  onToggleComplete?: (task: Task) => void
   isPast?: boolean
   isAdmin?: boolean
+  readOnly?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
   const isMeeting = task.category === 'meeting'
@@ -277,13 +287,14 @@ function TaskItem({
         {/* Checkbox */}
         <button
           type="button"
-          onClick={() => onToggleComplete(task)}
-          className="text-gray-300 hover:text-green-500 transition-colors flex-shrink-0"
+          onClick={() => !readOnly && onToggleComplete?.(task)}
+          className={`flex-shrink-0 ${readOnly ? 'cursor-default' : 'text-gray-300 hover:text-green-500 transition-colors'}`}
+          disabled={readOnly}
         >
           {task.completed ? (
             <CheckCircleIcon className="text-green-500" style={{ fontSize: 18 }} />
           ) : (
-            <RadioButtonUncheckedIcon style={{ fontSize: 18 }} />
+            <RadioButtonUncheckedIcon className={readOnly ? 'text-gray-300' : ''} style={{ fontSize: 18 }} />
           )}
         </button>
 
@@ -321,21 +332,25 @@ function TaskItem({
           >
             {expanded ? <ExpandLessIcon style={{ fontSize: 16 }} /> : <ExpandMoreIcon style={{ fontSize: 16 }} />}
           </button>
-          <button
-            type="button"
-            onClick={() => onEdit(task)}
-            className="p-0.5 text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <EditIcon style={{ fontSize: 16 }} />
-          </button>
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={() => onDelete(task.id)}
-              className="p-0.5 text-gray-400 hover:text-red-600 transition-colors"
-            >
-              <DeleteIcon style={{ fontSize: 16 }} />
-            </button>
+          {!readOnly && (
+            <>
+              <button
+                type="button"
+                onClick={() => onEdit?.(task)}
+                className="p-0.5 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <EditIcon style={{ fontSize: 16 }} />
+              </button>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => onDelete?.(task.id)}
+                  className="p-0.5 text-gray-400 hover:text-red-600 transition-colors"
+                >
+                  <DeleteIcon style={{ fontSize: 16 }} />
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>

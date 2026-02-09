@@ -727,6 +727,11 @@ export default function OpportunityFormModal({
 
   const isEditMode = !!opportunity
 
+  // Determine if user can edit this opportunity
+  // User can edit if they are admin, the responsible party, or the creator
+  const canEdit = isAdmin || !opportunity || opportunity.responsibleId === user?.id || opportunity.userId === user?.id
+  const isViewOnly = !canEdit
+
   return (
     <>
     <ModalShell
@@ -740,16 +745,16 @@ export default function OpportunityFormModal({
         activeTab === 'details' ? (
           <ModalFooter
             onCancel={onClose}
-            submitLabel="Guardar"
+            submitLabel={isViewOnly ? undefined : "Guardar"}
             submitLoading={loading || loadingData || dynamicForm.loading}
-            submitDisabled={loading || loadingData || dynamicForm.loading || !responsibleId || responsibleId === '__unassigned__'}
-            leftContent="* Campos requeridos"
-            formId="opportunity-modal-form"
+            submitDisabled={isViewOnly || loading || loadingData || dynamicForm.loading || !responsibleId || responsibleId === '__unassigned__'}
+            leftContent={isViewOnly ? "Solo lectura - No tiene permisos para editar" : "* Campos requeridos"}
+            formId={isViewOnly ? undefined : "opportunity-modal-form"}
           />
         ) : activeTab === 'activity' ? (
           <ModalFooter
             onCancel={onClose}
-            leftContent="* Campos requeridos"
+            leftContent={isViewOnly ? "Solo lectura - No tiene permisos para editar" : "* Campos requeridos"}
           />
         ) : activeTab === 'chat' ? (
           <ModalFooter
@@ -767,7 +772,11 @@ export default function OpportunityFormModal({
           {loadingData ? (
             <OpportunityPipelineSkeleton />
           ) : (
-            <OpportunityPipeline stage={stage} onStageChange={handleStageChange} saving={savingStage} />
+            <OpportunityPipeline
+              stage={stage}
+              onStageChange={isViewOnly ? () => {} : handleStageChange}
+              saving={savingStage}
+            />
           )}
 
           {/* Reference Info Bar - 2-line layout */}
@@ -863,14 +872,21 @@ export default function OpportunityFormModal({
                 <span className="text-gray-300 hidden sm:inline">|</span>
 
                 {/* Owner (required) */}
-                <ReferenceInfoBar.UserSelectItem
-                  label="Responsable *"
-                  userId={responsibleId}
-                  users={users}
-                  isAdmin={isAdmin}
-                  onChange={setResponsibleId}
-                  placeholder="Seleccionar..."
-                />
+                {isViewOnly ? (
+                  <ReferenceInfoBar.UserDisplayItem
+                    label="Responsable"
+                    user={users.find(u => u.clerkId === responsibleId) || null}
+                  />
+                ) : (
+                  <ReferenceInfoBar.UserSelectItem
+                    label="Responsable *"
+                    userId={responsibleId}
+                    users={users}
+                    isAdmin={isAdmin}
+                    onChange={setResponsibleId}
+                    placeholder="Seleccionar..."
+                  />
+                )}
               </div>
             </div>
           )}
@@ -959,7 +975,7 @@ export default function OpportunityFormModal({
                     section={section}
                     values={dynamicForm.getAllValues()}
                     onChange={dynamicForm.setValue}
-                    disabled={loading}
+                    disabled={loading || isViewOnly}
                     categories={categoryOptions}
                     users={userOptions}
                     businesses={allBusinesses}
@@ -1010,14 +1026,27 @@ export default function OpportunityFormModal({
                   </div>
                 ) : (
                   <Suspense fallback={<OpportunityActivitySkeleton />}>
-                    <TaskManager
-                      tasks={tasks}
-                      onAddTask={() => openTaskModal()}
-                      onEditTask={(task) => openTaskModal(task)}
-                      onDeleteTask={handleDeleteTask}
-                      onToggleComplete={handleToggleTaskComplete}
-                      isAdmin={isAdmin}
-                    />
+                    {isViewOnly ? (
+                      <TaskManager
+                        tasks={tasks}
+                        onAddTask={() => {}}
+                        onEditTask={() => {}}
+                        onDeleteTask={() => {}}
+                        onToggleComplete={() => {}}
+                        isAdmin={isAdmin}
+                        readOnly={true}
+                      />
+                    ) : (
+                      <TaskManager
+                        tasks={tasks}
+                        onAddTask={() => openTaskModal()}
+                        onEditTask={(task) => openTaskModal(task)}
+                        onDeleteTask={handleDeleteTask}
+                        onToggleComplete={handleToggleTaskComplete}
+                        isAdmin={isAdmin}
+                        readOnly={false}
+                      />
+                    )}
                   </Suspense>
                 )}
               </div>
@@ -1035,7 +1064,7 @@ export default function OpportunityFormModal({
                   <Suspense fallback={<OpportunityChatSkeleton />}>
                     <OpportunityChatThread
                       opportunityId={opportunity.id}
-                      canEdit={isAdmin || opportunity.responsibleId === user?.id || opportunity.userId === user?.id}
+                      canEdit={canEdit}
                     />
                   </Suspense>
                 )}

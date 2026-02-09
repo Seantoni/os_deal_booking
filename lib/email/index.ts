@@ -25,4 +25,6 @@ export { sendRejectionEmail } from './services/rejection'
 export { sendAllTaskReminders } from './services/task-reminder'
 export { sendMentionNotificationEmail } from './services/mention-notification'
 export { sendOpportunityMentionNotificationEmail } from './services/opportunity-mention-notification'
+export { sendCronFailureEmail } from './services/cron-failure'
+export { sendApiFailureEmail } from './services/api-failure'
 

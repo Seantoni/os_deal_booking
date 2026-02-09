@@ -1,12 +1,13 @@
 /**
  * External API Request Logger
- * 
+ *
  * Tracks all requests made to the external Oferta API (deals and vendors)
  */
 
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@prisma/client'
 import type { TriggerType } from './http'
+import { sendApiFailureEmail } from '@/lib/email/services/api-failure'
 
 interface LogRequestParams {
   endpoint: string
@@ -155,7 +156,26 @@ export async function logApiCall(
       durationMs,
     },
   })
-  
+
+  // Send email notification on failure (non-blocking)
+  if (!response.success) {
+    sendApiFailureEmail({
+      endpoint,
+      method,
+      errorMessage: response.errorMessage || 'Unknown error',
+      statusCode: response.statusCode,
+      requestBody: requestBody as Record<string, unknown>,
+      responseRaw: response.raw,
+      createdAt: new Date(),
+      durationMs,
+      userId,
+      triggeredBy,
+    }).catch(emailError => {
+      // Don't fail the API call if email fails - just log it
+      console.error('[logApiCall] Failed to send failure email:', emailError)
+    })
+  }
+
   return record.id
 }
 

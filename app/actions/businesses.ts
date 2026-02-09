@@ -1686,20 +1686,20 @@ export async function getBusinessesWithBookingStatus() {
 export async function previewVendorSync(
   businessId: string,
   newValues: Record<string, string | null | undefined>
-): Promise<{ 
+): Promise<{
   success: boolean
-  data?: { 
+  data?: {
     changes: VendorFieldChange[]
-    vendorId: string 
+    vendorId: string
   }
-  error?: string 
+  error?: string
 }> {
   try {
-    // Require admin
-    const adminCheck = await isAdmin()
-    if (!adminCheck) {
-      return { success: false, error: 'Solo administradores pueden sincronizar con OfertaSimple' }
+    const authResult = await requireAuth()
+    if (!('userId' in authResult)) {
+      return { success: false, error: 'No autorizado' }
     }
+    const { userId } = authResult
 
     // Get current business
     const business = await prisma.business.findUnique({
@@ -1709,6 +1709,14 @@ export async function previewVendorSync(
 
     if (!business) {
       return { success: false, error: 'Negocio no encontrado' }
+    }
+
+    // Require admin OR business owner
+    const adminCheck = await isAdmin()
+    const isOwner = business.ownerId === userId
+
+    if (!adminCheck && !isOwner) {
+      return { success: false, error: 'Solo administradores o propietarios del negocio pueden sincronizar con OfertaSimple' }
     }
 
     if (!business.osAdminVendorId) {
@@ -1756,12 +1764,6 @@ export async function syncVendorToExternal(
   error?: string
 }> {
   try {
-    // Require admin
-    const adminCheck = await isAdmin()
-    if (!adminCheck) {
-      return { success: false, error: 'Solo administradores pueden sincronizar con OfertaSimple' }
-    }
-
     const authResult = await requireAuth()
     if (!('userId' in authResult)) {
       return { success: false, error: 'No autorizado' }
@@ -1776,6 +1778,14 @@ export async function syncVendorToExternal(
 
     if (!currentBusiness) {
       return { success: false, error: 'Negocio no encontrado' }
+    }
+
+    // Require admin OR business owner
+    const adminCheck = await isAdmin()
+    const isOwner = currentBusiness.ownerId === userId
+
+    if (!adminCheck && !isOwner) {
+      return { success: false, error: 'Solo administradores o propietarios del negocio pueden sincronizar con OfertaSimple' }
     }
 
     if (!currentBusiness.osAdminVendorId) {
