@@ -3,8 +3,8 @@
  * 
  * GET /api/health/database
  * 
- * Tests the database connection
- * Restricted to admin users only
+ * Tests the database connection with a lightweight query.
+ * Restricted to admin users only.
  */
 
 import { NextResponse } from 'next/server'
@@ -23,9 +23,11 @@ export async function GET() {
   }
 
   try {
-    await prisma.$connect()
-    await prisma.$disconnect()
-    return NextResponse.json({ connected: true })
+    // Use a lightweight query instead of $connect/$disconnect.
+    // $disconnect tears down the pool and kills connections for
+    // subsequent requests on the same serverless instance.
+    const result = await prisma.$queryRaw<[{ now: Date }]>`SELECT NOW() as now`
+    return NextResponse.json({ connected: true, serverTime: result[0]?.now })
   } catch (error) {
     // Only show detailed errors in development
     const errorMessage = process.env.NODE_ENV === 'development'
@@ -38,4 +40,3 @@ export async function GET() {
     })
   }
 }
-
