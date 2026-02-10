@@ -37,7 +37,6 @@ export type Deal = {
     subCategory1: string | null
     subCategory2: string | null
     processedAt: Date | null
-    description: string | null
     // Additional fields for enhanced display
     merchant: string | null
     sourceType: string | null
