@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useTransition } from 'react'
-import { updateDealResponsible, updateDealStatus } from '@/app/actions/deals'
+import { updateDealDeliveryDate, updateDealResponsible, updateDealStatus } from '@/app/actions/deals'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
 import { useCachedFormConfig } from '@/hooks/useFormConfigCache'
@@ -19,6 +19,8 @@ import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
 import BookingRequestSection from './BookingRequestSection'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
 import FormModalSkeleton from '@/components/common/FormModalSkeleton'
+import { ONE_DAY_MS } from '@/lib/constants/time'
+import { getTodayInPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
 
 interface DealFormModalProps {
   isOpen: boolean
@@ -55,6 +57,8 @@ export default function DealFormModal({
     setEreResponsibleId,
     status,
     setStatus,
+    deliveryDate,
+    setDeliveryDate,
     users,
     editorUsers,
     ereUsers,
@@ -128,12 +132,13 @@ export default function DealFormModal({
     startSubmitTransition(async () => {
       try {
         // Update both responsibles and status
-        const [responsibleResult, statusResult] = await Promise.all([
+        const [responsibleResult, statusResult, deliveryResult] = await Promise.all([
           updateDealResponsible(deal.id, responsibleId || null, ereResponsibleId || null),
           updateDealStatus(deal.id, status),
+          updateDealDeliveryDate(deal.id, deliveryDate ? deliveryDate : null),
         ])
 
-        if (responsibleResult.success && statusResult.success) {
+        if (responsibleResult.success && statusResult.success && deliveryResult.success) {
           // Save custom field values
           const customFieldResult = await dynamicForm.saveCustomFields(deal.id)
           if (!customFieldResult.success) {
@@ -142,7 +147,7 @@ export default function DealFormModal({
           onSuccess()
           onClose()
         } else {
-          setError(responsibleResult.error || statusResult.error || 'Error al actualizar la oferta')
+          setError(responsibleResult.error || statusResult.error || deliveryResult.error || 'Error al actualizar la oferta')
         }
       } catch (err) {
         setError('Ocurrió un error')
@@ -225,6 +230,39 @@ export default function DealFormModal({
                 editorUsers={editorUsers}
                 ereUsers={ereUsers}
                 isAdmin={isAdmin}
+                extraContent={
+                  <div className="flex items-center gap-3">
+                    <label className="text-xs font-medium text-gray-600 w-32 flex-shrink-0">
+                      Fecha de entrega
+                    </label>
+                    <div className="flex-1 flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={deliveryDate || ''}
+                        onChange={(e) => setDeliveryDate(e.target.value)}
+                        disabled={!isAdmin || loading || loadingData}
+                        className="text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white"
+                      />
+                      {deliveryDate && (() => {
+                        const today = parseDateInPanamaTime(getTodayInPanama())
+                        const delivery = parseDateInPanamaTime(deliveryDate)
+                        const daysUntil = Math.round((delivery.getTime() - today.getTime()) / ONE_DAY_MS)
+                        const badgeClass = daysUntil < 0
+                          ? 'bg-red-600 text-white border-red-600'
+                          : daysUntil === 0
+                          ? 'bg-emerald-600 text-white border-emerald-600'
+                          : daysUntil <= 7
+                          ? 'bg-amber-500 text-white border-amber-500'
+                          : 'bg-indigo-600 text-white border-indigo-600'
+                        return (
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${badgeClass}`}>
+                            {Math.abs(daysUntil)} día{Math.abs(daysUntil) === 1 ? '' : 's'}
+                          </span>
+                        )
+                      })()}
+                    </div>
+                  </div>
+                }
               />
 
               {/* Booking Request Section */}

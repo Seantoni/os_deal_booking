@@ -22,6 +22,7 @@ export type Deal = {
   responsibleId: string | null
   ereResponsibleId: string | null
   status: DealStatus
+  deliveryDate: Date | null
   createdAt: Date
   updatedAt: Date
   bookingRequest: {
@@ -72,4 +73,3 @@ export type Deal = {
     email: string | null
   } | null
 }
-

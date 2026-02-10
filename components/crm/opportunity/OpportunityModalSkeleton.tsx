@@ -16,14 +16,14 @@ export function OpportunityPipelineSkeleton() {
   const stages = ['Inicio', 'Reunión', 'Enviada', 'Aprobada', 'Won', 'Lost']
   
   return (
-    <div className="bg-white border-b border-gray-200 px-2 md:px-4 py-2 md:py-3">
+    <div className="flex items-center justify-between gap-3">
       {/* Mobile: horizontally scrollable, Desktop: flex */}
-      <div className="flex items-center gap-0.5 md:gap-1 overflow-x-auto scrollbar-hide pb-1 -mb-1">
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
         {stages.map((_, i) => (
-          <div key={i} className="flex items-center flex-shrink-0 md:flex-1">
+          <div key={i} className="flex items-center flex-shrink-0">
             {/* Stage button skeleton */}
             <div 
-              className="h-7 md:h-8 min-w-[60px] md:min-w-0 md:w-full flex items-center justify-center border border-gray-200 rounded bg-gray-50 animate-pulse" 
+              className="h-7 md:h-8 min-w-[60px] flex items-center justify-center border border-gray-200 rounded-full bg-gray-50 animate-pulse" 
               style={{ animationDelay: `${i * 0.05}s` }}
             >
               <div className="flex items-center gap-1 px-1.5 md:px-2">
@@ -35,7 +35,7 @@ export function OpportunityPipelineSkeleton() {
             </div>
             {/* Divider between stages */}
             {i < stages.length - 1 && (
-              <div className="w-0.5 md:w-1 h-0.5 bg-gray-200 flex-shrink-0"></div>
+              <div className="h-px w-4 bg-slate-200 flex-shrink-0"></div>
             )}
           </div>
         ))}
@@ -215,4 +215,3 @@ export function OpportunityModalFullSkeleton() {
     </div>
   )
 }
-

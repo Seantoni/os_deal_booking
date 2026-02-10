@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getAllUsers } from '@/app/actions/crm'
+import { formatDateForPanama } from '@/lib/date/timezone'
 import type { Deal, UserProfile } from '@/types'
 
 interface UseDealFormProps {
@@ -17,6 +18,7 @@ export function useDealForm({
   const [responsibleId, setResponsibleId] = useState('')
   const [ereResponsibleId, setEreResponsibleId] = useState('')
   const [status, setStatus] = useState('pendiente_por_asignar')
+  const [deliveryDate, setDeliveryDate] = useState('')
 
   // Data state
   const [users, setUsers] = useState<UserProfile[]>([])
@@ -53,10 +55,12 @@ export function useDealForm({
         setResponsibleId(currentDeal.responsibleId || '')
         setEreResponsibleId(currentDeal.ereResponsibleId || '')
         setStatus(currentDeal.status || 'pendiente_por_asignar')
+        setDeliveryDate(currentDeal.deliveryDate ? formatDateForPanama(new Date(currentDeal.deliveryDate)) : '')
       } else {
         setResponsibleId('')
         setEreResponsibleId('')
         setStatus('pendiente_por_asignar')
+        setDeliveryDate('')
       }
     } finally {
       setLoadingData(false)
@@ -88,6 +92,8 @@ export function useDealForm({
     setEreResponsibleId,
     status,
     setStatus,
+    deliveryDate,
+    setDeliveryDate,
     
     // Data
     users,
@@ -98,4 +104,3 @@ export function useDealForm({
     loadingData,
   }
 }
-

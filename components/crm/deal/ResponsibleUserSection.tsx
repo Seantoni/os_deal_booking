@@ -5,6 +5,7 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutline'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import type { UserProfile } from '@/types'
+import type { ReactNode } from 'react'
 
 interface ResponsibleUserSectionProps {
   responsibleId: string
@@ -14,6 +15,7 @@ interface ResponsibleUserSectionProps {
   editorUsers: UserProfile[]
   ereUsers: UserProfile[]
   isAdmin: boolean
+  extraContent?: ReactNode
 }
 
 export default function ResponsibleUserSection({
@@ -24,6 +26,7 @@ export default function ResponsibleUserSection({
   editorUsers,
   ereUsers,
   isAdmin,
+  extraContent,
 }: ResponsibleUserSectionProps) {
   const [open, setOpen] = useState(true)
 
@@ -139,9 +142,14 @@ export default function ResponsibleUserSection({
             )}
           </div>
         </div>
+
+        {extraContent && (
+          <div className="pt-2 border-t border-gray-100">
+            {extraContent}
+          </div>
+        )}
       </div>
       )}
     </div>
   )
 }
-

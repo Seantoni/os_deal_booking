@@ -389,6 +389,7 @@ model Deal {
   id               String         @id @default(cuid())
   bookingRequestId String         @unique
   responsibleId    String?
+  deliveryDate     DateTime?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   status           String         @default("pendiente_por_asignar")

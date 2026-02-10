@@ -769,15 +769,17 @@ export default function OpportunityFormModal({
     >
 
           {/* Sales Path (Pipeline) */}
-          {loadingData ? (
-            <OpportunityPipelineSkeleton />
-          ) : (
-            <OpportunityPipeline
-              stage={stage}
-              onStageChange={isViewOnly ? () => {} : handleStageChange}
-              saving={savingStage}
-            />
-          )}
+          <div className="bg-white border-b border-gray-200 px-3 md:px-4 py-2">
+            {loadingData ? (
+              <OpportunityPipelineSkeleton />
+            ) : (
+              <OpportunityPipeline
+                stage={stage}
+                onStageChange={isViewOnly ? () => {} : handleStageChange}
+                saving={savingStage}
+              />
+            )}
+          </div>
 
           {/* Reference Info Bar - 2-line layout */}
           {!loadingData && (

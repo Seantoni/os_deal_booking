@@ -9,6 +9,7 @@ import { getUserRole } from '@/lib/auth/roles'
 import { logger } from '@/lib/logger'
 import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
 import { logActivity } from '@/lib/activity-log'
+import { parseDateInPanamaTime } from '@/lib/date/timezone'
 
 /**
  * Get all deals (deals created from booked booking requests)
@@ -705,6 +706,47 @@ export async function updateDealStatus(dealId: string, status: string) {
 }
 
 /**
+ * Update deal delivery date
+ */
+export async function updateDealDeliveryDate(dealId: string, deliveryDate: string | null) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    const updated = await prisma.deal.update({
+      where: { id: dealId },
+      data: {
+        deliveryDate: deliveryDate ? parseDateInPanamaTime(deliveryDate) : null,
+      },
+      include: {
+        bookingRequest: {
+          select: {
+            id: true,
+            name: true,
+            businessEmail: true,
+            startDate: true,
+            endDate: true,
+            status: true,
+            parentCategory: true,
+            subCategory1: true,
+            subCategory2: true,
+            processedAt: true,
+          },
+        },
+      },
+    })
+
+    invalidateEntity('deals')
+
+    return { success: true, data: updated }
+  } catch (error) {
+    return handleServerActionError(error, 'updateDealDeliveryDate')
+  }
+}
+
+/**
  * Delete a deal
  */
 export async function deleteDeal(dealId: string) {
@@ -746,4 +788,3 @@ export async function deleteDeal(dealId: string) {
     return handleServerActionError(error, 'deleteDeal')
   }
 }
-
