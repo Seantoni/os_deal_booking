@@ -304,6 +304,8 @@ export default function DealsPageClient({
     ]
   }, [displayDeals, responsibleUsers, totalCount, isSearching, counts])
 
+  const canViewAssignments = isEditorSenior || isAdmin
+
   // Get sort value for a deal
   const getSortValue = useCallback((deal: Deal, column: string): string | number | null => {
     switch (column) {
@@ -349,6 +351,13 @@ export default function DealsPageClient({
 
     return filtered
   }, [displayDeals, responsibleFilter, isSearching, sortColumn, sortDirection, getSortValue, applyFiltersToData])
+
+  const visibleDeals = useMemo(() => {
+    if (!canViewAssignments) {
+      return filteredDeals
+    }
+    return filteredDeals.filter(deal => deal.responsibleId && deal.ereResponsibleId)
+  }, [filteredDeals, canViewAssignments])
 
   // Prefetch form config when hovering over a row
   const handleRowHover = useCallback(() => {
@@ -513,7 +522,6 @@ export default function DealsPageClient({
   }
 
   const isLoading = loading || searchLoading
-  const canViewAssignments = isEditorSenior || isAdmin
   const maxWorkload = useMemo(() => {
     const counts = assignmentEditors.map(editor => workloadByEditor[editor.clerkId] || 0)
     return Math.max(1, ...counts)
@@ -572,7 +580,7 @@ export default function DealsPageClient({
                 <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
                 {searchLoading ? 'Buscando...' : 'Cargando...'}
               </div>
-            ) : filteredDeals.length === 0 ? (
+            ) : visibleDeals.length === 0 ? (
               <div className="px-4 pt-4 md:px-0 md:pt-0">
                 <EmptyTableState
                   icon={<FilterListIcon className="w-full h-full" />}
@@ -594,12 +602,12 @@ export default function DealsPageClient({
                 <div className="md:hidden">
                   <SearchIndicator />
                   <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
-                    <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
-                      {filteredDeals.length} oferta{filteredDeals.length !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  <div className="bg-white divide-y divide-gray-100">
-                    {filteredDeals.map((deal) => (
+                  <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                    {visibleDeals.length} oferta{visibleDeals.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="bg-white divide-y divide-gray-100">
+                  {visibleDeals.map((deal) => (
                       <button
                         key={deal.id}
                         type="button"
@@ -698,7 +706,7 @@ export default function DealsPageClient({
                     sortDirection={sortDirection}
                     onSort={handleSort}
                   >
-                    {filteredDeals.map((deal, index) => (
+                  {visibleDeals.map((deal, index) => (
                       <TableRow
                         key={deal.id}
                         index={index}

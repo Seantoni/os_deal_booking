@@ -412,7 +412,12 @@ export async function getDealAssignmentsOverview() {
         _count: { _all: true },
       }),
       prisma.deal.findMany({
-        where: { responsibleId: null },
+        where: {
+          OR: [
+            { responsibleId: null },
+            { ereResponsibleId: null },
+          ],
+        },
         select: {
           id: true,
           status: true,
