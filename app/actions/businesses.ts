@@ -823,6 +823,7 @@ export async function getBusinessFormData(businessId?: string | null) {
                 subCategory2: true,
                 processedAt: true,
                 opportunityId: true,
+                description: true,
                 merchant: true,
                 sourceType: true,
                 redemptionContactName: true,
