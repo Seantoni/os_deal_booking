@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useTransition, lazy, Suspense } from 'react'
+import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { createOpportunity, updateOpportunity, createTask, updateTask, deleteTask } from '@/app/actions/crm'
 import { useUserRole } from '@/hooks/useUserRole'
@@ -79,6 +80,7 @@ export default function OpportunityFormModal({
   preloadedCategories,
   preloadedUsers,
 }: OpportunityFormModalProps) {
+  const router = useRouter()
   const { user } = useUser()
   const { isAdmin } = useUserRole()
   const [activeTab, setActiveTab] = useState<'details' | 'activity' | 'chat' | 'history'>(initialTab)

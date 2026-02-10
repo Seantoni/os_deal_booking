@@ -13,7 +13,7 @@ import { logActivity } from '@/lib/activity-log'
 import { getTodayInPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
 import { sendVendorToExternalApi, updateVendorInExternalApi, getChangedVendorFields } from '@/lib/api/external-oferta'
 import type { VendorFieldChange, ExternalOfertaVendorUpdateRequest, UpdateVendorResult } from '@/lib/api/external-oferta/vendor/types'
-import type { Business, Opportunity, BookingRequest, UserData, Deal } from '@/types'
+import type { Business, Opportunity, BookingRequest, UserData, Deal, PricingOption } from '@/types'
 import type { DealStatus } from '@/lib/constants'
 import type { Category } from '@prisma/client'
 
@@ -848,6 +848,10 @@ export async function getBusinessFormData(businessId?: string | null) {
         deals = Array.from(new Map(dealResults.map(d => [d.id, d])).values()).map(d => ({
           ...d,
           status: d.status as DealStatus,
+          bookingRequest: {
+            ...d.bookingRequest,
+            pricingOptions: d.bookingRequest.pricingOptions as PricingOption[] | null,
+          },
         }))
       }
     }
