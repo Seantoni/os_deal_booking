@@ -49,105 +49,84 @@ export async function getInboxItems(): Promise<{
     // Note: We intentionally don't check role here - inbox is always user-centric
 
     // ============================================
-    // BATCH FETCH: User's responses (to filter out answered comments)
+    // BATCH FETCH: User's latest responses (to filter out answered comments)
     // ============================================
-    
-    // Get all user's opportunity comments (for response checking)
-    const userOppComments = await prisma.opportunityComment.findMany({
-      where: { userId, isDeleted: false },
-      select: { opportunityId: true, createdAt: true },
-      orderBy: { createdAt: 'asc' },
-    })
-    
-    // Build a map: opportunityId -> earliest response date
-    const userOppResponseMap = new Map<string, Date>()
-    for (const c of userOppComments) {
-      const existing = userOppResponseMap.get(c.opportunityId)
-      if (!existing || c.createdAt < existing) {
-        userOppResponseMap.set(c.opportunityId, c.createdAt)
+    const [userOppLatestResponses, userMktLatestResponses] = await Promise.all([
+      prisma.opportunityComment.groupBy({
+        by: ['opportunityId'],
+        where: { userId, isDeleted: false },
+        _max: { createdAt: true },
+      }),
+      prisma.marketingOptionComment.groupBy({
+        by: ['optionId'],
+        where: { userId, isDeleted: false },
+        _max: { createdAt: true },
+      }),
+    ])
+
+    const userOppLatestMap = new Map<string, Date>()
+    for (const row of userOppLatestResponses) {
+      if (row._max.createdAt) {
+        userOppLatestMap.set(row.opportunityId, row._max.createdAt)
       }
     }
 
-    // Get all user's marketing comments
-    const userMktComments = await prisma.marketingOptionComment.findMany({
-      where: { userId, isDeleted: false },
-      select: { optionId: true, createdAt: true },
-      orderBy: { createdAt: 'asc' },
-    })
-    
-    // Build a map: optionId -> earliest response date
-    const userMktResponseMap = new Map<string, Date>()
-    for (const c of userMktComments) {
-      const existing = userMktResponseMap.get(c.optionId)
-      if (!existing || c.createdAt < existing) {
-        userMktResponseMap.set(c.optionId, c.createdAt)
+    const userMktLatestMap = new Map<string, Date>()
+    for (const row of userMktLatestResponses) {
+      if (row._max.createdAt) {
+        userMktLatestMap.set(row.optionId, row._max.createdAt)
       }
     }
 
     // Helper: Check if user responded after a specific date
     const hasUserRespondedToOpp = (opportunityId: string, afterDate: Date): boolean => {
-      // Get all user comments for this opportunity and check if any is after the date
-      const userResponses = userOppComments.filter(
-        (c: { opportunityId: string; createdAt: Date }) => 
-          c.opportunityId === opportunityId && c.createdAt > afterDate
-      )
-      return userResponses.length > 0
+      const latest = userOppLatestMap.get(opportunityId)
+      return latest ? latest > afterDate : false
     }
 
     const hasUserRespondedToMkt = (optionId: string, afterDate: Date): boolean => {
-      const userResponses = userMktComments.filter(
-        (c: { optionId: string; createdAt: Date }) => 
-          c.optionId === optionId && c.createdAt > afterDate
-      )
-      return userResponses.length > 0
+      const latest = userMktLatestMap.get(optionId)
+      return latest ? latest > afterDate : false
     }
 
     // ============================================
     // FETCH: Opportunity comments
     // ============================================
     
-    // Get opportunities where user is responsible/creator
-      const userOppIds = await prisma.opportunity.findMany({
-        where: {
-          OR: [{ responsibleId: userId }, { userId: userId }],
-        },
-        select: { id: true },
-      })
-      const userOppIdSet = new Set(userOppIds.map(o => o.id))
-
-      // Get all comments from others
-      const allOppComments = await prisma.opportunityComment.findMany({
-        where: {
-          isDeleted: false,
-          userId: { not: userId },
-        },
-        select: {
-          id: true,
-          userId: true,
-          content: true,
-          mentions: true,
-          dismissedBy: true,
-          createdAt: true,
-          opportunityId: true,
-          opportunity: {
-            select: {
-              id: true,
-              responsibleId: true,
-              userId: true,
-              business: { select: { name: true } },
+    // Get relevant comments from others:
+    // - User is responsible/creator of the opportunity OR mentioned in the comment
+    const oppComments = await prisma.opportunityComment.findMany({
+      where: {
+        isDeleted: false,
+        userId: { not: userId },
+        OR: [
+          { mentions: { array_contains: [userId] } },
+          {
+            opportunity: {
+              OR: [{ responsibleId: userId }, { userId: userId }],
             },
           },
+        ],
+      },
+      select: {
+        id: true,
+        userId: true,
+        content: true,
+        mentions: true,
+        dismissedBy: true,
+        createdAt: true,
+        opportunityId: true,
+        opportunity: {
+          select: {
+            id: true,
+            responsibleId: true,
+            userId: true,
+            business: { select: { name: true } },
+          },
         },
-        orderBy: { createdAt: 'asc' },
-      })
-
-      // Filter: user is responsible/creator OR is mentioned
-    const oppComments = allOppComments.filter((comment) => {
-        const mentions = (comment.mentions as string[]) || []
-        const isResponsible = userOppIdSet.has(comment.opportunityId)
-        const isMentioned = mentions.includes(userId)
-        return isResponsible || isMentioned
-      })
+      },
+      orderBy: { createdAt: 'asc' },
+    })
 
     // ============================================
     // FETCH: Marketing comments (only if user is mentioned)
@@ -157,6 +136,7 @@ export async function getInboxItems(): Promise<{
       where: {
         isDeleted: false,
         userId: { not: userId },
+        mentions: { array_contains: [userId] },
       },
       select: {
         id: true,
@@ -184,9 +164,13 @@ export async function getInboxItems(): Promise<{
 
     // Filter: only show if user is mentioned
     const mktComments = allMktComments.filter((comment) => {
-          const mentions = (comment.mentions as string[]) || []
-          return mentions.includes(userId)
-        })
+      const mentions = (comment.mentions as string[]) || []
+      return mentions.includes(userId)
+    })
+
+    if (oppComments.length === 0 && mktComments.length === 0) {
+      return { success: true, data: [] }
+    }
 
     // ============================================
     // BATCH FETCH: Author profiles

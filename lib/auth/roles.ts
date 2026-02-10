@@ -18,7 +18,19 @@ async function _getUserProfileInternal() {
   }
 
   // Upsert to avoid duplicate insert races on clerkId
-  const user = await currentUser()
+  let user: Awaited<ReturnType<typeof currentUser>> = null
+  try {
+    user = await currentUser()
+  } catch (error) {
+    // Clerk API can fail (network issues, rate limits, cold-start timeouts).
+    // Fall back to DB-only lookup so the page still renders.
+    console.error('[auth] Clerk currentUser() failed, falling back to DB lookup:', error)
+    const existing = await prisma.userProfile.findUnique({ where: { clerkId: userId } })
+    if (existing) return existing
+    // First-time user AND Clerk is down — return a minimal profile without persisting
+    return null
+  }
+
   const userEmail = extractUserEmail(user)
 
   // Check if user has a pending invitation with role assignment
@@ -38,7 +50,7 @@ async function _getUserProfileInternal() {
       }
     } catch (error) {
       // If invitation processing fails, use default role
-      console.error('Error processing invitation on signup:', error)
+      console.error('[access-control] Error processing invitation on signup:', error)
     }
   }
 

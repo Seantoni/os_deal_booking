@@ -41,6 +41,7 @@ const adminSidebarConfig = {
   workItems: [
     { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
     { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
+    { name: 'Deals', href: '/deals', Icon: ListAltIcon },
     { name: 'Solicitudes', href: '/booking-requests', Icon: DescriptionIcon },
     { name: 'Negocios', href: '/businesses', Icon: BusinessIcon },
     { name: 'Opps', href: '/opportunities', Icon: HandshakeIcon },
@@ -70,6 +71,7 @@ const salesSidebarConfig = {
   workItems: [
     { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
     { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
+    { name: 'Deals', href: '/deals', Icon: ListAltIcon },
     { name: 'Solicitudes', href: '/booking-requests', Icon: DescriptionIcon },
     { name: 'Negocios', href: '/businesses', Icon: BusinessIcon },
     { name: 'Opps', href: '/opportunities', Icon: HandshakeIcon },
