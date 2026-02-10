@@ -124,6 +124,7 @@ export default function MobileBottomNav() {
       case 'sales':
         return { primaryNav: salesPrimaryNav, secondarySections: salesSecondarySections }
       case 'editor':
+      case 'editor_senior':
         return { primaryNav: editorPrimaryNav, secondarySections: editorSecondarySections }
       default:
         return { primaryNav: [], secondarySections: [] }

@@ -55,7 +55,7 @@ export async function getUserTasks(filters?: { responsibleId?: string }): Promis
       whereClause.opportunity = {
         responsibleId: userId,
       }
-    } else if (role === 'editor' || role === 'ere') {
+    } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       // Editors and ERE don't have access to tasks
       return { success: true, data: [] }
     }
@@ -146,7 +146,7 @@ export async function getTasksPaginated(options: {
     const whereClause: Record<string, unknown> = {}
     if (role === 'sales') {
       whereClause.opportunity = { responsibleId: userId }
-    } else if (role === 'editor' || role === 'ere') {
+    } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { success: true, data: [], total: 0, page, pageSize }
     }
     
@@ -260,7 +260,7 @@ export async function searchTasks(query: string, options: {
     const roleFilter: Record<string, unknown> = {}
     if (role === 'sales') {
       roleFilter.opportunity = { responsibleId: userId }
-    } else if (role === 'editor' || role === 'ere') {
+    } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { success: true, data: [] }
     }
     
@@ -418,7 +418,7 @@ export async function getTaskCounts(filters?: { responsibleId?: string }) {
     const baseWhere: Record<string, unknown> = {}
     if (role === 'sales') {
       baseWhere.opportunity = { responsibleId: userId }
-    } else if (role === 'editor' || role === 'ere') {
+    } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { success: true, data: { all: 0, pending: 0, completed: 0, overdue: 0, meetings: 0, todos: 0 } }
     }
     

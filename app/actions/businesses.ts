@@ -88,7 +88,7 @@ export async function getBusinesses() {
           whereClause.ownerId = userId
           // Filter out businesses pending reassignment
           whereClause.reassignmentStatus = null
-        } else if (role === 'editor' || role === 'ere') {
+        } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
           // Editors and ERE don't have access to businesses
           return []
         }
@@ -215,7 +215,7 @@ export async function getBusinessesPaginated(options: {
       if (showMyBusinessesOnly) {
         whereClause.ownerId = userId
       }
-    } else if (role === 'editor' || role === 'ere') {
+    } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { success: true, data: [], total: 0, page, pageSize, editableBusinessIds: [] as string[] }
     }
     // Admin sees all businesses (no reassignmentStatus filter)
@@ -450,7 +450,7 @@ export async function getBusinessCounts(filters?: { ownerId?: string; myBusiness
       if (showMyBusinessesOnly) {
         baseWhere.ownerId = userId
       }
-    } else if (role === 'editor' || role === 'ere') {
+    } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { success: true, data: { all: 0, 'with-open': 0, 'without-open': 0, 'with-focus': 0, 'with-active-deal': 0 } }
     }
     
@@ -554,7 +554,7 @@ export async function getBusinessActiveDealUrls() {
     const baseWhere: Record<string, unknown> = {}
     if (role === 'sales') {
       baseWhere.ownerId = userId
-    } else if (role === 'editor' || role === 'ere') {
+    } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { 
         success: true, 
         data: {} as Record<string, string>
@@ -639,7 +639,7 @@ export async function getBusinessTableCounts() {
     const baseWhere: Record<string, unknown> = {}
     if (role === 'sales') {
       baseWhere.ownerId = userId
-    } else if (role === 'editor' || role === 'ere') {
+    } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { 
         success: true, 
         data: { 
@@ -1002,7 +1002,7 @@ export async function searchBusinesses(query: string, options: {
       if (showMyBusinessesOnly) {
         roleFilter.ownerId = userId
       }
-    } else if (role === 'editor' || role === 'ere') {
+    } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { success: true, data: [], editableBusinessIds: [] as string[] }
     }
     

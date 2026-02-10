@@ -32,7 +32,7 @@ export async function getOpportunities() {
         if (role === 'sales') {
           // Sales only see opportunities where they are the responsible person
           whereClause.responsibleId = userId
-        } else if (role === 'editor' || role === 'ere') {
+        } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
           // Editors and ERE don't have access to opportunities
           return []
         }
@@ -134,7 +134,7 @@ export async function getOpportunitiesPaginated(options: {
     const whereClause: Record<string, unknown> = {}
     if (role === 'sales') {
       whereClause.responsibleId = userId
-    } else if (role === 'editor' || role === 'ere') {
+    } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { success: true, data: [], total: 0, page, pageSize }
     }
     
@@ -215,7 +215,7 @@ export async function getOpportunityCounts(filters?: { responsibleId?: string })
     const baseWhere: Record<string, unknown> = {}
     if (role === 'sales') {
       baseWhere.responsibleId = userId
-    } else if (role === 'editor' || role === 'ere') {
+    } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { success: true, data: { all: 0, iniciacion: 0, reunion: 0, propuesta_enviada: 0, propuesta_aprobada: 0, won: 0, lost: 0 } }
     }
     
@@ -263,7 +263,7 @@ export async function getOpportunityFormData(opportunityId?: string | null, busi
     const businessWhere: Record<string, unknown> = {}
     if (role === 'sales') {
       businessWhere.ownerId = userId
-    } else if (role === 'editor' || role === 'ere') {
+    } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { 
         success: true, 
         data: { 
@@ -448,7 +448,7 @@ export async function searchOpportunities(query: string, options: {
     const roleFilter: Record<string, unknown> = {}
     if (role === 'sales') {
       roleFilter.responsibleId = userId
-    } else if (role === 'editor' || role === 'ere') {
+    } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { success: true, data: [] }
     }
     
@@ -1425,4 +1425,3 @@ export async function bulkUpsertOpportunities(
     return handleServerActionError(error, 'bulkUpsertOpportunities')
   }
 }
-

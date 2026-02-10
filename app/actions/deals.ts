@@ -366,6 +366,97 @@ export async function getDealsCounts() {
 }
 
 /**
+ * Get assignment overview for Editor Senior
+ * - Workload per editor (excluding borrador_enviado / borrador_aprobado)
+ * - Editors and ERE users
+ * - Unassigned deals list
+ */
+export async function getDealAssignmentsOverview() {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    const role = await getUserRole()
+    if (role !== 'admin' && role !== 'editor_senior') {
+      return { success: false, error: 'Unauthorized: Editor Senior access required' }
+    }
+
+    const [editors, eres, workloadCounts, unassignedDeals] = await Promise.all([
+      prisma.userProfile.findMany({
+        where: { role: 'editor', isActive: true },
+        select: {
+          clerkId: true,
+          name: true,
+          email: true,
+          maxActiveDeals: true,
+        },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.userProfile.findMany({
+        where: { role: 'ere', isActive: true },
+        select: {
+          clerkId: true,
+          name: true,
+          email: true,
+        },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.deal.groupBy({
+        by: ['responsibleId'],
+        where: {
+          responsibleId: { not: null },
+          status: { notIn: ['borrador_enviado', 'borrador_aprobado'] },
+        },
+        _count: { _all: true },
+      }),
+      prisma.deal.findMany({
+        where: { responsibleId: null },
+        select: {
+          id: true,
+          status: true,
+          responsibleId: true,
+          ereResponsibleId: true,
+          bookingRequest: {
+            select: {
+              id: true,
+              dealId: true,
+              name: true,
+              startDate: true,
+              endDate: true,
+              processedAt: true,
+            },
+          },
+        },
+        orderBy: {
+          bookingRequest: { startDate: 'asc' },
+        },
+      }),
+    ])
+
+    const workload: Record<string, number> = {}
+    workloadCounts.forEach((item) => {
+      if (item.responsibleId) {
+        workload[item.responsibleId] = item._count._all
+      }
+    })
+
+    return {
+      success: true,
+      data: {
+        editors,
+        eres,
+        workload,
+        unassignedDeals,
+      },
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getDealAssignmentsOverview')
+  }
+}
+
+/**
  * Search deals across ALL records (server-side search)
  */
 export async function searchDeals(query: string, options: {

@@ -99,7 +99,7 @@ export async function globalSearch(query: string): Promise<{ success: boolean; d
 }
 
 async function searchBusinesses(searchTerm: string, isIdSearch: boolean, role: string | null, userId: string): Promise<SearchResult[]> {
-  if (role === 'editor' || role === 'ere') {
+  if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
     return []
   }
 
@@ -146,7 +146,7 @@ async function searchBusinesses(searchTerm: string, isIdSearch: boolean, role: s
 }
 
 async function searchOpportunities(searchTerm: string, isIdSearch: boolean, role: string | null, userId: string): Promise<SearchResult[]> {
-  if (role === 'editor' || role === 'ere') {
+  if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
     return []
   }
 
@@ -197,7 +197,7 @@ async function searchOpportunities(searchTerm: string, isIdSearch: boolean, role
 }
 
 async function searchBookingRequests(searchTerm: string, isIdSearch: boolean, role: string | null, userId: string): Promise<SearchResult[]> {
-  if (role === 'editor' || role === 'ere') {
+  if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
     return []
   }
 
@@ -248,7 +248,7 @@ async function searchDeals(searchTerm: string, isIdSearch: boolean, role: string
 
   let where: Prisma.DealWhereInput = { OR: orConditions }
 
-  if (role === 'editor' || role === 'ere') {
+  if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
     where.responsibleId = userId
   }
 

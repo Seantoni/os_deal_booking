@@ -14,7 +14,8 @@ export type UserProfile = {
   clerkId: string
   email: string | null
   name: string | null
-  role: string // 'admin' | 'sales' | 'editor' | 'ere'
+  role: string // 'admin' | 'sales' | 'editor' | 'editor_senior' | 'ere'
+  maxActiveDeals?: number | null
   createdAt: Date
   updatedAt: Date
 }
@@ -24,4 +25,3 @@ export type UserProfile = {
  * This is the subset fetched in the layout for shared context
  */
 export type UserData = Pick<UserProfile, 'id' | 'clerkId' | 'name' | 'email' | 'role'>
-

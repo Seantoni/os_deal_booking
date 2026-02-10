@@ -132,6 +132,7 @@ export default function HamburgerMenu() {
       case 'admin':
         return adminSidebarConfig
       case 'editor':
+      case 'editor_senior':
         return editorSidebarConfig
       case 'sales':
         return salesSidebarConfig

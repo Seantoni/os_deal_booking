@@ -108,6 +108,18 @@ export function buildRoleBasedWhereClause(
     return { whereClause: {}, hasAccess: true }
   }
 
+  // Editor Senior access rules
+  if (role === 'editor_senior') {
+    switch (entity) {
+      case 'deal':
+        // Editor Senior sees all deals
+        return { whereClause: {}, hasAccess: true }
+      default:
+        // No access to other entities
+        return { whereClause: {}, hasAccess: false }
+    }
+  }
+
   // Editor access rules
   if (role === 'editor' || role === 'ere') {
     switch (entity) {

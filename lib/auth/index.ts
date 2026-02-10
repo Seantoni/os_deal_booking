@@ -9,6 +9,7 @@ export {
   isAdmin,
   isSales,
   isEditor,
+  isEditorSenior,
   getUserRole,
   requireAdmin,
 } from './roles'

@@ -117,7 +117,7 @@ export default function AppClientProviders({
   }, [initialRole, userLoaded, userId])
   
   const isAdmin = role === 'admin'
-  const isEditor = role === 'editor' || role === 'ere'
+  const isEditor = role === 'editor' || role === 'ere' || role === 'editor_senior'
   
   // ============================================================================
   // Shared Data State (initialized from server)
@@ -217,4 +217,3 @@ export default function AppClientProviders({
     </SharedDataContext.Provider>
   )
 }
-

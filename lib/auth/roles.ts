@@ -104,7 +104,7 @@ export async function isSales(): Promise<boolean> {
  */
 export async function isEditor(): Promise<boolean> {
   const profile = await getUserProfile()
-  return profile?.role === 'editor' || profile?.role === 'ere'
+  return profile?.role === 'editor' || profile?.role === 'ere' || profile?.role === 'editor_senior'
 }
 
 /**
@@ -112,7 +112,15 @@ export async function isEditor(): Promise<boolean> {
  */
 export async function isEditorOrERE(): Promise<boolean> {
   const profile = await getUserProfile()
-  return profile?.role === 'editor' || profile?.role === 'ere'
+  return profile?.role === 'editor' || profile?.role === 'ere' || profile?.role === 'editor_senior'
+}
+
+/**
+ * Check if current user is editor senior
+ */
+export async function isEditorSenior(): Promise<boolean> {
+  const profile = await getUserProfile()
+  return profile?.role === 'editor_senior'
 }
 
 /**
@@ -132,4 +140,3 @@ export async function requireAdmin() {
     throw new Error('Unauthorized: Admin access required')
   }
 }
-

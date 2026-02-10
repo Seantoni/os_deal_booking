@@ -94,6 +94,7 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
 const ROLE_COLORS: Record<string, string> = {
   admin: 'bg-purple-100 text-purple-700',
   editor: 'bg-blue-100 text-blue-700',
+  editor_senior: 'bg-indigo-100 text-indigo-700',
   ere: 'bg-cyan-100 text-cyan-700',
   sales: 'bg-gray-100 text-gray-700',
 }

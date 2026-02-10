@@ -67,7 +67,7 @@ export async function getPipelineData() {
         
         if (role === 'sales') {
           whereClause.responsibleId = userId
-        } else if (role === 'editor' || role === 'ere') {
+        } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
           return { opportunities: [], deals: [], preBookedEvents: [] }
         }
 
@@ -253,7 +253,7 @@ export async function getPipelineDataPaginated(options: {
     const page = options.page ?? 0
     const pageSize = options.pageSize ?? 50
 
-    if (role === 'editor' || role === 'ere') {
+    if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { success: true, data: { opportunities: [], deals: [], preBookedEvents: [] }, total: 0, page, pageSize, totalPages: 0 }
     }
 
@@ -457,7 +457,7 @@ export async function searchPipelineData(query: string, options: { limit?: numbe
     const role = await getUserRole()
     const limit = options.limit ?? 100
 
-    if (role === 'editor' || role === 'ere') {
+    if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { success: true, data: { opportunities: [], deals: [], preBookedEvents: [] } }
     }
 

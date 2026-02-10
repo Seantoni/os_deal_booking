@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     // The cache is causing issues with role updates, so we'll fetch directly
     // and rely on client-side caching instead
     const profile = await getUserProfile()
-    const role = (profile?.role as 'admin' | 'sales' | 'editor') || 'sales'
+    const role = (profile?.role as 'admin' | 'sales' | 'editor' | 'editor_senior' | 'ere' | 'marketing') || 'sales'
     
     // Return with no-cache headers to prevent browser caching
     return NextResponse.json({ role }, {
@@ -28,4 +28,3 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Failed to get role' }, { status: 500 })
   }
 }
-

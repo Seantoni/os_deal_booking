@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { clerkClient } from '@clerk/nextjs/server'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
 import { invalidateUserCache, invalidateEntity } from '@/lib/cache'
-import { isAdmin } from '@/lib/auth/roles'
+import { isAdmin, isEditorSenior } from '@/lib/auth/roles'
 import type { UserRole } from '@/lib/constants'
 import { logger } from '@/lib/logger'
 
@@ -86,6 +86,53 @@ export async function updateUserRole(clerkId: string, role: UserRole) {
     return { success: true, data: updated }
   } catch (error) {
     return handleServerActionError(error, 'updateUserRole')
+  }
+}
+
+/**
+ * Update editor max active deals capacity (admin/editor senior only)
+ */
+export async function updateUserMaxActiveDeals(clerkId: string, maxActiveDeals: number | null) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    const [admin, editorSenior] = await Promise.all([isAdmin(), isEditorSenior()])
+    if (!admin && !editorSenior) {
+      return { success: false, error: 'Unauthorized: Admin or Editor Senior access required' }
+    }
+
+    const target = await prisma.userProfile.findUnique({
+      where: { clerkId },
+      select: { role: true },
+    })
+
+    if (!target) {
+      return { success: false, error: 'User not found' }
+    }
+
+    if (target.role !== 'editor') {
+      return { success: false, error: 'Solo se puede configurar para usuarios Editor' }
+    }
+
+    const sanitized = maxActiveDeals === null ? null : Math.max(0, Math.floor(maxActiveDeals))
+
+    const updated = await prisma.userProfile.update({
+      where: { clerkId },
+      data: { maxActiveDeals: sanitized },
+      select: {
+        clerkId: true,
+        maxActiveDeals: true,
+      },
+    })
+
+    invalidateUserCache(clerkId)
+
+    return { success: true, data: updated }
+  } catch (error) {
+    return handleServerActionError(error, 'updateUserMaxActiveDeals')
   }
 }
 
