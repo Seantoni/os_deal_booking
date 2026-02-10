@@ -13,7 +13,7 @@ import { logActivity } from '@/lib/activity-log'
 import { getTodayInPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
 import { sendVendorToExternalApi, updateVendorInExternalApi, getChangedVendorFields } from '@/lib/api/external-oferta'
 import type { VendorFieldChange, ExternalOfertaVendorUpdateRequest, UpdateVendorResult } from '@/lib/api/external-oferta/vendor/types'
-import type { Business, Opportunity, BookingRequest, UserData } from '@/types'
+import type { Business, Opportunity, BookingRequest, UserData, Deal } from '@/types'
 import type { Category } from '@prisma/client'
 
 // Extended where clause type to include reassignment fields not yet in Prisma schema
@@ -737,6 +737,7 @@ export async function getBusinessFormData(businessId?: string | null) {
     }
 
     // Business-specific data (only if editing existing business)
+    let businessName = ''
     if (businessId) {
       // Opportunities for this business
       fetchPromises.push(
@@ -766,7 +767,7 @@ export async function getBusinessFormData(businessId?: string | null) {
         where: { id: businessId },
         select: { name: true },
       })
-      const businessName = business?.name?.toLowerCase() || ''
+      businessName = business?.name?.toLowerCase() || ''
 
       // Requests matching this business name
       fetchPromises.push(
@@ -788,6 +789,65 @@ export async function getBusinessFormData(businessId?: string | null) {
 
     const [categories, users, opportunities, requests] = await Promise.all(fetchPromises)
 
+    let deals: Deal[] = []
+    if (businessId) {
+      const opportunityIds = (opportunities as Opportunity[]).map(o => o.id)
+      const orConditions: Prisma.DealWhereInput[] = []
+      if (opportunityIds.length > 0) {
+        orConditions.push({
+          bookingRequest: { opportunityId: { in: opportunityIds } },
+        })
+      }
+      if (businessName) {
+        orConditions.push({
+          bookingRequest: { merchant: { mode: 'insensitive', equals: businessName } },
+        })
+      }
+
+      if (orConditions.length > 0) {
+        const dealResults = await prisma.deal.findMany({
+          where: { OR: orConditions },
+          include: {
+            bookingRequest: {
+              select: {
+                id: true,
+                dealId: true,
+                name: true,
+                businessEmail: true,
+                startDate: true,
+                endDate: true,
+                status: true,
+                parentCategory: true,
+                subCategory1: true,
+                subCategory2: true,
+                processedAt: true,
+                opportunityId: true,
+                merchant: true,
+                sourceType: true,
+                redemptionContactName: true,
+                redemptionContactEmail: true,
+                redemptionContactPhone: true,
+                legalName: true,
+                rucDv: true,
+                paymentType: true,
+                businessReview: true,
+                campaignDuration: true,
+                redemptionMode: true,
+                addressAndHours: true,
+                bank: true,
+                accountNumber: true,
+                pricingOptions: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        })
+
+        deals = Array.from(new Map(dealResults.map(d => [d.id, d])).values())
+      }
+    }
+
     return {
       success: true,
       data: {
@@ -795,6 +855,7 @@ export async function getBusinessFormData(businessId?: string | null) {
         users: users as UserData[],
         opportunities: opportunities as Opportunity[],
         requests: requests as BookingRequest[],
+        deals: deals as Deal[],
       },
     }
   } catch (error) {

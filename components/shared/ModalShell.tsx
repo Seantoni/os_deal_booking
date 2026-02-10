@@ -18,6 +18,7 @@ interface ModalShellProps {
   footer?: ReactNode
   hideBackdrop?: boolean
   backdropClassName?: string
+  containerClassName?: string
   autoHeight?: boolean // When true, modal adapts to content height instead of fixed 85vh
 }
 
@@ -53,6 +54,7 @@ export default function ModalShell({
   footer,
   hideBackdrop = false,
   backdropClassName,
+  containerClassName,
   autoHeight = false,
 }: ModalShellProps) {
   // Close modal on Escape key
@@ -74,7 +76,7 @@ export default function ModalShell({
 
       {/* Modal Container - z-[70] to be above backdrop */}
       {/* Mobile: full screen, no padding. Desktop: centered with padding */}
-      <div className="fixed inset-0 z-[70] flex items-center justify-center md:p-3 pointer-events-none">
+      <div className={`fixed inset-0 z-[70] flex items-center justify-center md:p-3 pointer-events-none ${containerClassName || ''}`}>
         {/* Modal Panel */}
         {/* Mobile: full height, no rounded corners. Desktop: 85vh max (or auto-height), rounded */}
         <div
@@ -195,4 +197,3 @@ export function ModalFooter({
 }
 
 ModalShell.Footer = ModalFooter
-

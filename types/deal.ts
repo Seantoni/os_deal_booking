@@ -27,6 +27,7 @@ export type Deal = {
   updatedAt: Date
   bookingRequest: {
     id: string
+    dealId: string | null
     name: string
     businessEmail: string
     startDate: Date

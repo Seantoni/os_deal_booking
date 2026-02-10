@@ -10,7 +10,7 @@ import type { VendorFieldChange } from '@/lib/api/external-oferta/vendor/types'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
 import { useCachedFormConfig } from '@/hooks/useFormConfigCache'
-import type { Business, Opportunity, BookingRequest, UserData } from '@/types'
+import type { Business, Opportunity, BookingRequest, UserData, Deal } from '@/types'
 import type { Category } from '@prisma/client'
 
 // Action state types for React 19 useActionState
@@ -37,11 +37,13 @@ import FormModalSkeleton from '@/components/common/FormModalSkeleton'
 // Lazy load nested modals - only loaded when opened
 const OpportunityFormModal = lazy(() => import('../opportunity/OpportunityFormModal'))
 const BookingRequestViewModal = lazy(() => import('@/components/booking/request-view/BookingRequestViewModal'))
+const DealFormModal = lazy(() => import('@/components/crm/deal/DealFormModal'))
 const FocusPeriodModal = lazy(() => import('./FocusPeriodModal'))
 
 // Lazy load sections only shown for existing businesses
 const OpportunitiesSection = lazy(() => import('./OpportunitiesSection'))
 const RequestsSection = lazy(() => import('./RequestsSection'))
+const DealsSection = lazy(() => import('./DealsSection'))
 
 // Simple loading fallback for lazy sections
 function SectionLoadingFallback() {
@@ -350,6 +352,8 @@ export default function BusinessFormModal({
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null)
   const [requestViewModalOpen, setRequestViewModalOpen] = useState(false)
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
+  const [dealModalOpen, setDealModalOpen] = useState(false)
+  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null)
   // Track local focus state for immediate UI updates
   const [localFocusPeriod, setLocalFocusPeriod] = useState<FocusPeriod | null>(null)
   const [localFocusSetAt, setLocalFocusSetAt] = useState<Date | string | null>(null)
@@ -369,6 +373,7 @@ export default function BusinessFormModal({
     users,
     opportunities,
     requests,
+    deals,
     loadingData,
     loadFormData,
   } = useBusinessForm({
@@ -616,10 +621,9 @@ export default function BusinessFormModal({
   }, [])
 
   function handleEditOpportunity(opportunity: Opportunity) {
-    // Close business modal and navigate to opportunities page with this opportunity
-    sessionStorage.setItem('openOpportunityId', opportunity.id)
-    onClose()
-    router.push('/opportunities')
+    // Open opportunity modal inside this business modal
+    setSelectedOpportunity(opportunity)
+    setOpportunityModalOpen(true)
   }
 
   function handleCreateNewOpportunity() {
@@ -634,6 +638,11 @@ export default function BusinessFormModal({
   function handleViewRequest(request: BookingRequest) {
     setSelectedRequestId(request.id)
     setRequestViewModalOpen(true)
+  }
+
+  function handleOpenDeal(deal: Deal) {
+    setSelectedDeal(deal)
+    setDealModalOpen(true)
   }
 
   function handleCreateRequest() {
@@ -1102,6 +1111,17 @@ export default function BusinessFormModal({
                     />
                   </Suspense>
                 )}
+
+                {/* Deals Section (lazy loaded - only for existing businesses) */}
+                {business && (
+                  <Suspense fallback={<SectionLoadingFallback />}>
+                    <DealsSection
+                      deals={deals}
+                      onOpenDeal={handleOpenDeal}
+                      businessName={business.name}
+                    />
+                  </Suspense>
+                )}
               </div>
             )}
       </form>
@@ -1139,6 +1159,21 @@ export default function BusinessFormModal({
             setSelectedRequestId(null)
           }}
           requestId={selectedRequestId}
+          hideBackdrop={true}
+        />
+      </Suspense>
+    )}
+
+    {dealModalOpen && selectedDeal && (
+      <Suspense fallback={null}>
+        <DealFormModal
+          isOpen={dealModalOpen}
+          onClose={() => {
+            setDealModalOpen(false)
+            setSelectedDeal(null)
+          }}
+          deal={selectedDeal}
+          onSuccess={() => loadFormData()}
           hideBackdrop={true}
         />
       </Suspense>
@@ -1218,4 +1253,3 @@ export default function BusinessFormModal({
   </>
   )
 }
-

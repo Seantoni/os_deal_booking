@@ -1,12 +1,15 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
-import { getDealsPaginated, searchDeals, deleteDeal, getDealsCounts } from '@/app/actions/deals'
+import { getDealsPaginated, searchDeals, deleteDeal, getDealsCounts, getDealPublicSlug } from '@/app/actions/deals'
 import type { Deal } from '@/types'
 import FilterListIcon from '@mui/icons-material/FilterList'
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
+import OpenInNewIcon from '@mui/icons-material/OpenInNew'
+import InsertLinkIcon from '@mui/icons-material/InsertLink'
 import toast from 'react-hot-toast'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useFormConfigCache } from '@/hooks/useFormConfigCache'
@@ -28,18 +31,21 @@ const DealFormModal = dynamic(() => import('@/components/crm/deal/DealFormModal'
   loading: () => <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"><div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div></div>,
   ssr: false,
 })
+const BookingRequestViewModal = dynamic(() => import('@/components/booking/request-view/BookingRequestViewModal'), {
+  loading: () => null,
+  ssr: false,
+})
 
 // Status configuration
 const STATUS_LABELS: Record<string, string> = {
   pendiente_por_asignar: 'Pendiente por asignar',
   asignado: 'Asignado',
   elaboracion: 'Elaboración',
-  imagenes: 'Imágenes',
   borrador_enviado: 'Borrador Enviado',
   borrador_aprobado: 'Borrador Aprobado',
 }
 
-const STATUS_ORDER = ['pendiente_por_asignar', 'asignado', 'elaboracion', 'imagenes', 'borrador_enviado', 'borrador_aprobado']
+const STATUS_ORDER = ['pendiente_por_asignar', 'asignado', 'elaboracion', 'borrador_enviado', 'borrador_aprobado']
 
 // Table columns configuration
 const COLUMNS: ColumnConfig[] = [
@@ -64,6 +70,7 @@ export default function DealsPageClient({
   initialTotal = 0,
   initialCounts,
 }: DealsPageClientProps = {}) {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const { isAdmin } = useUserRole()
   
@@ -115,20 +122,41 @@ export default function DealsPageClient({
   // Modal state
   const [dealModalOpen, setDealModalOpen] = useState(false)
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null)
+  const [bookingRequestModalOpen, setBookingRequestModalOpen] = useState(false)
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
   const confirmDialog = useConfirmDialog()
+  const [dealSlugByRequestId, setDealSlugByRequestId] = useState<Record<string, string>>({})
+  const consumedOpenRef = useRef<string | null>(null)
+
+  const clearOpenParam = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (!params.has('open')) return
+    params.delete('open')
+    const next = params.toString()
+    router.replace(next ? `/deals?${next}` : '/deals')
+  }, [router, searchParams])
 
   // Handle opening deal from URL query params (e.g., from search)
   useEffect(() => {
     const displayDeals = searchResults || deals
     const openFromUrl = searchParams.get('open')
+    if (!openFromUrl) {
+      consumedOpenRef.current = null
+      return
+    }
+    if (openFromUrl === consumedOpenRef.current) {
+      return
+    }
     if (openFromUrl && displayDeals.length > 0) {
       const deal = displayDeals.find(d => d.id === openFromUrl)
       if (deal) {
         setSelectedDeal(deal)
         setDealModalOpen(true)
+        consumedOpenRef.current = openFromUrl
+        clearOpenParam()
       }
     }
-  }, [searchParams, deals, searchResults])
+  }, [searchParams, deals, searchResults, clearOpenParam])
 
   // Get unique responsible users for filter
   const responsibleUsers = useMemo(() => {
@@ -239,12 +267,41 @@ export default function DealsPageClient({
     setDealModalOpen(true)
   }
 
+  function handleOpenBookingRequest(deal: Deal) {
+    setSelectedRequestId(deal.bookingRequestId)
+    setBookingRequestModalOpen(true)
+  }
+
+  const handleOpenPublicDeal = useCallback(async (deal: Deal) => {
+    if (!deal.bookingRequestId) return
+    const cached = dealSlugByRequestId[deal.bookingRequestId]
+    if (cached) {
+      window.open(`https://ofertasimple.com/ofertas/panama/${cached}`, '_blank', 'noopener,noreferrer')
+      return
+    }
+
+    const result = await getDealPublicSlug(deal.bookingRequestId)
+    if (result && typeof result === 'object' && 'success' in result && result.success) {
+      const slug = (result.data as string | null) || null
+      if (slug) {
+        setDealSlugByRequestId(prev => ({ ...prev, [deal.bookingRequestId]: slug }))
+        window.open(`https://ofertasimple.com/ofertas/panama/${slug}`, '_blank', 'noopener,noreferrer')
+      } else {
+        toast.error('No se encontró el link de la oferta')
+      }
+      return
+    }
+
+    toast.error('No se pudo cargar el link de la oferta')
+  }, [dealSlugByRequestId])
+
   async function handleDealSuccess() {
     if (!isSearching) {
       await loadPage(currentPage)
     }
     setDealModalOpen(false)
     setSelectedDeal(null)
+    clearOpenParam()
   }
 
   async function handleDelete(dealId: string) {
@@ -289,101 +346,234 @@ export default function DealsPageClient({
       />
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto p-0 md:p-4">
         {isLoading ? (
-          <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200 flex items-center gap-2">
+          <div className="p-6 mx-4 mt-4 md:mx-0 md:mt-0 text-sm text-gray-500 bg-white rounded-lg border border-gray-200 flex items-center gap-2">
             <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
             {searchLoading ? 'Buscando...' : 'Cargando...'}
           </div>
         ) : filteredDeals.length === 0 ? (
-          <EmptyTableState
-            icon={<FilterListIcon className="w-full h-full" />}
-            title={
-              searchQuery || responsibleFilter !== 'all' || filterRules.length > 0
-                ? 'No hay ofertas que coincidan con sus filtros' 
-                : 'Aún no hay ofertas'
-            }
-            description={
-              searchQuery || responsibleFilter !== 'all' || filterRules.length > 0
-                ? 'Intente ajustar su búsqueda o filtros'
-                : 'Las ofertas aparecerán aquí una vez que las solicitudes de booking sean marcadas como reservadas'
-            }
-          />
+          <div className="px-4 pt-4 md:px-0 md:pt-0">
+            <EmptyTableState
+              icon={<FilterListIcon className="w-full h-full" />}
+              title={
+                searchQuery || responsibleFilter !== 'all' || filterRules.length > 0
+                  ? 'No hay ofertas que coincidan con sus filtros' 
+                  : 'Aún no hay ofertas'
+              }
+              description={
+                searchQuery || responsibleFilter !== 'all' || filterRules.length > 0
+                  ? 'Intente ajustar su búsqueda o filtros'
+                  : 'Las ofertas aparecerán aquí una vez que las solicitudes de booking sean marcadas como reservadas'
+              }
+            />
+          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <SearchIndicator />
-            
-            <EntityTable
-            columns={COLUMNS}
-            sortColumn={sortColumn}
-            sortDirection={sortDirection}
-            onSort={handleSort}
-          >
-              {filteredDeals.map((deal, index) => (
-              <TableRow
-                key={deal.id}
-                index={index}
-                onClick={() => handleEditDeal(deal)}
-                onMouseEnter={handleRowHover}
+          <>
+            {/* Mobile list */}
+            <div className="md:hidden">
+              <SearchIndicator />
+              <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                  {filteredDeals.length} oferta{filteredDeals.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="bg-white divide-y divide-gray-100">
+                {filteredDeals.map((deal) => (
+                  <button
+                    key={deal.id}
+                    type="button"
+                    onClick={() => handleEditDeal(deal)}
+                    onMouseEnter={handleRowHover}
+                    className="w-full text-left px-4 py-3 hover:bg-gray-50"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
+                          {deal.bookingRequest.name}
+                        </p>
+                        <p className="text-xs text-gray-600 mt-0.5">
+                          {new Date(deal.bookingRequest.startDate).toLocaleDateString('en-US', {
+                            timeZone: PANAMA_TIMEZONE,
+                            month: 'short',
+                            day: 'numeric'
+                          })} — {new Date(deal.bookingRequest.endDate).toLocaleDateString('en-US', {
+                            timeZone: PANAMA_TIMEZONE,
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </p>
+                        <p className="text-[11px] text-gray-500 mt-1">
+                          Editor: {deal.responsible?.name || deal.responsible?.email || 'Unassigned'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <StatusPill
+                          label={STATUS_LABELS[deal.status || 'pendiente_por_asignar']}
+                          tone={
+                            deal.status === 'borrador_aprobado'
+                              ? 'success'
+                              : deal.status === 'borrador_enviado'
+                                ? 'info'
+                                : 'neutral'
+                          }
+                        />
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleOpenBookingRequest(deal)
+                            }}
+                            className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition-colors"
+                            aria-label="Detalles"
+                            title="Detalles"
+                          >
+                            <DescriptionOutlinedIcon style={{ fontSize: 18 }} />
+                          </button>
+                          {deal.bookingRequest?.dealId && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                window.open(`https://ofertasimple.com/admin/offer/${deal.bookingRequest.dealId}/edit`, '_blank', 'noopener,noreferrer')
+                              }}
+                              className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-indigo-600 transition-colors"
+                              aria-label="OS Admin"
+                              title="OS Admin"
+                            >
+                              <OpenInNewIcon style={{ fontSize: 18 }} />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleOpenPublicDeal(deal)
+                            }}
+                            className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-emerald-600 transition-colors"
+                            aria-label="Link de la oferta"
+                            title="Link de la oferta"
+                          >
+                            <InsertLinkIcon style={{ fontSize: 18 }} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <div className="px-4 py-3">
+                <PaginationControls />
+              </div>
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
+              <SearchIndicator />
+              
+              <EntityTable
+                columns={COLUMNS}
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSort={handleSort}
               >
-                <TableCell>
-                  <span className="text-[13px] font-medium text-gray-900">
-                    {deal.bookingRequest.name}
-                  </span>
-                </TableCell>
-                <TableCell className="text-[13px] text-gray-600">
-                  {new Date(deal.bookingRequest.startDate).toLocaleDateString('en-US', {
-                    timeZone: PANAMA_TIMEZONE,
-                    month: 'short',
-                    day: 'numeric'
-                  })} — {new Date(deal.bookingRequest.endDate).toLocaleDateString('en-US', {
-                    timeZone: PANAMA_TIMEZONE,
-                    month: 'short',
-                    day: 'numeric'
-                  })}
-                </TableCell>
-                <TableCell className="text-[13px] text-gray-600">
-                  {deal.opportunityResponsible?.name || deal.opportunityResponsible?.email || <span className="text-gray-400">-</span>}
-                </TableCell>
-                <TableCell className="text-[13px] text-gray-600">
-                  {deal.responsible?.name || deal.responsible?.email || <span className="text-gray-400 italic">Unassigned</span>}
-                </TableCell>
-                <TableCell className="text-[13px] text-gray-600">
-                  {deal.ereResponsible?.name || deal.ereResponsible?.email || <span className="text-gray-400 italic">Unassigned</span>}
-                </TableCell>
-                <TableCell className="text-[13px] text-gray-600">
-                  {deal.bookingRequest.processedAt 
-                    ? new Date(deal.bookingRequest.processedAt).toLocaleDateString('en-US', {
+                {filteredDeals.map((deal, index) => (
+                  <TableRow
+                    key={deal.id}
+                    index={index}
+                    onClick={() => handleEditDeal(deal)}
+                    onMouseEnter={handleRowHover}
+                  >
+                    <TableCell>
+                      <span className="text-[13px] font-medium text-gray-900">
+                        {deal.bookingRequest.name}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-[13px] text-gray-600">
+                      {new Date(deal.bookingRequest.startDate).toLocaleDateString('en-US', {
                         timeZone: PANAMA_TIMEZONE,
                         month: 'short',
                         day: 'numeric'
-                      })
-                    : '-'}
-                </TableCell>
-                <TableCell>
-                  <StatusPill
-                    label={STATUS_LABELS[deal.status || 'pendiente_por_asignar']}
-                    tone={
-                      deal.status === 'borrador_aprobado'
-                        ? 'success'
-                        : deal.status === 'borrador_enviado'
-                          ? 'info'
-                          : 'neutral'
-                    }
-                  />
-                </TableCell>
-                <TableCell
-                  align="right"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {/* Actions removed - row click opens edit modal */}
-                </TableCell>
-              </TableRow>
-            ))}
-          </EntityTable>
-            
-            <PaginationControls />
+                      })} — {new Date(deal.bookingRequest.endDate).toLocaleDateString('en-US', {
+                        timeZone: PANAMA_TIMEZONE,
+                        month: 'short',
+                        day: 'numeric'
+                      })}
+                    </TableCell>
+                    <TableCell className="text-[13px] text-gray-600">
+                      {deal.opportunityResponsible?.name || deal.opportunityResponsible?.email || <span className="text-gray-400">-</span>}
+                    </TableCell>
+                    <TableCell className="text-[13px] text-gray-600">
+                      {deal.responsible?.name || deal.responsible?.email || <span className="text-gray-400 italic">Unassigned</span>}
+                    </TableCell>
+                    <TableCell className="text-[13px] text-gray-600">
+                      {deal.ereResponsible?.name || deal.ereResponsible?.email || <span className="text-gray-400 italic">Unassigned</span>}
+                    </TableCell>
+                    <TableCell className="text-[13px] text-gray-600">
+                      {deal.bookingRequest.processedAt 
+                        ? new Date(deal.bookingRequest.processedAt).toLocaleDateString('en-US', {
+                            timeZone: PANAMA_TIMEZONE,
+                            month: 'short',
+                            day: 'numeric'
+                          })
+                        : '-'}
+                    </TableCell>
+                    <TableCell>
+                      <StatusPill
+                        label={STATUS_LABELS[deal.status || 'pendiente_por_asignar']}
+                        tone={
+                          deal.status === 'borrador_aprobado'
+                            ? 'success'
+                            : deal.status === 'borrador_enviado'
+                              ? 'info'
+                              : 'neutral'
+                        }
+                      />
+                    </TableCell>
+                    <TableCell
+                      align="right"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenBookingRequest(deal)}
+                          className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600 transition-colors"
+                          aria-label="Detalles"
+                          title="Detalles"
+                        >
+                          <DescriptionOutlinedIcon style={{ fontSize: 18 }} />
+                        </button>
+                        {deal.bookingRequest?.dealId && (
+                          <button
+                            type="button"
+                            onClick={() => window.open(`https://ofertasimple.com/admin/offer/${deal.bookingRequest.dealId}/edit`, '_blank', 'noopener,noreferrer')}
+                            className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-indigo-600 transition-colors"
+                            aria-label="OS Admin"
+                            title="OS Admin"
+                          >
+                            <OpenInNewIcon style={{ fontSize: 18 }} />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPublicDeal(deal)}
+                          className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-emerald-600 transition-colors"
+                          aria-label="Link de la oferta"
+                          title="Link de la oferta"
+                        >
+                          <InsertLinkIcon style={{ fontSize: 18 }} />
+                        </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </EntityTable>
+                
+              <PaginationControls />
             </div>
+          </>
         )}
       </div>
 
@@ -393,10 +583,22 @@ export default function DealsPageClient({
         onClose={() => {
           setDealModalOpen(false)
           setSelectedDeal(null)
+          clearOpenParam()
         }}
         deal={selectedDeal}
         onSuccess={handleDealSuccess}
       />
+
+      {selectedRequestId && (
+        <BookingRequestViewModal
+          isOpen={bookingRequestModalOpen}
+          onClose={() => {
+            setBookingRequestModalOpen(false)
+            setSelectedRequestId(null)
+          }}
+          requestId={selectedRequestId}
+        />
+      )}
 
       {/* Confirm Dialog */}
       <ConfirmDialog

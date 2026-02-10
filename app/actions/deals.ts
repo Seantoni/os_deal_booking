@@ -256,6 +256,7 @@ export async function getDealsPaginated(options: {
         bookingRequest: {
           select: {
             id: true,
+            dealId: true,
             name: true,
             businessEmail: true,
             startDate: true,
@@ -408,6 +409,7 @@ export async function searchDeals(query: string, options: {
         bookingRequest: {
           select: {
             id: true,
+            dealId: true,
             name: true,
             businessEmail: true,
             startDate: true,
@@ -473,6 +475,7 @@ export async function getDealByBookingRequestId(bookingRequestId: string) {
         bookingRequest: {
           select: {
             id: true,
+            dealId: true,
             name: true,
             businessEmail: true,
             startDate: true,
@@ -511,6 +514,97 @@ export async function getDealByBookingRequestId(bookingRequestId: string) {
     return { success: true, data: deal }
   } catch (error) {
     return handleServerActionError(error, 'getDealByBookingRequestId')
+  }
+}
+
+/**
+ * Get deals linked to a business
+ * Matches through:
+ * 1) Booking request opportunityId -> opportunity.businessId
+ * 2) Booking request merchant name (case-insensitive)
+ */
+export async function getDealsByBusiness(businessId: string) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: { name: true },
+    })
+
+    if (!business) {
+      return { success: false, error: 'Business not found' }
+    }
+
+    const opportunities = await prisma.opportunity.findMany({
+      where: { businessId },
+      select: { id: true },
+    })
+    const opportunityIds = opportunities.map(o => o.id)
+
+    const orConditions: Prisma.DealWhereInput[] = []
+    if (opportunityIds.length > 0) {
+      orConditions.push({
+        bookingRequest: { opportunityId: { in: opportunityIds } },
+      })
+    }
+    if (business.name) {
+      orConditions.push({
+        bookingRequest: { merchant: { equals: business.name, mode: 'insensitive' } },
+      })
+    }
+
+    if (orConditions.length === 0) {
+      return { success: true, data: [] }
+    }
+
+    const deals = await prisma.deal.findMany({
+      where: { OR: orConditions },
+      include: {
+        bookingRequest: {
+          select: {
+            id: true,
+            dealId: true,
+            name: true,
+            businessEmail: true,
+            startDate: true,
+            endDate: true,
+            status: true,
+            parentCategory: true,
+            subCategory1: true,
+            subCategory2: true,
+            processedAt: true,
+            opportunityId: true,
+            // Additional fields for enhanced display
+            merchant: true,
+            sourceType: true,
+            redemptionContactName: true,
+            redemptionContactEmail: true,
+            redemptionContactPhone: true,
+            legalName: true,
+            rucDv: true,
+            paymentType: true,
+            businessReview: true,
+            campaignDuration: true,
+            redemptionMode: true,
+            addressAndHours: true,
+            bank: true,
+            accountNumber: true,
+            pricingOptions: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    })
+
+    const uniqueDeals = Array.from(new Map(deals.map(d => [d.id, d])).values())
+    return { success: true, data: uniqueDeals }
+  } catch (error) {
+    return handleServerActionError(error, 'getDealsByBusiness')
   }
 }
 
@@ -558,6 +652,7 @@ export async function createDeal(bookingRequestId: string, responsibleId?: strin
         bookingRequest: {
           select: {
             id: true,
+            dealId: true,
             name: true,
             businessEmail: true,
             startDate: true,
@@ -614,6 +709,7 @@ export async function updateDealResponsible(dealId: string, responsibleId: strin
         bookingRequest: {
           select: {
             id: true,
+            dealId: true,
             name: true,
             businessEmail: true,
             startDate: true,
@@ -669,6 +765,7 @@ export async function updateDealStatus(dealId: string, status: string) {
         bookingRequest: {
           select: {
             id: true,
+            dealId: true,
             name: true,
             businessEmail: true,
             startDate: true,
@@ -724,6 +821,7 @@ export async function updateDealDeliveryDate(dealId: string, deliveryDate: strin
         bookingRequest: {
           select: {
             id: true,
+            dealId: true,
             name: true,
             businessEmail: true,
             startDate: true,
@@ -743,6 +841,34 @@ export async function updateDealDeliveryDate(dealId: string, deliveryDate: strin
     return { success: true, data: updated }
   } catch (error) {
     return handleServerActionError(error, 'updateDealDeliveryDate')
+  }
+}
+
+/**
+ * Get the public deal slug from the latest external API deal request
+ */
+export async function getDealPublicSlug(bookingRequestId: string) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    const record = await prisma.externalApiRequest.findFirst({
+      where: {
+        bookingRequestId,
+        endpoint: { contains: '/deals' },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        requestBody: true,
+      },
+    })
+
+    const slug = (record?.requestBody as { slug?: string } | null)?.slug || null
+    return { success: true, data: slug }
+  } catch (error) {
+    return handleServerActionError(error, 'getDealPublicSlug')
   }
 }
 

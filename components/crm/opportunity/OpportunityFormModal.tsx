@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useMemo, useEffect, useTransition, lazy, Suspense } from 'react'
-import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { createOpportunity, updateOpportunity, createTask, updateTask, deleteTask } from '@/app/actions/crm'
 import { useUserRole } from '@/hooks/useUserRole'
@@ -34,6 +33,7 @@ const BookingRequestViewModal = lazy(() => import('@/components/booking/request-
 const TaskModal = lazy(() => import('./TaskModal'))
 const LostReasonModal = lazy(() => import('./LostReasonModal'))
 const ConfirmDialog = lazy(() => import('@/components/common/ConfirmDialog'))
+const BusinessFormModal = lazy(() => import('@/components/crm/business/BusinessFormModal'))
 
 // Import for checking meeting data (non-lazy, small utility function)
 import { parseMeetingData } from './TaskModal'
@@ -79,7 +79,6 @@ export default function OpportunityFormModal({
   preloadedCategories,
   preloadedUsers,
 }: OpportunityFormModalProps) {
-  const router = useRouter()
   const { user } = useUser()
   const { isAdmin } = useUserRole()
   const [activeTab, setActiveTab] = useState<'details' | 'activity' | 'chat' | 'history'>(initialTab)
@@ -109,6 +108,8 @@ export default function OpportunityFormModal({
   const [bookingRequestModalOpen, setBookingRequestModalOpen] = useState(false)
   const [lostReasonModalOpen, setLostReasonModalOpen] = useState(false)
   const [pendingLostStage, setPendingLostStage] = useState<OpportunityStage | null>(null)
+  const [businessModalOpen, setBusinessModalOpen] = useState(false)
+  const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null)
 
   const confirmDialog = useConfirmDialog()
 
@@ -649,10 +650,8 @@ export default function OpportunityFormModal({
   }
 
   function handleEditBusiness(business: Business) {
-    // Close opportunity modal and navigate to businesses page with modal open
-    sessionStorage.setItem('openBusinessId', business.id)
-    onClose()
-    router.push('/businesses')
+    setSelectedBusiness(business)
+    setBusinessModalOpen(true)
   }
 
   function handleCreateRequest() {
@@ -1133,6 +1132,25 @@ export default function OpportunityFormModal({
             onConfirm={handleLostReasonConfirm}
             currentReason={opportunity?.lostReason || null}
             loading={savingStage}
+          />
+        </Suspense>
+      )}
+
+      {businessModalOpen && selectedBusiness && (
+        <Suspense fallback={null}>
+          <BusinessFormModal
+            isOpen={businessModalOpen}
+            onClose={() => {
+              setBusinessModalOpen(false)
+              setSelectedBusiness(null)
+            }}
+            business={selectedBusiness}
+            onSuccess={(updatedBusiness) => {
+              setSelectedBusiness(updatedBusiness)
+              setBusinessModalOpen(false)
+              setSelectedBusiness(null)
+            }}
+            canEdit={!isViewOnly}
           />
         </Suspense>
       )}

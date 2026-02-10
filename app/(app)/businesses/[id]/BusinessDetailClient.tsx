@@ -27,6 +27,10 @@ const OpportunityFormModal = dynamic(() => import('@/components/crm/opportunity/
   loading: () => <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"><div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div></div>,
   ssr: false,
 })
+const DealFormModal = dynamic(() => import('@/components/crm/deal/DealFormModal'), {
+  loading: () => <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"><div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div></div>,
+  ssr: false,
+})
 const BookingRequestViewModal = dynamic(() => import('@/components/booking/request-view/BookingRequestViewModal'), {
   loading: () => <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"><div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div></div>,
   ssr: false,
@@ -34,11 +38,13 @@ const BookingRequestViewModal = dynamic(() => import('@/components/booking/reque
 import LockIcon from '@mui/icons-material/Lock'
 import OpportunitiesSection from '@/components/crm/business/OpportunitiesSection'
 import RequestsSection from '@/components/crm/business/RequestsSection'
+import DealsSection from '@/components/crm/business/DealsSection'
 import DealMetricsSection from '@/components/crm/business/DealMetricsSection'
 import { getOpportunitiesByBusiness } from '@/app/actions/crm'
 import { getRequestsByBusiness } from '@/app/actions/booking-requests'
+import { getDealsByBusiness } from '@/app/actions/deals'
 import { fetchEditableBusinessIds } from '@/app/actions/businesses'
-import type { Business, Opportunity, BookingRequest } from '@/types'
+import type { Business, Opportunity, BookingRequest, Deal } from '@/types'
 
 function InfoRow({ label, value, icon, isLink, href }: { label: string; value?: string | null; icon?: React.ReactNode; isLink?: boolean; href?: string }) {
   if (!value && value !== '0') return null
@@ -98,11 +104,14 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
   const [searchQuery, setSearchQuery] = useState('')
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isOpportunityModalOpen, setIsOpportunityModalOpen] = useState(false)
+  const [isDealModalOpen, setIsDealModalOpen] = useState(false)
   const [requestViewModalOpen, setRequestViewModalOpen] = useState(false)
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null)
+  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null)
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [requests, setRequests] = useState<BookingRequest[]>([])
+  const [deals, setDeals] = useState<Deal[]>([])
   const [loadingData, setLoadingData] = useState(true)
   
   // Track if user can edit this business
@@ -144,9 +153,10 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
     async function loadData() {
       setLoadingData(true)
       try {
-        const [oppResult, reqResult] = await Promise.all([
+        const [oppResult, reqResult, dealResult] = await Promise.all([
           getOpportunitiesByBusiness(business.id),
           getRequestsByBusiness(business.id),
+          getDealsByBusiness(business.id),
         ])
         if (oppResult.success && oppResult.data) {
           setOpportunities(oppResult.data)
@@ -154,8 +164,11 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
         if (reqResult.success && reqResult.data) {
           setRequests(reqResult.data)
         }
+        if (dealResult.success && dealResult.data) {
+          setDeals(dealResult.data)
+        }
       } catch (error) {
-        console.error('Error loading opportunities/requests:', error)
+        console.error('Error loading opportunities/requests/deals:', error)
       } finally {
         setLoadingData(false)
       }
@@ -238,6 +251,11 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
     setRequestViewModalOpen(true)
   }
 
+  const handleOpenDeal = (deal: Deal) => {
+    setSelectedDeal(deal)
+    setIsDealModalOpen(true)
+  }
+
   const handleOpportunitySuccess = async (opportunity: Opportunity) => {
     setIsOpportunityModalOpen(false)
     setSelectedOpportunity(null)
@@ -250,6 +268,10 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
     const reqResult = await getRequestsByBusiness(business.id)
     if (reqResult.success && reqResult.data) {
       setRequests(reqResult.data)
+    }
+    const dealResult = await getDealsByBusiness(business.id)
+    if (dealResult.success && dealResult.data) {
+      setDeals(dealResult.data)
     }
   }
 
@@ -413,86 +435,99 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
       </div>
 
       {/* Tab Content */}
-      <div className="space-y-6">
-        {/* Pipeline Tab */}
-        {activeTab === 'pipeline' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <OpportunitiesSection
-              opportunities={opportunities}
-              onEditOpportunity={handleEditOpportunity}
-              onCreateNew={handleCreateNewOpportunity}
-              businessName={business.name}
-              canEdit={canEdit ?? true}
-            />
+      {loadingData ? (
+        <div className="bg-white border border-gray-200 rounded-lg p-6 text-sm text-gray-500 flex items-center gap-2">
+          <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+          Cargando datos del negocio...
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Pipeline Tab */}
+          {activeTab === 'pipeline' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <OpportunitiesSection
+                opportunities={opportunities}
+                onEditOpportunity={handleEditOpportunity}
+                onCreateNew={handleCreateNewOpportunity}
+                businessName={business.name}
+                canEdit={canEdit ?? true}
+              />
 
-            <RequestsSection
-              requests={requests}
-              onViewRequest={handleViewRequest}
-              businessName={business.name}
-              canEdit={canEdit ?? true}
-            />
-          </div>
-        )}
+              <RequestsSection
+                requests={requests}
+                onViewRequest={handleViewRequest}
+                businessName={business.name}
+                canEdit={canEdit ?? true}
+              />
 
-        {/* Metrics Tab */}
-        {activeTab === 'metrics' && (
-          <DealMetricsSection
-            vendorId={business.osAdminVendorId}
-            businessName={business.name}
-          />
-        )}
-
-        {/* Details Tab */}
-        {activeTab === 'details' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="space-y-4">
-              <Section title="Contact Information" icon={<PhoneIcon fontSize="small" />}>
-                {renderField("Contact Name", business.contactName, { icon: <PersonIcon fontSize="small" /> })}
-                {renderField("Contact Email", business.contactEmail, { icon: <EmailIcon fontSize="small" />, isLink: true, href: `mailto:${business.contactEmail}` })}
-                {renderField("Contact Phone", business.contactPhone, { icon: <PhoneIcon fontSize="small" />, isLink: true, href: `tel:${business.contactPhone}` })}
-                {renderField("Website", business.website, { icon: <LanguageIcon fontSize="small" />, isLink: true, href: business.website })}
-                {renderField("Instagram", business.instagram, { icon: <InstagramIcon fontSize="small" />, isLink: true, href: `https://instagram.com/${business.instagram?.replace('@', '')}` })}
-              </Section>
-
-              <Section title="Location" icon={<LocationOnIcon fontSize="small" />}>
-                {renderField("Prov, Dist, Corr", business.provinceDistrictCorregimiento)}
-                {renderField("Address", business.address)}
-                {renderField("Neighborhood", business.neighborhood)}
-              </Section>
-            
-              <Section title="Basic Information" icon={<BusinessIcon fontSize="small" />}>
-                {renderField("Description", business.description)}
-              </Section>
+              <DealsSection
+                deals={deals}
+                onOpenDeal={handleOpenDeal}
+                businessName={business.name}
+              />
             </div>
+          )}
 
-            <div className="space-y-4">
-              <Section title="Assignments & Relationships" icon={<PersonIcon fontSize="small" />}>
-                {renderField("Owner", business.owner?.name || business.owner?.email || business.ownerId)}
-                {renderField("Source", business.sourceType)}
-              </Section>
+          {/* Metrics Tab */}
+          {activeTab === 'metrics' && (
+            <DealMetricsSection
+              vendorId={business.osAdminVendorId}
+              businessName={business.name}
+            />
+          )}
 
-              <Section title="Business Profile & Legal" icon={<AccountBalanceIcon fontSize="small" />}>
-                {renderField("RUC", business.ruc)}
-                {renderField("Razón Social", business.razonSocial)}
-                {renderField("Account Manager", business.accountManager)}
-                {renderField("ERE", business.ere)}
-                {renderField("Sales Type", business.salesType)}
-                {renderField("IS Asesor", business.isAsesor)}
-                {renderField("OS Asesor", business.osAsesor)}
-              </Section>
+          {/* Details Tab */}
+          {activeTab === 'details' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="space-y-4">
+                <Section title="Contact Information" icon={<PhoneIcon fontSize="small" />}>
+                  {renderField("Contact Name", business.contactName, { icon: <PersonIcon fontSize="small" /> })}
+                  {renderField("Contact Email", business.contactEmail, { icon: <EmailIcon fontSize="small" />, isLink: true, href: `mailto:${business.contactEmail}` })}
+                  {renderField("Contact Phone", business.contactPhone, { icon: <PhoneIcon fontSize="small" />, isLink: true, href: `tel:${business.contactPhone}` })}
+                  {renderField("Website", business.website, { icon: <LanguageIcon fontSize="small" />, isLink: true, href: business.website })}
+                  {renderField("Instagram", business.instagram, { icon: <InstagramIcon fontSize="small" />, isLink: true, href: `https://instagram.com/${business.instagram?.replace('@', '')}` })}
+                </Section>
 
-              <Section title="Banking & Payments" icon={<AccountBalanceIcon fontSize="small" />}>
-                {renderField("Payment Plan", business.paymentPlan)}
-                {renderField("Bank", business.bank)}
-                {renderField("Beneficiary Name", business.beneficiaryName)}
-                {renderField("Account Number", business.accountNumber)}
-                {renderField("Account Type", business.accountType)}
-                {renderField("Payment Contacts", business.emailPaymentContacts)}
-              </Section>
+                <Section title="Location" icon={<LocationOnIcon fontSize="small" />}>
+                  {renderField("Prov, Dist, Corr", business.provinceDistrictCorregimiento)}
+                  {renderField("Address", business.address)}
+                  {renderField("Neighborhood", business.neighborhood)}
+                </Section>
+              
+                <Section title="Basic Information" icon={<BusinessIcon fontSize="small" />}>
+                  {renderField("Description", business.description)}
+                </Section>
+              </div>
+
+              <div className="space-y-4">
+                <Section title="Assignments & Relationships" icon={<PersonIcon fontSize="small" />}>
+                  {renderField("Owner", business.owner?.name || business.owner?.email || business.ownerId)}
+                  {renderField("Source", business.sourceType)}
+                </Section>
+
+                <Section title="Business Profile & Legal" icon={<AccountBalanceIcon fontSize="small" />}>
+                  {renderField("RUC", business.ruc)}
+                  {renderField("Razón Social", business.razonSocial)}
+                  {renderField("Account Manager", business.accountManager)}
+                  {renderField("ERE", business.ere)}
+                  {renderField("Sales Type", business.salesType)}
+                  {renderField("IS Asesor", business.isAsesor)}
+                  {renderField("OS Asesor", business.osAsesor)}
+                </Section>
+
+                <Section title="Banking & Payments" icon={<AccountBalanceIcon fontSize="small" />}>
+                  {renderField("Payment Plan", business.paymentPlan)}
+                  {renderField("Bank", business.bank)}
+                  {renderField("Beneficiary Name", business.beneficiaryName)}
+                  {renderField("Account Number", business.accountNumber)}
+                  {renderField("Account Type", business.accountType)}
+                  {renderField("Payment Contacts", business.emailPaymentContacts)}
+                </Section>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Edit Modal */}
       <BusinessFormModal
@@ -514,6 +549,22 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
         onSuccess={handleOpportunitySuccess}
         initialBusinessId={business.id}
         preloadedBusinesses={[business]}
+      />
+
+      {/* Deal Modal */}
+      <DealFormModal
+        isOpen={isDealModalOpen}
+        onClose={() => {
+          setIsDealModalOpen(false)
+          setSelectedDeal(null)
+        }}
+        deal={selectedDeal}
+        onSuccess={async () => {
+          const dealResult = await getDealsByBusiness(business.id)
+          if (dealResult.success && dealResult.data) {
+            setDeals(dealResult.data)
+          }
+        }}
       />
 
       {/* Request View Modal */}

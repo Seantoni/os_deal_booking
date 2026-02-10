@@ -134,6 +134,7 @@ export const OPPORTUNITY_BUILTIN_FIELDS: BuiltinFieldDefinition[] = [
 export const DEAL_BUILTIN_FIELDS: BuiltinFieldDefinition[] = [
   { key: 'bookingRequestId', label: 'Booking Request', type: 'text', defaultRequired: true, canHide: false, canSetRequired: false, helpText: 'Auto-linked from booked request' },
   { key: 'status', label: 'Status', type: 'select', defaultRequired: true, canHide: false, canSetRequired: false, options: DEAL_STATUS_OPTIONS },
+  { key: 'deliveryDate', label: 'Fecha de entrega', type: 'date', defaultRequired: false, canHide: true, canSetRequired: true },
   { key: 'responsibleId', label: 'Editor Responsible', type: 'user-select', defaultRequired: false, canHide: true, canSetRequired: true },
   { key: 'ereResponsibleId', label: 'ERE Responsible', type: 'user-select', defaultRequired: false, canHide: true, canSetRequired: true },
   { key: 'opportunityId', label: 'Opportunity', type: 'text', defaultRequired: false, canHide: true, canSetRequired: false, helpText: 'Auto-linked from opportunity' },
@@ -193,7 +194,7 @@ export const DEFAULT_SECTIONS: Record<FormEntityType, { name: string; fields: st
     { name: 'Additional Info', fields: ['notes'] },
   ],
   deal: [
-    { name: 'Deal Information', fields: ['bookingRequestId', 'status', 'opportunityId'] },
+    { name: 'Deal Information', fields: ['bookingRequestId', 'status', 'deliveryDate', 'opportunityId'] },
     { name: 'Assignment', fields: ['responsibleId', 'ereResponsibleId'] },
   ],
   lead: [
@@ -203,4 +204,3 @@ export const DEFAULT_SECTIONS: Record<FormEntityType, { name: string; fields: st
     { name: 'Assignment', fields: ['responsibleId'] },
   ],
 }
-

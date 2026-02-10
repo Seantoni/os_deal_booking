@@ -12,8 +12,8 @@ interface DealStatusPipelineProps {
 
 export default function DealStatusPipeline({ status, onStatusChange, isAdmin, saving = false }: DealStatusPipelineProps) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
         {DEAL_STATUSES.map((statusItem, index) => {
           const isActive = status === statusItem.id
           const currentIndex = DEAL_STATUSES.findIndex(s => s.id === status)
@@ -30,7 +30,7 @@ export default function DealStatusPipeline({ status, onStatusChange, isAdmin, sa
                   }
                 }}
                 disabled={!isClickable || saving}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-semibold transition-all border ${
+                className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold transition-all border ${
                   isActive
                     ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                     : isCompleted
@@ -42,11 +42,11 @@ export default function DealStatusPipeline({ status, onStatusChange, isAdmin, sa
                     : 'cursor-not-allowed opacity-60'
                 }`}
               >
-                {isCompleted && <CheckCircleIcon fontSize="small" />}
+                {isCompleted && <CheckCircleIcon style={{ fontSize: 14 }} />}
                 <span>{statusItem.label}</span>
               </button>
               {index < DEAL_STATUSES.length - 1 && (
-                <div className={`h-px w-4 ${
+                <div className={`h-px w-3 ${
                   currentIndex > index ? 'bg-emerald-300' : 'bg-slate-200'
                 }`} />
               )}
@@ -55,7 +55,7 @@ export default function DealStatusPipeline({ status, onStatusChange, isAdmin, sa
         })}
       </div>
       {saving && (
-        <div className="flex items-center gap-1.5 text-[11px] text-blue-600 flex-shrink-0">
+        <div className="flex items-center gap-1 text-[10px] text-blue-600 flex-shrink-0">
           <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
           <span>Guardando...</span>
         </div>

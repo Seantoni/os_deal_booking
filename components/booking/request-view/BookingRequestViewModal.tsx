@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { getBookingRequest, getFieldComments, addFieldComment, updateFieldComment, deleteFieldComment, cancelBookingRequest } from '@/app/actions/booking'
+import { getDealByBookingRequestId, getDealPublicSlug } from '@/app/actions/deals'
+import type { Deal } from '@/types'
 import { 
   parseFieldComments, 
   getCommentsForField, 
@@ -41,7 +43,9 @@ import ZoomInIcon from '@mui/icons-material/ZoomIn'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import CampaignIcon from '@mui/icons-material/Campaign'
+import ListAltIcon from '@mui/icons-material/ListAlt'
 import ImageLightbox from '@/components/common/ImageLightbox'
+import DealFormModal from '@/components/crm/deal/DealFormModal'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import MarketingCampaignModal from '@/components/marketing/MarketingCampaignModal'
 import { adminApproveBookingRequest } from '@/app/actions/booking-requests'
@@ -207,6 +211,12 @@ export default function BookingRequestViewModal({
   const [showApproveConfirm, setShowApproveConfirm] = useState(false)
   const [showMarketingModal, setShowMarketingModal] = useState(false)
   const [replicating, setReplicating] = useState(false)
+  const [internalDealId, setInternalDealId] = useState<string | null>(null)
+  const [loadingDealLink, setLoadingDealLink] = useState(false)
+  const [publicDealSlug, setPublicDealSlug] = useState<string | null>(null)
+  const [loadingPublicDealLink, setLoadingPublicDealLink] = useState(false)
+  const [internalDeal, setInternalDeal] = useState<Deal | null>(null)
+  const [dealModalOpen, setDealModalOpen] = useState(false)
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('')
@@ -254,6 +264,71 @@ export default function BookingRequestViewModal({
       loadData()
     }
   }, [isOpen, requestId, loadData])
+
+  useEffect(() => {
+    if (!requestData?.id) {
+      setInternalDealId(null)
+      setInternalDeal(null)
+      return
+    }
+
+    let cancelled = false
+    setLoadingDealLink(true)
+    getDealByBookingRequestId(requestData.id)
+      .then(result => {
+        if (cancelled) return
+        if (result && typeof result === 'object' && 'success' in result && result.success) {
+          const dealData = result.data as Deal | null
+          setInternalDealId(dealData?.id || null)
+          setInternalDeal(dealData || null)
+        } else {
+          setInternalDealId(null)
+          setInternalDeal(null)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setInternalDealId(null)
+          setInternalDeal(null)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingDealLink(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [requestData?.id])
+
+  useEffect(() => {
+    if (!requestData?.id) {
+      setPublicDealSlug(null)
+      return
+    }
+
+    let cancelled = false
+    setLoadingPublicDealLink(true)
+    getDealPublicSlug(requestData.id)
+      .then(result => {
+        if (cancelled) return
+        if (result && typeof result === 'object' && 'success' in result && result.success) {
+          setPublicDealSlug((result.data as string | null) || null)
+        } else {
+          setPublicDealSlug(null)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPublicDealSlug(null)
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPublicDealLink(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [requestData?.id])
 
   // Get comment counts by field
   const commentCounts = getCommentCountsByField(comments)
@@ -696,6 +771,44 @@ export default function BookingRequestViewModal({
               </div>
             </div>
             <div className="flex items-center gap-1.5">
+              {publicDealSlug && (
+                <button
+                  onClick={() => window.open(`https://ofertasimple.com/ofertas/panama/${publicDealSlug}`, '_blank', 'noopener,noreferrer')}
+                  disabled={loading || loadingPublicDealLink}
+                  className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 border border-transparent hover:border-indigo-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Ver Deal Externo"
+                >
+                  <VisibilityIcon style={{ fontSize: 20 }} />
+                </button>
+              )}
+              {internalDealId && (
+                <button
+                  onClick={async () => {
+                    if (internalDeal) {
+                      setDealModalOpen(true)
+                      return
+                    }
+                    if (!requestData?.id) return
+                    setLoadingDealLink(true)
+                    try {
+                      const result = await getDealByBookingRequestId(requestData.id)
+                      if (result && typeof result === 'object' && 'success' in result && result.success) {
+                        const dealData = result.data as Deal | null
+                        setInternalDealId(dealData?.id || null)
+                        setInternalDeal(dealData || null)
+                        if (dealData) setDealModalOpen(true)
+                      }
+                    } finally {
+                      setLoadingDealLink(false)
+                    }
+                  }}
+                  disabled={loading || loadingDealLink}
+                  className="p-2 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Ver Deal Interno"
+                >
+                  <ListAltIcon style={{ fontSize: 20 }} />
+                </button>
+              )}
               {/* Admin Approve Button - Only for pending status, admin only */}
               {requestData?.status === 'pending' && isAdmin && (
                 <button
@@ -742,18 +855,20 @@ export default function BookingRequestViewModal({
                 <ContentCopyIcon style={{ fontSize: 20 }} />
               </button>
               {/* View Deal Draft Button */}
-              <button
-                onClick={() => {
-                  if (requestId) {
-                    window.open(`/deals/draft/${requestId}`, '_blank')
-                  }
-                }}
-                disabled={loading || !requestData}
-                className="p-2 text-slate-500 hover:text-purple-600 hover:bg-purple-50 border border-transparent hover:border-purple-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Ver Deal Draft"
-              >
-                <VisibilityIcon style={{ fontSize: 20 }} />
-              </button>
+              {!publicDealSlug && (
+                <button
+                  onClick={() => {
+                    if (requestId) {
+                      window.open(`/deals/draft/${requestId}`, '_blank')
+                    }
+                  }}
+                  disabled={loading || !requestData}
+                  className="p-2 text-slate-500 hover:text-purple-600 hover:bg-purple-50 border border-transparent hover:border-purple-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Ver Deal Draft"
+                >
+                  <VisibilityIcon style={{ fontSize: 20 }} />
+                </button>
+              )}
               {/* Marketing Campaign Button - Only for booked requests */}
               {requestData?.status === 'booked' && requestData.marketingCampaignId && (
                 <button
@@ -1257,6 +1372,27 @@ export default function BookingRequestViewModal({
         onClose={() => setLightboxOpen(false)}
       />
 
+      {dealModalOpen && internalDeal && (
+        <DealFormModal
+          isOpen={dealModalOpen}
+          onClose={() => setDealModalOpen(false)}
+          deal={internalDeal}
+          onSuccess={async () => {
+            setDealModalOpen(false)
+            if (requestData?.id) {
+              const result = await getDealByBookingRequestId(requestData.id)
+              if (result && typeof result === 'object' && 'success' in result && result.success) {
+                const dealData = result.data as Deal | null
+                setInternalDealId(dealData?.id || null)
+                setInternalDeal(dealData || null)
+              }
+            }
+          }}
+          hideBackdrop={true}
+          containerClassName="z-[90]"
+        />
+      )}
+
       {/* Admin Approval Confirmation Modal */}
       <ConfirmDialog
         isOpen={showApproveConfirm}
@@ -1334,4 +1470,3 @@ export default function BookingRequestViewModal({
     </>
   )
 }
-

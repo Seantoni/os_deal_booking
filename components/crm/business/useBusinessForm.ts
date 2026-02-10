@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getBusinessFormData } from '@/app/actions/businesses'
-import type { Business, Opportunity, BookingRequest, UserData } from '@/types'
+import type { Business, Opportunity, BookingRequest, UserData, Deal } from '@/types'
 import type { Category } from '@prisma/client'
 
 interface UseBusinessFormProps {
@@ -32,6 +32,7 @@ export function useBusinessForm({
   // Business-specific data (opportunities, requests)
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [requests, setRequests] = useState<BookingRequest[]>([])
+  const [deals, setDeals] = useState<Deal[]>([])
 
   // Loading state
   const [loadingData, setLoadingData] = useState(false)
@@ -55,6 +56,7 @@ export function useBusinessForm({
     setSalesTeam(currentBusiness?.salesTeam || '')
     setOpportunities([])
     setRequests([])
+    setDeals([])
 
     // If we have all preloaded data for a new business, skip the fetch entirely
     const hasAllPreloadedData = (preloadedCategories && preloadedCategories.length > 0) && 
@@ -83,6 +85,7 @@ export function useBusinessForm({
         if (currentBusiness) {
           setOpportunities(result.data.opportunities)
           setRequests(result.data.requests)
+          setDeals(result.data.deals || [])
         }
       }
     } finally {
@@ -123,6 +126,8 @@ export function useBusinessForm({
     setOpportunities,
     requests,
     setRequests,
+    deals,
+    setDeals,
     
     // Loading
     loadingData,

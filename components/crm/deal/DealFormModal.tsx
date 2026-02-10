@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo, useTransition } from 'react'
-import { updateDealDeliveryDate, updateDealResponsible, updateDealStatus } from '@/app/actions/deals'
+import { useEffect, useState, useMemo, useTransition } from 'react'
+import { getDealPublicSlug, updateDealDeliveryDate, updateDealResponsible, updateDealStatus } from '@/app/actions/deals'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
 import { useCachedFormConfig } from '@/hooks/useFormConfigCache'
@@ -10,6 +10,8 @@ import CloseIcon from '@mui/icons-material/Close'
 import DescriptionIcon from '@mui/icons-material/Description'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import { Button } from '@/components/ui'
+import OpenInNewIcon from '@mui/icons-material/OpenInNew'
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
 import { BookingRequestViewModal } from '@/components/booking/request-view'
 import { useDealForm } from './useDealForm'
 import DealStatusPipeline from './DealStatusPipeline'
@@ -18,7 +20,7 @@ import ReferenceInfoBar from '@/components/shared/ReferenceInfoBar'
 import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
 import BookingRequestSection from './BookingRequestSection'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
-import FormModalSkeleton from '@/components/common/FormModalSkeleton'
+import DealFormSkeleton from './DealFormSkeleton'
 import { ONE_DAY_MS } from '@/lib/constants/time'
 import { getTodayInPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
 
@@ -27,6 +29,8 @@ interface DealFormModalProps {
   onClose: () => void
   deal: Deal | null
   onSuccess: () => void
+  hideBackdrop?: boolean
+  containerClassName?: string
 }
 
 export default function DealFormModal({
@@ -34,10 +38,14 @@ export default function DealFormModal({
   onClose,
   deal,
   onSuccess,
+  hideBackdrop = false,
+  containerClassName,
 }: DealFormModalProps) {
   const { isAdmin, isSales } = useUserRole()
   const [error, setError] = useState('')
   const [bookingRequestModalOpen, setBookingRequestModalOpen] = useState(false)
+  const [publicDealSlug, setPublicDealSlug] = useState<string | null>(null)
+  const [loadingPublicDealSlug, setLoadingPublicDealSlug] = useState(false)
   
   // Get cached form configuration (instant if already prefetched)
   const { sections: cachedSections, initialized: cachedInitialized } = useCachedFormConfig('deal')
@@ -102,7 +110,7 @@ export default function DealFormModal({
       try {
         const result = await updateDealStatus(deal.id, newStatus)
         if (result.success) {
-          onSuccess()
+          // Keep modal open and do not refresh list on stage change
         } else {
           setError(result.error || 'Error al actualizar el estado de la oferta')
           setStatus(previousStatus)
@@ -155,6 +163,35 @@ export default function DealFormModal({
     })
   }
 
+  useEffect(() => {
+    if (!isOpen || !deal?.bookingRequestId) {
+      setPublicDealSlug(null)
+      return
+    }
+
+    let cancelled = false
+    setLoadingPublicDealSlug(true)
+    getDealPublicSlug(deal.bookingRequestId)
+      .then(result => {
+        if (cancelled) return
+        if (result && typeof result === 'object' && 'success' in result && result.success) {
+          setPublicDealSlug((result.data as string | null) || null)
+        } else {
+          setPublicDealSlug(null)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPublicDealSlug(null)
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPublicDealSlug(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [deal?.bookingRequestId, isOpen])
+
   if (!isOpen) return null
 
   // Prepare users for dynamic fields
@@ -169,6 +206,14 @@ export default function DealFormModal({
     section.fields.some(f => f.fieldSource === 'custom')
   )
 
+  const osAdminDealId = deal?.bookingRequest?.dealId || null
+  const osAdminDealUrl = osAdminDealId
+    ? `https://ofertasimple.com/admin/offer/${osAdminDealId}/edit`
+    : null
+  const dealPublicUrl = publicDealSlug
+    ? `https://ofertasimple.com/ofertas/panama/${publicDealSlug}`
+    : null
+
   return (
     <>
     <ModalShell
@@ -178,6 +223,36 @@ export default function DealFormModal({
       subtitle="Oferta"
       icon={<DescriptionIcon fontSize="medium" />}
       iconColor="green"
+      autoHeight
+      maxWidth="2xl"
+      hideBackdrop={hideBackdrop}
+      containerClassName={containerClassName}
+      headerActions={
+        <div className="flex items-center gap-1.5">
+          <Button
+            type="button"
+            onClick={() => setBookingRequestModalOpen(true)}
+            variant="primary"
+            size="xs"
+            leftIcon={<DescriptionOutlinedIcon />}
+            className="whitespace-nowrap"
+          >
+            Detalles
+          </Button>
+          {osAdminDealUrl && (
+            <Button
+              type="button"
+              onClick={() => window.open(osAdminDealUrl, '_blank', 'noopener,noreferrer')}
+              variant="outline"
+              size="xs"
+              leftIcon={<OpenInNewIcon />}
+              className="whitespace-nowrap"
+            >
+              OS Admin
+            </Button>
+          )}
+        </div>
+      }
       footer={
         <ModalFooter
           onCancel={onClose}
@@ -200,7 +275,7 @@ export default function DealFormModal({
           )}
 
           {(loadingData || dynamicForm.loading) ? (
-            <FormModalSkeleton sections={2} fieldsPerSection={2} />
+            <DealFormSkeleton />
           ) : (
             <div className="p-3 space-y-3">
               {/* Opportunity Responsible Reference */}
@@ -220,6 +295,37 @@ export default function DealFormModal({
                 isAdmin={isAdmin}
                 saving={savingStatus}
               />
+              <div className="h-px bg-gray-200/70" />
+
+              {/* Booking Request Summary */}
+              {deal && (
+                <BookingRequestSection
+                  deal={deal}
+                  onViewRequest={() => setBookingRequestModalOpen(true)}
+                />
+              )}
+
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-medium text-gray-600 w-32 flex-shrink-0">
+                  Link de la oferta
+                </span>
+                <div className="flex-1 min-w-0">
+                  {dealPublicUrl ? (
+                    <a
+                      href={dealPublicUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:text-blue-700 hover:underline break-all"
+                    >
+                      {dealPublicUrl}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-gray-400">
+                      {loadingPublicDealSlug ? 'Cargando...' : '-'}
+                    </span>
+                  )}
+                </div>
+              </div>
 
               {/* Responsible User Section */}
               <ResponsibleUserSection
@@ -264,14 +370,6 @@ export default function DealFormModal({
                   </div>
                 }
               />
-
-              {/* Booking Request Section */}
-              {deal && (
-                <BookingRequestSection
-                  deal={deal}
-                  onViewRequest={() => setBookingRequestModalOpen(true)}
-                />
-              )}
 
               {/* Dynamic Custom Fields Sections */}
               {dynamicForm.initialized && customFieldsSections.map(section => (

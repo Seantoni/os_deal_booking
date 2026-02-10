@@ -14,11 +14,10 @@ import type { Prisma } from '@prisma/client'
 import { formatDateForPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
 
 /**
- * Generate a URL-safe slug from a business name
+ * Generate a URL-safe slug from a business name and launch date
  */
-function generateSlug(businessName: string): string {
-  const timestamp = Date.now()
-  const slug = businessName
+function generateSlug(businessName: string, startDate?: Date | string): string {
+  const slugBase = businessName
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '') // Remove accents
@@ -26,8 +25,26 @@ function generateSlug(businessName: string): string {
     .replace(/\s+/g, '-') // Replace spaces with dashes
     .replace(/-+/g, '-') // Replace multiple dashes with single
     .trim()
-  
-  return `${slug}-${timestamp}`
+
+  const dateSlug = formatLaunchDateSlug(startDate)
+  return dateSlug ? `${slugBase}-${dateSlug}` : slugBase
+}
+
+function formatLaunchDateSlug(startDate?: Date | string): string | null {
+  if (!startDate) return null
+  const date = startDate instanceof Date ? startDate : new Date(startDate)
+  if (!date || Number.isNaN(date.getTime())) return null
+
+  const ymd = formatDateForPanama(date)
+  const [year, monthRaw, dayRaw] = ymd.split('-')
+  if (!year || !monthRaw || !dayRaw) return null
+
+  const day = dayRaw.padStart(2, '0')
+  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+  const monthIndex = Math.max(0, Math.min(11, parseInt(monthRaw, 10) - 1))
+  const month = months[monthIndex]
+  const yearShort = year.slice(-2)
+  return `${day}${month}${yearShort}`
 }
 
 /**
@@ -448,7 +465,7 @@ export async function sendDealToExternalApi(
 
   // Use mapper to build the payload (includes all pricing options properly)
   const payload = mapBookingFormToApi(formData as BookingFormData, {
-    slug: generateSlug(businessName),
+    slug: generateSlug(businessName, finalRunAt ?? startDate ?? undefined),
     expiresOn: calculateExpiresOn(finalEndAt || endDate, campaignMonths),
     categoryId: 17, // Hardcoded for now
     vendorId: resolvedVendorId ?? undefined,

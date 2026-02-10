@@ -9,7 +9,7 @@ interface DealPipelineProps {
 }
 
 export default function DealPipeline({ deal }: DealPipelineProps) {
-  const statuses = ['asignado', 'elaboracion', 'imagenes', 'borrador_enviado', 'borrador_aprobado']
+  const statuses = ['asignado', 'elaboracion', 'borrador_enviado', 'borrador_aprobado']
   
   return (
     <div className="bg-white border-b border-gray-200 px-4 py-3">
@@ -28,7 +28,7 @@ export default function DealPipeline({ deal }: DealPipelineProps) {
           let borderClass = colors.border
           
           if (isActive) {
-            borderClass = s === 'elaboracion' ? 'border-blue-300' : s === 'imagenes' ? 'border-purple-300' : s === 'borrador_enviado' ? 'border-yellow-300' : s === 'borrador_aprobado' ? 'border-emerald-300' : 'border-gray-300'
+            borderClass = s === 'elaboracion' ? 'border-blue-300' : s === 'borrador_enviado' ? 'border-yellow-300' : s === 'borrador_aprobado' ? 'border-emerald-300' : 'border-gray-300'
           } else if (!isPast) {
             bgClass = 'bg-gray-50'
             textClass = 'text-gray-400'
@@ -57,4 +57,3 @@ export default function DealPipeline({ deal }: DealPipelineProps) {
     </div>
   )
 }
-
