@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { PANAMA_TIMEZONE, formatDateForPanama, getTodayInPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
 import { ONE_DAY_MS } from '@/lib/constants/time'
+import { DEAL_STATUS_OPTIONS, DEAL_STATUS_LABELS } from '@/lib/constants'
 import { getDealsPaginated, searchDeals, deleteDeal, getDealsCounts, getDealPublicSlug, getDealAssignmentsOverview, updateDealResponsible, updateDealStatus } from '@/app/actions/deals'
 import { updateUserMaxActiveDeals } from '@/app/actions/users'
 import type { Deal } from '@/types'
@@ -106,7 +107,7 @@ export default function DealsPageClient({
 }: DealsPageClientProps = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { isAdmin, isEditorSenior } = useUserRole()
+  const { isAdmin, isEditorSenior, isEditor } = useUserRole()
   
   // Get form config cache for prefetching
   const { prefetch: prefetchFormConfig } = useFormConfigCache()
@@ -305,6 +306,7 @@ export default function DealsPageClient({
   }, [displayDeals, responsibleUsers, totalCount, isSearching, counts])
 
   const canViewAssignments = isEditorSenior || isAdmin
+  const canEditStatus = isEditorSenior || isAdmin || isEditor
 
   // Get sort value for a deal
   const getSortValue = useCallback((deal: Deal, column: string): string | number | null => {
@@ -521,6 +523,25 @@ export default function DealsPageClient({
     }
   }
 
+  const handleInlineStatusChange = useCallback(async (dealId: string, nextStatus: string) => {
+    const previous = displayDeals.find(d => d.id === dealId)?.status
+    setDeals(prev => prev.map(d => d.id === dealId ? { ...d, status: nextStatus as Deal['status'] } : d))
+    if (searchResults) {
+      setSearchResults(prev => prev?.map(d => d.id === dealId ? { ...d, status: nextStatus as Deal['status'] } : d) || null)
+    }
+
+    const result = await updateDealStatus(dealId, nextStatus)
+    if (!result.success) {
+      toast.error(result.error || 'No se pudo actualizar el estado')
+      setDeals(prev => prev.map(d => d.id === dealId ? { ...d, status: (previous || d.status) as Deal['status'] } : d))
+      if (searchResults) {
+        setSearchResults(prev => prev?.map(d => d.id === dealId ? { ...d, status: (previous || d.status) as Deal['status'] } : d) || null)
+      }
+    } else {
+      toast.success('Estado actualizado')
+    }
+  }, [displayDeals, searchResults, setDeals, setSearchResults])
+
   const isLoading = loading || searchLoading
   const maxWorkload = useMemo(() => {
     const counts = assignmentEditors.map(editor => workloadByEditor[editor.clerkId] || 0)
@@ -587,7 +608,7 @@ export default function DealsPageClient({
                 <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
                 {searchLoading ? 'Buscando...' : 'Cargando...'}
               </div>
-            ) : visibleDeals.length === 0 ? (
+            ) : filteredDeals.length === 0 ? (
               <div className="px-4 pt-4 md:px-0 md:pt-0">
                 <EmptyTableState
                   icon={<FilterListIcon className="w-full h-full" />}
@@ -610,11 +631,11 @@ export default function DealsPageClient({
                   <SearchIndicator />
                   <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
                   <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
-                    {visibleDeals.length} oferta{visibleDeals.length !== 1 ? 's' : ''}
+                    {filteredDeals.length} oferta{filteredDeals.length !== 1 ? 's' : ''}
                   </span>
                 </div>
                 <div className="bg-white divide-y divide-gray-100">
-                  {visibleDeals.map((deal) => (
+                  {filteredDeals.map((deal) => (
                       <button
                         key={deal.id}
                         type="button"
@@ -713,7 +734,7 @@ export default function DealsPageClient({
                     sortDirection={sortDirection}
                     onSort={handleSort}
                   >
-                  {visibleDeals.map((deal, index) => (
+                  {filteredDeals.map((deal, index) => (
                       <TableRow
                         key={deal.id}
                         index={index}
@@ -754,18 +775,33 @@ export default function DealsPageClient({
                               })
                             : '-'}
                         </TableCell>
-                        <TableCell>
-                          <StatusPill
-                            label={STATUS_LABELS[deal.status || 'pendiente_por_asignar']}
-                            tone={
-                              deal.status === 'borrador_aprobado'
-                                ? 'success'
-                                : deal.status === 'borrador_enviado'
-                                  ? 'info'
-                                  : 'neutral'
-                            }
-                          />
-                        </TableCell>
+                    <TableCell>
+                      {canEditStatus ? (
+                        <select
+                          value={deal.status || 'pendiente_por_asignar'}
+                          onChange={(e) => handleInlineStatusChange(deal.id, e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="border border-gray-200 rounded-md text-xs px-2 py-1.5 bg-white"
+                        >
+                          {DEAL_STATUS_OPTIONS.map(option => (
+                            <option key={option.value} value={option.value}>
+                              {DEAL_STATUS_LABELS[option.value]}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <StatusPill
+                          label={STATUS_LABELS[deal.status || 'pendiente_por_asignar']}
+                          tone={
+                            deal.status === 'borrador_aprobado'
+                              ? 'success'
+                              : deal.status === 'borrador_enviado'
+                                ? 'info'
+                                : 'neutral'
+                          }
+                        />
+                      )}
+                    </TableCell>
                         <TableCell
                           align="right"
                           onClick={(e) => e.stopPropagation()}
