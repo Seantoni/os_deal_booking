@@ -32,7 +32,7 @@ import { EntityTable, StatusPill, TableRow, TableCell } from '@/components/share
 
 // Lazy load heavy modal components
 const DealFormModal = dynamic(() => import('@/components/crm/deal/DealFormModal'), {
-  loading: () => <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20"><div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full"></div></div>,
+  loading: () => null,
   ssr: false,
 })
 const BookingRequestViewModal = dynamic(() => import('@/components/booking/request-view/BookingRequestViewModal'), {
@@ -552,7 +552,14 @@ export default function DealsPageClient({
               }`}
             >
               <AssignmentIndIcon style={{ fontSize: 18 }} />
-              Asignaciones
+              <span className="relative">
+                Asignaciones
+                {assignmentDeals.length > 0 && (
+                  <span className="absolute -top-2 -right-4 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 shadow-sm">
+                    {assignmentDeals.length > 99 ? '99+' : assignmentDeals.length}
+                  </span>
+                )}
+              </span>
             </button>
           </div>
         </div>
@@ -971,16 +978,18 @@ export default function DealsPageClient({
       )}
 
       {/* Deal Modal */}
-      <DealFormModal
-        isOpen={dealModalOpen}
-        onClose={() => {
-          setDealModalOpen(false)
-          setSelectedDeal(null)
-          clearOpenParam()
-        }}
-        deal={selectedDeal}
-        onSuccess={handleDealSuccess}
-      />
+      {dealModalOpen && (
+        <DealFormModal
+          isOpen={dealModalOpen}
+          onClose={() => {
+            setDealModalOpen(false)
+            setSelectedDeal(null)
+            clearOpenParam()
+          }}
+          deal={selectedDeal}
+          onSuccess={handleDealSuccess}
+        />
+      )}
 
       {selectedRequestId && (
         <BookingRequestViewModal
