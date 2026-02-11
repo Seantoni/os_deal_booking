@@ -41,7 +41,8 @@ export default function DealFormModal({
   hideBackdrop = false,
   containerClassName,
 }: DealFormModalProps) {
-  const { isAdmin, isSales } = useUserRole()
+  const { isAdmin, isSales, isEditor, isEditorSenior } = useUserRole()
+  const canViewOsAdminLink = isAdmin || isEditorSenior || isEditor
   const [error, setError] = useState('')
   const [bookingRequestModalOpen, setBookingRequestModalOpen] = useState(false)
   const [publicDealSlug, setPublicDealSlug] = useState<string | null>(null)
@@ -239,7 +240,7 @@ export default function DealFormModal({
           >
             Detalles
           </Button>
-          {osAdminDealUrl && (
+          {canViewOsAdminLink && osAdminDealUrl && (
             <Button
               type="button"
               onClick={() => window.open(osAdminDealUrl, '_blank', 'noopener,noreferrer')}

@@ -160,6 +160,7 @@ export default function DealsPageClient({
   // Assignments tab state
   const [assignmentsLoading, setAssignmentsLoading] = useState(false)
   const [assignmentsError, setAssignmentsError] = useState<string | null>(null)
+  const [assignmentsLoaded, setAssignmentsLoaded] = useState(false)
   const [assignmentDeals, setAssignmentDeals] = useState<AssignmentDeal[]>([])
   const [assignmentEditors, setAssignmentEditors] = useState<AssignmentUser[]>([])
   const [assignmentEres, setAssignmentEres] = useState<AssignmentUser[]>([])
@@ -198,8 +199,9 @@ export default function DealsPageClient({
       setAssignmentsError('No se pudo cargar asignaciones')
     } finally {
       setAssignmentsLoading(false)
+      setAssignmentsLoaded(true)
     }
-  }, [isEditorSenior])
+  }, [isEditorSenior, isAdmin])
 
   useEffect(() => {
     if ((isEditorSenior || isAdmin) && activeTab === 'assignments') {
@@ -306,7 +308,13 @@ export default function DealsPageClient({
   }, [displayDeals, responsibleUsers, totalCount, isSearching, counts])
 
   const canViewAssignments = isEditorSenior || isAdmin
+  const canViewOsAdminLink = isAdmin || isEditorSenior || isEditor
   const canEditStatus = isEditorSenior || isAdmin || isEditor
+
+  useEffect(() => {
+    if (!canViewAssignments || assignmentsLoaded || assignmentsLoading) return
+    loadAssignments()
+  }, [canViewAssignments, assignmentsLoaded, assignmentsLoading, loadAssignments])
 
   // Get sort value for a deal
   const getSortValue = useCallback((deal: Deal, column: string): string | number | null => {
@@ -687,7 +695,7 @@ export default function DealsPageClient({
                               >
                                 <DescriptionOutlinedIcon style={{ fontSize: 18 }} />
                               </button>
-                              {deal.bookingRequest?.dealId && (
+                              {canViewOsAdminLink && deal.bookingRequest?.dealId && (
                                 <button
                                   type="button"
                                   onClick={(e) => {
@@ -816,7 +824,7 @@ export default function DealsPageClient({
                             >
                               <DescriptionOutlinedIcon style={{ fontSize: 18 }} />
                             </button>
-                            {deal.bookingRequest?.dealId && (
+                            {canViewOsAdminLink && deal.bookingRequest?.dealId && (
                               <button
                                 type="button"
                                 onClick={() => window.open(`https://ofertasimple.com/admin/offer/${deal.bookingRequest.dealId}/edit`, '_blank', 'noopener,noreferrer')}

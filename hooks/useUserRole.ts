@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useContext } from 'react'
 import { useUser } from '@clerk/nextjs'
 import type { UserRole } from '@/types'
 import { CACHE_CLIENT_USER_ROLE_MS, CACHE_CLIENT_USER_ROLE_REVALIDATE_MS } from '@/lib/constants/cache'
+import { SidebarContext } from '@/components/common/AppClientProviders'
 
 const CACHE_KEY = 'user-role-cache'
 const CACHE_TIMESTAMP_KEY = 'user-role-cache-timestamp'
@@ -76,15 +77,21 @@ let sessionUserId: string | null = null
 export function useUserRole() {
   const { user, isLoaded: userLoaded } = useUser()
   const userId = user?.id || null
+  const sidebar = useContext(SidebarContext)
+  const hasProvider = sidebar !== undefined
+  const contextRole = sidebar?.role ?? null
+  const contextLoading = sidebar?.loading ?? false
   
   // Initialize from cache synchronously
   const [role, setRole] = useState<UserRole>(() => {
+    if (hasProvider) return contextRole
     if (typeof window === 'undefined') return null
     const cached = getCachedRole(userId)
     return cached.role
   })
   
   const [loading, setLoading] = useState(() => {
+    if (hasProvider) return contextLoading
     if (typeof window === 'undefined') return true
     const cached = getCachedRole(userId)
     return !cached.isValid
@@ -95,6 +102,9 @@ export function useUserRole() {
 
   // Reset session tracking when user changes
   useEffect(() => {
+    if (hasProvider) {
+      return
+    }
     if (userId !== sessionUserId) {
       sessionFetched = false
       sessionUserId = userId
@@ -107,7 +117,7 @@ export function useUserRole() {
         setLoading(false)
       }
     }
-  }, [userId])
+  }, [userId, hasProvider])
 
   // Stable fetch function that only updates state if role actually changed
   const fetchRoleFromServer = useCallback(async () => {
@@ -141,6 +151,9 @@ export function useUserRole() {
 
   // Main effect - runs once per user session
   useEffect(() => {
+    if (hasProvider) {
+      return
+    }
     if (!userLoaded || !userId) {
       return
     }
@@ -192,10 +205,13 @@ export function useUserRole() {
         sessionUserId = userId
       })
 
-  }, [userLoaded, userId]) // Removed 'user' from dependencies
+  }, [userLoaded, userId, hasProvider]) // Removed 'user' from dependencies
 
   // Set up periodic revalidation (background, doesn't cause re-renders unless role changed)
   useEffect(() => {
+    if (hasProvider) {
+      return
+    }
     if (!userLoaded || !userId) {
       return
     }
@@ -211,10 +227,13 @@ export function useUserRole() {
         clearInterval(revalidationIntervalRef.current)
       }
     }
-  }, [userLoaded, userId, fetchRoleFromServer])
+  }, [userLoaded, userId, fetchRoleFromServer, hasProvider])
   
   // Expose a function to manually refresh role (for debugging/admin updates)
   useEffect(() => {
+    if (hasProvider) {
+      return
+    }
     if (typeof window !== 'undefined') {
       (window as Window & { refreshUserRole?: () => void }).refreshUserRole = () => {
         clearCache()
@@ -240,15 +259,18 @@ export function useUserRole() {
           })
       }
     }
-  }, [userId])
+  }, [userId, hasProvider])
+
+  const resolvedRole = hasProvider ? contextRole : role
+  const resolvedLoading = hasProvider ? contextLoading : loading
 
   return { 
-    role, 
-    loading, 
-    isAdmin: role === 'admin', 
-    isSales: role === 'sales',
-    isEditor: role === 'editor' || role === 'ere' || role === 'editor_senior',
-    isEditorSenior: role === 'editor_senior',
-    isMarketing: role === 'marketing',
+    role: resolvedRole, 
+    loading: resolvedLoading, 
+    isAdmin: resolvedRole === 'admin', 
+    isSales: resolvedRole === 'sales',
+    isEditor: resolvedRole === 'editor' || resolvedRole === 'ere' || resolvedRole === 'editor_senior',
+    isEditorSenior: resolvedRole === 'editor_senior',
+    isMarketing: resolvedRole === 'marketing',
   }
 }
