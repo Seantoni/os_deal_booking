@@ -7,6 +7,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline'
 import HandshakeIcon from '@mui/icons-material/Handshake'
 import CampaignIcon from '@mui/icons-material/Campaign'
+import DescriptionIcon from '@mui/icons-material/Description'
 import { formatRelativeTime } from '@/lib/date'
 import {
   getInboxItems,
@@ -74,6 +75,8 @@ export default function InboxDropdown({ onClose }: InboxDropdownProps) {
       case 'marketing_comment':
       case 'marketing_mention':
         return <CampaignIcon className="text-purple-500" style={{ fontSize: 18 }} />
+      case 'booking_mention':
+        return <DescriptionIcon className="text-blue-500" style={{ fontSize: 18 }} />
       default:
         return <ChatBubbleOutlineIcon className="text-gray-400" style={{ fontSize: 18 }} />
     }
@@ -89,6 +92,8 @@ export default function InboxDropdown({ onClose }: InboxDropdownProps) {
         return 'Mencionado en Marketing'
       case 'marketing_comment':
         return 'Comentario en Marketing'
+      case 'booking_mention':
+        return 'Mencionado en Solicitud'
       default:
         return 'Comentario'
     }
@@ -210,4 +215,3 @@ export default function InboxDropdown({ onClose }: InboxDropdownProps) {
     </div>
   )
 }
-

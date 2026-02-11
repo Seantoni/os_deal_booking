@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo, useTransition } from 'react'
-import { getDealPublicSlug, getSuggestedDeliveryDate, updateDealDeliveryDate, updateDealResponsible, updateDealStatus } from '@/app/actions/deals'
+import { getDealPublicSlug, getEditorDeliveryWorkload, getSuggestedDeliveryDate, updateDealDeliveryDate, updateDealResponsible, updateDealStatus } from '@/app/actions/deals'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
 import { useCachedFormConfig } from '@/hooks/useFormConfigCache'
@@ -9,6 +9,8 @@ import type { Deal } from '@/types'
 import CloseIcon from '@mui/icons-material/Close'
 import DescriptionIcon from '@mui/icons-material/Description'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import { Button } from '@/components/ui'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
@@ -49,6 +51,8 @@ export default function DealFormModal({
   const [loadingPublicDealSlug, setLoadingPublicDealSlug] = useState(false)
   const [suggestedDeliveryDate, setSuggestedDeliveryDate] = useState<string | null>(null)
   const [loadingSuggestedDate, setLoadingSuggestedDate] = useState(false)
+  const [deliveryWorkload, setDeliveryWorkload] = useState<{ count: number; max: number } | null>(null)
+  const [loadingDeliveryWorkload, setLoadingDeliveryWorkload] = useState(false)
   
   // Get cached form configuration (instant if already prefetched)
   const { sections: cachedSections, initialized: cachedInitialized } = useCachedFormConfig('deal')
@@ -256,6 +260,39 @@ export default function DealFormModal({
   }, [deliveryDate, isOpen, setDeliveryDate, startDateKey])
 
   useEffect(() => {
+    if (!isOpen || !deliveryDate || !responsibleId) {
+      setDeliveryWorkload(null)
+      return
+    }
+
+    let cancelled = false
+    setLoadingDeliveryWorkload(true)
+    getEditorDeliveryWorkload({
+      responsibleId,
+      deliveryDate,
+      excludeDealId: deal?.id,
+    })
+      .then(result => {
+        if (cancelled) return
+        if (result && typeof result === 'object' && 'success' in result && result.success) {
+          setDeliveryWorkload((result.data as { count: number; max: number }) || null)
+        } else {
+          setDeliveryWorkload(null)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setDeliveryWorkload(null)
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingDeliveryWorkload(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [deal?.id, deliveryDate, isOpen, responsibleId])
+
+  useEffect(() => {
     if (!isOpen) return
     if (status !== 'pendiente_por_asignar') return
     if (deliveryDate || !suggestedDeliveryDate) return
@@ -407,45 +444,87 @@ export default function DealFormModal({
                 ereUsers={ereUsers}
                 isAdmin={isAdmin}
                 extraContent={
-                  <div className="flex items-center gap-3">
-                    <label className="text-xs font-medium text-gray-600 w-32 flex-shrink-0">
-                      Fecha de entrega
-                    </label>
-                    <div className="flex-1 flex items-center gap-2">
-                      <input
-                        type="date"
-                        value={deliveryDate || ''}
-                        onChange={(e) => setDeliveryDate(e.target.value)}
-                        disabled={!isAdmin || loading || loadingData}
-                        max={maxDeliveryDate}
-                        className="text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white"
-                      />
-                      {deliveryDate && (() => {
-                        const today = parseDateInPanamaTime(getTodayInPanama())
-                        const delivery = parseDateInPanamaTime(deliveryDate)
-                        const daysUntil = Math.round((delivery.getTime() - today.getTime()) / ONE_DAY_MS)
-                        const badgeClass = daysUntil < 0
-                          ? 'bg-red-600 text-white border-red-600'
-                          : daysUntil === 0
-                          ? 'bg-emerald-600 text-white border-emerald-600'
-                          : daysUntil <= 7
-                          ? 'bg-amber-500 text-white border-amber-500'
-                          : 'bg-indigo-600 text-white border-indigo-600'
-                        return (
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${badgeClass}`}>
-                            {Math.abs(daysUntil)} día{Math.abs(daysUntil) === 1 ? '' : 's'}
-                          </span>
-                        )
-                      })()}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-3">
+                      <label className="text-xs font-medium text-gray-600 w-32 flex-shrink-0">
+                        Fecha de entrega
+                      </label>
+                      <div className="flex-1 flex items-center gap-2">
+                        <input
+                          type="date"
+                          value={deliveryDate || ''}
+                          onChange={(e) => setDeliveryDate(e.target.value)}
+                          disabled={!isAdmin || loading || loadingData}
+                          max={maxDeliveryDate}
+                          className="text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white"
+                        />
+                        {deliveryDate && (() => {
+                          const today = parseDateInPanamaTime(getTodayInPanama())
+                          const delivery = parseDateInPanamaTime(deliveryDate)
+                          const daysUntil = Math.round((delivery.getTime() - today.getTime()) / ONE_DAY_MS)
+                          const badgeClass = daysUntil < 0
+                            ? 'bg-red-600 text-white border-red-600'
+                            : daysUntil === 0
+                            ? 'bg-emerald-600 text-white border-emerald-600'
+                            : daysUntil <= 7
+                            ? 'bg-amber-500 text-white border-amber-500'
+                            : 'bg-indigo-600 text-white border-indigo-600'
+                          return (
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${badgeClass}`}>
+                              {Math.abs(daysUntil)} día{Math.abs(daysUntil) === 1 ? '' : 's'}
+                            </span>
+                          )
+                        })()}
+                      </div>
                     </div>
-                    {status === 'pendiente_por_asignar' && (
-                      <div className="mt-2 text-[11px] text-gray-500">
+                    {!loadingDeliveryWorkload && deliveryWorkload && deliveryWorkload.count + 1 > deliveryWorkload.max && (
+                      <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-800">
+                        <WarningAmberIcon style={{ fontSize: 14 }} className="mt-0.5" />
+                        <span className="flex flex-wrap items-center gap-1">
+                          Este usuario ya tiene el máximo de {deliveryWorkload.max} en esta fecha.
+                          {suggestedDeliveryDate ? (
+                            <>
+                              <span>Haz clic para usar la fecha sugerida</span>
+                              <button
+                                type="button"
+                                onClick={() => setDeliveryDate(suggestedDeliveryDate)}
+                                disabled={!isAdmin || loading || loadingData}
+                                className="inline-flex items-center rounded-md border border-amber-300 bg-white px-2 py-0.5 font-semibold text-amber-900 underline decoration-amber-600 hover:bg-amber-100 hover:text-amber-950 disabled:opacity-50"
+                              >
+                                {suggestedDeliveryDate}
+                              </button>
+                            </>
+                          ) : (
+                            <span>Puede guardar igualmente.</span>
+                          )}
+                        </span>
+                      </div>
+                    )}
+                    {status === 'pendiente_por_asignar'
+                      && suggestedDeliveryDate !== deliveryDate
+                      && !(deliveryWorkload && deliveryWorkload.count + 1 > deliveryWorkload.max)
+                      && (
+                      <div className="text-[11px] text-gray-600">
                         {loadingSuggestedDate ? (
                           'Calculando fecha sugerida según carga...'
                         ) : suggestedDeliveryDate ? (
-                          <>
-                            Fecha sugerida según carga: <span className="font-semibold text-gray-700">{suggestedDeliveryDate}</span>
-                          </>
+                          <div className="flex items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-2">
+                            <div className="flex items-center gap-2">
+                              <InfoOutlinedIcon style={{ fontSize: 14 }} className="text-slate-500" />
+                              <span>
+                                Fecha sugerida según carga:{' '}
+                                <span className="font-semibold text-slate-800">{suggestedDeliveryDate}</span>
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setDeliveryDate(suggestedDeliveryDate)}
+                              disabled={!isAdmin || loading || loadingData}
+                              className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                            >
+                              Usar
+                            </button>
+                          </div>
                         ) : (
                           'No hay cupo disponible antes de la fecha de inicio.'
                         )}

@@ -1020,6 +1020,62 @@ export async function updateDealDeliveryDate(dealId: string, deliveryDate: strin
 }
 
 /**
+ * Get workload for a specific editor on a delivery date.
+ * Used to warn when the user is at or over capacity for that date.
+ */
+export async function getEditorDeliveryWorkload(options: {
+  responsibleId: string
+  deliveryDate: string
+  excludeDealId?: string
+}) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    const role = await getUserRole()
+    if (role !== 'admin' && role !== 'editor_senior') {
+      return { success: false, error: 'Unauthorized' }
+    }
+
+    const { responsibleId, deliveryDate, excludeDealId } = options
+    if (!responsibleId || !deliveryDate) {
+      return { success: false, error: 'Missing parameters' }
+    }
+
+    const editor = await prisma.userProfile.findUnique({
+      where: { clerkId: responsibleId },
+      select: { maxActiveDeals: true },
+    })
+
+    if (!editor) {
+      return { success: false, error: 'Editor not found' }
+    }
+
+    const start = parseDateInPanamaTime(deliveryDate)
+    const end = new Date(start.getTime() + ONE_DAY_MS)
+
+    const count = await prisma.deal.count({
+      where: {
+        responsibleId,
+        deliveryDate: { gte: start, lt: end },
+        status: { notIn: ['borrador_enviado', 'borrador_aprobado'] },
+        ...(excludeDealId ? { id: { not: excludeDealId } } : {}),
+      },
+    })
+
+    const max = editor.maxActiveDeals === null || editor.maxActiveDeals === undefined
+      ? 4
+      : Math.max(0, editor.maxActiveDeals)
+
+    return { success: true, data: { count, max } }
+  } catch (error) {
+    return handleServerActionError(error, 'getEditorDeliveryWorkload')
+  }
+}
+
+/**
  * Suggest earliest delivery date based on editor daily capacity.
  * Defaults to 4 per editor when maxActiveDeals is null.
  */

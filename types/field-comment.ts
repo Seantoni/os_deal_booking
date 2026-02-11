@@ -15,6 +15,8 @@ export interface FieldComment {
   authorId: string // Clerk user ID
   authorName: string | null // Cached for display
   authorEmail: string | null // Cached for display
+  mentions?: string[] // Clerk user IDs mentioned in the comment
+  dismissedBy?: string[] // Clerk user IDs who dismissed this comment
   createdAt: string // ISO date string
   updatedAt: string | null // ISO date string if edited
   editHistory: FieldCommentEdit[] // History of edits
@@ -37,12 +39,19 @@ export function isFieldCommentArray(value: unknown): value is FieldComment[] {
 // Parse field comments from JSON, with fallback to empty array
 export function parseFieldComments(jsonValue: unknown): FieldComment[] {
   if (!jsonValue) return []
-  if (isFieldCommentArray(jsonValue)) return jsonValue
+  const normalize = (comments: FieldComment[]) =>
+    comments.map(comment => ({
+      ...comment,
+      mentions: Array.isArray(comment.mentions) ? comment.mentions : [],
+      dismissedBy: Array.isArray(comment.dismissedBy) ? comment.dismissedBy : [],
+    }))
+
+  if (isFieldCommentArray(jsonValue)) return normalize(jsonValue)
   // If it's a string (shouldn't happen with Prisma JSON), try parsing
   if (typeof jsonValue === 'string') {
     try {
       const parsed = JSON.parse(jsonValue)
-      if (isFieldCommentArray(parsed)) return parsed
+      if (isFieldCommentArray(parsed)) return normalize(parsed)
     } catch {
       return []
     }
@@ -63,4 +72,3 @@ export function getCommentCountsByField(comments: FieldComment[]): Record<string
   })
   return counts
 }
-

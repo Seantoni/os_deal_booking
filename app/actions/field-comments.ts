@@ -42,7 +42,8 @@ export async function getFieldComments(requestId: string) {
 export async function addFieldComment(
   requestId: string,
   fieldKey: string,
-  text: string
+  text: string,
+  mentions: string[] = []
 ) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
@@ -77,6 +78,8 @@ export async function addFieldComment(
       authorId: userId,
       authorName: extractDisplayName(user),
       authorEmail: extractUserEmail(user),
+      mentions,
+      dismissedBy: [],
       createdAt: new Date().toISOString(),
       updatedAt: null,
       editHistory: [],
@@ -155,6 +158,8 @@ export async function updateFieldComment(
       text: newText.trim(),
       updatedAt: new Date().toISOString(),
       editHistory: [...comment.editHistory, editHistoryEntry],
+      mentions: Array.isArray(comment.mentions) ? comment.mentions : [],
+      dismissedBy: Array.isArray(comment.dismissedBy) ? comment.dismissedBy : [],
     }
 
     // Replace in array
@@ -231,3 +236,42 @@ export async function deleteFieldComment(
   }
 }
 
+/**
+ * Get users for mention dropdown in booking request field comments
+ */
+export async function getUsersForFieldCommentMention(search?: string): Promise<{
+  success: boolean
+  data?: Array<{ clerkId: string; name: string | null; email: string | null }>
+  error?: string
+}> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    const users = await prisma.userProfile.findMany({
+      where: search
+        ? {
+            OR: [
+              { name: { contains: search, mode: 'insensitive' } },
+              { email: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : undefined,
+      select: {
+        clerkId: true,
+        name: true,
+        email: true,
+      },
+      take: 10,
+      orderBy: {
+        name: 'asc',
+      },
+    })
+
+    return { success: true, data: users }
+  } catch (error) {
+    return handleServerActionError(error, 'getUsersForFieldCommentMention')
+  }
+}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { getBookingRequest, getFieldComments, addFieldComment, updateFieldComment, deleteFieldComment, cancelBookingRequest } from '@/app/actions/booking'
+import { getBookingRequest, getFieldComments, addFieldComment, updateFieldComment, deleteFieldComment, cancelBookingRequest, getUsersForFieldCommentMention } from '@/app/actions/booking'
 import { getDealByBookingRequestId, getDealPublicSlug } from '@/app/actions/deals'
 import type { Deal } from '@/types'
 import { 
@@ -44,6 +44,8 @@ import VisibilityIcon from '@mui/icons-material/Visibility'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import CampaignIcon from '@mui/icons-material/Campaign'
 import ListAltIcon from '@mui/icons-material/ListAlt'
+import AddCommentIcon from '@mui/icons-material/AddComment'
+import MentionInput from '@/components/marketing/MentionInput'
 import ImageLightbox from '@/components/common/ImageLightbox'
 import DealFormModal from '@/components/crm/deal/DealFormModal'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
@@ -200,7 +202,6 @@ export default function BookingRequestViewModal({
   
   // Comment UI state
   const [activeCommentField, setActiveCommentField] = useState<string | null>(null)
-  const [newCommentText, setNewCommentText] = useState('')
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [editCommentText, setEditCommentText] = useState('')
   const [showSidebar, setShowSidebar] = useState(false)
@@ -230,6 +231,128 @@ export default function BookingRequestViewModal({
     setLightboxImages(images)
     setLightboxInitialIndex(initialIndex)
     setLightboxOpen(true)
+  }
+
+  const renderCommentText = useCallback((content: string) => {
+    const mentionRegex = /@[\p{L}\p{N}]+(?:\s+[\p{L}\p{N}]+){0,3}/gu
+    const parts: Array<{ text: string; isMention: boolean }> = []
+    let lastIndex = 0
+    let match: RegExpExecArray | null
+
+    while ((match = mentionRegex.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push({ text: content.slice(lastIndex, match.index), isMention: false })
+      }
+      parts.push({ text: match[0], isMention: true })
+      lastIndex = match.index + match[0].length
+    }
+
+    if (lastIndex < content.length) {
+      parts.push({ text: content.slice(lastIndex), isMention: false })
+    }
+
+    return parts.map((part, index) =>
+      part.isMention ? (
+        <span key={index} className="text-blue-600 font-semibold">
+          {part.text}
+        </span>
+      ) : (
+        <span key={index}>{part.text}</span>
+      )
+    )
+  }, [])
+
+  const renderFieldCommentControls = (fieldKey: string, label: string) => {
+    const fieldComments = getCommentsForField(comments, fieldKey)
+    const hasComments = fieldComments.length > 0
+    const isAddingComment = activeCommentField === fieldKey
+
+    return (
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{label}</p>
+        <div className="flex items-center gap-1">
+          {hasComments && (
+            <span className="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold ring-1 ring-blue-200">
+              {fieldComments.length}
+            </span>
+          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              handleToggleComment(isAddingComment ? null : fieldKey)
+            }}
+            className={`p-1.5 rounded-md transition-colors ${
+              isAddingComment
+                ? 'bg-blue-100 text-blue-700'
+                : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
+            }`}
+            title="Add comment"
+            aria-label={`Add comment to ${label}`}
+          >
+            <AddCommentIcon style={{ fontSize: 16 }} />
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const renderInlineComments = (fieldKey: string) => {
+    const fieldComments = getCommentsForField(comments, fieldKey)
+    const isAddingComment = activeCommentField === fieldKey
+
+    return (
+      <>
+        {fieldComments.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-blue-100/50 space-y-2">
+            {fieldComments.slice(0, 2).map((comment) => (
+              <div
+                key={comment.id}
+                className="text-xs text-slate-600 bg-white/50 p-2 rounded border border-slate-100"
+              >
+                <div className="flex items-start gap-2">
+                <CommentIcon style={{ fontSize: 12 }} className="text-blue-500 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="font-semibold text-slate-800">
+                    {comment.authorName || comment.authorEmail?.split('@')[0] || 'User'}:
+                  </span>
+                  <span className="ml-1 line-clamp-2">{renderCommentText(comment.text)}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+            {fieldComments.length > 2 && (
+              <p className="text-[10px] font-medium text-blue-600 pl-1 hover:underline cursor-pointer">
+                +{fieldComments.length - 2} more comments
+              </p>
+            )}
+          </div>
+        )}
+
+        {isAddingComment && (
+          <div className="mt-3 pt-3 border-t border-blue-100 relative z-10">
+            <MentionInput
+              onSubmit={async (content, mentions) => {
+                await handleAddComment(fieldKey, content, mentions)
+              }}
+              disabled={savingComment}
+              showAttachments={false}
+              getUsersAction={getUsersForFieldCommentMention}
+            />
+            <div className="flex justify-end gap-2 mt-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleToggleComment(null)
+                }}
+                className="px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </>
+    )
   }
 
   // Load request data and comments
@@ -485,15 +608,14 @@ export default function BookingRequestViewModal({
   }
 
   // Add comment handler
-  async function handleAddComment() {
-    if (!requestId || !activeCommentField || !newCommentText.trim()) return
+  async function handleAddComment(fieldKey: string, text: string, mentions: string[]) {
+    if (!requestId || !fieldKey || !text.trim()) return
     
     setSavingComment(true)
     try {
-      const result = await addFieldComment(requestId, activeCommentField, newCommentText)
+      const result = await addFieldComment(requestId, fieldKey, text, mentions)
       if (result.success && result.data) {
         setComments(prev => [...prev, result.data!])
-        setNewCommentText('')
         setActiveCommentField(null)
         toast.success('Comentario agregado')
       } else {
@@ -553,7 +675,6 @@ export default function BookingRequestViewModal({
   // Toggle comment field - used by FieldWithComments
   const handleToggleComment = useCallback((fieldKey: string | null) => {
     setActiveCommentField(fieldKey)
-    setNewCommentText('')
   }, [])
 
   // Continue editing draft request
@@ -1105,7 +1226,7 @@ export default function BookingRequestViewModal({
                                   
                                   return (
                                     <div key={field.key} className="md:col-span-2">
-                                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{field.label}</p>
+                                      {renderFieldCommentControls(field.key, field.label)}
                                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                         {(rawValue as Array<{ title?: string; description?: string; price?: string; realValue?: string; quantity?: string; imageUrl?: string; limitByUser?: string; maxGiftsPerUser?: string; endAt?: string; expiresIn?: string }>).map((opt, idx) => (
                                           <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow">
@@ -1158,6 +1279,7 @@ export default function BookingRequestViewModal({
                                           </div>
                                         ))}
                                       </div>
+                                      {renderInlineComments(field.key)}
                                     </div>
                                   )
                                 }
@@ -1170,7 +1292,7 @@ export default function BookingRequestViewModal({
                                   
                                   return (
                                     <div key={field.key} className="md:col-span-2">
-                                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{field.label}</p>
+                                      {renderFieldCommentControls(field.key, field.label)}
                                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                                         {sortedImages.map((img, idx) => (
                                           <button
@@ -1195,6 +1317,7 @@ export default function BookingRequestViewModal({
                                           </button>
                                         ))}
                                       </div>
+                                      {renderInlineComments(field.key)}
                                     </div>
                                   )
                                 }
@@ -1213,11 +1336,10 @@ export default function BookingRequestViewModal({
                                     comments={getCommentsForField(comments, field.key)}
                                     isHighlighted={!!isFieldMatch}
                                     activeCommentField={activeCommentField}
-                                    newCommentText={newCommentText}
                                     savingComment={savingComment}
                                     onToggleComment={handleToggleComment}
-                                    onCommentTextChange={setNewCommentText}
-                                    onAddComment={handleAddComment}
+                                    onAddComment={(text, mentions) => handleAddComment(field.key, text, mentions)}
+                                    getUsersAction={getUsersForFieldCommentMention}
                                   />
                                 )
                               })}
@@ -1251,111 +1373,135 @@ export default function BookingRequestViewModal({
                       </p>
                     </div>
                   ) : (
-                    comments.map(comment => {
-                      const isEditing = editingCommentId === comment.id
-                      const canEdit = comment.authorId === userId || isAdmin
-                      const canDelete = isAdmin
-                      const fieldLabel = allSections
-                        .flatMap(s => s.fields as Array<{ key: string; label: string }>)
-                        .find(f => f.key === comment.fieldKey)?.label || comment.fieldKey
+                    (() => {
+                      const mentioned = comments.filter(c => (c.mentions || []).includes(userId || ''))
+                      const others = comments.filter(c => !(c.mentions || []).includes(userId || ''))
+                      const renderComment = (comment: FieldComment) => {
+                        const isEditing = editingCommentId === comment.id
+                        const canEdit = comment.authorId === userId || isAdmin
+                        const canDelete = isAdmin
+                        const fieldLabel = allSections
+                          .flatMap(s => s.fields as Array<{ key: string; label: string }>)
+                          .find(f => f.key === comment.fieldKey)?.label || comment.fieldKey
 
-                      return (
-                        <div key={comment.id} className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                          {/* Comment header */}
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <div>
-                              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wide mb-1">{fieldLabel}</p>
-                              <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                                <span className="font-semibold text-slate-900">{comment.authorName || comment.authorEmail?.split('@')[0] || 'Desconocido'}</span>
-                                <span className="w-0.5 h-0.5 bg-slate-300 rounded-full"></span>
-                                <span>{formatShortDate(comment.createdAt)}</span>
-                                {comment.updatedAt && (
-                                  <>
-                                    <span className="w-0.5 h-0.5 bg-slate-300 rounded-full"></span>
-                                    <span className="text-amber-600 font-medium text-[10px] bg-amber-50 px-1 rounded">edited</span>
-                                  </>
-                                )}
+                        return (
+                          <div key={comment.id} className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                            {/* Comment header */}
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div>
+                                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wide mb-1">{fieldLabel}</p>
+                                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                  <span className="font-semibold text-slate-900">{comment.authorName || comment.authorEmail?.split('@')[0] || 'Desconocido'}</span>
+                                  <span className="w-0.5 h-0.5 bg-slate-300 rounded-full"></span>
+                                  <span>{formatShortDate(comment.createdAt)}</span>
+                                  {comment.updatedAt && (
+                                    <>
+                                      <span className="w-0.5 h-0.5 bg-slate-300 rounded-full"></span>
+                                      <span className="text-amber-600 font-medium text-[10px] bg-amber-50 px-1 rounded">edited</span>
+                                    </>
+                                  )}
+                                </div>
                               </div>
+                              {!isEditing && (canEdit || canDelete) && (
+                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {canEdit && (
+                                    <button
+                                      onClick={() => startEditComment(comment)}
+                                      className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                                      title="Editar comentario"
+                                    >
+                                      <EditIcon style={{ fontSize: 14 }} />
+                                    </button>
+                                  )}
+                                  {canDelete && (
+                                    <button
+                                      onClick={() => handleDeleteComment(comment.id)}
+                                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                                      title="Eliminar comentario"
+                                    >
+                                      <DeleteIcon style={{ fontSize: 14 }} />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                            {!isEditing && (canEdit || canDelete) && (
-                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                {canEdit && (
+
+                            {/* Comment content */}
+                            {isEditing ? (
+                              <div className="mt-2">
+                                <textarea
+                                  value={editCommentText}
+                                  onChange={e => setEditCommentText(e.target.value)}
+                                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
+                                  rows={3}
+                                  autoFocus
+                                />
+                                <div className="flex justify-end gap-2 mt-2">
                                   <button
-                                    onClick={() => startEditComment(comment)}
-                                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                                    title="Editar comentario"
+                                    onClick={() => {
+                                      setEditingCommentId(null)
+                                      setEditCommentText('')
+                                    }}
+                                    className="px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
                                   >
-                                    <EditIcon style={{ fontSize: 14 }} />
+                                    Cancelar
                                   </button>
-                                )}
-                                {canDelete && (
                                   <button
-                                    onClick={() => handleDeleteComment(comment.id)}
-                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                                    title="Eliminar comentario"
+                                    onClick={() => handleEditComment(comment.id)}
+                                    disabled={!editCommentText.trim() || savingComment}
+                                    className="px-2.5 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
                                   >
-                                    <DeleteIcon style={{ fontSize: 14 }} />
+                                    {savingComment ? 'Guardando...' : 'Guardar'}
                                   </button>
-                                )}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="mt-2 text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
+                                {renderCommentText(comment.text)}
                               </div>
                             )}
+
+                            {/* Edit history */}
+                            {comment.editHistory.length > 0 && !isEditing && (
+                              <details className="mt-3 pt-2 border-t border-slate-100">
+                                <summary className="text-[10px] font-medium text-slate-400 cursor-pointer hover:text-slate-600 flex items-center gap-1 select-none">
+                                  <HistoryIcon style={{ fontSize: 12 }} />
+                                  Ver historial de ediciones ({comment.editHistory.length})
+                                </summary>
+                                <div className="mt-2 pl-3 border-l-2 border-slate-200 space-y-2">
+                                  {comment.editHistory.map((edit, i) => (
+                                    <div key={i} className="text-xs text-slate-500">
+                                      <p className="text-[10px] font-medium text-slate-400 mb-0.5">
+                                        {new Date(edit.editedAt).toLocaleString()}
+                                      </p>
+                                      <p className="text-slate-600 line-through bg-slate-50 px-1 py-0.5 rounded inline-block">{edit.text}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </details>
+                            )}
                           </div>
+                        )
+                      }
 
-                          {/* Comment content */}
-                          {isEditing ? (
-                            <div className="mt-2">
-                              <textarea
-                                value={editCommentText}
-                                onChange={e => setEditCommentText(e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
-                                rows={3}
-                                autoFocus
-                              />
-                              <div className="flex justify-end gap-2 mt-2">
-                                <button
-                                  onClick={() => {
-                                    setEditingCommentId(null)
-                                    setEditCommentText('')
-                                  }}
-                                  className="px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
-                                >
-                                  Cancelar
-                                </button>
-                                <button
-                                  onClick={() => handleEditComment(comment.id)}
-                                  disabled={!editCommentText.trim() || savingComment}
-                                  className="px-2.5 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
-                                >
-                                  {savingComment ? 'Guardando...' : 'Guardar'}
-                                </button>
-                              </div>
+                      return (
+                        <>
+                          {mentioned.length > 0 && (
+                            <div className="space-y-4">
+                              {mentioned.map(renderComment)}
                             </div>
-                          ) : (
-                            <div className="mt-2 text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{comment.text}</div>
                           )}
-
-                          {/* Edit history */}
-                          {comment.editHistory.length > 0 && !isEditing && (
-                            <details className="mt-3 pt-2 border-t border-slate-100">
-                              <summary className="text-[10px] font-medium text-slate-400 cursor-pointer hover:text-slate-600 flex items-center gap-1 select-none">
-                                <HistoryIcon style={{ fontSize: 12 }} />
-                                Ver historial de ediciones ({comment.editHistory.length})
-                              </summary>
-                              <div className="mt-2 pl-3 border-l-2 border-slate-200 space-y-2">
-                                {comment.editHistory.map((edit, i) => (
-                                  <div key={i} className="text-xs text-slate-500">
-                                    <p className="text-[10px] font-medium text-slate-400 mb-0.5">
-                                      {new Date(edit.editedAt).toLocaleString()}
-                                    </p>
-                                    <p className="text-slate-600 line-through bg-slate-50 px-1 py-0.5 rounded inline-block">{edit.text}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            </details>
+                          {mentioned.length > 0 && others.length > 0 && (
+                            <div className="border-t border-slate-200 my-4"></div>
                           )}
-                        </div>
+                          {others.length > 0 && (
+                            <div className="space-y-4">
+                              {others.map(renderComment)}
+                            </div>
+                          )}
+                        </>
                       )
-                    })
+                    })()
                   )}
                 </div>
               </div>

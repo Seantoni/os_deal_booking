@@ -1,12 +1,14 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
+import { parseFieldComments } from '@/types'
 
 // Types
 export interface InboxItem {
   id: string
-  type: 'opportunity_comment' | 'opportunity_mention' | 'marketing_comment' | 'marketing_mention'
+  type: 'opportunity_comment' | 'opportunity_mention' | 'marketing_comment' | 'marketing_mention' | 'booking_mention'
   commentId: string
   author: {
     clerkId: string
@@ -17,7 +19,7 @@ export interface InboxItem {
   createdAt: Date
   entityId: string
   entityName: string
-  entityType: 'opportunity' | 'marketing'
+  entityType: 'opportunity' | 'marketing' | 'booking_request'
   linkUrl: string
 }
 
@@ -168,7 +170,43 @@ export async function getInboxItems(): Promise<{
       return mentions.includes(userId)
     })
 
-    if (oppComments.length === 0 && mktComments.length === 0) {
+    // ============================================
+    // FETCH: Booking request field comments (mentions only)
+    // ============================================
+    const bookingRequestsWithComments = await prisma.bookingRequest.findMany({
+      where: {
+        fieldComments: { not: Prisma.JsonNull },
+      },
+      select: {
+        id: true,
+        name: true,
+        merchant: true,
+        fieldComments: true,
+      },
+    })
+
+    const bookingComments = bookingRequestsWithComments.flatMap((request) => {
+      const comments = parseFieldComments(request.fieldComments)
+      return comments
+        .filter((comment) => {
+          if (comment.authorId === userId) return false
+          const mentions = comment.mentions || []
+          if (!mentions.includes(userId)) return false
+          const dismissedBy = comment.dismissedBy || []
+          if (dismissedBy.includes(userId)) return false
+          return true
+        })
+        .map((comment) => ({
+          id: comment.id,
+          userId: comment.authorId,
+          content: comment.text,
+          createdAt: new Date(comment.createdAt),
+          requestId: request.id,
+          requestName: request.merchant || request.name,
+        }))
+    })
+
+    if (oppComments.length === 0 && mktComments.length === 0 && bookingComments.length === 0) {
       return { success: true, data: [] }
     }
 
@@ -179,6 +217,7 @@ export async function getInboxItems(): Promise<{
     const authorIds = new Set<string>()
     oppComments.forEach((c: typeof oppComments[number]) => authorIds.add(c.userId))
     mktComments.forEach((c: typeof mktComments[number]) => authorIds.add(c.userId))
+    bookingComments.forEach((c) => authorIds.add(c.userId))
 
     const authorProfiles = await prisma.userProfile.findMany({
       where: { clerkId: { in: Array.from(authorIds) } },
@@ -254,6 +293,22 @@ export async function getInboxItems(): Promise<{
       })
     }
 
+    // Process booking request field comments (mentions only)
+    for (const comment of bookingComments) {
+      inboxItems.push({
+        id: `booking_${comment.id}`,
+        type: 'booking_mention',
+        commentId: comment.id,
+        author: getAuthor(comment.userId),
+        content: comment.content,
+        createdAt: comment.createdAt,
+        entityId: comment.requestId,
+        entityName: comment.requestName || 'Solicitud',
+        entityType: 'booking_request',
+        linkUrl: `/deals?request=${comment.requestId}`,
+      })
+    }
+
     // Sort by date (oldest first)
     inboxItems.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
 
@@ -299,7 +354,7 @@ export async function getUnreadInboxCount(): Promise<{
  */
 export async function dismissInboxItem(
   commentId: string,
-  entityType: 'opportunity' | 'marketing'
+  entityType: 'opportunity' | 'marketing' | 'booking_request'
 ): Promise<{
   success: boolean
   error?: string
@@ -328,7 +383,7 @@ export async function dismissInboxItem(
           data: { dismissedBy: [...dismissedBy, userId] },
         })
       }
-    } else {
+    } else if (entityType === 'marketing') {
       const comment = await prisma.marketingOptionComment.findUnique({
         where: { id: commentId },
         select: { dismissedBy: true },
@@ -344,6 +399,41 @@ export async function dismissInboxItem(
           where: { id: commentId },
           data: { dismissedBy: [...dismissedBy, userId] },
         })
+      }
+    } else {
+      const requestsWithComments = await prisma.bookingRequest.findMany({
+        where: {
+          fieldComments: { not: Prisma.JsonNull },
+        },
+        select: {
+          id: true,
+          fieldComments: true,
+        },
+      })
+
+      let updated = false
+      for (const request of requestsWithComments) {
+        const comments = parseFieldComments(request.fieldComments)
+        const commentIndex = comments.findIndex(c => c.id === commentId)
+        if (commentIndex === -1) continue
+
+        const dismissedBy = comments[commentIndex].dismissedBy || []
+        if (!dismissedBy.includes(userId)) {
+          comments[commentIndex] = {
+            ...comments[commentIndex],
+            dismissedBy: [...dismissedBy, userId],
+          }
+          await prisma.bookingRequest.update({
+            where: { id: request.id },
+            data: { fieldComments: comments as unknown as Prisma.InputJsonValue },
+          })
+        }
+        updated = true
+        break
+      }
+
+      if (!updated) {
+        return { success: false, error: 'Comentario no encontrado' }
       }
     }
 

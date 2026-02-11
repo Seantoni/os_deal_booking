@@ -1,9 +1,10 @@
 'use client'
 
-import { memo } from 'react'
+import { memo, useCallback } from 'react'
 import type { FieldComment } from '@/types'
 import CommentIcon from '@mui/icons-material/Comment'
 import AddCommentIcon from '@mui/icons-material/AddComment'
+import MentionInput from '@/components/marketing/MentionInput'
 
 interface FieldWithCommentsProps {
   fieldKey: string
@@ -12,11 +13,10 @@ interface FieldWithCommentsProps {
   comments: FieldComment[]
   isHighlighted?: boolean
   activeCommentField: string | null
-  newCommentText: string
   savingComment: boolean
   onToggleComment: (fieldKey: string | null) => void
-  onCommentTextChange: (text: string) => void
-  onAddComment: () => void
+  onAddComment: (text: string, mentions: string[]) => void
+  getUsersAction?: (search?: string) => Promise<{ success: boolean; data?: Array<{ clerkId: string; name: string | null; email: string | null }>; error?: string }>
 }
 
 /**
@@ -30,14 +30,42 @@ function FieldWithCommentsComponent({
   comments,
   isHighlighted = false,
   activeCommentField,
-  newCommentText,
   savingComment,
   onToggleComment,
-  onCommentTextChange,
   onAddComment,
+  getUsersAction,
 }: FieldWithCommentsProps) {
   const hasComments = comments.length > 0
   const isAddingComment = activeCommentField === fieldKey
+
+  const renderCommentText = useCallback((content: string) => {
+    const mentionRegex = /@[\p{L}\p{N}]+(?:\s+[\p{L}\p{N}]+){0,3}/gu
+    const parts: Array<{ text: string; isMention: boolean }> = []
+    let lastIndex = 0
+    let match: RegExpExecArray | null
+
+    while ((match = mentionRegex.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push({ text: content.slice(lastIndex, match.index), isMention: false })
+      }
+      parts.push({ text: match[0], isMention: true })
+      lastIndex = match.index + match[0].length
+    }
+
+    if (lastIndex < content.length) {
+      parts.push({ text: content.slice(lastIndex), isMention: false })
+    }
+
+    return parts.map((part, index) =>
+      part.isMention ? (
+        <span key={index} className="text-blue-600 font-semibold">
+          {part.text}
+        </span>
+      ) : (
+        <span key={index}>{part.text}</span>
+      )
+    )
+  }, [])
 
   return (
     <div
@@ -102,7 +130,7 @@ function FieldWithCommentsComponent({
                   <span className="font-semibold text-slate-800">
                     {comment.authorName || comment.authorEmail?.split('@')[0] || 'User'}:
                   </span>
-                  <span className="ml-1 line-clamp-2">{comment.text}</span>
+                  <span className="ml-1 line-clamp-2">{renderCommentText(comment.text)}</span>
                 </div>
               </div>
             </div>
@@ -118,14 +146,13 @@ function FieldWithCommentsComponent({
       {/* Add comment form */}
       {isAddingComment && (
         <div className="mt-3 pt-3 border-t border-blue-100 relative z-10">
-          <textarea
-            value={newCommentText}
-            onChange={(e) => onCommentTextChange(e.target.value)}
-            placeholder="Add a comment..."
-            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none shadow-sm"
-            rows={2}
-            autoFocus
-            onClick={(e) => e.stopPropagation()}
+          <MentionInput
+            onSubmit={async (content, mentions) => {
+              await onAddComment(content, mentions)
+            }}
+            disabled={savingComment}
+            showAttachments={false}
+            getUsersAction={getUsersAction}
           />
           <div className="flex justify-end gap-2 mt-2">
             <button
@@ -137,16 +164,6 @@ function FieldWithCommentsComponent({
             >
               Cancel
             </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onAddComment()
-              }}
-              disabled={!newCommentText.trim() || savingComment}
-              className="px-2.5 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
-            >
-              {savingComment ? 'Saving...' : 'Add Comment'}
-            </button>
           </div>
         </div>
       )}
@@ -156,4 +173,3 @@ function FieldWithCommentsComponent({
 
 // Memoize to prevent unnecessary re-renders
 export const FieldWithComments = memo(FieldWithCommentsComponent)
-

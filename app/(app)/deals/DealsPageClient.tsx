@@ -56,10 +56,9 @@ const STATUS_ORDER = ['pendiente_por_asignar', 'asignado', 'elaboracion', 'borra
 const COLUMNS: ColumnConfig[] = [
   { key: 'name', label: 'Nombre del Negocio', sortable: true },
   { key: 'dateRange', label: 'Rango de Fechas', sortable: true },
-  { key: 'opportunityResponsible', label: 'Resp. Opp.', sortable: true },
+  { key: 'deliveryDate', label: 'Entrega', sortable: true },
   { key: 'dealResponsible', label: 'Editor', sortable: true },
   { key: 'ereResponsible', label: 'ERE' },
-  { key: 'bookedDate', label: 'Reservado', sortable: true },
   { key: 'status', label: 'Estado', sortable: true },
   { key: 'actions', label: '', align: 'right' },
 ]
@@ -160,6 +159,12 @@ export default function DealsPageClient({
     pageSize: 50,
     entityName: 'ofertas',
   })
+  
+  const [hasManualSort, setHasManualSort] = useState(false)
+  const handleSortWithTracking = useCallback((column: string) => {
+    setHasManualSort(true)
+    handleSort(column)
+  }, [handleSort])
 
   // Page tab (Editor Senior only)
   const [activeTab, setActiveTab] = useState<'deals' | 'assignments'>('deals')
@@ -259,6 +264,14 @@ export default function DealsPageClient({
     router.replace(next ? `/deals?${next}` : '/deals')
   }, [router, searchParams])
 
+  const clearRequestParam = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (!params.has('request')) return
+    params.delete('request')
+    const next = params.toString()
+    router.replace(next ? `/deals?${next}` : '/deals')
+  }, [router, searchParams])
+
   // Handle opening deal from URL query params (e.g., from search)
   useEffect(() => {
     const displayDeals = searchResults || deals
@@ -280,6 +293,14 @@ export default function DealsPageClient({
       }
     }
   }, [searchParams, deals, searchResults, clearOpenParam])
+
+  useEffect(() => {
+    const requestId = searchParams.get('request')
+    if (!requestId) return
+    setSelectedRequestId(requestId)
+    setBookingRequestModalOpen(true)
+    clearRequestParam()
+  }, [searchParams, clearRequestParam])
 
   // Get unique responsible users for filter
   const responsibleUsers = useMemo(() => {
@@ -343,6 +364,13 @@ export default function DealsPageClient({
     loadAssignments()
   }, [canViewAssignments, assignmentsLoaded, assignmentsLoading, loadAssignments])
 
+  const getDaysUntilLaunch = useCallback((dateValue: Date | string | null) => {
+    if (!dateValue) return null
+    const launchDate = parseDateInPanamaTime(formatDateForPanama(new Date(dateValue)))
+    const today = parseDateInPanamaTime(getTodayInPanama())
+    return Math.round((launchDate.getTime() - today.getTime()) / ONE_DAY_MS)
+  }, [])
+
   // Get sort value for a deal
   const getSortValue = useCallback((deal: Deal, column: string): string | number | null => {
     switch (column) {
@@ -350,18 +378,18 @@ export default function DealsPageClient({
         return (deal.bookingRequest.name || '').toLowerCase()
       case 'dateRange':
         return deal.eventDates?.startDate ? new Date(deal.eventDates.startDate).getTime() : 0
+      case 'deliveryDate':
+        return deal.deliveryDate ? new Date(deal.deliveryDate).getTime() : 0
       case 'opportunityResponsible':
         return (deal.opportunityResponsible?.name || deal.opportunityResponsible?.email || '').toLowerCase()
       case 'dealResponsible':
         return (deal.responsible?.name || deal.responsible?.email || 'unassigned').toLowerCase()
-      case 'bookedDate':
-        return deal.bookingRequest.processedAt ? new Date(deal.bookingRequest.processedAt).getTime() : 0
       case 'status':
         return STATUS_ORDER.indexOf(deal.status || 'pendiente_por_asignar')
       default:
         return null
     }
-  }, [])
+  }, [getDaysUntilLaunch])
 
   // Filter and sort deals
   // Server-side filtering is used for paginated data
@@ -393,12 +421,30 @@ export default function DealsPageClient({
     if (!canViewAssignments) {
       return filteredDeals
     }
-    return filteredDeals.filter(deal => deal.responsibleId && deal.ereResponsibleId)
+    return filteredDeals.filter(deal => deal.responsibleId && deal.ereResponsibleId && deal.deliveryDate)
   }, [filteredDeals, canViewAssignments])
 
   const assignedDeals = useMemo(() => {
-    return filteredDeals.filter(deal => deal.responsibleId && deal.ereResponsibleId)
+    return filteredDeals.filter(deal => deal.responsibleId && deal.ereResponsibleId && deal.deliveryDate)
   }, [filteredDeals])
+
+  const sortedAssignedDeals = useMemo(() => {
+    if (hasManualSort && sortColumn) {
+      return sortEntities(assignedDeals, sortColumn, sortDirection, getSortValue)
+    }
+    return [...assignedDeals].sort((a, b) => {
+      const daysA = getDaysUntilLaunch(a.deliveryDate ?? null)
+      const daysB = getDaysUntilLaunch(b.deliveryDate ?? null)
+      const normalizedA = daysA === null ? Number.POSITIVE_INFINITY : daysA
+      const normalizedB = daysB === null ? Number.POSITIVE_INFINITY : daysB
+      if (normalizedA !== normalizedB) {
+        return normalizedA - normalizedB
+      }
+      const dateA = a.deliveryDate ? new Date(a.deliveryDate).getTime() : Number.POSITIVE_INFINITY
+      const dateB = b.deliveryDate ? new Date(b.deliveryDate).getTime() : Number.POSITIVE_INFINITY
+      return dateA - dateB
+    })
+  }, [assignedDeals, getDaysUntilLaunch, getSortValue, hasManualSort, sortColumn, sortDirection])
 
   // Prefetch form config when hovering over a row
   const handleRowHover = useCallback(() => {
@@ -454,13 +500,6 @@ export default function DealsPageClient({
     } catch (error) {
       toast.error('No se pudo cargar la oferta')
     }
-  }, [])
-
-  const getDaysUntilLaunch = useCallback((startDate: Date | string | null) => {
-    if (!startDate) return null
-    const launchDate = parseDateInPanamaTime(formatDateForPanama(new Date(startDate)))
-    const today = parseDateInPanamaTime(getTodayInPanama())
-    return Math.round((launchDate.getTime() - today.getTime()) / ONE_DAY_MS)
   }, [])
 
   const handleAssignmentChange = useCallback(async (dealId: string, field: 'responsibleId' | 'ereResponsibleId', value: string) => {
@@ -755,7 +794,7 @@ export default function DealsPageClient({
                   </span>
                 </div>
                 <div className="bg-white divide-y divide-gray-100">
-                  {assignedDeals.map((deal) => (
+                  {sortedAssignedDeals.map((deal) => (
                       <button
                         key={deal.id}
                         type="button"
@@ -782,6 +821,27 @@ export default function DealsPageClient({
                                     day: 'numeric'
                                   })
                                 : '-'}
+                              {(() => {
+                                const daysUntilStart = getDaysUntilLaunch(deal.eventDates?.startDate ?? null)
+                                if (daysUntilStart === null) return ''
+                                return ` (${daysUntilStart} días)`
+                              })()}
+                            </p>
+                            <p className="text-[11px] text-gray-500 mt-1">
+                              Entrega: {(() => {
+                                const daysUntil = getDaysUntilLaunch(deal.deliveryDate ?? null)
+                                const deliveryLabel = deal.deliveryDate
+                                  ? new Date(deal.deliveryDate).toLocaleDateString('en-US', {
+                                      timeZone: PANAMA_TIMEZONE,
+                                      month: 'short',
+                                      day: 'numeric',
+                                    })
+                                  : '-'
+                                if (daysUntil === null) {
+                                  return deliveryLabel
+                                }
+                                return `${deliveryLabel} (${daysUntil} días)`
+                              })()}
                             </p>
                             <p className="text-[11px] text-gray-500 mt-1">
                               Editor: {deal.responsible?.name || deal.responsible?.email || 'Unassigned'}
@@ -856,9 +916,9 @@ export default function DealsPageClient({
                     columns={COLUMNS}
                     sortColumn={sortColumn}
                     sortDirection={sortDirection}
-                    onSort={handleSort}
+                    onSort={handleSortWithTracking}
                   >
-                  {assignedDeals.map((deal, index) => (
+                  {sortedAssignedDeals.map((deal, index) => (
                       <TableRow
                         key={deal.id}
                         index={index}
@@ -884,24 +944,52 @@ export default function DealsPageClient({
                                 day: 'numeric'
                               })
                             : '-'}
+                          {(() => {
+                            const daysUntilStart = getDaysUntilLaunch(deal.eventDates?.startDate ?? null)
+                            if (daysUntilStart === null) return null
+                            return (
+                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
+                                {daysUntilStart} días
+                              </span>
+                            )
+                          })()}
                         </TableCell>
                         <TableCell className="text-[13px] text-gray-600">
-                          {deal.opportunityResponsible?.name || deal.opportunityResponsible?.email || <span className="text-gray-400">-</span>}
+                          {(() => {
+                            const daysUntil = getDaysUntilLaunch(deal.deliveryDate ?? null)
+                            const deliveryLabel = deal.deliveryDate
+                              ? new Date(deal.deliveryDate).toLocaleDateString('en-US', {
+                                  timeZone: PANAMA_TIMEZONE,
+                                  month: 'short',
+                                  day: 'numeric',
+                                })
+                              : '-'
+                            if (daysUntil === null) {
+                              return deliveryLabel
+                            }
+                            return (
+                              <span className="inline-flex items-center gap-2">
+                                <span>{deliveryLabel}</span>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                                  daysUntil < 0
+                                    ? 'bg-red-100 text-red-700'
+                                    : daysUntil === 0
+                                      ? 'bg-emerald-100 text-emerald-700'
+                                      : daysUntil <= 7
+                                        ? 'bg-amber-100 text-amber-700'
+                                        : 'bg-blue-100 text-blue-700'
+                                }`}>
+                                  {daysUntil} días
+                                </span>
+                              </span>
+                            )
+                          })()}
                         </TableCell>
                         <TableCell className="text-[13px] text-gray-600">
                           {deal.responsible?.name || deal.responsible?.email || <span className="text-gray-400 italic">Unassigned</span>}
                         </TableCell>
                         <TableCell className="text-[13px] text-gray-600">
                           {deal.ereResponsible?.name || deal.ereResponsible?.email || <span className="text-gray-400 italic">Unassigned</span>}
-                        </TableCell>
-                        <TableCell className="text-[13px] text-gray-600">
-                          {deal.bookingRequest.processedAt 
-                            ? new Date(deal.bookingRequest.processedAt).toLocaleDateString('en-US', {
-                                timeZone: PANAMA_TIMEZONE,
-                                month: 'short',
-                                day: 'numeric'
-                              })
-                            : '-'}
                         </TableCell>
                     <TableCell>
                       {canEditStatus ? (
