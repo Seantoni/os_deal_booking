@@ -7,16 +7,16 @@ import type { UserRole } from '@/lib/constants'
  * IMPORTANT: This uses default-deny - pages NOT listed here will be blocked
  */
 export const PAGE_ACCESS: Record<string, UserRole[]> = {
-  '/events': ['admin', 'sales'],
-  '/dashboard': ['admin', 'sales'],
-  '/pipeline': ['admin', 'sales'],
+  '/events': ['admin', 'sales', 'editor_senior'],
+  '/dashboard': ['admin', 'sales', 'editor_senior'],
+  '/pipeline': ['admin', 'sales', 'editor_senior'],
   '/tasks': ['admin', 'sales'],
   '/leads': ['admin'],
   '/businesses': ['admin', 'sales'],
   '/opportunities': ['admin', 'sales'],
-  '/booking-requests': ['admin', 'sales'],
-  '/booking-requests/new': ['admin', 'sales'],
-  '/booking-requests/edit': ['admin', 'sales'], // Matches /booking-requests/edit/[id]
+  '/booking-requests': ['admin', 'sales', 'editor_senior'],
+  '/booking-requests/new': ['admin', 'sales', 'editor_senior'],
+  '/booking-requests/edit': ['admin', 'sales', 'editor_senior'], // Matches /booking-requests/edit/[id]
   '/reservations': ['admin', 'sales'],
   '/deals': ['admin', 'sales', 'editor', 'editor_senior'],
   '/marketing': ['admin', 'marketing', 'sales'],

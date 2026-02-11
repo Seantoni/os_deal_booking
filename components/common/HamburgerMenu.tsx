@@ -89,6 +89,21 @@ const editorSidebarConfig = {
   bottomItems: [] as SidebarItem[],
 }
 
+const editorSeniorSidebarConfig = {
+  monitorItems: [
+    { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
+    { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
+  ],
+  workItems: [
+    { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
+    { name: 'Deals', href: '/deals', Icon: ListAltIcon },
+    { name: 'Solicitudes', href: '/booking-requests', Icon: DescriptionIcon },
+  ],
+  acquireItems: [] as SidebarItem[],
+  adminItems: [] as SidebarItem[],
+  bottomItems: [] as SidebarItem[],
+}
+
 const marketingSidebarConfig = {
   monitorItems: [
     { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
@@ -132,8 +147,9 @@ export default function HamburgerMenu() {
       case 'admin':
         return adminSidebarConfig
       case 'editor':
-      case 'editor_senior':
         return editorSidebarConfig
+      case 'editor_senior':
+        return editorSeniorSidebarConfig
       case 'sales':
         return salesSidebarConfig
       case 'marketing':
