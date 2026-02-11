@@ -14,6 +14,7 @@ import { renderRejectionEmail } from '@/lib/email/templates/rejection'
 import { renderTaskReminderEmail } from '@/lib/email/templates/task-reminder'
 import { renderCancelledEmail } from '@/lib/email/templates/cancelled'
 import { renderAdminApprovalEmail } from '@/lib/email/templates/admin-approval'
+import { renderDealAssignmentReadyEmail } from '@/lib/email/templates/deal-assignment-ready'
 import { renderCronFailureEmail } from '@/lib/email/templates/cron-failure'
 import { renderMentionNotificationEmail } from '@/lib/email/templates/mention-notification'
 import { getAppBaseUrl } from '@/lib/config/env'
@@ -26,6 +27,7 @@ type EmailTemplateType =
   | 'task-reminder'
   | 'cancelled'
   | 'admin-approval'
+  | 'deal-assignment-ready'
   | 'cron-failure'
   | 'mention-notification'
 
@@ -171,6 +173,16 @@ export async function POST(req: Request) {
           approvedByName: 'María Rodríguez',
           approvedByEmail: 'maria@ofertasimple.com',
           recipientType: 'business',
+        })
+        break
+      case 'deal-assignment-ready':
+        html = renderDealAssignmentReadyEmail({
+          requestName: 'Ejemplo de Solicitud de Booking',
+          merchant: 'Restaurante Ejemplo',
+          category: 'Restaurantes',
+          startDate: '1 de enero de 2025',
+          endDate: '31 de enero de 2025',
+          assignmentsUrl: `${appBaseUrl}/deals?tab=assignments`,
         })
         break
       case 'cron-failure':

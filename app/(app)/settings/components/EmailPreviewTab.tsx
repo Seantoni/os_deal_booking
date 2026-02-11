@@ -10,6 +10,7 @@ type EmailTemplateType =
   | 'booking-confirmation' 
   | 'booking-request' 
   | 'admin-approval'
+  | 'deal-assignment-ready'
   | 'rejection' 
   | 'cancelled'
   | 'task-reminder'
@@ -103,6 +104,7 @@ export default function EmailPreviewTab({ isAdmin }: EmailPreviewTabProps) {
     { id: 'booking-request', label: 'Solicitud de Booking' },
     { id: 'booking-confirmation', label: 'Confirmación de Booking' },
     { id: 'admin-approval', label: 'Aprobación Admin' },
+    { id: 'deal-assignment-ready', label: 'Asignación Deal' },
     { id: 'rejection', label: 'Rechazo' },
     { id: 'cancelled', label: 'Cancelación' },
     { id: 'task-reminder', label: 'Recordatorio de Tareas' },

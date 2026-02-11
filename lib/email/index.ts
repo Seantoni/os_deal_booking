@@ -12,6 +12,7 @@ export { renderBookingRequestEmail } from './templates/booking-request'
 export { renderBookingConfirmationEmail } from './templates/booking-confirmation'
 export { renderRejectionEmail } from './templates/rejection'
 export { renderTaskReminderEmail } from './templates/task-reminder'
+export { renderDealAssignmentReadyEmail } from './templates/deal-assignment-ready'
 export { 
   renderMentionNotificationEmail,
   renderMarketingMentionNotificationEmail,
@@ -27,4 +28,4 @@ export { sendMentionNotificationEmail } from './services/mention-notification'
 export { sendOpportunityMentionNotificationEmail } from './services/opportunity-mention-notification'
 export { sendCronFailureEmail } from './services/cron-failure'
 export { sendApiFailureEmail } from './services/api-failure'
-
+export { sendDealAssignmentReadyEmail } from './services/deal-assignment-ready'

@@ -11,6 +11,36 @@ import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
 import { logActivity } from '@/lib/activity-log'
 import { parseDateInPanamaTime } from '@/lib/date/timezone'
 
+async function getEventDatesByBookingRequestIds(bookingRequestIds: string[]) {
+  if (bookingRequestIds.length === 0) {
+    return new Map<string, { startDate: Date; endDate: Date }>()
+  }
+
+  const events = await prisma.event.findMany({
+    where: {
+      bookingRequestId: { in: bookingRequestIds },
+      status: { in: ['booked', 'pre-booked'] },
+    },
+    select: {
+      bookingRequestId: true,
+      startDate: true,
+      endDate: true,
+      updatedAt: true,
+    },
+    orderBy: { updatedAt: 'desc' },
+  })
+
+  const map = new Map<string, { startDate: Date; endDate: Date }>()
+  for (const event of events) {
+    if (!event.bookingRequestId) continue
+    if (!map.has(event.bookingRequestId)) {
+      map.set(event.bookingRequestId, { startDate: event.startDate, endDate: event.endDate })
+    }
+  }
+
+  return map
+}
+
 /**
  * Get all deals (deals created from booked booking requests)
  */
@@ -277,6 +307,9 @@ export async function getDealsPaginated(options: {
       take: pageSize,
     })
 
+    const bookingRequestIds = deals.map(deal => deal.bookingRequestId)
+    const eventDatesByRequestId = await getEventDatesByBookingRequestIds(bookingRequestIds)
+
     // Get user info for responsible fields
     const userIds = [
       ...deals.map((d: { responsibleId: string | null }) => d.responsibleId).filter((id): id is string => id !== null),
@@ -291,7 +324,7 @@ export async function getDealsPaginated(options: {
         })
       : []
 
-    const dealsWithUsers = deals.map((deal: { responsibleId: string | null; ereResponsibleId: string | null }) => ({
+    const dealsWithUsers = deals.map((deal: { responsibleId: string | null; ereResponsibleId: string | null; bookingRequestId: string }) => ({
       ...deal,
       responsible: deal.responsibleId 
         ? users.find((u: { clerkId: string }) => u.clerkId === deal.responsibleId) || null
@@ -299,6 +332,7 @@ export async function getDealsPaginated(options: {
       ereResponsible: deal.ereResponsibleId
         ? users.find((u: { clerkId: string }) => u.clerkId === deal.ereResponsibleId) || null
         : null,
+      eventDates: eventDatesByRequestId.get(deal.bookingRequestId) || null,
     }))
 
     return { 
@@ -383,7 +417,7 @@ export async function getDealAssignmentsOverview() {
       return { success: false, error: 'Unauthorized: Editor Senior access required' }
     }
 
-    const [editors, eres, workloadCounts, unassignedDeals] = await Promise.all([
+    const [editors, eres, workloadCounts, unassignedDeals, deliveryDeals] = await Promise.all([
       prisma.userProfile.findMany({
         where: { role: 'editor', isActive: true },
         select: {
@@ -438,7 +472,26 @@ export async function getDealAssignmentsOverview() {
           bookingRequest: { startDate: 'asc' },
         },
       }),
+      prisma.deal.findMany({
+        where: {
+          status: { notIn: ['borrador_enviado', 'borrador_aprobado', 'pendiente_por_asignar'] },
+        },
+        select: {
+          id: true,
+          status: true,
+          responsibleId: true,
+          deliveryDate: true,
+        },
+      }),
     ])
+
+    const bookingRequestIds = unassignedDeals.map(deal => deal.bookingRequest.id)
+    const eventDatesByRequestId = await getEventDatesByBookingRequestIds(bookingRequestIds)
+
+    const unassignedDealsWithEventDates = unassignedDeals.map(deal => ({
+      ...deal,
+      eventDates: eventDatesByRequestId.get(deal.bookingRequest.id) || null,
+    }))
 
     const workload: Record<string, number> = {}
     workloadCounts.forEach((item) => {
@@ -453,7 +506,8 @@ export async function getDealAssignmentsOverview() {
         editors,
         eres,
         workload,
-        unassignedDeals,
+        unassignedDeals: unassignedDealsWithEventDates,
+        deliveryDeals,
       },
     }
   } catch (error) {
@@ -525,6 +579,9 @@ export async function searchDeals(query: string, options: {
       take: limit,
     })
 
+    const bookingRequestIds = deals.map(deal => deal.bookingRequestId)
+    const eventDatesByRequestId = await getEventDatesByBookingRequestIds(bookingRequestIds)
+
     // Get user info for responsible fields
     const userIds = [
       ...deals.map((d: { responsibleId: string | null }) => d.responsibleId).filter((id): id is string => id !== null),
@@ -539,7 +596,7 @@ export async function searchDeals(query: string, options: {
         })
       : []
 
-    const dealsWithUsers = deals.map((deal: { responsibleId: string | null; ereResponsibleId: string | null }) => ({
+    const dealsWithUsers = deals.map((deal: { responsibleId: string | null; ereResponsibleId: string | null; bookingRequestId: string }) => ({
       ...deal,
       responsible: deal.responsibleId 
         ? users.find((u: { clerkId: string }) => u.clerkId === deal.responsibleId) || null
@@ -547,6 +604,7 @@ export async function searchDeals(query: string, options: {
       ereResponsible: deal.ereResponsibleId
         ? users.find((u: { clerkId: string }) => u.clerkId === deal.ereResponsibleId) || null
         : null,
+      eventDates: eventDatesByRequestId.get(deal.bookingRequestId) || null,
     }))
 
     return { success: true, data: dealsWithUsers }
@@ -607,7 +665,18 @@ export async function getDealByBookingRequestId(bookingRequestId: string) {
       return { success: false, error: 'Deal not found' }
     }
 
-    return { success: true, data: deal }
+    const event = await prisma.event.findFirst({
+      where: {
+        bookingRequestId,
+        status: { in: ['booked', 'pre-booked'] },
+      },
+      select: { startDate: true, endDate: true, updatedAt: true },
+      orderBy: { updatedAt: 'desc' },
+    })
+
+    const eventDates = event ? { startDate: event.startDate, endDate: event.endDate } : null
+
+    return { success: true, data: { ...deal, eventDates } }
   } catch (error) {
     return handleServerActionError(error, 'getDealByBookingRequestId')
   }
@@ -770,6 +839,15 @@ export async function createDeal(bookingRequestId: string, responsibleId?: strin
       entityId: deal.id,
       entityName: deal.bookingRequest.name || undefined,
     })
+
+    if (!responsibleId) {
+      try {
+        const { sendDealAssignmentReadyEmail } = await import('@/lib/email/services/deal-assignment-ready')
+        await sendDealAssignmentReadyEmail(bookingRequestId)
+      } catch (emailError) {
+        logger.error('Failed to send deal assignment ready email:', emailError)
+      }
+    }
 
     // Revalidate cache
     invalidateEntity('deals')

@@ -12,10 +12,11 @@ import { renderBookingConfirmationEmail } from '@/lib/email/templates/booking-co
 import { renderBookingRequestEmail } from '@/lib/email/templates/booking-request'
 import { renderRejectionEmail } from '@/lib/email/templates/rejection'
 import { renderTaskReminderEmail } from '@/lib/email/templates/task-reminder'
+import { renderDealAssignmentReadyEmail } from '@/lib/email/templates/deal-assignment-ready'
 import { getAppBaseUrl } from '@/lib/config/env'
 import { logger } from '@/lib/logger'
 
-type EmailTemplateType = 'booking-confirmation' | 'booking-request' | 'rejection' | 'task-reminder'
+type EmailTemplateType = 'booking-confirmation' | 'booking-request' | 'rejection' | 'task-reminder' | 'deal-assignment-ready'
 
 export async function POST(req: Request) {
   try {
@@ -144,6 +145,17 @@ export async function POST(req: Request) {
         })
         subject = '[TEST] Recordatorio de Tareas - OfertaSimple'
         break
+      case 'deal-assignment-ready':
+        html = renderDealAssignmentReadyEmail({
+          requestName: 'Ejemplo de Solicitud de Booking',
+          merchant: 'Restaurante Ejemplo',
+          category: 'Restaurantes',
+          startDate: '1 de enero de 2025',
+          endDate: '31 de enero de 2025',
+          assignmentsUrl: `${appBaseUrl}/deals?tab=assignments`,
+        })
+        subject = '[TEST] Deal Listo para Asignar - OfertaSimple'
+        break
 
       default:
         return NextResponse.json(
@@ -183,4 +195,3 @@ export async function POST(req: Request) {
     )
   }
 }
-

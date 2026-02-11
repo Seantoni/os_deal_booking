@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic'
 import { PANAMA_TIMEZONE, formatDateForPanama, getTodayInPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
 import { ONE_DAY_MS } from '@/lib/constants/time'
 import { DEAL_STATUS_OPTIONS, DEAL_STATUS_LABELS } from '@/lib/constants'
-import { getDealsPaginated, searchDeals, deleteDeal, getDealsCounts, getDealPublicSlug, getDealAssignmentsOverview, updateDealResponsible, updateDealStatus } from '@/app/actions/deals'
+import { getDealsPaginated, searchDeals, deleteDeal, getDealsCounts, getDealPublicSlug, getDealAssignmentsOverview, updateDealResponsible, updateDealStatus, getDealByBookingRequestId } from '@/app/actions/deals'
 import { updateUserMaxActiveDeals } from '@/app/actions/users'
 import type { Deal } from '@/types'
 import FilterListIcon from '@mui/icons-material/FilterList'
@@ -70,6 +70,7 @@ const ASSIGNMENT_COLUMNS: ColumnConfig[] = [
   { key: 'daysUntil', label: 'Días para publicación', align: 'center' },
   { key: 'editor', label: 'Editor' },
   { key: 'ere', label: 'ERE' },
+  { key: 'actions', label: '', align: 'right' },
 ]
 
 type AssignmentUser = {
@@ -84,6 +85,10 @@ type AssignmentDeal = {
   status: string
   responsibleId: string | null
   ereResponsibleId: string | null
+  eventDates?: {
+    startDate: Date | string
+    endDate: Date | string
+  } | null
   bookingRequest: {
     id: string
     dealId: string | null
@@ -92,6 +97,13 @@ type AssignmentDeal = {
     endDate: Date | string
     processedAt: Date | string | null
   }
+}
+
+type AssignmentDeliveryDeal = {
+  id: string
+  status: string
+  responsibleId: string | null
+  deliveryDate: Date | string | null
 }
 
 interface DealsPageClientProps {
@@ -151,11 +163,24 @@ export default function DealsPageClient({
 
   // Page tab (Editor Senior only)
   const [activeTab, setActiveTab] = useState<'deals' | 'assignments'>('deals')
+  const lastTabParamRef = useRef<string | null>(null)
   useEffect(() => {
     if (!isEditorSenior && !isAdmin && activeTab !== 'deals') {
       setActiveTab('deals')
     }
   }, [isEditorSenior, isAdmin, activeTab])
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    if (tabParam === lastTabParamRef.current) return
+    lastTabParamRef.current = tabParam
+    if (tabParam === 'assignments' && (isEditorSenior || isAdmin)) {
+      setActiveTab('assignments')
+      return
+    }
+    if (tabParam === 'deals') {
+      setActiveTab('deals')
+    }
+  }, [searchParams, isEditorSenior, isAdmin])
 
   // Assignments tab state
   const [assignmentsLoading, setAssignmentsLoading] = useState(false)
@@ -165,6 +190,7 @@ export default function DealsPageClient({
   const [assignmentEditors, setAssignmentEditors] = useState<AssignmentUser[]>([])
   const [assignmentEres, setAssignmentEres] = useState<AssignmentUser[]>([])
   const [workloadByEditor, setWorkloadByEditor] = useState<Record<string, number>>({})
+  const [assignmentDeliveryDeals, setAssignmentDeliveryDeals] = useState<AssignmentDeliveryDeal[]>([])
   const [editorMaxValues, setEditorMaxValues] = useState<Record<string, string>>({})
   const [savingAssignments, setSavingAssignments] = useState<Record<string, boolean>>({})
   const [savingMaxValues, setSavingMaxValues] = useState<Record<string, boolean>>({})
@@ -185,6 +211,7 @@ export default function DealsPageClient({
         setAssignmentEditors(result.data.editors || [])
         setAssignmentEres(result.data.eres || [])
         setWorkloadByEditor(result.data.workload || {})
+        setAssignmentDeliveryDeals(result.data.deliveryDeals || [])
         const nextMaxValues: Record<string, string> = {}
         ;(result.data.editors || []).forEach((editor: AssignmentUser) => {
           nextMaxValues[editor.clerkId] = editor.maxActiveDeals !== null && editor.maxActiveDeals !== undefined
@@ -322,7 +349,7 @@ export default function DealsPageClient({
       case 'name':
         return (deal.bookingRequest.name || '').toLowerCase()
       case 'dateRange':
-        return new Date(deal.bookingRequest.startDate).getTime()
+        return deal.eventDates?.startDate ? new Date(deal.eventDates.startDate).getTime() : 0
       case 'opportunityResponsible':
         return (deal.opportunityResponsible?.name || deal.opportunityResponsible?.email || '').toLowerCase()
       case 'dealResponsible':
@@ -369,6 +396,10 @@ export default function DealsPageClient({
     return filteredDeals.filter(deal => deal.responsibleId && deal.ereResponsibleId)
   }, [filteredDeals, canViewAssignments])
 
+  const assignedDeals = useMemo(() => {
+    return filteredDeals.filter(deal => deal.responsibleId && deal.ereResponsibleId)
+  }, [filteredDeals])
+
   // Prefetch form config when hovering over a row
   const handleRowHover = useCallback(() => {
     prefetchFormConfig('deal')
@@ -379,24 +410,24 @@ export default function DealsPageClient({
     setDealModalOpen(true)
   }
 
-  function handleOpenBookingRequest(deal: Deal) {
-    setSelectedRequestId(deal.bookingRequestId)
+  function handleOpenBookingRequest(bookingRequestId: string) {
+    setSelectedRequestId(bookingRequestId)
     setBookingRequestModalOpen(true)
   }
 
-  const handleOpenPublicDeal = useCallback(async (deal: Deal) => {
-    if (!deal.bookingRequestId) return
-    const cached = dealSlugByRequestId[deal.bookingRequestId]
+  const handleOpenPublicDeal = useCallback(async (bookingRequestId: string) => {
+    if (!bookingRequestId) return
+    const cached = dealSlugByRequestId[bookingRequestId]
     if (cached) {
       window.open(`https://ofertasimple.com/ofertas/panama/${cached}`, '_blank', 'noopener,noreferrer')
       return
     }
 
-    const result = await getDealPublicSlug(deal.bookingRequestId)
+    const result = await getDealPublicSlug(bookingRequestId)
     if (result && typeof result === 'object' && 'success' in result && result.success) {
       const slug = (result.data as string | null) || null
       if (slug) {
-        setDealSlugByRequestId(prev => ({ ...prev, [deal.bookingRequestId]: slug }))
+        setDealSlugByRequestId(prev => ({ ...prev, [bookingRequestId]: slug }))
         window.open(`https://ofertasimple.com/ofertas/panama/${slug}`, '_blank', 'noopener,noreferrer')
       } else {
         toast.error('No se encontró el link de la oferta')
@@ -407,7 +438,26 @@ export default function DealsPageClient({
     toast.error('No se pudo cargar el link de la oferta')
   }, [dealSlugByRequestId])
 
-  const getDaysUntilLaunch = useCallback((startDate: Date | string) => {
+  const handleEditAssignmentDeal = useCallback(async (deal: AssignmentDeal) => {
+    if (!deal.bookingRequest?.id) return
+    try {
+      const result = await getDealByBookingRequestId(deal.bookingRequest.id)
+      if (result && typeof result === 'object' && 'success' in result && result.success) {
+        const fullDeal = result.data as Deal | null
+        if (fullDeal) {
+          setSelectedDeal(fullDeal)
+          setDealModalOpen(true)
+          return
+        }
+      }
+      toast.error((result && typeof result === 'object' && 'error' in result && result.error) || 'No se pudo cargar la oferta')
+    } catch (error) {
+      toast.error('No se pudo cargar la oferta')
+    }
+  }, [])
+
+  const getDaysUntilLaunch = useCallback((startDate: Date | string | null) => {
+    if (!startDate) return null
     const launchDate = parseDateInPanamaTime(formatDateForPanama(new Date(startDate)))
     const today = parseDateInPanamaTime(getTodayInPanama())
     return Math.round((launchDate.getTime() - today.getTime()) / ONE_DAY_MS)
@@ -502,6 +552,9 @@ export default function DealsPageClient({
     if (!isSearching) {
       await loadPage(currentPage)
     }
+    if (canViewAssignments) {
+      await loadAssignments()
+    }
     setDealModalOpen(false)
     setSelectedDeal(null)
     clearOpenParam()
@@ -555,6 +608,60 @@ export default function DealsPageClient({
     const counts = assignmentEditors.map(editor => workloadByEditor[editor.clerkId] || 0)
     return Math.max(1, ...counts)
   }, [assignmentEditors, workloadByEditor])
+
+  const deliveryWindow = useMemo(() => {
+    const weekdayLabels = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom']
+    const today = parseDateInPanamaTime(getTodayInPanama())
+    const day = today.getUTCDay()
+    const offsetToMonday = day === 0 ? -6 : 1 - day
+    const weekStart = new Date(today.getTime() + offsetToMonday * ONE_DAY_MS)
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: PANAMA_TIMEZONE,
+      month: 'short',
+      day: 'numeric',
+    })
+    const days = Array.from({ length: 14 }, (_, index) => {
+      const date = new Date(weekStart.getTime() + index * ONE_DAY_MS)
+      return {
+        key: formatDateForPanama(date),
+        label: formatter.format(date),
+        weekday: weekdayLabels[index % 7],
+      }
+    })
+    return { days }
+  }, [])
+
+  const deliveryStatsByEditor = useMemo(() => {
+    const baseCounts: Record<string, number> = {}
+    deliveryWindow.days.forEach(day => {
+      baseCounts[day.key] = 0
+    })
+    const stats: Record<string, { counts: Record<string, number>; noDate: number; max: number }> = {}
+
+    assignmentEditors.forEach(editor => {
+      stats[editor.clerkId] = { counts: { ...baseCounts }, noDate: 0, max: 1 }
+    })
+
+    assignmentDeliveryDeals.forEach(deal => {
+      if (!deal.responsibleId) return
+      const entry = stats[deal.responsibleId]
+      if (!entry) return
+      if (!deal.deliveryDate) {
+        entry.noDate += 1
+        return
+      }
+      const key = formatDateForPanama(new Date(deal.deliveryDate))
+      if (Object.prototype.hasOwnProperty.call(entry.counts, key)) {
+        entry.counts[key] += 1
+      }
+    })
+
+    Object.values(stats).forEach(entry => {
+      entry.max = Math.max(1, ...Object.values(entry.counts))
+    })
+
+    return stats
+  }, [assignmentDeliveryDeals, assignmentEditors, deliveryWindow.days])
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
@@ -616,7 +723,7 @@ export default function DealsPageClient({
                 <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
                 {searchLoading ? 'Buscando...' : 'Cargando...'}
               </div>
-            ) : filteredDeals.length === 0 ? (
+            ) : assignedDeals.length === 0 ? (
               <div className="px-4 pt-4 md:px-0 md:pt-0">
                 <EmptyTableState
                   icon={<FilterListIcon className="w-full h-full" />}
@@ -639,11 +746,11 @@ export default function DealsPageClient({
                   <SearchIndicator />
                   <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
                   <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
-                    {filteredDeals.length} oferta{filteredDeals.length !== 1 ? 's' : ''}
+                    {assignedDeals.length} oferta{assignedDeals.length !== 1 ? 's' : ''}
                   </span>
                 </div>
                 <div className="bg-white divide-y divide-gray-100">
-                  {filteredDeals.map((deal) => (
+                  {assignedDeals.map((deal) => (
                       <button
                         key={deal.id}
                         type="button"
@@ -657,15 +764,19 @@ export default function DealsPageClient({
                               {deal.bookingRequest.name}
                             </p>
                             <p className="text-xs text-gray-600 mt-0.5">
-                              {new Date(deal.bookingRequest.startDate).toLocaleDateString('en-US', {
-                                timeZone: PANAMA_TIMEZONE,
-                                month: 'short',
-                                day: 'numeric'
-                              })} — {new Date(deal.bookingRequest.endDate).toLocaleDateString('en-US', {
-                                timeZone: PANAMA_TIMEZONE,
-                                month: 'short',
-                                day: 'numeric'
-                              })}
+                              {deal.eventDates?.startDate
+                                ? new Date(deal.eventDates.startDate).toLocaleDateString('en-US', {
+                                    timeZone: PANAMA_TIMEZONE,
+                                    month: 'short',
+                                    day: 'numeric'
+                                  })
+                                : '-'} — {deal.eventDates?.endDate
+                                ? new Date(deal.eventDates.endDate).toLocaleDateString('en-US', {
+                                    timeZone: PANAMA_TIMEZONE,
+                                    month: 'short',
+                                    day: 'numeric'
+                                  })
+                                : '-'}
                             </p>
                             <p className="text-[11px] text-gray-500 mt-1">
                               Editor: {deal.responsible?.name || deal.responsible?.email || 'Unassigned'}
@@ -687,7 +798,7 @@ export default function DealsPageClient({
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  handleOpenBookingRequest(deal)
+                                  handleOpenBookingRequest(deal.bookingRequestId)
                                 }}
                                 className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition-colors"
                                 aria-label="Detalles"
@@ -713,7 +824,7 @@ export default function DealsPageClient({
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  handleOpenPublicDeal(deal)
+                                  handleOpenPublicDeal(deal.bookingRequestId)
                                 }}
                                 className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-emerald-600 transition-colors"
                                 aria-label="Link de la oferta"
@@ -742,7 +853,7 @@ export default function DealsPageClient({
                     sortDirection={sortDirection}
                     onSort={handleSort}
                   >
-                  {filteredDeals.map((deal, index) => (
+                  {assignedDeals.map((deal, index) => (
                       <TableRow
                         key={deal.id}
                         index={index}
@@ -755,15 +866,19 @@ export default function DealsPageClient({
                           </span>
                         </TableCell>
                         <TableCell className="text-[13px] text-gray-600">
-                          {new Date(deal.bookingRequest.startDate).toLocaleDateString('en-US', {
-                            timeZone: PANAMA_TIMEZONE,
-                            month: 'short',
-                            day: 'numeric'
-                          })} — {new Date(deal.bookingRequest.endDate).toLocaleDateString('en-US', {
-                            timeZone: PANAMA_TIMEZONE,
-                            month: 'short',
-                            day: 'numeric'
-                          })}
+                          {deal.eventDates?.startDate
+                            ? new Date(deal.eventDates.startDate).toLocaleDateString('en-US', {
+                                timeZone: PANAMA_TIMEZONE,
+                                month: 'short',
+                                day: 'numeric'
+                              })
+                            : '-'} — {deal.eventDates?.endDate
+                            ? new Date(deal.eventDates.endDate).toLocaleDateString('en-US', {
+                                timeZone: PANAMA_TIMEZONE,
+                                month: 'short',
+                                day: 'numeric'
+                              })
+                            : '-'}
                         </TableCell>
                         <TableCell className="text-[13px] text-gray-600">
                           {deal.opportunityResponsible?.name || deal.opportunityResponsible?.email || <span className="text-gray-400">-</span>}
@@ -817,7 +932,7 @@ export default function DealsPageClient({
                           <div className="flex items-center justify-end gap-1">
                             <button
                               type="button"
-                              onClick={() => handleOpenBookingRequest(deal)}
+                              onClick={() => handleOpenBookingRequest(deal.bookingRequestId)}
                               className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600 transition-colors"
                               aria-label="Detalles"
                               title="Detalles"
@@ -837,7 +952,7 @@ export default function DealsPageClient({
                             )}
                             <button
                               type="button"
-                              onClick={() => handleOpenPublicDeal(deal)}
+                              onClick={() => handleOpenPublicDeal(deal.bookingRequestId)}
                               className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-emerald-600 transition-colors"
                               aria-label="Link de la oferta"
                               title="Link de la oferta"
@@ -876,57 +991,87 @@ export default function DealsPageClient({
                     <p className="text-xs text-gray-500 mt-1">Incluye deals que no están en Borrador Enviado o Borrador Aprobado</p>
                   </div>
                 </div>
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  {assignmentEditors.length === 0 ? (
-                    <div className="text-sm text-gray-500">No hay editores activos.</div>
-                  ) : (
-                    assignmentEditors.map((editor) => {
-                      const count = workloadByEditor[editor.clerkId] || 0
-                      const capacity = editor.maxActiveDeals
-                      const max = capacity && capacity > 0 ? capacity : maxWorkload
-                      const percent = Math.min(100, Math.round((count / max) * 100))
-                      const isOver = capacity !== null && capacity !== undefined && capacity > 0 && count > capacity
-                      return (
-                        <div key={editor.clerkId} className="border border-gray-100 rounded-lg p-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate">
-                                {editor.name || editor.email || editor.clerkId}
-                              </p>
-                              <p className="text-xs text-gray-500 truncate">{editor.email}</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <div className="text-right">
-                                <div className={`text-sm font-semibold ${isOver ? 'text-red-600' : 'text-gray-800'}`}>
-                                  {capacity ? `${count}/${capacity}` : count}
+                <div className="mt-4">
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {assignmentEditors.length === 0 ? (
+                      <div className="text-sm text-gray-500">No hay editores activos.</div>
+                    ) : (
+                      assignmentEditors.map((editor) => {
+                        const count = workloadByEditor[editor.clerkId] || 0
+                        const capacity = editor.maxActiveDeals
+                        const max = capacity && capacity > 0 ? capacity : maxWorkload
+                        const percent = Math.min(100, Math.round((count / max) * 100))
+                        const isOver = capacity !== null && capacity !== undefined && capacity > 0 && count > capacity
+                        const editorStats = deliveryStatsByEditor[editor.clerkId]
+                        return (
+                          <div key={editor.clerkId} className="border border-gray-100 rounded-lg p-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-gray-900 truncate">
+                                  {editor.name || editor.email || editor.clerkId}
+                                </p>
+                                <p className="text-[10px] text-gray-500 truncate hidden sm:block">{editor.email}</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="text-right">
+                                  <div className={`text-xs font-semibold ${isOver ? 'text-red-600' : 'text-gray-800'}`}>
+                                    {capacity ? `${count}/${capacity}` : count}
+                                  </div>
+                                  <div className="text-[9px] text-gray-400">activos</div>
                                 </div>
-                                <div className="text-[10px] text-gray-400">activos</div>
-                              </div>
-                              <div className="flex flex-col items-end gap-1">
-                                <label className="text-[10px] text-gray-400 uppercase tracking-wide">Máx</label>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  value={editorMaxValues[editor.clerkId] ?? ''}
-                                  onChange={(e) => setEditorMaxValues(prev => ({ ...prev, [editor.clerkId]: e.target.value }))}
-                                  onBlur={() => handleMaxDealsCommit(editor)}
-                                  disabled={savingMaxValues[editor.clerkId]}
-                                  className="w-20 text-xs border border-gray-200 rounded-md px-2 py-1 text-right focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                                  placeholder="∞"
-                                />
+                                <div className="flex items-center gap-1">
+                                  <label className="text-[9px] text-gray-400 uppercase tracking-wide">Máx</label>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={editorMaxValues[editor.clerkId] ?? ''}
+                                    onChange={(e) => setEditorMaxValues(prev => ({ ...prev, [editor.clerkId]: e.target.value }))}
+                                    onBlur={() => handleMaxDealsCommit(editor)}
+                                    disabled={savingMaxValues[editor.clerkId]}
+                                    className="w-14 text-[10px] border border-gray-200 rounded-md px-1.5 py-1 text-right focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                    placeholder="∞"
+                                  />
+                                </div>
                               </div>
                             </div>
+                            <div className="mt-2 h-1 rounded-full bg-gray-100 overflow-hidden">
+                              <div
+                                className={`h-full ${isOver ? 'bg-red-500' : 'bg-emerald-500'}`}
+                                style={{ width: `${percent}%` }}
+                              />
+                            </div>
+                            {editorStats && (
+                              <div className="mt-3 border-t border-gray-100 pt-2">
+                                <div className="flex items-center justify-between text-[10px] text-gray-500">
+                                  <span>Entrega 2 semanas</span>
+                                  <span>Sin fecha: <span className="font-semibold text-gray-700">{editorStats.noDate}</span></span>
+                                </div>
+                                <div className="mt-2 flex gap-1 overflow-x-auto pb-1">
+                                  {deliveryWindow.days.map((day) => {
+                                    const dayCount = editorStats.counts[day.key] || 0
+                                    const height = Math.round((dayCount / editorStats.max) * 32)
+                                    const barHeight = dayCount === 0 ? 4 : Math.max(4, height)
+                                    return (
+                                      <div key={day.key} className="min-w-[20px] flex flex-col items-center">
+                                        <div className="h-10 w-full flex items-end">
+                                          <div
+                                            className={`w-full rounded-sm ${dayCount === 0 ? 'bg-gray-100' : 'bg-blue-500'}`}
+                                            style={{ height: `${barHeight}px` }}
+                                          />
+                                        </div>
+                                        <div className="mt-1 text-[9px] text-gray-400">{day.weekday}</div>
+                                        <div className="text-[9px] font-semibold text-gray-600">{dayCount}</div>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <div className="mt-2 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                            <div
-                              className={`h-full ${isOver ? 'bg-red-500' : 'bg-emerald-500'}`}
-                              style={{ width: `${percent}%` }}
-                            />
-                          </div>
-                        </div>
-                      )
-                    })
-                  )}
+                        )
+                      })
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -947,42 +1092,58 @@ export default function DealsPageClient({
                       onSort={() => {}}
                     >
                       {assignmentDeals.map((deal, index) => {
-                        const daysUntil = getDaysUntilLaunch(deal.bookingRequest.startDate)
+                        const runAt = deal.eventDates?.startDate ?? null
+                        const endAt = deal.eventDates?.endDate ?? null
+                        const daysUntil = getDaysUntilLaunch(runAt)
                         return (
-                          <TableRow key={deal.id} index={index}>
+                          <TableRow
+                            key={deal.id}
+                            index={index}
+                            onClick={() => handleEditAssignmentDeal(deal)}
+                            onMouseEnter={handleRowHover}
+                          >
                             <TableCell>
                               <span className="text-[13px] font-medium text-gray-900">
                                 {deal.bookingRequest.name}
                               </span>
                             </TableCell>
                             <TableCell className="text-[13px] text-gray-600">
-                              {new Date(deal.bookingRequest.startDate).toLocaleDateString('en-US', {
-                                timeZone: PANAMA_TIMEZONE,
-                                month: 'short',
-                                day: 'numeric',
-                              })} — {new Date(deal.bookingRequest.endDate).toLocaleDateString('en-US', {
-                                timeZone: PANAMA_TIMEZONE,
-                                month: 'short',
-                                day: 'numeric',
-                              })}
+                              {runAt
+                                ? new Date(runAt).toLocaleDateString('en-US', {
+                                    timeZone: PANAMA_TIMEZONE,
+                                    month: 'short',
+                                    day: 'numeric',
+                                  })
+                                : '-'} — {endAt
+                                ? new Date(endAt).toLocaleDateString('en-US', {
+                                    timeZone: PANAMA_TIMEZONE,
+                                    month: 'short',
+                                    day: 'numeric',
+                                  })
+                                : '-'}
                             </TableCell>
                             <TableCell className="text-[13px] text-gray-600 text-center">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
-                                daysUntil < 0
-                                  ? 'bg-red-100 text-red-700'
-                                  : daysUntil === 0
-                                    ? 'bg-emerald-100 text-emerald-700'
-                                    : daysUntil <= 7
-                                      ? 'bg-amber-100 text-amber-700'
-                                      : 'bg-blue-100 text-blue-700'
-                              }`}>
-                                {daysUntil}
-                              </span>
+                              {daysUntil === null ? (
+                                <span className="text-xs text-gray-400">-</span>
+                              ) : (
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                                  daysUntil < 0
+                                    ? 'bg-red-100 text-red-700'
+                                    : daysUntil === 0
+                                      ? 'bg-emerald-100 text-emerald-700'
+                                      : daysUntil <= 7
+                                        ? 'bg-amber-100 text-amber-700'
+                                        : 'bg-blue-100 text-blue-700'
+                                }`}>
+                                  {daysUntil}
+                                </span>
+                              )}
                             </TableCell>
                             <TableCell>
                               <select
                                 value={deal.responsibleId || ''}
                                 onChange={(e) => handleAssignmentChange(deal.id, 'responsibleId', e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
                                 disabled={savingAssignments[deal.id]}
                                 className="w-full border border-gray-200 rounded-md text-xs px-2 py-1.5 bg-white"
                               >
@@ -998,6 +1159,7 @@ export default function DealsPageClient({
                               <select
                                 value={deal.ereResponsibleId || ''}
                                 onChange={(e) => handleAssignmentChange(deal.id, 'ereResponsibleId', e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
                                 disabled={savingAssignments[deal.id]}
                                 className="w-full border border-gray-200 rounded-md text-xs px-2 py-1.5 bg-white"
                               >
@@ -1008,6 +1170,51 @@ export default function DealsPageClient({
                                   </option>
                                 ))}
                               </select>
+                            </TableCell>
+                            <TableCell
+                              align="right"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleOpenBookingRequest(deal.bookingRequest.id)
+                                  }}
+                                  className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600 transition-colors"
+                                  aria-label="Detalles"
+                                  title="Detalles"
+                                >
+                                  <DescriptionOutlinedIcon style={{ fontSize: 18 }} />
+                                </button>
+                                {canViewOsAdminLink && deal.bookingRequest?.dealId && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      window.open(`https://ofertasimple.com/admin/offer/${deal.bookingRequest.dealId}/edit`, '_blank', 'noopener,noreferrer')
+                                    }}
+                                    className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-indigo-600 transition-colors"
+                                    aria-label="OS Admin"
+                                    title="OS Admin"
+                                  >
+                                    <OpenInNewIcon style={{ fontSize: 18 }} />
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleOpenPublicDeal(deal.bookingRequest.id)
+                                  }}
+                                  className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-emerald-600 transition-colors"
+                                  aria-label="Link de la oferta"
+                                  title="Link de la oferta"
+                                >
+                                  <InsertLinkIcon style={{ fontSize: 18 }} />
+                                </button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         )

@@ -2,26 +2,40 @@ import { NextResponse } from 'next/server'
 import { getSettingsFromDB, saveSettingsToDB } from '@/app/actions/settings'
 import type { BookingSettings } from '@/types'
 import { logger } from '@/lib/logger'
-import { requireAdmin } from '@/lib/auth/roles'
+import { requireAdmin, getUserRole } from '@/lib/auth/roles'
+import { requireAuth } from '@/lib/utils/server-actions'
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export async function GET() {
-  // Require admin role - settings contain internal business rules
-  try {
-    await requireAdmin()
-  } catch {
+  // Require auth; non-admins only receive limited, safe settings
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
     return NextResponse.json(
-      { success: false, error: 'Unauthorized: Admin access required' },
-      { status: 403 }
+      { success: false, error: 'Unauthorized' },
+      { status: 401 }
     )
   }
 
   try {
+    const role = await getUserRole()
     const result = await getSettingsFromDB()
     if (result.success) {
+      if (role !== 'admin') {
+        return NextResponse.json(
+          {
+            success: true,
+            data: { requestFormFields: result.data?.requestFormFields || {} },
+          },
+          {
+            headers: {
+              'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+            },
+          }
+        )
+      }
       // Add cache-control headers to prevent browser caching
       return NextResponse.json(result, {
         headers: {
@@ -90,4 +104,3 @@ export async function POST(request: Request) {
     )
   }
 }
-

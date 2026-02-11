@@ -559,6 +559,12 @@ export async function bookEvent(eventId: string) {
               },
             })
             logger.info('Deal created automatically for booking request:', bookingRequest.id)
+            try {
+              const { sendDealAssignmentReadyEmail } = await import('@/lib/email/services/deal-assignment-ready')
+              await sendDealAssignmentReadyEmail(bookingRequest.id)
+            } catch (emailError) {
+              logger.error('Failed to send deal assignment ready email:', emailError)
+            }
           }
         } catch (dealError) {
           // Log error but don't fail the booking process

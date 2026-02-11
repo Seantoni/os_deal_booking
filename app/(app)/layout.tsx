@@ -8,6 +8,7 @@ import HamburgerMenu from '@/components/common/HamburgerMenu'
 import MobileBottomNav from '@/components/common/MobileBottomNav'
 import { CACHE_REVALIDATE_CATEGORIES_SECONDS, CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
 import type { UserRole } from '@/types'
+import { getUserRole } from '@/lib/auth/roles'
 
 /**
  * Server-side data fetching for app layout
@@ -54,25 +55,6 @@ const getCachedUsers = unstable_cache(
   }
 )
 
-// Get user role (per-user cache)
-async function getUserRoleFromDb(userId: string): Promise<UserRole | null> {
-  const getCachedRole = unstable_cache(
-    async () => {
-      const profile = await prisma.userProfile.findUnique({
-        where: { clerkId: userId },
-        select: { role: true },
-      })
-      return profile?.role as UserRole | null
-    },
-    [`user-role-${userId}`],
-    {
-      tags: [`user-role-${userId}`, 'users'],
-      revalidate: CACHE_REVALIDATE_SECONDS,
-    }
-  )
-  return getCachedRole()
-}
-
 /**
  * Server Component Layout for authenticated pages
  * Fetches shared data on server and passes to client providers
@@ -84,7 +66,7 @@ export default async function AppGroupLayout({ children }: { children: ReactNode
   const [categories, users, role] = await Promise.all([
     getCachedCategories().catch(() => []),
     userId ? getCachedUsers().catch(() => []) : Promise.resolve([]),
-    userId ? getUserRoleFromDb(userId).catch(() => null) : Promise.resolve(null),
+    userId ? getUserRole().catch(() => null) : Promise.resolve(null),
   ])
 
   return (

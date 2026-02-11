@@ -85,10 +85,10 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
   const filteredEvents = useMemo(() => {
     let filtered = events
     
-    // When NOT in pending booking view (categories sidebar visible), only show booked and pre-booked events
+    // When NOT in pending booking view (categories sidebar visible), only show booked and approved events
     // When IN pending booking view (pending requests sidebar visible), show all events
     if (!showPendingBooking) {
-      filtered = filtered.filter(event => event.status === 'booked' || event.status === 'pre-booked')
+      filtered = filtered.filter(event => event.status === 'booked' || event.status === 'approved')
     }
     
     // Filter by categories
@@ -604,8 +604,8 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
     const inDragRange = isInDragRange(dayNum)
     
     // Calculate daily event count and status
-    // Count events with 'booked' or 'pre-booked' status (both count for restrictions)
-    const bookedEvents = events.filter(event => event.status === 'booked' || event.status === 'pre-booked')
+    // Count events with 'booked' or 'approved' status (both count for restrictions)
+    const bookedEvents = events.filter(event => event.status === 'booked' || event.status === 'approved')
     const dateToCheck = new Date(year, month, dayNum)
     const eventsOnThisDay = getEventsOnDate(bookedEvents, dateToCheck)
     const dailyCount = eventsOnThisDay.length

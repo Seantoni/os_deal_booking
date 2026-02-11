@@ -1,6 +1,9 @@
 import { redirect } from 'next/navigation'
+import { getUserRole } from '@/lib/auth/roles'
+import { getDefaultPageForRole } from '@/lib/auth/page-access'
 
 export default async function Home() {
-  // Redirect to events page (homepage is now in settings)
-  redirect('/dashboard')
+  const role = await getUserRole()
+  const defaultPage = await getDefaultPageForRole(role)
+  redirect(defaultPage)
 }

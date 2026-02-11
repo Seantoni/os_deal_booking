@@ -54,6 +54,10 @@ export type Deal = {
     accountNumber: string | null
     pricingOptions: PricingOption[] | null
   }
+  eventDates?: {
+    startDate: Date | string
+    endDate: Date | string
+  } | null
   responsible?: {
     id: string
     clerkId: string
