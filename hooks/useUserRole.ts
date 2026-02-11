@@ -79,11 +79,11 @@ export function useUserRole() {
   const userId = user?.id || null
   const sidebar = useContext(SidebarContext)
   const hasProvider = sidebar !== undefined
-  const contextRole = sidebar?.role ?? null
+  const contextRole = (sidebar?.role as UserRole | null) ?? null
   const contextLoading = sidebar?.loading ?? false
   
   // Initialize from cache synchronously
-  const [role, setRole] = useState<UserRole>(() => {
+  const [role, setRole] = useState<UserRole | null>(() => {
     if (hasProvider) return contextRole
     if (typeof window === 'undefined') return null
     const cached = getCachedRole(userId)

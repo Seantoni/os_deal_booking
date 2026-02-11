@@ -56,7 +56,7 @@ interface SidebarContextType {
   isCalendarPage: boolean
   isAdmin: boolean
   isEditor: boolean
-  role: string | null
+  role: UserRole | null
   loading: boolean
   moreMenuOpen: boolean
   setMoreMenuOpen: (open: boolean) => void
