@@ -13,10 +13,11 @@ import { renderBookingRequestEmail } from '@/lib/email/templates/booking-request
 import { renderRejectionEmail } from '@/lib/email/templates/rejection'
 import { renderTaskReminderEmail } from '@/lib/email/templates/task-reminder'
 import { renderDealAssignmentReadyEmail } from '@/lib/email/templates/deal-assignment-ready'
+import { renderDailyCommentsEmail } from '@/lib/email/templates/daily-comments'
 import { getAppBaseUrl } from '@/lib/config/env'
 import { logger } from '@/lib/logger'
 
-type EmailTemplateType = 'booking-confirmation' | 'booking-request' | 'rejection' | 'task-reminder' | 'deal-assignment-ready'
+type EmailTemplateType = 'booking-confirmation' | 'booking-request' | 'rejection' | 'task-reminder' | 'deal-assignment-ready' | 'daily-comments'
 
 export async function POST(req: Request) {
   try {
@@ -155,6 +156,43 @@ export async function POST(req: Request) {
           assignmentsUrl: `${appBaseUrl}/deals?tab=assignments`,
         })
         subject = '[TEST] Deal Listo para Asignar - OfertaSimple'
+        break
+      case 'daily-comments':
+        html = renderDailyCommentsEmail({
+          userName: 'Usuario de Prueba',
+          opportunities: [
+            {
+              id: 'oppc1',
+              authorName: 'Ana Gómez',
+              content: '¿Podemos confirmar el presupuesto final?',
+              createdAt: new Date(),
+              entityName: 'Restaurante Ejemplo',
+              linkUrl: `${appBaseUrl}/opportunities?open=opp-123`,
+            },
+          ],
+          marketing: [
+            {
+              id: 'mkt1',
+              authorName: 'Luis Pérez',
+              content: 'Necesito la confirmación del arte para el martes.',
+              createdAt: new Date(),
+              entityName: 'Café Central',
+              linkUrl: `${appBaseUrl}/marketing?open=camp-1&option=opt-1`,
+            },
+          ],
+          requests: [
+            {
+              id: 'req1',
+              authorName: 'María Rodríguez',
+              content: '¿Puedes validar la fecha de inicio?',
+              createdAt: new Date(),
+              entityName: 'Solicitud OfertaSimple',
+              linkUrl: `${appBaseUrl}/deals?request=req-1`,
+            },
+          ],
+          appBaseUrl,
+        })
+        subject = '[TEST] Resumen Diario de Comentarios - OfertaSimple'
         break
 
       default:

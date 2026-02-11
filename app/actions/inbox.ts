@@ -305,7 +305,7 @@ export async function getInboxItems(): Promise<{
         entityId: comment.requestId,
         entityName: comment.requestName || 'Solicitud',
         entityType: 'booking_request',
-        linkUrl: `/deals?request=${comment.requestId}`,
+        linkUrl: `/deals?request=${comment.requestId}&comment=${comment.id}`,
       })
     }
 

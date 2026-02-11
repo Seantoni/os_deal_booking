@@ -18,7 +18,7 @@ export const PAGE_ACCESS: Record<string, UserRole[]> = {
   '/booking-requests/new': ['admin', 'sales', 'editor_senior'],
   '/booking-requests/edit': ['admin', 'sales', 'editor_senior'], // Matches /booking-requests/edit/[id]
   '/reservations': ['admin', 'sales'],
-  '/deals': ['admin', 'sales', 'editor', 'editor_senior'],
+  '/deals': ['admin', 'sales', 'editor', 'editor_senior', 'ere'],
   '/marketing': ['admin', 'marketing', 'sales'],
   '/market-intelligence': ['admin'],
   '/leads-negocios': ['admin'],
@@ -41,6 +41,8 @@ export async function getDefaultPageForRole(role: UserRole): Promise<string> {
       return '/events'
     case 'editor':
     case 'editor_senior':
+      return '/deals'
+    case 'ere':
       return '/deals'
     case 'marketing':
       return '/marketing'

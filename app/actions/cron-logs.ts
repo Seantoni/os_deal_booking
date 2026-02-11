@@ -12,6 +12,7 @@ export type CronJobName =
   | 'market-intelligence-scan'
   | 'event-leads-sync'
   | 'restaurant-leads-sync'
+  | 'daily-comment-summaries'
 
 export interface CronJobLog {
   id: string
@@ -234,6 +235,7 @@ export async function getCronJobStats(): Promise<{
     const jobNames: CronJobName[] = [
       'deal-metrics-sync',
       'task-reminders',
+      'daily-comment-summaries',
       'market-intelligence-scan',
     ]
 

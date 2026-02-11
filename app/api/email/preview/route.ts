@@ -17,6 +17,7 @@ import { renderAdminApprovalEmail } from '@/lib/email/templates/admin-approval'
 import { renderDealAssignmentReadyEmail } from '@/lib/email/templates/deal-assignment-ready'
 import { renderCronFailureEmail } from '@/lib/email/templates/cron-failure'
 import { renderMentionNotificationEmail } from '@/lib/email/templates/mention-notification'
+import { renderDailyCommentsEmail } from '@/lib/email/templates/daily-comments'
 import { getAppBaseUrl } from '@/lib/config/env'
 import { logger } from '@/lib/logger'
 
@@ -30,6 +31,7 @@ type EmailTemplateType =
   | 'deal-assignment-ready'
   | 'cron-failure'
   | 'mention-notification'
+  | 'daily-comments'
 
 export async function POST(req: Request) {
   try {
@@ -206,6 +208,42 @@ export async function POST(req: Request) {
           entityType: 'opportunity',
           entityId: 'opp-123',
           businessName: 'Restaurante Ejemplo',
+        })
+        break
+      case 'daily-comments':
+        html = renderDailyCommentsEmail({
+          userName: 'Juan Pérez',
+          opportunities: [
+            {
+              id: 'oppc1',
+              authorName: 'Ana Gómez',
+              content: '¿Podemos confirmar el presupuesto final?',
+              createdAt: new Date(),
+              entityName: 'Restaurante Ejemplo',
+              linkUrl: `${appBaseUrl}/opportunities?open=opp-123`,
+            },
+          ],
+          marketing: [
+            {
+              id: 'mkt1',
+              authorName: 'Luis Pérez',
+              content: 'Necesito la confirmación del arte para el martes.',
+              createdAt: new Date(),
+              entityName: 'Café Central',
+              linkUrl: `${appBaseUrl}/marketing?open=camp-1&option=opt-1`,
+            },
+          ],
+          requests: [
+            {
+              id: 'req1',
+              authorName: 'María Rodríguez',
+              content: '¿Puedes validar la fecha de inicio?',
+              createdAt: new Date(),
+              entityName: 'Solicitud OfertaSimple',
+              linkUrl: `${appBaseUrl}/deals?request=req-1`,
+            },
+          ],
+          appBaseUrl,
         })
         break
 

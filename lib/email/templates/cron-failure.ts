@@ -29,6 +29,7 @@ function getJobDisplayName(jobName: string): string {
   const names: Record<string, string> = {
     'deal-metrics-sync': 'Sincronización de Métricas de Deals',
     'task-reminders': 'Recordatorios de Tareas',
+    'daily-comment-summaries': 'Resumen Diario de Comentarios',
     'market-intelligence-scan': 'Escaneo de Inteligencia de Mercado',
   }
   return names[jobName] || jobName

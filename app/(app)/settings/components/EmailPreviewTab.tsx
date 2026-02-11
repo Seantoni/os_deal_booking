@@ -16,6 +16,7 @@ type EmailTemplateType =
   | 'task-reminder'
   | 'mention-notification'
   | 'cron-failure'
+  | 'daily-comments'
 
 interface EmailPreviewTabProps {
   isAdmin: boolean
@@ -108,6 +109,7 @@ export default function EmailPreviewTab({ isAdmin }: EmailPreviewTabProps) {
     { id: 'rejection', label: 'Rechazo' },
     { id: 'cancelled', label: 'Cancelación' },
     { id: 'task-reminder', label: 'Recordatorio de Tareas' },
+    { id: 'daily-comments', label: 'Resumen Comentarios' },
     { id: 'mention-notification', label: 'Notificación Mención' },
     { id: 'cron-failure', label: 'Falla Cron Job' },
   ]
@@ -119,7 +121,7 @@ export default function EmailPreviewTab({ isAdmin }: EmailPreviewTabProps) {
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Seleccionar Plantilla de Email
         </label>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2">
           {templates.map((template) => (
             <button
               key={template.id}

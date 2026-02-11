@@ -7,6 +7,7 @@ import { PANAMA_TIMEZONE, formatDateForPanama, getTodayInPanama, parseDateInPana
 import { ONE_DAY_MS } from '@/lib/constants/time'
 import { DEAL_STATUS_OPTIONS, DEAL_STATUS_LABELS } from '@/lib/constants'
 import { getDealsPaginated, searchDeals, deleteDeal, getDealsCounts, getDealPublicSlug, getDealAssignmentsOverview, updateDealResponsible, updateDealStatus, getDealByBookingRequestId } from '@/app/actions/deals'
+import { dismissInboxItem } from '@/app/actions/inbox'
 import { updateUserMaxActiveDeals } from '@/app/actions/users'
 import type { Deal } from '@/types'
 import FilterListIcon from '@mui/icons-material/FilterList'
@@ -252,6 +253,7 @@ export default function DealsPageClient({
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null)
   const [bookingRequestModalOpen, setBookingRequestModalOpen] = useState(false)
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
+  const dismissedCommentRef = useRef<string | null>(null)
   const confirmDialog = useConfirmDialog()
   const [dealSlugByRequestId, setDealSlugByRequestId] = useState<Record<string, string>>({})
   const consumedOpenRef = useRef<string | null>(null)
@@ -268,6 +270,14 @@ export default function DealsPageClient({
     const params = new URLSearchParams(searchParams.toString())
     if (!params.has('request')) return
     params.delete('request')
+    const next = params.toString()
+    router.replace(next ? `/deals?${next}` : '/deals')
+  }, [router, searchParams])
+
+  const clearCommentParam = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (!params.has('comment')) return
+    params.delete('comment')
     const next = params.toString()
     router.replace(next ? `/deals?${next}` : '/deals')
   }, [router, searchParams])
@@ -301,6 +311,14 @@ export default function DealsPageClient({
     setBookingRequestModalOpen(true)
     clearRequestParam()
   }, [searchParams, clearRequestParam])
+
+  useEffect(() => {
+    const commentId = searchParams.get('comment')
+    if (!commentId || dismissedCommentRef.current === commentId) return
+    dismissedCommentRef.current = commentId
+    dismissInboxItem(commentId, 'booking_request').catch(() => {})
+    clearCommentParam()
+  }, [searchParams, clearCommentParam])
 
   // Get unique responsible users for filter
   const responsibleUsers = useMemo(() => {
