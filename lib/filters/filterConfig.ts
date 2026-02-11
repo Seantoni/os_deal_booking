@@ -186,8 +186,15 @@ export const SALES_TEAM_OPTIONS = [
  */
 export const DEAL_FIELDS: FilterFieldDefinition[] = [
   { key: 'status', label: 'Status', type: 'select', options: DEAL_STATUS_OPTIONS },
+  { key: 'deliveryDate', label: 'Delivery Date', type: 'date' },
   { key: 'createdAt', label: 'Created Date', type: 'date' },
   { key: 'updatedAt', label: 'Updated Date', type: 'date' },
+  { key: 'responsible.name', label: 'Editor Name', type: 'text' },
+  { key: 'responsible.email', label: 'Editor Email', type: 'text' },
+  { key: 'ereResponsible.name', label: 'ERE Name', type: 'text' },
+  { key: 'ereResponsible.email', label: 'ERE Email', type: 'text' },
+  { key: 'eventDates.startDate', label: 'Event Start Date', type: 'date' },
+  { key: 'eventDates.endDate', label: 'Event End Date', type: 'date' },
   // Fields from linked BookingRequest
   { key: 'bookingRequest.name', label: 'Name', type: 'text' },
   { key: 'bookingRequest.businessEmail', label: 'Business Email', type: 'text' },
@@ -195,6 +202,7 @@ export const DEAL_FIELDS: FilterFieldDefinition[] = [
   { key: 'bookingRequest.merchant', label: 'Merchant', type: 'text' },
   { key: 'bookingRequest.startDate', label: 'Start Date', type: 'date' },
   { key: 'bookingRequest.endDate', label: 'End Date', type: 'date' },
+  { key: 'bookingRequest.processedAt', label: 'Booked Date', type: 'date' },
 ]
 
 /**
@@ -414,4 +422,3 @@ export function mapCustomFieldEntityType(customFieldEntityType: string): EntityT
       return null
   }
 }
-
