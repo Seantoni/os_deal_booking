@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo, useTransition } from 'react'
-import { getDealPublicSlug, updateDealDeliveryDate, updateDealResponsible, updateDealStatus } from '@/app/actions/deals'
+import { getDealPublicSlug, getSuggestedDeliveryDate, updateDealDeliveryDate, updateDealResponsible, updateDealStatus } from '@/app/actions/deals'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
 import { useCachedFormConfig } from '@/hooks/useFormConfigCache'
@@ -22,7 +22,7 @@ import BookingRequestSection from './BookingRequestSection'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
 import DealFormSkeleton from './DealFormSkeleton'
 import { ONE_DAY_MS } from '@/lib/constants/time'
-import { getTodayInPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
+import { formatDateForPanama, getTodayInPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
 
 interface DealFormModalProps {
   isOpen: boolean
@@ -47,6 +47,8 @@ export default function DealFormModal({
   const [bookingRequestModalOpen, setBookingRequestModalOpen] = useState(false)
   const [publicDealSlug, setPublicDealSlug] = useState<string | null>(null)
   const [loadingPublicDealSlug, setLoadingPublicDealSlug] = useState(false)
+  const [suggestedDeliveryDate, setSuggestedDeliveryDate] = useState<string | null>(null)
+  const [loadingSuggestedDate, setLoadingSuggestedDate] = useState(false)
   
   // Get cached form configuration (instant if already prefetched)
   const { sections: cachedSections, initialized: cachedInitialized } = useCachedFormConfig('deal')
@@ -77,6 +79,19 @@ export default function DealFormModal({
     deal,
     isAdmin,
   })
+
+  const startDateKey = useMemo(() => {
+    const startDateSource = deal?.eventDates?.startDate || deal?.bookingRequest?.startDate
+    if (!startDateSource) return null
+    return formatDateForPanama(new Date(startDateSource))
+  }, [deal?.eventDates?.startDate, deal?.bookingRequest?.startDate])
+
+  const maxDeliveryDate = useMemo(() => {
+    if (!startDateKey) return undefined
+    const start = parseDateInPanamaTime(startDateKey)
+    const dayBefore = new Date(start.getTime() - ONE_DAY_MS)
+    return formatDateForPanama(dayBefore)
+  }, [startDateKey])
 
   // Build initial values from deal entity
   const initialValues = useMemo((): Record<string, string | null> => {
@@ -133,6 +148,11 @@ export default function DealFormModal({
     
     if (!deal) {
       setError('Oferta no encontrada')
+      return
+    }
+
+    if (deliveryDate && startDateKey && deliveryDate >= startDateKey) {
+      setError('La fecha de entrega debe ser antes de la fecha de inicio.')
       return
     }
     
@@ -192,6 +212,55 @@ export default function DealFormModal({
       cancelled = true
     }
   }, [deal?.bookingRequestId, isOpen])
+
+  useEffect(() => {
+    const startDateSource = deal?.eventDates?.startDate || deal?.bookingRequest?.startDate
+    if (!isOpen || !startDateSource) {
+      setSuggestedDeliveryDate(null)
+      return
+    }
+    if (status !== 'pendiente_por_asignar') {
+      setSuggestedDeliveryDate(null)
+      return
+    }
+
+    let cancelled = false
+    setLoadingSuggestedDate(true)
+    getSuggestedDeliveryDate(formatDateForPanama(new Date(startDateSource)))
+      .then(result => {
+        if (cancelled) return
+        if (result && typeof result === 'object' && 'success' in result && result.success) {
+          const data = result.data as { suggestedDate: string | null } | null
+          setSuggestedDeliveryDate(data?.suggestedDate ?? null)
+        } else {
+          setSuggestedDeliveryDate(null)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSuggestedDeliveryDate(null)
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSuggestedDate(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [deal?.eventDates?.startDate, deal?.bookingRequest?.startDate, isOpen, status])
+
+  useEffect(() => {
+    if (!isOpen || !startDateKey || !deliveryDate) return
+    if (deliveryDate >= startDateKey) {
+      setDeliveryDate('')
+    }
+  }, [deliveryDate, isOpen, setDeliveryDate, startDateKey])
+
+  useEffect(() => {
+    if (!isOpen) return
+    if (status !== 'pendiente_por_asignar') return
+    if (deliveryDate || !suggestedDeliveryDate) return
+    setDeliveryDate(suggestedDeliveryDate)
+  }, [deliveryDate, isOpen, status, suggestedDeliveryDate, setDeliveryDate])
 
   if (!isOpen) return null
 
@@ -348,6 +417,7 @@ export default function DealFormModal({
                         value={deliveryDate || ''}
                         onChange={(e) => setDeliveryDate(e.target.value)}
                         disabled={!isAdmin || loading || loadingData}
+                        max={maxDeliveryDate}
                         className="text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white"
                       />
                       {deliveryDate && (() => {
@@ -368,6 +438,19 @@ export default function DealFormModal({
                         )
                       })()}
                     </div>
+                    {status === 'pendiente_por_asignar' && (
+                      <div className="mt-2 text-[11px] text-gray-500">
+                        {loadingSuggestedDate ? (
+                          'Calculando fecha sugerida según carga...'
+                        ) : suggestedDeliveryDate ? (
+                          <>
+                            Fecha sugerida según carga: <span className="font-semibold text-gray-700">{suggestedDeliveryDate}</span>
+                          </>
+                        ) : (
+                          'No hay cupo disponible antes de la fecha de inicio.'
+                        )}
+                      </div>
+                    )}
                   </div>
                 }
               />

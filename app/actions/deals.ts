@@ -9,7 +9,8 @@ import { getUserRole } from '@/lib/auth/roles'
 import { logger } from '@/lib/logger'
 import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
 import { logActivity } from '@/lib/activity-log'
-import { parseDateInPanamaTime } from '@/lib/date/timezone'
+import { formatDateForPanama, getTodayInPanama, parseDateInPanamaTime, parseEndDateInPanamaTime } from '@/lib/date/timezone'
+import { ONE_DAY_MS } from '@/lib/constants/time'
 
 async function getEventDatesByBookingRequestIds(bookingRequestIds: string[]) {
   if (bookingRequestIds.length === 0) {
@@ -474,7 +475,7 @@ export async function getDealAssignmentsOverview() {
       }),
       prisma.deal.findMany({
         where: {
-          status: { notIn: ['borrador_enviado', 'borrador_aprobado', 'pendiente_por_asignar'] },
+          status: { notIn: ['borrador_enviado', 'borrador_aprobado'] },
         },
         select: {
           id: true,
@@ -1015,6 +1016,85 @@ export async function updateDealDeliveryDate(dealId: string, deliveryDate: strin
     return { success: true, data: updated }
   } catch (error) {
     return handleServerActionError(error, 'updateDealDeliveryDate')
+  }
+}
+
+/**
+ * Suggest earliest delivery date based on editor daily capacity.
+ * Defaults to 4 per editor when maxActiveDeals is null.
+ */
+export async function getSuggestedDeliveryDate(startDate: string) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    const role = await getUserRole()
+    if (role !== 'admin' && role !== 'editor_senior') {
+      return { success: false, error: 'Unauthorized: Editor Senior access required' }
+    }
+
+    const todayKey = getTodayInPanama()
+    const today = parseDateInPanamaTime(todayKey)
+    const start = parseDateInPanamaTime(startDate)
+    const dayBeforeStart = new Date(start.getTime() - ONE_DAY_MS)
+    const dayBeforeStartKey = formatDateForPanama(dayBeforeStart)
+    const end = parseEndDateInPanamaTime(dayBeforeStartKey)
+    const daysUntilStart = Math.floor((start.getTime() - today.getTime()) / ONE_DAY_MS)
+
+    if (daysUntilStart <= 0) {
+      return { success: true, data: { suggestedDate: null, capacity: 0 } }
+    }
+
+    if (end.getTime() < today.getTime()) {
+      return { success: true, data: { suggestedDate: null, capacity: 0 } }
+    }
+
+    const editors = await prisma.userProfile.findMany({
+      where: { role: 'editor', isActive: true },
+      select: { maxActiveDeals: true },
+    })
+    const capacity = editors.reduce((sum, editor) => {
+      const max = editor.maxActiveDeals
+      return sum + (max === null || max === undefined ? 4 : Math.max(0, max))
+    }, 0)
+
+    if (capacity <= 0) {
+      return { success: true, data: { suggestedDate: null, capacity } }
+    }
+
+    const deals = await prisma.deal.findMany({
+      where: {
+        deliveryDate: { not: null, gte: today, lte: end },
+        status: { notIn: ['borrador_enviado', 'borrador_aprobado'] },
+      },
+      select: { deliveryDate: true },
+    })
+
+    const counts: Record<string, number> = {}
+    deals.forEach(deal => {
+      if (!deal.deliveryDate) return
+      const key = formatDateForPanama(new Date(deal.deliveryDate))
+      counts[key] = (counts[key] || 0) + 1
+    })
+
+    const preferredOffset = daysUntilStart > 11 ? 11 : Math.min(5, daysUntilStart)
+    const preferredDate = new Date(start.getTime() - preferredOffset * ONE_DAY_MS)
+    let current = preferredDate.getTime() < today.getTime() ? today : preferredDate
+
+    while (current.getTime() <= end.getTime()) {
+      const key = formatDateForPanama(current)
+      const count = counts[key] || 0
+      if (count < capacity) {
+        return { success: true, data: { suggestedDate: key, capacity } }
+      }
+      current = new Date(current.getTime() + ONE_DAY_MS)
+    }
+
+    return { success: true, data: { suggestedDate: null, capacity } }
+  } catch (error) {
+    return handleServerActionError(error, 'getSuggestedDeliveryDate')
   }
 }
 

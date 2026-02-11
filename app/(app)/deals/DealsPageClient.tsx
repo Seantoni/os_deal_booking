@@ -622,14 +622,19 @@ export default function DealsPageClient({
     })
     const days = Array.from({ length: 14 }, (_, index) => {
       const date = new Date(weekStart.getTime() + index * ONE_DAY_MS)
+      const key = formatDateForPanama(date)
+      const dayNum = key.split('-')[2]
       return {
-        key: formatDateForPanama(date),
+        key,
         label: formatter.format(date),
+        dayNum,
         weekday: weekdayLabels[index % 7],
       }
     })
     return { days }
   }, [])
+
+  const todayKey = useMemo(() => getTodayInPanama(), [])
 
   const deliveryStatsByEditor = useMemo(() => {
     const baseCounts: Record<string, number> = {}
@@ -999,8 +1004,6 @@ export default function DealsPageClient({
                       assignmentEditors.map((editor) => {
                         const count = workloadByEditor[editor.clerkId] || 0
                         const capacity = editor.maxActiveDeals
-                        const max = capacity && capacity > 0 ? capacity : maxWorkload
-                        const percent = Math.min(100, Math.round((count / max) * 100))
                         const isOver = capacity !== null && capacity !== undefined && capacity > 0 && count > capacity
                         const editorStats = deliveryStatsByEditor[editor.clerkId]
                         return (
@@ -1010,16 +1013,9 @@ export default function DealsPageClient({
                                 <p className="text-xs font-semibold text-gray-900 truncate">
                                   {editor.name || editor.email || editor.clerkId}
                                 </p>
-                                <p className="text-[10px] text-gray-500 truncate hidden sm:block">{editor.email}</p>
                               </div>
                               <div className="flex items-center gap-2">
-                                <div className="text-right">
-                                  <div className={`text-xs font-semibold ${isOver ? 'text-red-600' : 'text-gray-800'}`}>
-                                    {capacity ? `${count}/${capacity}` : count}
-                                  </div>
-                                  <div className="text-[9px] text-gray-400">activos</div>
-                                </div>
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-0.5">
                                   <label className="text-[9px] text-gray-400 uppercase tracking-wide">Máx</label>
                                   <input
                                     type="number"
@@ -1028,17 +1024,11 @@ export default function DealsPageClient({
                                     onChange={(e) => setEditorMaxValues(prev => ({ ...prev, [editor.clerkId]: e.target.value }))}
                                     onBlur={() => handleMaxDealsCommit(editor)}
                                     disabled={savingMaxValues[editor.clerkId]}
-                                    className="w-14 text-[10px] border border-gray-200 rounded-md px-1.5 py-1 text-right focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                    className="w-10 text-[10px] border border-gray-200 rounded-md px-1 py-0.5 text-right focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                                     placeholder="∞"
                                   />
                                 </div>
                               </div>
-                            </div>
-                            <div className="mt-2 h-1 rounded-full bg-gray-100 overflow-hidden">
-                              <div
-                                className={`h-full ${isOver ? 'bg-red-500' : 'bg-emerald-500'}`}
-                                style={{ width: `${percent}%` }}
-                              />
                             </div>
                             {editorStats && (
                               <div className="mt-3 border-t border-gray-100 pt-2">
@@ -1051,16 +1041,57 @@ export default function DealsPageClient({
                                     const dayCount = editorStats.counts[day.key] || 0
                                     const height = Math.round((dayCount / editorStats.max) * 32)
                                     const barHeight = dayCount === 0 ? 4 : Math.max(4, height)
+                                    const isToday = day.key === todayKey
+                                    const isWeekend = day.weekday === 'Sab' || day.weekday === 'Dom'
+                                    const hasCapacity = capacity !== null && capacity !== undefined && capacity > 0
+                                    const reachedDailyMax = hasCapacity && dayCount >= capacity
                                     return (
-                                      <div key={day.key} className="min-w-[20px] flex flex-col items-center">
-                                        <div className="h-10 w-full flex items-end">
+                                      <div key={day.key} className={`min-w-[22px] flex flex-col items-center ${isToday ? 'text-blue-700' : ''}`}>
+                                        <div className={`text-[9px] font-semibold ${
+                                          reachedDailyMax
+                                            ? 'text-red-600'
+                                            : isToday
+                                              ? 'text-blue-700'
+                                              : isWeekend
+                                                ? 'text-amber-700'
+                                                : 'text-gray-700'
+                                        }`}>
+                                          {dayCount}
+                                        </div>
+                                        <div className="mt-0.5 h-10 w-full flex items-end">
                                           <div
-                                            className={`w-full rounded-sm ${dayCount === 0 ? 'bg-gray-100' : 'bg-blue-500'}`}
+                                            className={`w-full rounded-sm ${
+                                              dayCount === 0
+                                                ? 'bg-gray-100'
+                                                : hasCapacity
+                                                  ? reachedDailyMax
+                                                    ? 'bg-red-500'
+                                                    : 'bg-emerald-500'
+                                                  : isWeekend
+                                                    ? 'bg-amber-400'
+                                                    : 'bg-blue-500'
+                                            } ${isToday ? 'ring-1 ring-blue-400' : ''}`}
                                             style={{ height: `${barHeight}px` }}
                                           />
                                         </div>
-                                        <div className="mt-1 text-[9px] text-gray-400">{day.weekday}</div>
-                                        <div className="text-[9px] font-semibold text-gray-600">{dayCount}</div>
+                                        <div className={`mt-1 text-[9px] ${
+                                          reachedDailyMax
+                                            ? 'font-semibold text-red-600'
+                                            : isToday
+                                              ? 'font-semibold text-blue-700'
+                                              : isWeekend
+                                                ? 'text-amber-700'
+                                                : 'text-gray-500'
+                                        }`}>{day.weekday}</div>
+                                        <div className={`text-[9px] ${
+                                          reachedDailyMax
+                                            ? 'text-red-600'
+                                            : isToday
+                                              ? 'text-blue-700'
+                                              : isWeekend
+                                                ? 'text-amber-700'
+                                                : 'text-gray-500'
+                                        }`}>{day.dayNum}</div>
                                       </div>
                                     )
                                   })}
