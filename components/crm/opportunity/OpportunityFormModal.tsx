@@ -19,6 +19,7 @@ import OpportunityPipeline from './OpportunityPipeline'
 import ReferenceInfoBar from '@/components/shared/ReferenceInfoBar'
 import WonStageBanner from './WonStageBanner'
 import LinkedBusinessSection from './LinkedBusinessSection'
+import LinkedRequestSection from './LinkedRequestSection'
 import LostReasonSection from './LostReasonSection'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
 import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
@@ -656,6 +657,11 @@ export default function OpportunityFormModal({
     setBusinessModalOpen(true)
   }
 
+  function handleViewLinkedRequest() {
+    if (!linkedBookingRequest) return
+    setBookingRequestModalOpen(true)
+  }
+
   function handleCreateRequest() {
     if (!linkedBusiness || !opportunity) return
 
@@ -1014,6 +1020,13 @@ export default function OpportunityFormModal({
                   <LinkedBusinessSection
                     business={linkedBusiness}
                     onEdit={handleEditBusiness}
+                  />
+                )}
+
+                {linkedBookingRequest && (
+                  <LinkedRequestSection
+                    request={linkedBookingRequest}
+                    onView={handleViewLinkedRequest}
                   />
                 )}
               </div>

@@ -291,6 +291,18 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
     return <InfoRow label={label} value={value} {...props} href={props?.href ?? undefined} />
   }
 
+  const latestAssignedDeal = [...deals]
+    .filter(deal => !!deal.responsibleId || !!deal.ereResponsibleId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] || null
+
+  const latestAmLabel = latestAssignedDeal
+    ? (latestAssignedDeal.responsible?.name || latestAssignedDeal.responsible?.email || latestAssignedDeal.responsibleId || null)
+    : null
+
+  const latestEreLabel = latestAssignedDeal
+    ? (latestAssignedDeal.ereResponsible?.name || latestAssignedDeal.ereResponsible?.email || latestAssignedDeal.ereResponsibleId || null)
+    : null
+
   return (
     <div className="p-4 max-w-6xl mx-auto space-y-4">
       {/* Header Card - Compact */}
@@ -324,6 +336,26 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
                 }`}>
                   <PersonIcon style={{ fontSize: 10 }} />
                   {business.owner?.name || business.owner?.email || 'Sin asignar'}
+                </span>
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded ${
+                  loadingData
+                    ? 'bg-slate-100 text-slate-500'
+                    : latestAmLabel
+                      ? 'bg-sky-100 text-sky-700'
+                      : 'bg-gray-100 text-gray-500'
+                }`}>
+                  <span className="font-semibold">AM:</span>
+                  {loadingData ? 'Cargando...' : (latestAmLabel || 'Sin asignar')}
+                </span>
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded ${
+                  loadingData
+                    ? 'bg-slate-100 text-slate-500'
+                    : latestEreLabel
+                      ? 'bg-cyan-100 text-cyan-700'
+                      : 'bg-gray-100 text-gray-500'
+                }`}>
+                  <span className="font-semibold">ERE:</span>
+                  {loadingData ? 'Cargando...' : (latestEreLabel || 'Sin asignar')}
                 </span>
                 {business.metrics?.net_rev_360_days !== undefined && (
                   <span className="px-1.5 py-0.5 text-[10px] font-mono font-medium bg-emerald-100 text-emerald-700 rounded">

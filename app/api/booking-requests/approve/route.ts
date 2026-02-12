@@ -4,6 +4,8 @@ import { verifyApprovalToken } from '@/lib/tokens'
 import { getAppBaseUrl } from '@/lib/config/env'
 import { logger } from '@/lib/logger'
 import { applyPublicRateLimit } from '@/lib/rate-limit'
+import { invalidateEntities } from '@/lib/cache'
+import { approveBookingRequestWithFollowUp } from '@/lib/booking-requests/approval'
 
 function getBaseUrl(request: NextRequest): string {
   // Prefer configured base URL (validated in production)
@@ -88,28 +90,43 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL(`${baseUrl}/booking-request/cancelled?id=${existingRequest.id}`))
     }
 
-    // Update booking request status to approved
-    logger.debug('Updating booking request:', verification.requestId)
-    const bookingRequest = await prisma.bookingRequest.update({
-      where: { id: verification.requestId },
-      data: { 
-        status: 'approved',
-        processedAt: new Date(),
-        processedBy: existingRequest.businessEmail,
-      },
+    // Atomic pending -> approved transition + one-time follow-up opportunity creation
+    logger.debug('Approving booking request atomically:', verification.requestId)
+    const approvalResult = await approveBookingRequestWithFollowUp({
+      requestId: verification.requestId,
+      processedBy: existingRequest.businessEmail,
     })
+
+    if (!approvalResult.success) {
+      const baseUrl = getBaseUrl(request)
+
+      if (approvalResult.code === 'NOT_FOUND') {
+        logger.error('Booking request disappeared during approval:', verification.requestId)
+        return NextResponse.redirect(new URL(`${baseUrl}/booking-request/error?message=Request not found`))
+      }
+
+      const currentStatus = approvalResult.status
+      if (currentStatus === 'approved' || currentStatus === 'booked') {
+        return NextResponse.redirect(new URL(`${baseUrl}/booking-request/already-processed?status=approved&id=${verification.requestId}`))
+      }
+      if (currentStatus === 'rejected') {
+        return NextResponse.redirect(new URL(`${baseUrl}/booking-request/already-processed?status=rejected&id=${verification.requestId}`))
+      }
+      if (currentStatus === 'cancelled') {
+        return NextResponse.redirect(new URL(`${baseUrl}/booking-request/cancelled?id=${verification.requestId}`))
+      }
+
+      const statusMsg = encodeURIComponent(`Request is not pending. Current status: ${currentStatus || 'unknown'}`)
+      return NextResponse.redirect(new URL(`${baseUrl}/booking-request/error?message=${statusMsg}`))
+    }
+
+    const bookingRequest = approvalResult.bookingRequest
 
     logger.info('Booking request approved successfully:', bookingRequest.id)
     logger.debug('Approved by:', bookingRequest.processedBy, 'at:', bookingRequest.processedAt)
 
-    // Also update the linked event status if it exists
-    if (bookingRequest.eventId) {
-      await prisma.event.update({
-        where: { id: bookingRequest.eventId },
-        data: { status: 'approved' },
-      })
-      logger.debug('Linked event updated to approved:', bookingRequest.eventId)
-    }
+    // Revalidate affected entities
+    invalidateEntities(['booking-requests', 'events', 'opportunities', 'tasks'])
 
     // Redirect to success page with approver email
     const baseUrl = getBaseUrl(request)

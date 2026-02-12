@@ -24,6 +24,7 @@ import { buildCategoryKey } from '@/lib/category-utils'
 import { logActivity } from '@/lib/activity-log'
 import { generateRequestName, countBusinessRequests } from '@/lib/utils/request-naming'
 import { findLinkedBusiness, findLinkedBusinessFull } from '@/lib/business'
+import { approveBookingRequestWithFollowUp } from '@/lib/booking-requests/approval'
 import { 
   previewBackfillFromRequest, 
   executeBackfillFromRequest,
@@ -1631,7 +1632,6 @@ export async function adminApproveBookingRequest(requestId: string) {
   if (!('userId' in authResult)) {
     return authResult
   }
-  const { userId } = authResult
 
   try {
     // Check if user is admin
@@ -1662,23 +1662,22 @@ export async function adminApproveBookingRequest(requestId: string) {
       }
     }
 
-    // Update the booking request status to approved
-    const updatedRequest = await prisma.bookingRequest.update({
-      where: { id: requestId },
-      data: {
-        status: 'approved',
-        processedAt: new Date(),
-        processedBy: `Admin: ${approverEmail}`,
-      },
+    const approvalResult = await approveBookingRequestWithFollowUp({
+      requestId,
+      processedBy: `Admin: ${approverEmail}`,
     })
 
-    // Also update linked event if exists
-    if (bookingRequest.eventId) {
-      await prisma.event.update({
-        where: { id: bookingRequest.eventId },
-        data: { status: 'approved' },
-      })
+    if (!approvalResult.success) {
+      if (approvalResult.code === 'NOT_FOUND') {
+        return { success: false, error: 'Solicitud no encontrada' }
+      }
+      return {
+        success: false,
+        error: `Solo se pueden aprobar solicitudes en estado pendiente. Estado actual: ${approvalResult.status}`,
+      }
     }
+
+    const updatedRequest = approvalResult.bookingRequest
 
     // Log activity
     await logActivity({
@@ -1745,7 +1744,7 @@ export async function adminApproveBookingRequest(requestId: string) {
       }
     }
 
-    invalidateEntity('booking-requests')
+    invalidateEntities(['booking-requests', 'events', 'opportunities', 'tasks'])
     return { success: true, data: updatedRequest }
   } catch (error) {
     return handleServerActionError(error, 'adminApproveBookingRequest')

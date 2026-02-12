@@ -768,7 +768,31 @@ export async function getDealsByBusiness(businessId: string) {
     })
 
     const uniqueDeals = Array.from(new Map(deals.map(d => [d.id, d])).values())
-    return { success: true, data: uniqueDeals }
+
+    const userIds = [
+      ...uniqueDeals.map((d: { responsibleId: string | null }) => d.responsibleId).filter((id): id is string => id !== null),
+      ...uniqueDeals.map((d: { ereResponsibleId: string | null }) => d.ereResponsibleId).filter((id): id is string => id !== null),
+    ]
+    const uniqueUserIds = [...new Set(userIds)]
+
+    const users = uniqueUserIds.length > 0
+      ? await prisma.userProfile.findMany({
+          where: { clerkId: { in: uniqueUserIds } },
+          select: { clerkId: true, name: true, email: true },
+        })
+      : []
+
+    const dealsWithUsers = uniqueDeals.map((deal: { responsibleId: string | null; ereResponsibleId: string | null }) => ({
+      ...deal,
+      responsible: deal.responsibleId
+        ? users.find((u: { clerkId: string }) => u.clerkId === deal.responsibleId) || null
+        : null,
+      ereResponsible: deal.ereResponsibleId
+        ? users.find((u: { clerkId: string }) => u.clerkId === deal.ereResponsibleId) || null
+        : null,
+    }))
+
+    return { success: true, data: dealsWithUsers }
   } catch (error) {
     return handleServerActionError(error, 'getDealsByBusiness')
   }
