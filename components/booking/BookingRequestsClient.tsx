@@ -4,7 +4,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
-import { deleteBookingRequest, resendBookingRequest, bulkDeleteBookingRequests, bulkUpdateBookingRequestStatus, cancelBookingRequest, getBookingRequest, getBookingRequestsPaginated, searchBookingRequests, getBookingRequestCounts } from '@/app/actions/booking'
+import { deleteBookingRequest, resendBookingRequest, bulkDeleteBookingRequests, bulkUpdateBookingRequestStatus, cancelBookingRequest, getBookingRequest, getBookingRequestsPaginated, getBookingRequestCounts } from '@/app/actions/booking'
+import { getBookingRequestProjectionMap } from '@/app/actions/revenue-projections'
 import type { BookingRequest } from '@/types'
 import type { BookingRequestStatus } from '@/lib/constants'
 import AddIcon from '@mui/icons-material/Add'
@@ -33,7 +34,7 @@ import { useUser } from '@clerk/nextjs'
 import { Button, Input } from '@/components/ui'
 import { FilterTabs, UserFilterDropdown } from '@/components/shared'
 import { TableRow, TableCell } from '@/components/shared/table'
-import { translateStatus, translateLabel } from '@/lib/utils/translations'
+import { translateStatus } from '@/lib/utils/translations'
 import { logger } from '@/lib/logger'
 
 // Lazy load heavy modal component
@@ -44,6 +45,11 @@ const BookingRequestViewModal = dynamic(() => import('@/components/booking/reque
 
 interface BookingRequestsClientProps {
   bookingRequests: BookingRequest[]
+}
+
+type ProjectionValue = {
+  projectedRevenue: number | null
+  projectionSource: 'actual_deal' | 'business_history' | 'category_benchmark' | 'none'
 }
 
 export default function BookingRequestsClient({ bookingRequests: initialBookingRequests }: BookingRequestsClientProps) {
@@ -69,8 +75,9 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
   const [bulkActionLoading, setBulkActionLoading] = useState(false)
   const [visibleCount, setVisibleCount] = useState(50)
   const [creatorFilter, setCreatorFilter] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
+  const [projectionMap, setProjectionMap] = useState<Record<string, ProjectionValue>>({})
+  const [projectionLoading, setProjectionLoading] = useState(false)
   
   const isAdmin = userRole === 'admin'
   
@@ -99,7 +106,6 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
 
   // Load booking requests with optional filters (server-side)
   const loadData = useCallback(async (options?: { creatorId?: string; status?: string }) => {
-    setLoading(true)
     try {
       const result = await getBookingRequestsPaginated({
         pageSize: 500, // Load more to maintain current UX
@@ -119,8 +125,6 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
       }
     } catch (error) {
       logger.error('Failed to load booking requests:', error)
-    } finally {
-      setLoading(false)
     }
   }, [])
 
@@ -167,6 +171,47 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
   useEffect(() => {
     setBookingRequests(initialBookingRequests)
   }, [initialBookingRequests])
+
+  // Load projection data for currently loaded requests
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadProjections() {
+      if (bookingRequests.length === 0) {
+        setProjectionMap({})
+        return
+      }
+
+      setProjectionLoading(true)
+      try {
+        const ids = bookingRequests.map(request => request.id)
+        const result = await getBookingRequestProjectionMap(ids)
+
+        if (!cancelled) {
+          if (result.success && result.data) {
+            setProjectionMap(result.data as Record<string, ProjectionValue>)
+          } else {
+            setProjectionMap({})
+          }
+        }
+      } catch (error) {
+        if (!cancelled) {
+          logger.error('Failed to load projection data:', error)
+          setProjectionMap({})
+        }
+      } finally {
+        if (!cancelled) {
+          setProjectionLoading(false)
+        }
+      }
+    }
+
+    loadProjections()
+
+    return () => {
+      cancelled = true
+    }
+  }, [bookingRequests])
 
   const handleDelete = async (id: string) => {
     const confirmed = await confirmDialog.confirm({
@@ -323,6 +368,19 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     )
   }
 
+  const getProjectionSourceLabel = (source: ProjectionValue['projectionSource']): string => {
+    switch (source) {
+      case 'actual_deal':
+        return 'Actual'
+      case 'business_history':
+        return 'Histórico'
+      case 'category_benchmark':
+        return 'Categoría'
+      default:
+        return 'Sin datos'
+    }
+  }
+
   // Calculate days since a date
   const daysSince = (date: Date | null): number | null => {
     if (!date) return null
@@ -381,7 +439,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
   }
 
   // Sort function
-  const sortRequests = (requests: BookingRequest[]) => {
+  const sortRequests = useCallback((requests: BookingRequest[]) => {
     if (!sortColumn) return requests
 
     return [...requests].sort((a, b) => {
@@ -429,6 +487,10 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
           aValue = a.processedAt ? new Date(a.processedAt).getTime() : 0
           bValue = b.processedAt ? new Date(b.processedAt).getTime() : 0
           break
+        case 'projectedRevenue':
+          aValue = projectionMap[a.id]?.projectedRevenue ?? -1
+          bValue = projectionMap[b.id]?.projectedRevenue ?? -1
+          break
         default:
           return 0
       }
@@ -437,7 +499,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
       if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
       return 0
     })
-  }
+  }, [sortColumn, sortDirection, projectionMap])
 
   // Filter requests by status and search query
   const filteredRequests = useMemo(() => {
@@ -462,7 +524,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     })
 
     return sortRequests(filtered)
-  }, [bookingRequests, statusFilter, searchQuery, sortColumn, sortDirection])
+  }, [bookingRequests, statusFilter, searchQuery, sortRequests])
 
   // Paginated requests for display
   const visibleRequests = useMemo(() => {
@@ -728,6 +790,8 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       request={request}
                       daysSinceSent={dSinceSent}
                       daysSinceCreated={dSinceCreated}
+                      projectedRevenue={projectionMap[request.id]?.projectedRevenue ?? null}
+                      projectionSource={projectionMap[request.id]?.projectionSource ?? 'none'}
                       isAdmin={isAdmin}
                       currentUserId={currentUserId}
                       onView={(id) => setViewRequestId(id)}
@@ -817,6 +881,17 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                       </th>
                       <th 
                         className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => handleSort('projectedRevenue')}
+                      >
+                        <div className="flex items-center gap-1 justify-end">
+                          <span>Proyección</span>
+                          {sortColumn === 'projectedRevenue' && (
+                            sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
+                          )}
+                        </div>
+                      </th>
+                      <th 
+                        className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
                         onClick={() => handleSort('startDate')}
                       >
                         <div className="flex items-center gap-1">
@@ -879,7 +954,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                     const sentDate = getSentDate(request)
                     const daysSinceCreated = daysSince(request.createdAt)
                     const daysSinceSent = sentDate ? daysSince(sentDate) : null
-                    const daysSinceProcessed = request.processedAt ? daysSince(request.processedAt) : null
+                    const projection = projectionMap[request.id]
                     
                     let rowBgColor = ''
                     
@@ -945,6 +1020,22 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                         </TableCell>
                         <TableCell className="text-gray-600">
                           <span className="truncate block max-w-[180px] text-[13px]">{request.businessEmail}</span>
+                        </TableCell>
+                        <TableCell align="right">
+                          {projection?.projectedRevenue !== null && projection?.projectedRevenue !== undefined ? (
+                            <div className="flex flex-col items-end leading-tight">
+                              <span className="font-semibold text-emerald-700 text-[13px]">
+                                ${projection.projectedRevenue.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                              </span>
+                              <span className="text-[10px] text-gray-500">
+                                {getProjectionSourceLabel(projection.projectionSource)}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 text-[13px]">
+                              {projectionLoading ? '…' : '—'}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="text-gray-600">
                           <span className="whitespace-nowrap text-[13px]">
@@ -1116,4 +1207,3 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     </div>
   )
 }
-

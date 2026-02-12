@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSidebar } from './AppClientProviders'
@@ -19,6 +19,7 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import CloseIcon from '@mui/icons-material/Close'
 import CampaignIcon from '@mui/icons-material/Campaign'
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz'
+import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 
 type NavItem = {
   name: string
@@ -56,6 +57,7 @@ const adminSecondarySections: NavSection[] = [
     label: 'Monitoreo',
     items: [
       { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
+      { name: 'Proyección', href: '/proyeccion', Icon: TrendingUpIcon },
       { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
     ],
   },
@@ -88,6 +90,7 @@ const salesSecondarySections: NavSection[] = [
     label: 'Monitoreo',
     items: [
       { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
+      { name: 'Proyección', href: '/proyeccion', Icon: TrendingUpIcon },
       { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
     ],
   },
@@ -107,11 +110,6 @@ const editorSecondarySections: NavSection[] = []
 export default function MobileBottomNav() {
   const pathname = usePathname()
   const { role, loading, moreMenuOpen, setMoreMenuOpen } = useSidebar()
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   const { primaryNav, secondarySections } = useMemo(() => {
     if (loading || !role) {
@@ -140,7 +138,7 @@ export default function MobileBottomNav() {
     return allSecondaryHrefs.some(href => pathname === href || pathname?.startsWith(href + '/'))
   }, [pathname, secondarySections])
 
-  if (!mounted || loading || primaryNav.length === 0) return null
+  if (loading || primaryNav.length === 0) return null
 
   return (
     <>

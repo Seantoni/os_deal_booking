@@ -5,7 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { deleteBusiness } from '@/app/actions/crm'
 import { getBusinessesPaginated, searchBusinesses, getBusinessCounts, getBusinessTableCounts, fetchEditableBusinessIds } from '@/app/actions/businesses'
+import { getBusinessProjectionSummaryMap } from '@/app/actions/revenue-projections'
 import type { Business } from '@/types'
+import type { ProjectionEntitySummary } from '@/lib/projections/summary'
 import AddIcon from '@mui/icons-material/Add'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import DownloadIcon from '@mui/icons-material/Download'
@@ -105,6 +107,7 @@ const COLUMNS: ColumnConfig[] = [
   { key: 'deals360d', label: '#Deals', sortable: true, align: 'center' },
   { key: 'openOpps', label: 'Opps', sortable: true, align: 'center', width: 'w-14' },
   { key: 'pendingReqs', label: 'Solic.', sortable: true, align: 'center', width: 'w-14' },
+  { key: 'projectedRevenue', label: 'Proy. $', sortable: true, align: 'right' },
   { key: 'actions', label: <ActionsColumnHeader />, align: 'right' },
 ]
 
@@ -283,6 +286,40 @@ export default function BusinessesPageClient({
 
   // Determine which businesses to display
   const displayBusinesses = searchResults !== null ? searchResults : businesses
+  const [businessProjectionMap, setBusinessProjectionMap] = useState<Record<string, ProjectionEntitySummary>>({})
+
+  const projectionBusinessIds = useMemo(
+    () => displayBusinesses.map(business => business.id),
+    [displayBusinesses]
+  )
+
+  // Load projection summaries for the currently visible businesses
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadProjectionSummaries() {
+      if (projectionBusinessIds.length === 0) {
+        setBusinessProjectionMap({})
+        return
+      }
+
+      try {
+        const result = await getBusinessProjectionSummaryMap(projectionBusinessIds)
+        if (!cancelled) {
+          setBusinessProjectionMap(result.success && result.data ? result.data : {})
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setBusinessProjectionMap({})
+        }
+      }
+    }
+
+    loadProjectionSummaries()
+    return () => {
+      cancelled = true
+    }
+  }, [projectionBusinessIds])
 
   // Helper to check if business has active focus
   const businessActiveFocus = useMemo(() => {
@@ -339,10 +376,12 @@ export default function BusinessesPageClient({
         return businessOpenOpportunityCount.get(business.id) || 0
       case 'pendingReqs':
         return businessPendingRequestCount.get(business.name.toLowerCase()) || 0
+      case 'projectedRevenue':
+        return businessProjectionMap[business.id]?.totalProjectedRevenue ?? 0
       default:
         return null
     }
-  }, [businessOpenOpportunityCount, businessPendingRequestCount])
+  }, [businessOpenOpportunityCount, businessPendingRequestCount, businessProjectionMap])
 
   // Filter and sort businesses
   const filteredBusinesses = useMemo(() => {
@@ -365,7 +404,7 @@ export default function BusinessesPageClient({
       filtered = applyFiltersToData(filtered)
     }
 
-    if (isSearching && sortColumn) {
+    if (sortColumn && (isSearching || sortColumn === 'projectedRevenue')) {
       return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
     }
 
@@ -699,6 +738,7 @@ export default function BusinessesPageClient({
                     openOpportunityCount={businessOpenOpportunityCount.get(business.id) || 0}
                     pendingRequestCount={businessPendingRequestCount.get(business.name.toLowerCase()) || 0}
                     campaignCount={businessCampaignCounts[business.id] || 0}
+                    projectionSummary={businessProjectionMap[business.id]}
                     isAdmin={isAdmin}
                     canEdit={canEditBusiness(business.id)}
                     onCardTap={(b: Business) => pageState.openBusinessModal(b)}
@@ -742,6 +782,7 @@ export default function BusinessesPageClient({
                         openOpportunityCount={businessOpenOpportunityCount.get(business.id) || 0}
                         pendingRequestCount={businessPendingRequestCount.get(business.name.toLowerCase()) || 0}
                         campaignCount={businessCampaignCounts[business.id] || 0}
+                        projectionSummary={businessProjectionMap[business.id]}
                         isAdmin={isAdmin}
                         canEdit={canEditBusiness(business.id)}
                         onRowClick={(b) => pageState.openBusinessModal(b)}

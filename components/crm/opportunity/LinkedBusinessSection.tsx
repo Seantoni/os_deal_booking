@@ -3,16 +3,39 @@
 import BusinessIcon from '@mui/icons-material/Business'
 import PersonIcon from '@mui/icons-material/Person'
 import PhoneIcon from '@mui/icons-material/Phone'
-import EmailIcon from '@mui/icons-material/Email'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import type { Business } from '@/types'
+import type { ProjectionEntitySummary } from '@/lib/projections/summary'
 
 interface LinkedBusinessSectionProps {
   business: Business
+  projectionSummary?: ProjectionEntitySummary | null
   onEdit: (business: Business) => void
 }
 
-export default function LinkedBusinessSection({ business, onEdit }: LinkedBusinessSectionProps) {
+function getProjectionSourceLabel(source: ProjectionEntitySummary['projectionSource']): string {
+  switch (source) {
+    case 'actual_deal':
+      return 'Actual'
+    case 'business_history':
+      return 'Histórico'
+    case 'category_benchmark':
+      return 'Categoría'
+    default:
+      return 'Sin datos'
+  }
+}
+
+export default function LinkedBusinessSection({ business, projectionSummary, onEdit }: LinkedBusinessSectionProps) {
+  const projectedRevenue = projectionSummary?.totalProjectedRevenue ?? 0
+  const projectedRequests = projectionSummary?.projectedRequests ?? 0
+  const totalRequests = projectionSummary?.totalRequests ?? 0
+  const projectionSource = projectionSummary?.projectionSource ?? 'none'
+  const projectionSourceLabel = getProjectionSourceLabel(projectionSource)
+  const projectionText = projectedRevenue > 0
+    ? `Proy. $${Math.round(projectedRevenue).toLocaleString('en-US')} · ${projectionSourceLabel}${projectedRequests > 0 ? ` · ${projectedRequests}/${totalRequests}` : ' · Guía'}`
+    : 'Proy. Sin datos'
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
       <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
@@ -58,6 +81,18 @@ export default function LinkedBusinessSection({ business, onEdit }: LinkedBusine
                   </div>
                 </>
               )}
+              <>
+                <span className="text-gray-400 flex-shrink-0">•</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
+                    projectedRevenue > 0
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : 'bg-gray-100 text-gray-500'
+                  }`}
+                >
+                  {projectionText}
+                </span>
+              </>
             </div>
             <ArrowForwardIcon className="text-gray-400 group-hover:text-blue-600 flex-shrink-0 transition-colors" style={{ fontSize: 12 }} />
           </div>
@@ -66,4 +101,3 @@ export default function LinkedBusinessSection({ business, onEdit }: LinkedBusine
     </div>
   )
 }
-

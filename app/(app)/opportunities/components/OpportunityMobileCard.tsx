@@ -3,6 +3,7 @@
 import { useCallback } from 'react'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import type { Opportunity } from '@/types'
+import type { ProjectionEntitySummary } from '@/lib/projections/summary'
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 
@@ -27,12 +28,27 @@ const STAGE_STYLES: Record<string, string> = {
 
 interface OpportunityMobileCardProps {
   opportunity: Opportunity
+  projectionSummary?: ProjectionEntitySummary
   onCardTap: (opportunity: Opportunity) => void
   onRowHover: () => void
 }
 
+function getProjectionSourceLabel(source: ProjectionEntitySummary['projectionSource']): string {
+  switch (source) {
+    case 'actual_deal':
+      return 'Actual'
+    case 'business_history':
+      return 'Histórico'
+    case 'category_benchmark':
+      return 'Categoría'
+    default:
+      return 'Sin datos'
+  }
+}
+
 export function OpportunityMobileCard({
   opportunity,
+  projectionSummary,
   onCardTap,
   onRowHover,
 }: OpportunityMobileCardProps) {
@@ -57,6 +73,14 @@ export function OpportunityMobileCard({
         day: 'numeric',
       })
     : null
+  const projectedRevenue = projectionSummary?.totalProjectedRevenue ?? 0
+  const projectedRequests = projectionSummary?.projectedRequests ?? 0
+  const totalRequests = projectionSummary?.totalRequests ?? 0
+  const projectionSource = projectionSummary?.projectionSource ?? 'none'
+  const projectionSourceLabel = getProjectionSourceLabel(projectionSource)
+  const projectionText = projectedRevenue > 0
+    ? `Proy. $${Math.round(projectedRevenue).toLocaleString('en-US')} · ${projectionSourceLabel}${projectedRequests > 0 ? ` · ${projectedRequests}/${totalRequests}` : ' · Guía'}`
+    : 'Proy. Sin datos'
 
   return (
     <div
@@ -100,6 +124,18 @@ export function OpportunityMobileCard({
           {opportunity.notes}
         </p>
       )}
+
+      <div className="mt-1.5">
+        <span
+          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+            projectedRevenue > 0
+              ? 'bg-emerald-50 text-emerald-700'
+              : 'bg-gray-100 text-gray-500'
+          }`}
+        >
+          {projectionText}
+        </span>
+      </div>
     </div>
   )
 }

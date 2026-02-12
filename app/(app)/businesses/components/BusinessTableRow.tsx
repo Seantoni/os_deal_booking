@@ -9,6 +9,7 @@
 import { Fragment } from 'react'
 import type { Business } from '@/types'
 import type { SimplifiedDeal } from '@/app/actions/deal-metrics'
+import type { ProjectionEntitySummary } from '@/lib/projections/summary'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
@@ -34,6 +35,7 @@ interface BusinessTableRowProps {
   openOpportunityCount: number
   pendingRequestCount: number
   campaignCount: number
+  projectionSummary?: ProjectionEntitySummary
   isAdmin: boolean
   canEdit: boolean // Whether user can edit this business
   
@@ -48,6 +50,19 @@ interface BusinessTableRowProps {
   onOpenReassignmentModal: (business: Business) => void
 }
 
+function getProjectionSourceLabel(source: ProjectionEntitySummary['projectionSource']): string {
+  switch (source) {
+    case 'actual_deal':
+      return 'Actual'
+    case 'business_history':
+      return 'Histórico'
+    case 'category_benchmark':
+      return 'Categoría'
+    default:
+      return 'Sin datos'
+  }
+}
+
 export function BusinessTableRow({
   business,
   index,
@@ -58,6 +73,7 @@ export function BusinessTableRow({
   openOpportunityCount,
   pendingRequestCount,
   campaignCount,
+  projectionSummary,
   isAdmin,
   canEdit,
   onRowClick,
@@ -73,6 +89,16 @@ export function BusinessTableRow({
   const isLoadingDeals = cachedDeals?.loading ?? false
   const deals = cachedDeals?.deals ?? []
   const totalCount = cachedDeals?.totalCount ?? 0
+  const projectedRevenue = projectionSummary?.totalProjectedRevenue ?? 0
+  const projectedRequests = projectionSummary?.projectedRequests ?? 0
+  const totalRequests = projectionSummary?.totalRequests ?? 0
+  const projectionSource = projectionSummary?.projectionSource ?? 'none'
+  const projectionSourceLabel = getProjectionSourceLabel(projectionSource)
+  const projectionDetail = projectionSource === 'none'
+    ? 'Sin datos'
+    : projectedRequests > 0
+      ? `${projectionSourceLabel} · ${projectedRequests}/${totalRequests}`
+      : `${projectionSourceLabel} · Guía`
 
   return (
     <Fragment key={business.id}>
@@ -254,6 +280,22 @@ export function BusinessTableRow({
           ) : (
             <span className="text-gray-400 text-xs">-</span>
           )}
+        </TableCell>
+
+        {/* Projected Revenue */}
+        <TableCell align="right">
+          <div className="flex flex-col items-end leading-tight">
+            {projectedRevenue > 0 ? (
+              <span className="text-xs font-semibold text-emerald-700">
+                ${projectedRevenue.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+              </span>
+            ) : (
+              <span className="text-gray-400 text-xs">-</span>
+            )}
+            <span className="text-[10px] text-gray-500">
+              {projectionDetail}
+            </span>
+          </div>
         </TableCell>
         
         {/* Actions */}

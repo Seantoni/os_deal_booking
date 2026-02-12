@@ -18,10 +18,11 @@ interface BookingRequestMobileCardProps {
   request: BookingRequest
   daysSinceSent: number | null
   daysSinceCreated: number | null
+  projectedRevenue?: number | null
+  projectionSource?: 'actual_deal' | 'business_history' | 'category_benchmark' | 'none'
   isAdmin: boolean
   currentUserId: string | null
   onView: (id: string) => void
-  onEdit?: (id: string) => void
   onResend?: (request: BookingRequest) => void
   onCancel?: (request: BookingRequest) => void
   onDelete?: (id: string) => void
@@ -55,10 +56,11 @@ export default function BookingRequestMobileCard({
   request,
   daysSinceSent,
   daysSinceCreated,
+  projectedRevenue = null,
+  projectionSource = 'none',
   isAdmin,
   currentUserId,
   onView,
-  onEdit,
   onResend,
   onCancel,
   onDelete,
@@ -84,6 +86,14 @@ export default function BookingRequestMobileCard({
   const rowBg = request.status === 'pending'
     ? getPendingRowBg(daysSinceSent)
     : 'bg-white'
+
+  const projectionSourceLabel = projectionSource === 'actual_deal'
+    ? 'Actual'
+    : projectionSource === 'business_history'
+      ? 'Histórico'
+      : projectionSource === 'category_benchmark'
+        ? 'Categoría'
+        : 'N/A'
 
   const startDate = new Date(request.startDate).toLocaleDateString('es-PA', {
     timeZone: PANAMA_TIMEZONE,
@@ -160,6 +170,14 @@ export default function BookingRequestMobileCard({
           {daysSinceCreated !== null && (
             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-50 text-gray-500">
               {daysSinceCreated}d
+            </span>
+          )}
+
+          {/* Projected revenue */}
+          {projectedRevenue !== null && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700">
+              Proy. ${projectedRevenue.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+              {projectionSource !== 'none' ? ` · ${projectionSourceLabel}` : ''}
             </span>
           )}
 

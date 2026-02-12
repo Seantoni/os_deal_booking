@@ -12,6 +12,7 @@ import { useDynamicForm } from '@/hooks/useDynamicForm'
 import { useCachedFormConfig } from '@/hooks/useFormConfigCache'
 import type { Business, Opportunity, BookingRequest, UserData, Deal } from '@/types'
 import type { Category } from '@prisma/client'
+import type { ProjectionEntitySummary } from '@/lib/projections/summary'
 
 // Action state types for React 19 useActionState
 type FormActionState = {
@@ -24,6 +25,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import LockIcon from '@mui/icons-material/Lock'
 import LockOpenIcon from '@mui/icons-material/LockOpen'
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
+import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import { getActiveFocus, getFocusInfo, FOCUS_PERIOD_LABELS, type FocusPeriod } from '@/lib/utils/focus-period'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
@@ -55,6 +57,19 @@ function SectionLoadingFallback() {
       </div>
     </div>
   )
+}
+
+function getProjectionSourceLabel(source: ProjectionEntitySummary['projectionSource']): string {
+  switch (source) {
+    case 'actual_deal':
+      return 'Actual'
+    case 'business_history':
+      return 'Histórico'
+    case 'category_benchmark':
+      return 'Categoría'
+    default:
+      return 'Sin datos'
+  }
 }
 
 interface BusinessFormModalProps {
@@ -374,6 +389,9 @@ export default function BusinessFormModal({
     opportunities,
     requests,
     deals,
+    businessProjectionSummary,
+    opportunityProjectionMap,
+    requestProjectionMap,
     loadingData,
     loadFormData,
   } = useBusinessForm({
@@ -423,6 +441,12 @@ export default function BusinessFormModal({
   const currentFocusPeriod = localFocusPeriod !== null ? localFocusPeriod : (business?.focusPeriod as FocusPeriod | null)
   const currentFocusSetAt = localFocusSetAt !== null ? localFocusSetAt : business?.focusSetAt
   const focusInfo = getFocusInfo({ focusPeriod: currentFocusPeriod, focusSetAt: currentFocusSetAt })
+  const businessProjectedRevenue = businessProjectionSummary?.totalProjectedRevenue ?? 0
+  const businessProjectionSource = businessProjectionSummary?.projectionSource ?? 'none'
+  const businessProjectionSourceLabel = getProjectionSourceLabel(businessProjectionSource)
+  const businessProjectionBadge = businessProjectedRevenue > 0
+    ? `$${Math.round(businessProjectedRevenue).toLocaleString('en-US')} · ${businessProjectionSourceLabel}${(businessProjectionSummary?.projectedRequests ?? 0) > 0 ? ` · ${businessProjectionSummary?.projectedRequests ?? 0}/${businessProjectionSummary?.totalRequests ?? 0}` : ' · Guía'}`
+    : 'Sin datos'
 
   // Dynamic form hook - pass preloaded sections from cache
   const dynamicForm = useDynamicForm({
@@ -1053,6 +1077,22 @@ export default function BusinessFormModal({
                       </button>
                     </ReferenceInfoBar.Item>
                   )}
+                  {business && (
+                    <ReferenceInfoBar.Item
+                      icon={<TrendingUpIcon style={{ fontSize: 14 }} className={businessProjectedRevenue > 0 ? 'text-emerald-500' : 'text-gray-400'} />}
+                      label="Proyección"
+                    >
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded border ${
+                          businessProjectedRevenue > 0
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                            : 'bg-gray-100 border-gray-300 text-gray-500'
+                        }`}
+                      >
+                        {businessProjectionBadge}
+                      </span>
+                    </ReferenceInfoBar.Item>
+                  )}
                 </ReferenceInfoBar>
 
                 {/* Dynamic Sections from Form Config */}
@@ -1091,6 +1131,7 @@ export default function BusinessFormModal({
                   <Suspense fallback={<SectionLoadingFallback />}>
                     <OpportunitiesSection
                       opportunities={opportunities}
+                      projectionSummaryMap={opportunityProjectionMap}
                       onEditOpportunity={handleEditOpportunity}
                       onCreateNew={handleCreateNewOpportunity}
                       businessName={business.name}
@@ -1104,6 +1145,7 @@ export default function BusinessFormModal({
                   <Suspense fallback={<SectionLoadingFallback />}>
                     <RequestsSection
                       requests={requests}
+                      projectionMap={requestProjectionMap}
                       onViewRequest={handleViewRequest}
                       onCreateRequest={handleCreateRequest}
                       businessName={business.name}

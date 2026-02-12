@@ -8,10 +8,12 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import AddIcon from '@mui/icons-material/Add'
 import type { BookingRequest } from '@/types'
+import type { BookingRequestProjectionValue } from '@/app/actions/revenue-projections'
 import { PANAMA_TIMEZONE, getDateComponentsInPanama } from '@/lib/date/timezone'
 
 interface RequestsSectionProps {
   requests: BookingRequest[]
+  projectionMap?: Record<string, BookingRequestProjectionValue>
   onViewRequest: (request: BookingRequest) => void
   onCreateRequest?: () => void
   businessName?: string
@@ -24,6 +26,7 @@ type FilterType = 'all' | 'active' | 'booked' | 'rejected'
 
 export default function RequestsSection({
   requests,
+  projectionMap = {},
   onViewRequest,
   onCreateRequest,
   businessName,
@@ -59,6 +62,19 @@ export default function RequestsSection({
     const month = date.toLocaleDateString('en-US', { timeZone: PANAMA_TIMEZONE, month: 'short' })
     const { day, year } = getDateComponentsInPanama(date)
     return businessName ? `${businessName} - ${month}-${day}-${year}` : `Solicitud ${month}-${day}-${year}`
+  }
+
+  const getProjectionSourceLabel = (source: BookingRequestProjectionValue['projectionSource']) => {
+    switch (source) {
+      case 'actual_deal':
+        return 'Actual'
+      case 'business_history':
+        return 'Histórico'
+      case 'category_benchmark':
+        return 'Categoría'
+      default:
+        return 'Sin datos'
+    }
   }
 
   // Filter requests based on selected filter
@@ -177,7 +193,9 @@ export default function RequestsSection({
         ) : (
           <>
             <div className="space-y-1">
-              {paginatedRequests.map((req) => (
+              {paginatedRequests.map((req) => {
+                const projection = projectionMap[req.id]
+                return (
                 <button
                   key={req.id}
                   type="button"
@@ -202,11 +220,17 @@ export default function RequestsSection({
                           })}
                         </span>
                       </div>
+                      {projection?.projectedRevenue !== null && projection?.projectedRevenue !== undefined && (
+                        <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[10px] font-medium whitespace-nowrap">
+                          ${Math.round(projection.projectedRevenue).toLocaleString('en-US')} · {getProjectionSourceLabel(projection.projectionSource)}
+                        </span>
+                      )}
                     </div>
                     <ArrowForwardIcon className="text-gray-400 group-hover:text-purple-600 flex-shrink-0 transition-colors" style={{ fontSize: 12 }} />
                   </div>
                 </button>
-              ))}
+                )
+              })}
             </div>
             
             {totalPages > 1 && (
@@ -240,4 +264,3 @@ export default function RequestsSection({
     </div>
   )
 }
-

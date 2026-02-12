@@ -4,10 +4,12 @@ import DescriptionIcon from '@mui/icons-material/Description'
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import type { BookingRequest } from '@/types'
+import type { BookingRequestProjectionValue } from '@/app/actions/revenue-projections'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 
 interface LinkedRequestSectionProps {
   request: BookingRequest
+  projection?: BookingRequestProjectionValue | null
   onView: () => void
 }
 
@@ -37,7 +39,22 @@ function getRequestDisplayName(request: BookingRequest): string {
   return request.merchant || request.businessEmail || 'Solicitud sin nombre'
 }
 
-export default function LinkedRequestSection({ request, onView }: LinkedRequestSectionProps) {
+function getSourceLabel(source: BookingRequestProjectionValue['projectionSource']): string {
+  switch (source) {
+    case 'actual_deal':
+      return 'Actual'
+    case 'business_history':
+      return 'Histórico'
+    case 'category_benchmark':
+      return 'Categoría'
+    default:
+      return 'Sin datos'
+  }
+}
+
+export default function LinkedRequestSection({ request, projection, onView }: LinkedRequestSectionProps) {
+  const projectedRevenue = projection?.projectedRevenue
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
       <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
@@ -62,6 +79,11 @@ export default function LinkedRequestSection({ request, onView }: LinkedRequestS
               >
                 {statusLabels[request.status] || request.status}
               </span>
+              {projectedRevenue !== null && projectedRevenue !== undefined && (
+                <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[10px] font-medium whitespace-nowrap">
+                  ${Math.round(projectedRevenue).toLocaleString('en-US')} · {getSourceLabel(projection?.projectionSource || 'none')}
+                </span>
+              )}
 
               <h4 className="font-medium text-gray-900 truncate">
                 {getRequestDisplayName(request)}

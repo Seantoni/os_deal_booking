@@ -131,6 +131,8 @@ export default function OpportunityFormModal({
     linkedBusiness,
     setLinkedBusiness,
     linkedBookingRequest,
+    linkedBusinessProjection,
+    linkedBookingRequestProjection,
     loadingData,
     loadFormData,
   } = useOpportunityForm({
@@ -729,6 +731,8 @@ export default function OpportunityFormModal({
     const combined = [...(businesses || []), ...(preloadedBusinesses || [])]
     return combined.filter((b, i, arr) => arr.findIndex(x => x.id === b.id) === i)
   }, [businesses, preloadedBusinesses])
+  const startDateDisplayValue = dynamicForm.getValue('startDate') || opportunity?.startDate || null
+  const closeDateDisplayValue = dynamicForm.getValue('closeDate') || opportunity?.closeDate || null
 
   if (!isOpen) return null
 
@@ -865,14 +869,14 @@ export default function OpportunityFormModal({
                       Creado: {new Date(opportunity.createdAt).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
                     </span>
                   )}
-                  {(dynamicForm.getValue('startDate') || opportunity?.startDate) && (
+                  {startDateDisplayValue && (
                     <span className="whitespace-nowrap">
-                      Inicio: {new Date(dynamicForm.getValue('startDate') || opportunity?.startDate!).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
+                      Inicio: {new Date(startDateDisplayValue).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
                     </span>
                   )}
-                  {(dynamicForm.getValue('closeDate') || opportunity?.closeDate) && (
+                  {closeDateDisplayValue && (
                     <span className="whitespace-nowrap">
-                      Cierre: {new Date(dynamicForm.getValue('closeDate') || opportunity?.closeDate!).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
+                      Cierre: {new Date(closeDateDisplayValue).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
                     </span>
                   )}
                 </div>
@@ -1019,6 +1023,7 @@ export default function OpportunityFormModal({
                 {linkedBusiness && (
                   <LinkedBusinessSection
                     business={linkedBusiness}
+                    projectionSummary={linkedBusinessProjection}
                     onEdit={handleEditBusiness}
                   />
                 )}
@@ -1026,6 +1031,7 @@ export default function OpportunityFormModal({
                 {linkedBookingRequest && (
                   <LinkedRequestSection
                     request={linkedBookingRequest}
+                    projection={linkedBookingRequestProjection}
                     onView={handleViewLinkedRequest}
                   />
                 )}

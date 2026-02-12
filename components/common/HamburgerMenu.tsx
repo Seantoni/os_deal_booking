@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSidebar } from './AppClientProviders'
@@ -12,7 +12,6 @@ import SettingsIcon from '@mui/icons-material/Settings'
 import BusinessIcon from '@mui/icons-material/Business'
 import HandshakeIcon from '@mui/icons-material/Handshake'
 import AccountTreeIcon from '@mui/icons-material/AccountTree'
-import AssignmentIcon from '@mui/icons-material/Assignment'
 import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
@@ -34,6 +33,7 @@ const adminSidebarConfig = {
   // Monitor & Analyze (top - high-level overview)
   monitorItems: [
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
+    { name: 'Proyección', href: '/proyeccion', Icon: TrendingUpIcon },
     { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
     { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
   ],
@@ -65,6 +65,7 @@ const adminSidebarConfig = {
 const salesSidebarConfig = {
   monitorItems: [
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
+    { name: 'Proyección', href: '/proyeccion', Icon: TrendingUpIcon },
     { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
     { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
   ],
@@ -121,12 +122,6 @@ const marketingSidebarConfig = {
 export default function HamburgerMenu() {
   const pathname = usePathname()
   const { isOpen, setIsOpen, isCalendarPage, role, loading } = useSidebar()
-  
-  // Track mount state to prevent hydration mismatch
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   // Get sidebar configuration based on role
   const sidebarConfig = useMemo(() => {
@@ -186,7 +181,7 @@ export default function HamburgerMenu() {
         <div className={`h-full flex flex-col`}>
           {/* Navigation */}
           <nav className="flex-1 overflow-y-auto py-1.5 px-1 scrollbar-hide">
-            {(!mounted || loading) ? (
+            {loading ? (
               // Shimmer loading effect
               <div className="space-y-0.5">
                 {[...Array(6)].map((_, i) => (
@@ -352,7 +347,7 @@ export default function HamburgerMenu() {
           </nav>
 
           {/* Bottom Section - Settings */}
-          {mounted && !loading && sidebarConfig.bottomItems.length > 0 && (
+          {!loading && sidebarConfig.bottomItems.length > 0 && (
             <div className="px-1 pb-1.5 pt-1 border-t border-slate-200/60">
               <div className="space-y-0.5">
                 {sidebarConfig.bottomItems.map((item) => {

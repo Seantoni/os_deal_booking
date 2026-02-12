@@ -8,10 +8,12 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import type { Opportunity } from '@/types'
+import type { ProjectionEntitySummary } from '@/lib/projections/summary'
 import { PANAMA_TIMEZONE, getDateComponentsInPanama } from '@/lib/date/timezone'
 
 interface OpportunitiesSectionProps {
   opportunities: Opportunity[]
+  projectionSummaryMap?: Record<string, ProjectionEntitySummary>
   onEditOpportunity: (opportunity: Opportunity) => void
   onCreateNew: () => void
   businessName?: string
@@ -22,8 +24,22 @@ const ITEMS_PER_PAGE = 5
 
 type FilterType = 'all' | 'open' | 'won' | 'lost'
 
+function getProjectionSourceLabel(source: ProjectionEntitySummary['projectionSource']): string {
+  switch (source) {
+    case 'actual_deal':
+      return 'Actual'
+    case 'business_history':
+      return 'Histórico'
+    case 'category_benchmark':
+      return 'Categoría'
+    default:
+      return 'Sin datos'
+  }
+}
+
 export default function OpportunitiesSection({
   opportunities,
+  projectionSummaryMap = {},
   onEditOpportunity,
   onCreateNew,
   businessName,
@@ -201,7 +217,15 @@ export default function OpportunitiesSection({
         ) : (
           <>
             <div className="space-y-1">
-              {paginatedOpportunities.map((opp) => (
+              {paginatedOpportunities.map((opp) => {
+                const summary = projectionSummaryMap[opp.id]
+                const projectedRevenue = summary?.totalProjectedRevenue ?? 0
+                const projectionSource = summary?.projectionSource ?? 'none'
+                const projectionSourceLabel = getProjectionSourceLabel(projectionSource)
+                const projectionText = projectedRevenue > 0
+                  ? `$${Math.round(projectedRevenue).toLocaleString('en-US')} · ${projectionSourceLabel}${(summary?.projectedRequests ?? 0) > 0 ? ` · ${summary?.projectedRequests ?? 0}/${summary?.totalRequests ?? 0}` : ' · Guía'}`
+                  : 'Sin datos'
+                return (
                 <button
                   key={opp.id}
                   type="button"
@@ -226,11 +250,21 @@ export default function OpportunitiesSection({
                           })}
                         </span>
                       </div>
+                      <span
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
+                          projectedRevenue > 0
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
+                        Proy. {projectionText}
+                      </span>
                     </div>
                     <ArrowForwardIcon className="text-gray-400 group-hover:text-orange-600 flex-shrink-0 transition-colors" style={{ fontSize: 12 }} />
                   </div>
                 </button>
-              ))}
+                )
+              })}
             </div>
             
             {totalPages > 1 && (
@@ -264,4 +298,3 @@ export default function OpportunitiesSection({
     </div>
   )
 }
-

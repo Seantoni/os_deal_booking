@@ -9,6 +9,7 @@ import type { UserRole } from '@/lib/constants'
 export const PAGE_ACCESS: Record<string, UserRole[]> = {
   '/events': ['admin', 'sales', 'editor_senior'],
   '/dashboard': ['admin', 'sales', 'editor_senior'],
+  '/proyeccion': ['admin', 'sales'],
   '/pipeline': ['admin', 'sales', 'editor_senior'],
   '/tasks': ['admin', 'sales'],
   '/leads': ['admin'],

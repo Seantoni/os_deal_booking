@@ -1,9 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getOpportunityFormData } from '@/app/actions/opportunities'
 import { getBusiness } from '@/app/actions/crm'
+import {
+  getBookingRequestProjectionMap,
+  getBusinessProjectionSummaryMap,
+  type BookingRequestProjectionValue,
+} from '@/app/actions/revenue-projections'
 import { getTodayInPanama, formatDateForPanama } from '@/lib/date/timezone'
 import type { Opportunity, OpportunityStage, Task, Business, BookingRequest, UserData } from '@/types'
 import type { Category } from '@prisma/client'
+import type { ProjectionEntitySummary } from '@/lib/projections/summary'
 
 interface UseOpportunityFormProps {
   isOpen: boolean
@@ -47,6 +53,8 @@ export function useOpportunityForm({
   const [tasks, setTasks] = useState<Task[]>([])
   const [linkedBusiness, setLinkedBusiness] = useState<Business | null>(null)
   const [linkedBookingRequest, setLinkedBookingRequest] = useState<BookingRequest | null>(null)
+  const [linkedBusinessProjection, setLinkedBusinessProjection] = useState<ProjectionEntitySummary | null>(null)
+  const [linkedBookingRequestProjection, setLinkedBookingRequestProjection] = useState<BookingRequestProjectionValue | null>(null)
 
   // Loading state
   const [loadingData, setLoadingData] = useState(false)
@@ -76,6 +84,8 @@ export function useOpportunityForm({
       setTasks([])
       setLinkedBusiness(null)
       setLinkedBookingRequest(null)
+      setLinkedBusinessProjection(null)
+      setLinkedBookingRequestProjection(null)
     }
 
     // Check if we have all preloaded data for a new opportunity
@@ -108,6 +118,11 @@ export function useOpportunityForm({
         setContactPhone(selectedBusiness.contactPhone || '')
         setContactEmail(selectedBusiness.contactEmail || '')
         setLinkedBusiness(selectedBusiness)
+
+        const projectionResult = await getBusinessProjectionSummaryMap([selectedBusiness.id])
+        if (projectionResult.success && projectionResult.data) {
+          setLinkedBusinessProjection(projectionResult.data[selectedBusiness.id] || null)
+        }
       }
       return
     }
@@ -138,8 +153,31 @@ export function useOpportunityForm({
         
         // Set tasks and linked data from response
         setTasks((result.data.tasks as Task[]) || [])
-        setLinkedBusiness(result.data.linkedBusiness as Business | null)
-        setLinkedBookingRequest(result.data.linkedBookingRequest as BookingRequest | null)
+        const linkedBusinessData = result.data.linkedBusiness as Business | null
+        const linkedRequestData = result.data.linkedBookingRequest as BookingRequest | null
+
+        setLinkedBusiness(linkedBusinessData)
+        setLinkedBookingRequest(linkedRequestData)
+
+        const [businessProjectionResult, requestProjectionResult] = await Promise.all([
+          linkedBusinessData?.id
+            ? getBusinessProjectionSummaryMap([linkedBusinessData.id])
+            : Promise.resolve({ success: true as const, data: {} as Record<string, ProjectionEntitySummary> }),
+          linkedRequestData?.id
+            ? getBookingRequestProjectionMap([linkedRequestData.id])
+            : Promise.resolve({ success: true as const, data: {} as Record<string, BookingRequestProjectionValue> }),
+        ])
+
+        setLinkedBusinessProjection(
+          businessProjectionResult.success && businessProjectionResult.data && linkedBusinessData?.id
+            ? businessProjectionResult.data[linkedBusinessData.id] || null
+            : null
+        )
+        setLinkedBookingRequestProjection(
+          requestProjectionResult.success && requestProjectionResult.data && linkedRequestData?.id
+            ? requestProjectionResult.data[linkedRequestData.id] || null
+            : null
+        )
         
         // Pre-fill form if editing
         if (currentOpportunity) {
@@ -225,6 +263,18 @@ export function useOpportunityForm({
         setContactEmail(selectedBusiness.contactEmail || '')
         // Also set linkedBusiness when business selection changes
         setLinkedBusiness(selectedBusiness)
+
+        getBusinessProjectionSummaryMap([selectedBusiness.id]).then(result => {
+          if (result.success && result.data) {
+            setLinkedBusinessProjection(result.data[selectedBusiness.id] || null)
+          } else {
+            setLinkedBusinessProjection(null)
+          }
+        }).catch(() => {
+          setLinkedBusinessProjection(null)
+        })
+      } else {
+        setLinkedBusinessProjection(null)
       }
     }
   }, [businessId, businesses, opportunity])
@@ -233,9 +283,18 @@ export function useOpportunityForm({
   useEffect(() => {
     if (stage === 'won' && businessId && !linkedBusiness) {
       const loadBusiness = async () => {
-        const businessResult = await getBusiness(businessId)
-        if (businessResult.success && businessResult.data) {
-          setLinkedBusiness(businessResult.data)
+        try {
+          const businessResult = await getBusiness(businessId)
+          if (businessResult.success && businessResult.data) {
+            setLinkedBusiness(businessResult.data)
+
+            const projectionResult = await getBusinessProjectionSummaryMap([businessResult.data.id])
+            if (projectionResult.success && projectionResult.data) {
+              setLinkedBusinessProjection(projectionResult.data[businessResult.data.id] || null)
+            }
+          }
+        } catch {
+          setLinkedBusinessProjection(null)
         }
       }
       loadBusiness()
@@ -276,10 +335,11 @@ export function useOpportunityForm({
     linkedBusiness,
     setLinkedBusiness,
     linkedBookingRequest,
+    linkedBusinessProjection,
+    linkedBookingRequestProjection,
     
     // Loading
     loadingData,
     loadFormData,
   }
 }
-

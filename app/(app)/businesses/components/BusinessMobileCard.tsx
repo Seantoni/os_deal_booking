@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Business } from '@/types'
 import type { FocusPeriod } from '@/lib/utils/focus-period'
+import type { ProjectionEntitySummary } from '@/lib/projections/summary'
 import { FOCUS_PERIOD_LABELS } from '@/lib/utils/focus-period'
 import MoreVertIcon from '@mui/icons-material/MoreVert'
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
@@ -18,6 +19,7 @@ interface BusinessMobileCardProps {
   openOpportunityCount: number
   pendingRequestCount: number
   campaignCount: number
+  projectionSummary?: ProjectionEntitySummary
   isAdmin: boolean
   canEdit: boolean
   onCardTap: (business: Business) => void
@@ -29,6 +31,19 @@ interface BusinessMobileCardProps {
   onOpenReassignmentModal: (business: Business) => void
 }
 
+function getProjectionSourceLabel(source: ProjectionEntitySummary['projectionSource']): string {
+  switch (source) {
+    case 'actual_deal':
+      return 'Actual'
+    case 'business_history':
+      return 'Histórico'
+    case 'category_benchmark':
+      return 'Categoría'
+    default:
+      return 'Sin datos'
+  }
+}
+
 export function BusinessMobileCard({
   business,
   activeFocus,
@@ -36,6 +51,7 @@ export function BusinessMobileCard({
   openOpportunityCount,
   pendingRequestCount,
   campaignCount,
+  projectionSummary,
   isAdmin,
   canEdit,
   onCardTap,
@@ -73,7 +89,14 @@ export function BusinessMobileCard({
   const ownerName = business.owner?.name || business.owner?.email || null
 
   // Collect badges
-  const hasBadges = business.tier || activeFocus || campaignCount > 0 || activeDealUrl || openOpportunityCount > 0 || pendingRequestCount > 0
+  const projectedRevenue = projectionSummary?.totalProjectedRevenue ?? 0
+  const projectedRequests = projectionSummary?.projectedRequests ?? 0
+  const totalRequests = projectionSummary?.totalRequests ?? 0
+  const projectionSource = projectionSummary?.projectionSource ?? 'none'
+  const projectionSourceLabel = getProjectionSourceLabel(projectionSource)
+  const projectionText = projectedRevenue > 0
+    ? `Proy. $${projectedRevenue.toLocaleString('en-US', { maximumFractionDigits: 0 })} · ${projectionSourceLabel}${projectedRequests > 0 ? ` · ${projectedRequests}/${totalRequests}` : ' · Guía'}`
+    : 'Proy. Sin datos'
 
   return (
     <>
@@ -121,64 +144,73 @@ export function BusinessMobileCard({
         </div>
 
         {/* Badges row */}
-        {hasBadges && (
-          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-            {/* Tier */}
-            {business.tier && (
-              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                business.tier === 1 ? 'bg-emerald-100 text-emerald-700' :
-                business.tier === 2 ? 'bg-blue-100 text-blue-700' :
-                'bg-gray-100 text-gray-600'
-              }`}>
-                T{business.tier}
-              </span>
-            )}
+        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+          {/* Tier */}
+          {business.tier && (
+            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+              business.tier === 1 ? 'bg-emerald-100 text-emerald-700' :
+              business.tier === 2 ? 'bg-blue-100 text-blue-700' :
+              'bg-gray-100 text-gray-600'
+            }`}>
+              T{business.tier}
+            </span>
+          )}
 
-            {/* Focus */}
-            {activeFocus && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-medium">
-                <CenterFocusStrongIcon style={{ fontSize: 11 }} />
-                {FOCUS_PERIOD_LABELS[activeFocus].charAt(0)}
-              </span>
-            )}
+          {/* Focus */}
+          {activeFocus && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-medium">
+              <CenterFocusStrongIcon style={{ fontSize: 11 }} />
+              {FOCUS_PERIOD_LABELS[activeFocus].charAt(0)}
+            </span>
+          )}
 
-            {/* Campaign */}
-            {campaignCount > 0 && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-medium">
-                <CampaignIcon style={{ fontSize: 11 }} />
-                {campaignCount}
-              </span>
-            )}
+          {/* Campaign */}
+          {campaignCount > 0 && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-medium">
+              <CampaignIcon style={{ fontSize: 11 }} />
+              {campaignCount}
+            </span>
+          )}
 
-            {/* Active Deal */}
-            {activeDealUrl && (
-              <a
-                href={activeDealUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[10px] font-medium"
-              >
-                <LaunchIcon style={{ fontSize: 11 }} />
-                Deal
-              </a>
-            )}
+          {/* Active Deal */}
+          {activeDealUrl && (
+            <a
+              href={activeDealUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[10px] font-medium"
+            >
+              <LaunchIcon style={{ fontSize: 11 }} />
+              Deal
+            </a>
+          )}
 
-            {/* Open Opportunities */}
-            {openOpportunityCount > 0 && (
-              <span className="inline-flex items-center px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-medium">
-                {openOpportunityCount} opp{openOpportunityCount > 1 ? 's' : ''}
-              </span>
-            )}
+          {/* Open Opportunities */}
+          {openOpportunityCount > 0 && (
+            <span className="inline-flex items-center px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-medium">
+              {openOpportunityCount} opp{openOpportunityCount > 1 ? 's' : ''}
+            </span>
+          )}
 
-            {/* Pending Requests */}
-            {pendingRequestCount > 0 && (
-              <span className="inline-flex items-center px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded text-[10px] font-medium">
-                {pendingRequestCount} solic.
-              </span>
-            )}
-          </div>
-        )}
+          {/* Pending Requests */}
+          {pendingRequestCount > 0 && (
+            <span className="inline-flex items-center px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded text-[10px] font-medium">
+              {pendingRequestCount} solic.
+            </span>
+          )}
+
+          {/* Projected Revenue */}
+          <span
+            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+              projectedRevenue > 0
+                ? 'bg-emerald-50 text-emerald-700'
+                : 'bg-gray-100 text-gray-500'
+            }`}
+          >
+            {projectionText}
+          </span>
+        </div>
       </div>
 
       {/* Action Sheet */}

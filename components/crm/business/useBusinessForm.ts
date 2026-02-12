@@ -1,7 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getBusinessFormData } from '@/app/actions/businesses'
+import {
+  getBusinessProjectionSummaryMap,
+  getBookingRequestProjectionMap,
+  getOpportunityProjectionSummaryMap,
+  type BookingRequestProjectionValue,
+} from '@/app/actions/revenue-projections'
 import type { Business, Opportunity, BookingRequest, UserData, Deal } from '@/types'
 import type { Category } from '@prisma/client'
+import type { ProjectionEntitySummary } from '@/lib/projections/summary'
 
 interface UseBusinessFormProps {
   isOpen: boolean
@@ -33,6 +40,9 @@ export function useBusinessForm({
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [requests, setRequests] = useState<BookingRequest[]>([])
   const [deals, setDeals] = useState<Deal[]>([])
+  const [businessProjectionSummary, setBusinessProjectionSummary] = useState<ProjectionEntitySummary | null>(null)
+  const [opportunityProjectionMap, setOpportunityProjectionMap] = useState<Record<string, ProjectionEntitySummary>>({})
+  const [requestProjectionMap, setRequestProjectionMap] = useState<Record<string, BookingRequestProjectionValue>>({})
 
   // Loading state
   const [loadingData, setLoadingData] = useState(false)
@@ -57,6 +67,9 @@ export function useBusinessForm({
     setOpportunities([])
     setRequests([])
     setDeals([])
+    setBusinessProjectionSummary(null)
+    setOpportunityProjectionMap({})
+    setRequestProjectionMap({})
 
     // If we have all preloaded data for a new business, skip the fetch entirely
     const hasAllPreloadedData = (preloadedCategories && preloadedCategories.length > 0) && 
@@ -83,9 +96,36 @@ export function useBusinessForm({
         
         // Business-specific data (opportunities, requests) always from response
         if (currentBusiness) {
-          setOpportunities(result.data.opportunities)
-          setRequests(result.data.requests)
+          const opportunitiesData = result.data.opportunities as Opportunity[]
+          const requestsData = result.data.requests as BookingRequest[]
+
+          setOpportunities(opportunitiesData)
+          setRequests(requestsData)
           setDeals(result.data.deals || [])
+
+          const opportunityIds = opportunitiesData.map(opportunity => opportunity.id)
+          const requestIds = requestsData.map(request => request.id)
+          const [businessProjectionResult, opportunityProjectionResult, requestProjectionResult] = await Promise.all([
+            getBusinessProjectionSummaryMap([currentBusiness.id]),
+            getOpportunityProjectionSummaryMap(opportunityIds),
+            getBookingRequestProjectionMap(requestIds),
+          ])
+
+          setBusinessProjectionSummary(
+            businessProjectionResult.success && businessProjectionResult.data
+              ? businessProjectionResult.data[currentBusiness.id] || null
+              : null
+          )
+          setOpportunityProjectionMap(
+            opportunityProjectionResult.success && opportunityProjectionResult.data
+              ? opportunityProjectionResult.data
+              : {}
+          )
+          setRequestProjectionMap(
+            requestProjectionResult.success && requestProjectionResult.data
+              ? requestProjectionResult.data
+              : {}
+          )
         }
       }
     } finally {
@@ -128,6 +168,9 @@ export function useBusinessForm({
     setRequests,
     deals,
     setDeals,
+    businessProjectionSummary,
+    opportunityProjectionMap,
+    requestProjectionMap,
     
     // Loading
     loadingData,

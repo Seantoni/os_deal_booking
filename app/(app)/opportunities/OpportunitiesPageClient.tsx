@@ -5,8 +5,10 @@ import { useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import { getOpportunitiesPaginated, searchOpportunities, getOpportunityCounts } from '@/app/actions/opportunities'
+import { getOpportunityProjectionSummaryMap } from '@/app/actions/revenue-projections'
 import { deleteOpportunity } from '@/app/actions/crm'
 import type { Opportunity, Business } from '@/types'
+import type { ProjectionEntitySummary } from '@/lib/projections/summary'
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban'
 import TableChartIcon from '@mui/icons-material/TableChart'
 import FilterListIcon from '@mui/icons-material/FilterList'
@@ -54,12 +56,26 @@ const STAGE_LABELS: Record<string, string> = {
   lost: 'Lost',
 }
 
+function getProjectionSourceLabel(source: ProjectionEntitySummary['projectionSource']): string {
+  switch (source) {
+    case 'actual_deal':
+      return 'Actual'
+    case 'business_history':
+      return 'Histórico'
+    case 'category_benchmark':
+      return 'Categoría'
+    default:
+      return 'Sin datos'
+  }
+}
+
 // Table columns configuration
 const COLUMNS: ColumnConfig[] = [
   { key: 'business', label: 'Negocio', sortable: true },
   { key: 'stage', label: 'Etapa', sortable: true },
   { key: 'startDate', label: 'Inicio', sortable: true },
   { key: 'closeDate', label: 'Cierre', sortable: true },
+  { key: 'projectedRevenue', label: 'Proy. $', sortable: true, align: 'right' },
   { key: 'notes', label: 'Notas', sortable: true },
   { key: 'actions', label: '', align: 'right', width: 'w-28' },
 ]
@@ -229,6 +245,40 @@ export default function OpportunitiesPageClient({
 
   // Determine which opportunities to display
   const displayOpportunities = searchResults !== null ? searchResults : opportunities
+  const [opportunityProjectionMap, setOpportunityProjectionMap] = useState<Record<string, ProjectionEntitySummary>>({})
+
+  const projectionOpportunityIds = useMemo(
+    () => displayOpportunities.map(opportunity => opportunity.id),
+    [displayOpportunities]
+  )
+
+  // Load projection summaries for the currently visible opportunities
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadProjectionSummaries() {
+      if (projectionOpportunityIds.length === 0) {
+        setOpportunityProjectionMap({})
+        return
+      }
+
+      try {
+        const result = await getOpportunityProjectionSummaryMap(projectionOpportunityIds)
+        if (!cancelled) {
+          setOpportunityProjectionMap(result.success && result.data ? result.data : {})
+        }
+      } catch {
+        if (!cancelled) {
+          setOpportunityProjectionMap({})
+        }
+      }
+    }
+
+    loadProjectionSummaries()
+    return () => {
+      cancelled = true
+    }
+  }, [projectionOpportunityIds])
 
   // Filter tabs with server-side counts
   const filterTabs: FilterTab[] = useMemo(() => {
@@ -267,12 +317,14 @@ export default function OpportunitiesPageClient({
         return new Date(opportunity.startDate).getTime()
       case 'closeDate':
         return opportunity.closeDate ? new Date(opportunity.closeDate).getTime() : 0
+      case 'projectedRevenue':
+        return opportunityProjectionMap[opportunity.id]?.totalProjectedRevenue ?? 0
       case 'notes':
         return (opportunity.notes || '').toLowerCase()
       default:
         return null
     }
-  }, [])
+  }, [opportunityProjectionMap])
 
   // Filter and sort opportunities
   // Server-side filtering is used for paginated data
@@ -289,7 +341,7 @@ export default function OpportunitiesPageClient({
     filtered = applyFiltersToData(filtered)
 
     // Client-side sort for search results
-    if (isSearching && sortColumn) {
+    if (sortColumn && (isSearching || sortColumn === 'projectedRevenue')) {
       return sortEntities(filtered, sortColumn, sortDirection, getSortValue)
     }
 
@@ -594,6 +646,7 @@ export default function OpportunitiesPageClient({
                   <OpportunityMobileCard
                     key={opportunity.id}
                     opportunity={opportunity}
+                    projectionSummary={opportunityProjectionMap[opportunity.id]}
                     onCardTap={handleEditOpportunity}
                     onRowHover={handleRowHover}
                   />
@@ -615,7 +668,18 @@ export default function OpportunitiesPageClient({
                 sortDirection={sortDirection}
                 onSort={handleSort}
               >
-                {filteredOpportunities.map((opportunity, index) => (
+                {filteredOpportunities.map((opportunity, index) => {
+                  const projectionSummary = opportunityProjectionMap[opportunity.id]
+                  const projectedRevenue = projectionSummary?.totalProjectedRevenue ?? 0
+                  const projectionSource = projectionSummary?.projectionSource ?? 'none'
+                  const projectionSourceLabel = getProjectionSourceLabel(projectionSource)
+                  const projectionDetail = projectionSource === 'none'
+                    ? 'Sin datos'
+                    : (projectionSummary?.projectedRequests ?? 0) > 0
+                      ? `${projectionSourceLabel} · ${projectionSummary?.projectedRequests ?? 0}/${projectionSummary?.totalRequests ?? 0}`
+                      : `${projectionSourceLabel} · Guía`
+
+                  return (
                   <TableRow
                     key={opportunity.id}
                     index={index}
@@ -657,6 +721,20 @@ export default function OpportunitiesPageClient({
                         <span className="text-gray-400">-</span>
                       )}
                     </TableCell>
+                    <TableCell align="right">
+                      <div className="flex flex-col items-end leading-tight">
+                        {projectedRevenue > 0 ? (
+                          <span className="text-[13px] font-semibold text-emerald-700">
+                            ${Math.round(projectedRevenue).toLocaleString('en-US')}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400 text-[13px]">-</span>
+                        )}
+                        <span className="text-[10px] text-gray-500">
+                          {projectionDetail}
+                        </span>
+                      </div>
+                    </TableCell>
                     <TableCell>
                       {opportunity.notes ? (
                         <div className="text-[13px] text-gray-500 max-w-[240px] truncate" title={opportunity.notes}>
@@ -670,7 +748,8 @@ export default function OpportunitiesPageClient({
                       {/* Actions removed - row click opens edit modal */}
                     </TableCell>
                   </TableRow>
-                ))}
+                  )
+                })}
               </EntityTable>
               
               <PaginationControls />
