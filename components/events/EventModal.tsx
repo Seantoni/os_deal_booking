@@ -10,6 +10,7 @@ import type { CategoryOption } from '@/lib/categories'
 import { checkUniquenesViolation, check30DayMerchantRule, getDailyLimitStatus, getEventsOnDate, calculateNextAvailableDate } from '@/lib/event-validation'
 import { formatDateForPanama, PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import type { Event, UserRole, EventModalPrefillData, BookingRequest } from '@/types'
+import { buildEventNameFromBookingRequest } from '@/lib/utils/request-name-parsing'
 
 // Extended type for linked booking request with user info
 type LinkedBookingRequest = BookingRequest & {
@@ -145,6 +146,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
   // Separate state for data that doesn't fit the form pattern
   const [userSettings, setUserSettings] = useState(getSettings())
   const [linkedBookingRequest, setLinkedBookingRequest] = useState<LinkedBookingRequest | null>(null)
+  const [loadingLinkedBookingRequest, setLoadingLinkedBookingRequest] = useState(false)
   
   // Helper functions to dispatch common actions
   const setField = useCallback(<K extends keyof FormState>(field: K, value: FormState[K]) => {
@@ -175,25 +177,38 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
 
   // Fetch linked booking request when editing an event or when clicking from sidebar
   useEffect(() => {
+    let cancelled = false
+
     async function fetchLinkedBookingRequest() {
       // Get booking request ID from event or prop
       const requestId = eventToEdit?.bookingRequestId || bookingRequestId
       
       if (isOpen && requestId) {
+        if (!cancelled) setLoadingLinkedBookingRequest(true)
         try {
           const { getBookingRequest } = await import('@/app/actions/booking-requests')
           const result = await getBookingRequest(requestId)
-          if (result.success && result.data) {
+          if (!cancelled && result.success && result.data) {
             setLinkedBookingRequest(result.data)
           }
         } catch (err) {
           console.error('Failed to fetch linked booking request:', err)
+        } finally {
+          if (!cancelled) setLoadingLinkedBookingRequest(false)
         }
       } else {
-        setLinkedBookingRequest(null)
+        if (!cancelled) {
+          setLinkedBookingRequest(null)
+          setLoadingLinkedBookingRequest(false)
+        }
       }
     }
+
     fetchLinkedBookingRequest()
+
+    return () => {
+      cancelled = true
+    }
   }, [isOpen, eventToEdit, bookingRequestId])
 
   // Update description when linkedBookingRequest is loaded (for creating from booking request)
@@ -213,9 +228,16 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       if (eventToEdit) {
         // Editing mode - pre-fill with event data
         const descriptionToUse = eventToEdit.description || ''
+        const generatedNameFromRequest = linkedBookingRequest
+          ? buildEventNameFromBookingRequest({
+              requestName: linkedBookingRequest.name || '',
+              merchant: linkedBookingRequest.merchant || null,
+              pricingOptions: (linkedBookingRequest as { pricingOptions?: unknown }).pricingOptions,
+            })
+          : ''
         
         setFormData({
-          name: eventToEdit.name,
+          name: generatedNameFromRequest || linkedBookingRequest?.name || eventToEdit.name,
           description: descriptionToUse,
           business: linkedBookingRequest?.merchant || eventToEdit.business || '',
           businessId: eventToEdit.businessId || '',
@@ -270,7 +292,11 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
         const req = linkedBookingRequest as { aboutOffer?: string; whatWeLike?: string; additionalComments?: string }
         const desc = req?.aboutOffer || req?.whatWeLike || req?.additionalComments || ''
         setFormData({
-          name: linkedBookingRequest.name || '',
+          name: buildEventNameFromBookingRequest({
+            requestName: linkedBookingRequest.name || '',
+            merchant: linkedBookingRequest.merchant || null,
+            pricingOptions: (linkedBookingRequest as { pricingOptions?: unknown }).pricingOptions,
+          }) || linkedBookingRequest.name || '',
           description: desc,
           business: linkedBookingRequest.merchant || '',
           businessId: '',
@@ -670,6 +696,8 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
   }
 
   if (!isOpen) return null
+  const hasLinkedRequest = Boolean(eventToEdit?.bookingRequestId || bookingRequestId)
+  const showLinkedRequestLoader = hasLinkedRequest && loadingLinkedBookingRequest
 
   return (
     <>
@@ -683,7 +711,13 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
         autoHeight={true}
         backdropClassName={showBookingRequestModal ? 'md:justify-start' : ''}
       >
-        {/* Form - Scrollable content */}
+        {showLinkedRequestLoader ? (
+          <div className="min-h-[420px] bg-gray-50 flex flex-col items-center justify-center gap-3 px-6 py-10">
+            <div className="h-8 w-8 rounded-full border-2 border-gray-300 border-t-blue-600 animate-spin" />
+            <p className="text-sm font-medium text-gray-800">Cargando información de la solicitud...</p>
+          </div>
+        ) : (
+        /* Form - Scrollable content */
         <form onSubmit={handleSubmit} className="divide-y divide-gray-100">
             {/* Linked Booking Request - Top Banner */}
             {linkedBookingRequest && (
@@ -753,7 +787,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                   onChange={(businessName, selectedBusiness) => {
                     setField('business', businessName)
                     setField('businessId', selectedBusiness?.id || '')
-                    if (!eventToEdit && startDate) {
+                    if (!eventToEdit && !linkedBookingRequest && startDate) {
                       setField('name', generateEventName(businessName, startDate))
                     }
                   }}
@@ -811,7 +845,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                     if (readOnly) return
                     const newDate = e.target.value
                     setField('startDate', newDate)
-                    if (!eventToEdit && business) {
+                    if (!eventToEdit && !linkedBookingRequest && business) {
                       setField('name', generateEventName(business, newDate))
                     }
                   }}
@@ -898,6 +932,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
               </div>
             </div>
         </form>
+        )}
       </ModalShell>
 
       {/* Confirm Dialog - z-index 80 to appear above ModalShell (z-70) */}

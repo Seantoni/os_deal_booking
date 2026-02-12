@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, useTransition } from 'react'
+import { useEffect, useState, useMemo, useTransition, useRef } from 'react'
 import { getDealPublicSlug, getEditorDeliveryWorkload, getSuggestedDeliveryDate, updateDealDeliveryDate, updateDealResponsible, updateDealStatus } from '@/app/actions/deals'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
@@ -53,6 +53,7 @@ export default function DealFormModal({
   const [loadingSuggestedDate, setLoadingSuggestedDate] = useState(false)
   const [deliveryWorkload, setDeliveryWorkload] = useState<{ count: number; max: number } | null>(null)
   const [loadingDeliveryWorkload, setLoadingDeliveryWorkload] = useState(false)
+  const autoApplySuggestedDateRef = useRef(false)
   
   // Get cached form configuration (instant if already prefetched)
   const { sections: cachedSections, initialized: cachedInitialized } = useCachedFormConfig('deal')
@@ -147,6 +148,22 @@ export default function DealFormModal({
     })
   }
 
+  function handleResponsibleChange(nextResponsibleId: string) {
+    const changed = nextResponsibleId !== responsibleId
+    setResponsibleId(nextResponsibleId)
+
+    if (!changed) return
+
+    if (!nextResponsibleId) {
+      setSuggestedDeliveryDate(null)
+      autoApplySuggestedDateRef.current = false
+      return
+    }
+
+    // Re-evaluate delivery date for the newly selected editor.
+    autoApplySuggestedDateRef.current = true
+  }
+
   // React 19: Form submit handler using useTransition
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -224,29 +241,43 @@ export default function DealFormModal({
 
   useEffect(() => {
     const startDateSource = deal?.eventDates?.startDate || deal?.bookingRequest?.startDate
-    if (!isOpen || !startDateSource) {
+    if (!isOpen || !startDateSource || !responsibleId) {
       setSuggestedDeliveryDate(null)
+      setLoadingSuggestedDate(false)
+      autoApplySuggestedDateRef.current = false
       return
     }
     if (!canShowSuggestedDeliveryDate) {
       setSuggestedDeliveryDate(null)
+      setLoadingSuggestedDate(false)
+      autoApplySuggestedDateRef.current = false
       return
     }
 
     let cancelled = false
+    setSuggestedDeliveryDate(null)
     setLoadingSuggestedDate(true)
-    getSuggestedDeliveryDate(formatDateForPanama(new Date(startDateSource)))
+    getSuggestedDeliveryDate(
+      formatDateForPanama(new Date(startDateSource)),
+      responsibleId,
+      deal?.id
+    )
       .then(result => {
         if (cancelled) return
         if (result && typeof result === 'object' && 'success' in result && result.success) {
           const data = result.data as { suggestedDate: string | null } | null
           setSuggestedDeliveryDate(data?.suggestedDate ?? null)
+          if (!data?.suggestedDate) autoApplySuggestedDateRef.current = false
         } else {
           setSuggestedDeliveryDate(null)
+          autoApplySuggestedDateRef.current = false
         }
       })
       .catch(() => {
-        if (!cancelled) setSuggestedDeliveryDate(null)
+        if (!cancelled) {
+          setSuggestedDeliveryDate(null)
+          autoApplySuggestedDateRef.current = false
+        }
       })
       .finally(() => {
         if (!cancelled) setLoadingSuggestedDate(false)
@@ -255,7 +286,7 @@ export default function DealFormModal({
     return () => {
       cancelled = true
     }
-  }, [canShowSuggestedDeliveryDate, deal?.eventDates?.startDate, deal?.bookingRequest?.startDate, isOpen])
+  }, [canShowSuggestedDeliveryDate, deal?.eventDates?.startDate, deal?.bookingRequest?.startDate, deal?.id, isOpen, responsibleId])
 
   useEffect(() => {
     if (!isOpen || !startDateKey || !deliveryDate) return
@@ -299,10 +330,14 @@ export default function DealFormModal({
 
   useEffect(() => {
     if (!isOpen) return
-    if (status !== 'pendiente_por_asignar') return
-    if (deliveryDate || !suggestedDeliveryDate) return
-    setDeliveryDate(suggestedDeliveryDate)
-  }, [deliveryDate, isOpen, status, suggestedDeliveryDate, setDeliveryDate])
+    if (!canShowSuggestedDeliveryDate) return
+    if (!responsibleId || !suggestedDeliveryDate) return
+
+    if (!deliveryDate || autoApplySuggestedDateRef.current) {
+      setDeliveryDate(suggestedDeliveryDate)
+      autoApplySuggestedDateRef.current = false
+    }
+  }, [canShowSuggestedDeliveryDate, deliveryDate, isOpen, responsibleId, suggestedDeliveryDate, setDeliveryDate])
 
   if (!isOpen) return null
 
@@ -442,7 +477,7 @@ export default function DealFormModal({
               {/* Responsible User Section */}
               <ResponsibleUserSection
                 responsibleId={responsibleId}
-                onResponsibleChange={setResponsibleId}
+                onResponsibleChange={handleResponsibleChange}
                 ereResponsibleId={ereResponsibleId}
                 onEreResponsibleChange={setEreResponsibleId}
                 editorUsers={editorUsers}
@@ -505,7 +540,13 @@ export default function DealFormModal({
                         </span>
                       </div>
                     )}
+                    {canShowSuggestedDeliveryDate && !responsibleId && (
+                      <div className="rounded-md border border-slate-200 bg-white px-2.5 py-2 text-[11px] text-slate-600">
+                        Selecciona un editor para calcular la fecha sugerida según carga.
+                      </div>
+                    )}
                     {canShowSuggestedDeliveryDate
+                      && !!responsibleId
                       && suggestedDeliveryDate !== deliveryDate
                       && !(deliveryWorkload && deliveryWorkload.count + 1 > deliveryWorkload.max)
                       && (

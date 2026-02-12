@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import CategoriesSidebar from '@/components/calendar/CategoriesSidebar'
@@ -12,6 +12,7 @@ import { updateEvent, refreshCalendarData } from '@/app/actions/events'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import CloseIcon from '@mui/icons-material/Close'
 import type { Event, BookingRequest, UserRole } from '@/types'
+import { buildEventNameFromBookingRequest } from '@/lib/utils/request-name-parsing'
 
 // Lazy load heavy modal component
 const EventModal = dynamic(() => import('@/components/events/EventModal'), {
@@ -23,6 +24,10 @@ interface EventsPageClientProps {
   events: Event[]
   bookingRequests: BookingRequest[]
   userRole: UserRole
+}
+
+type BookingRequestWithPricing = BookingRequest & {
+  pricingOptions?: unknown
 }
 
 export default function EventsPageClient({ events: initialEvents, bookingRequests: initialBookingRequests, userRole }: EventsPageClientProps) {
@@ -78,18 +83,45 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
     setBookingRequests(initialBookingRequests)
   }, [initialBookingRequests])
 
+  const bookingRequestsById = useMemo(() => {
+    const map = new Map<string, BookingRequestWithPricing>()
+    bookingRequests.forEach((request) => {
+      map.set(request.id, request as BookingRequestWithPricing)
+    })
+    return map
+  }, [bookingRequests])
+
+  // Keep booking-linked event names generated from the latest booking request data.
+  const eventsWithResolvedNames = useMemo(() => {
+    return events.map((event) => {
+      if (!event.bookingRequestId) return event
+
+      const bookingRequest = bookingRequestsById.get(event.bookingRequestId)
+      if (!bookingRequest) return event
+
+      const generatedName = buildEventNameFromBookingRequest({
+        requestName: bookingRequest.name || '',
+        merchant: bookingRequest.merchant || event.business || null,
+        pricingOptions: bookingRequest.pricingOptions,
+      })
+
+      if (!generatedName || generatedName === event.name) return event
+      return { ...event, name: generatedName }
+    })
+  }, [events, bookingRequestsById])
+
   // Handle opening event from URL query params (e.g., from search)
   useEffect(() => {
     const openFromUrl = searchParams.get('open')
-    if (openFromUrl && events.length > 0) {
-      const event = events.find(e => e.id === openFromUrl)
+    if (openFromUrl && eventsWithResolvedNames.length > 0) {
+      const event = eventsWithResolvedNames.find(e => e.id === openFromUrl)
       if (event) {
         setEventToEdit(event)
         setSelectedDate(undefined)
         openEventModal()
       }
     }
-  }, [searchParams, events])
+  }, [searchParams, eventsWithResolvedNames])
   
   // Filter booking requests to only show approved ones
   const pendingRequests = bookingRequests.filter(r => r.status === 'approved')
@@ -278,7 +310,7 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
   const handleRequestClick = (request: BookingRequest) => {
     // If the request has a linked event, open that event for editing (with Approve/Reject buttons)
     if (request.eventId) {
-      const linkedEvent = events.find(e => e.id === request.eventId)
+      const linkedEvent = eventsWithResolvedNames.find(e => e.id === request.eventId)
       if (linkedEvent) {
         setEventToEdit(linkedEvent)
         setBookingRequestId(undefined)
@@ -478,7 +510,7 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
                   onMiniCalendarClearSelection={handleMiniCalendarClearSelection}
                   selectedMiniDate={selectedMiniDate}
                   selectedMiniRange={selectedMiniRange}
-                  events={events}
+                  events={eventsWithResolvedNames}
                   pendingCount={pendingRequests.length}
                 />
               )}
@@ -503,7 +535,7 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
           {/* Calendar View */}
           <div className="flex-1 overflow-hidden relative z-0">
             <CalendarView 
-              events={events} 
+              events={eventsWithResolvedNames} 
               selectedCategories={calendarSelectedCategories}
               showPendingBooking={effectiveShowPendingBooking}
               categoryFilter={categoryFilter}
@@ -541,7 +573,7 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
           selectedEndDate={selectedEndDate}
           eventToEdit={eventToEdit}
           bookingRequestId={bookingRequestId}
-          allEvents={events}
+          allEvents={eventsWithResolvedNames}
           userRole={userRole}
           readOnly={userRole === 'sales' && !!eventToEdit}
           onSuccess={handleEventSuccess}

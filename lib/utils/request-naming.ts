@@ -1,17 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { formatRequestNameDate } from '@/lib/date'
-
-/**
- * Extract business name from a formatted request name
- * Handles both formats: "Business Name" and "Business Name | Date | #Number"
- * @param name - The request name (formatted or plain)
- * @returns The business name only
- */
-export function extractBusinessName(name: string): string {
-  // If the name contains " | ", extract only the part before the first " | "
-  const parts = name.split(' | ')
-  return parts[0].trim()
-}
+import { extractBusinessName } from './request-name-parsing'
 
 /**
  * Generate a standardized request name in format: "Business Name | Dec-15-2025 | #3"
@@ -46,4 +35,3 @@ export async function countBusinessRequests(businessName: string): Promise<numbe
   })
   return count
 }
-

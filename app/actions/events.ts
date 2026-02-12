@@ -12,6 +12,7 @@ import { buildCategoryKey } from '@/lib/category-utils'
 import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
 import { logActivity } from '@/lib/activity-log'
 import { logger } from '@/lib/logger'
+import { buildEventNameFromBookingRequest } from '@/lib/utils/request-name-parsing'
 
 export async function createEvent(formData: FormData) {
   try {
@@ -21,7 +22,7 @@ export async function createEvent(formData: FormData) {
     }
     const { userId } = authResult
 
-    const name = formData.get('name') as string
+    const submittedName = formData.get('name') as string
     const description = formData.get('description') as string
     const category = formData.get('category') as string
     const parentCategory = formData.get('parentCategory') as string
@@ -33,7 +34,33 @@ export async function createEvent(formData: FormData) {
     const endDate = formData.get('endDate') as string
     const bookingRequestId = formData.get('bookingRequestId') as string | null
 
-    if (!name || !startDate || !endDate) {
+    if (!startDate || !endDate) {
+      return { success: false, error: 'Missing required fields' }
+    }
+
+    let name = (submittedName || '').trim()
+
+    if (bookingRequestId) {
+      const bookingRequest = await prisma.bookingRequest.findUnique({
+        where: { id: bookingRequestId },
+        select: {
+          name: true,
+          merchant: true,
+          pricingOptions: true,
+        },
+      })
+
+      if (bookingRequest) {
+        const generatedName = buildEventNameFromBookingRequest({
+          requestName: bookingRequest.name || '',
+          merchant: bookingRequest.merchant || null,
+          pricingOptions: bookingRequest.pricingOptions,
+        })
+        name = generatedName || bookingRequest.name || name
+      }
+    }
+
+    if (!name) {
       return { success: false, error: 'Missing required fields' }
     }
 

@@ -1076,10 +1076,14 @@ export async function getEditorDeliveryWorkload(options: {
 }
 
 /**
- * Suggest earliest delivery date based on editor daily capacity.
- * Defaults to 4 per editor when maxActiveDeals is null.
+ * Suggest earliest delivery date for a specific editor based on daily capacity.
+ * Defaults to 4 when editor maxActiveDeals is null.
  */
-export async function getSuggestedDeliveryDate(startDate: string) {
+export async function getSuggestedDeliveryDate(
+  startDate: string,
+  responsibleId?: string,
+  excludeDealId?: string
+) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
     return authResult
@@ -1099,6 +1103,10 @@ export async function getSuggestedDeliveryDate(startDate: string) {
     const end = parseEndDateInPanamaTime(dayBeforeStartKey)
     const daysUntilStart = Math.floor((start.getTime() - today.getTime()) / ONE_DAY_MS)
 
+    if (!responsibleId) {
+      return { success: true, data: { suggestedDate: null, capacity: 0 } }
+    }
+
     if (daysUntilStart <= 0) {
       return { success: true, data: { suggestedDate: null, capacity: 0 } }
     }
@@ -1107,14 +1115,18 @@ export async function getSuggestedDeliveryDate(startDate: string) {
       return { success: true, data: { suggestedDate: null, capacity: 0 } }
     }
 
-    const editors = await prisma.userProfile.findMany({
-      where: { role: 'editor', isActive: true },
-      select: { maxActiveDeals: true },
+    const editor = await prisma.userProfile.findUnique({
+      where: { clerkId: responsibleId },
+      select: { role: true, isActive: true, maxActiveDeals: true },
     })
-    const capacity = editors.reduce((sum, editor) => {
-      const max = editor.maxActiveDeals
-      return sum + (max === null || max === undefined ? 4 : Math.max(0, max))
-    }, 0)
+
+    if (!editor || editor.role !== 'editor' || !editor.isActive) {
+      return { success: true, data: { suggestedDate: null, capacity: 0 } }
+    }
+
+    const capacity = editor.maxActiveDeals === null || editor.maxActiveDeals === undefined
+      ? 4
+      : Math.max(0, editor.maxActiveDeals)
 
     if (capacity <= 0) {
       return { success: true, data: { suggestedDate: null, capacity } }
@@ -1122,8 +1134,10 @@ export async function getSuggestedDeliveryDate(startDate: string) {
 
     const deals = await prisma.deal.findMany({
       where: {
+        responsibleId,
         deliveryDate: { not: null, gte: today, lte: end },
         status: { notIn: ['borrador_enviado', 'borrador_aprobado'] },
+        ...(excludeDealId ? { id: { not: excludeDealId } } : {}),
       },
       select: { deliveryDate: true },
     })
