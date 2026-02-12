@@ -97,6 +97,11 @@ export default function DealFormModal({
     return formatDateForPanama(dayBefore)
   }, [startDateKey])
 
+  const canShowSuggestedDeliveryDate = useMemo(
+    () => status !== 'borrador_enviado' && status !== 'borrador_aprobado',
+    [status]
+  )
+
   // Build initial values from deal entity
   const initialValues = useMemo((): Record<string, string | null> => {
     if (!deal) return {}
@@ -223,7 +228,7 @@ export default function DealFormModal({
       setSuggestedDeliveryDate(null)
       return
     }
-    if (status !== 'pendiente_por_asignar') {
+    if (!canShowSuggestedDeliveryDate) {
       setSuggestedDeliveryDate(null)
       return
     }
@@ -250,7 +255,7 @@ export default function DealFormModal({
     return () => {
       cancelled = true
     }
-  }, [deal?.eventDates?.startDate, deal?.bookingRequest?.startDate, isOpen, status])
+  }, [canShowSuggestedDeliveryDate, deal?.eventDates?.startDate, deal?.bookingRequest?.startDate, isOpen])
 
   useEffect(() => {
     if (!isOpen || !startDateKey || !deliveryDate) return
@@ -500,7 +505,7 @@ export default function DealFormModal({
                         </span>
                       </div>
                     )}
-                    {status === 'pendiente_por_asignar'
+                    {canShowSuggestedDeliveryDate
                       && suggestedDeliveryDate !== deliveryDate
                       && !(deliveryWorkload && deliveryWorkload.count + 1 > deliveryWorkload.max)
                       && (

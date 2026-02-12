@@ -21,7 +21,11 @@ export default async function DealsPage() {
     getDealsCounts(),
   ])
   
-  const initialDeals = dealsResult.success && dealsResult.data ? dealsResult.data : []
+  // Serialize data to plain JSON to prevent hydration mismatches
+  // (Date objects, Prisma Decimal, etc. can differ between server/client)
+  const initialDeals = dealsResult.success && dealsResult.data
+    ? JSON.parse(JSON.stringify(dealsResult.data))
+    : []
   const initialTotal = dealsResult.success && 'total' in dealsResult ? dealsResult.total || 0 : 0
   const initialCounts = countsResult.success ? countsResult.data : undefined
 

@@ -46,7 +46,9 @@ const salesPrimaryNav: NavItem[] = [
   { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
 ]
 
-const editorPrimaryNav: NavItem[] = []
+const editorPrimaryNav: NavItem[] = [
+  { name: 'Deals', href: '/deals', Icon: ListAltIcon },
+]
 
 // Secondary nav items (shown in "More" menu) — organized by sections
 const adminSecondarySections: NavSection[] = [
@@ -124,6 +126,7 @@ export default function MobileBottomNav() {
       case 'sales':
         return { primaryNav: salesPrimaryNav, secondarySections: salesSecondarySections }
       case 'editor':
+      case 'ere':
       case 'editor_senior':
         return { primaryNav: editorPrimaryNav, secondarySections: editorSecondarySections }
       default:

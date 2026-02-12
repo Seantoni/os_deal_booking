@@ -83,7 +83,9 @@ const salesSidebarConfig = {
 
 const editorSidebarConfig = {
   monitorItems: [] as SidebarItem[],
-  workItems: [] as SidebarItem[],
+  workItems: [
+    { name: 'Deals', href: '/deals', Icon: ListAltIcon },
+  ],
   acquireItems: [] as SidebarItem[],
   adminItems: [] as SidebarItem[],
   bottomItems: [] as SidebarItem[],
@@ -147,6 +149,7 @@ export default function HamburgerMenu() {
       case 'admin':
         return adminSidebarConfig
       case 'editor':
+      case 'ere':
         return editorSidebarConfig
       case 'editor_senior':
         return editorSeniorSidebarConfig

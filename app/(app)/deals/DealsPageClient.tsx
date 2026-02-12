@@ -18,6 +18,7 @@ import AssignmentIndIcon from '@mui/icons-material/AssignmentInd'
 import ListAltIcon from '@mui/icons-material/ListAlt'
 import toast from 'react-hot-toast'
 import { useUserRole } from '@/hooks/useUserRole'
+import { useSidebar } from '@/components/common/AppClientProviders'
 import { useFormConfigCache } from '@/hooks/useFormConfigCache'
 import { usePaginatedSearch } from '@/hooks/usePaginatedSearch'
 import { useAdvancedFilters } from '@/hooks/useAdvancedFilters'
@@ -120,6 +121,7 @@ export default function DealsPageClient({
   const router = useRouter()
   const searchParams = useSearchParams()
   const { isAdmin, isEditorSenior, isEditor } = useUserRole()
+  const { isMobile } = useSidebar()
   
   // Get form config cache for prefetching
   const { prefetch: prefetchFormConfig } = useFormConfigCache()
@@ -435,22 +437,21 @@ export default function DealsPageClient({
     return filtered
   }, [displayDeals, responsibleFilter, isSearching, sortColumn, sortDirection, getSortValue, applyFiltersToData])
 
-  const visibleDeals = useMemo(() => {
+  // Deals to display in the table:
+  // - Editors see ALL their deals (regardless of assignment status)
+  // - Admin/EditorSenior see only fully-assigned deals (unassigned go to assignments tab)
+  const tableDeals = useMemo(() => {
     if (!canViewAssignments) {
       return filteredDeals
     }
     return filteredDeals.filter(deal => deal.responsibleId && deal.ereResponsibleId && deal.deliveryDate)
   }, [filteredDeals, canViewAssignments])
 
-  const assignedDeals = useMemo(() => {
-    return filteredDeals.filter(deal => deal.responsibleId && deal.ereResponsibleId && deal.deliveryDate)
-  }, [filteredDeals])
-
-  const sortedAssignedDeals = useMemo(() => {
+  const sortedTableDeals = useMemo(() => {
     if (hasManualSort && sortColumn) {
-      return sortEntities(assignedDeals, sortColumn, sortDirection, getSortValue)
+      return sortEntities(tableDeals, sortColumn, sortDirection, getSortValue)
     }
-    return [...assignedDeals].sort((a, b) => {
+    return [...tableDeals].sort((a, b) => {
       const daysA = getDaysUntilLaunch(a.deliveryDate ?? null)
       const daysB = getDaysUntilLaunch(b.deliveryDate ?? null)
       const normalizedA = daysA === null ? Number.POSITIVE_INFINITY : daysA
@@ -462,7 +463,7 @@ export default function DealsPageClient({
       const dateB = b.deliveryDate ? new Date(b.deliveryDate).getTime() : Number.POSITIVE_INFINITY
       return dateA - dateB
     })
-  }, [assignedDeals, getDaysUntilLaunch, getSortValue, hasManualSort, sortColumn, sortDirection])
+  }, [tableDeals, getDaysUntilLaunch, getSortValue, hasManualSort, sortColumn, sortDirection])
 
   // Prefetch form config when hovering over a row
   const handleRowHover = useCallback(() => {
@@ -785,7 +786,7 @@ export default function DealsPageClient({
                 <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
                 {searchLoading ? 'Buscando...' : 'Cargando...'}
               </div>
-            ) : assignedDeals.length === 0 ? (
+            ) : tableDeals.length === 0 ? (
               <div className="px-4 pt-4 md:px-0 md:pt-0">
                 <EmptyTableState
                   icon={<FilterListIcon className="w-full h-full" />}
@@ -803,140 +804,141 @@ export default function DealsPageClient({
               </div>
             ) : (
               <>
-                {/* Mobile list */}
-                <div className="md:hidden">
-                  <SearchIndicator />
-                  <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
-                  <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
-                    {assignedDeals.length} oferta{assignedDeals.length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-                <div className="bg-white divide-y divide-gray-100">
-                  {sortedAssignedDeals.map((deal) => (
-                      <button
-                        key={deal.id}
-                        type="button"
-                        onClick={() => handleEditDeal(deal)}
-                        onMouseEnter={handleRowHover}
-                        className="w-full text-left px-4 py-3 hover:bg-gray-50"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 truncate">
-                              {deal.bookingRequest.name}
-                            </p>
-                            <p className="text-xs text-gray-600 mt-0.5">
-                              {deal.eventDates?.startDate
-                                ? new Date(deal.eventDates.startDate).toLocaleDateString('en-US', {
-                                    timeZone: PANAMA_TIMEZONE,
-                                    month: 'short',
-                                    day: 'numeric'
-                                  })
-                                : '-'} — {deal.eventDates?.endDate
-                                ? new Date(deal.eventDates.endDate).toLocaleDateString('en-US', {
-                                    timeZone: PANAMA_TIMEZONE,
-                                    month: 'short',
-                                    day: 'numeric'
-                                  })
-                                : '-'}
-                              {(() => {
-                                const daysUntilStart = getDaysUntilLaunch(deal.eventDates?.startDate ?? null)
-                                if (daysUntilStart === null) return ''
-                                return ` (${daysUntilStart} días)`
-                              })()}
-                            </p>
-                            <p className="text-[11px] text-gray-500 mt-1">
-                              Entrega: {(() => {
-                                const daysUntil = getDaysUntilLaunch(deal.deliveryDate ?? null)
-                                const deliveryLabel = deal.deliveryDate
-                                  ? new Date(deal.deliveryDate).toLocaleDateString('en-US', {
+                {isMobile ? (
+                  /* Mobile list */
+                  <div>
+                    <SearchIndicator />
+                    <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                      <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                        {tableDeals.length} oferta{tableDeals.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <div className="bg-white divide-y divide-gray-100">
+                      {sortedTableDeals.map((deal) => (
+                        <button
+                          key={deal.id}
+                          type="button"
+                          onClick={() => handleEditDeal(deal)}
+                          onMouseEnter={handleRowHover}
+                          className="w-full text-left px-4 py-3 hover:bg-gray-50"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-gray-900 truncate">
+                                {deal.bookingRequest.name}
+                              </p>
+                              <p className="text-xs text-gray-600 mt-0.5">
+                                {deal.eventDates?.startDate
+                                  ? new Date(deal.eventDates.startDate).toLocaleDateString('en-US', {
                                       timeZone: PANAMA_TIMEZONE,
                                       month: 'short',
-                                      day: 'numeric',
+                                      day: 'numeric'
                                     })
-                                  : '-'
-                                if (daysUntil === null) {
-                                  return deliveryLabel
+                                  : '-'} — {deal.eventDates?.endDate
+                                  ? new Date(deal.eventDates.endDate).toLocaleDateString('en-US', {
+                                      timeZone: PANAMA_TIMEZONE,
+                                      month: 'short',
+                                      day: 'numeric'
+                                    })
+                                  : '-'}
+                                {(() => {
+                                  const daysUntilStart = getDaysUntilLaunch(deal.eventDates?.startDate ?? null)
+                                  if (daysUntilStart === null) return ''
+                                  return ` (${daysUntilStart} días)`
+                                })()}
+                              </p>
+                              <p className="text-[11px] text-gray-500 mt-1">
+                                Entrega: {(() => {
+                                  const daysUntil = getDaysUntilLaunch(deal.deliveryDate ?? null)
+                                  const deliveryLabel = deal.deliveryDate
+                                    ? new Date(deal.deliveryDate).toLocaleDateString('en-US', {
+                                        timeZone: PANAMA_TIMEZONE,
+                                        month: 'short',
+                                        day: 'numeric',
+                                      })
+                                    : '-'
+                                  if (daysUntil === null) {
+                                    return deliveryLabel
+                                  }
+                                  return `${deliveryLabel} (${daysUntil} días)`
+                                })()}
+                              </p>
+                              <p className="text-[11px] text-gray-500 mt-1">
+                                Editor: {deal.responsible?.name || deal.responsible?.email || 'Unassigned'}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <StatusPill
+                                label={STATUS_LABELS[deal.status || 'pendiente_por_asignar']}
+                                tone={
+                                  deal.status === 'borrador_aprobado'
+                                    ? 'success'
+                                    : deal.status === 'borrador_enviado'
+                                      ? 'info'
+                                      : 'neutral'
                                 }
-                                return `${deliveryLabel} (${daysUntil} días)`
-                              })()}
-                            </p>
-                            <p className="text-[11px] text-gray-500 mt-1">
-                              Editor: {deal.responsible?.name || deal.responsible?.email || 'Unassigned'}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <StatusPill
-                              label={STATUS_LABELS[deal.status || 'pendiente_por_asignar']}
-                              tone={
-                                deal.status === 'borrador_aprobado'
-                                  ? 'success'
-                                  : deal.status === 'borrador_enviado'
-                                    ? 'info'
-                                    : 'neutral'
-                              }
-                            />
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleOpenBookingRequest(deal.bookingRequestId)
-                                }}
-                                className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition-colors"
-                                aria-label="Detalles"
-                                title="Detalles"
-                              >
-                                <DescriptionOutlinedIcon style={{ fontSize: 18 }} />
-                              </button>
-                              {canViewOsAdminLink && deal.bookingRequest?.dealId && (
+                              />
+                              <div className="flex items-center gap-1">
                                 <button
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    window.open(`https://ofertasimple.com/admin/offer/${deal.bookingRequest.dealId}/edit`, '_blank', 'noopener,noreferrer')
+                                    handleOpenBookingRequest(deal.bookingRequestId)
                                   }}
-                                  className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-indigo-600 transition-colors"
-                                  aria-label="OS Admin"
-                                  title="OS Admin"
+                                  className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-blue-600 transition-colors"
+                                  aria-label="Detalles"
+                                  title="Detalles"
                                 >
-                                  <OpenInNewIcon style={{ fontSize: 18 }} />
+                                  <DescriptionOutlinedIcon style={{ fontSize: 18 }} />
                                 </button>
-                              )}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleOpenPublicDeal(deal.bookingRequestId)
-                                }}
-                                className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-emerald-600 transition-colors"
-                                aria-label="Link de la oferta"
-                                title="Link de la oferta"
-                              >
-                                <InsertLinkIcon style={{ fontSize: 18 }} />
-                              </button>
+                                {canViewOsAdminLink && deal.bookingRequest?.dealId && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      window.open(`https://ofertasimple.com/admin/offer/${deal.bookingRequest.dealId}/edit`, '_blank', 'noopener,noreferrer')
+                                    }}
+                                    className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-indigo-600 transition-colors"
+                                    aria-label="OS Admin"
+                                    title="OS Admin"
+                                  >
+                                    <OpenInNewIcon style={{ fontSize: 18 }} />
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleOpenPublicDeal(deal.bookingRequestId)
+                                  }}
+                                  className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-emerald-600 transition-colors"
+                                  aria-label="Link de la oferta"
+                                  title="Link de la oferta"
+                                >
+                                  <InsertLinkIcon style={{ fontSize: 18 }} />
+                                </button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </button>
-                    ))}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="px-4 py-3">
+                      <PaginationControls />
+                    </div>
                   </div>
-                  <div className="px-4 py-3">
-                    <PaginationControls />
-                  </div>
-                </div>
-
-                {/* Desktop table */}
-                <div className="hidden md:block overflow-x-auto">
-                  <SearchIndicator />
+                ) : (
+                  /* Desktop table */
+                  <div className="overflow-x-auto">
+                    <SearchIndicator />
                   
-                  <EntityTable
+                    <EntityTable
                     columns={COLUMNS}
                     sortColumn={sortColumn}
                     sortDirection={sortDirection}
                     onSort={handleSortWithTracking}
                   >
-                  {sortedAssignedDeals.map((deal, index) => (
+                  {sortedTableDeals.map((deal, index) => (
                       <TableRow
                         key={deal.id}
                         index={index}
@@ -1077,7 +1079,8 @@ export default function DealsPageClient({
                   </EntityTable>
                     
                   <PaginationControls />
-                </div>
+                  </div>
+                )}
               </>
             )}
           </div>
