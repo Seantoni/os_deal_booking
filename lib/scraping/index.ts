@@ -38,7 +38,7 @@ export { scrapeEnLaTaquilla } from './enlataquilla'
 export { scrapeDegusta } from './degusta'
 
 const MAX_DEALS_PER_SITE = 150 // 100 per site = 300 total max
-const CHUNK_SIZE = 15 // Process 15 deals per invocation to stay well under Vercel's 5min timeout
+const CHUNK_SIZE = 50 // 50 deals per invocation — rantanofertas now uses HTTP (no browser), so each deal is ~0.3-0.5s
 const CHUNK_TIMEOUT_MS = 4 * 60 * 1000 // 4 minutes — must be under Vercel's 5min maxDuration
 
 export { CHUNK_SIZE }

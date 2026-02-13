@@ -78,8 +78,8 @@ const BASE_SECTIONS: SectionDefinition[] = [
   {
     title: 'Detalles de la Campaña',
     fields: [
-      { key: 'startDate', label: 'Fecha de Inicio', type: 'date' },
-      { key: 'endDate', label: 'Fecha de Fin', type: 'date' },
+      { key: 'startDate', label: 'Fecha de Inicio (Tentativa)', type: 'date' },
+      { key: 'endDate', label: 'Fecha de Fin (Tentativa)', type: 'date' },
       { key: 'campaignDuration', label: 'Duración de la Campaña' },
     ],
   },

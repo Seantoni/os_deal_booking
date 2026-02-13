@@ -7,18 +7,18 @@
  * Strategy:
  * 1. Fetch /products.json - gets ALL products in one request
  * 2. Extract: title, vendor (merchant), prices, images from JSON
- * 3. For "total sold": visit detail pages only if needed (slower)
+ * 3. For "total sold": fetch each page via HTTP and parse the
+ *    <script id="elscup-product"> JSON tag — NO browser needed!
  */
 
-import { Page } from 'puppeteer-core'
-import { getBrowser, closeBrowser, createPage } from './browser'
 import { ScrapedDeal, ScrapeResult, ProgressCallback } from './types'
 
 const BASE_URL = 'https://www.rantanofertas.com'
 const PRODUCTS_JSON_URL = `${BASE_URL}/products.json`
 
-// Timeouts
-const PAGE_TIMEOUT = 60000 // 60 seconds for page load
+// HTTP settings for "total sold" fetching
+const HTTP_TIMEOUT_MS = 15_000  // 15s per page fetch
+const HTTP_CONCURRENCY = 5     // Fetch 5 pages in parallel
 
 // Shopify product type from JSON API
 interface ShopifyProduct {
@@ -163,48 +163,56 @@ function shopifyProductToScrapedDeal(product: ShopifyProduct): ScrapedDeal {
 }
 
 /**
- * Get "total sold" from a deal page using Puppeteer
- * Only call this if you need the sold count!
+ * Get "total sold" from a deal page via plain HTTP fetch.
+ *
+ * The page contains a <script id="elscup-product"> tag with JSON that
+ * includes product_sales data.  We fetch the raw HTML and parse it with
+ * a regex — no headless browser required!
  */
-async function getTotalSoldFromPage(page: Page, dealUrl: string): Promise<number | null> {
+async function getTotalSoldViaHTTP(dealUrl: string): Promise<number | null> {
   try {
-    await page.goto(dealUrl, { waitUntil: 'domcontentloaded', timeout: PAGE_TIMEOUT })
-    
-    // Extract from JSON data (fast, no animation wait!)
-    const totalSold = await page.evaluate(() => {
-      const jsonScript = document.querySelector('script#elscup-product')
-      if (jsonScript) {
-        try {
-          const jsonData = JSON.parse(jsonScript.textContent || '{}')
-          const productSales = jsonData.product_sales || {}
-          const counterIds = Object.keys(productSales)
-          if (counterIds.length > 0) {
-            const firstCounter = productSales[counterIds[0]]
-            if (firstCounter && typeof firstCounter.is === 'number') {
-              return firstCounter.is
-            }
-          }
-        } catch {
-          // JSON parse failed
-        }
-      }
-      return null
+    const response = await fetch(dealUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+      signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
     })
-    
-    return totalSold
-  } catch (error) {
-    console.error(`[RantanOfertas] Error getting total sold for ${dealUrl}:`, error)
+
+    if (!response.ok) return null
+
+    const html = await response.text()
+
+    // Find the <script id="elscup-product"> tag and extract its JSON content
+    const match = html.match(/<script[^>]*id=["']elscup-product["'][^>]*>([\s\S]*?)<\/script>/)
+    if (!match?.[1]) return null
+
+    const jsonData = JSON.parse(match[1])
+    const productSales = jsonData.product_sales || {}
+    const counterIds = Object.keys(productSales)
+    if (counterIds.length > 0) {
+      const firstCounter = productSales[counterIds[0]]
+      if (firstCounter && typeof firstCounter.is === 'number') {
+        return firstCounter.is
+      }
+    }
+
+    return null
+  } catch {
+    // Network error, timeout, or parse failure — skip silently
     return null
   }
 }
 
 /**
- * Main scraper using Shopify JSON API + page visits for "total sold"
+ * Main scraper using Shopify JSON API + HTTP for "total sold"
  * 
  * Strategy:
  * 1. Fetch products from Shopify API (fast, gets all basic data)
- * 2. Visit each page ONCE to get "total sold" from JSON (no animation wait!)
+ * 2. Fetch each product page via plain HTTP to extract "total sold" from
+ *    the embedded JSON script tag — no browser needed!
  * 3. Deduplicates by product handle to avoid scanning same deal twice
+ * 4. Processes deals in parallel batches of HTTP_CONCURRENCY for speed
  */
 export async function scrapeRantanOfertas(
   maxDeals: number = 100,
@@ -241,50 +249,41 @@ export async function scrapeRantanOfertas(
     
     reportProgress('loading_list', `Found ${totalAvailable} unique active deals, processing ${productsToProcess.length}`)
     
-    // Step 2: Convert to ScrapedDeal and fetch "total sold" from pages
+    // Step 2: Convert to ScrapedDeal and fetch "total sold" via HTTP
     const shouldFetchSoldCounts = !options?.skipTotalSold
-    let browser = null
-    let page: Page | null = null
-    
-    if (shouldFetchSoldCounts && productsToProcess.length > 0) {
-      reportProgress('connecting', 'Launching browser for sold counts...')
-      browser = await getBrowser()
-      page = await createPage(browser)
-    }
-    
-    try {
-      for (let i = 0; i < productsToProcess.length; i++) {
-        const product = productsToProcess[i]
-        const deal = shopifyProductToScrapedDeal(product)
-        
-        const shortTitle = deal.dealTitle.length > 40 
-          ? deal.dealTitle.substring(0, 40) + '...' 
-          : deal.dealTitle
-        
-        reportProgress('scanning_deal', `Scanning ${i + 1}/${productsToProcess.length}: ${shortTitle}`, {
-          current: startFrom + i + 1,
-          total: totalAvailable,
+
+    // Process deals in parallel batches (HTTP_CONCURRENCY at a time).
+    // No browser is needed — each "total sold" lookup is a plain HTTP fetch.
+    for (let i = 0; i < productsToProcess.length; i += HTTP_CONCURRENCY) {
+      const batch = productsToProcess.slice(i, i + HTTP_CONCURRENCY)
+
+      const batchDeals = await Promise.all(
+        batch.map(async (product) => {
+          const deal = shopifyProductToScrapedDeal(product)
+
+          if (shouldFetchSoldCounts) {
+            deal.totalSold = await getTotalSoldViaHTTP(deal.sourceUrl)
+          }
+
+          return deal
         })
-        
-        // Fetch "total sold" from page (fast - uses JSON, no animation wait!)
-        if (page) {
-          const totalSold = await getTotalSoldFromPage(page, deal.sourceUrl)
-          deal.totalSold = totalSold
-        }
-        
+      )
+
+      for (const deal of batchDeals) {
         deals.push(deal)
-        
-        // Log progress
         if (deal.totalSold !== null) {
           console.log(`  ✓ ${deal.merchantName}: ${deal.totalSold} sold, $${deal.offerPrice}`)
         } else {
           console.log(`  ○ ${deal.merchantName}: $${deal.offerPrice} (${deal.discountPercent}% off)`)
         }
       }
-    } finally {
-      if (browser) {
-        await closeBrowser()
-      }
+
+      // Report progress after each batch
+      const processed = Math.min(i + HTTP_CONCURRENCY, productsToProcess.length)
+      reportProgress('scanning_deal', `Scanned ${processed}/${productsToProcess.length} deals (HTTP)`, {
+        current: startFrom + processed,
+        total: totalAvailable,
+      })
     }
     
     const endIndex = startFrom + productsToProcess.length

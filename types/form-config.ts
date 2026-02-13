@@ -117,8 +117,7 @@ export const OPPORTUNITY_BUILTIN_FIELDS: BuiltinFieldDefinition[] = [
     { value: '1', label: 'Tier 1' },
     { value: '2', label: 'Tier 2' },
     { value: '3', label: 'Tier 3' },
-    { value: '4', label: 'Tier 4' },
-    { value: '5', label: 'Tier 5' },
+
   ] },
   { key: 'stage', label: 'Stage', type: 'stage-select', defaultRequired: true, canHide: true, canSetRequired: false },
   { key: 'startDate', label: 'Start Date', type: 'date', defaultRequired: true, canHide: true, canSetRequired: true },

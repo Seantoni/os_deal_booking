@@ -755,8 +755,8 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         const labels: Record<string, string> = {
           businessName: 'Nombre del Negocio',
           partnerEmail: 'Correo del Aliado',
-          startDate: 'Fecha de Inicio',
-          endDate: 'Fecha Final'
+          startDate: 'Fecha de Inicio (Tentativa)',
+          endDate: 'Fecha Final (Tentativa)'
         }
         return labels[key] || key
       })
