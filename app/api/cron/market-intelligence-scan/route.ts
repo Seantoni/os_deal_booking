@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { getUserRole } from '@/lib/auth/roles'
 import { runFullScan, runSiteScan, runChunkedScan, SourceSite, ScanProgress } from '@/lib/scraping'
-import { startCronJobLog, completeCronJobLog, cleanupOldCronJobLogs, markStaleCronJobsAsFailed } from '@/app/actions/cron-logs'
+import { startCronJobLog, completeCronJobLog, cleanupOldCronJobLogs, markStaleCronJobsAsFailed, updateCronJobProgress } from '@/app/actions/cron-logs'
 import { sendCronFailureEmail } from '@/lib/email/services/cron-failure'
 import { logger } from '@/lib/logger'
 
@@ -203,13 +203,28 @@ export async function GET(request: Request) {
       // Start with oferta24 (fast, completes in one go)
       const result = await runChunkedScan('oferta24', 0)
       
-      // Oferta24 typically completes in one go, then start RantanOfertas
-      // Await trigger to ensure the request is sent before this function exits
+      // Log progress for this first chunk
+      if (logId) {
+        await updateCronJobProgress(logId, {
+          site: 'oferta24',
+          chunkStartFrom: 0,
+          chunkDealsProcessed: result.dealsProcessed,
+          chunkNewDeals: result.newDeals,
+          chunkUpdatedDeals: result.updatedDeals,
+          chunkErrors: result.errors.length > 0 ? result.errors : undefined,
+          isComplete: result.isComplete && !result.nextStartFrom,
+          nextStartFrom: result.nextStartFrom,
+        })
+      }
+      
+      // Fire-and-forget: schedule the next chunk AFTER the response is sent.
+      // This breaks the cascading-timeout chain — each invocation only
+      // occupies its own time, and the next chunk runs independently.
       if (result.nextStartFrom !== undefined) {
-        await triggerNextChunk('oferta24', result.nextStartFrom, expectedSecret, logId)
+        after(() => triggerNextChunk('oferta24', result.nextStartFrom!, expectedSecret, logId))
       } else {
         // Oferta24 complete, start RantanOfertas
-        await triggerNextChunk('rantanofertas', 0, expectedSecret, logId)
+        after(() => triggerNextChunk('rantanofertas', 0, expectedSecret, logId))
       }
       
       return NextResponse.json({
@@ -232,21 +247,34 @@ export async function GET(request: Request) {
     logger.info(`Processing chunk: ${site} starting from ${startFrom}`)
     const result = await runChunkedScan(site, startFrom)
     
-    // Trigger next chunk or next site
-    // Await trigger to ensure the request is sent before this function exits
+    // Log per-chunk progress so the admin dashboard shows where the scan is
+    if (existingLogId) {
+      await updateCronJobProgress(existingLogId, {
+        site,
+        chunkStartFrom: startFrom,
+        chunkDealsProcessed: result.dealsProcessed,
+        chunkNewDeals: result.newDeals,
+        chunkUpdatedDeals: result.updatedDeals,
+        chunkErrors: result.errors.length > 0 ? result.errors : undefined,
+        isComplete: site === 'rantanofertas' && result.isComplete,
+        nextStartFrom: result.nextStartFrom,
+      })
+    }
+    
+    // Fire-and-forget: schedule the next chunk AFTER the response is sent.
     if (result.nextStartFrom !== undefined) {
       // More deals to process for this site
-      await triggerNextChunk(site, result.nextStartFrom, expectedSecret, existingLogId)
+      after(() => triggerNextChunk(site, result.nextStartFrom!, expectedSecret, existingLogId))
     } else if (site === 'oferta24') {
       // Oferta24 complete, start RantanOfertas
-      await triggerNextChunk('rantanofertas', 0, expectedSecret, existingLogId)
+      after(() => triggerNextChunk('rantanofertas', 0, expectedSecret, existingLogId))
     } else if (site === 'rantanofertas' && result.isComplete) {
       // Scan is fully done - complete the log
       const durationMs = Date.now() - startTime
       
       if (existingLogId) {
         await completeCronJobLog(existingLogId, result.success ? 'success' : 'failed', {
-          message: `Market intelligence scan completed: ${result.dealsProcessed} deals processed, ${result.newDeals} new, ${result.updatedDeals} updated`,
+          message: `Market intelligence scan completed`,
           details: {
             dealsProcessed: result.dealsProcessed,
             dealsWithSales: result.dealsWithSales,
@@ -332,8 +360,16 @@ export async function GET(request: Request) {
 
 /**
  * Trigger the next chunk of scanning.
- * Awaited before returning the response so Vercel doesn't kill the
- * function before the outgoing HTTP request completes.
+ *
+ * Called inside `after()` so it runs AFTER the current response is sent,
+ * breaking the cascading-timeout chain that previously caused the scan
+ * to get stuck.
+ *
+ * We add a 30 s abort timeout so this invocation doesn't hang forever
+ * waiting for the downstream chunk's response headers.  Even if the
+ * abort fires, the downstream chunk is already running in its own
+ * serverless invocation and will continue independently.
+ *
  * Auth is sent via Authorization header — never in the URL query string.
  */
 async function triggerNextChunk(site: SourceSite, startFrom: number, secret?: string, logId?: string | null): Promise<void> {
@@ -355,16 +391,27 @@ async function triggerNextChunk(site: SourceSite, startFrom: number, secret?: st
     headers['Authorization'] = `Bearer ${secret}`
   }
   
+  // Use AbortController so we don't wait indefinitely for the downstream
+  // chunk to finish.  30 s is plenty of time for the HTTP request to be
+  // accepted; the downstream chunk will continue on its own.
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 30_000)
+  
   try {
-    // Await the fetch to ensure the request is sent before the function exits.
-    // We only wait for the response status (not the body) — the next chunk
-    // runs independently once the server accepts the request.
     const res = await fetch(nextUrl.toString(), {
       method: 'GET',
       headers,
+      signal: controller.signal,
     })
     logger.info(`Next chunk triggered: ${site} startFrom=${startFrom} status=${res.status}`)
   } catch (err) {
-    logger.error('Failed to trigger next chunk:', err)
+    if (err instanceof Error && err.name === 'AbortError') {
+      // Expected — the downstream chunk is already running
+      logger.info(`triggerNextChunk timed out waiting for response (downstream chunk continues): ${site} startFrom=${startFrom}`)
+    } else {
+      logger.error('Failed to trigger next chunk:', err)
+    }
+  } finally {
+    clearTimeout(timeout)
   }
 }

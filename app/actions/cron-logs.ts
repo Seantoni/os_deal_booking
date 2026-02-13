@@ -184,6 +184,71 @@ export async function markStaleCronJobsAsFailed(
 }
 
 /**
+ * Update a running cron job log with per-chunk progress.
+ * Non-critical — failures are logged but never thrown.
+ *
+ * Called after every chunk completes so the admin dashboard
+ * shows exactly where the scan is AND where to resume from if it dies.
+ */
+export async function updateCronJobProgress(
+  logId: string,
+  progress: {
+    site: string
+    chunkStartFrom: number
+    chunkDealsProcessed: number
+    chunkNewDeals: number
+    chunkUpdatedDeals: number
+    chunkErrors?: string[]
+    isComplete?: boolean
+    nextStartFrom?: number
+  }
+): Promise<void> {
+  try {
+    // Read existing details so we can accumulate totals
+    const existing = await prisma.cronJobLog.findUnique({
+      where: { id: logId },
+      select: { details: true },
+    })
+
+    const prev = (existing?.details as Record<string, unknown> | null) ?? {}
+    const cumDeals = ((prev.cumulativeDealsProcessed as number) ?? 0) + progress.chunkDealsProcessed
+    const cumNew = ((prev.cumulativeNewDeals as number) ?? 0) + progress.chunkNewDeals
+    const cumUpdated = ((prev.cumulativeUpdatedDeals as number) ?? 0) + progress.chunkUpdatedDeals
+    const chunksCompleted = ((prev.chunksCompleted as number) ?? 0) + 1
+    const allErrors = [
+      ...((prev.allErrors as string[]) ?? []),
+      ...(progress.chunkErrors ?? []),
+    ]
+
+    const details = {
+      lastUpdateAt: new Date().toISOString(),
+      currentSite: progress.site,
+      lastChunkStartFrom: progress.chunkStartFrom,
+      nextStartFrom: progress.nextStartFrom,
+      isComplete: progress.isComplete ?? false,
+      chunksCompleted,
+      cumulativeDealsProcessed: cumDeals,
+      cumulativeNewDeals: cumNew,
+      cumulativeUpdatedDeals: cumUpdated,
+      allErrors: allErrors.length > 0 ? allErrors : undefined,
+    }
+
+    await prisma.cronJobLog.update({
+      where: { id: logId },
+      data: {
+        details: JSON.parse(JSON.stringify(details)),
+        message: progress.isComplete
+          ? `Completed ${progress.site} — ${cumDeals} deals total (${cumNew} new, ${cumUpdated} updated)`
+          : `Processing ${progress.site} chunk from #${progress.chunkStartFrom} — ${cumDeals} deals so far`,
+      },
+    })
+  } catch (error) {
+    // Non-critical — don't throw if progress update fails
+    logger.error('[CronJobLog] Failed to update progress:', error)
+  }
+}
+
+/**
  * Delete cron job logs older than specified days
  */
 export async function cleanupOldCronJobLogs(
