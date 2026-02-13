@@ -33,10 +33,6 @@
     "app/api/cron/event-leads-sync/route.ts": {
       "memory": 1024,
       "maxDuration": 300
-    },
-    "app/api/cron/restaurant-leads-sync/route.ts": {
-      "memory": 1024,
-      "maxDuration": 300
     }
   }
 }

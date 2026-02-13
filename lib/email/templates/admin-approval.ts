@@ -19,6 +19,11 @@ interface AdminApprovalEmailProps {
   recipientType: 'business' | 'creator'
 }
 
+function getParentCategory(category?: string): string | undefined {
+  if (!category) return undefined
+  return category.split(/\s*[›>]\s*/)[0]?.trim() || undefined
+}
+
 /**
  * Generate HTML string for admin approval notification email
  * Sent to both business and creator when admin approves directly
@@ -36,6 +41,7 @@ export function renderAdminApprovalEmail(props: AdminApprovalEmailProps): string
     approvedByEmail,
     recipientType,
   } = props
+  const parentCategory = getParentCategory(category)
 
   const recipientMessage = recipientType === 'business'
     ? 'Su solicitud ha sido aprobada internamente por el equipo.'
@@ -67,7 +73,7 @@ export function renderAdminApprovalEmail(props: AdminApprovalEmailProps): string
           <div style="font-size: 13px; color: ${EMAIL_STYLES.colors.secondary};">${escapeHtml(businessEmail)}</div>
         </div>
 
-        ${category ? renderKeyValue('Categoría', escapeHtml(category), true) : ''}
+        ${parentCategory ? renderKeyValue('Categoría', escapeHtml(parentCategory), true) : ''}
         
         <div style="margin-top: 12px;">
           ${renderKeyValue('Fecha de Inicio', escapeHtml(startDate))}

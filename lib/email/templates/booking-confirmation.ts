@@ -14,12 +14,18 @@ interface BookingConfirmationEmailProps {
   endDate: string
 }
 
+function getParentCategory(category?: string): string | undefined {
+  if (!category) return undefined
+  return category.split(/\s*[›>]\s*/)[0]?.trim() || undefined
+}
+
 /**
  * Generate HTML string for booking confirmation email
  * Optimized for cross-client compatibility (Outlook, Gmail, etc.)
  */
 export function renderBookingConfirmationEmail(data: BookingConfirmationEmailProps): string {
   const { eventName, merchant, category, startDate, endDate } = data
+  const parentCategory = getParentCategory(category)
 
   const content = `
     <!-- Header Title -->
@@ -40,11 +46,11 @@ export function renderBookingConfirmationEmail(data: BookingConfirmationEmailPro
       <div style="margin-top: 16px;">
         ${renderKeyValue('Evento / Campaña', escapeHtml(eventName), true)}
         ${merchant ? renderKeyValue('Merchant / Aliado', escapeHtml(merchant), true) : ''}
-        ${category ? renderKeyValue('Categoría', escapeHtml(category), true) : ''}
+        ${parentCategory ? renderKeyValue('Categoría', escapeHtml(parentCategory), true) : ''}
         
         <div style="margin-top: 12px;">
-          ${renderKeyValue('Fecha de Inicio (tentativa)', escapeHtml(startDate))}
-          ${renderKeyValue('Fecha de Fin (tentativa)', escapeHtml(endDate))}
+          ${renderKeyValue('Fecha de Inicio', escapeHtml(startDate))}
+          ${renderKeyValue('Fecha de Fin', escapeHtml(endDate))}
         </div>
       </div>
 

@@ -534,11 +534,11 @@ function renderPDFDocument(opts: {
         <div class="value small">${esc(category || 'General')}</div>
       </div>
       <div class="item">
-        <div class="label">Fecha de Inicio</div>
+        <div class="label">Fecha de Inicio (Tentativa)</div>
         <div class="value small">${esc(startDate)}</div>
       </div>
       <div class="item">
-        <div class="label">Fecha de Fin</div>
+        <div class="label">Fecha de Fin (Tentativa)</div>
         <div class="value small">${esc(endDate)}</div>
       </div>
       ${requesterEmail ? `

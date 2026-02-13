@@ -156,7 +156,6 @@ export function BusinessTableRow({
           {business.category ? (
             <span className="text-xs text-gray-600">
               {business.category.parentCategory}
-              {business.category.subCategory1 && ` › ${business.category.subCategory1}`}
             </span>
           ) : (
             <span className="text-gray-400 text-xs">-</span>

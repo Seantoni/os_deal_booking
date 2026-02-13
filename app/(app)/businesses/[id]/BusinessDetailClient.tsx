@@ -366,12 +366,6 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
               {business.category && (
                 <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
                   <span className="truncate">{business.category.parentCategory}</span>
-                    {business.category.subCategory1 && (
-                      <>
-                      <span className="text-slate-300">›</span>
-                      <span className="truncate">{business.category.subCategory1}</span>
-                      </>
-                    )}
                 </div>
               )}
           </div>

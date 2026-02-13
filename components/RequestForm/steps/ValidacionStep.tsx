@@ -13,6 +13,8 @@ import RefreshIcon from '@mui/icons-material/Refresh'
 import type { BookingFormData, PricingOption } from '../types'
 import { Button } from '@/components/ui'
 
+const AI_REVIEW_ENABLED = false
+
 interface AIRecommendation {
   id: string
   category: string
@@ -93,7 +95,7 @@ export default function ValidacionStep({ formData, errors, updateFormData, updat
 
   // Auto-trigger AI review on focus/mount for restaurant categories
   useEffect(() => {
-    if (isRestaurantCategory && !hasAutoReviewed && !aiReviewResult && !aiReviewLoading && !aiSkipped) {
+    if (AI_REVIEW_ENABLED && isRestaurantCategory && !hasAutoReviewed && !aiReviewResult && !aiReviewLoading && !aiSkipped) {
       setHasAutoReviewed(true)
       handleAiReview()
     }
@@ -232,7 +234,7 @@ export default function ValidacionStep({ formData, errors, updateFormData, updat
       </div>
 
       {/* AI Contract Review Section */}
-      {isRestaurantCategory && (
+      {AI_REVIEW_ENABLED && isRestaurantCategory && (
         <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-start justify-between gap-4 mb-4">
             <div className="flex items-start gap-3">
@@ -419,7 +421,7 @@ export default function ValidacionStep({ formData, errors, updateFormData, updat
       )}
 
       {/* Non-restaurant info message */}
-      {!isRestaurantCategory && formData.parentCategory && (
+      {AI_REVIEW_ENABLED && !isRestaurantCategory && formData.parentCategory && (
         <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
           <div className="flex items-center gap-2 text-gray-500">
             <InfoIcon fontSize="small" />
@@ -454,4 +456,3 @@ export default function ValidacionStep({ formData, errors, updateFormData, updat
     </div>
   )
 }
-

@@ -80,9 +80,7 @@ export function BusinessMobileCard({
 
   // Category display
   const categoryText = business.category
-    ? business.category.subCategory1
-      ? `${business.category.parentCategory} › ${business.category.subCategory1}`
-      : business.category.parentCategory
+    ? business.category.parentCategory
     : null
 
   // Owner display

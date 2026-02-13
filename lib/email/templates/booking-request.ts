@@ -31,6 +31,11 @@ interface BookingRequestEmailProps {
   hideActions?: boolean
 }
 
+function getParentCategory(category?: string): string | undefined {
+  if (!category) return undefined
+  return category.split(/\s*[›>]\s*/)[0]?.trim() || undefined
+}
+
 /**
  * Generate HTML string for booking request email.
  *
@@ -51,6 +56,7 @@ export function renderBookingRequestEmail(props: BookingRequestEmailProps): stri
     tncUrl,
     hideActions = false,
   } = props
+  const parentCategory = getParentCategory(category) || 'General'
 
   const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
 
@@ -80,7 +86,7 @@ export function renderBookingRequestEmail(props: BookingRequestEmailProps): stri
         ` : ''}
         <tr>
           <td style="width: 50%; vertical-align: top; padding-bottom: 16px;">
-            ${renderKeyValue('Categoría', escapeHtml(category || 'General'), true)}
+            ${renderKeyValue('Categoría', escapeHtml(parentCategory), true)}
           </td>
           <td style="width: 50%; vertical-align: top; padding-bottom: 16px;">
             ${renderKeyValue('Email del Negocio', escapeHtml(businessEmail), true)}
@@ -88,10 +94,10 @@ export function renderBookingRequestEmail(props: BookingRequestEmailProps): stri
         </tr>
         <tr>
           <td style="width: 50%; vertical-align: top;">
-            ${renderKeyValue('Fecha de Inicio', escapeHtml(startDate), true)}
+            ${renderKeyValue('Fecha de Inicio (Tentativa)', escapeHtml(startDate), true)}
           </td>
           <td style="width: 50%; vertical-align: top;">
-            ${renderKeyValue('Fecha de Fin', escapeHtml(endDate), true)}
+            ${renderKeyValue('Fecha de Fin (Tentativa)', escapeHtml(endDate), true)}
           </td>
         </tr>
       </table>
