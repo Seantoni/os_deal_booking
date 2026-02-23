@@ -16,6 +16,7 @@
     "db:seed:categories": "tsx prisma/seed-categories.ts",
     "db:migrate:settings": "tsx prisma/migrate-settings-to-db.ts",
     "db:import:businesses": "tsx prisma/import-businesses-csv.ts",
+    "db:import:opportunities": "tsx prisma/import-opportunities-csv.ts",
     "db:migrate:payment-plan": "tsx prisma/migrate-payment-plan-values.ts"
   },
   "dependencies": {
