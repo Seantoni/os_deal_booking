@@ -729,6 +729,7 @@ export async function getBusinessFormData(businessId?: string | null) {
             name: true,
             email: true,
             role: true,
+            team: true,
           },
           orderBy: { name: 'asc' },
         })
@@ -1176,6 +1177,7 @@ export async function createBusiness(formData: FormData) {
   const { userId } = authResult
 
   try {
+    const admin = await isAdmin()
     const name = formData.get('name') as string
     const contactName = formData.get('contactName') as string
     const contactPhone = formData.get('contactPhone') as string
@@ -1203,6 +1205,7 @@ export async function createBusiness(formData: FormData) {
     const address = formData.get('address') as string | null
     const neighborhood = formData.get('neighborhood') as string | null
     const osAdminVendorId = formData.get('osAdminVendorId') as string | null
+    const ownerIdRaw = formData.get('ownerId') as string | null
 
     // Prevent duplicates by business name (case-insensitive)
     const existingBusiness = await prisma.business.findFirst({
@@ -1247,6 +1250,22 @@ export async function createBusiness(formData: FormData) {
       return { success: false, error: 'Campos requeridos faltantes: Business Name' }
     }
 
+    // Owner/team are admin-editable only.
+    // Non-admin creators always use their own profile (owner and team).
+    let effectiveOwnerId = userId
+    let effectiveSalesTeam = salesTeam || null
+    if (admin) {
+      if (ownerIdRaw && ownerIdRaw !== '__unassigned__') {
+        effectiveOwnerId = ownerIdRaw
+      }
+    } else {
+      const currentProfile = await prisma.userProfile.findUnique({
+        where: { clerkId: userId },
+        select: { team: true },
+      })
+      effectiveSalesTeam = currentProfile?.team || null
+    }
+
     // Create business with sales reps
     // Owner is set to the current user by default
     const businessData: Record<string, unknown> = {
@@ -1254,7 +1273,7 @@ export async function createBusiness(formData: FormData) {
       contactName,
       contactPhone,
       contactEmail,
-      salesTeam: salesTeam || null,
+      salesTeam: effectiveSalesTeam,
       website: website || null,
       instagram: instagram || null,
       description: description || null,
@@ -1279,9 +1298,9 @@ export async function createBusiness(formData: FormData) {
     }
 
     // Set owner if userId exists
-    if (userId) {
+    if (effectiveOwnerId) {
       businessData.owner = {
-        connect: { clerkId: userId }
+        connect: { clerkId: effectiveOwnerId }
       }
     }
 
@@ -1477,7 +1496,7 @@ export async function updateBusiness(businessId: string, formData: FormData) {
       contactName,
       contactPhone,
       contactEmail,
-      salesTeam: salesTeam || null,
+      salesTeam: admin ? (salesTeam || null) : (currentBusiness?.salesTeam || null),
       website: website || null,
       instagram: instagram || null,
       description: description || null,

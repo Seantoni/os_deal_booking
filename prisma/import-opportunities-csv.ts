@@ -14,19 +14,29 @@ const pool = new Pool({ connectionString })
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
-const CSV_FILE_PATH = './Opp Migration Feb 23 - Sheet1 (5).csv'
+const CSV_FILE_PATH = '/Users/josep/Downloads/Opp Migration Feb 23 - Sheet1 (6).csv'
 
 // Fallback userId for Won/Lost rows that have no user assigned.
 // Set to empty string to skip those rows instead.
 const DEFAULT_USER_ID = 'user_38J3Yv989jVwEUtbVk9VWJUVSxs'
 
-// Column indices (header has duplicate "name" at 2 and 17 — we use index 2)
-const COL = {
+// Column indices for the "create" CSV format (name at index 2)
+const COL_CREATE = {
   BUSINESS_ID: 1,
   NAME: 2,
   STAGE: 3,
   USER_ID: 7,
   RESPONSIBLE_ID: 12,
+} as const
+
+// Column indices for the "update" CSV format (id present, name at last col)
+const COL_UPDATE = {
+  ID: 0,
+  BUSINESS_ID: 1,
+  STAGE: 2,
+  USER_ID: 6,
+  RESPONSIBLE_ID: 11,
+  NAME: 16,
 } as const
 
 // Map CSV display labels → DB stage values
@@ -109,11 +119,11 @@ async function importOpportunities() {
   const allRows: ParsedRow[] = []
 
   for (const row of rawRows) {
-    const businessId = row[COL.BUSINESS_ID]?.trim()
-    const baseName = row[COL.NAME]?.trim()
-    const stageRaw = row[COL.STAGE]?.trim()
-    let userId = row[COL.USER_ID]?.trim()
-    const responsibleId = row[COL.RESPONSIBLE_ID]?.trim()
+    const businessId = row[COL_CREATE.BUSINESS_ID]?.trim()
+    const baseName = row[COL_CREATE.NAME]?.trim()
+    const stageRaw = row[COL_CREATE.STAGE]?.trim()
+    let userId = row[COL_CREATE.USER_ID]?.trim()
+    const responsibleId = row[COL_CREATE.RESPONSIBLE_ID]?.trim()
 
     if (!businessId || !baseName) continue
 
@@ -241,7 +251,155 @@ async function importOpportunities() {
   console.log('='.repeat(60))
 }
 
-importOpportunities()
+async function updateOpportunities() {
+  console.log('🔄 UPDATE MODE — updating existing opportunities by ID')
+  console.log('📂 Reading CSV:', CSV_FILE_PATH)
+  if (!fs.existsSync(CSV_FILE_PATH)) {
+    throw new Error(`File not found: ${CSV_FILE_PATH}`)
+  }
+
+  const content = fs.readFileSync(CSV_FILE_PATH, 'utf-8')
+  const rawRows = parseCSVRows(content)
+  console.log(`📊 Parsed ${rawRows.length} rows from CSV\n`)
+
+  let updated = 0
+  let skipped = 0
+  let notFound = 0
+  let errors = 0
+
+  for (const row of rawRows) {
+    const id = row[COL_UPDATE.ID]?.trim()
+    const name = row[COL_UPDATE.NAME]?.trim()
+    const stageRaw = row[COL_UPDATE.STAGE]?.trim()
+    let userId = row[COL_UPDATE.USER_ID]?.trim()
+    const responsibleId = row[COL_UPDATE.RESPONSIBLE_ID]?.trim()
+
+    if (!id || !name) continue
+
+    const stage = STAGE_MAP[stageRaw] ?? stageRaw ?? 'iniciacion'
+
+    if (!userId) {
+      userId = DEFAULT_USER_ID || ''
+      if (!userId) continue
+    }
+
+    try {
+      const existing = await prisma.opportunity.findUnique({
+        where: { id },
+      })
+      if (!existing) {
+        notFound++
+        console.warn(`⚠️  Not found: ${id} — "${name}"`)
+        continue
+      }
+
+      const needsUpdate =
+        existing.name !== name ||
+        existing.stage !== stage ||
+        existing.userId !== userId ||
+        existing.responsibleId !== (responsibleId || userId)
+
+      if (needsUpdate) {
+        await prisma.opportunity.update({
+          where: { id },
+          data: {
+            name,
+            stage,
+            userId,
+            responsibleId: responsibleId || userId,
+          },
+        })
+        updated++
+        if (updated % 50 === 0) console.log(`  🔄 ${updated} updated...`)
+      } else {
+        skipped++
+      }
+    } catch (error) {
+      errors++
+      const msg = error instanceof Error ? error.message : String(error)
+      console.error(`❌ Error updating "${name}": ${msg}`)
+    }
+  }
+
+  console.log('\n' + '='.repeat(60))
+  console.log('🔄 Update Summary:')
+  console.log(`   🔄 Updated:    ${updated}`)
+  console.log(`   ⏭️  No changes: ${skipped}`)
+  console.log(`   ⚠️  Not found:  ${notFound}`)
+  console.log(`   ❌ Errors:     ${errors}`)
+  console.log(`   📊 CSV rows:   ${rawRows.length}`)
+  console.log('='.repeat(60))
+}
+
+async function revertImport() {
+  console.log('🗑️  REVERT MODE — deleting opportunities from CSV')
+  console.log('📂 Reading CSV:', CSV_FILE_PATH)
+  if (!fs.existsSync(CSV_FILE_PATH)) {
+    throw new Error(`File not found: ${CSV_FILE_PATH}`)
+  }
+
+  const content = fs.readFileSync(CSV_FILE_PATH, 'utf-8')
+  const rawRows = parseCSVRows(content)
+  console.log(`📊 Parsed ${rawRows.length} rows from CSV`)
+
+  const nameCounts = new Map<string, number>()
+  const allRows: { businessId: string; name: string }[] = []
+
+  for (const row of rawRows) {
+    const businessId = row[COL_CREATE.BUSINESS_ID]?.trim()
+    const baseName = row[COL_CREATE.NAME]?.trim()
+    if (!businessId || !baseName) continue
+
+    const key = `${businessId}|${baseName}`
+    const count = (nameCounts.get(key) ?? 0) + 1
+    nameCounts.set(key, count)
+    const name = count === 1 ? baseName : `${baseName}-${count}`
+    allRows.push({ businessId, name })
+  }
+
+  console.log(`🔍 ${allRows.length} rows to delete\n`)
+
+  let deleted = 0
+  let notFound = 0
+  let errors = 0
+
+  for (const { businessId, name } of allRows) {
+    try {
+      const existing = await prisma.opportunity.findFirst({
+        where: { businessId, name },
+        select: { id: true },
+      })
+      if (!existing) {
+        notFound++
+        continue
+      }
+      await prisma.opportunity.delete({ where: { id: existing.id } })
+      deleted++
+      if (deleted % 50 === 0) console.log(`  🗑️  ${deleted} deleted...`)
+    } catch (error) {
+      errors++
+      const msg = error instanceof Error ? error.message : String(error)
+      console.error(`❌ Error deleting "${name}": ${msg}`)
+    }
+  }
+
+  console.log('\n' + '='.repeat(60))
+  console.log('🗑️  Revert Summary:')
+  console.log(`   🗑️  Deleted:    ${deleted}`)
+  console.log(`   ⚠️  Not found:  ${notFound}`)
+  console.log(`   ❌ Errors:     ${errors}`)
+  console.log('='.repeat(60))
+}
+
+const MODE = process.argv[2]
+
+const run = MODE === '--revert'
+  ? revertImport()
+  : MODE === '--update'
+    ? updateOpportunities()
+    : importOpportunities()
+
+;run
   .catch((e) => {
     console.error('❌ Fatal error:', e)
     process.exit(1)

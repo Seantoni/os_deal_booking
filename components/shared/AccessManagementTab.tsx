@@ -75,6 +75,7 @@ type UserProfile = {
   email: string | null
   name: string | null
   role: string
+  team: string | null
   isActive: boolean
   createdAt: Date
   updatedAt: Date
@@ -99,6 +100,12 @@ const ROLE_COLORS: Record<string, string> = {
   sales: 'bg-gray-100 text-gray-700',
 }
 
+const TEAM_OPTIONS = [
+  { value: '', label: 'Sin equipo' },
+  { value: 'Inside Sales', label: 'Inside Sales' },
+  { value: 'Outside Sales', label: 'Outside Sales' },
+]
+
 export default function AccessManagementTab() {
   const [activeTab, setActiveTab] = useState<TabId>('emails')
   
@@ -114,6 +121,7 @@ export default function AccessManagementTab() {
   const [userSearchQuery, setUserSearchQuery] = useState('')
   const [editingUserId, setEditingUserId] = useState<string | null>(null)
   const [editingRole, setEditingRole] = useState<UserRole>('sales')
+  const [editingTeam, setEditingTeam] = useState<string>('')
   
   // Sync state
   const [syncPreview, setSyncPreview] = useState<SyncPreview | null>(null)
@@ -292,16 +300,16 @@ export default function AccessManagementTab() {
 
   const handleUpdateUserRole = async (clerkId: string) => {
     try {
-      const result = await updateUserRole(clerkId, editingRole)
+      const result = await updateUserRole(clerkId, editingRole, editingTeam || null)
       if (result.success) {
-        toast.success('Rol actualizado')
+        toast.success('Perfil actualizado')
         setEditingUserId(null)
         await loadUserProfiles()
       } else {
-        toast.error(result.error || 'Error al actualizar rol')
+        toast.error(result.error || 'Error al actualizar perfil')
       }
     } catch (err) {
-      toast.error('Error al actualizar rol')
+      toast.error('Error al actualizar perfil')
     }
   }
 
@@ -372,7 +380,12 @@ export default function AccessManagementTab() {
 
   const filteredUsers = userProfiles.filter((u) => {
     const q = userSearchQuery.toLowerCase()
-    return u.email?.toLowerCase().includes(q) || u.name?.toLowerCase().includes(q) || u.role.toLowerCase().includes(q)
+    return (
+      u.email?.toLowerCase().includes(q) ||
+      u.name?.toLowerCase().includes(q) ||
+      u.role.toLowerCase().includes(q) ||
+      (u.team || '').toLowerCase().includes(q)
+    )
   })
 
   const hasChanges = syncPreview && (
@@ -604,24 +617,41 @@ export default function AccessManagementTab() {
                         )}
                       </div>
                       <div className="text-xs text-gray-500 truncate">{user.email || 'Sin correo'}</div>
+                      <div className="text-xs text-gray-500">{user.team ? `Equipo: ${user.team}` : 'Equipo: Sin equipo'}</div>
                     </div>
 
-                    {/* Role */}
+                    {/* Role + Team */}
                     <div className="flex-shrink-0">
                       {editingUserId === user.clerkId ? (
-                        <select
-                          value={editingRole}
-                          onChange={(e) => setEditingRole(e.target.value as UserRole)}
-                          className="px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                        >
-                          {USER_ROLE_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                          ))}
-                        </select>
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={editingRole}
+                            onChange={(e) => setEditingRole(e.target.value as UserRole)}
+                            className="px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                          >
+                            {USER_ROLE_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                          </select>
+                          <select
+                            value={editingTeam}
+                            onChange={(e) => setEditingTeam(e.target.value)}
+                            className="px-2 py-1 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                          >
+                            {TEAM_OPTIONS.map((opt) => (
+                              <option key={opt.value || 'none'} value={opt.value}>{opt.label}</option>
+                            ))}
+                          </select>
+                        </div>
                       ) : (
-                        <span className={`px-2 py-1 text-xs font-medium rounded-lg ${ROLE_COLORS[user.role] || ROLE_COLORS.sales}`}>
-                          {user.role}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-lg ${ROLE_COLORS[user.role] || ROLE_COLORS.sales}`}>
+                            {user.role}
+                          </span>
+                          <span className="px-2 py-1 text-xs font-medium rounded-lg bg-slate-100 text-slate-700">
+                            {user.team || 'Sin equipo'}
+                          </span>
+                        </div>
                       )}
                     </div>
 
@@ -645,9 +675,13 @@ export default function AccessManagementTab() {
                       ) : (
                         <>
                           <button
-                            onClick={() => { setEditingUserId(user.clerkId); setEditingRole(user.role as UserRole) }}
+                            onClick={() => {
+                              setEditingUserId(user.clerkId)
+                              setEditingRole(user.role as UserRole)
+                              setEditingTeam(user.team || '')
+                            }}
                             className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Editar rol"
+                            title="Editar perfil"
                           >
                             <EditIcon style={{ fontSize: 18 }} />
                           </button>

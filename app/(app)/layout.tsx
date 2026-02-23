@@ -44,6 +44,7 @@ const getCachedUsers = unstable_cache(
         name: true,
         email: true,
         role: true,
+        team: true,
       },
       orderBy: { name: 'asc' },
     })

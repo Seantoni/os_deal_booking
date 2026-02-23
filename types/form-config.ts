@@ -79,7 +79,7 @@ export const BUSINESS_BUILTIN_FIELDS: BuiltinFieldDefinition[] = [
   { key: 'contactPhone', label: 'Contact Phone', type: 'phone', defaultRequired: true, canHide: true, canSetRequired: true },
   { key: 'contactEmail', label: 'Contact Email', type: 'email', defaultRequired: true, canHide: true, canSetRequired: true },
   { key: 'categoryId', label: 'Category', type: 'category', defaultRequired: false, canHide: true, canSetRequired: true },
-  { key: 'salesTeam', label: 'Sales Team', type: 'select', defaultRequired: false, canHide: true, canSetRequired: true, options: [
+  { key: 'salesTeam', label: 'Sales Team', type: 'select', defaultRequired: true, canHide: true, canSetRequired: false, options: [
     { value: 'inside', label: 'Inside Sales' },
     { value: 'outside', label: 'Outside Sales' },
   ]},

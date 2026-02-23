@@ -15,6 +15,7 @@ export type UserProfile = {
   email: string | null
   name: string | null
   role: string // 'admin' | 'sales' | 'editor' | 'editor_senior' | 'ere'
+  team?: string | null
   maxActiveDeals?: number | null
   createdAt: Date
   updatedAt: Date
@@ -24,4 +25,4 @@ export type UserProfile = {
  * Minimal user data for dropdowns and assignments
  * This is the subset fetched in the layout for shared context
  */
-export type UserData = Pick<UserProfile, 'id' | 'clerkId' | 'name' | 'email' | 'role'>
+export type UserData = Pick<UserProfile, 'id' | 'clerkId' | 'name' | 'email' | 'role' | 'team'>

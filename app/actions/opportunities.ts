@@ -313,6 +313,7 @@ export async function getOpportunityFormData(opportunityId?: string | null, busi
             name: true,
             email: true,
             role: true,
+            team: true,
           },
           orderBy: { name: 'asc' },
         })
@@ -931,6 +932,7 @@ export async function getAllUsers() {
         name: true,
         email: true,
         role: true,
+        team: true,
       },
       orderBy: {
         name: 'asc',

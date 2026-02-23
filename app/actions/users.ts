@@ -8,6 +8,8 @@ import { isAdmin, isEditorSenior } from '@/lib/auth/roles'
 import type { UserRole } from '@/lib/constants'
 import { logger } from '@/lib/logger'
 
+const USER_TEAM_OPTIONS = ['Inside Sales', 'Outside Sales'] as const
+
 /**
  * Get all user profiles (admin only)
  */
@@ -31,6 +33,7 @@ export async function getAllUserProfiles() {
         email: true,
         name: true,
         role: true,
+        team: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
@@ -50,7 +53,7 @@ export async function getAllUserProfiles() {
 /**
  * Update user profile role (admin only)
  */
-export async function updateUserRole(clerkId: string, role: UserRole) {
+export async function updateUserRole(clerkId: string, role: UserRole, team?: string | null) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
     return authResult
@@ -69,19 +72,38 @@ export async function updateUserRole(clerkId: string, role: UserRole) {
       return { success: false, error: 'Invalid role. Must be admin, sales, editor, or ere' }
     }
 
-    // Prevent admin from changing their own role
-    if (clerkId === authResult.userId) {
+    // Validate team
+    const normalizedTeam = team && team.trim() ? team.trim() : null
+    if (normalizedTeam && !USER_TEAM_OPTIONS.includes(normalizedTeam as (typeof USER_TEAM_OPTIONS)[number])) {
+      return { success: false, error: 'Invalid team. Must be Inside Sales or Outside Sales' }
+    }
+
+    const currentProfile = await prisma.userProfile.findUnique({
+      where: { clerkId },
+      select: { role: true },
+    })
+
+    if (!currentProfile) {
+      return { success: false, error: 'User not found' }
+    }
+
+    // Prevent admin from changing their own role (but allow self team updates)
+    if (clerkId === authResult.userId && currentProfile.role !== role) {
       return { success: false, error: 'You cannot change your own role' }
     }
 
-    // Update user role
+    // Update user role + team
     const updated = await prisma.userProfile.update({
       where: { clerkId },
-      data: { role },
+      data: {
+        role,
+        team: normalizedTeam,
+      },
     })
 
     // Revalidate cache - invalidate both user-specific and general caches
     invalidateUserCache(clerkId)
+    invalidateEntity('users')
 
     return { success: true, data: updated }
   } catch (error) {

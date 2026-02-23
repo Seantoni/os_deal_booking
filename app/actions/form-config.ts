@@ -64,12 +64,16 @@ export async function getFormConfiguration(entityType: FormEntityType): Promise<
       fields: section.fields.map((field: typeof section.fields[number]) => {
         const builtinDef = getBuiltinFieldDefinition(entityType, field.fieldKey)
         const customField = customFields.find(cf => cf.fieldKey === field.fieldKey)
+        const resolvedIsRequired = builtinDef && !builtinDef.canSetRequired
+          ? builtinDef.defaultRequired
+          : field.isRequired
         
         return {
           ...field,
           entityType: field.entityType as FormEntityType,
           width: field.width as FieldWidth,
           fieldSource: field.fieldSource as 'builtin' | 'custom',
+          isRequired: resolvedIsRequired,
           canEditAfterCreation: field.canEditAfterCreation ?? false,
           definition: builtinDef,
           customFieldLabel: customField?.label,
@@ -805,4 +809,3 @@ export async function syncBuiltinFieldsToFormConfig(entityType: FormEntityType):
     return { ...errorResult, addedCount: 0 }
   }
 }
-

@@ -403,6 +403,36 @@ export default function BusinessFormModal({
     preloadedUsers,
   })
 
+  const handleOwnerChange = useCallback((newOwnerId: string) => {
+    setOwnerId(newOwnerId)
+
+    if (!newOwnerId || newOwnerId === '__unassigned__') {
+      setSalesTeam('')
+      return
+    }
+
+    const selectedOwner = users.find(u => u.clerkId === newOwnerId)
+    setSalesTeam(selectedOwner?.team || '')
+  }, [setOwnerId, setSalesTeam, users])
+
+  // Ensure new business defaults to current logged-in user once Clerk user is loaded.
+  // This covers the race where the modal opens before useUser() is ready.
+  useEffect(() => {
+    if (business || !user?.id) return
+    if (!ownerId || ownerId === '__unassigned__') {
+      handleOwnerChange(user.id)
+    }
+  }, [business, ownerId, user?.id, handleOwnerChange])
+
+  // For new businesses, prefill team from default owner (current user) when available.
+  useEffect(() => {
+    if (business || salesTeam || !ownerId || ownerId === '__unassigned__') return
+    const selectedOwner = users.find(u => u.clerkId === ownerId)
+    if (selectedOwner?.team) {
+      setSalesTeam(selectedOwner.team)
+    }
+  }, [business, ownerId, salesTeam, setSalesTeam, users])
+
   // Build initial values from business entity
   const initialValues = useMemo((): Record<string, string | null> => {
     if (!business) return {}
@@ -536,9 +566,9 @@ export default function BusinessFormModal({
   const [createdBusiness, setCreatedBusiness] = useState<Business | null>(null)
 
   // Helper to validate required fields and return missing ones
-  const validateRequiredFields = useCallback(() => {
+  const validateRequiredFields = () => {
     const allValues = dynamicForm.getAllValues()
-    const missingFields: string[] = []
+    const missingFields = new Set<string>()
     
     // Check dynamic form sections for required fields
     if (dynamicForm.initialized) {
@@ -549,15 +579,20 @@ export default function BusinessFormModal({
             if (!value || (typeof value === 'string' && value.trim() === '')) {
               // Get label from definition (built-in) or customFieldLabel (custom)
               const label = field.definition?.label || field.customFieldLabel || field.fieldKey
-              missingFields.push(label)
+              missingFields.add(label)
             }
           }
         }
       }
     }
+
+    // Equipo is managed in ReferenceInfoBar (outside dynamic form state), enforce it explicitly.
+    if (!salesTeam || salesTeam.trim() === '') {
+      missingFields.add('Equipo')
+    }
     
-    return missingFields
-  }, [dynamicForm])
+    return Array.from(missingFields)
+  }
 
   // React 19: useActionState for create business & opportunity action
   const [createWithOppState, createWithOppAction, isCreateWithOppPending] = useActionState<FormActionState, FormData>(
@@ -1049,7 +1084,7 @@ export default function BusinessFormModal({
                     userId={ownerId}
                     users={users}
                     isAdmin={isAdmin}
-                    onChange={setOwnerId}
+                    onChange={handleOwnerChange}
                     placeholder="Seleccionar propietario..."
                   />
                   <ReferenceInfoBar.TeamSelectItem
@@ -1057,6 +1092,8 @@ export default function BusinessFormModal({
                     team={salesTeam}
                     onChange={setSalesTeam}
                     placeholder="Seleccionar equipo..."
+                    required={true}
+                    canEdit={isAdmin}
                   />
                   {/* Focus Period - only show for existing businesses */}
                   {business && (

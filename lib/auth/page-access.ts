@@ -39,7 +39,7 @@ export async function getDefaultPageForRole(role: UserRole): Promise<string> {
     case 'admin':
       return '/dashboard'
     case 'sales':
-      return '/events'
+      return '/dashboard'
     case 'editor':
     case 'editor_senior':
       return '/deals'

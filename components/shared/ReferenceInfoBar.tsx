@@ -35,11 +35,13 @@ function InlineSelect({
   onChange,
   options,
   placeholder,
+  allowClear = true,
 }: {
   value: string
   onChange: (val: string) => void
   options: { value: string; label: string }[]
   placeholder: string
+  allowClear?: boolean
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [position, setPosition] = useState({ top: 0, left: 0, width: 0 })
@@ -81,13 +83,15 @@ function InlineSelect({
       className="fixed bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
       style={{ top: position.top, left: position.left, width: position.width, zIndex: 99999 }}
     >
-      <button
-        type="button"
-        onClick={() => { onChange(''); setIsOpen(false) }}
-        className="w-full text-left px-3 py-1.5 text-xs text-gray-400 hover:bg-gray-50"
-      >
-        {placeholder}
-      </button>
+      {allowClear && (
+        <button
+          type="button"
+          onClick={() => { onChange(''); setIsOpen(false) }}
+          className="w-full text-left px-3 py-1.5 text-xs text-gray-400 hover:bg-gray-50"
+        >
+          {placeholder}
+        </button>
+      )}
       {options.map(opt => (
         <button
           key={opt.value}
@@ -248,24 +252,39 @@ function TeamSelectItem({
   team,
   onChange,
   placeholder,
+  required = false,
+  canEdit = true,
 }: {
   label: string
   team: string
   onChange: (team: string) => void
   placeholder: string
+  required?: boolean
+  canEdit?: boolean
 }) {
   const teamOptions = [
     { value: 'Inside Sales', label: 'Inside Sales' },
     { value: 'Outside Sales', label: 'Outside Sales' },
   ]
 
+  if (!canEdit) {
+    return (
+      <Item label={required ? `${label} *` : label}>
+        <span className={team ? 'text-gray-900' : 'text-gray-400'}>
+          {team || placeholder}
+        </span>
+      </Item>
+    )
+  }
+
   return (
-    <Item label={label}>
+    <Item label={required ? `${label} *` : label}>
       <InlineSelect
         value={team}
         onChange={onChange}
         options={teamOptions}
         placeholder={placeholder}
+        allowClear={!required}
       />
     </Item>
   )
