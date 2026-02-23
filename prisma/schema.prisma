@@ -241,7 +241,7 @@ model Business {
   focusPeriod                   String?
   focusSetAt                    DateTime?
   // Reassignment tracking
-  reassignmentStatus            String? // null (normal), 'pending_reassign', 'pending_removal'
+  reassignmentStatus            String? // null (normal), 'pending_reassign', 'pending_removal', 'archived'
   reassignmentType              String? // 'reasignar' or 'sacar'
   reassignmentRequestedBy       String? // clerkId of who requested
   reassignmentRequestedAt       DateTime?

@@ -423,10 +423,10 @@ export default function BusinessesPageClient({
   // Business CRUD handlers
   async function handleDeleteBusiness(businessId: string) {
     const confirmed = await confirmDialog.confirm({
-      title: 'Delete Business',
-      message: 'Are you sure you want to delete this business? This action cannot be undone.',
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
+      title: 'Archivar negocio',
+      message: '¿Seguro que deseas archivar este negocio? Se ocultará de los listados activos.',
+      confirmText: 'Archivar',
+      cancelText: 'Cancelar',
       confirmVariant: 'danger',
     })
 
@@ -439,10 +439,10 @@ export default function BusinessesPageClient({
     
     const result = await deleteBusiness(businessId)
     if (!result.success) {
-      toast.error(result.error || 'Failed to delete business')
+      toast.error(result.error || 'No se pudo archivar el negocio')
       loadPage(currentPage)
     } else {
-      toast.success('Business deleted successfully')
+      toast.success('Negocio archivado')
     }
   }
 
@@ -821,6 +821,13 @@ export default function BusinessesPageClient({
           } else {
             setBusinesses(prev => [newBusiness, ...prev])
           }
+          if (!isSearching) {
+            loadPage(currentPage)
+          }
+        }}
+        onDelete={(deletedBusinessId) => {
+          setBusinesses(prev => prev.filter(b => b.id !== deletedBusinessId))
+          setSearchResults(prev => prev?.filter(b => b.id !== deletedBusinessId) || null)
           if (!isSearching) {
             loadPage(currentPage)
           }

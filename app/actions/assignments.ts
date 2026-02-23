@@ -7,6 +7,7 @@ import { getUserRole } from '@/lib/auth/roles'
 import { logActivity } from '@/lib/activity-log'
 
 export type ReassignmentType = 'reasignar' | 'sacar' | 'recurrente'
+const PENDING_REASSIGNMENT_STATUSES = ['pending_reassign', 'pending_removal'] as const
 
 // Business include config for consistent queries
 const businessInclude = {
@@ -95,7 +96,12 @@ export async function requestReassignment(
       SELECT "reassignmentStatus" FROM businesses WHERE id = ${businessId}
     `
     
-    if (businessWithReassignment[0]?.reassignmentStatus) {
+    const existingStatus = businessWithReassignment[0]?.reassignmentStatus
+    if (existingStatus === 'archived') {
+      return { success: false, error: 'Este negocio está archivado y no puede reasignarse' }
+    }
+
+    if (existingStatus) {
       return { success: false, error: 'Este negocio ya tiene una solicitud de reasignación pendiente' }
     }
 
@@ -161,7 +167,7 @@ export async function getAssignmentsPaginated(options: {
     // Build where clause - only businesses with pending reassignment
     // Cast to allow new fields that TypeScript may not yet recognize
     const whereClause = {
-      reassignmentStatus: { not: null },
+      reassignmentStatus: { in: [...PENDING_REASSIGNMENT_STATUSES] },
     } as Record<string, unknown>
 
     // Apply type filter
@@ -246,16 +252,25 @@ export async function getAssignmentsCounts() {
   try {
     const [total, reasignar, sacar, recurrente] = await Promise.all([
       prisma.business.count({
-        where: { reassignmentStatus: { not: null } } as never,
+        where: { reassignmentStatus: { in: [...PENDING_REASSIGNMENT_STATUSES] } } as never,
       }),
       prisma.business.count({
-        where: { reassignmentType: 'reasignar' } as never,
+        where: {
+          reassignmentStatus: { in: [...PENDING_REASSIGNMENT_STATUSES] },
+          reassignmentType: 'reasignar',
+        } as never,
       }),
       prisma.business.count({
-        where: { reassignmentType: 'sacar' } as never,
+        where: {
+          reassignmentStatus: { in: [...PENDING_REASSIGNMENT_STATUSES] },
+          reassignmentType: 'sacar',
+        } as never,
       }),
       prisma.business.count({
-        where: { reassignmentType: 'recurrente' } as never,
+        where: {
+          reassignmentStatus: { in: [...PENDING_REASSIGNMENT_STATUSES] },
+          reassignmentType: 'recurrente',
+        } as never,
       }),
     ])
 
@@ -301,7 +316,8 @@ export async function assignToNewOwner(businessId: string, newOwnerId: string) {
       FROM businesses WHERE id = ${businessId}
     `
 
-    if (!reassignmentData[0]?.reassignmentStatus) {
+    const reassignmentStatus = reassignmentData[0]?.reassignmentStatus
+    if (!reassignmentStatus || !PENDING_REASSIGNMENT_STATUSES.includes(reassignmentStatus as typeof PENDING_REASSIGNMENT_STATUSES[number])) {
       return { success: false, error: 'Este negocio no tiene una solicitud de reasignación pendiente' }
     }
 
@@ -381,7 +397,8 @@ export async function cancelReassignment(businessId: string) {
       FROM businesses WHERE id = ${businessId}
     `
 
-    if (!reassignmentData[0]?.reassignmentStatus) {
+    const reassignmentStatus = reassignmentData[0]?.reassignmentStatus
+    if (!reassignmentStatus || !PENDING_REASSIGNMENT_STATUSES.includes(reassignmentStatus as typeof PENDING_REASSIGNMENT_STATUSES[number])) {
       return { success: false, error: 'Este negocio no tiene una solicitud de reasignación pendiente' }
     }
 
@@ -443,7 +460,7 @@ export async function searchAssignments(query: string) {
     const businesses = await prisma.business.findMany({
       where: {
         AND: [
-          { reassignmentStatus: { not: null } } as never,
+          { reassignmentStatus: { in: [...PENDING_REASSIGNMENT_STATUSES] } } as never,
           {
             OR: [
               { name: { contains: searchTerm, mode: 'insensitive' } },

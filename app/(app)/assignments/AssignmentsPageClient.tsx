@@ -81,6 +81,10 @@ interface AssignmentsPageClientProps {
   users?: UserProfile[]
 }
 
+function isArchivedAssignment(business: AssignmentBusiness): boolean {
+  return business.reassignmentStatus === 'archived'
+}
+
 export default function AssignmentsPageClient({
   initialAssignments = [],
   initialTotal = 0,
@@ -93,7 +97,9 @@ export default function AssignmentsPageClient({
   const { headerProps: advancedFilterProps, filterRules, applyFiltersToData } = useAdvancedFilters<Record<string, unknown>>('businesses')
   
   // Data state
-  const [assignments, setAssignments] = useState<AssignmentBusiness[]>(initialAssignments)
+  const [assignments, setAssignments] = useState<AssignmentBusiness[]>(
+    initialAssignments.filter((assignment) => !isArchivedAssignment(assignment))
+  )
   const [total, setTotal] = useState(initialTotal)
   const [counts, setCounts] = useState(initialCounts || { all: 0, reasignar: 0, sacar: 0, recurrente: 0 })
   const [loading, setLoading] = useState(false)
@@ -132,7 +138,10 @@ export default function AssignmentsPageClient({
       ])
       
       if (assignmentsResult.success && assignmentsResult.data) {
-        setAssignments(assignmentsResult.data as AssignmentBusiness[])
+        setAssignments(
+          (assignmentsResult.data as AssignmentBusiness[])
+            .filter((assignment) => !isArchivedAssignment(assignment))
+        )
         setTotal('total' in assignmentsResult ? (assignmentsResult.total || 0) : 0)
       }
       if (countsResult.success && countsResult.data) {
@@ -159,7 +168,10 @@ export default function AssignmentsPageClient({
     try {
       const result = await searchAssignments(query)
       if (result.success && result.data) {
-        setSearchResults(result.data as AssignmentBusiness[])
+        setSearchResults(
+          (result.data as AssignmentBusiness[])
+            .filter((assignment) => !isArchivedAssignment(assignment))
+        )
       }
     } catch (error) {
       console.error('Search failed:', error)
@@ -477,6 +489,13 @@ export default function AssignmentsPageClient({
           onSuccess={() => {
             setBusinessModalOpen(false)
             setSelectedBusiness(null)
+            loadPage(currentPage)
+          }}
+          onDelete={(deletedBusinessId) => {
+            setBusinessModalOpen(false)
+            setSelectedBusiness(null)
+            setAssignments(prev => prev.filter(b => b.id !== deletedBusinessId))
+            setSearchResults(prev => prev?.filter(b => b.id !== deletedBusinessId) || null)
             loadPage(currentPage)
           }}
         />

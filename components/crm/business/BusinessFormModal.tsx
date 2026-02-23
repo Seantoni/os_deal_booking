@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useCallback, useActionState, useTransition, lazy, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
-import { createBusiness, updateBusiness, createOpportunity } from '@/app/actions/crm'
+import { createBusiness, updateBusiness, createOpportunity, deleteBusiness } from '@/app/actions/crm'
 import { previewVendorSync, syncVendorToExternal } from '@/app/actions/businesses'
 import { formatValueForDisplay } from '@/lib/api/external-oferta/vendor/mapper'
 import type { VendorFieldChange } from '@/lib/api/external-oferta/vendor/types'
@@ -77,6 +77,7 @@ interface BusinessFormModalProps {
   onClose: () => void
   business?: Business | null
   onSuccess: (business: Business) => void
+  onDelete?: (businessId: string) => void
   // Pre-loaded data to skip fetching (passed from parent page)
   preloadedCategories?: Category[]
   preloadedUsers?: UserData[]
@@ -90,6 +91,7 @@ export default function BusinessFormModal({
   onClose, 
   business, 
   onSuccess,
+  onDelete,
   preloadedCategories,
   preloadedUsers,
   canEdit = true, // Default to true for backwards compatibility
@@ -115,7 +117,9 @@ export default function BusinessFormModal({
   // Sync dialog for PATCH updates
   const syncConfirmDialog = useConfirmDialog()
   const syncResultDialog = useConfirmDialog()
+  const deleteConfirmDialog = useConfirmDialog()
   const [syncLoading, setSyncLoading] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const [syncChanges, setSyncChanges] = useState<VendorFieldChange[]>([])
   const [syncVendorId, setSyncVendorId] = useState<string | null>(null)
   
@@ -661,7 +665,7 @@ export default function BusinessFormModal({
   )
 
   // Combined loading state for UI feedback
-  const loading = isSavePending || isCreateWithOppPending || isPending
+  const loading = isSavePending || isCreateWithOppPending || isPending || deleteLoading
 
   // Clear stale errors and reset field locks whenever the modal opens or closes
   useEffect(() => {
@@ -872,6 +876,40 @@ export default function BusinessFormModal({
       const formData = buildFormData()
       createWithOppAction(formData)
     })
+  }
+
+  async function handleDeleteBusiness() {
+    if (!business || !isAdmin) return
+
+    const confirmed = await deleteConfirmDialog.confirm({
+      title: 'Archivar negocio',
+      message: `Esta acción archivará "${business.name || 'este negocio'}" y lo ocultará de los listados activos. Las oportunidades relacionadas se mantendrán.`,
+      confirmText: 'Sí, archivar',
+      cancelText: 'Cancelar',
+      confirmVariant: 'danger',
+    })
+
+    if (!confirmed) return
+
+    setError('')
+    setDeleteLoading(true)
+
+    try {
+      const result = await deleteBusiness(business.id)
+      if (!result.success) {
+        setError(result.error || 'No se pudo archivar el negocio')
+        return
+      }
+
+      onClose()
+      if (onDelete) {
+        onDelete(business.id)
+      } else {
+        router.refresh()
+      }
+    } finally {
+      setDeleteLoading(false)
+    }
   }
 
   const isEditMode = !!business
@@ -1201,6 +1239,30 @@ export default function BusinessFormModal({
                     />
                   </Suspense>
                 )}
+
+                {/* Danger Zone - admin only */}
+                {business && isAdmin && (
+                  <div className="rounded-lg border border-red-300 bg-red-50 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h3 className="text-sm font-semibold text-red-800">Zona de peligro</h3>
+                        <p className="mt-1 text-xs text-red-700">
+                          Archivar este negocio lo oculta de los listados activos, pero conserva su historial.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleDeleteBusiness}
+                        loading={deleteLoading}
+                        disabled={deleteLoading}
+                      >
+                        Archivar negocio
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
       </form>
@@ -1327,6 +1389,19 @@ export default function BusinessFormModal({
       confirmVariant={syncResultDialog.options.confirmVariant}
       onConfirm={syncResultDialog.handleConfirm}
       onCancel={syncResultDialog.handleCancel}
+      zIndex={80}
+    />
+
+    {/* Archive business confirmation dialog - z-80 to be above ModalShell (z-70) */}
+    <ConfirmDialog
+      isOpen={deleteConfirmDialog.isOpen}
+      title={deleteConfirmDialog.options.title}
+      message={deleteConfirmDialog.options.message}
+      confirmText={deleteConfirmDialog.options.confirmText}
+      cancelText={deleteConfirmDialog.options.cancelText}
+      confirmVariant={deleteConfirmDialog.options.confirmVariant}
+      onConfirm={deleteConfirmDialog.handleConfirm}
+      onCancel={deleteConfirmDialog.handleCancel}
       zIndex={80}
     />
   </>

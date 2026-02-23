@@ -29,15 +29,17 @@ import ApiLogsTab from './components/ApiLogsTab'
 import CommentsLogTab from './components/CommentsLogTab'
 import CronJobsTab from './components/CronJobsTab'
 import CampaignsTab from './components/CampaignsTab'
+import ArchivedRecordsTab from './components/ArchivedRecordsTab'
 import HistoryIcon from '@mui/icons-material/History'
 import ChatBubbleIcon from '@mui/icons-material/ChatBubble'
 import ScheduleIcon from '@mui/icons-material/Schedule'
 import CampaignIcon from '@mui/icons-material/Campaign'
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'
 import TuneIcon from '@mui/icons-material/Tune'
 import MonitorHeartIcon from '@mui/icons-material/MonitorHeart'
 import './styles.css'
 
-type TabId = 'general' | 'categories' | 'form-builder' | 'system' | 'access' | 'email-preview' | 'public-pages' | 'api-logs' | 'comments-log' | 'cron-jobs' | 'campaigns'
+type TabId = 'general' | 'categories' | 'form-builder' | 'system' | 'access' | 'email-preview' | 'public-pages' | 'api-logs' | 'comments-log' | 'cron-jobs' | 'campaigns' | 'archived-records'
 
 interface NavItem {
   id: TabId
@@ -81,6 +83,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'comments-log', label: 'Comments', icon: <ChatBubbleIcon style={{ fontSize: 18 }} />, adminOnly: true },
       { id: 'cron-jobs', label: 'Cron Jobs', icon: <ScheduleIcon style={{ fontSize: 18 }} />, adminOnly: true },
       { id: 'campaigns', label: 'Campaigns', icon: <CampaignIcon style={{ fontSize: 18 }} />, adminOnly: true },
+      { id: 'archived-records', label: 'Trash', icon: <DeleteSweepIcon style={{ fontSize: 18 }} />, adminOnly: true },
     ]
   },
 ]
@@ -382,6 +385,7 @@ export default function SettingsPageClient() {
                 {activeTab === 'comments-log' && 'View all comments activity'}
                 {activeTab === 'cron-jobs' && 'Monitor scheduled tasks'}
                 {activeTab === 'campaigns' && 'Manage sales campaigns'}
+                {activeTab === 'archived-records' && 'Restore archived records from the trash'}
               </p>
             </div>
             
@@ -524,6 +528,12 @@ export default function SettingsPageClient() {
             {activeTab === 'campaigns' && isAdmin && (
               <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
                 <CampaignsTab />
+              </div>
+            )}
+
+            {activeTab === 'archived-records' && isAdmin && (
+              <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                <ArchivedRecordsTab />
               </div>
             )}
           </div>

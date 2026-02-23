@@ -17,10 +17,9 @@ import type { Business, Opportunity, BookingRequest, UserData, Deal, PricingOpti
 import type { DealStatus } from '@/lib/constants'
 import type { Category } from '@prisma/client'
 
-// Extended where clause type to include reassignment fields not yet in Prisma schema
-type BusinessWhereClause = Prisma.BusinessWhereInput & {
-  reassignmentStatus?: null | string
-}
+type BusinessWhereClause = Prisma.BusinessWhereInput
+
+const ARCHIVED_BUSINESS_STATUS = 'archived'
 
 // Map column names to database fields for sorting
 const SORT_COLUMN_MAP: Record<string, string> = {
@@ -91,8 +90,11 @@ export async function getBusinesses() {
         } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
           // Editors and ERE don't have access to businesses
           return []
+        } else {
+          // Hide archived businesses from active lists
+          whereClause.NOT = { reassignmentStatus: ARCHIVED_BUSINESS_STATUS }
         }
-        // Admin sees all (no where clause)
+        // Admin sees all active businesses
 
         const businesses = await prisma.business.findMany({
           where: whereClause,
@@ -217,8 +219,11 @@ export async function getBusinessesPaginated(options: {
       }
     } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { success: true, data: [], total: 0, page, pageSize, editableBusinessIds: [] as string[] }
+    } else {
+      // Hide archived businesses from active lists
+      whereClause.NOT = { reassignmentStatus: ARCHIVED_BUSINESS_STATUS }
     }
-    // Admin sees all businesses (no reassignmentStatus filter)
+    // Admin sees all active businesses
     
     // Apply opportunity filter if provided
     if (opportunityFilter === 'with-open') {
@@ -452,6 +457,9 @@ export async function getBusinessCounts(filters?: { ownerId?: string; myBusiness
       }
     } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { success: true, data: { all: 0, 'with-open': 0, 'without-open': 0, 'with-focus': 0, 'with-active-deal': 0 } }
+    } else {
+      // Hide archived businesses from active counts
+      baseWhere.NOT = { reassignmentStatus: ARCHIVED_BUSINESS_STATUS }
     }
     
     // Apply owner filter (admin quick filter)
@@ -554,11 +562,14 @@ export async function getBusinessActiveDealUrls() {
     const baseWhere: Record<string, unknown> = {}
     if (role === 'sales') {
       baseWhere.ownerId = userId
+      baseWhere.reassignmentStatus = null
     } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { 
         success: true, 
         data: {} as Record<string, string>
       }
+    } else {
+      baseWhere.NOT = { reassignmentStatus: ARCHIVED_BUSINESS_STATUS }
     }
 
     // Get all businesses (with role filter applied)
@@ -639,6 +650,7 @@ export async function getBusinessTableCounts() {
     const baseWhere: Record<string, unknown> = {}
     if (role === 'sales') {
       baseWhere.ownerId = userId
+      baseWhere.reassignmentStatus = null
     } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { 
         success: true, 
@@ -647,6 +659,8 @@ export async function getBusinessTableCounts() {
           pendingRequestCounts: {} as Record<string, number> 
         } 
       }
+    } else {
+      baseWhere.NOT = { reassignmentStatus: ARCHIVED_BUSINESS_STATUS }
     }
 
     // Get open opportunity counts per business using groupBy
@@ -896,6 +910,10 @@ export async function updateBusinessFocus(
       return { success: false, error: 'Business not found' }
     }
 
+    if (business.reassignmentStatus === ARCHIVED_BUSINESS_STATUS) {
+      return { success: false, error: 'No se puede modificar el foco de un negocio archivado' }
+    }
+
     // Check permissions: must be admin or owner
     const admin = await isAdmin()
     const isOwner = business.ownerId === userId
@@ -1005,6 +1023,9 @@ export async function searchBusinesses(query: string, options: {
       }
     } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { success: true, data: [], editableBusinessIds: [] as string[] }
+    } else {
+      // Hide archived businesses from active search
+      roleFilter.NOT = { reassignmentStatus: ARCHIVED_BUSINESS_STATUS }
     }
     
     // Apply owner filter (admin quick filter)
@@ -1210,10 +1231,17 @@ export async function createBusiness(formData: FormData) {
     // Prevent duplicates by business name (case-insensitive)
     const existingBusiness = await prisma.business.findFirst({
       where: {
-        name: {
-          equals: name,
-          mode: 'insensitive',
-        },
+        AND: [
+          {
+            name: {
+              equals: name,
+              mode: 'insensitive',
+            },
+          },
+          {
+            NOT: { reassignmentStatus: ARCHIVED_BUSINESS_STATUS },
+          },
+        ],
       },
       include: {
         category: {
@@ -1450,6 +1478,14 @@ export async function updateBusiness(businessId: string, formData: FormData) {
       where: { id: businessId },
     })
 
+    if (!currentBusiness) {
+      return { success: false, error: 'Business not found' }
+    }
+
+    if (currentBusiness.reassignmentStatus === ARCHIVED_BUSINESS_STATUS) {
+      return { success: false, error: 'No se puede editar un negocio archivado' }
+    }
+
     const name = formData.get('name') as string
     const contactName = formData.get('contactName') as string
     const contactPhone = formData.get('contactPhone') as string
@@ -1623,7 +1659,7 @@ export async function updateBusiness(businessId: string, formData: FormData) {
 }
 
 /**
- * Delete a business
+ * Archive a business (soft delete)
  */
 export async function deleteBusiness(businessId: string) {
   const authResult = await requireAuth()
@@ -1632,34 +1668,197 @@ export async function deleteBusiness(businessId: string) {
   }
 
   try {
-    // Only admins can delete businesses
+    // Only admins can archive businesses
     const role = await getUserRole()
     if (role !== 'admin') {
       return { success: false, error: 'Unauthorized: Admin access required' }
     }
 
-    // Get business name before deleting for logging
+    // Get business details before archiving for logging and idempotency checks
     const business = await prisma.business.findUnique({
       where: { id: businessId },
-      select: { name: true },
+      select: { name: true, reassignmentStatus: true },
     })
 
-    await prisma.business.delete({
-      where: { id: businessId },
-    })
+    if (!business) {
+      return { success: false, error: 'Business not found' }
+    }
+
+    // Idempotent behavior if already archived
+    if (business.reassignmentStatus !== ARCHIVED_BUSINESS_STATUS) {
+      await prisma.business.update({
+        where: { id: businessId },
+        data: {
+          reassignmentStatus: ARCHIVED_BUSINESS_STATUS,
+          reassignmentType: null,
+          reassignmentRequestedBy: authResult.userId,
+          reassignmentRequestedAt: new Date(),
+          reassignmentReason: 'archived',
+          reassignmentPreviousOwner: null,
+        },
+      })
+    }
 
     // Log activity
     await logActivity({
-      action: 'DELETE',
+      action: 'STATUS_CHANGE',
       entityType: 'Business',
       entityId: businessId,
       entityName: business?.name || undefined,
+      details: {
+        statusChange: { from: business.reassignmentStatus || 'active', to: ARCHIVED_BUSINESS_STATUS },
+      },
     })
 
     invalidateEntity('businesses')
     return { success: true }
   } catch (error) {
     return handleServerActionError(error, 'deleteBusiness')
+  }
+}
+
+/**
+ * Get archived businesses (admin only)
+ */
+export async function getArchivedBusinesses(options: {
+  page?: number
+  pageSize?: number
+  query?: string
+} = {}) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    const role = await getUserRole()
+    if (role !== 'admin') {
+      return { success: false, error: 'Unauthorized: Admin access required' }
+    }
+
+    const { page = 0, pageSize = 50, query = '' } = options
+    const searchTerm = query.trim()
+
+    let whereClause: Prisma.BusinessWhereInput = {
+      reassignmentStatus: ARCHIVED_BUSINESS_STATUS,
+    }
+
+    if (searchTerm.length >= 2) {
+      whereClause = {
+        AND: [
+          whereClause,
+          {
+            OR: [
+              { name: { contains: searchTerm, mode: 'insensitive' } },
+              { contactName: { contains: searchTerm, mode: 'insensitive' } },
+              { contactEmail: { contains: searchTerm, mode: 'insensitive' } },
+              { salesTeam: { contains: searchTerm, mode: 'insensitive' } },
+            ],
+          },
+        ],
+      }
+    }
+
+    const [total, archivedBusinesses] = await Promise.all([
+      prisma.business.count({ where: whereClause }),
+      prisma.business.findMany({
+        where: whereClause,
+        include: {
+          category: {
+            select: {
+              id: true,
+              categoryKey: true,
+              parentCategory: true,
+              subCategory1: true,
+              subCategory2: true,
+            },
+          },
+          owner: {
+            select: {
+              id: true,
+              clerkId: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: [
+          { reassignmentRequestedAt: 'desc' },
+          { updatedAt: 'desc' },
+        ],
+        skip: page * pageSize,
+        take: pageSize,
+      }),
+    ])
+
+    return {
+      success: true,
+      data: archivedBusinesses as unknown as Business[],
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getArchivedBusinesses')
+  }
+}
+
+/**
+ * Unarchive a business (admin only)
+ */
+export async function unarchiveBusiness(businessId: string) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    const role = await getUserRole()
+    if (role !== 'admin') {
+      return { success: false, error: 'Unauthorized: Admin access required' }
+    }
+
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: { name: true, reassignmentStatus: true },
+    })
+
+    if (!business) {
+      return { success: false, error: 'Business not found' }
+    }
+
+    if (business.reassignmentStatus !== ARCHIVED_BUSINESS_STATUS) {
+      return { success: false, error: 'El negocio no está archivado' }
+    }
+
+    await prisma.business.update({
+      where: { id: businessId },
+      data: {
+        reassignmentStatus: null,
+        reassignmentType: null,
+        reassignmentRequestedBy: null,
+        reassignmentRequestedAt: null,
+        reassignmentReason: null,
+        reassignmentPreviousOwner: null,
+      },
+    })
+
+    await logActivity({
+      action: 'STATUS_CHANGE',
+      entityType: 'Business',
+      entityId: businessId,
+      entityName: business.name || undefined,
+      details: {
+        statusChange: { from: ARCHIVED_BUSINESS_STATUS, to: 'active' },
+      },
+    })
+
+    invalidateEntity('businesses')
+    invalidateEntity('assignments')
+    return { success: true }
+  } catch (error) {
+    return handleServerActionError(error, 'unarchiveBusiness')
   }
 }
 
@@ -1680,6 +1879,9 @@ export async function getBusinessesWithBookingStatus() {
 
     // Get all businesses with basic info
     const businesses = await prisma.business.findMany({
+      where: {
+        NOT: { reassignmentStatus: ARCHIVED_BUSINESS_STATUS },
+      },
       select: {
         id: true,
         name: true,

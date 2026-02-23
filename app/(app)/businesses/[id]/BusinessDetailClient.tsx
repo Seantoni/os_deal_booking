@@ -183,7 +183,7 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
 
   const handleCreateNewOpportunity = () => {
     // Only allow if user has edit permission
-    if (canEdit === false) return
+    if (canEdit === false || business.reassignmentStatus === 'archived') return
 
     setSelectedOpportunity(null)
     setIsOpportunityModalOpen(true)
@@ -191,7 +191,7 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
 
   const handleCreateRequest = () => {
     // Only allow if user has edit permission
-    if (canEdit === false) return
+    if (canEdit === false || business.reassignmentStatus === 'archived') return
 
     // Build query parameters with business data (matching OpportunityFormModal behavior)
     const params = new URLSearchParams()
@@ -303,8 +303,31 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
     ? (latestAssignedDeal.ereResponsible?.name || latestAssignedDeal.ereResponsible?.email || latestAssignedDeal.ereResponsibleId || null)
     : null
 
+  const isArchived = business.reassignmentStatus === 'archived'
+  const archivedAtLabel = business.reassignmentRequestedAt
+    ? new Date(business.reassignmentRequestedAt).toLocaleString('es-PA', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : null
+
   return (
     <div className="p-4 max-w-6xl mx-auto space-y-4">
+      {isArchived && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+          <p className="text-sm font-medium text-amber-900">
+            Este negocio está archivado.
+          </p>
+          <p className="text-xs text-amber-800 mt-1">
+            {archivedAtLabel ? `Archivado el ${archivedAtLabel}. ` : ''}
+            Puedes restaurarlo desde Settings → Trash.
+          </p>
+        </div>
+      )}
+
       {/* Header Card - Compact */}
       <div className="bg-white border border-slate-200 rounded-lg px-4 py-3 shadow-sm">
         <div className="flex items-center justify-between gap-4">
@@ -337,6 +360,11 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
                   <PersonIcon style={{ fontSize: 10 }} />
                   {business.owner?.name || business.owner?.email || 'Sin asignar'}
                 </span>
+                {isArchived && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-amber-100 text-amber-800">
+                    Archivado
+                  </span>
+                )}
                 <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded ${
                   loadingData
                     ? 'bg-slate-100 text-slate-500'
@@ -395,20 +423,20 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
           
           <Button
             onClick={() => setIsOpportunityModalOpen(true)}
-            disabled={canEdit === false || canEdit === null}
+            disabled={canEdit === false || canEdit === null || isArchived}
             size="xs"
-            className={canEdit === false ? 'opacity-50 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}
-            title={canEdit === false ? 'Sin permiso de edición' : 'Crear Oportunidad'}
+            className={(canEdit === false || isArchived) ? 'opacity-50 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}
+            title={isArchived ? 'Negocio archivado' : (canEdit === false ? 'Sin permiso de edición' : 'Crear Oportunidad')}
           >
               <AddIcon style={{ fontSize: 14 }} />
               <span className="hidden sm:inline ml-1">Opportunity</span>
           </Button>
           <Button
             onClick={handleCreateRequest}
-            disabled={canEdit === false || canEdit === null}
+            disabled={canEdit === false || canEdit === null || isArchived}
             size="xs"
-            className={canEdit === false ? 'opacity-50 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}
-            title={canEdit === false ? 'Sin permiso de edición' : 'Crear Solicitud'}
+            className={(canEdit === false || isArchived) ? 'opacity-50 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}
+            title={isArchived ? 'Negocio archivado' : (canEdit === false ? 'Sin permiso de edición' : 'Crear Solicitud')}
           >
               <DescriptionIcon style={{ fontSize: 14 }} />
               <span className="hidden sm:inline ml-1">Request</span>
@@ -476,14 +504,14 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
                 onEditOpportunity={handleEditOpportunity}
                 onCreateNew={handleCreateNewOpportunity}
                 businessName={business.name}
-                canEdit={canEdit ?? true}
+                canEdit={!isArchived && (canEdit ?? true)}
               />
 
               <RequestsSection
                 requests={requests}
                 onViewRequest={handleViewRequest}
                 businessName={business.name}
-                canEdit={canEdit ?? true}
+                canEdit={!isArchived && (canEdit ?? true)}
               />
 
               <DealsSection
@@ -561,6 +589,10 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
         onClose={() => setIsEditModalOpen(false)}
         business={business}
         onSuccess={handleEditSuccess}
+        onDelete={() => {
+          setIsEditModalOpen(false)
+          router.push('/businesses')
+        }}
         canEdit={canEdit ?? false}
       />
 

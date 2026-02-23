@@ -123,7 +123,10 @@ async function searchBusinesses(searchTerm: string, isIdSearch: boolean, role: s
     orConditions.push({ osAdminVendorId: { contains: searchTerm, mode: 'insensitive' } })
   }
 
-  const where: Prisma.BusinessWhereInput = { OR: orConditions }
+  const where: Prisma.BusinessWhereInput = {
+    NOT: { reassignmentStatus: 'archived' },
+    OR: orConditions,
+  }
   
   // NOTE: Sales users can VIEW all businesses (no ownerId filter)
   // They can only EDIT assigned ones, which is enforced at the update action level

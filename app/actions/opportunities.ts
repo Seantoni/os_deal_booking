@@ -263,6 +263,7 @@ export async function getOpportunityFormData(opportunityId?: string | null, busi
     const businessWhere: Record<string, unknown> = {}
     if (role === 'sales') {
       businessWhere.ownerId = userId
+      businessWhere.reassignmentStatus = null
     } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { 
         success: true, 
@@ -275,6 +276,8 @@ export async function getOpportunityFormData(opportunityId?: string | null, busi
           linkedBookingRequest: null 
         } 
       }
+    } else {
+      businessWhere.NOT = { reassignmentStatus: 'archived' }
     }
 
     // Build parallel fetch promises
