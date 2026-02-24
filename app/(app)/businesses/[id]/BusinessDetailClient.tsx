@@ -95,9 +95,13 @@ function Badge({ children, className }: { children: React.ReactNode; className?:
 
 interface BusinessDetailClientProps {
   business: Business
+  initialCommissionPct?: number | null
 }
 
-export default function BusinessDetailClient({ business: initialBusiness }: BusinessDetailClientProps) {
+export default function BusinessDetailClient({
+  business: initialBusiness,
+  initialCommissionPct = null,
+}: BusinessDetailClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [business, setBusiness] = useState<Business>(initialBusiness)
@@ -112,6 +116,7 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [requests, setRequests] = useState<BookingRequest[]>([])
   const [deals, setDeals] = useState<Deal[]>([])
+  const [dealMetricsMarginPct, setDealMetricsMarginPct] = useState<number | null>(initialCommissionPct)
   const [loadingData, setLoadingData] = useState(true)
   
   // Track if user can edit this business
@@ -122,6 +127,10 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
   const tabParam = searchParams.get('tab')
   const initialTab = (tabParam === 'metrics' || tabParam === 'details') ? tabParam : 'pipeline'
   const [activeTab, setActiveTab] = useState<'pipeline' | 'metrics' | 'details'>(initialTab)
+
+  useEffect(() => {
+    setDealMetricsMarginPct(initialCommissionPct ?? null)
+  }, [initialCommissionPct])
   
   // Fetch edit permissions on mount
   useEffect(() => {
@@ -339,6 +348,12 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-base font-semibold text-slate-900 truncate">{business.name}</h1>
+                {dealMetricsMarginPct !== null && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-100 text-blue-700">
+                    <span className="font-semibold">Comisión:</span>
+                    {dealMetricsMarginPct.toLocaleString(undefined, { maximumFractionDigits: 1 })}%
+                  </span>
+                )}
                 {business.tier && (
                   <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700 rounded">
                     T{business.tier}

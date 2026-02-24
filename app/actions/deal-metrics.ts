@@ -455,6 +455,33 @@ export async function getDealMetricsByVendorId(vendorId: string) {
   return { deals: formattedDeals, summary }
 }
 
+/**
+ * Get average deal commission (margin %) by vendor ID.
+ * Lightweight query for header badges (avoids loading full deal + snapshot payloads).
+ */
+export async function getAverageMarginByVendorId(vendorId: string) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) return { averageMargin: null as number | null }
+
+  if (!vendorId) {
+    return { averageMargin: null as number | null }
+  }
+
+  try {
+    const aggregate = await prisma.dealMetrics.aggregate({
+      where: { externalVendorId: vendorId },
+      _avg: { margin: true },
+    })
+
+    return {
+      averageMargin: aggregate._avg.margin !== null ? Number(aggregate._avg.margin) : null,
+    }
+  } catch (error) {
+    console.error('getAverageMarginByVendorId error:', error)
+    return { averageMargin: null as number | null }
+  }
+}
+
 // Type for formatted deal metric
 export interface FormattedDealMetric {
   id: string

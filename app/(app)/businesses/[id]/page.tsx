@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import AppLayout from '@/components/common/AppLayout'
 import { requirePageAccess } from '@/lib/auth/page-access'
 import { getBusiness } from '@/app/actions/crm'
+import { getAverageMarginByVendorId } from '@/app/actions/deal-metrics'
 import BusinessIcon from '@mui/icons-material/Business'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import { Button } from '@/components/ui'
@@ -62,6 +63,9 @@ export default async function BusinessDetailPage({ params }: BusinessDetailPageP
   }
 
   const business = result.data
+  const commissionResult = business.osAdminVendorId
+    ? await getAverageMarginByVendorId(business.osAdminVendorId)
+    : { averageMargin: null as number | null }
 
   // Header Actions
   const headerActions = (
@@ -76,7 +80,10 @@ export default async function BusinessDetailPage({ params }: BusinessDetailPageP
 
   return (
     <AppLayout title={business.name || 'Business'} actions={headerActions}>
-      <BusinessDetailClient business={business} />
+      <BusinessDetailClient
+        business={business}
+        initialCommissionPct={commissionResult.averageMargin}
+      />
     </AppLayout>
   )
 }

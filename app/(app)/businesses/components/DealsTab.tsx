@@ -43,7 +43,7 @@ const DEAL_COLUMNS: ColumnConfig[] = [
   { key: 'status', label: 'Status', sortable: true },
   { key: 'quantitySold', label: 'Sold', sortable: true, align: 'right' },
   { key: 'netRevenue', label: 'Revenue', sortable: true, align: 'right' },
-  { key: 'margin', label: 'Margin', sortable: true, align: 'right' },
+  { key: 'margin', label: 'Comisión', sortable: true, align: 'right' },
   { key: 'runAt', label: 'Start', sortable: true },
   { key: 'endAt', label: 'End', sortable: true },
   { key: 'actions', label: '', align: 'right', width: 'w-10' },
@@ -338,7 +338,7 @@ export function DealsTab({
                         
                         {/* Net Revenue */}
                         <TableCell align="right">
-                          <span className="font-medium text-emerald-600">{deal.netRevenue.toLocaleString()}%</span>
+                          <span className="font-medium text-emerald-600">${deal.netRevenue.toLocaleString()}</span>
                         </TableCell>
                         
                         {/* Margin */}
