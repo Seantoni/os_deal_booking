@@ -251,39 +251,65 @@ function TopDealsCards({ deals }: { deals: DealMetric[] }) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div className="bg-white rounded-lg border border-slate-200 p-4">
-        <h3 className="text-sm font-medium text-slate-700 mb-3">Top 3 by Net Rev</h3>
-        <ul className="space-y-2">
+      <div className="bg-white rounded-lg border border-slate-200 p-3">
+        <h3 className="text-xs font-semibold text-slate-700 mb-2">Top 3 by Net Rev</h3>
+        <ul className="space-y-1.5">
           {topByRevenue.map((deal, index) => (
-            <li key={`rev-${deal.id}`} className="flex items-start justify-between gap-3 border-b border-slate-100 pb-2 last:border-b-0 last:pb-0">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-slate-500">#{index + 1}</p>
-                <p className="text-sm text-slate-700 line-clamp-1" title={getDealLabel(deal)}>
+            <li key={`rev-${deal.id}`} className="flex items-center justify-between gap-2 rounded border border-slate-100 px-2 py-1.5">
+              <div className="min-w-0 flex items-center gap-2">
+                <span className="text-[11px] font-semibold text-slate-500 w-5">#{index + 1}</span>
+                <p className="text-xs text-slate-700 truncate" title={getDealLabel(deal)}>
                   {getDealLabel(deal)}
                 </p>
               </div>
-              <span className="text-sm font-semibold text-emerald-600 whitespace-nowrap">
-                ${deal.netRevenue.toLocaleString()}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-emerald-600 whitespace-nowrap">
+                  ${deal.netRevenue.toLocaleString()}
+                </span>
+                {deal.dealUrl && (
+                  <a
+                    href={deal.dealUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-slate-400 hover:text-blue-600 inline-flex"
+                    title="Open deal"
+                  >
+                    <OpenInNewIcon style={{ fontSize: 14 }} />
+                  </a>
+                )}
+              </div>
             </li>
           ))}
         </ul>
       </div>
 
-      <div className="bg-white rounded-lg border border-slate-200 p-4">
-        <h3 className="text-sm font-medium text-slate-700 mb-3">Top 3 by Quantity Sold</h3>
-        <ul className="space-y-2">
+      <div className="bg-white rounded-lg border border-slate-200 p-3">
+        <h3 className="text-xs font-semibold text-slate-700 mb-2">Top 3 by Quantity Sold</h3>
+        <ul className="space-y-1.5">
           {topByQuantity.map((deal, index) => (
-            <li key={`qty-${deal.id}`} className="flex items-start justify-between gap-3 border-b border-slate-100 pb-2 last:border-b-0 last:pb-0">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-slate-500">#{index + 1}</p>
-                <p className="text-sm text-slate-700 line-clamp-1" title={getDealLabel(deal)}>
+            <li key={`qty-${deal.id}`} className="flex items-center justify-between gap-2 rounded border border-slate-100 px-2 py-1.5">
+              <div className="min-w-0 flex items-center gap-2">
+                <span className="text-[11px] font-semibold text-slate-500 w-5">#{index + 1}</span>
+                <p className="text-xs text-slate-700 truncate" title={getDealLabel(deal)}>
                   {getDealLabel(deal)}
                 </p>
               </div>
-              <span className="text-sm font-semibold text-blue-600 whitespace-nowrap">
-                {deal.quantitySold.toLocaleString()}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-blue-600 whitespace-nowrap">
+                  {deal.quantitySold.toLocaleString()}
+                </span>
+                {deal.dealUrl && (
+                  <a
+                    href={deal.dealUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-slate-400 hover:text-blue-600 inline-flex"
+                    title="Open deal"
+                  >
+                    <OpenInNewIcon style={{ fontSize: 14 }} />
+                  </a>
+                )}
+              </div>
             </li>
           ))}
         </ul>
