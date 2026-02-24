@@ -5,7 +5,7 @@ import GroupsIcon from '@mui/icons-material/Groups'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PersonIcon from '@mui/icons-material/Person'
 import type { Task } from '@/types'
-import { Button, Input, Select, Textarea } from '@/components/ui'
+import { Input, Select, Textarea } from '@/components/ui'
 import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
 import { getTodayInPanama, formatDateForPanama } from '@/lib/date/timezone'
 
@@ -50,6 +50,8 @@ interface TaskModalProps {
     title: string
     date: string
     notes: string
+  }, options?: {
+    markCompleted?: boolean
   }) => void | Promise<void>
   loading?: boolean
   error?: string
@@ -183,6 +185,9 @@ export default function TaskModal({
         title: `Reunión: ${meetingWith}`, // Title for display
         date: taskDate,
         notes: serializeMeetingData(meetingData),
+      }, {
+        // If today's meeting already happened, complete it immediately after save.
+        markCompleted: isDateToday && meetingHappened === 'si',
       })
     } else {
       await onSubmit({

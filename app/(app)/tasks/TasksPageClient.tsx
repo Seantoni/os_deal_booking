@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useOptimistic, useTransition } from 'react'
 import dynamic from 'next/dynamic'
 import { getUserTasks, toggleTaskComplete, getTaskCounts, type TaskWithOpportunity } from '@/app/actions/tasks'
-import { updateTask, deleteTask } from '@/app/actions/opportunities'
+import { createTask, updateTask, deleteTask } from '@/app/actions/opportunities'
 import { getOpportunity } from '@/app/actions/crm'
 import type { Opportunity } from '@/types'
 import toast from 'react-hot-toast'
@@ -105,6 +105,7 @@ export default function TasksPageClient() {
   }, [users])
   const [taskModalOpen, setTaskModalOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState<TaskWithOpportunity | null>(null)
+  const [taskCreationContext, setTaskCreationContext] = useState<TaskWithOpportunity | null>(null)
   const [savingTask, setSavingTask] = useState(false)
   const [taskError, setTaskError] = useState('')
   const [forCompletion, setForCompletion] = useState(false) // Track if opening modal to complete a meeting
@@ -234,6 +235,36 @@ export default function TasksPageClient() {
   }, [optimisticTasks, serverCounts])
 
   // React 19: Handle toggle complete using useOptimistic for instant UI update
+  const canOfferNewTaskAfterCompletion = useCallback((task: TaskWithOpportunity, notesOverride?: string | null) => {
+    if (task.category !== 'meeting') return true
+    const meetingData = parseMeetingData(notesOverride ?? task.notes ?? null)
+    return meetingData?.reachedAgreement === 'no'
+  }, [])
+
+  const openNewTaskModalForOpportunity = useCallback((task: TaskWithOpportunity) => {
+    setSelectedTask(null)
+    setTaskCreationContext(task)
+    setForCompletion(false)
+    setTaskError('')
+    setTaskModalOpen(true)
+  }, [])
+
+  const maybeOfferNewTaskAfterCompletion = useCallback(async (task: TaskWithOpportunity, notesOverride?: string | null) => {
+    if (!canOfferNewTaskAfterCompletion(task, notesOverride)) return
+
+    const openNewTask = await confirmDialog.confirm({
+      title: 'Tarea completada',
+      message: '¿Desea abrir una nueva tarea para continuar el seguimiento de esta oportunidad?',
+      confirmText: 'Sí, abrir nueva',
+      cancelText: 'No',
+      confirmVariant: 'primary',
+    })
+
+    if (openNewTask) {
+      openNewTaskModalForOpportunity(task)
+    }
+  }, [canOfferNewTaskAfterCompletion, confirmDialog, openNewTaskModalForOpportunity])
+
   const handleToggleComplete = (task: TaskWithOpportunity) => {
     // If trying to complete a meeting, check if outcome fields are filled
     if (task.category === 'meeting' && !task.completed) {
@@ -243,6 +274,7 @@ export default function TasksPageClient() {
       if (!meetingData || !hasNextSteps) {
         // Open task modal for editing with forCompletion flag
         setSelectedTask(task)
+        setTaskCreationContext(null)
         setForCompletion(true)
         setTaskError('')
         setTaskModalOpen(true)
@@ -258,6 +290,11 @@ export default function TasksPageClient() {
       if (result.success) {
         // Update actual state to match
         setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: !t.completed } : t))
+
+        const isCompleting = !task.completed
+        if (isCompleting) {
+          void maybeOfferNewTaskAfterCompletion(task)
+        }
       } else {
         // On failure, the optimistic state will automatically revert when transition ends
         toast.error(result.error || 'Failed to update task')
@@ -268,6 +305,7 @@ export default function TasksPageClient() {
   // Handle edit task
   const handleEditTask = (task: TaskWithOpportunity) => {
     setSelectedTask(task)
+    setTaskCreationContext(null)
     setForCompletion(false) // Regular edit, not for completion
     setTaskError('')
     setTaskModalOpen(true)
@@ -322,8 +360,17 @@ export default function TasksPageClient() {
     title: string
     date: string
     notes: string
+  }, options?: {
+    markCompleted?: boolean
   }) => {
-    if (!selectedTask) return
+    const isEditMode = !!selectedTask
+    const targetOpportunityId = selectedTask?.opportunityId || taskCreationContext?.opportunityId
+    const shouldCompleteAfterSave = !!options?.markCompleted || (isEditMode && forCompletion)
+
+    if (!isEditMode && !targetOpportunityId) {
+      setTaskError('No se pudo determinar la oportunidad para crear la tarea')
+      return
+    }
 
     setSavingTask(true)
     setTaskError('')
@@ -333,20 +380,66 @@ export default function TasksPageClient() {
       formData.append('category', data.category)
       formData.append('title', data.title)
       formData.append('date', data.date)
-      // If forCompletion is true, mark as completed after saving
-      formData.append('completed', forCompletion ? 'true' : selectedTask.completed.toString())
       formData.append('notes', data.notes)
+      if (isEditMode) {
+        // Preserve current state on edit; completion is applied explicitly after save when needed.
+        formData.append('completed', selectedTask!.completed.toString())
+      } else {
+        formData.append('opportunityId', targetOpportunityId!)
+      }
 
-      const result = await updateTask(selectedTask.id, formData)
+      const result = isEditMode
+        ? await updateTask(selectedTask!.id, formData)
+        : await createTask(formData)
 
       if (result.success) {
-        toast.success(forCompletion ? 'Tarea completada' : 'Tarea actualizada')
-        setTaskModalOpen(false)
-        setSelectedTask(null)
-        setForCompletion(false)
+        const promptTaskContext = selectedTask || taskCreationContext
+        const savedTask = result.data
+        if (!savedTask) {
+          setTaskError(isEditMode ? 'Failed to update task' : 'Failed to create task')
+          return
+        }
+
+        let finalTask = savedTask
+        if (shouldCompleteAfterSave && !savedTask.completed) {
+          const completeFormData = new FormData()
+          completeFormData.append('category', data.category)
+          completeFormData.append('title', data.title)
+          completeFormData.append('date', data.date)
+          completeFormData.append('completed', 'true')
+          completeFormData.append('notes', data.notes || '')
+
+          const completeResult = await updateTask(savedTask.id, completeFormData)
+          if (completeResult.success && completeResult.data) {
+            finalTask = completeResult.data
+          }
+        }
+
+        const completedFromModal = isEditMode
+          ? !selectedTask!.completed && finalTask.completed
+          : finalTask.completed
+        const shouldOfferNewTask = completedFromModal && !!promptTaskContext && canOfferNewTaskAfterCompletion(promptTaskContext, data.notes)
+
+        if (isEditMode) {
+          toast.success(completedFromModal ? 'Tarea completada' : 'Tarea actualizada')
+          setTaskModalOpen(false)
+          setSelectedTask(null)
+          setTaskCreationContext(null)
+          setForCompletion(false)
+        } else {
+          toast.success('Tarea creada')
+          setTaskModalOpen(false)
+          setTaskCreationContext(null)
+          setSelectedTask(null)
+        }
+
         await loadTasks()
+
+        if (shouldOfferNewTask && promptTaskContext) {
+          await maybeOfferNewTaskAfterCompletion(promptTaskContext, data.notes)
+        }
       } else {
-        setTaskError(result.error || 'Failed to update task')
+        setTaskError(result.error || (isEditMode ? 'Failed to update task' : 'Failed to create task'))
       }
     } catch (error) {
       setTaskError('An error occurred')
@@ -780,18 +873,25 @@ export default function TasksPageClient() {
         onClose={() => {
           setTaskModalOpen(false)
           setSelectedTask(null)
+          setTaskCreationContext(null)
           setForCompletion(false)
         }}
         task={selectedTask}
         onSubmit={handleTaskSubmit}
         loading={savingTask}
         error={taskError}
-        businessName={selectedTask?.opportunity?.business?.name || ''}
+        businessName={selectedTask?.opportunity?.business?.name || taskCreationContext?.opportunity?.business?.name || ''}
         forCompletion={forCompletion}
-        responsibleName={selectedTask?.opportunity?.responsible?.name || selectedTask?.opportunity?.responsible?.email}
-        onViewOpportunity={selectedTask?.opportunityId ? () => {
+        responsibleName={
+          selectedTask?.opportunity?.responsible?.name ||
+          selectedTask?.opportunity?.responsible?.email ||
+          taskCreationContext?.opportunity?.responsible?.name ||
+          taskCreationContext?.opportunity?.responsible?.email
+        }
+        onViewOpportunity={(selectedTask?.opportunityId || taskCreationContext?.opportunityId) ? () => {
           setTaskModalOpen(false)
-          handleViewOpportunity(selectedTask.opportunityId)
+          const opportunityId = selectedTask?.opportunityId || taskCreationContext?.opportunityId
+          if (opportunityId) handleViewOpportunity(opportunityId)
         } : undefined}
       />
 

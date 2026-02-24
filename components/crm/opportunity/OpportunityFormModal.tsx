@@ -435,6 +435,8 @@ export default function OpportunityFormModal({
     title: string
     date: string
     notes: string
+  }, options?: {
+    markCompleted?: boolean
   }) {
     if (!opportunity) {
       setError('Por favor guarde la oportunidad primero antes de agregar tareas')
@@ -478,8 +480,8 @@ export default function OpportunityFormModal({
           let updatedTask = result.data
           const taskId = selectedTask?.id || result.data.id
           
-          // For meetings, check if outcome fields are filled to auto-complete
-          let shouldAutoComplete = false
+          // For meetings, complete when meeting already happened or outcome is recorded.
+          let shouldAutoComplete = !!options?.markCompleted
           let shouldAskWon = false
           
           if (data.category === 'meeting') {
