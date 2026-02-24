@@ -295,9 +295,8 @@ export async function getAllComments(
 }
 
 /**
- * Get pending comments (those without a response) for dashboard widget
- * Returns comments that haven't received a response yet, sorted by oldest first
- * Limited to 10 items for the dashboard widget
+ * Get pending comments (those without a response) for dashboard widget.
+ * Returns all comments that haven't received a response yet, sorted by oldest first.
  */
 export async function getPendingComments(): Promise<ServerActionResponse<PendingCommentItem[]>> {
   const authResult = await requireAuth()
@@ -444,10 +443,9 @@ export async function getPendingComments(): Promise<ServerActionResponse<Pending
     // Sort by oldest first (comments waiting longest)
     pendingComments.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
 
-    // Limit to 10 for dashboard widget
     return {
       success: true,
-      data: pendingComments.slice(0, 10),
+      data: pendingComments,
     }
   } catch (error) {
     return handleServerActionError(error, 'getPendingComments')

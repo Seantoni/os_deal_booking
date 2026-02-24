@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { getDashboardStats, getPendingBookings, type DashboardFilters } from '@/app/actions/dashboard'
+import { getDashboardStats, getDashboardStatsFresh, getPendingBookings, type DashboardFilters } from '@/app/actions/dashboard'
 import { getDealAssignmentsOverview } from '@/app/actions/deals'
 import { getInboxItems, dismissInboxItem } from '@/app/actions/inbox'
 import { getPendingComments, type PendingCommentItem } from '@/app/actions/comments'
 import { useSharedData } from '@/hooks/useSharedData'
 import { formatRelativeTime } from '@/lib/date'
+import { getLastNDaysRangeInPanama, PANAMA_TIMEZONE, parseDateInPanamaTime } from '@/lib/date/timezone'
 
-const PANAMA_TZ = 'America/Panama'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import HandshakeIcon from '@mui/icons-material/Handshake'
@@ -23,8 +23,8 @@ import EventIcon from '@mui/icons-material/Event'
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd'
 import ScheduleIcon from '@mui/icons-material/Schedule'
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline'
-import { Select } from '@/components/ui/Select'
-import { Input } from '@/components/ui/Input'
+import DateRangeIcon from '@mui/icons-material/DateRange'
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
 import { Button } from '@/components/ui/Button'
 import toast from 'react-hot-toast'
 import type { PendingBookingItem } from '@/app/actions/dashboard'
@@ -107,6 +107,7 @@ interface DashboardClientProps {
     pendingBookings: PendingBookingItem[]
     pendingComments: PendingCommentItem[]
   }
+  initialFilters?: DashboardFilters
 }
 
 const TEAM_PERFORMANCE_WEIGHTS = {
@@ -116,7 +117,16 @@ const TEAM_PERFORMANCE_WEIGHTS = {
   todos: 0.1,
 } as const
 
-export default function DashboardClient({ initialData }: DashboardClientProps) {
+function getDefaultDashboardFilters(initialFilters?: DashboardFilters): DashboardFilters {
+  const range = getLastNDaysRangeInPanama(7)
+  return {
+    userId: initialFilters?.userId || '',
+    startDate: initialFilters?.startDate || range.startDate,
+    endDate: initialFilters?.endDate || range.endDate,
+  }
+}
+
+export default function DashboardClient({ initialData, initialFilters }: DashboardClientProps) {
   const router = useRouter()
   
   // Use shared users from context (already loaded in layout) - saves 1 API call
@@ -130,30 +140,31 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
   const [pendingComments, setPendingComments] = useState<PendingCommentItem[]>(initialData?.pendingComments || [])
   const [pendingAssignments, setPendingAssignments] = useState<PendingAssignmentItem[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [filters, setFilters] = useState<DashboardFilters>({
-    userId: '',
-    startDate: '',
-    endDate: '',
-  })
+  const [filters, setFilters] = useState<DashboardFilters>(() => getDefaultDashboardFilters(initialFilters))
+  const [isDateRangeOpen, setIsDateRangeOpen] = useState(false)
+  const [draftStartDate, setDraftStartDate] = useState(filters.startDate || '')
+  const [draftEndDate, setDraftEndDate] = useState(filters.endDate || '')
   const [time, setTime] = useState<string>('')
   const [date, setDate] = useState<string>('')
   
   // Debounce timer ref for filter changes
   const filterDebounceRef = useRef<NodeJS.Timeout | null>(null)
   const isInitialMount = useRef(true)
+  const previousFiltersRef = useRef<DashboardFilters>(filters)
+  const dateRangeRef = useRef<HTMLDivElement | null>(null)
 
   // Update Panama time every minute (not every second - reduces re-renders)
   useEffect(() => {
     const updateTime = () => {
       const now = new Date()
       setTime(now.toLocaleString('es-PA', {
-        timeZone: PANAMA_TZ,
+        timeZone: PANAMA_TIMEZONE,
         hour: '2-digit',
         minute: '2-digit',
         hour12: true,
       }))
       setDate(now.toLocaleString('es-PA', {
-        timeZone: PANAMA_TZ,
+        timeZone: PANAMA_TIMEZONE,
         day: 'numeric',
         month: 'short',
       }))
@@ -175,18 +186,26 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
     // Skip initial mount (already loaded above)
     if (isInitialMount.current) {
       isInitialMount.current = false
+      previousFiltersRef.current = filters
       return
     }
+
+    const shouldClearCache =
+      previousFiltersRef.current.startDate !== filters.startDate ||
+      previousFiltersRef.current.endDate !== filters.endDate
     
     // Clear previous debounce timer
     if (filterDebounceRef.current) {
       clearTimeout(filterDebounceRef.current)
     }
     
-    // Debounce filter changes by 500ms
+    // Debounce filter changes by 500ms.
+    // Date/user filters should only affect the stats/cards section.
     filterDebounceRef.current = setTimeout(() => {
-      loadData()
+      loadData({ clearCache: shouldClearCache, skipAuxiliaryFetch: true })
     }, 500)
+
+    previousFiltersRef.current = filters
     
     return () => {
       if (filterDebounceRef.current) {
@@ -195,23 +214,74 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
     }
   }, [filters])
 
-  async function loadData() {
-    setLoading(true)
+  // Keep draft range in sync whenever external filters change.
+  useEffect(() => {
+    setDraftStartDate(filters.startDate || '')
+    setDraftEndDate(filters.endDate || '')
+  }, [filters.startDate, filters.endDate])
+
+  // Close date range panel on outside click / Escape.
+  useEffect(() => {
+    if (!isDateRangeOpen) return
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (dateRangeRef.current && !dateRangeRef.current.contains(event.target as Node)) {
+        setIsDateRangeOpen(false)
+      }
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsDateRangeOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleOutsideClick)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [isDateRangeOpen])
+
+  async function loadData(options?: { clearCache?: boolean; skipAuxiliaryFetch?: boolean }) {
+    const clearCache = options?.clearCache === true
+    const skipAuxiliaryFetch = options?.skipAuxiliaryFetch === true
+    const shouldShowLoading = !skipAuxiliaryFetch || !stats
+    if (shouldShowLoading) {
+      setLoading(true)
+    }
     setError(null)
     try {
-      // Parallel fetch stats, inbox, pending bookings, and pending comments (users come from shared context)
-      const [statsResult, inboxResult, pendingResult, pendingCommentsResult, assignmentsResult] = await Promise.all([
-        getDashboardStats(filters),
+      const statsResult = clearCache ? getDashboardStatsFresh(filters) : getDashboardStats(filters)
+
+      if (skipAuxiliaryFetch) {
+        const resolvedStatsResult = await statsResult
+        if (resolvedStatsResult.success && 'data' in resolvedStatsResult && resolvedStatsResult.data) {
+          setStats(resolvedStatsResult.data)
+        } else {
+          const errorMsg =
+            'error' in resolvedStatsResult ? resolvedStatsResult.error : 'Error desconocido al cargar estadísticas'
+          console.error('Dashboard stats error:', errorMsg)
+          setError(errorMsg as string)
+          setStats(null)
+        }
+        return
+      }
+
+      // Parallel fetch stats and widget data.
+      const [resolvedStatsResult, inboxResult, pendingResult, pendingCommentsResult, assignmentsResult] = await Promise.all([
+        statsResult,
         getInboxItems(),
         getPendingBookings(),
         getPendingComments(),
         getDealAssignmentsOverview(),
       ])
 
-      if (statsResult.success && 'data' in statsResult && statsResult.data) {
-        setStats(statsResult.data)
+      if (resolvedStatsResult.success && 'data' in resolvedStatsResult && resolvedStatsResult.data) {
+        setStats(resolvedStatsResult.data)
       } else {
-        const errorMsg = 'error' in statsResult ? statsResult.error : 'Error desconocido al cargar estadísticas'
+        const errorMsg = 'error' in resolvedStatsResult ? resolvedStatsResult.error : 'Error desconocido al cargar estadísticas'
         console.error('Dashboard stats error:', errorMsg)
         setError(errorMsg as string)
         setStats(null)
@@ -241,7 +311,9 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
       setError(error instanceof Error ? error.message : 'Error al cargar datos del dashboard')
       setStats(null)
     } finally {
-      setLoading(false)
+      if (shouldShowLoading) {
+        setLoading(false)
+      }
     }
   }
 
@@ -272,6 +344,53 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
     setFilters(prev => ({ ...prev, [key]: value }))
   }
 
+  const pad2 = (value: number) => String(value).padStart(2, '0')
+  const getMonthToDateRange = () => {
+    const today = getLastNDaysRangeInPanama(1).endDate
+    const [year, month] = today.split('-').map(Number)
+    return {
+      startDate: `${year}-${pad2(month)}-01`,
+      endDate: today,
+    }
+  }
+  const getLastMonthRange = () => {
+    const today = getLastNDaysRangeInPanama(1).endDate
+    const [year, month] = today.split('-').map(Number)
+    const lastMonth = month === 1 ? 12 : month - 1
+    const lastMonthYear = month === 1 ? year - 1 : year
+    const lastMonthDayCount = new Date(Date.UTC(lastMonthYear, lastMonth, 0)).getUTCDate()
+
+    return {
+      startDate: `${lastMonthYear}-${pad2(lastMonth)}-01`,
+      endDate: `${lastMonthYear}-${pad2(lastMonth)}-${pad2(lastMonthDayCount)}`,
+    }
+  }
+
+  const datePresets = [
+    { id: '7d', label: 'Últimos 7 días', range: getLastNDaysRangeInPanama(7) },
+    { id: '14d', label: 'Últimos 14 días', range: getLastNDaysRangeInPanama(14) },
+    { id: '30d', label: 'Últimos 30 días', range: getLastNDaysRangeInPanama(30) },
+    { id: 'mtd', label: 'Mes actual', range: getMonthToDateRange() },
+    { id: 'lm', label: 'Mes pasado', range: getLastMonthRange() },
+  ]
+
+  const applyDateRange = (startDate: string, endDate: string) => {
+    if (!startDate || !endDate) return
+    setFilters(prev => ({ ...prev, startDate, endDate }))
+    setIsDateRangeOpen(false)
+  }
+
+  const openDateRange = () => {
+    setDraftStartDate(filters.startDate || '')
+    setDraftEndDate(filters.endDate || '')
+    setIsDateRangeOpen(true)
+  }
+
+  const isDraftRangeValid =
+    !!draftStartDate &&
+    !!draftEndDate &&
+    parseDateInPanamaTime(draftStartDate).getTime() <= parseDateInPanamaTime(draftEndDate).getTime()
+
   const getPercent = (val: number, total: number) => total > 0 ? Math.round((val / total) * 100) : 0
   const getWowDelta = (current: number, previous: number) => {
     if (previous === 0 && current === 0) return { value: 0, direction: 'flat' as const }
@@ -285,6 +404,25 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
     const endLabel = new Date(end).toLocaleDateString('es-PA', { day: '2-digit', month: 'short' })
     return `${startLabel} - ${endLabel}`
   }
+
+  const rangeControlLabel = useMemo(() => {
+    if (!filters.startDate || !filters.endDate) return 'Rango de fechas'
+    const formatShortFilterDate = (dateStr: string) =>
+      parseDateInPanamaTime(dateStr).toLocaleDateString('es-PA', {
+        timeZone: PANAMA_TIMEZONE,
+        day: 'numeric',
+        month: 'short',
+      })
+
+    return `${formatShortFilterDate(filters.startDate)} → ${formatShortFilterDate(filters.endDate)}`
+  }, [filters.startDate, filters.endDate])
+
+  const activePresetId =
+    datePresets.find(
+      preset =>
+        preset.range.startDate === filters.startDate &&
+        preset.range.endDate === filters.endDate
+    )?.id || null
 
   const rankedTeamPerformance = useMemo(() => {
     const members = stats?.teamPerformance || []
@@ -325,7 +463,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
           {error && (
             <p className="text-sm text-red-500 mb-4 bg-red-50 p-2 rounded">{error}</p>
           )}
-          <Button onClick={loadData} variant="primary">
+          <Button onClick={() => loadData()} variant="primary">
             Reintentar
           </Button>
         </div>
@@ -339,7 +477,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
         
         {/* Header Row: Filters + Time */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {/* User Filter */}
             <div className="flex items-center gap-2 bg-white pl-3 pr-1 py-1.5 rounded-lg border border-gray-200 shadow-sm">
               <FilterListIcon className="text-gray-400" style={{ fontSize: 14 }} />
@@ -358,27 +496,111 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
             </div>
             
             {/* Date Range Filter */}
-            <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-              <input
-                type="date"
-                value={filters.startDate}
-                onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                className="text-xs text-gray-600 bg-transparent border-0 focus:ring-0 cursor-pointer w-[105px] py-0.5"
-                placeholder="Desde"
-              />
-              <span className="text-gray-300 text-xs">→</span>
-              <input
-                type="date"
-                value={filters.endDate}
-                onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                className="text-xs text-gray-600 bg-transparent border-0 focus:ring-0 cursor-pointer w-[105px] py-0.5"
-                placeholder="Hasta"
-              />
+            <div className="relative" ref={dateRangeRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (isDateRangeOpen) {
+                    setIsDateRangeOpen(false)
+                  } else {
+                    openDateRange()
+                  }
+                }}
+                className="h-9 w-full sm:w-auto sm:min-w-[240px] bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all px-3 flex items-center justify-between gap-3"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="p-1 text-gray-500 rounded-md flex-shrink-0">
+                    <DateRangeIcon style={{ fontSize: 14 }} />
+                  </div>
+                  <div className="text-left min-w-0">
+                    <div className="text-[9px] uppercase tracking-wide text-gray-400 font-semibold">Período</div>
+                    <div className="text-xs text-gray-800 font-semibold truncate">{rangeControlLabel}</div>
+                  </div>
+                </div>
+                <KeyboardArrowDownIcon
+                  className={`text-gray-400 transition-transform ${isDateRangeOpen ? 'rotate-180' : ''}`}
+                  style={{ fontSize: 18 }}
+                />
+              </button>
+
+              {isDateRangeOpen && (
+                <div className="absolute left-0 top-full mt-2 z-40 w-[min(92vw,380px)] bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
+                  <div className="px-3 py-2 border-b border-gray-100 bg-white">
+                    <p className="text-[11px] font-medium text-gray-600">Selecciona un rango útil</p>
+                  </div>
+
+                  <div className="p-3 grid grid-cols-2 gap-2 border-b border-gray-100">
+                    {datePresets.map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => applyDateRange(preset.range.startDate, preset.range.endDate)}
+                        className={`px-2.5 py-2 rounded-lg text-xs font-medium text-left transition-colors ${
+                          activePresetId === preset.id
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="p-3 space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="text-[11px] text-gray-500">
+                        Desde
+                        <input
+                          type="date"
+                          value={draftStartDate}
+                          onChange={(e) => setDraftStartDate(e.target.value)}
+                          className="mt-1 w-full text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        />
+                      </label>
+                      <label className="text-[11px] text-gray-500">
+                        Hasta
+                        <input
+                          type="date"
+                          value={draftEndDate}
+                          onChange={(e) => setDraftEndDate(e.target.value)}
+                          className="mt-1 w-full text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        />
+                      </label>
+                    </div>
+
+                    {!isDraftRangeValid && draftStartDate && draftEndDate && (
+                      <p className="text-[11px] text-red-500">La fecha final debe ser igual o posterior a la inicial.</p>
+                    )}
+
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => setIsDateRangeOpen(false)}
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!isDraftRangeValid}
+                        onClick={() => applyDateRange(draftStartDate, draftEndDate)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-semibold ${
+                          isDraftRangeValid
+                            ? 'bg-gray-900 text-white hover:bg-gray-800'
+                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        }`}
+                      >
+                        Aplicar rango
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             
             {/* Refresh Button */}
             <button 
-              onClick={loadData}
+              onClick={() => loadData({ clearCache: true })}
               className="px-2.5 py-1.5 text-gray-400 hover:text-blue-600 bg-white hover:bg-blue-50 rounded-lg border border-gray-200 shadow-sm transition-colors flex items-center justify-center"
               title="Actualizar datos"
             >

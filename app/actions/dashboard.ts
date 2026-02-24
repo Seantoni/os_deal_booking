@@ -7,6 +7,12 @@ import { unstable_cache } from 'next/cache'
 import { CACHE_REVALIDATE_DASHBOARD_SECONDS } from '@/lib/constants'
 import { getUserProfile } from '@/lib/auth/roles'
 import { logger } from '@/lib/logger'
+import { invalidateDashboard } from '@/lib/cache'
+import {
+  getLastNDaysRangeInPanama,
+  parseDateInPanamaTime,
+  parseEndDateInPanamaTime,
+} from '@/lib/date/timezone'
 
 export type DashboardFilters = {
   startDate?: string
@@ -26,22 +32,20 @@ async function fetchDashboardStatsInternal(filters: DashboardFilters = {}, userP
     const isSalesUser = userProfile.role === 'sales'
     const currentUserId = userProfile.clerkId
 
-    // If sales user, force filter by their own ID for main stats
-    // But we still want to see other sales reps in the team performance table
-    const effectiveUserId = isSalesUser ? currentUserId : filters.userId
-
-    const { startDate, endDate } = filters
-
-    const parseDateStart = (value: string) => new Date(`${value}T00:00:00`)
-    const parseDateEnd = (value: string) => new Date(`${value}T23:59:59.999`)
+    const rawStartDate = filters.startDate?.trim()
+    const rawEndDate = filters.endDate?.trim()
+    const hasExplicitDateFilter = !!rawStartDate || !!rawEndDate
+    const defaultRange = getLastNDaysRangeInPanama(7)
+    const startDate = rawStartDate || (!hasExplicitDateFilter ? defaultRange.startDate : undefined)
+    const endDate = rawEndDate || (!hasExplicitDateFilter ? defaultRange.endDate : undefined)
 
     // Date filter logic (inclusive end date)
     const dateFilter: Prisma.DateTimeFilter = {}
     if (startDate) {
-      dateFilter.gte = parseDateStart(startDate)
+      dateFilter.gte = parseDateInPanamaTime(startDate)
     }
     if (endDate) {
-      dateFilter.lte = parseDateEnd(endDate)
+      dateFilter.lte = parseEndDateInPanamaTime(endDate)
     }
 
     // 1. Main Stats Queries (Scoped to current user if Sales, or filtered user if Admin)
@@ -217,7 +221,7 @@ async function fetchDashboardStatsInternal(filters: DashboardFilters = {}, userP
 
     // Weekly breakdown inside current quarter
     const quarterWeeks: Array<{ start: Date; end: Date }> = []
-    let cursor = startOfWeek(quarterStart)
+    const cursor = startOfWeek(quarterStart)
     while (cursor <= quarterEnd) {
       const weekStart = new Date(cursor)
       const weekEnd = new Date(weekStart)
@@ -410,6 +414,31 @@ export async function getDashboardStats(filters: DashboardFilters = {}) {
   return await getCachedStats()
 }
 
+/**
+ * Force-refresh dashboard stats by clearing the dashboard cache first.
+ * Used by manual refresh actions in the UI.
+ */
+export async function getDashboardStatsFresh(filters: DashboardFilters = {}) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return { success: false, error: 'Unauthorized' }
+  }
+
+  const userProfile = await getUserProfile()
+  if (!userProfile) {
+    return { success: false, error: 'User profile not found' }
+  }
+
+  invalidateDashboard()
+
+  const userProfileData: UserProfileData = {
+    clerkId: userProfile.clerkId,
+    role: userProfile.role,
+  }
+
+  return await fetchDashboardStatsInternal(filters, userProfileData)
+}
+
 // Type for pending booking items
 export type PendingBookingItem = {
   id: string
@@ -424,9 +453,10 @@ export type PendingBookingItem = {
 }
 
 /**
- * Get events that are pending or approved (ready to be booked)
- * - Admin: sees all pending events
- * - Sales/Editor: sees only their own pending events
+ * Get approved events ready to be booked.
+ * Date range dashboard filters do not apply here.
+ * - Admin: sees all approved events
+ * - Sales/Editor: sees only their own approved events
  */
 export async function getPendingBookings(): Promise<{
   success: boolean
@@ -444,12 +474,10 @@ export async function getPendingBookings(): Promise<{
   }
 
   try {
-    // Build where clause based on role
-    // Only show 'approved' events (ready to be booked/reserved)
+    // Build where clause based on role.
+    // Keep this widget independent from dashboard date filters.
     const whereClause: Prisma.EventWhereInput = {
       status: 'approved',
-      // Only show future events or events happening today
-      endDate: { gte: new Date() },
     }
 
     // Non-admin users only see their own pending events
@@ -471,7 +499,6 @@ export async function getPendingBookings(): Promise<{
         createdAt: true,
       },
       orderBy: { startDate: 'asc' },
-      take: 20, // Limit to 20 items
     })
 
     const data: PendingBookingItem[] = pendingEvents.map(event => ({

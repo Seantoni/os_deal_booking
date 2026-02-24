@@ -3,6 +3,8 @@
  * Panama uses EST (UTC-5) year-round (no daylight saving time)
  */
 
+import { ONE_DAY_MS } from '@/lib/constants/time'
+
 export const PANAMA_TIMEZONE = 'America/Panama' // EST (UTC-5)
 
 /**
@@ -79,6 +81,22 @@ export function getTodayInPanama(): string {
 }
 
 /**
+ * Get an inclusive date range ending today in Panama timezone.
+ * Example for 7 days on Feb 24 -> { startDate: Feb 18, endDate: Feb 24 }.
+ */
+export function getLastNDaysRangeInPanama(days = 7): { startDate: string; endDate: string } {
+  const safeDays = Number.isFinite(days) ? Math.max(1, Math.floor(days)) : 7
+  const endDate = getTodayInPanama()
+  const endDatePanama = parseDateInPanamaTime(endDate)
+  const startDatePanama = new Date(endDatePanama.getTime() - (safeDays - 1) * ONE_DAY_MS)
+
+  return {
+    startDate: formatDateForPanama(startDatePanama),
+    endDate,
+  }
+}
+
+/**
  * Get date components (year, month, day) from a Date object in Panama timezone
  * Useful for calendar calculations
  */
@@ -88,4 +106,3 @@ export function getDateComponentsInPanama(date: Date): { year: number; month: nu
   const day = parseInt(formatDateForPanama(date).split('-')[2])
   return { year, month, day }
 }
-

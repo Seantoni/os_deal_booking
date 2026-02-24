@@ -6,6 +6,7 @@ import AppLayout from '@/components/common/AppLayout'
 import { getDashboardStats, getPendingBookings } from '@/app/actions/dashboard'
 import { getInboxItems } from '@/app/actions/inbox'
 import { getPendingComments } from '@/app/actions/comments'
+import { getLastNDaysRangeInPanama } from '@/lib/date/timezone'
 
 export default async function DashboardPage() {
   const { userId } = await auth()
@@ -17,9 +18,12 @@ export default async function DashboardPage() {
   // Check role-based access
   await requirePageAccess('/dashboard')
 
+  // Default dashboard window: last 7 days (inclusive), based on Panama timezone.
+  const defaultRange = getLastNDaysRangeInPanama(7)
+
   // Fetch initial data on server to avoid blank flash
   const [statsResult, inboxResult, pendingResult, pendingCommentsResult] = await Promise.all([
-    getDashboardStats({}),
+    getDashboardStats(defaultRange),
     getInboxItems(),
     getPendingBookings(),
     getPendingComments(),
@@ -34,7 +38,7 @@ export default async function DashboardPage() {
 
   return (
     <AppLayout title="Dashboard">
-      <DashboardClient initialData={initialData} />
+      <DashboardClient initialData={initialData} initialFilters={defaultRange} />
     </AppLayout>
   )
 }
