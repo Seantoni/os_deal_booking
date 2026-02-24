@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { currentUser } from '@clerk/nextjs/server'
-import { checkEmailAccess } from '@/app/actions/access-control'
 import { prisma } from '@/lib/prisma'
 import { normalizeEmail } from '@/lib/auth/email-validation'
 import { extractDisplayName } from '@/lib/auth/user-display'
@@ -46,7 +45,7 @@ export async function GET(request: NextRequest) {
       logger.debug('[api/access/check] Normalized email:', normalizedEmail)
     }
 
-    // Direct database check (more reliable than going through server action)
+    // Direct database check
     try {
       const allowedEmail = await prisma.allowedEmail.findUnique({
         where: { email: normalizedEmail },
@@ -133,62 +132,15 @@ export async function GET(request: NextRequest) {
       return response
     } catch (dbError) {
       logger.error('[api/access/check] Database error:', dbError)
-      // Fallback to server action
-      const hasAccess = await checkEmailAccess(email)
-      if (ENV.IS_DEV) {
-        logger.debug('[api/access/check] Fallback check result:', hasAccess)
-      }
-      
-      // Check if we need to log this login (new session) - fallback path
-      const loginLoggedCookie = request.cookies.get(LOGIN_LOGGED_COOKIE)?.value
-      const shouldLogLogin = hasAccess && !loginLoggedCookie
-
-      // Log LOGIN activity for new sessions (try even if main db query failed)
-      if (shouldLogLogin) {
-        try {
-          const userName = extractDisplayName(user)
-          const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() 
-            || request.headers.get('x-real-ip') 
-            || null
-          const userAgent = request.headers.get('user-agent') || null
-
-          await prisma.activityLog.create({
-            data: {
-              userId: user.id,
-              userName,
-              userEmail: email,
-              action: 'LOGIN',
-              entityType: 'User',
-              entityId: user.id,
-              entityName: userName || email,
-              details: undefined,
-              ipAddress,
-              userAgent,
-            },
-          })
-        } catch (logError) {
-          logger.error('[api/access/check] Failed to log login activity (fallback):', logError)
-        }
-      }
-
-      const response = NextResponse.json({ 
-        hasAccess,
-        email,
-        normalizedEmail,
-        userId: user.id
-      })
-
-      if (shouldLogLogin) {
-        response.cookies.set(LOGIN_LOGGED_COOKIE, `${user.id}:${Date.now()}`, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: LOGIN_LOG_DURATION_SECONDS,
-          path: '/',
-        })
-      }
-
-      return response
+      // Return explicit transient failure so middleware can handle without treating as deny.
+      return NextResponse.json(
+        {
+          hasAccess: null,
+          error: 'Access check temporarily unavailable',
+          code: 'ACCESS_CHECK_UNAVAILABLE',
+        },
+        { status: 503 }
+      )
     }
   } catch (error) {
     logger.error('[api/access/check] Error:', error)
@@ -198,4 +150,3 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-

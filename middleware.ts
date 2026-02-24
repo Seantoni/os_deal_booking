@@ -8,6 +8,39 @@ import { generalLimiter, checkRateLimit, rateLimitResponse, getClientIp, isRateL
 const ACCESS_COOKIE_NAME = 'os_access_verified'
 // Cookie name for login logging deduplication (must match api/access/check)
 const LOGIN_LOGGED_COOKIE = 'os_login_logged'
+// Keep middleware from stalling on upstream access-check timeouts.
+const ACCESS_CHECK_TIMEOUT_MS = 6000
+// Temporary cache when access-check backend is unavailable.
+const ACCESS_CHECK_GRACE_SECONDS = 60
+
+function setAccessCookie(response: NextResponse, userId: string, maxAgeSeconds: number = CACHE_ACCESS_CHECK_SECONDS) {
+  response.cookies.set(ACCESS_COOKIE_NAME, `${userId}:${Date.now()}`, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: maxAgeSeconds,
+    path: '/',
+  })
+}
+
+function forwardLoginCookieFromAccessCheck(response: Response, nextResponse: NextResponse) {
+  const loginLoggedCookie = response.headers.getSetCookie?.()
+    ?.find(c => c.startsWith(`${LOGIN_LOGGED_COOKIE}=`))
+
+  if (!loginLoggedCookie) return
+
+  const cookieParts = loginLoggedCookie.split(';')
+  const cookieValue = cookieParts[0]?.split('=')[1]
+  if (!cookieValue) return
+
+  nextResponse.cookies.set(LOGIN_LOGGED_COOKIE, cookieValue, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 8 * 60 * 60, // 8 hours (must match api/access/check)
+    path: '/',
+  })
+}
 
 const isPublicRoute = createRouteMatcher([
   // Auth routes
@@ -77,17 +110,30 @@ export default clerkMiddleware(async (auth, request) => {
       
       // Forward cookies to the API call for authentication
       const cookieHeader = request.headers.get('cookie') || ''
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), ACCESS_CHECK_TIMEOUT_MS)
       
       const response = await fetch(accessCheckUrl, {
         method: 'GET',
         headers: {
           'Cookie': cookieHeader,
         },
-      })
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeoutId))
       
       if (!response.ok) {
+        // Access-check backend transient failures should not be treated as explicit denial.
+        if (response.status >= 500) {
+          logger.warn('[middleware] Access check unavailable (status), allowing temporarily:', response.status)
+          const gracefulResponse = NextResponse.next()
+          setAccessCookie(gracefulResponse, userId, ACCESS_CHECK_GRACE_SECONDS)
+          return gracefulResponse
+        }
+
         logger.warn('[middleware] Access check API failed:', response.status)
-        return NextResponse.redirect(new URL('/no-access', request.url))
+        const redirectResponse = NextResponse.redirect(new URL('/no-access', request.url))
+        redirectResponse.cookies.delete(ACCESS_COOKIE_NAME)
+        return redirectResponse
       }
       
       const data = await response.json()
@@ -102,41 +148,24 @@ export default clerkMiddleware(async (auth, request) => {
 
       // Access granted - set cache cookie for subsequent requests
       const nextResponse = NextResponse.next()
-      nextResponse.cookies.set(ACCESS_COOKIE_NAME, `${userId}:${Date.now()}`, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: CACHE_ACCESS_CHECK_SECONDS,
-        path: '/',
-      })
+      setAccessCookie(nextResponse, userId)
 
       // Forward the login logged cookie from API response to browser
       // This ensures the login deduplication cookie reaches the user's browser
-      const loginLoggedCookie = response.headers.getSetCookie?.()
-        ?.find(c => c.startsWith(`${LOGIN_LOGGED_COOKIE}=`))
-      if (loginLoggedCookie) {
-        // Parse and forward the cookie
-        const cookieParts = loginLoggedCookie.split(';')
-        const cookieValue = cookieParts[0]?.split('=')[1]
-        if (cookieValue) {
-          nextResponse.cookies.set(LOGIN_LOGGED_COOKIE, cookieValue, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 8 * 60 * 60, // 8 hours (must match api/access/check)
-            path: '/',
-          })
-          logger.debug('[middleware] Forwarded login logged cookie for userId:', userId)
-        }
-      }
+      forwardLoginCookieFromAccessCheck(response, nextResponse)
+      logger.debug('[middleware] Forwarded login logged cookie for userId:', userId)
 
       logger.debug('[middleware] Access granted and cached for userId:', userId)
 
       return nextResponse
     } catch (error) {
-      logger.error('[middleware] Error during access check:', error)
-      // On error, deny access for security
-      return NextResponse.redirect(new URL('/no-access', request.url))
+      const isTimeout = error instanceof Error && error.name === 'AbortError'
+      logger.error('[middleware] Error during access check:', isTimeout ? 'timeout' : error)
+
+      // Network/timeouts are treated as transient failures (not explicit denial).
+      const gracefulResponse = NextResponse.next()
+      setAccessCookie(gracefulResponse, userId, ACCESS_CHECK_GRACE_SECONDS)
+      return gracefulResponse
     }
   }
 })
