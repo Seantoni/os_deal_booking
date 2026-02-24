@@ -74,7 +74,7 @@ type BusinessDealMetricsDisplayFields = {
   osAdminVendorId?: string | null
   topSoldQuantity?: number | null
   topSoldDealUrl?: string | null
-  topRevenueAmount?: number | string | null
+  topRevenueAmount?: number | string | Prisma.Decimal | null
   topRevenueDealUrl?: string | null
   lastLaunchDate?: Date | string | null
   totalDeals360d?: number | null
@@ -540,7 +540,7 @@ export async function getBusinessesPaginated(options: {
     }
 
     // Add custom fields to each business
-    const businessesWithCustomFields = businesses.map((biz: { id: string }) => ({
+    const businessesWithCustomFields = businesses.map((biz) => ({
       ...biz,
       customFields: customFieldsByBusinessId.get(biz.id) || {},
     }))
@@ -1343,7 +1343,7 @@ export async function searchBusinesses(query: string, options: {
     }
 
     // Add custom fields to each business
-    const businessesWithCustomFields = businesses.map((biz: { id: string }) => ({
+    const businessesWithCustomFields = businesses.map((biz) => ({
       ...biz,
       customFields: customFieldsByBusinessId.get(biz.id) || {},
     }))
