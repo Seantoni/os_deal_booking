@@ -95,15 +95,6 @@ export default function SalesUsersClient({ users, windowLabel, error }: SalesUse
                   <div className="flex items-start gap-2">
                     <AccessTimeIcon className="text-slate-400 mt-0.5" style={{ fontSize: 16 }} />
                     <div>
-                      <p className="text-[11px] text-slate-500 uppercase tracking-wide">Último login</p>
-                      <p className="text-xs text-slate-700">
-                        {formatDateWithHoursAgo(user.lastLoginAt)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <AccessTimeIcon className="text-slate-400 mt-0.5" style={{ fontSize: 16 }} />
-                    <div>
                       <p className="text-[11px] text-slate-500 uppercase tracking-wide">Última actividad</p>
                       <p className="text-xs text-slate-700">
                         {formatDateWithHoursAgo(user.lastActivityAt)}
