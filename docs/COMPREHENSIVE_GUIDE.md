@@ -1101,7 +1101,7 @@ The application uses specific "shapes" for data. Think of these as templates:
 **Main Action Files (Where Work Happens)**
 | File | What it does |
 |------|-------------|
-| `app/actions/businesses.ts` | Create, update, delete businesses |
+| `app/actions/businesses/index.ts` | Create, update, delete businesses |
 | `app/actions/opportunities.ts` | Manage sales opportunities |
 | `app/actions/booking-requests.ts` | Handle booking submissions |
 | `app/actions/deals.ts` | Process deals after booking |

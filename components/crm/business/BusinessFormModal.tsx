@@ -568,6 +568,7 @@ export default function BusinessFormModal({
 
   // State to hold the newly created business for opening opportunity modal
   const [createdBusiness, setCreatedBusiness] = useState<Business | null>(null)
+  const canEditSalesTeam = canEdit && isAdmin
 
   // Helper to validate required fields and return missing ones
   const validateRequiredFields = () => {
@@ -590,8 +591,9 @@ export default function BusinessFormModal({
       }
     }
 
-    // Equipo is managed in ReferenceInfoBar (outside dynamic form state), enforce it explicitly.
-    if (!salesTeam || salesTeam.trim() === '') {
+    // Equipo is managed in ReferenceInfoBar (outside dynamic form state).
+    // Only require it when this user can edit that field.
+    if (canEditSalesTeam && (!salesTeam || salesTeam.trim() === '')) {
       missingFields.add('Equipo')
     }
     
@@ -1130,8 +1132,8 @@ export default function BusinessFormModal({
                     team={salesTeam}
                     onChange={setSalesTeam}
                     placeholder="Seleccionar equipo..."
-                    required={true}
-                    canEdit={isAdmin}
+                    required={canEditSalesTeam}
+                    canEdit={canEditSalesTeam}
                   />
                   {/* Focus Period - only show for existing businesses */}
                   {business && (
