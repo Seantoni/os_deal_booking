@@ -377,7 +377,9 @@ export default function BusinessesPageClient({
       case 'pendingReqs':
         return businessPendingRequestCount.get(business.id) || 0
       case 'projectedRevenue':
-        return businessProjectionMap[business.id]?.totalProjectedRevenue ?? 0
+        return (businessProjectionMap[business.id]?.totalProjectedRevenue ?? 0) > 0
+          ? (businessProjectionMap[business.id]?.totalProjectedRevenue ?? 0)
+          : (business.topRevenueAmount ? Number(business.topRevenueAmount) : 0)
       default:
         return null
     }

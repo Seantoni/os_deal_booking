@@ -88,13 +88,17 @@ export function BusinessTableRow({
   const isLoadingDeals = cachedDeals?.loading ?? false
   const deals = cachedDeals?.deals ?? []
   const totalCount = cachedDeals?.totalCount ?? 0
-  const projectedRevenue = projectionSummary?.totalProjectedRevenue ?? 0
+  const fallbackProjectedRevenue = business.topRevenueAmount ? Number(business.topRevenueAmount) : 0
+  const projectedRevenue = (projectionSummary?.totalProjectedRevenue ?? 0) > 0
+    ? (projectionSummary?.totalProjectedRevenue ?? 0)
+    : fallbackProjectedRevenue
   const projectedRequests = projectionSummary?.projectedRequests ?? 0
   const totalRequests = projectionSummary?.totalRequests ?? 0
   const projectionSource = projectionSummary?.projectionSource ?? 'none'
+  const usesDealMetricsFallback = (projectionSummary?.totalProjectedRevenue ?? 0) <= 0 && fallbackProjectedRevenue > 0
   const projectionSourceLabel = getProjectionSourceLabel(projectionSource)
   const projectionDetail = projectionSource === 'none'
-    ? 'Sin datos'
+    ? (usesDealMetricsFallback ? 'Deals · Guía' : 'Sin datos')
     : projectedRequests > 0
       ? `${projectionSourceLabel} · ${projectedRequests}/${totalRequests}`
       : `${projectionSourceLabel} · Guía`
