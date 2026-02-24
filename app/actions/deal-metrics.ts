@@ -456,29 +456,39 @@ export async function getDealMetricsByVendorId(vendorId: string) {
 }
 
 /**
- * Get average deal commission (margin %) by vendor ID.
+ * Get latest deal commission (margin %) by vendor ID, based on most recent runAt.
  * Lightweight query for header badges (avoids loading full deal + snapshot payloads).
  */
-export async function getAverageMarginByVendorId(vendorId: string) {
+export async function getLatestMarginByVendorId(vendorId: string) {
   const authResult = await requireAuth()
-  if (!('userId' in authResult)) return { averageMargin: null as number | null }
+  if (!('userId' in authResult)) return { latestMargin: null as number | null }
 
   if (!vendorId) {
-    return { averageMargin: null as number | null }
+    return { latestMargin: null as number | null }
   }
 
   try {
-    const aggregate = await prisma.dealMetrics.aggregate({
-      where: { externalVendorId: vendorId },
-      _avg: { margin: true },
+    const latestDeal = await prisma.dealMetrics.findFirst({
+      where: {
+        externalVendorId: vendorId,
+        runAt: { not: null },
+      },
+      orderBy: [
+        { runAt: 'desc' },
+        { externalUpdatedAt: 'desc' },
+        { lastSyncedAt: 'desc' },
+      ],
+      select: {
+        margin: true,
+      },
     })
 
     return {
-      averageMargin: aggregate._avg.margin !== null ? Number(aggregate._avg.margin) : null,
+      latestMargin: latestDeal ? Number(latestDeal.margin) : null,
     }
   } catch (error) {
-    console.error('getAverageMarginByVendorId error:', error)
-    return { averageMargin: null as number | null }
+    console.error('getLatestMarginByVendorId error:', error)
+    return { latestMargin: null as number | null }
   }
 }
 
