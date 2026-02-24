@@ -277,7 +277,7 @@ export async function getOpportunityFormData(opportunityId?: string | null, busi
         } 
       }
     } else {
-      businessWhere.NOT = { reassignmentStatus: 'archived' }
+      businessWhere.reassignmentStatus = { not: 'archived' }
     }
 
     // Build parallel fetch promises

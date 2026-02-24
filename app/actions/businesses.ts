@@ -92,9 +92,9 @@ export async function getBusinesses() {
           return []
         } else {
           // Hide archived businesses from active lists
-          whereClause.NOT = { reassignmentStatus: ARCHIVED_BUSINESS_STATUS }
+          // Use field-level `not` (not filter-level NOT) so NULL values are included
+          whereClause.reassignmentStatus = { not: ARCHIVED_BUSINESS_STATUS }
         }
-        // Admin sees all active businesses
 
         const businesses = await prisma.business.findMany({
           where: whereClause,
@@ -221,9 +221,9 @@ export async function getBusinessesPaginated(options: {
       return { success: true, data: [], total: 0, page, pageSize, editableBusinessIds: [] as string[] }
     } else {
       // Hide archived businesses from active lists
-      whereClause.NOT = { reassignmentStatus: ARCHIVED_BUSINESS_STATUS }
+      // Use field-level `not` (not filter-level NOT) so NULL values are included
+      whereClause.reassignmentStatus = { not: ARCHIVED_BUSINESS_STATUS }
     }
-    // Admin sees all active businesses
     
     // Apply opportunity filter if provided
     if (opportunityFilter === 'with-open') {
@@ -459,7 +459,8 @@ export async function getBusinessCounts(filters?: { ownerId?: string; myBusiness
       return { success: true, data: { all: 0, 'with-open': 0, 'without-open': 0, 'with-focus': 0, 'with-active-deal': 0 } }
     } else {
       // Hide archived businesses from active counts
-      baseWhere.NOT = { reassignmentStatus: ARCHIVED_BUSINESS_STATUS }
+      // Use field-level `not` (not filter-level NOT) so NULL values are included
+      baseWhere.reassignmentStatus = { not: ARCHIVED_BUSINESS_STATUS }
     }
     
     // Apply owner filter (admin quick filter)
@@ -569,7 +570,8 @@ export async function getBusinessActiveDealUrls() {
         data: {} as Record<string, string>
       }
     } else {
-      baseWhere.NOT = { reassignmentStatus: ARCHIVED_BUSINESS_STATUS }
+      // Use field-level `not` (not filter-level NOT) so NULL values are included
+      baseWhere.reassignmentStatus = { not: ARCHIVED_BUSINESS_STATUS }
     }
 
     // Get all businesses (with role filter applied)
@@ -660,7 +662,8 @@ export async function getBusinessTableCounts() {
         } 
       }
     } else {
-      baseWhere.NOT = { reassignmentStatus: ARCHIVED_BUSINESS_STATUS }
+      // Use field-level `not` (not filter-level NOT) so NULL values are included
+      baseWhere.reassignmentStatus = { not: ARCHIVED_BUSINESS_STATUS }
     }
 
     // Get open opportunity counts per business using groupBy
@@ -1025,7 +1028,8 @@ export async function searchBusinesses(query: string, options: {
       return { success: true, data: [], editableBusinessIds: [] as string[] }
     } else {
       // Hide archived businesses from active search
-      roleFilter.NOT = { reassignmentStatus: ARCHIVED_BUSINESS_STATUS }
+      // Use field-level `not` (not filter-level NOT) so NULL values are included
+      roleFilter.reassignmentStatus = { not: ARCHIVED_BUSINESS_STATUS }
     }
     
     // Apply owner filter (admin quick filter)
@@ -1239,7 +1243,7 @@ export async function createBusiness(formData: FormData) {
             },
           },
           {
-            NOT: { reassignmentStatus: ARCHIVED_BUSINESS_STATUS },
+            reassignmentStatus: { not: ARCHIVED_BUSINESS_STATUS },
           },
         ],
       },
@@ -1878,9 +1882,10 @@ export async function getBusinessesWithBookingStatus() {
     const today = parseDateInPanamaTime(todayStr)
 
     // Get all businesses with basic info
+    // Use field-level `not` (not filter-level NOT) so NULL values are included
     const businesses = await prisma.business.findMany({
       where: {
-        NOT: { reassignmentStatus: ARCHIVED_BUSINESS_STATUS },
+        reassignmentStatus: { not: ARCHIVED_BUSINESS_STATUS },
       },
       select: {
         id: true,

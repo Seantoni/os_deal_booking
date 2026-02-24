@@ -124,7 +124,7 @@ async function searchBusinesses(searchTerm: string, isIdSearch: boolean, role: s
   }
 
   const where: Prisma.BusinessWhereInput = {
-    NOT: { reassignmentStatus: 'archived' },
+    reassignmentStatus: { not: 'archived' },
     OR: orConditions,
   }
   
