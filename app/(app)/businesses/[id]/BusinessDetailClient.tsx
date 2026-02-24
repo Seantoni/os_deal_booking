@@ -527,6 +527,7 @@ export default function BusinessDetailClient({ business: initialBusiness }: Busi
             <DealMetricsSection
               vendorId={business.osAdminVendorId}
               businessName={business.name}
+              summaryView="topDeals"
             />
           )}
 

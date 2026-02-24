@@ -338,12 +338,12 @@ export function DealsTab({
                         
                         {/* Net Revenue */}
                         <TableCell align="right">
-                          <span className="font-medium text-emerald-600">${deal.netRevenue.toLocaleString()}</span>
+                          <span className="font-medium text-emerald-600">{deal.netRevenue.toLocaleString()}%</span>
                         </TableCell>
                         
                         {/* Margin */}
                         <TableCell align="right">
-                          <span className="font-medium text-blue-600">${deal.margin.toLocaleString()}</span>
+                          <span className="font-medium text-blue-600">{deal.margin.toLocaleString()}%</span>
                         </TableCell>
                         
                         {/* Start Date */}

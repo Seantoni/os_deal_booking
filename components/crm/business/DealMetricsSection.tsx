@@ -31,6 +31,7 @@ interface DealMetric {
 interface DealMetricsSectionProps {
   vendorId: string | null | undefined
   businessName: string
+  summaryView?: 'chart' | 'topDeals' | 'none'
 }
 
 // Table columns configuration
@@ -45,7 +46,7 @@ const DEAL_COLUMNS: ColumnConfig[] = [
   { key: 'actions', label: '', align: 'right', width: 'w-10' },
 ]
 
-export default function DealMetricsSection({ vendorId, businessName }: DealMetricsSectionProps) {
+export default function DealMetricsSection({ vendorId, businessName, summaryView = 'chart' }: DealMetricsSectionProps) {
   const [loading, setLoading] = useState(true)
   const [deals, setDeals] = useState<DealMetric[]>([])
   const [sortColumn, setSortColumn] = useState<string | null>('netRevenue')
@@ -157,12 +158,15 @@ export default function DealMetricsSection({ vendorId, businessName }: DealMetri
 
   return (
     <div className="space-y-4">
-      {/* Aggregated Chart */}
-      {deals.length > 0 && (
+      {/* Summary section */}
+      {summaryView === 'chart' && deals.length > 0 && (
         <div className="bg-white rounded-lg border border-slate-200 p-4">
           <h3 className="text-sm font-medium text-slate-700 mb-3">Revenue Over Time (All Deals)</h3>
           <AggregatedChart deals={deals} />
         </div>
+      )}
+      {summaryView === 'topDeals' && deals.length > 0 && (
+        <TopDealsCards deals={deals} />
       )}
 
       {/* Deals Table */}
@@ -228,6 +232,61 @@ export default function DealMetricsSection({ vendorId, businessName }: DealMetri
             )
           })}
         </EntityTable>
+      </div>
+    </div>
+  )
+}
+
+function TopDealsCards({ deals }: { deals: DealMetric[] }) {
+  const topByRevenue = [...deals]
+    .sort((a, b) => b.netRevenue - a.netRevenue)
+    .slice(0, 3)
+
+  const topByQuantity = [...deals]
+    .sort((a, b) => b.quantitySold - a.quantitySold)
+    .slice(0, 3)
+
+  const getDealLabel = (deal: DealMetric) =>
+    deal.dealName ? `${deal.externalDealId} - ${deal.dealName}` : deal.externalDealId
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="bg-white rounded-lg border border-slate-200 p-4">
+        <h3 className="text-sm font-medium text-slate-700 mb-3">Top 3 by Net Rev</h3>
+        <ul className="space-y-2">
+          {topByRevenue.map((deal, index) => (
+            <li key={`rev-${deal.id}`} className="flex items-start justify-between gap-3 border-b border-slate-100 pb-2 last:border-b-0 last:pb-0">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-slate-500">#{index + 1}</p>
+                <p className="text-sm text-slate-700 line-clamp-1" title={getDealLabel(deal)}>
+                  {getDealLabel(deal)}
+                </p>
+              </div>
+              <span className="text-sm font-semibold text-emerald-600 whitespace-nowrap">
+                ${deal.netRevenue.toLocaleString()}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="bg-white rounded-lg border border-slate-200 p-4">
+        <h3 className="text-sm font-medium text-slate-700 mb-3">Top 3 by Quantity Sold</h3>
+        <ul className="space-y-2">
+          {topByQuantity.map((deal, index) => (
+            <li key={`qty-${deal.id}`} className="flex items-start justify-between gap-3 border-b border-slate-100 pb-2 last:border-b-0 last:pb-0">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-slate-500">#{index + 1}</p>
+                <p className="text-sm text-slate-700 line-clamp-1" title={getDealLabel(deal)}>
+                  {getDealLabel(deal)}
+                </p>
+              </div>
+              <span className="text-sm font-semibold text-blue-600 whitespace-nowrap">
+                {deal.quantitySold.toLocaleString()}
+              </span>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   )
