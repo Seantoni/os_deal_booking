@@ -174,8 +174,11 @@ async function upsertDealMetric(deal: DealMetric): Promise<{
     const now = new Date()
     const data = {
       externalVendorId: deal.vendor_id,
-      businessId, // Link to Business
-      dealName: deal.deal_name || null, // Deal name from external API
+      businessId,
+      dealName: deal.deal_name || null,
+      category1Name: deal.category1_name || null,
+      category2Name: deal.category2_name || null,
+      category3Name: deal.category3_name || null,
       quantitySold: deal.quantity_sold ?? 0,
       netRevenue: deal.net_revenue ?? 0,
       margin: deal.margin ?? 0,
@@ -460,6 +463,9 @@ export interface FormattedDealMetric {
   externalVendorId: string | null
   businessId: string | null
   businessName: string | null
+  category1Name: string | null
+  category2Name: string | null
+  category3Name: string | null
   quantitySold: number
   netRevenue: number
   margin: number
@@ -488,6 +494,9 @@ type DealWithCount = {
   externalDealId: string
   dealName: string | null
   externalVendorId: string | null
+  category1Name: string | null
+  category2Name: string | null
+  category3Name: string | null
   quantitySold: number
   netRevenue: { toString(): string } | number
   margin: { toString(): string } | number
@@ -533,6 +542,9 @@ function formatDealMetric(
     externalVendorId: deal.externalVendorId,
     businessId: businessInfo?.id || null,
     businessName: businessInfo?.name || null,
+    category1Name: deal.category1Name,
+    category2Name: deal.category2Name,
+    category3Name: deal.category3Name,
     quantitySold: deal.quantitySold,
     netRevenue: Number(deal.netRevenue),
     margin: Number(deal.margin),
@@ -569,6 +581,9 @@ export async function getDealMetricsPaginated(
   const statusFilter = (options.statusFilter as 'all' | 'active' | 'ended') || 'all'
   const vendorId = options.vendorId as string | undefined
   const search = options.search as string | undefined
+  const category1Filter = options.category1 as string | undefined
+  const category2Filter = options.category2 as string | undefined
+  const category3Filter = options.category3 as string | undefined
 
   // Build where clause
   const whereClause: Prisma.DealMetricsWhereInput = {}
@@ -576,6 +591,10 @@ export async function getDealMetricsPaginated(
   if (vendorId) {
     whereClause.externalVendorId = vendorId
   }
+
+  if (category1Filter) whereClause.category1Name = category1Filter
+  if (category2Filter) whereClause.category2Name = category2Filter
+  if (category3Filter) whereClause.category3Name = category3Filter
 
   if (search) {
     whereClause.OR = [
@@ -648,6 +667,9 @@ export async function getDealMetricsPaginated(
         break
       case 'lastSyncedAt':
         orderBy = { lastSyncedAt: sortDirection }
+        break
+      case 'category1Name':
+        orderBy = { category1Name: sortDirection }
         break
     }
   }
@@ -723,11 +745,17 @@ export async function getDealMetricsCounts(
   try {
     const vendorId = filters?.vendorId as string | undefined
     const search = filters?.search as string | undefined
+    const category1Filter = filters?.category1 as string | undefined
+    const category2Filter = filters?.category2 as string | undefined
+    const category3Filter = filters?.category3 as string | undefined
 
     const baseWhere: Prisma.DealMetricsWhereInput = {}
     if (vendorId) {
       baseWhere.externalVendorId = vendorId
     }
+    if (category1Filter) baseWhere.category1Name = category1Filter
+    if (category2Filter) baseWhere.category2Name = category2Filter
+    if (category3Filter) baseWhere.category3Name = category3Filter
     if (search) {
       baseWhere.OR = [
         { externalDealId: { contains: search, mode: 'insensitive' } },
@@ -880,6 +908,54 @@ export async function getUniqueVendorIds(): Promise<{ id: string; dealCount: num
     }))
 }
 
+
+/**
+ * Get distinct category values for cascading filter dropdowns.
+ * When parent categories are selected, child options are narrowed.
+ */
+export async function getDealCategoryOptions(filters?: {
+  category1?: string
+  category2?: string
+}): Promise<{
+  success: boolean
+  data?: { category1: string[]; category2: string[]; category3: string[] }
+  error?: string
+}> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) return { success: false, error: 'Unauthorized' }
+
+  try {
+    const where1: Prisma.DealMetricsWhereInput = { category1Name: { not: null } }
+    const where2: Prisma.DealMetricsWhereInput = { category2Name: { not: null } }
+    const where3: Prisma.DealMetricsWhereInput = { category3Name: { not: null } }
+
+    if (filters?.category1) {
+      where2.category1Name = filters.category1
+      where3.category1Name = filters.category1
+    }
+    if (filters?.category2) {
+      where3.category2Name = filters.category2
+    }
+
+    const [cat1Raw, cat2Raw, cat3Raw] = await Promise.all([
+      prisma.dealMetrics.groupBy({ by: ['category1Name'], where: where1, orderBy: { category1Name: 'asc' } }),
+      prisma.dealMetrics.groupBy({ by: ['category2Name'], where: where2, orderBy: { category2Name: 'asc' } }),
+      prisma.dealMetrics.groupBy({ by: ['category3Name'], where: where3, orderBy: { category3Name: 'asc' } }),
+    ])
+
+    return {
+      success: true,
+      data: {
+        category1: cat1Raw.map(r => r.category1Name!).filter(Boolean),
+        category2: cat2Raw.map(r => r.category2Name!).filter(Boolean),
+        category3: cat3Raw.map(r => r.category3Name!).filter(Boolean),
+      },
+    }
+  } catch (error) {
+    console.error('getDealCategoryOptions error:', error)
+    return { success: false, error: 'Error fetching category options' }
+  }
+}
 
 // Type for simplified deal in expandable row
 export interface SimplifiedDeal {

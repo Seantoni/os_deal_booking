@@ -7,8 +7,8 @@
 
 'use client'
 
-import { useMemo, useCallback } from 'react'
-import { getDealMetricsPaginated, searchDealMetrics, getDealMetricsCounts, type FormattedDealMetric } from '@/app/actions/deal-metrics'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { getDealMetricsPaginated, searchDealMetrics, getDealMetricsCounts, getDealCategoryOptions, type FormattedDealMetric } from '@/app/actions/deal-metrics'
 import { usePaginatedSearch } from '@/hooks/usePaginatedSearch'
 import { sortEntities } from '@/hooks/useEntityPage'
 import { 
@@ -39,6 +39,7 @@ function isDealActive(deal: { runAt: Date | null; endAt: Date | null }): boolean
 const DEAL_COLUMNS: ColumnConfig[] = [
   { key: 'externalDealId', label: 'Deal', sortable: true },
   { key: 'businessName', label: 'Negocio', sortable: true },
+  { key: 'category1Name', label: 'Categoría', sortable: true },
   { key: 'status', label: 'Status', sortable: true },
   { key: 'quantitySold', label: 'Sold', sortable: true, align: 'right' },
   { key: 'netRevenue', label: 'Revenue', sortable: true, align: 'right' },
@@ -93,6 +94,42 @@ export function DealsTab({
     updateFilter('statusFilter', filter === 'all' ? undefined : filter)
   }, [updateFilter])
 
+  // Category filters (cascading)
+  const cat1Filter = (filters.category1 as string) || ''
+  const cat2Filter = (filters.category2 as string) || ''
+  const cat3Filter = (filters.category3 as string) || ''
+
+  const [categoryOptions, setCategoryOptions] = useState<{
+    category1: string[]; category2: string[]; category3: string[]
+  }>({ category1: [], category2: [], category3: [] })
+
+  // Load category options (cascading: depends on selected parent categories)
+  useEffect(() => {
+    getDealCategoryOptions({
+      category1: cat1Filter || undefined,
+      category2: cat2Filter || undefined,
+    }).then(result => {
+      if (result.success && result.data) {
+        setCategoryOptions(result.data)
+      }
+    })
+  }, [cat1Filter, cat2Filter])
+
+  const setCat1 = useCallback((val: string) => {
+    updateFilter('category1', val || undefined)
+    updateFilter('category2', undefined)
+    updateFilter('category3', undefined)
+  }, [updateFilter])
+
+  const setCat2 = useCallback((val: string) => {
+    updateFilter('category2', val || undefined)
+    updateFilter('category3', undefined)
+  }, [updateFilter])
+
+  const setCat3 = useCallback((val: string) => {
+    updateFilter('category3', val || undefined)
+  }, [updateFilter])
+
   // Determine which deals to display
   const displayDeals = searchResults !== null ? searchResults : deals
 
@@ -132,6 +169,8 @@ export function DealsTab({
         return deal.runAt ? new Date(deal.runAt).getTime() : 0
       case 'endAt':
         return deal.endAt ? new Date(deal.endAt).getTime() : 0
+      case 'category1Name':
+        return (deal.category1Name || '').toLowerCase()
       default:
         return null
     }
@@ -187,6 +226,30 @@ export function DealsTab({
         activeFilter={statusFilter}
         onFilterChange={(id) => setStatusFilter(id as 'all' | 'active' | 'ended')}
         isAdmin={false}
+        beforeFilters={
+          <div className="flex items-center gap-2 flex-wrap">
+            <CategoryFilterSelect
+              label="Categoría 1"
+              value={cat1Filter}
+              options={categoryOptions.category1}
+              onChange={setCat1}
+            />
+            <CategoryFilterSelect
+              label="Categoría 2"
+              value={cat2Filter}
+              options={categoryOptions.category2}
+              onChange={setCat2}
+              disabled={!cat1Filter}
+            />
+            <CategoryFilterSelect
+              label="Categoría 3"
+              value={cat3Filter}
+              options={categoryOptions.category3}
+              onChange={setCat3}
+              disabled={!cat2Filter}
+            />
+          </div>
+        }
       />
 
       {/* Content */}
@@ -250,6 +313,13 @@ export function DealsTab({
                               {deal.externalVendorId || '-'}
                             </span>
                           )}
+                        </TableCell>
+
+                        {/* Category */}
+                        <TableCell>
+                          <span className="text-slate-600 text-xs line-clamp-1" title={deal.category1Name || ''}>
+                            {deal.category1Name || '-'}
+                          </span>
                         </TableCell>
                         
                         {/* Status */}
@@ -317,5 +387,36 @@ export function DealsTab({
         )}
       </div>
     </div>
+  )
+}
+
+function CategoryFilterSelect({
+  label,
+  value,
+  options,
+  onChange,
+  disabled = false,
+}: {
+  label: string
+  value: string
+  options: string[]
+  onChange: (val: string) => void
+  disabled?: boolean
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      className={`text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 max-w-[180px] truncate ${
+        disabled ? 'opacity-50 cursor-not-allowed' : ''
+      } ${value ? 'text-blue-700 font-medium border-blue-400' : 'text-gray-600'}`}
+      title={label}
+    >
+      <option value="">{label}: Todos</option>
+      {options.map(opt => (
+        <option key={opt} value={opt}>{opt}</option>
+      ))}
+    </select>
   )
 }

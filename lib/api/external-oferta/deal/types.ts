@@ -151,6 +151,9 @@ export interface DealMetric {
   vendor_id: string
   deal_id: string | number // API may return number or string
   deal_name?: string       // Deal name from API
+  category1_name?: string | null
+  category2_name?: string | null
+  category3_name?: string | null
   quantity_sold: number
   net_revenue: number
   margin: number
