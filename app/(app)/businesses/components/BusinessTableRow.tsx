@@ -88,6 +88,9 @@ export function BusinessTableRow({
   const isLoadingDeals = cachedDeals?.loading ?? false
   const deals = cachedDeals?.deals ?? []
   const totalCount = cachedDeals?.totalCount ?? 0
+  const hasTopRevenueMetric = Boolean(business.topRevenueAmount)
+  const isArrowMuted = !hasTopRevenueMetric
+  const isExpandDisabled = !hasTopRevenueMetric && !isExpanded
   const fallbackProjectedRevenue = business.topRevenueAmount ? Number(business.topRevenueAmount) : 0
   const projectedRevenue = (projectionSummary?.totalProjectedRevenue ?? 0) > 0
     ? (projectionSummary?.totalProjectedRevenue ?? 0)
@@ -116,13 +119,19 @@ export function BusinessTableRow({
         <TableCell onClick={(e) => e.stopPropagation()}>
           <button
             onClick={() => onToggleExpand(business)}
-            className="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"
-            disabled={!business.osAdminVendorId}
+            className={`p-1 rounded transition-colors ${
+              isExpandDisabled
+                ? 'text-slate-300 cursor-not-allowed'
+                : isArrowMuted
+                  ? 'text-slate-300 hover:bg-slate-100 hover:text-slate-300'
+                  : 'hover:bg-slate-100 text-slate-500 hover:text-slate-700'
+            }`}
+            disabled={isExpandDisabled}
           >
             {isExpanded ? (
-              <ExpandMoreIcon style={{ fontSize: 20 }} />
+              <ExpandMoreIcon style={{ fontSize: 20 }} className={isArrowMuted ? 'opacity-40' : ''} />
             ) : (
-              <ChevronRightIcon style={{ fontSize: 20 }} className={!business.osAdminVendorId ? 'opacity-30' : ''} />
+              <ChevronRightIcon style={{ fontSize: 20 }} className={isArrowMuted ? 'opacity-40' : ''} />
             )}
           </button>
         </TableCell>
