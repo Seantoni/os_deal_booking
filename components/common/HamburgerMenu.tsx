@@ -19,6 +19,7 @@ import HistoryIcon from '@mui/icons-material/History'
 import CampaignIcon from '@mui/icons-material/Campaign'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import GroupsIcon from '@mui/icons-material/Groups'
 
 // Sidebar item type
 type SidebarItem = {
@@ -58,6 +59,7 @@ const adminSidebarConfig = {
   ],
   bottomItems: [
     { name: 'Actividad', href: '/activity-log', Icon: HistoryIcon },
+    { name: 'Ventas', href: '/sales-users', Icon: GroupsIcon },
     { name: 'Configuración', href: '/settings', Icon: SettingsIcon },
   ],
 }
