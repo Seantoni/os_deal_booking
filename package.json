@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "NODE_OPTIONS='--max-old-space-size=8192' next dev --turbopack",
+    "dev": "NODE_OPTIONS='--max-old-space-size=8192' next dev --webpack",
     "dev:webpack": "NODE_OPTIONS='--max-old-space-size=8192' next dev",
     "build": "NEXT_DISABLE_GOOGLE_FONTS=1 next build",
     "build:analyze": "ANALYZE=true next build --webpack",
