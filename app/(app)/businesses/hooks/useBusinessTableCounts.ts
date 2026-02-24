@@ -12,7 +12,7 @@ import { logger } from '@/lib/logger'
 
 interface TableCounts {
   openOpportunityCounts: Record<string, number>
-  pendingRequestCounts: Record<string, number>
+  pendingRequestCountsByBusinessId: Record<string, number>
 }
 
 interface UseBusinessTableCountsOptions {
@@ -20,7 +20,7 @@ interface UseBusinessTableCountsOptions {
 }
 
 export function useBusinessTableCounts({ isAdmin }: UseBusinessTableCountsOptions) {
-  // Lazy-loaded table counts (opportunity counts per business, request counts per business name)
+  // Lazy-loaded table counts (opportunity counts per business, request counts per business ID)
   const [tableCounts, setTableCounts] = useState<TableCounts | null>(null)
   const [tableCountsLoading, setTableCountsLoading] = useState(true)
   
@@ -94,12 +94,12 @@ export function useBusinessTableCounts({ isAdmin }: UseBusinessTableCountsOption
     return map
   }, [tableCounts])
 
-  // Map of business names (lowercase) to count of pending requests
+  // Map of business IDs to count of pending requests
   const businessPendingRequestCount = useMemo(() => {
     const map = new Map<string, number>()
-    if (tableCounts?.pendingRequestCounts) {
-      Object.entries(tableCounts.pendingRequestCounts).forEach(([merchantLower, count]) => {
-        map.set(merchantLower, count)
+    if (tableCounts?.pendingRequestCountsByBusinessId) {
+      Object.entries(tableCounts.pendingRequestCountsByBusinessId).forEach(([businessId, count]) => {
+        map.set(businessId, count)
       })
     }
     return map

@@ -375,7 +375,7 @@ export default function BusinessesPageClient({
       case 'openOpps':
         return businessOpenOpportunityCount.get(business.id) || 0
       case 'pendingReqs':
-        return businessPendingRequestCount.get(business.name.toLowerCase()) || 0
+        return businessPendingRequestCount.get(business.id) || 0
       case 'projectedRevenue':
         return businessProjectionMap[business.id]?.totalProjectedRevenue ?? 0
       default:
@@ -736,7 +736,7 @@ export default function BusinessesPageClient({
                     activeFocus={businessActiveFocus.get(business.id)}
                     activeDealUrl={activeDealUrls[business.id]}
                     openOpportunityCount={businessOpenOpportunityCount.get(business.id) || 0}
-                    pendingRequestCount={businessPendingRequestCount.get(business.name.toLowerCase()) || 0}
+                    pendingRequestCount={businessPendingRequestCount.get(business.id) || 0}
                     campaignCount={businessCampaignCounts[business.id] || 0}
                     projectionSummary={businessProjectionMap[business.id]}
                     isAdmin={isAdmin}
@@ -780,7 +780,7 @@ export default function BusinessesPageClient({
                         cachedDeals={pageState.getBusinessDeals(business.id)}
                         activeDealUrl={activeDealUrls[business.id]}
                         openOpportunityCount={businessOpenOpportunityCount.get(business.id) || 0}
-                        pendingRequestCount={businessPendingRequestCount.get(business.name.toLowerCase()) || 0}
+                        pendingRequestCount={businessPendingRequestCount.get(business.id) || 0}
                         campaignCount={businessCampaignCounts[business.id] || 0}
                         projectionSummary={businessProjectionMap[business.id]}
                         isAdmin={isAdmin}

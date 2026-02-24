@@ -12,6 +12,7 @@ import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
 import { logActivity } from '@/lib/activity-log'
 import { getTodayInPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
 import { sendVendorToExternalApi, updateVendorInExternalApi, getChangedVendorFields } from '@/lib/api/external-oferta'
+import { getBusinessDealMetricsByVendorIds, type BusinessDealMetricsSummary } from '@/app/actions/deal-metrics'
 import type { VendorFieldChange, ExternalOfertaVendorUpdateRequest, UpdateVendorResult } from '@/lib/api/external-oferta/vendor/types'
 import type { Business, Opportunity, BookingRequest, UserData, Deal, PricingOption } from '@/types'
 import type { DealStatus } from '@/lib/constants'
@@ -41,6 +42,114 @@ const SORT_COLUMN_MAP: Record<string, string> = {
   topRevenue: 'topRevenueAmount',
   lastLaunch: 'lastLaunchDate',
   deals360d: 'totalDeals360d',
+}
+
+const LIVE_METRIC_SORT_COLUMNS = new Set(['topSold', 'topRevenue', 'lastLaunch', 'deals360d'])
+
+const BUSINESS_LIST_INCLUDE = Prisma.validator<Prisma.BusinessInclude>()({
+  category: {
+    select: {
+      id: true,
+      categoryKey: true,
+      parentCategory: true,
+      subCategory1: true,
+      subCategory2: true,
+    },
+  },
+  owner: {
+    select: {
+      id: true,
+      clerkId: true,
+      name: true,
+      email: true,
+    },
+  },
+})
+
+type BusinessListRecord = Prisma.BusinessGetPayload<{
+  include: typeof BUSINESS_LIST_INCLUDE
+}>
+
+type BusinessDealMetricsDisplayFields = {
+  osAdminVendorId?: string | null
+  topSoldQuantity?: number | null
+  topSoldDealUrl?: string | null
+  topRevenueAmount?: number | string | null
+  topRevenueDealUrl?: string | null
+  lastLaunchDate?: Date | string | null
+  totalDeals360d?: number | null
+}
+
+/**
+ * Overlay live deal-metrics summaries (source: dealMetrics table) onto business rows.
+ * This avoids stale denormalized business metric fields in list/search views.
+ */
+async function overlayLiveDealMetrics<T extends BusinessDealMetricsDisplayFields>(
+  businesses: T[],
+  preloadedMetricsByVendorId?: Map<string, BusinessDealMetricsSummary>
+): Promise<T[]> {
+  if (businesses.length === 0) return businesses
+
+  let resolvedMetricsByVendorId = preloadedMetricsByVendorId
+  if (!resolvedMetricsByVendorId) {
+    const vendorIds = [...new Set(
+      businesses
+        .map(business => business.osAdminVendorId)
+        .filter((vendorId): vendorId is string => !!vendorId)
+    )]
+
+    if (vendorIds.length === 0) return businesses
+    resolvedMetricsByVendorId = await getBusinessDealMetricsByVendorIds(vendorIds)
+  }
+
+  return businesses.map((business) => {
+    if (!business.osAdminVendorId) return business
+
+    const summary = resolvedMetricsByVendorId.get(business.osAdminVendorId)
+    if (!summary) return business
+
+    return {
+      ...business,
+      topSoldQuantity: summary.topSoldQuantity,
+      topSoldDealUrl: summary.topSoldDealUrl,
+      topRevenueAmount: summary.topRevenueAmount,
+      topRevenueDealUrl: summary.topRevenueDealUrl,
+      lastLaunchDate: summary.lastLaunchDate,
+      totalDeals360d: summary.totalDeals360d > 0 ? summary.totalDeals360d : null,
+    }
+  })
+}
+
+function getLiveMetricSortValue(
+  sortBy: string,
+  summary: BusinessDealMetricsSummary | undefined
+): number | null {
+  if (!summary) return null
+
+  switch (sortBy) {
+    case 'topSold':
+      return summary.topSoldQuantity ?? null
+    case 'topRevenue':
+      return summary.topRevenueAmount ?? null
+    case 'lastLaunch':
+      return summary.lastLaunchDate ? new Date(summary.lastLaunchDate).getTime() : null
+    case 'deals360d':
+      return summary.totalDeals360d > 0 ? summary.totalDeals360d : null
+    default:
+      return null
+  }
+}
+
+function compareNullableMetricValues(
+  a: number | null,
+  b: number | null,
+  direction: 'asc' | 'desc'
+): number {
+  if (a === null && b === null) return 0
+  if (a === null) return 1
+  if (b === null) return -1
+  if (a === b) return 0
+  return direction === 'asc' ? a - b : b - a
 }
 
 /**
@@ -309,56 +418,99 @@ export async function getBusinessesPaginated(options: {
       }
     }
 
-    // Get total count (with filters applied)
-    const total = await prisma.business.count({ where: whereClause })
+    let total = 0
+    let businesses: BusinessListRecord[] = []
+    let preloadedMetricsByVendorId: Map<string, BusinessDealMetricsSummary> | undefined
 
-    // Build orderBy array - all sorting is now native Prisma
-    // Using Prisma's extended orderBy syntax for NULL handling
-    type OrderByItem = Record<string, 'asc' | 'desc' | { sort: 'asc' | 'desc'; nulls: 'first' | 'last' }>
-    const orderByArray: OrderByItem[] = []
-    
-    // Sort focused businesses first (those with focusPeriod) - asc puts non-null first (NULLs last)
-    orderByArray.push({ focusPeriod: 'asc' })
-    
-    // Then apply user's sort
-    const dbColumn = SORT_COLUMN_MAP[sortBy]
-    if (dbColumn) {
-      // Deal metrics column - always put NULLs last so actual data appears first
-      orderByArray.push({ [dbColumn]: { sort: sortDirection, nulls: 'last' } })
-    } else if (sortBy === 'name') {
-      orderByArray.push({ name: sortDirection })
-    } else if (sortBy === 'contact') {
-      orderByArray.push({ contactName: sortDirection })
+    if (LIVE_METRIC_SORT_COLUMNS.has(sortBy)) {
+      // Sort by live metrics so table sort order matches expandable/detail metrics source.
+      const sortableBusinesses = await prisma.business.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          osAdminVendorId: true,
+          focusPeriod: true,
+          createdAt: true,
+        },
+      })
+
+      total = sortableBusinesses.length
+
+      const vendorIds = [...new Set(
+        sortableBusinesses
+          .map(business => business.osAdminVendorId)
+          .filter((vendorId): vendorId is string => !!vendorId)
+      )]
+
+      preloadedMetricsByVendorId = vendorIds.length > 0
+        ? await getBusinessDealMetricsByVendorIds(vendorIds)
+        : new Map<string, BusinessDealMetricsSummary>()
+
+      const sortedBusinessIds = sortableBusinesses
+        .sort((a, b) => {
+          // Keep focused businesses first, matching existing behavior.
+          const focusCompare = Number(Boolean(b.focusPeriod)) - Number(Boolean(a.focusPeriod))
+          if (focusCompare !== 0) return focusCompare
+
+          const summaryA = a.osAdminVendorId ? preloadedMetricsByVendorId?.get(a.osAdminVendorId) : undefined
+          const summaryB = b.osAdminVendorId ? preloadedMetricsByVendorId?.get(b.osAdminVendorId) : undefined
+          const valueA = getLiveMetricSortValue(sortBy, summaryA)
+          const valueB = getLiveMetricSortValue(sortBy, summaryB)
+          const metricCompare = compareNullableMetricValues(valueA, valueB, sortDirection)
+          if (metricCompare !== 0) return metricCompare
+
+          // Stable tiebreaker
+          return b.createdAt.getTime() - a.createdAt.getTime()
+        })
+        .map(business => business.id)
+
+      const start = page * pageSize
+      const pagedBusinessIds = sortedBusinessIds.slice(start, start + pageSize)
+
+      if (pagedBusinessIds.length > 0) {
+        const pageBusinesses = await prisma.business.findMany({
+          where: { id: { in: pagedBusinessIds } },
+          include: BUSINESS_LIST_INCLUDE,
+        })
+        const pageBusinessById = new Map(pageBusinesses.map(business => [business.id, business]))
+        businesses = pagedBusinessIds
+          .map(businessId => pageBusinessById.get(businessId))
+          .filter((business): business is BusinessListRecord => !!business)
+      }
     } else {
-      orderByArray.push({ createdAt: sortDirection })
-    }
+      // Get total count (with filters applied)
+      total = await prisma.business.count({ where: whereClause })
 
-    // Get paginated businesses
-    const businesses = await prisma.business.findMany({
-      where: whereClause,
-      include: {
-        category: {
-          select: {
-            id: true,
-            categoryKey: true,
-            parentCategory: true,
-            subCategory1: true,
-            subCategory2: true,
-          },
-        },
-        owner: {
-          select: {
-            id: true,
-            clerkId: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: orderByArray,
-      skip: page * pageSize,
-      take: pageSize,
-    })
+      // Build orderBy array - all sorting is now native Prisma
+      // Using Prisma's extended orderBy syntax for NULL handling
+      type OrderByItem = Record<string, 'asc' | 'desc' | { sort: 'asc' | 'desc'; nulls: 'first' | 'last' }>
+      const orderByArray: OrderByItem[] = []
+      
+      // Sort focused businesses first (those with focusPeriod) - asc puts non-null first (NULLs last)
+      orderByArray.push({ focusPeriod: 'asc' })
+      
+      // Then apply user's sort
+      const dbColumn = SORT_COLUMN_MAP[sortBy]
+      if (dbColumn) {
+        // Deal metrics column - always put NULLs last so actual data appears first
+        orderByArray.push({ [dbColumn]: { sort: sortDirection, nulls: 'last' } })
+      } else if (sortBy === 'name') {
+        orderByArray.push({ name: sortDirection })
+      } else if (sortBy === 'contact') {
+        orderByArray.push({ contactName: sortDirection })
+      } else {
+        orderByArray.push({ createdAt: sortDirection })
+      }
+
+      // Get paginated businesses
+      businesses = await prisma.business.findMany({
+        where: whereClause,
+        include: BUSINESS_LIST_INCLUDE,
+        orderBy: orderByArray,
+        skip: page * pageSize,
+        take: pageSize,
+      })
+    }
 
     // Get custom field values for this page of businesses
     const businessIds = businesses.map((b: { id: string }) => b.id)
@@ -393,13 +545,19 @@ export async function getBusinessesPaginated(options: {
       customFields: customFieldsByBusinessId.get(biz.id) || {},
     }))
 
+    // Overlay live deal metrics for table columns: Top #, Top $, Lanz., #Deals
+    const businessesWithLiveMetrics = await overlayLiveDealMetrics(
+      businessesWithCustomFields,
+      preloadedMetricsByVendorId
+    )
+
     // Get editable business IDs for this user
     // null = can edit all (admin/editor), string[] = specific IDs user can edit
     const editableBusinessIds = await getEditableBusinessIds()
 
     return { 
       success: true, 
-      data: businessesWithCustomFields, 
+      data: businessesWithLiveMetrics, 
       total, 
       page, 
       pageSize,
@@ -642,7 +800,7 @@ export async function getBusinessActiveDealUrls() {
 
 /**
  * Get counts for business table display (lazy loaded)
- * Returns: openOpportunityCounts (businessId -> count), pendingRequestCounts (businessName lowercase -> count)
+ * Returns: openOpportunityCounts (businessId -> count), pendingRequestCountsByBusinessId (businessId -> count)
  * This is much more efficient than loading all opportunities and requests
  */
 export async function getBusinessTableCounts() {
@@ -656,7 +814,7 @@ export async function getBusinessTableCounts() {
     const role = await getUserRole()
     
     // Build base where clause based on role
-    const baseWhere: Record<string, unknown> = {}
+    const baseWhere: BusinessWhereClause = {}
     if (role === 'sales') {
       baseWhere.ownerId = userId
       baseWhere.reassignmentStatus = null
@@ -665,7 +823,7 @@ export async function getBusinessTableCounts() {
         success: true, 
         data: { 
           openOpportunityCounts: {} as Record<string, number>, 
-          pendingRequestCounts: {} as Record<string, number> 
+          pendingRequestCountsByBusinessId: {} as Record<string, number> 
         } 
       }
     } else {
@@ -683,15 +841,46 @@ export async function getBusinessTableCounts() {
       _count: { id: true },
     })
 
-    // Get pending request counts per merchant name
-    const requestCounts = await prisma.bookingRequest.groupBy({
+    // Build scoped business lookup once so we can map legacy merchant-name requests.
+    const scopedBusinesses = await prisma.business.findMany({
+      where: baseWhere,
+      select: {
+        id: true,
+        name: true,
+      },
+    })
+
+    // Link pending requests to businesses through opportunityId -> opportunity.businessId.
+    const requestCountsByOpportunity = await prisma.bookingRequest.groupBy({
+      by: ['opportunityId'],
+      where: {
+        status: 'pending',
+        opportunityId: { not: null },
+      },
+      _count: { id: true },
+    })
+
+    // Fallback path for legacy pending requests not linked to an opportunity.
+    const legacyRequestCountsByMerchant = await prisma.bookingRequest.groupBy({
       by: ['merchant'],
       where: {
         status: 'pending',
+        opportunityId: null,
         merchant: { not: null },
       },
       _count: { id: true },
     })
+
+    const opportunityIds = requestCountsByOpportunity
+      .map(request => request.opportunityId)
+      .filter((opportunityId): opportunityId is string => !!opportunityId)
+
+    const opportunities = opportunityIds.length > 0
+      ? await prisma.opportunity.findMany({
+          where: { id: { in: opportunityIds } },
+          select: { id: true, businessId: true },
+        })
+      : []
 
     // Convert to Record objects
     const openOpportunityCounts: Record<string, number> = {}
@@ -701,16 +890,36 @@ export async function getBusinessTableCounts() {
       }
     }
 
-    const pendingRequestCounts: Record<string, number> = {}
-    for (const req of requestCounts) {
-      if (req.merchant) {
-        pendingRequestCounts[req.merchant.toLowerCase()] = req._count.id
+    const pendingRequestCountsByBusinessId: Record<string, number> = {}
+    const opportunityBusinessById = new Map(opportunities.map(opportunity => [opportunity.id, opportunity.businessId]))
+
+    for (const request of requestCountsByOpportunity) {
+      if (!request.opportunityId) continue
+      const linkedBusinessId = opportunityBusinessById.get(request.opportunityId)
+      if (!linkedBusinessId) continue
+
+      pendingRequestCountsByBusinessId[linkedBusinessId] = (pendingRequestCountsByBusinessId[linkedBusinessId] || 0) + request._count.id
+    }
+
+    const businessIdByNameLower = new Map<string, string>()
+    for (const business of scopedBusinesses) {
+      const key = business.name.trim().toLowerCase()
+      if (key && !businessIdByNameLower.has(key)) {
+        businessIdByNameLower.set(key, business.id)
       }
+    }
+
+    for (const request of legacyRequestCountsByMerchant) {
+      if (!request.merchant) continue
+      const businessId = businessIdByNameLower.get(request.merchant.trim().toLowerCase())
+      if (!businessId) continue
+
+      pendingRequestCountsByBusinessId[businessId] = (pendingRequestCountsByBusinessId[businessId] || 0) + request._count.id
     }
 
     return { 
       success: true, 
-      data: { openOpportunityCounts, pendingRequestCounts } 
+      data: { openOpportunityCounts, pendingRequestCountsByBusinessId } 
     }
   } catch (error) {
     return handleServerActionError(error, 'getBusinessTableCounts')
@@ -1139,10 +1348,13 @@ export async function searchBusinesses(query: string, options: {
       customFields: customFieldsByBusinessId.get(biz.id) || {},
     }))
 
+    // Overlay live deal metrics for table columns: Top #, Top $, Lanz., #Deals
+    const businessesWithLiveMetrics = await overlayLiveDealMetrics(businessesWithCustomFields)
+
     // Get editable business IDs for this user
     const editableBusinessIds = await getEditableBusinessIds()
 
-    return { success: true, data: businessesWithCustomFields, editableBusinessIds }
+    return { success: true, data: businessesWithLiveMetrics, editableBusinessIds }
   } catch (error) {
     return handleServerActionError(error, 'searchBusinesses')
   }
