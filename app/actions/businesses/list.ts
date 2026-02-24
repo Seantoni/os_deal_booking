@@ -216,7 +216,7 @@ export async function getBusinessesPaginated(options: {
           externalVendorId: { not: null },
           OR: [
             { dealUrl: null },
-            { dealUrl: { not: { contains: 'egift', mode: 'insensitive' } } },
+            { NOT: { dealUrl: { contains: 'egift', mode: 'insensitive' } } },
           ],
         },
         select: {
@@ -505,7 +505,7 @@ export async function searchBusinesses(query: string, options: {
           externalVendorId: { not: null },
           OR: [
             { dealUrl: null },
-            { dealUrl: { not: { contains: 'egift', mode: 'insensitive' } } },
+            { NOT: { dealUrl: { contains: 'egift', mode: 'insensitive' } } },
           ],
         },
         select: {

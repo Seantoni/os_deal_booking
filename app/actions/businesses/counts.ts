@@ -75,7 +75,7 @@ export async function getBusinessCounts(filters?: { ownerId?: string; myBusiness
         externalVendorId: { not: null },
         OR: [
           { dealUrl: null },
-          { dealUrl: { not: { contains: 'egift', mode: 'insensitive' } } },
+          { NOT: { dealUrl: { contains: 'egift', mode: 'insensitive' } } },
         ],
       },
       select: {

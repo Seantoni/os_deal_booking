@@ -85,7 +85,7 @@ export async function getActiveVendorIds(): Promise<string[]> {
       externalVendorId: { not: null },
       OR: [
         { dealUrl: null },
-        { dealUrl: { not: { contains: 'egift', mode: 'insensitive' } } },
+        { NOT: { dealUrl: { contains: 'egift', mode: 'insensitive' } } },
       ],
     },
     select: {
