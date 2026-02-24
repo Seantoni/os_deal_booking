@@ -611,6 +611,11 @@ export async function createOpportunity(formData: FormData) {
     const closeDate = formData.get('closeDate') as string | null
     const notes = formData.get('notes') as string | null
     const responsibleId = formData.get('responsibleId') as string | null
+    const categoryId = (formData.get('categoryId') as string | null)?.trim() || null
+    const tierRaw = (formData.get('tier') as string | null)?.trim() || null
+    const contactName = (formData.get('contactName') as string | null)?.trim() || null
+    const contactPhone = (formData.get('contactPhone') as string | null)?.trim() || null
+    const contactEmail = (formData.get('contactEmail') as string | null)?.trim() || null
 
     // Only businessId and stage are always required (canSetRequired: false in form config)
     // startDate requirement is determined by admin in Settings → Entity Fields
@@ -627,10 +632,16 @@ export async function createOpportunity(formData: FormData) {
 
     // Set responsible to current user by default if not provided
     const finalResponsibleId = responsibleId || userId
+    const tier = tierRaw && !Number.isNaN(Number(tierRaw)) ? Number(tierRaw) : null
 
     const opportunity = await prisma.opportunity.create({
       data: {
         businessId,
+        categoryId,
+        tier,
+        contactName,
+        contactPhone,
+        contactEmail,
         stage,
         startDate: startDateTime,
         closeDate: closeDateTime,
@@ -694,6 +705,16 @@ export async function updateOpportunity(opportunityId: string, formData: FormDat
     const notes = formData.get('notes') as string | null
     const lostReason = formData.get('lostReason') as string | null
     const responsibleId = formData.get('responsibleId') as string | null
+    const hasCategoryId = formData.has('categoryId')
+    const hasTier = formData.has('tier')
+    const hasContactName = formData.has('contactName')
+    const hasContactPhone = formData.has('contactPhone')
+    const hasContactEmail = formData.has('contactEmail')
+    const categoryId = (formData.get('categoryId') as string | null)?.trim() || null
+    const tierRaw = (formData.get('tier') as string | null)?.trim() || null
+    const contactName = (formData.get('contactName') as string | null)?.trim() || null
+    const contactPhone = (formData.get('contactPhone') as string | null)?.trim() || null
+    const contactEmail = (formData.get('contactEmail') as string | null)?.trim() || null
 
     // Only stage is always required for updates (canSetRequired: false in form config)
     // startDate requirement is determined by admin in Settings → Entity Fields
@@ -730,6 +751,23 @@ export async function updateOpportunity(opportunityId: string, formData: FormDat
       updateData.responsibleId = responsibleId
     }
 
+    // Persist opportunity-scoped contact/category/tier values from the modal.
+    if (hasCategoryId) {
+      updateData.categoryId = categoryId
+    }
+    if (hasTier) {
+      updateData.tier = tierRaw && !Number.isNaN(Number(tierRaw)) ? Number(tierRaw) : null
+    }
+    if (hasContactName) {
+      updateData.contactName = contactName
+    }
+    if (hasContactPhone) {
+      updateData.contactPhone = contactPhone
+    }
+    if (hasContactEmail) {
+      updateData.contactEmail = contactEmail
+    }
+
     const opportunity = await prisma.opportunity.update({
       where: { id: opportunityId },
       data: updateData,
@@ -756,8 +794,8 @@ export async function updateOpportunity(opportunityId: string, formData: FormDat
     })
 
     // Calculate changes for logging
-    const previousValues: Record<string, any> = {}
-    const newValues: Record<string, any> = {}
+    const previousValues: Record<string, unknown> = {}
+    const newValues: Record<string, unknown> = {}
     const changedFields: string[] = []
 
     if (currentOpportunity) {
@@ -783,14 +821,19 @@ export async function updateOpportunity(opportunityId: string, formData: FormDat
       }
 
       // Check simple fields
-      const fieldsToCheck = ['stage', 'notes', 'lostReason', 'responsibleId']
+      const fieldsToCheck = ['stage', 'notes', 'lostReason', 'responsibleId', 'categoryId', 'tier', 'contactName', 'contactPhone', 'contactEmail']
       
       // Construct effective update values
       const effectiveUpdate = { 
         stage, 
         notes: notes || null, 
         lostReason: lostReason || null,
-        responsibleId: (admin && responsibleId) ? responsibleId : currentOpportunity.responsibleId
+        responsibleId: (admin && responsibleId) ? responsibleId : currentOpportunity.responsibleId,
+        categoryId: hasCategoryId ? categoryId : currentOpportunity.categoryId,
+        tier: hasTier ? (tierRaw && !Number.isNaN(Number(tierRaw)) ? Number(tierRaw) : null) : currentOpportunity.tier,
+        contactName: hasContactName ? contactName : currentOpportunity.contactName,
+        contactPhone: hasContactPhone ? contactPhone : currentOpportunity.contactPhone,
+        contactEmail: hasContactEmail ? contactEmail : currentOpportunity.contactEmail,
       }
 
       fieldsToCheck.forEach(field => {

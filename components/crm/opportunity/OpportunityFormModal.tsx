@@ -177,12 +177,12 @@ export default function OpportunityFormModal({
       startDate: opportunity.startDate ? formatDateForPanama(new Date(opportunity.startDate)) : null,
       closeDate: opportunity.closeDate ? formatDateForPanama(new Date(opportunity.closeDate)) : null,
       notes: opportunity.notes || null,
-      // These come from the linked business - use parent category for parentOnly mode
-      categoryId: business?.category?.parentCategory || null,
-      tier: business?.tier?.toString() || null,
-      contactName: business?.contactName || null,
-      contactPhone: business?.contactPhone || null,
-      contactEmail: business?.contactEmail || null,
+      // Use opportunity-scoped values first, then fallback to linked business defaults.
+      categoryId: opportunity.categoryId || business?.category?.parentCategory || null,
+      tier: opportunity.tier?.toString() || business?.tier?.toString() || null,
+      contactName: opportunity.contactName || business?.contactName || null,
+      contactPhone: opportunity.contactPhone || business?.contactPhone || null,
+      contactEmail: opportunity.contactEmail || business?.contactEmail || null,
     }
   }, [opportunity, initialBusinessId, preloadedBusinesses])
 
@@ -345,11 +345,11 @@ export default function OpportunityFormModal({
         if (allValues.notes) formData.append('notes', allValues.notes)
         // Responsible is required
         if (responsibleId) formData.append('responsibleId', responsibleId)
-        if (allValues.categoryId) formData.append('categoryId', allValues.categoryId)
-        if (allValues.tier) formData.append('tier', allValues.tier)
-        if (allValues.contactName) formData.append('contactName', allValues.contactName)
-        if (allValues.contactPhone) formData.append('contactPhone', allValues.contactPhone)
-        if (allValues.contactEmail) formData.append('contactEmail', allValues.contactEmail)
+        formData.append('categoryId', allValues.categoryId || '')
+        formData.append('tier', allValues.tier || '')
+        formData.append('contactName', allValues.contactName || '')
+        formData.append('contactPhone', allValues.contactPhone || '')
+        formData.append('contactEmail', allValues.contactEmail || '')
         if (lostReason) formData.append('lostReason', lostReason)
 
         const result = await updateOpportunity(opportunity.id, formData)
@@ -402,11 +402,11 @@ export default function OpportunityFormModal({
         if (allValues.notes) formData.append('notes', allValues.notes)
         // Responsible is required
         formData.append('responsibleId', responsibleId)
-        if (allValues.categoryId) formData.append('categoryId', allValues.categoryId)
-        if (allValues.tier) formData.append('tier', allValues.tier)
-        if (allValues.contactName) formData.append('contactName', allValues.contactName)
-        if (allValues.contactPhone) formData.append('contactPhone', allValues.contactPhone)
-        if (allValues.contactEmail) formData.append('contactEmail', allValues.contactEmail)
+        formData.append('categoryId', allValues.categoryId || '')
+        formData.append('tier', allValues.tier || '')
+        formData.append('contactName', allValues.contactName || '')
+        formData.append('contactPhone', allValues.contactPhone || '')
+        formData.append('contactEmail', allValues.contactEmail || '')
 
         const result = opportunity
           ? await updateOpportunity(opportunity.id, formData)

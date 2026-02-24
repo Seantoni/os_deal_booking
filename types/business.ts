@@ -132,6 +132,11 @@ export type Business =
 export type Opportunity = {
   id: string
   businessId: string
+  categoryId: string | null
+  tier: number | null
+  contactName: string | null
+  contactPhone: string | null
+  contactEmail: string | null
   name: string | null
   stage: OpportunityStage
   startDate: Date

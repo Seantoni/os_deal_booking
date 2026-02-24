@@ -623,6 +623,11 @@ model MarketingOption {
 model Opportunity {
   id               String               @id @default(cuid())
   businessId       String
+  categoryId       String?
+  tier             Int?
+  contactName      String?
+  contactPhone     String?
+  contactEmail     String?
   stage            String               @default("iniciacion")
   startDate        DateTime
   closeDate        DateTime?
