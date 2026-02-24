@@ -85,7 +85,6 @@ export function BusinessTableRow({
   onOpenCampaignModal,
   onOpenReassignmentModal,
 }: BusinessTableRowProps) {
-  const hasDeals = (business.totalDeals360d ?? 0) > 0
   const isLoadingDeals = cachedDeals?.loading ?? false
   const deals = cachedDeals?.deals ?? []
   const totalCount = cachedDeals?.totalCount ?? 0
@@ -114,12 +113,12 @@ export function BusinessTableRow({
           <button
             onClick={() => onToggleExpand(business)}
             className="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"
-            disabled={!hasDeals || !business.osAdminVendorId}
+            disabled={!business.osAdminVendorId}
           >
             {isExpanded ? (
               <ExpandMoreIcon style={{ fontSize: 20 }} />
             ) : (
-              <ChevronRightIcon style={{ fontSize: 20 }} className={!hasDeals || !business.osAdminVendorId ? 'opacity-30' : ''} />
+              <ChevronRightIcon style={{ fontSize: 20 }} className={!business.osAdminVendorId ? 'opacity-30' : ''} />
             )}
           </button>
         </TableCell>
