@@ -65,12 +65,18 @@ export async function getBusinessCounts(filters?: { ownerId?: string; myBusiness
       }
     }
 
-    // Get active vendor IDs with active deals
+    // Get active vendor IDs with active deals (runAt <= now && endAt >= startOfToday)
     const now = new Date()
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const activeDealMetrics = await prisma.dealMetrics.findMany({
       where: {
-        endAt: { gt: now },
+        runAt: { lte: now },
+        endAt: { gte: startOfToday },
         externalVendorId: { not: null },
+        OR: [
+          { dealUrl: null },
+          { dealUrl: { not: { contains: 'egift', mode: 'insensitive' } } },
+        ],
       },
       select: {
         externalVendorId: true,
@@ -176,13 +182,18 @@ export async function getBusinessActiveDealUrls() {
       .map(b => b.osAdminVendorId)
       .filter((id): id is string => id !== null)
 
-    // Find active deals (endAt > now) for these vendors
+    // Find active deals (runAt <= now && endAt >= startOfToday) for these vendors
     const now = new Date()
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const activeDeals = await prisma.dealMetrics.findMany({
       where: {
         externalVendorId: { in: vendorIds },
-        endAt: { gt: now },
+        runAt: { lte: now },
+        endAt: { gte: startOfToday },
         dealUrl: { not: null },
+        NOT: {
+          dealUrl: { contains: 'egift', mode: 'insensitive' },
+        },
       },
       select: {
         externalVendorId: true,

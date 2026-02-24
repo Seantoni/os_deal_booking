@@ -206,12 +206,18 @@ export async function getBusinessesPaginated(options: {
     
     // Apply active deal filter if provided
     if (activeDealFilter) {
-      // Find vendor IDs that have active deals (endAt > now)
+      // Find vendor IDs that have active deals (runAt <= now && endAt >= startOfToday)
       const now = new Date()
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
       const activeDealMetrics = await prisma.dealMetrics.findMany({
         where: {
-          endAt: { gt: now },
+          runAt: { lte: now },
+          endAt: { gte: startOfToday },
           externalVendorId: { not: null },
+          OR: [
+            { dealUrl: null },
+            { dealUrl: { not: { contains: 'egift', mode: 'insensitive' } } },
+          ],
         },
         select: {
           externalVendorId: true,
@@ -489,12 +495,18 @@ export async function searchBusinesses(query: string, options: {
 
     // Apply active deal filter if provided
     if (activeDealFilter) {
-      // Find vendor IDs that have active deals (endAt > now)
+      // Find vendor IDs that have active deals (runAt <= now && endAt >= startOfToday)
       const now = new Date()
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
       const activeDealMetrics = await prisma.dealMetrics.findMany({
         where: {
-          endAt: { gt: now },
+          runAt: { lte: now },
+          endAt: { gte: startOfToday },
           externalVendorId: { not: null },
+          OR: [
+            { dealUrl: null },
+            { dealUrl: { not: { contains: 'egift', mode: 'insensitive' } } },
+          ],
         },
         select: {
           externalVendorId: true,

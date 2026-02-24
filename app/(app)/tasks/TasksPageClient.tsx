@@ -67,6 +67,7 @@ const STAGE_COLORS: Record<string, string> = {
 const COLUMNS: ColumnConfig[] = [
   { key: 'status', label: '', width: 'w-10', align: 'center' },
   { key: 'title', label: 'Tarea', sortable: true },
+  { key: 'responsible', label: 'Responsable', sortable: true, width: 'w-40' },
   { key: 'category', label: 'Tipo', sortable: true, width: 'w-24', align: 'center' },
   { key: 'date', label: 'Vencimiento', sortable: true, width: 'w-32' },
   { key: 'business', label: 'Negocio', sortable: true },
@@ -208,6 +209,7 @@ export default function TasksPageClient() {
         case 'date': return new Date(task.date).getTime()
         case 'category': return task.category
         case 'business': return task.opportunity?.business?.name || ''
+        case 'responsible': return task.opportunity?.responsible?.name || task.opportunity?.responsible?.email || ''
         case 'status': return task.completed ? 1 : 0
         default: return null
       }
@@ -639,6 +641,16 @@ export default function TasksPageClient() {
                             </span>
                           )}
                         </div>
+                      </TableCell>
+
+                      {/* Responsible */}
+                      <TableCell>
+                        <span
+                          className="text-[13px] text-slate-700 truncate block max-w-[140px]"
+                          title={task.opportunity?.responsible?.name || task.opportunity?.responsible?.email || ''}
+                        >
+                          {task.opportunity?.responsible?.name || task.opportunity?.responsible?.email || '-'}
+                        </span>
                       </TableCell>
 
                       {/* Category */}

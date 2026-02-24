@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { getDashboardStats, getPendingBookings, type DashboardFilters } from '@/app/actions/dashboard'
 import { getDealAssignmentsOverview } from '@/app/actions/deals'
@@ -108,6 +108,13 @@ interface DashboardClientProps {
     pendingComments: PendingCommentItem[]
   }
 }
+
+const TEAM_PERFORMANCE_WEIGHTS = {
+  approvedRequests: 0.5,
+  bookedRequests: 0,
+  meetings: 0.3,
+  todos: 0.1,
+} as const
 
 export default function DashboardClient({ initialData }: DashboardClientProps) {
   const router = useRouter()
@@ -278,6 +285,32 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
     const endLabel = new Date(end).toLocaleDateString('es-PA', { day: '2-digit', month: 'short' })
     return `${startLabel} - ${endLabel}`
   }
+
+  const rankedTeamPerformance = useMemo(() => {
+    const members = stats?.teamPerformance || []
+    const getScore = (member: DashboardStats['teamPerformance'][number]) =>
+      (member.approvedRequests || 0) * TEAM_PERFORMANCE_WEIGHTS.approvedRequests +
+      (member.bookedRequests || 0) * TEAM_PERFORMANCE_WEIGHTS.bookedRequests +
+      (member.meetings || 0) * TEAM_PERFORMANCE_WEIGHTS.meetings +
+      (member.todos || 0) * TEAM_PERFORMANCE_WEIGHTS.todos
+
+    return [...members].sort((a, b) => {
+      const scoreDiff = getScore(b) - getScore(a)
+      if (scoreDiff !== 0) return scoreDiff
+
+      // Tie-breakers keep ranking deterministic.
+      if ((b.approvedRequests || 0) !== (a.approvedRequests || 0)) {
+        return (b.approvedRequests || 0) - (a.approvedRequests || 0)
+      }
+      if ((b.meetings || 0) !== (a.meetings || 0)) {
+        return (b.meetings || 0) - (a.meetings || 0)
+      }
+      if ((b.todos || 0) !== (a.todos || 0)) {
+        return (b.todos || 0) - (a.todos || 0)
+      }
+      return a.name.localeCompare(b.name, 'es')
+    })
+  }, [stats?.teamPerformance])
 
   // Loading state handled by loading.tsx
   if (loading && !stats) {
@@ -709,7 +742,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                 </div>
                 <h3 className="text-sm font-semibold text-gray-900">Clasificación</h3>
               </div>
-              <span className="text-[10px] text-gray-400">Por reservadas</span>
+              <span className="text-[10px] text-gray-400">Por score ponderado</span>
             </div>
             
             <div className="overflow-x-auto">
@@ -724,7 +757,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {stats?.teamPerformance?.map((member, index) => (
+                  {rankedTeamPerformance.map((member, index) => (
                     <tr 
                       key={member.userId} 
                       className={`${member.isCurrentUser ? 'bg-blue-50/40' : 'hover:bg-gray-50/50'}`}
@@ -761,7 +794,7 @@ export default function DashboardClient({ initialData }: DashboardClientProps) {
                       <td className="px-3 py-2 text-center text-gray-600">{member.todos || 0}</td>
                     </tr>
                   ))}
-                  {(!stats?.teamPerformance || stats?.teamPerformance.length === 0) && (
+                  {rankedTeamPerformance.length === 0 && (
                     <tr>
                       <td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-xs">
                         Sin actividad en este período

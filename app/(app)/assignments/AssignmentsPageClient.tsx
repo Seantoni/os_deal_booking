@@ -306,6 +306,11 @@ export default function AssignmentsPageClient({
     [users]
   )
 
+  const usersByClerkId = useMemo(
+    () => new Map(users.map((user) => [user.clerkId, user])),
+    [users]
+  )
+
   const isLoading = loading || searchLoading
 
   return (
@@ -403,7 +408,12 @@ export default function AssignmentsPageClient({
                     }
                   </TableCell>
                   <TableCell className="text-[13px] text-gray-600">
-                    {assignment.previousOwner?.name || assignment.reassignmentPreviousOwner || '-'}
+                    {assignment.previousOwner?.name ||
+                      (assignment.reassignmentPreviousOwner
+                        ? usersByClerkId.get(assignment.reassignmentPreviousOwner)?.name ||
+                          usersByClerkId.get(assignment.reassignmentPreviousOwner)?.email ||
+                          assignment.reassignmentPreviousOwner
+                        : '-') }
                   </TableCell>
                   <TableCell className="text-[13px] text-gray-500">
                     {assignment.reassignmentRequestedAt 

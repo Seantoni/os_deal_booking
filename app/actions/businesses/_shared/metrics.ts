@@ -77,10 +77,16 @@ export function compareNullableMetricValues(
 
 export async function getActiveVendorIds(): Promise<string[]> {
   const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const activeDealMetrics = await prisma.dealMetrics.findMany({
     where: {
-      endAt: { gt: now },
+      runAt: { lte: now },
+      endAt: { gte: startOfToday },
       externalVendorId: { not: null },
+      OR: [
+        { dealUrl: null },
+        { dealUrl: { not: { contains: 'egift', mode: 'insensitive' } } },
+      ],
     },
     select: {
       externalVendorId: true,
