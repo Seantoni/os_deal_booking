@@ -124,8 +124,10 @@ async function searchBusinesses(searchTerm: string, isIdSearch: boolean, role: s
   }
 
   const where: Prisma.BusinessWhereInput = {
-    reassignmentStatus: { not: 'archived' },
-    OR: orConditions,
+    AND: [
+      { OR: [{ reassignmentStatus: null }, { reassignmentStatus: { not: 'archived' } }] },
+      { OR: orConditions },
+    ],
   }
   
   // NOTE: Sales users can VIEW all businesses (no ownerId filter)

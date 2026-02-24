@@ -277,7 +277,12 @@ export async function getOpportunityFormData(opportunityId?: string | null, busi
         } 
       }
     } else {
-      businessWhere.reassignmentStatus = { not: 'archived' }
+      Object.assign(businessWhere, {
+        OR: [
+          { reassignmentStatus: null },
+          { reassignmentStatus: { not: 'archived' } },
+        ],
+      })
     }
 
     // Build parallel fetch promises
