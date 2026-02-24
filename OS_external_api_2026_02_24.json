@@ -98,6 +98,36 @@
                                                         "description": "Deal name",
                                                         "type": "string"
                                                     },
+                                                    "category1_id": {
+                                                        "description": "Category 1 identifier",
+                                                        "type": "integer",
+                                                        "nullable": true
+                                                    },
+                                                    "category1_name": {
+                                                        "description": "Category 1 name",
+                                                        "type": "string",
+                                                        "nullable": true
+                                                    },
+                                                    "category2_id": {
+                                                        "description": "Category 2 identifier",
+                                                        "type": "integer",
+                                                        "nullable": true
+                                                    },
+                                                    "category2_name": {
+                                                        "description": "Category 2 name",
+                                                        "type": "string",
+                                                        "nullable": true
+                                                    },
+                                                    "category3_id": {
+                                                        "description": "Category 3 identifier",
+                                                        "type": "integer",
+                                                        "nullable": true
+                                                    },
+                                                    "category3_name": {
+                                                        "description": "Category 3 name",
+                                                        "type": "string",
+                                                        "nullable": true
+                                                    },
                                                     "quantity_sold": {
                                                         "description": "Total quantity sold",
                                                         "type": "integer"
@@ -130,6 +160,31 @@
                                                         "description": "Last update timestamp",
                                                         "type": "string",
                                                         "format": "date-time"
+                                                    },
+                                                    "payment_plan": {
+                                                        "description": "Payment plan",
+                                                        "type": "string",
+                                                        "nullable": true
+                                                    },
+                                                    "bank": {
+                                                        "description": "Bank",
+                                                        "type": "string",
+                                                        "nullable": true
+                                                    },
+                                                    "beneficiary_name": {
+                                                        "description": "Beneficiary Name",
+                                                        "type": "string",
+                                                        "nullable": true
+                                                    },
+                                                    "account": {
+                                                        "description": "Account",
+                                                        "type": "string",
+                                                        "nullable": true
+                                                    },
+                                                    "account_type": {
+                                                        "description": "Account Type",
+                                                        "type": "string",
+                                                        "nullable": true
                                                     }
                                                 },
                                                 "type": "object"

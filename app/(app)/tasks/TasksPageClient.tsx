@@ -370,6 +370,22 @@ export default function TasksPageClient() {
     return taskDateStr === todayStr
   }
 
+  const getDaysUntilLabel = (task: TaskWithOpportunity) => {
+    const todayStr = getTodayInPanama()
+    const taskDateStr = formatDateForPanama(new Date(task.date))
+
+    const toUtcMidnight = (dateStr: string) => {
+      const [year, month, day] = dateStr.split('-').map(Number)
+      return Date.UTC(year, month - 1, day)
+    }
+
+    const diffDays = Math.round((toUtcMidnight(taskDateStr) - toUtcMidnight(todayStr)) / (24 * 60 * 60 * 1000))
+
+    if (diffDays === 0) return 'Hoy'
+    if (diffDays > 0) return `${diffDays} día${diffDays === 1 ? '' : 's'}`
+    return `${Math.abs(diffDays)} día${Math.abs(diffDays) === 1 ? '' : 's'} vencida`
+  }
+
   const filterTabs: FilterTab[] = [
     { id: 'all', label: 'Todas', count: counts.all },
     { id: 'pending', label: 'Pendientes', count: counts.pending },
@@ -677,7 +693,7 @@ export default function TasksPageClient() {
                             ? 'text-orange-600 font-medium' 
                             : 'text-slate-700'
                         }`}>
-                          {formatShortDate(task.date)}
+                          {formatShortDate(task.date)} ({getDaysUntilLabel(task)})
                         </span>
                       </TableCell>
 
