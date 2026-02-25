@@ -2,11 +2,12 @@
  * Sales Meeting Reminder Email Service
  *
  * Sends reminder emails to active sales users that have 0 meetings
- * registered in the last 48 hours.
+ * registered for the current day (Panama timezone).
  */
 
 import { prisma } from '@/lib/prisma'
 import { getAppBaseUrl } from '@/lib/config/env'
+import { formatSpanishFullDate, parseDateInPanamaTime, parseEndDateInPanamaTime, getTodayInPanama } from '@/lib/date'
 import { logger } from '@/lib/logger'
 import { resend, EMAIL_CONFIG } from '../config'
 import { renderSalesMeetingReminderEmail } from '../templates/sales-meeting-reminder'
@@ -23,8 +24,6 @@ interface ReminderTargetSummary {
   usersWithMeetings: number
 }
 
-const NO_MEETING_WINDOW_HOURS = 48
-
 function getDisplayName(name: string | null | undefined, email: string | null | undefined): string {
   if (name && name.trim()) return name
   if (email && email.includes('@')) return email.split('@')[0]
@@ -39,9 +38,10 @@ function chunkArray<T>(array: T[], size: number): T[][] {
   return chunks
 }
 
-async function getSalesUsersWithoutRecentMeetings(): Promise<ReminderTargetSummary> {
-  const windowEnd = new Date()
-  const windowStart = new Date(windowEnd.getTime() - NO_MEETING_WINDOW_HOURS * 60 * 60 * 1000)
+async function getSalesUsersWithoutMeetingsToday(): Promise<ReminderTargetSummary> {
+  const today = getTodayInPanama()
+  const startOfDay = parseDateInPanamaTime(today)
+  const endOfDay = parseEndDateInPanamaTime(today)
 
   const salesUsers = await prisma.userProfile.findMany({
     where: {
@@ -67,12 +67,12 @@ async function getSalesUsersWithoutRecentMeetings(): Promise<ReminderTargetSumma
 
   const salesUserIds = salesUsers.map((user) => user.clerkId)
 
-  const recentMeetings = await prisma.task.findMany({
+  const meetingsToday = await prisma.task.findMany({
     where: {
       category: 'meeting',
       date: {
-        gte: windowStart,
-        lte: windowEnd,
+        gte: startOfDay,
+        lte: endOfDay,
       },
       opportunity: {
         responsibleId: { in: salesUserIds },
@@ -87,14 +87,14 @@ async function getSalesUsersWithoutRecentMeetings(): Promise<ReminderTargetSumma
     },
   })
 
-  const usersWithRecentMeetings = new Set(
-    recentMeetings
+  const usersWithMeetingsToday = new Set(
+    meetingsToday
       .map((meeting) => meeting.opportunity.responsibleId)
       .filter((responsibleId): responsibleId is string => Boolean(responsibleId))
   )
 
   const targets = salesUsers
-    .filter((user) => !usersWithRecentMeetings.has(user.clerkId))
+    .filter((user) => !usersWithMeetingsToday.has(user.clerkId))
     .map((user) => ({
       userId: user.clerkId,
       userName: getDisplayName(user.name, user.email),
@@ -104,7 +104,7 @@ async function getSalesUsersWithoutRecentMeetings(): Promise<ReminderTargetSumma
   return {
     targets,
     totalSalesUsers: salesUsers.length,
-    usersWithMeetings: usersWithRecentMeetings.size,
+    usersWithMeetings: usersWithMeetingsToday.size,
   }
 }
 
@@ -125,12 +125,14 @@ export async function sendSalesMeetingReminders(): Promise<{
 
   try {
     const appBaseUrl = getAppBaseUrl()
-    const { targets, totalSalesUsers, usersWithMeetings } = await getSalesUsersWithoutRecentMeetings()
+    const today = getTodayInPanama()
+    const dateLabel = formatSpanishFullDate(parseDateInPanamaTime(today))
+    const { targets, totalSalesUsers, usersWithMeetings } = await getSalesUsersWithoutMeetingsToday()
 
     skipped = usersWithMeetings
 
     logger.info(
-      `[SalesMeetingReminder] Evaluated ${totalSalesUsers} users, ${targets.length} without meetings in last ${NO_MEETING_WINDOW_HOURS} hours`
+      `[SalesMeetingReminder] Evaluated ${totalSalesUsers} users, ${targets.length} without meetings`
     )
 
     if (targets.length === 0) {
@@ -152,10 +154,10 @@ export async function sendSalesMeetingReminders(): Promise<{
         from: EMAIL_CONFIG.from,
         to: target.userEmail,
         replyTo: EMAIL_CONFIG.replyTo,
-        subject: 'Recordatorio CRM: no registraste reuniones en las últimas 48 horas - OfertaSimple',
+        subject: 'Recordatorio CRM: no registraste reuniones hoy - OfertaSimple',
         html: renderSalesMeetingReminderEmail({
           userName: target.userName,
-          dateLabel: 'Últimas 48 horas',
+          dateLabel,
           meetingsCount: 0,
           crmUrl: `${appBaseUrl}/opportunities`,
         }),

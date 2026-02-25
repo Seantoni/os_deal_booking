@@ -16,6 +16,7 @@ import { renderDealAssignmentReadyEmail } from '@/lib/email/templates/deal-assig
 import { renderDailyCommentsEmail } from '@/lib/email/templates/daily-comments'
 import { renderSalesMeetingReminderEmail } from '@/lib/email/templates/sales-meeting-reminder'
 import { getAppBaseUrl } from '@/lib/config/env'
+import { formatSpanishFullDate } from '@/lib/date'
 import { logger } from '@/lib/logger'
 
 type EmailTemplateType =
@@ -205,7 +206,7 @@ export async function POST(req: Request) {
       case 'sales-meeting-reminder':
         html = renderSalesMeetingReminderEmail({
           userName: 'Usuario de Prueba',
-          dateLabel: 'Últimas 48 horas',
+          dateLabel: formatSpanishFullDate(new Date()),
           meetingsCount: 0,
           crmUrl: `${appBaseUrl}/opportunities`,
         })
