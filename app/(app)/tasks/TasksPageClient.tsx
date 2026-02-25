@@ -8,6 +8,7 @@ import { getOpportunity } from '@/app/actions/crm'
 import type { Opportunity } from '@/types'
 import toast from 'react-hot-toast'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
+import { useTaskCompletionFollowUp } from '@/hooks/useTaskCompletionFollowUp'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useSharedData } from '@/hooks/useSharedData'
@@ -233,13 +234,6 @@ export default function TasksPageClient() {
     }
   }, [optimisticTasks, serverCounts])
 
-  // React 19: Handle toggle complete using useOptimistic for instant UI update
-  const canOfferNewTaskAfterCompletion = useCallback((task: TaskWithOpportunity, notesOverride?: string | null) => {
-    if (task.category !== 'meeting') return true
-    const meetingData = parseMeetingData(notesOverride ?? task.notes ?? null)
-    return meetingData?.reachedAgreement === 'no'
-  }, [])
-
   const openNewTaskModalForOpportunity = useCallback((task: TaskWithOpportunity) => {
     setSelectedTask(null)
     setTaskCreationContext(task)
@@ -248,21 +242,10 @@ export default function TasksPageClient() {
     setTaskModalOpen(true)
   }, [])
 
-  const maybeOfferNewTaskAfterCompletion = useCallback(async (task: TaskWithOpportunity, notesOverride?: string | null) => {
-    if (!canOfferNewTaskAfterCompletion(task, notesOverride)) return
-
-    const openNewTask = await confirmDialog.confirm({
-      title: 'Tarea completada',
-      message: '¿Desea abrir una nueva tarea para continuar el seguimiento de esta oportunidad?',
-      confirmText: 'Sí, abrir nueva',
-      cancelText: 'No',
-      confirmVariant: 'primary',
-    })
-
-    if (openNewTask) {
-      openNewTaskModalForOpportunity(task)
-    }
-  }, [canOfferNewTaskAfterCompletion, confirmDialog, openNewTaskModalForOpportunity])
+  const taskCompletionFollowUp = useTaskCompletionFollowUp<TaskWithOpportunity>({
+    confirmDialog,
+    onOpenNewTask: openNewTaskModalForOpportunity,
+  })
 
   const handleToggleComplete = (task: TaskWithOpportunity) => {
     // If trying to complete a meeting, check if outcome fields are filled
@@ -292,7 +275,7 @@ export default function TasksPageClient() {
 
         const isCompleting = !task.completed
         if (isCompleting) {
-          void maybeOfferNewTaskAfterCompletion(task)
+          void taskCompletionFollowUp.maybeOfferNewTaskAfterCompletion(task)
         }
       } else {
         // On failure, the optimistic state will automatically revert when transition ends
@@ -417,7 +400,7 @@ export default function TasksPageClient() {
         const completedFromModal = isEditMode
           ? !selectedTask!.completed && finalTask.completed
           : finalTask.completed
-        const shouldOfferNewTask = completedFromModal && !!promptTaskContext && canOfferNewTaskAfterCompletion(promptTaskContext, data.notes)
+        const shouldOfferNewTask = completedFromModal && !!promptTaskContext && taskCompletionFollowUp.canOfferNewTaskAfterCompletion(promptTaskContext, data.notes)
 
         if (isEditMode) {
           toast.success(completedFromModal ? 'Tarea completada' : 'Tarea actualizada')
@@ -435,7 +418,7 @@ export default function TasksPageClient() {
         await loadTasks()
 
         if (shouldOfferNewTask && promptTaskContext) {
-          await maybeOfferNewTaskAfterCompletion(promptTaskContext, data.notes)
+          await taskCompletionFollowUp.maybeOfferNewTaskAfterCompletion(promptTaskContext, data.notes)
         }
       } else {
         setTaskError(result.error || (isEditMode ? 'Failed to update task' : 'Failed to create task'))

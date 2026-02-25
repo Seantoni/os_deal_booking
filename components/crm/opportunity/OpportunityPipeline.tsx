@@ -9,9 +9,17 @@ const STAGE_LABELS_SHORT: Record<OpportunityStage, string> = {
   iniciacion: 'Inicio',
   reunion: 'Reunión',
   propuesta_enviada: 'Enviada',
-  propuesta_aprobada: 'Aprobada',
+  propuesta_aprobada: 'Won',
   won: 'Won',
   lost: 'Lost',
+}
+
+function normalizePipelineStage(stage: OpportunityStage): OpportunityStage {
+  // Legacy support: "propuesta_aprobada" is now treated as "won" in the UI.
+  if (stage === 'propuesta_aprobada') {
+    return 'won'
+  }
+  return stage
 }
 
 interface OpportunityPipelineProps {
@@ -21,14 +29,16 @@ interface OpportunityPipelineProps {
 }
 
 export default function OpportunityPipeline({ stage, onStageChange, saving = false }: OpportunityPipelineProps) {
+  const normalizedStage = normalizePipelineStage(stage)
+  const currentStageIndex = STAGES.indexOf(normalizedStage)
+
   return (
     <div className="flex items-center justify-between gap-3">
       {/* Mobile: horizontally scrollable, Desktop: flex */}
       <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
         {STAGES.map((s, index) => {
-          const isActive = stage === s
-          const isPast = STAGES.indexOf(stage) > index
-          const isFuture = STAGES.indexOf(stage) < index
+          const isActive = normalizedStage === s
+          const isPast = currentStageIndex > index
           const isLast = index === STAGES.length - 1
 
           return (

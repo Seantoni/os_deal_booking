@@ -81,6 +81,30 @@ export function getTodayInPanama(): string {
 }
 
 /**
+ * Add business days (Mon-Fri) to a Panama date string.
+ * Weekends are skipped; holidays are not considered.
+ */
+export function addBusinessDaysInPanama(startDate: string, businessDays: number): string {
+  if (!Number.isFinite(businessDays) || businessDays === 0) {
+    return startDate
+  }
+
+  const direction = businessDays > 0 ? 1 : -1
+  let remaining = Math.abs(Math.trunc(businessDays))
+  let cursor = parseDateInPanamaTime(startDate)
+
+  while (remaining > 0) {
+    cursor = new Date(cursor.getTime() + direction * ONE_DAY_MS)
+    const weekday = cursor.getUTCDay() // 0=Sunday, 6=Saturday
+    if (weekday !== 0 && weekday !== 6) {
+      remaining -= 1
+    }
+  }
+
+  return formatDateForPanama(cursor)
+}
+
+/**
  * Get an inclusive date range ending today in Panama timezone.
  * Example for 7 days on Feb 24 -> { startDate: Feb 18, endDate: Feb 24 }.
  */

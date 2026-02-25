@@ -154,21 +154,23 @@ export default function ConfirmDialog({
                 {cancelText}
               </Button>
             )}
-            <Button
-              onClick={onConfirm}
-              variant={getButtonVariant()}
-              disabled={loading}
-              className={confirmVariant === 'success' ? 'bg-green-600 hover:bg-green-700' : ''}
-            >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  {loadingText || confirmText}
-                </span>
-              ) : (
-                confirmText
-              )}
-            </Button>
+            {confirmText && (
+              <Button
+                onClick={onConfirm}
+                variant={getButtonVariant()}
+                disabled={loading}
+                className={confirmVariant === 'success' ? 'bg-green-600 hover:bg-green-700' : ''}
+              >
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    {loadingText || confirmText}
+                  </span>
+                ) : (
+                  confirmText
+                )}
+              </Button>
+            )}
           </div>
         </div>
       </div>

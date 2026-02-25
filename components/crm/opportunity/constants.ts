@@ -4,7 +4,6 @@ export const STAGES: OpportunityStage[] = [
   'iniciacion',
   'reunion',
   'propuesta_enviada',
-  'propuesta_aprobada',
   'won',
   'lost',
 ]
@@ -26,4 +25,3 @@ export const STAGE_COLORS: Record<OpportunityStage, { bg: string; text: string; 
   won: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', hover: 'hover:bg-emerald-100', check: 'text-emerald-500' },
   lost: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200', hover: 'hover:bg-red-100', check: 'text-red-400' },
 }
-

@@ -1,19 +1,20 @@
 'use client'
 
-import { useState, useMemo, useEffect, useTransition, lazy, Suspense } from 'react'
+import { useState, useMemo, useEffect, useTransition, lazy, Suspense, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { createOpportunity, updateOpportunity, createTask, updateTask, deleteTask } from '@/app/actions/crm'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
 import { useCachedFormConfig } from '@/hooks/useFormConfigCache'
-import { getTodayInPanama, formatDateForPanama } from '@/lib/date/timezone'
+import { getTodayInPanama, formatDateForPanama, addBusinessDaysInPanama } from '@/lib/date/timezone'
 import type { Opportunity, OpportunityStage, Task, Business, UserData } from '@/types'
 import type { Category } from '@prisma/client'
 import HandshakeIcon from '@mui/icons-material/Handshake'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import EventIcon from '@mui/icons-material/Event'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
+import { useTaskCompletionFollowUp } from '@/hooks/useTaskCompletionFollowUp'
 import { useOpportunityForm } from './useOpportunityForm'
 import OpportunityPipeline from './OpportunityPipeline'
 import ReferenceInfoBar from '@/components/shared/ReferenceInfoBar'
@@ -38,7 +39,7 @@ const ConfirmDialog = lazy(() => import('@/components/common/ConfirmDialog'))
 const BusinessFormModal = lazy(() => import('@/components/crm/business/BusinessFormModal'))
 
 // Import for checking meeting data (non-lazy, small utility function)
-import { parseMeetingData } from './TaskModal'
+import { parseMeetingData, type MeetingData } from './TaskModal'
 import { useActivityDictation, type ClassifiedActivityFields } from './useActivityDictation'
 import AiVoiceVisualizer from '@/components/shared/AiVoiceVisualizer'
 
@@ -70,6 +71,34 @@ interface OpportunityFormModalProps {
   preloadedBusinesses?: Business[]
   preloadedCategories?: Category[]
   preloadedUsers?: UserData[]
+}
+
+type AgreementPipelineDecision = 'keep_reunion' | 'propuesta_enviada' | 'won'
+
+const MEETING_AUTOMATION_LOG_PREFIX = '[OppMeetingAutomation]'
+
+function normalizeAutomationStage(rawStage: string | null | undefined): OpportunityStage | 'unknown' {
+  const stageValue = (rawStage || '').trim().toLowerCase()
+  switch (stageValue) {
+    case 'iniciacion':
+    case 'iniciación':
+      return 'iniciacion'
+    case 'reunion':
+    case 'reunión':
+      return 'reunion'
+    case 'propuesta_enviada':
+    case 'propuesta enviada':
+      return 'propuesta_enviada'
+    case 'propuesta_aprobada':
+    case 'propuesta aprobada':
+      return 'propuesta_aprobada'
+    case 'won':
+      return 'won'
+    case 'lost':
+      return 'lost'
+    default:
+      return 'unknown'
+  }
 }
 
 export default function OpportunityFormModal({
@@ -129,6 +158,32 @@ export default function OpportunityFormModal({
 
   const confirmDialog = useConfirmDialog()
 
+  function logMeetingAutomation(event: string, payload?: Record<string, unknown>) {
+    const timestamp = new Date().toISOString()
+    if (payload) {
+      let serialized = ''
+      try {
+        serialized = JSON.stringify(payload)
+      } catch {
+        serialized = '[unserializable-payload]'
+      }
+      console.info(`${MEETING_AUTOMATION_LOG_PREFIX} ${timestamp} ${event} ${serialized}`)
+      return
+    }
+    console.info(`${MEETING_AUTOMATION_LOG_PREFIX} ${timestamp} ${event}`)
+  }
+
+  const taskCompletionFollowUp = useTaskCompletionFollowUp<Task>({
+    confirmDialog,
+    onOpenNewTask: () => {
+      setError('')
+      openTaskModal()
+    },
+    onLog: (event, payload) => {
+      logMeetingAutomation(`completionFollowUp:${event}`, payload)
+    },
+  })
+
   const {
     businessId,
     setBusinessId,
@@ -161,6 +216,11 @@ export default function OpportunityFormModal({
 
   // Track tasks being toggled for loading state
   const [togglingTaskIds, setTogglingTaskIds] = useState<Set<string>>(new Set())
+  const stageRef = useRef<string>(stage)
+
+  useEffect(() => {
+    stageRef.current = stage
+  }, [stage])
 
   // Build initial values from opportunity entity
   // Note: categoryId, tier, contactName, contactPhone, contactEmail come from the linked business
@@ -392,6 +452,273 @@ export default function OpportunityFormModal({
     setPendingLostStage(null)
   }
 
+  async function createProposalFollowUpTask() {
+    if (!opportunity) return
+
+    const followUpDate = addBusinessDaysInPanama(getTodayInPanama(), 2)
+    logMeetingAutomation('createProposalFollowUpTask:start', {
+      opportunityId: opportunity.id,
+      followUpDate,
+    })
+
+    const formData = new FormData()
+    formData.append('opportunityId', opportunity.id)
+    formData.append('category', 'todo')
+    formData.append('title', 'Dar seguimiento a propuesta enviada')
+    formData.append('date', followUpDate)
+    formData.append('notes', 'Tarea creada automáticamente tras marcar la oportunidad en "Propuesta enviada".')
+
+    const result = await createTask(formData)
+    if (result.success && result.data) {
+      logMeetingAutomation('createProposalFollowUpTask:success', {
+        taskId: result.data.id,
+        taskDate: String(result.data.date),
+      })
+      setTasks(prev => [...prev, result.data].sort((a, b) =>
+        new Date(a.date).getTime() - new Date(b.date).getTime()
+      ))
+    } else {
+      logMeetingAutomation('createProposalFollowUpTask:failed', {
+        error: result.error || 'unknown',
+      })
+      setError(result.error || 'No se pudo crear la tarea automática de seguimiento')
+    }
+  }
+
+  function askStageDecision(opts: {
+    title: string
+    description: string
+    options: Array<{ value: string; label: string; className: string }>
+    cancelLabel: string
+  }): Promise<string | null> {
+    return new Promise((resolve) => {
+      const buttons = (
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600 text-center">{opts.description}</p>
+          <div className="flex flex-col gap-2">
+            {opts.options.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                className={`w-full py-2.5 px-4 text-sm font-semibold rounded-lg transition-colors ${opt.className}`}
+                onClick={() => {
+                  confirmDialog.handleCancel()
+                  resolve(opt.value)
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )
+
+      confirmDialog.confirm({
+        title: opts.title,
+        message: buttons,
+        confirmText: '',
+        cancelText: opts.cancelLabel,
+        confirmVariant: 'primary',
+      }).then(() => {
+        resolve(null)
+      }).catch(() => {
+        resolve(null)
+      })
+    })
+  }
+
+  async function askIniciacionAgreementDecision(): Promise<'reunion' | 'propuesta_enviada' | 'won' | 'keep'> {
+    logMeetingAutomation('askIniciacionAgreementDecision:start')
+
+    const decision = await askStageDecision({
+      title: 'Acuerdo alcanzado',
+      description: '¿A qué etapa desea mover esta oportunidad?',
+      options: [
+        { value: 'reunion', label: 'Reunión', className: 'bg-blue-600 text-white hover:bg-blue-700' },
+        { value: 'propuesta_enviada', label: 'Propuesta Enviada', className: 'bg-indigo-600 text-white hover:bg-indigo-700' },
+        { value: 'won', label: 'Won (Ganada)', className: 'bg-green-600 text-white hover:bg-green-700' },
+      ],
+      cancelLabel: 'Mantener en Iniciación',
+    })
+
+    const result = (decision as 'reunion' | 'propuesta_enviada' | 'won') || 'keep'
+    logMeetingAutomation('askIniciacionAgreementDecision:result', { result })
+    return result
+  }
+
+  async function askAgreementPipelineDecision(): Promise<AgreementPipelineDecision> {
+    logMeetingAutomation('askAgreementPipelineDecision:start')
+
+    const decision = await askStageDecision({
+      title: 'Acuerdo alcanzado',
+      description: '¿A qué etapa desea mover esta oportunidad?',
+      options: [
+        { value: 'propuesta_enviada', label: 'Propuesta Enviada', className: 'bg-indigo-600 text-white hover:bg-indigo-700' },
+        { value: 'won', label: 'Won (Ganada)', className: 'bg-green-600 text-white hover:bg-green-700' },
+      ],
+      cancelLabel: 'Mantener en Reunión',
+    })
+
+    const result = (decision as 'propuesta_enviada' | 'won') || 'keep_reunion'
+    logMeetingAutomation('askAgreementPipelineDecision:result', { result })
+    return result as AgreementPipelineDecision
+  }
+
+  async function handleWonPostActions() {
+    logMeetingAutomation('handleWonPostActions:start')
+
+    const createRequestNow = await confirmDialog.confirm({
+      title: 'Oportunidad ganada',
+      message: '¿Desea crear la solicitud/contrato ahora?',
+      confirmText: 'Sí, crear solicitud',
+      cancelText: 'No, después',
+      confirmVariant: 'primary',
+    })
+    logMeetingAutomation('handleWonPostActions:result', {
+      createRequestNow,
+    })
+
+    if (createRequestNow) {
+      handleCreateRequest()
+    }
+  }
+
+  async function handleMeetingCompletionPipelineAutomation(meetingData: MeetingData | null, capturedStage: string) {
+    const normalizedStage = normalizeAutomationStage(capturedStage)
+
+    logMeetingAutomation('handleMeetingCompletionPipelineAutomation:start', {
+      capturedStage,
+      normalizedStage,
+      reachedAgreement: meetingData?.reachedAgreement || null,
+      hasNextSteps: !!meetingData?.nextSteps?.trim(),
+    })
+
+    if (!meetingData?.nextSteps?.trim()) {
+      logMeetingAutomation('handleMeetingCompletionPipelineAutomation:exit_no_next_steps')
+      return
+    }
+
+    // Only automate from iniciacion or reunion stages
+    if (normalizedStage !== 'iniciacion' && normalizedStage !== 'reunion') {
+      logMeetingAutomation('handleMeetingCompletionPipelineAutomation:exit_wrong_stage', {
+        capturedStage,
+        normalizedStage,
+      })
+      return
+    }
+
+    // --- FROM INICIACIÓN ---
+    if (normalizedStage === 'iniciacion') {
+      if (meetingData.reachedAgreement === 'no') {
+        // No agreement from iniciacion → auto-move to reunion
+        logMeetingAutomation('handleMeetingCompletionPipelineAutomation:iniciacion_no_agreement_auto_reunion')
+        await handleStageChange('reunion')
+        return
+      }
+
+      if (meetingData.reachedAgreement === 'si') {
+        // Agreement from iniciacion → prompt: reunion / propuesta_enviada / won
+        logMeetingAutomation('handleMeetingCompletionPipelineAutomation:iniciacion_agreement_prompt')
+        const decision = await askIniciacionAgreementDecision()
+        logMeetingAutomation('handleMeetingCompletionPipelineAutomation:iniciacion_decision', { decision })
+
+        if (decision === 'reunion') {
+          await handleStageChange('reunion')
+        } else if (decision === 'propuesta_enviada') {
+          await handleStageChange('propuesta_enviada')
+          await createProposalFollowUpTask()
+        } else if (decision === 'won') {
+          await handleStageChange('won')
+          await handleWonPostActions()
+        }
+        return
+      }
+
+      logMeetingAutomation('handleMeetingCompletionPipelineAutomation:exit_invalid_agreement', {
+        reachedAgreement: meetingData.reachedAgreement,
+      })
+      return
+    }
+
+    // --- FROM REUNIÓN ---
+    if (meetingData.reachedAgreement === 'no') {
+      logMeetingAutomation('handleMeetingCompletionPipelineAutomation:reunion_no_agreement')
+      return
+    }
+
+    if (meetingData.reachedAgreement !== 'si') {
+      logMeetingAutomation('handleMeetingCompletionPipelineAutomation:exit_invalid_agreement', {
+        reachedAgreement: meetingData.reachedAgreement,
+      })
+      return
+    }
+
+    const pipelineDecision = await askAgreementPipelineDecision()
+    logMeetingAutomation('handleMeetingCompletionPipelineAutomation:reunion_decision', { pipelineDecision })
+
+    if (pipelineDecision === 'propuesta_enviada') {
+      await handleStageChange('propuesta_enviada')
+      await createProposalFollowUpTask()
+      return
+    }
+
+    if (pipelineDecision === 'won') {
+      await handleStageChange('won')
+      await handleWonPostActions()
+    }
+  }
+
+  function shouldRunMeetingAutomation(params: {
+    previousMeetingData: MeetingData | null
+    currentMeetingData: MeetingData | null
+    wasCompletedBefore: boolean
+    isCompletedNow: boolean
+  }): boolean {
+    const { previousMeetingData, currentMeetingData, wasCompletedBefore, isCompletedNow } = params
+    if (!currentMeetingData?.nextSteps?.trim()) {
+      logMeetingAutomation('shouldRunMeetingAutomation:false_no_next_steps')
+      return false
+    }
+    if (!currentMeetingData.reachedAgreement) {
+      logMeetingAutomation('shouldRunMeetingAutomation:false_no_agreement_value')
+      return false
+    }
+
+    const previousOutcomeRecorded = !!previousMeetingData?.nextSteps?.trim()
+    const agreementChanged = previousMeetingData?.reachedAgreement !== currentMeetingData.reachedAgreement
+    const completedDuringThisSave = !wasCompletedBefore && isCompletedNow
+    const shouldRun = !previousOutcomeRecorded || agreementChanged || completedDuringThisSave
+
+    logMeetingAutomation('shouldRunMeetingAutomation:evaluated', {
+      previousOutcomeRecorded,
+      agreementChanged,
+      completedDuringThisSave,
+      shouldRun,
+      wasCompletedBefore,
+      isCompletedNow,
+      previousAgreement: previousMeetingData?.reachedAgreement || null,
+      currentAgreement: currentMeetingData.reachedAgreement,
+    })
+
+    return shouldRun
+  }
+
+  function queueMeetingCompletionPipelineAutomation(meetingData: MeetingData | null, capturedStage: string) {
+    if (!meetingData) {
+      logMeetingAutomation('queueMeetingCompletionPipelineAutomation:skip_null_meeting_data')
+      return
+    }
+    logMeetingAutomation('queueMeetingCompletionPipelineAutomation:queued', {
+      capturedStage,
+      reachedAgreement: meetingData.reachedAgreement,
+      hasNextSteps: !!meetingData.nextSteps?.trim(),
+    })
+    void Promise.resolve().then(async () => {
+      logMeetingAutomation('queueMeetingCompletionPipelineAutomation:executing')
+      await handleMeetingCompletionPipelineAutomation(meetingData, capturedStage)
+    })
+  }
+
   // React 19: Form submit handler using useTransition
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -456,6 +783,16 @@ export default function OpportunityFormModal({
       return
     }
 
+    logMeetingAutomation('handleTaskSubmit:start', {
+      category: data.category,
+      selectedTaskId: selectedTask?.id || null,
+      completingTaskId: completingTaskId || null,
+      stage,
+      runtimeStage: stageRef.current,
+      normalizedRuntimeStage: normalizeAutomationStage(stageRef.current),
+      hasNotes: !!data.notes,
+    })
+
     setError('')
 
     startTaskTransition(async () => {
@@ -492,21 +829,29 @@ export default function OpportunityFormModal({
         if (result.success && result.data) {
           let updatedTask = result.data
           const taskId = selectedTask?.id || result.data.id
+          const wasCompletedBefore = !!selectedTask?.completed
+          const previousMeetingData = selectedTask?.category === 'meeting'
+            ? parseMeetingData(selectedTask.notes)
+            : null
+          const meetingData = data.category === 'meeting'
+            ? parseMeetingData(data.notes)
+            : null
+          logMeetingAutomation('handleTaskSubmit:task_saved', {
+            taskId,
+            category: data.category,
+            wasCompletedBefore,
+            isCompletedAfterSave: updatedTask.completed,
+            parsedMeetingData: !!meetingData,
+            reachedAgreement: meetingData?.reachedAgreement || null,
+            hasNextSteps: !!meetingData?.nextSteps?.trim(),
+          })
           
           // For meetings, complete when meeting already happened or outcome is recorded.
           let shouldAutoComplete = !!options?.markCompleted
-          let shouldAskWon = false
           
-          if (data.category === 'meeting') {
-            const meetingData = parseMeetingData(data.notes)
-            // If nextSteps is filled, the meeting outcome is recorded - auto-complete
-            if (meetingData?.nextSteps?.trim()) {
-              shouldAutoComplete = true
-              // If agreement reached, ask about Won stage
-              if (meetingData.reachedAgreement === 'si' && stage !== 'won') {
-                shouldAskWon = true
-              }
-            }
+          // If nextSteps is filled, the meeting outcome is recorded - auto-complete.
+          if (meetingData?.nextSteps?.trim()) {
+            shouldAutoComplete = true
           }
           
           // Auto-complete if outcome fields are filled OR if we were explicitly completing
@@ -526,7 +871,7 @@ export default function OpportunityFormModal({
             }
             setCompletingTaskId(null)
           }
-          
+
           // Update tasks state
           if (selectedTask) {
             setTasks(prev => prev.map(t => t.id === selectedTask.id ? updatedTask : t))
@@ -537,20 +882,29 @@ export default function OpportunityFormModal({
           // Close modal
           setTaskModalOpen(false)
           setSelectedTask(null)
-          
-          // Ask about Won stage if agreement was reached
-          if (shouldAskWon) {
-            const wantToWin = await confirmDialog.confirm({
-              title: '¡Acuerdo Alcanzado!',
-              message: 'Se llegó a un acuerdo en esta reunión. ¿Desea marcar esta oportunidad como Ganada (Won)?',
-              confirmText: 'Sí, marcar como Ganada',
-              cancelText: 'No, mantener estado actual',
-              confirmVariant: 'success',
-            })
-            
-            if (wantToWin) {
-              handleStageChange('won')
-            }
+
+          const completedFromModal = selectedTask
+            ? !selectedTask.completed && updatedTask.completed
+            : updatedTask.completed
+
+          const shouldRunAutomation = data.category === 'meeting' && shouldRunMeetingAutomation({
+            previousMeetingData,
+            currentMeetingData: meetingData,
+            wasCompletedBefore,
+            isCompletedNow: updatedTask.completed,
+          })
+
+          logMeetingAutomation('handleTaskSubmit:automation_decision', {
+            shouldRunAutomation,
+            category: data.category,
+          })
+
+          if (shouldRunAutomation) {
+            queueMeetingCompletionPipelineAutomation(meetingData, stage)
+          }
+
+          if (completedFromModal) {
+            await taskCompletionFollowUp.maybeOfferNewTaskAfterCompletion(updatedTask, data.notes)
           }
         } else {
           if (selectedTask) {
@@ -612,13 +966,29 @@ export default function OpportunityFormModal({
 
   // Toggle task completion with immediate optimistic update
   async function handleToggleTaskComplete(task: Task) {
+    const existingMeetingData = task.category === 'meeting' ? parseMeetingData(task.notes) : null
+    logMeetingAutomation('handleToggleTaskComplete:start', {
+      taskId: task.id,
+      category: task.category,
+      currentlyCompleted: task.completed,
+      hasExistingMeetingData: !!existingMeetingData,
+      reachedAgreement: existingMeetingData?.reachedAgreement || null,
+      hasNextSteps: !!existingMeetingData?.nextSteps?.trim(),
+      stage,
+      runtimeStage: stageRef.current,
+      normalizedRuntimeStage: normalizeAutomationStage(stageRef.current),
+    })
+
     // If trying to complete a meeting, check if outcome fields are filled
     if (task.category === 'meeting' && !task.completed) {
-      const meetingData = parseMeetingData(task.notes)
       // Meeting outcome fields must be filled (nextSteps) before completing
       // Check for missing data, empty string, or whitespace-only
-      const hasNextSteps = meetingData?.nextSteps?.trim()
-      if (!meetingData || !hasNextSteps) {
+      const hasNextSteps = existingMeetingData?.nextSteps?.trim()
+      if (!existingMeetingData || !hasNextSteps) {
+        logMeetingAutomation('handleToggleTaskComplete:open_modal_for_completion', {
+          taskId: task.id,
+          reason: !existingMeetingData ? 'missing_meeting_data' : 'missing_next_steps',
+        })
         // Open task modal for editing and track that we're completing it
         setCompletingTaskId(task.id)
         openTaskModal(task, true)
@@ -628,6 +998,7 @@ export default function OpportunityFormModal({
 
     // Immediately update UI (optimistic)
     const newCompletedState = !task.completed
+    const isCompleting = !task.completed
     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: newCompletedState } : t))
     setTogglingTaskIds(prev => new Set(prev).add(task.id))
 
@@ -644,11 +1015,36 @@ export default function OpportunityFormModal({
       if (result.success && result.data) {
         // Confirm with server data
         setTasks(prev => prev.map(t => t.id === task.id ? result.data : t))
+        logMeetingAutomation('handleToggleTaskComplete:update_success', {
+          taskId: task.id,
+          newCompletedState,
+        })
+
+        if (task.category === 'meeting' && isCompleting) {
+          const completedMeetingData = parseMeetingData(result.data.notes)
+          logMeetingAutomation('handleToggleTaskComplete:queue_automation', {
+            taskId: task.id,
+            reachedAgreement: completedMeetingData?.reachedAgreement || null,
+            hasNextSteps: !!completedMeetingData?.nextSteps?.trim(),
+          })
+          queueMeetingCompletionPipelineAutomation(completedMeetingData, stage)
+        }
+
+        if (isCompleting) {
+          await taskCompletionFollowUp.maybeOfferNewTaskAfterCompletion(result.data)
+        }
       } else {
+        logMeetingAutomation('handleToggleTaskComplete:update_failed', {
+          taskId: task.id,
+          error: result.error || 'unknown',
+        })
         // Revert on failure
         setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: task.completed } : t))
       }
     } catch (err) {
+      logMeetingAutomation('handleToggleTaskComplete:exception', {
+        taskId: task.id,
+      })
       // Revert on error
       setTasks(prev => prev.map(t => t.id === task.id ? { ...t, completed: task.completed } : t))
     } finally {
@@ -680,7 +1076,10 @@ export default function OpportunityFormModal({
   }
 
   function handleCreateRequest() {
-    if (!linkedBusiness || !opportunity) return
+    if (!linkedBusiness || !opportunity) {
+      setError('No se puede crear la solicitud porque falta la empresa vinculada')
+      return
+    }
 
     // Build query parameters with business data for pre-filling the booking form
     const params = new URLSearchParams()
