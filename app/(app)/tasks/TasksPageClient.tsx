@@ -92,7 +92,7 @@ interface MeetingPipelineAutomationResult {
 export default function TasksPageClient() {
   const router = useRouter()
   const { isAdmin } = useUserRole()
-  const { users } = useSharedData()
+  const { categories, users } = useSharedData()
   const confirmDialog = useConfirmDialog()
   
   // Get form config cache for prefetching
@@ -1244,6 +1244,8 @@ export default function TasksPageClient() {
           onSuccess={(updatedOpportunity) => {
             loadTasks()
           }}
+          preloadedCategories={categories}
+          preloadedUsers={users}
         />
       )}
 

@@ -46,6 +46,7 @@ import { getDealsByBusiness } from '@/app/actions/deals'
 import { fetchEditableBusinessIds } from '@/app/actions/businesses'
 import type { Business, Opportunity, BookingRequest, Deal } from '@/types'
 import type { OpportunityModalSuccessMeta } from '@/components/crm/opportunity/opportunityModalTypes'
+import { useSharedData } from '@/hooks/useSharedData'
 
 function InfoRow({ label, value, icon, isLink, href }: { label: string; value?: string | null; icon?: React.ReactNode; isLink?: boolean; href?: string }) {
   if (!value && value !== '0') return null
@@ -103,6 +104,7 @@ export default function BusinessDetailClient({
   business: initialBusiness,
   initialCommissionPct = null,
 }: BusinessDetailClientProps) {
+  const { categories, users } = useSharedData()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [business, setBusiness] = useState<Business>(initialBusiness)
@@ -626,6 +628,8 @@ export default function BusinessDetailClient({
         onSuccess={handleOpportunitySuccess}
         initialBusinessId={business.id}
         preloadedBusinesses={[business]}
+        preloadedCategories={categories}
+        preloadedUsers={users}
       />
 
       {/* Deal Modal */}

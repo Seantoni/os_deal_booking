@@ -21,6 +21,7 @@ import {
 } from './OpportunityModalSkeleton'
 import OpportunityModalHeader from './OpportunityModalHeader'
 import OpportunityTabNav, { type OpportunityTab } from './OpportunityTabNav'
+import OpportunityDetailsTab from './OpportunityDetailsTab'
 import { buildOpportunityFormData } from './opportunityFormPayload'
 import { useActivityDictation } from './useActivityDictation'
 import { useOpportunityStageManager } from './useOpportunityStageManager'
@@ -34,7 +35,6 @@ const TaskModal = lazy(() => import('./TaskModal'))
 const LostReasonModal = lazy(() => import('./LostReasonModal'))
 const ConfirmDialog = lazy(() => import('@/components/common/ConfirmDialog'))
 const BusinessFormModal = lazy(() => import('@/components/crm/business/BusinessFormModal'))
-const OpportunityDetailsTab = lazy(() => import('./OpportunityDetailsTab'))
 const OpportunityActivityTab = lazy(() => import('./OpportunityActivityTab'))
 const OpportunityChatTab = lazy(() => import('./OpportunityChatTab'))
 const OpportunityHistoryTab = lazy(() => import('./OpportunityHistoryTab'))
@@ -79,7 +79,7 @@ export default function OpportunityFormModal({
   const { isAdmin } = useUserRole()
   const confirmDialog = useConfirmDialog()
 
-  const [activeTab, setActiveTab] = useState<OpportunityTab>(initialTab)
+  const [selectedTab, setSelectedTab] = useState<OpportunityTab | null>(null)
   const [error, setError] = useState('')
   const [bookingRequestModalOpen, setBookingRequestModalOpen] = useState(false)
   const [businessModalOpen, setBusinessModalOpen] = useState(false)
@@ -87,12 +87,12 @@ export default function OpportunityFormModal({
   const [isSubmitPending, startSubmitTransition] = useTransition()
 
   const { sections: cachedSections, initialized: cachedInitialized } = useCachedFormConfig('opportunity')
+  const activeTab = selectedTab ?? initialTab
 
-  useEffect(() => {
-    if (isOpen) {
-      setActiveTab(initialTab)
-    }
-  }, [isOpen, initialTab])
+  const handleClose = useCallback(() => {
+    setSelectedTab(null)
+    onClose()
+  }, [onClose])
 
   const {
     businessId,
@@ -231,9 +231,9 @@ export default function OpportunityFormModal({
     if (linkedBusiness.website) params.set('website', linkedBusiness.website)
     if (linkedBusiness.instagram) params.set('instagram', linkedBusiness.instagram)
 
-    onClose()
+    handleClose()
     router.push(`/booking-requests/new?${params.toString()}`)
-  }, [linkedBusiness, onClose, opportunity, router])
+  }, [handleClose, linkedBusiness, opportunity, router])
 
   const stageManager = useOpportunityStageManager({
     opportunity,
@@ -336,7 +336,7 @@ export default function OpportunityFormModal({
             console.warn('Failed to save custom fields:', customFieldResult.error)
           }
           onSuccess(result.data, { source: 'submit' })
-          onClose()
+          handleClose()
         } else {
           setError(result.error || 'Error al guardar la oportunidad')
         }
@@ -360,7 +360,7 @@ export default function OpportunityFormModal({
     <>
       <ModalShell
         isOpen={isOpen}
-        onClose={onClose}
+        onClose={handleClose}
         title={opportunity ? (opportunity.business?.name || 'Editar Oportunidad') : (linkedBusiness?.name || 'Nueva Oportunidad')}
         subtitle="Oportunidad"
         icon={<HandshakeIcon fontSize="medium" />}
@@ -368,7 +368,7 @@ export default function OpportunityFormModal({
         footer={
           activeTab === 'details' ? (
             <ModalFooter
-              onCancel={onClose}
+              onCancel={handleClose}
               submitLabel={isViewOnly ? undefined : 'Guardar'}
               submitLoading={loading || loadingData || dynamicForm.loading}
               submitDisabled={isViewOnly || loading || loadingData || dynamicForm.loading || !responsibleId || responsibleId === '__unassigned__'}
@@ -377,7 +377,7 @@ export default function OpportunityFormModal({
             />
           ) : (
             <ModalFooter
-              onCancel={onClose}
+              onCancel={handleClose}
               leftContent={activeTab === 'activity' && isViewOnly ? 'Solo lectura - No tiene permisos para editar' : undefined}
             />
           )
@@ -401,7 +401,7 @@ export default function OpportunityFormModal({
           onCreateRequest={handleCreateRequest}
         />
 
-        <OpportunityTabNav activeTab={activeTab} onChange={setActiveTab} />
+        <OpportunityTabNav activeTab={activeTab} onChange={setSelectedTab} />
 
         <form id="opportunity-modal-form" onSubmit={handleSubmit} className="bg-white min-h-[300px] md:min-h-[500px] flex flex-col">
           {error && (
@@ -412,27 +412,25 @@ export default function OpportunityFormModal({
           )}
 
           {activeTab === 'details' && (
-            <Suspense fallback={<TabLoadingFallback />}>
-              <OpportunityDetailsTab
-                isLoading={loadingData || dynamicForm.loading}
-                loading={loading}
-                isViewOnly={isViewOnly}
-                dynamicForm={dynamicForm}
-                categoryOptions={categoryOptions}
-                userOptions={userOptions}
-                allBusinesses={allBusinesses}
-                isEditMode={isEditMode}
-                opportunity={opportunity}
-                stage={stage}
-                linkedBusiness={linkedBusiness}
-                linkedBusinessProjection={linkedBusinessProjection}
-                linkedBookingRequest={linkedBookingRequest}
-                linkedBookingRequestProjection={linkedBookingRequestProjection}
-                onEditBusiness={handleEditBusiness}
-                onViewLinkedRequest={handleViewLinkedRequest}
-                onOpenLostReasonEditor={stageManager.openLostReasonEditor}
-              />
-            </Suspense>
+            <OpportunityDetailsTab
+              isLoading={loadingData || dynamicForm.loading}
+              loading={loading}
+              isViewOnly={isViewOnly}
+              dynamicForm={dynamicForm}
+              categoryOptions={categoryOptions}
+              userOptions={userOptions}
+              allBusinesses={allBusinesses}
+              isEditMode={isEditMode}
+              opportunity={opportunity}
+              stage={stage}
+              linkedBusiness={linkedBusiness}
+              linkedBusinessProjection={linkedBusinessProjection}
+              linkedBookingRequest={linkedBookingRequest}
+              linkedBookingRequestProjection={linkedBookingRequestProjection}
+              onEditBusiness={handleEditBusiness}
+              onViewLinkedRequest={handleViewLinkedRequest}
+              onOpenLostReasonEditor={stageManager.openLostReasonEditor}
+            />
           )}
 
           {!loadingData && activeTab === 'activity' && (

@@ -12,6 +12,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert'
 import { TableRow, TableCell } from '@/components/shared/table'
 import { formatShortDate } from '@/lib/date'
 import { translatePipelineStage } from '@/lib/utils/translations'
+import { useSharedData } from '@/hooks/useSharedData'
 
 // Lazy load heavy modal components
 const OpportunityFormModal = dynamic(() => import('@/components/crm/opportunity/OpportunityFormModal'), {
@@ -103,6 +104,7 @@ export default function UnifiedPipelineTable({
   preBookedEvents, 
   searchQuery 
 }: UnifiedPipelineTableProps) {
+  const { categories, users } = useSharedData()
   
   // --- Data Normalization Logic ---
   const rows: UnifiedRow[] = []
@@ -141,7 +143,7 @@ export default function UnifiedPipelineTable({
   })
 
   // 2. Process Opportunities/Requests (that didn't become deals yet)
-  opportunities.forEach(item => {
+  opportunities.forEach((item, index) => {
     // Skip if already processed via deal
     if (item.opportunity?.id && processedIds.has(item.opportunity.id)) return
     if (item.bookingRequest?.id && processedIds.has(item.bookingRequest.id)) return
@@ -178,8 +180,15 @@ export default function UnifiedPipelineTable({
       phaseStartDate = new Date(item.opportunity?.updatedAt || item.opportunity?.createdAt || item.bookingRequest?.createdAt || new Date())
     }
 
+    const fallbackId = [
+      'pipeline-row',
+      item.opportunity?.createdAt || item.bookingRequest?.createdAt || 'unknown',
+      item.opportunity?.businessId || item.bookingRequest?.merchant || item.bookingRequest?.name || 'no-business',
+      index.toString(),
+    ].join('-')
+
     rows.push({
-      id: item.opportunity?.id || item.bookingRequest?.id || Math.random().toString(),
+      id: item.opportunity?.id || item.bookingRequest?.id || fallbackId,
       title,
       merchant: item.bookingRequest?.merchant,
       createdAt: new Date(item.opportunity?.createdAt || item.bookingRequest?.createdAt || new Date()),
@@ -393,6 +402,8 @@ export default function UnifiedPipelineTable({
         onClose={() => setOpportunityModalOpen(false)}
         opportunity={selectedOpportunity}
         onSuccess={() => {}}
+        preloadedCategories={categories}
+        preloadedUsers={users}
       />
       
       <BookingRequestViewModal
@@ -403,4 +414,3 @@ export default function UnifiedPipelineTable({
     </div>
   )
 }
-
