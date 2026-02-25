@@ -14,13 +14,13 @@ interface ExtractedMeetingFields {
 }
 
 const MEETING_FIELD_LABELS: Record<keyof ExtractedMeetingFields, string> = {
-  meetingWith: 'Reunión con',
-  position: 'Posición',
-  isDecisionMaker: '¿Es la persona que toma la decisión final?',
-  meetingHappened: '¿Ya se tuvo la reunión?',
-  reachedAgreement: '¿Se llegó a un acuerdo?',
-  mainObjection: 'Principal objeción',
-  objectionSolution: 'Posible solución a objeción',
+  meetingWith: 'Nombre del contacto',
+  position: 'Posición o cargo',
+  isDecisionMaker: 'Tomador de decisión',
+  meetingHappened: 'Estado de la reunión',
+  reachedAgreement: 'Acuerdo alcanzado',
+  mainObjection: 'Objeción principal',
+  objectionSolution: 'Solución a la objeción',
   nextSteps: 'Siguientes pasos',
 }
 
@@ -77,71 +77,50 @@ function buildDictationGuideItems(params: {
 }): DictationGuideItem[] {
   const { meeting, forCompletion, isDatePast, isDateToday } = params
   const items: DictationGuideItem[] = []
-  const showOutcome = forCompletion || isDatePast || (isDateToday && meeting.meetingHappened === 'si')
+
+  // For the guide, show outcome items whenever the meeting could have already happened.
+  // The user may mention outcomes naturally and the AI will extract them,
+  // even if the outcome section isn't visible yet (e.g. meetingHappened is still '').
+  const couldHaveOutcome = forCompletion || isDatePast || isDateToday
 
   if (!meeting.meetingWith.trim()) {
-    items.push({
-      label: 'Reunión con',
-      suggestion: 'Diga el nombre de la persona, por ejemplo: "La reunión fue con Ana Pérez".',
-    })
+    items.push({ label: 'Reunión con', suggestion: 'Nombre de la persona con quien se reunió.' })
   }
 
   if (!meeting.position.trim()) {
-    items.push({
-      label: 'Posición',
-      suggestion: 'Indique el cargo, por ejemplo: "Su posición es gerente de compras".',
-    })
+    items.push({ label: 'Posición', suggestion: 'Cargo o rol en la empresa.' })
   }
 
   if (!meeting.isDecisionMaker) {
-    items.push({
-      label: '¿Es la persona que toma la decisión final?',
-      suggestion: 'Diga claramente: "Sí es quien decide", "No es quien decide" o "No sé".',
-    })
+    items.push({ label: 'Tomador de decisión', suggestion: '¿Es quien toma la decisión final?' })
   }
 
   if (isDateToday && !meeting.meetingHappened) {
-    items.push({
-      label: '¿Ya se tuvo la reunión?',
-      suggestion: 'Aclare: "Sí, ya se tuvo la reunión" o "No, todavía no".',
-    })
+    items.push({ label: 'Estado', suggestion: '¿La reunión ya se realizó o está pendiente?' })
   }
 
   if (!meeting.meetingDetails.trim()) {
-    items.push({
-      label: 'Detalle de la reunión',
-      suggestion: 'Resuma qué se habló, decisiones y contexto clave en frases cortas.',
-    })
+    items.push({ label: 'Detalle', suggestion: 'Qué se habló, intereses del cliente y contexto.' })
   }
 
-  if (showOutcome) {
+  if (couldHaveOutcome) {
+    items.push({ label: 'Acuerdo', suggestion: '¿Se llegó a un acuerdo o no?' })
+
     if (!meeting.nextSteps.trim()) {
-      items.push({
-        label: 'Siguientes pasos',
-        suggestion: 'Mencione acciones y fecha, por ejemplo: "Enviar propuesta mañana y seguimiento el viernes".',
-      })
+      items.push({ label: 'Siguientes pasos', suggestion: 'Acciones concretas y fechas de seguimiento.' })
     }
 
-    if (meeting.reachedAgreement === 'no' && !meeting.mainObjection.trim()) {
-      items.push({
-        label: 'Principal objeción',
-        suggestion: 'Diga la barrera principal, por ejemplo: "El precio fue la objeción principal".',
-      })
+    if (!meeting.mainObjection.trim()) {
+      items.push({ label: 'Objeción', suggestion: 'Si no hubo acuerdo, cuál fue la barrera principal.' })
     }
 
-    if (meeting.reachedAgreement === 'no' && !meeting.objectionSolution.trim()) {
-      items.push({
-        label: 'Posible solución a objeción',
-        suggestion: 'Proponga una solución, por ejemplo: "Ofrecer plan escalonado y demo adicional".',
-      })
+    if (!meeting.objectionSolution.trim()) {
+      items.push({ label: 'Solución', suggestion: 'Si hubo objeción, cómo se podría resolver.' })
     }
   }
 
   if (items.length === 0) {
-    items.push({
-      label: 'Mejorar contexto',
-      suggestion: 'Puede dictar acuerdos, próximos pasos y cualquier cambio importante para afinar el registro.',
-    })
+    items.push({ label: 'Contexto', suggestion: 'Agregue más detalles para completar el registro.' })
   }
 
   return items

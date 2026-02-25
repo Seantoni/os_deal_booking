@@ -63,6 +63,16 @@ html {
   to { transform: translateY(0); }
 }
 
+@keyframes slideUpSmall {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes soundWave {
+  0%, 100% { height: 8px; opacity: 0.5; }
+  50% { height: 32px; opacity: 1; }
+}
+
 @keyframes slideInRight {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }

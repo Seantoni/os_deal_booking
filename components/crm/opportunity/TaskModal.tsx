@@ -8,12 +8,16 @@ import SmartToyIcon from '@mui/icons-material/SmartToy'
 import MicIcon from '@mui/icons-material/Mic'
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked'
 import FactCheckIcon from '@mui/icons-material/FactCheck'
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
+import EditNoteIcon from '@mui/icons-material/EditNote'
 import type { Task } from '@/types'
 import { Button, Input, Select, Textarea } from '@/components/ui'
 import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import AiVoiceVisualizer from '@/components/shared/AiVoiceVisualizer'
 import { getTodayInPanama, formatDateForPanama } from '@/lib/date/timezone'
 import { useMeetingAiAssistant } from '@/components/crm/opportunity/useMeetingAiAssistant'
+import { useTaskAiAssistant } from '@/components/crm/opportunity/useTaskAiAssistant'
 
 // Meeting data structure stored as JSON in notes
 export interface MeetingData {
@@ -154,9 +158,16 @@ export default function TaskModal({
     setValidationError,
   })
 
+  const taskAi = useTaskAiAssistant({
+    task: { title: taskTitle, notes: taskNotes, date: taskDate },
+    setTask: { setTitle: setTaskTitle, setNotes: setTaskNotes, setDate: setTaskDate },
+    todayDate: todayStr,
+  })
+
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     resetAssistantState()
+    taskAi.resetAssistantState()
     
     if (task) {
       setTaskCategory(task.category)
@@ -206,7 +217,7 @@ export default function TaskModal({
       setObjectionSolution('')
       setNextSteps('')
     }
-  }, [task, isOpen, businessName, forCompletion, resetAssistantState])
+  }, [task, isOpen, businessName, forCompletion, resetAssistantState, taskAi.resetAssistantState])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   async function handleSubmit(e: React.FormEvent) {
@@ -345,28 +356,169 @@ export default function TaskModal({
       ? !speechSupported
       : assistantActionState === 'correcting' || assistantActionState === 'completing'
 
-  const showAssistantManualActions = assistantActionState === 'idle' && Boolean(meetingDetails.trim())
-  const assistantSection = (
-    <div className="rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 via-sky-50 to-indigo-50 p-3 space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold text-slate-700">Asistente IA</p>
-        {assistantActionState === 'dictating' && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
-            <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-ping" />
+  // Task AI assistant config
+  const taskActionConfig = (() => {
+    if (taskAi.assistantActionState === 'dictating') {
+      return {
+        label: 'Detener dictado',
+        leftIcon: <RadioButtonCheckedIcon fontSize="small" className="text-rose-100 animate-pulse" />,
+        className:
+          'min-w-[230px] rounded-xl bg-gradient-to-r from-rose-500 to-red-500 text-white shadow-[0_6px_18px_rgba(239,68,68,0.32)] hover:from-rose-600 hover:to-red-600 animate-pulse',
+      }
+    }
+    if (taskAi.assistantActionState === 'correcting') {
+      return {
+        label: 'Corrigiendo...',
+        leftIcon: <SmartToyIcon fontSize="small" className="text-indigo-600 animate-pulse" />,
+        className:
+          'min-w-[230px] rounded-xl border-indigo-200 bg-indigo-50 text-indigo-700 shadow-[0_4px_14px_rgba(79,70,229,0.18)]',
+      }
+    }
+    if (taskAi.assistantActionState === 'completing') {
+      return {
+        label: 'Completando...',
+        leftIcon: <FactCheckIcon fontSize="small" className="text-amber-600 animate-pulse" />,
+        className:
+          'min-w-[230px] rounded-xl border-amber-200 bg-amber-50 text-amber-700 shadow-[0_4px_14px_rgba(245,158,11,0.18)]',
+      }
+    }
+    return {
+      label: 'Dictar',
+      leftIcon: <MicIcon fontSize="small" className="text-emerald-600" />,
+      className:
+        'min-w-[230px] rounded-xl border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700 shadow-[0_6px_20px_rgba(16,185,129,0.2)] hover:from-emerald-100 hover:to-teal-100',
+    }
+  })()
+
+  const taskActionDisabled =
+    taskAi.assistantActionState === 'idle'
+      ? !taskAi.speechSupported
+      : taskAi.assistantActionState === 'correcting' || taskAi.assistantActionState === 'completing'
+
+  const showTaskManualActions = taskAi.assistantActionState === 'idle' && Boolean(taskNotes.trim())
+
+  const taskAssistantSection = (
+    <div className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/50 via-white to-blue-50/50 p-4 shadow-sm hover:shadow-md transition-shadow duration-300">
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-1.5">
+          <div className="p-1 bg-indigo-100 rounded-md">
+            <SmartToyIcon style={{ fontSize: 16 }} className="text-indigo-600" />
+          </div>
+          <p className="text-xs font-bold text-indigo-900 uppercase tracking-wide">Asistente IA</p>
+        </div>
+        {taskAi.assistantActionState === 'dictating' && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 border border-rose-100 px-2.5 py-0.5 text-[10px] font-bold text-rose-600 uppercase tracking-wider shadow-sm">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+            </span>
             Grabando
           </span>
         )}
       </div>
 
-      <div className="flex justify-center">
+      <div className="flex justify-center mb-2">
+        <Button
+          key={taskAi.assistantActionState}
+          type="button"
+          size="lg"
+          variant={taskAi.assistantActionState === 'dictating' ? 'destructive' : 'secondary'}
+          className={`w-full justify-center text-sm font-semibold transition-all duration-300 shadow-sm hover:shadow ${taskActionConfig.className} ${
+            taskAi.showFirstDictationAnimation && taskAi.assistantActionState === 'dictating'
+              ? 'ring-4 ring-rose-100 ring-offset-0'
+              : ''
+          }`}
+          onClick={() => {
+            if (taskAi.assistantActionState === 'idle' || taskAi.assistantActionState === 'dictating') {
+              taskAi.toggleDictation()
+            }
+          }}
+          disabled={taskActionDisabled}
+          leftIcon={taskActionConfig.leftIcon}
+        >
+          {taskActionConfig.label}
+        </Button>
+      </div>
+
+      <div className="space-y-2 min-h-[1.5rem] flex flex-col justify-center">
+        {taskAi.assistantActionState === 'correcting' && (
+          <div className="flex items-center justify-center gap-2 text-xs font-medium text-indigo-600 animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+            Paso 1/2: Mejorando redacción...
+          </div>
+        )}
+        {taskAi.assistantActionState === 'completing' && (
+          <div className="flex items-center justify-center gap-2 text-xs font-medium text-amber-600 animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+            Paso 2/2: Extrayendo título y notas...
+          </div>
+        )}
+        {taskAi.isDictating && taskAi.showFirstDictationAnimation && (
+          <p className="text-center text-xs font-medium text-rose-600 animate-[fadeIn_0.3s_ease-out]">
+            Describa la tarea. La IA extraerá título y notas.
+          </p>
+        )}
+
+        {showTaskManualActions && (
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-1 border-t border-indigo-50/50">
+            <Button
+              type="button"
+              size="xs"
+              variant="ghost"
+              className="h-7 text-[10px] font-medium text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 gap-1"
+              onClick={() => {
+                void taskAi.proofreadAndExtract()
+              }}
+            >
+              <AutoFixHighIcon style={{ fontSize: 14 }} />
+              Mejorar y extraer
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {!taskAi.speechSupported && (
+        <p className="text-center text-[10px] text-slate-400 mt-2">Dictado no disponible en este navegador.</p>
+      )}
+
+      {(taskAi.proofreadError || taskAi.extractError || taskAi.dictationError) && (
+        <div className="mt-2 p-2 bg-red-50 rounded text-[10px] text-red-600 border border-red-100">
+          {taskAi.proofreadError || taskAi.extractError || taskAi.dictationError}
+        </div>
+      )}
+    </div>
+  )
+
+  const showAssistantManualActions = assistantActionState === 'idle' && Boolean(meetingDetails.trim())
+  const assistantSection = (
+    <div className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/50 via-white to-blue-50/50 p-4 shadow-sm hover:shadow-md transition-shadow duration-300">
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-1.5">
+          <div className="p-1 bg-indigo-100 rounded-md">
+            <SmartToyIcon style={{ fontSize: 16 }} className="text-indigo-600" />
+          </div>
+          <p className="text-xs font-bold text-indigo-900 uppercase tracking-wide">Asistente IA</p>
+        </div>
+        {assistantActionState === 'dictating' && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 border border-rose-100 px-2.5 py-0.5 text-[10px] font-bold text-rose-600 uppercase tracking-wider shadow-sm">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+            </span>
+            Grabando
+          </span>
+        )}
+      </div>
+
+      <div className="flex justify-center mb-2">
         <Button
           key={assistantActionState}
           type="button"
           size="lg"
           variant={assistantActionState === 'dictating' ? 'destructive' : 'secondary'}
-          className={`w-full sm:w-auto justify-center text-base font-semibold transition-all duration-500 ${assistantActionConfig.className} ${
+          className={`w-full justify-center text-sm font-semibold transition-all duration-300 shadow-sm hover:shadow ${assistantActionConfig.className} ${
             showFirstDictationAnimation && assistantActionState === 'dictating'
-              ? 'ring-2 ring-rose-300 ring-offset-1'
+              ? 'ring-4 ring-rose-100 ring-offset-0'
               : ''
           }`}
           onClick={() => {
@@ -381,57 +533,64 @@ export default function TaskModal({
         </Button>
       </div>
 
-      {assistantActionState === 'correcting' && (
-        <p className="text-center text-xs font-medium text-indigo-700">Paso 1 de 2: Corrigiendo texto</p>
-      )}
-      {assistantActionState === 'completing' && (
-        <p className="text-center text-xs font-medium text-amber-700">Paso 2 de 2: Completando campos</p>
-      )}
-      {isDictatingMeetingDetails && showFirstDictationAnimation && (
-        <p className="text-center text-xs font-medium text-rose-600">
-          Dictado iniciado. Hable con frases claras para completar más campos.
-        </p>
-      )}
+      <div className="space-y-2 min-h-[1.5rem] flex flex-col justify-center">
+        {assistantActionState === 'correcting' && (
+          <div className="flex items-center justify-center gap-2 text-xs font-medium text-indigo-600 animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+            Paso 1/2: Mejorando redacción...
+          </div>
+        )}
+        {assistantActionState === 'completing' && (
+          <div className="flex items-center justify-center gap-2 text-xs font-medium text-amber-600 animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+            Paso 2/2: Extrayendo datos...
+          </div>
+        )}
+        {isDictatingMeetingDetails && showFirstDictationAnimation && (
+          <p className="text-center text-xs font-medium text-rose-600 animate-[fadeIn_0.3s_ease-out]">
+            Hable claro para completar los campos automáticamente.
+          </p>
+        )}
 
-      {showAssistantManualActions && (
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <Button
-            type="button"
-            size="xs"
-            variant="ghost"
-            className="text-indigo-700 hover:bg-indigo-100"
-            onClick={() => {
-              void handleProofreadMeetingDetails()
-            }}
-          >
-            Corregir manual
-          </Button>
-          <Button
-            type="button"
-            size="xs"
-            variant="ghost"
-            className="text-amber-700 hover:bg-amber-100"
-            onClick={() => {
-              void handlePrefillMeetingFieldsFromDetails()
-            }}
-          >
-            Completar manual
-          </Button>
-        </div>
-      )}
+        {showAssistantManualActions && (
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-1 border-t border-indigo-50/50">
+            <Button
+              type="button"
+              size="xs"
+              variant="ghost"
+              className="h-7 text-[10px] font-medium text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 gap-1"
+              onClick={() => {
+                void handleProofreadMeetingDetails()
+              }}
+            >
+              <AutoFixHighIcon style={{ fontSize: 14 }} />
+              Mejorar texto
+            </Button>
+            <div className="w-px h-3 bg-indigo-100" />
+            <Button
+              type="button"
+              size="xs"
+              variant="ghost"
+              className="h-7 text-[10px] font-medium text-amber-600 hover:bg-amber-50 hover:text-amber-700 gap-1"
+              onClick={() => {
+                void handlePrefillMeetingFieldsFromDetails()
+              }}
+            >
+              <EditNoteIcon style={{ fontSize: 14 }} />
+              Autocompletar
+            </Button>
+          </div>
+        )}
+      </div>
 
       {!speechSupported && (
-        <p className="text-center text-xs text-slate-500">Dictado no disponible en este navegador.</p>
+        <p className="text-center text-[10px] text-slate-400 mt-2">Dictado no disponible en este navegador.</p>
       )}
 
-      {aiMeetingDetailsError && (
-        <p className="text-xs text-red-600">{aiMeetingDetailsError}</p>
-      )}
-      {aiMeetingPrefillError && (
-        <p className="text-xs text-red-600">{aiMeetingPrefillError}</p>
-      )}
-      {dictationError && (
-        <p className="text-xs text-red-600">{dictationError}</p>
+      {(aiMeetingDetailsError || aiMeetingPrefillError || dictationError) && (
+        <div className="mt-2 p-2 bg-red-50 rounded text-[10px] text-red-600 border border-red-100">
+          {aiMeetingDetailsError || aiMeetingPrefillError || dictationError}
+        </div>
       )}
     </div>
   )
@@ -518,6 +677,8 @@ export default function TaskModal({
           {/* Todo-specific fields */}
           {!isMeeting && (
             <>
+              {taskAssistantSection}
+
               <Input
                 type="text"
                 label="Título"
@@ -529,143 +690,165 @@ export default function TaskModal({
               <Textarea
                 label="Notas"
                 value={taskNotes}
-                onChange={(e) => setTaskNotes(e.target.value)}
+                onChange={(e) => taskAi.handleNotesInputChange(e.target.value)}
                 rows={3}
-                placeholder="Agregar notas..."
+                placeholder="Describa la tarea, puede también usar el dictado por voz..."
               />
             </>
           )}
 
           {/* Meeting-specific fields */}
           {isMeeting && (
-            <>
-              <div className="border-t border-gray-200 pt-4 mt-4">
-                <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                  <GroupsIcon fontSize="small" className="text-blue-600" />
-                  Información de la Reunión
-                </h4>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <Input
-                  type="text"
-                  label="Reunión con"
-                  value={meetingWith}
-                  onChange={(e) => setMeetingWith(e.target.value)}
-                  required
-                  placeholder="Nombre de con quién se obtuvo la reunión"
-                  helperText="Nombre del contacto"
-                />
-                
-                <Input
-                  type="text"
-                  label="Posición"
-                  value={position}
-                  onChange={(e) => setPosition(e.target.value)}
-                  required
-                  placeholder="Posición en la empresa"
-                  helperText="Cargo o rol en la empresa"
-                />
-              </div>
-
-              <div className={`grid gap-3 ${isDateToday ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
-                <Select
-                  label="¿Es la persona que toma la decisión final?"
-                  value={isDecisionMaker}
-                  onChange={(e) => setIsDecisionMaker(e.target.value as '' | 'si' | 'no' | 'no_se')}
-                  required
-                  options={[
-                    { value: '', label: 'Seleccionar' },
-                    { value: 'si', label: 'Sí' },
-                    { value: 'no', label: 'No' },
-                    { value: 'no_se', label: 'No sé' },
-                  ]}
-                />
-
-                {/* Show "Meeting happened?" field only for today's date */}
-                {isDateToday && (
-                  <Select
-                    label="¿Ya se tuvo la reunión?"
-                    value={meetingHappened}
-                    onChange={(e) => setMeetingHappened(e.target.value as '' | 'si' | 'no')}
+            <div className="space-y-6 animate-[slideUpSmall_0.3s_ease-out]">
+              
+              {/* Section: Contact Info */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden group hover:border-blue-300 transition-colors duration-300">
+                <div className="bg-slate-50/50 px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+                  <PersonIcon fontSize="small" className="text-blue-500" />
+                  <h4 className="text-sm font-semibold text-slate-700">Contacto</h4>
+                </div>
+                <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    type="text"
+                    label="Reunión con"
+                    value={meetingWith}
+                    onChange={(e) => setMeetingWith(e.target.value)}
                     required
-                    options={[
-                      { value: '', label: 'Seleccionar' },
-                      { value: 'no', label: 'No' },
-                      { value: 'si', label: 'Sí' },
-                    ]}
+                    placeholder="Nombre del contacto"
+                    className="bg-transparent"
                   />
-                )}
+                  
+                  <Input
+                    type="text"
+                    label="Posición"
+                    value={position}
+                    onChange={(e) => setPosition(e.target.value)}
+                    required
+                    placeholder="Cargo o rol"
+                    className="bg-transparent"
+                  />
+
+                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Select
+                      label="¿Es tomador de decisión?"
+                      value={isDecisionMaker}
+                      onChange={(e) => setIsDecisionMaker(e.target.value as '' | 'si' | 'no' | 'no_se')}
+                      required
+                      options={[
+                        { value: '', label: 'Seleccionar...' },
+                        { value: 'si', label: 'Sí, toma la decisión' },
+                        { value: 'no', label: 'No, es influenciador' },
+                        { value: 'no_se', label: 'No estoy seguro' },
+                      ]}
+                    />
+
+                    {/* Show "Meeting happened?" field only for today's date */}
+                    {isDateToday && (
+                      <Select
+                        label="¿Ya se realizó?"
+                        value={meetingHappened}
+                        onChange={(e) => setMeetingHappened(e.target.value as '' | 'si' | 'no')}
+                        required
+                        options={[
+                          { value: '', label: 'Seleccionar estado...' },
+                          { value: 'no', label: 'Pendiente' },
+                          { value: 'si', label: 'Completada' },
+                        ]}
+                      />
+                    )}
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Textarea
-                  label="Detalle de la reunión"
-                  value={meetingDetails}
-                  onChange={(e) => handleMeetingDetailsInputChange(e.target.value)}
-                  required
-                  rows={3}
-                  placeholder="Ser lo más claro y específico posible de todos los puntos relevantes de la reunión..."
-                  helperText="Incluya todos los puntos importantes discutidos"
-                />
+              {/* Section: Meeting Details */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden group hover:border-indigo-300 transition-colors duration-300">
+                <div className="bg-slate-50/50 px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+                  <FactCheckIcon fontSize="small" className="text-indigo-500" />
+                  <h4 className="text-sm font-semibold text-slate-700">Resumen de la Reunión</h4>
+                </div>
+                <div className="p-4">
+                  <Textarea
+                    label="Detalles clave"
+                    value={meetingDetails}
+                    onChange={(e) => handleMeetingDetailsInputChange(e.target.value)}
+                    required
+                    rows={4}
+                    placeholder="Puntos importantes discutidos, intereses del cliente, ambiente de la reunión..."
+                    className="resize-none bg-slate-50 focus:bg-white transition-colors"
+                  />
+                </div>
               </div>
 
               {/* Meeting outcome fields - shown for past dates or today if meeting happened */}
               {showMeetingOutcomeFields && (
-                <>
-                  <Select
-                    label="¿Se llegó a un acuerdo?"
-                    value={reachedAgreement}
-                    onChange={(e) => setReachedAgreement(e.target.value as 'si' | 'no')}
-                    required
-                    options={[
-                      { value: 'si', label: 'Sí' },
-                      { value: 'no', label: 'No' },
-                    ]}
-                  />
+                <div className="bg-gradient-to-br from-slate-50 to-blue-50/30 rounded-xl border border-blue-100 shadow-sm overflow-hidden animate-[slideUpSmall_0.4s_ease-out]">
+                  <div className="bg-blue-50/50 px-4 py-3 border-b border-blue-100 flex items-center gap-2">
+                    <GroupsIcon fontSize="small" className="text-blue-600" />
+                    <h4 className="text-sm font-semibold text-blue-900">Resultados y Acuerdos</h4>
+                  </div>
+                  
+                  <div className="p-4 space-y-4">
+                    <Select
+                      label="¿Se llegó a un acuerdo?"
+                      value={reachedAgreement}
+                      onChange={(e) => setReachedAgreement(e.target.value as 'si' | 'no')}
+                      required
+                      options={[
+                        { value: 'si', label: 'Sí, hay acuerdo' },
+                        { value: 'no', label: 'No hubo acuerdo' },
+                      ]}
+                      className="bg-white"
+                    />
 
-                  {/* Conditional objection fields */}
-                  {showObjectionFields && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-3">
-                      <h5 className="text-sm font-medium text-amber-800">Información sobre objeción</h5>
-                      
-                      <Input
-                        type="text"
-                        label="Principal objeción"
-                        value={mainObjection}
-                        onChange={(e) => setMainObjection(e.target.value)}
-                        required
-                        placeholder="Objeción principal o 'no sé'"
-                        helperText="¿Cuál fue la principal objeción o barrera?"
-                      />
-                      
+                    {/* Conditional objection fields */}
+                    {showObjectionFields && (
+                      <div className="bg-amber-50/50 border border-amber-100 rounded-lg p-4 space-y-4 animate-[slideUpSmall_0.3s_ease-out]">
+                        <div className="flex items-center gap-2 text-amber-800 mb-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                          <h5 className="text-xs font-bold uppercase tracking-wider">Gestión de Objeciones</h5>
+                        </div>
+                        
+                        <Input
+                          type="text"
+                          label="Principal objeción"
+                          value={mainObjection}
+                          onChange={(e) => setMainObjection(e.target.value)}
+                          required
+                          placeholder="Ej: Precio, Tiempo, Competencia..."
+                          className="bg-white"
+                        />
+                        
+                        <Textarea
+                          label="Posible solución"
+                          value={objectionSolution}
+                          onChange={(e) => setObjectionSolution(e.target.value)}
+                          required
+                          rows={2}
+                          placeholder="Estrategia para superar esta objeción..."
+                          className="bg-white resize-none"
+                        />
+                      </div>
+                    )}
+
+                    <div className="pt-2">
                       <Textarea
-                        label="Posible solución a objeción"
-                        value={objectionSolution}
-                        onChange={(e) => setObjectionSolution(e.target.value)}
+                        label="Siguientes pasos"
+                        value={nextSteps}
+                        onChange={(e) => {
+                          setNextSteps(e.target.value)
+                          if (validationError) setValidationError(null)
+                        }}
                         required
                         rows={2}
-                        placeholder="Posible solución para llegar a un acuerdo..."
-                        helperText="¿Cómo se podría resolver esta objeción?"
+                        placeholder='Ej: "Enviar propuesta el martes", "Agendar demo para el viernes"...'
+                        helperText="Define claramente las próximas acciones"
+                        className="bg-white border-blue-200 focus:border-blue-400 focus:ring-blue-100"
                       />
                     </div>
-                  )}
-
-                  <Textarea
-                    label="Siguientes pasos"
-                    value={nextSteps}
-                    onChange={(e) => {
-                      setNextSteps(e.target.value)
-                      if (validationError) setValidationError(null)
-                    }}
-                    required
-                    rows={2}
-                    placeholder='Ej: "Se enviará propuesta de…" o "Aliado se reunirá, y quedamos en hablar el día…"'
-                    helperText="Acciones definidas y fechas de seguimiento"
-                  />
-                </>
+                  </div>
+                </div>
               )}
-            </>
+            </div>
           )}
 
       </form>
@@ -673,21 +856,22 @@ export default function TaskModal({
 
     <ConfirmDialog
       isOpen={dictationGuideDialog.isOpen}
-      title={dictationGuideDialog.mode === 'processing' ? 'Procesando con IA' : 'Guía para dictar'}
+      title={dictationGuideDialog.mode === 'processing' ? 'Procesando dictado' : 'Asistente de Voz'}
       message={(
-        <div className="space-y-3 text-left">
+        <div className="space-y-4 text-left">
+          {(dictationGuideDialog.mode === 'recording' || dictationGuideDialog.mode === 'processing') && (
+            <AiVoiceVisualizer 
+              mode={dictationGuideDialog.mode === 'recording' ? 'listening' : 'processing'} 
+              className="mb-2"
+            />
+          )}
+
           {dictationGuideDialog.mode === 'recording' && (
             <>
-              <div className="flex items-center justify-center gap-1.5 h-6">
-                <span className="w-1.5 h-2.5 rounded-full bg-rose-400 animate-pulse" />
-                <span className="w-1.5 h-4 rounded-full bg-rose-500 animate-pulse [animation-delay:120ms]" />
-                <span className="w-1.5 h-3 rounded-full bg-rose-400 animate-pulse [animation-delay:240ms]" />
-                <span className="w-1.5 h-5 rounded-full bg-rose-500 animate-pulse [animation-delay:360ms]" />
-              </div>
-              <p className="text-sm text-gray-600 text-center">
-                Estamos escuchando su voz. Incluya estos puntos para autocompletar campos:
+              <p className="text-sm text-gray-600 text-center animate-in fade-in slide-in-from-bottom-2">
+                Hable con naturalidad. Intente mencionar los siguientes puntos para que la IA complete el formulario por usted:
               </p>
-              <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3">
+              <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3 animate-in fade-in slide-in-from-bottom-3 delay-100">
                 <ul className="list-disc pl-5 space-y-1 text-xs text-gray-700">
                   {dictationGuideDialog.items.map((item) => (
                     <li key={`dictation-guide-${item.label}`}>
@@ -700,9 +884,9 @@ export default function TaskModal({
           )}
 
           {dictationGuideDialog.mode === 'processing' && (
-            <div className="space-y-2">
-              <p className="text-sm text-gray-600 text-center">
-                Corrigiendo el texto y completando campos automáticamente...
+            <div className="space-y-2 animate-in fade-in zoom-in-95 duration-300">
+              <p className="text-sm font-medium text-indigo-700 text-center">
+                Interpretando su dictado y estructurando la información...
               </p>
               <p className="text-xs text-gray-500 text-center">
                 Esto puede tomar unos segundos.
@@ -733,29 +917,31 @@ export default function TaskModal({
       isOpen={missingFieldsDialog.isOpen}
       title={
         missingFieldsDialog.mode === 'recording'
-          ? 'Grabando dictado'
+          ? 'Escuchando...'
           : missingFieldsDialog.mode === 'processing'
-            ? 'Procesando con IA'
-            : 'Campos pendientes tras autocompletar'
+            ? 'Analizando...'
+            : 'Verificación de Datos'
       }
       message={(
         <>
+          {(missingFieldsDialog.mode === 'recording' || missingFieldsDialog.mode === 'processing') && (
+            <div className="mb-4">
+              <AiVoiceVisualizer 
+                mode={missingFieldsDialog.mode === 'recording' ? 'listening' : 'processing'} 
+              />
+            </div>
+          )}
+
           {missingFieldsDialog.mode === 'recording' && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-center gap-1.5 h-6">
-                <span className="w-1.5 h-2.5 rounded-full bg-rose-400 animate-pulse" />
-                <span className="w-1.5 h-4 rounded-full bg-rose-500 animate-pulse [animation-delay:120ms]" />
-                <span className="w-1.5 h-3 rounded-full bg-rose-400 animate-pulse [animation-delay:240ms]" />
-                <span className="w-1.5 h-5 rounded-full bg-rose-500 animate-pulse [animation-delay:360ms]" />
-              </div>
+            <div className="space-y-3 animate-in fade-in slide-in-from-bottom-2">
               <p className="text-sm text-gray-600 text-center">
-                Estamos escuchando su voz. Presione <span className="font-semibold">Detener dictado</span> cuando termine.
+                El micrófono está activo. Presione <span className="font-semibold">Detener</span> cuando haya finalizado.
               </p>
               {(missingFieldsDialog.missingRequired.length > 0 || missingFieldsDialog.notDetected.length > 0) && (
-                <div className="text-left space-y-2">
+                <div className="text-left space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
                   {missingFieldsDialog.missingRequired.length > 0 && (
                     <div>
-                      <p className="text-xs font-semibold text-gray-700 mb-1">Faltan para completar:</p>
+                      <p className="text-xs font-semibold text-rose-700 mb-1">Faltan para completar:</p>
                       <ul className="list-disc pl-5 space-y-0.5 text-xs text-gray-600">
                         {missingFieldsDialog.missingRequired.map((field) => (
                           <li key={`recording-missing-${field}`}>{field}</li>
@@ -765,7 +951,7 @@ export default function TaskModal({
                   )}
                   {missingFieldsDialog.notDetected.length > 0 && (
                     <div>
-                      <p className="text-xs font-semibold text-gray-700 mb-1">No detectados por IA:</p>
+                      <p className="text-xs font-semibold text-amber-700 mb-1">No detectados por IA:</p>
                       <ul className="list-disc pl-5 space-y-0.5 text-xs text-gray-600">
                         {missingFieldsDialog.notDetected.map((field) => (
                           <li key={`recording-not-detected-${field}`}>{field}</li>
@@ -779,9 +965,9 @@ export default function TaskModal({
           )}
 
           {missingFieldsDialog.mode === 'processing' && (
-            <div className="space-y-2">
-              <p className="text-sm text-gray-600 text-center">
-                Corrigiendo el texto y completando campos automáticamente...
+            <div className="space-y-2 animate-in fade-in zoom-in-95 duration-300">
+              <p className="text-sm font-medium text-indigo-700 text-center">
+                Organizando los detalles de la reunión...
               </p>
               <p className="text-xs text-gray-500 text-center">
                 Esto puede tomar unos segundos.
@@ -792,7 +978,7 @@ export default function TaskModal({
           {missingFieldsDialog.mode === 'missing' && (
             <div className="text-left space-y-3">
               <p className="text-sm text-gray-600">
-                Se autocompletó la reunión, pero aún faltan datos por confirmar.
+                La IA ha completado la mayor parte, pero necesitamos confirmar algunos detalles:
               </p>
               {missingFieldsDialog.missingRequired.length > 0 && (
                 <div>
@@ -815,7 +1001,7 @@ export default function TaskModal({
                 </div>
               )}
               <p className="text-xs text-gray-500">
-                Puede completar estos datos manualmente o continuar dictando para que IA intente detectarlos.
+                Puede escribir estos datos ahora o volver a dictar para agregarlos.
               </p>
             </div>
           )}
@@ -847,6 +1033,65 @@ export default function TaskModal({
       }
       onCancel={handleMissingFieldsManual}
       zIndex={80}
+    />
+
+    <ConfirmDialog
+      isOpen={taskAi.dictationGuideDialog.isOpen}
+      title={taskAi.dictationGuideDialog.mode === 'processing' ? 'Procesando tarea' : 'Asistente de Voz'}
+      message={(
+        <div className="space-y-4 text-left">
+          {(taskAi.dictationGuideDialog.mode === 'recording' || taskAi.dictationGuideDialog.mode === 'processing') && (
+            <AiVoiceVisualizer 
+              mode={taskAi.dictationGuideDialog.mode === 'recording' ? 'listening' : 'processing'} 
+              className="mb-2"
+            />
+          )}
+
+          {taskAi.dictationGuideDialog.mode === 'recording' && (
+            <>
+              <p className="text-sm text-gray-600 text-center">
+                Describa la tarea. La IA generará el título y organizará las notas:
+              </p>
+              <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3">
+                <ul className="list-disc pl-5 space-y-1 text-xs text-gray-700">
+                  {taskAi.dictationGuideDialog.items.map((item) => (
+                    <li key={`task-guide-${item.label}`}>
+                      <span className="font-semibold">{item.label}:</span> {item.suggestion}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </>
+          )}
+
+          {taskAi.dictationGuideDialog.mode === 'processing' && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-indigo-700 text-center">
+                Generando título y organizando las notas...
+              </p>
+              <p className="text-xs text-gray-500 text-center">
+                Esto puede tomar unos segundos.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+      confirmText={taskAi.dictationGuideDialog.mode === 'processing' ? 'Procesando...' : 'Detener dictado'}
+      cancelText={taskAi.dictationGuideDialog.mode === 'processing' ? '' : 'Ocultar guía'}
+      confirmVariant="primary"
+      loading={taskAi.dictationGuideDialog.mode === 'processing'}
+      loadingText="Procesando..."
+      onConfirm={
+        taskAi.dictationGuideDialog.mode === 'processing'
+          ? () => {}
+          : taskAi.handleGuideStopDictation
+      }
+      onCancel={
+        taskAi.dictationGuideDialog.mode === 'processing'
+          ? () => {}
+          : taskAi.handleGuideHide
+      }
+      zIndex={78}
     />
     </>
   )
