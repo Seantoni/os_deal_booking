@@ -5,7 +5,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import { auth, currentUser } from '@clerk/nextjs/server'
+import { auth } from '@clerk/nextjs/server'
 import { isAdmin } from '@/lib/auth/roles'
 import { resend, EMAIL_CONFIG } from '@/lib/email'
 import { renderBookingConfirmationEmail } from '@/lib/email/templates/booking-confirmation'
@@ -14,10 +14,19 @@ import { renderRejectionEmail } from '@/lib/email/templates/rejection'
 import { renderTaskReminderEmail } from '@/lib/email/templates/task-reminder'
 import { renderDealAssignmentReadyEmail } from '@/lib/email/templates/deal-assignment-ready'
 import { renderDailyCommentsEmail } from '@/lib/email/templates/daily-comments'
+import { renderSalesMeetingReminderEmail } from '@/lib/email/templates/sales-meeting-reminder'
 import { getAppBaseUrl } from '@/lib/config/env'
+import { formatSpanishFullDate } from '@/lib/date'
 import { logger } from '@/lib/logger'
 
-type EmailTemplateType = 'booking-confirmation' | 'booking-request' | 'rejection' | 'task-reminder' | 'deal-assignment-ready' | 'daily-comments'
+type EmailTemplateType =
+  | 'booking-confirmation'
+  | 'booking-request'
+  | 'rejection'
+  | 'task-reminder'
+  | 'deal-assignment-ready'
+  | 'daily-comments'
+  | 'sales-meeting-reminder'
 
 export async function POST(req: Request) {
   try {
@@ -193,6 +202,15 @@ export async function POST(req: Request) {
           appBaseUrl,
         })
         subject = '[TEST] Resumen Diario de Comentarios - OfertaSimple'
+        break
+      case 'sales-meeting-reminder':
+        html = renderSalesMeetingReminderEmail({
+          userName: 'Usuario de Prueba',
+          dateLabel: formatSpanishFullDate(new Date()),
+          meetingsCount: 0,
+          crmUrl: `${appBaseUrl}/opportunities`,
+        })
+        subject = '[TEST] Recordatorio de Reuniones - OfertaSimple'
         break
 
       default:

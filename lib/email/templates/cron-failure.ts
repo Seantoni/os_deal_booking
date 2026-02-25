@@ -30,7 +30,10 @@ function getJobDisplayName(jobName: string): string {
     'deal-metrics-sync': 'Sincronización de Métricas de Deals',
     'task-reminders': 'Recordatorios de Tareas',
     'daily-comment-summaries': 'Resumen Diario de Comentarios',
+    'sales-meeting-reminders': 'Recordatorio de Reuniones',
     'market-intelligence-scan': 'Escaneo de Inteligencia de Mercado',
+    'event-leads-sync': 'Sincronización de Event Leads',
+    'restaurant-leads-sync': 'Sincronización de Restaurant Leads',
   }
   return names[jobName] || jobName
 }

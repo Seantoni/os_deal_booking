@@ -18,7 +18,9 @@ import { renderDealAssignmentReadyEmail } from '@/lib/email/templates/deal-assig
 import { renderCronFailureEmail } from '@/lib/email/templates/cron-failure'
 import { renderMentionNotificationEmail } from '@/lib/email/templates/mention-notification'
 import { renderDailyCommentsEmail } from '@/lib/email/templates/daily-comments'
+import { renderSalesMeetingReminderEmail } from '@/lib/email/templates/sales-meeting-reminder'
 import { getAppBaseUrl } from '@/lib/config/env'
+import { formatSpanishFullDate } from '@/lib/date'
 import { logger } from '@/lib/logger'
 
 type EmailTemplateType =
@@ -32,6 +34,7 @@ type EmailTemplateType =
   | 'cron-failure'
   | 'mention-notification'
   | 'daily-comments'
+  | 'sales-meeting-reminder'
 
 export async function POST(req: Request) {
   try {
@@ -244,6 +247,14 @@ export async function POST(req: Request) {
             },
           ],
           appBaseUrl,
+        })
+        break
+      case 'sales-meeting-reminder':
+        html = renderSalesMeetingReminderEmail({
+          userName: 'Juan Pérez',
+          dateLabel: formatSpanishFullDate(new Date()),
+          meetingsCount: 0,
+          crmUrl: `${appBaseUrl}/opportunities`,
         })
         break
 

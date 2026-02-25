@@ -17,6 +17,7 @@ type EmailTemplateType =
   | 'mention-notification'
   | 'cron-failure'
   | 'daily-comments'
+  | 'sales-meeting-reminder'
 
 interface EmailPreviewTabProps {
   isAdmin: boolean
@@ -109,6 +110,7 @@ export default function EmailPreviewTab({ isAdmin }: EmailPreviewTabProps) {
     { id: 'rejection', label: 'Rechazo' },
     { id: 'cancelled', label: 'Cancelación' },
     { id: 'task-reminder', label: 'Recordatorio de Tareas' },
+    { id: 'sales-meeting-reminder', label: 'Recordatorio Reuniones' },
     { id: 'daily-comments', label: 'Resumen Comentarios' },
     { id: 'mention-notification', label: 'Notificación Mención' },
     { id: 'cron-failure', label: 'Falla Cron Job' },

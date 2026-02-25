@@ -14,6 +14,7 @@ export { renderRejectionEmail } from './templates/rejection'
 export { renderTaskReminderEmail } from './templates/task-reminder'
 export { renderDealAssignmentReadyEmail } from './templates/deal-assignment-ready'
 export { renderDailyCommentsEmail } from './templates/daily-comments'
+export { renderSalesMeetingReminderEmail } from './templates/sales-meeting-reminder'
 export { 
   renderMentionNotificationEmail,
   renderMarketingMentionNotificationEmail,
@@ -26,6 +27,7 @@ export { sendBookingConfirmationEmail } from './services/booking-confirmation'
 export { sendRejectionEmail } from './services/rejection'
 export { sendAllTaskReminders } from './services/task-reminder'
 export { sendDailyCommentsSummary } from './services/daily-comments'
+export { sendSalesMeetingReminders } from './services/sales-meeting-reminder'
 export { sendMentionNotificationEmail } from './services/mention-notification'
 export { sendOpportunityMentionNotificationEmail } from './services/opportunity-mention-notification'
 export { sendCronFailureEmail } from './services/cron-failure'

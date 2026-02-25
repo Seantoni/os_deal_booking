@@ -9,6 +9,7 @@ export type CronJobStatus = 'running' | 'success' | 'failed'
 export type CronJobName = 
   | 'deal-metrics-sync'
   | 'task-reminders'
+  | 'sales-meeting-reminders'
   | 'market-intelligence-scan'
   | 'event-leads-sync'
   | 'restaurant-leads-sync'
@@ -301,7 +302,10 @@ export async function getCronJobStats(): Promise<{
       'deal-metrics-sync',
       'task-reminders',
       'daily-comment-summaries',
+      'sales-meeting-reminders',
       'market-intelligence-scan',
+      'event-leads-sync',
+      'restaurant-leads-sync',
     ]
 
     const stats = await Promise.all(

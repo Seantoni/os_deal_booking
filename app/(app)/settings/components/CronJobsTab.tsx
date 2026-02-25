@@ -14,6 +14,7 @@ const JOB_LABELS: Record<string, string> = {
   'deal-metrics-sync': 'Sync de Métricas',
   'task-reminders': 'Recordatorios de Tareas',
   'daily-comment-summaries': 'Resumen de Comentarios',
+  'sales-meeting-reminders': 'Recordatorio de Reuniones',
   'market-intelligence-scan': 'Escaneo de Mercado',
   'event-leads-sync': 'Sync de Eventos',
   'restaurant-leads-sync': 'Sync de Restaurantes',
@@ -116,6 +117,7 @@ export default function CronJobsTab() {
         'deal-metrics-sync': '/api/cron/deal-metrics-sync',
         'task-reminders': '/api/cron/task-reminders',
         'daily-comment-summaries': '/api/cron/daily-comment-summaries',
+        'sales-meeting-reminders': '/api/cron/sales-meeting-reminders',
         'market-intelligence-scan': '/api/cron/market-intelligence-scan',
         'event-leads-sync': '/api/cron/event-leads-sync',
         'restaurant-leads-sync': '/api/cron/restaurant-leads-sync',
@@ -215,6 +217,7 @@ export default function CronJobsTab() {
             <option value="deal-metrics-sync">Sync de Métricas</option>
             <option value="task-reminders">Recordatorios de Tareas</option>
             <option value="daily-comment-summaries">Resumen de Comentarios</option>
+            <option value="sales-meeting-reminders">Recordatorio de Reuniones</option>
             <option value="market-intelligence-scan">Escaneo de Mercado</option>
             <option value="event-leads-sync">Sync de Eventos</option>
             <option value="restaurant-leads-sync">Sync de Restaurantes</option>
@@ -392,8 +395,11 @@ export default function CronJobsTab() {
         <strong>Horarios de Cron Jobs (hora Panamá):</strong>
         <ul className="mt-1 ml-4 list-disc">
           <li>Sync de Métricas: 12:00 AM (medianoche)</li>
+          <li>Escaneo de Mercado: 1:00 AM</li>
+          <li>Sync de Eventos: 2:00 AM</li>
           <li>Recordatorios de Tareas: 8:00 AM</li>
-          <li>Escaneo de Mercado: 12:00 AM (medianoche)</li>
+          <li>Resumen de Comentarios: 8:00 AM (L-V)</li>
+          <li>Recordatorio de Reuniones: 4:00 PM</li>
         </ul>
         <p className="mt-2">Los logs se mantienen por 30 días.</p>
       </div>
