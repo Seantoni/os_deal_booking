@@ -70,6 +70,11 @@ export async function POST(req: Request) {
       )
     }
 
+    const today = todayDate || new Date().toISOString().slice(0, 10)
+    const todayObj = new Date(today + 'T12:00:00')
+    const dayNames = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
+    const dayOfWeek = dayNames[todayObj.getDay()]
+
     const openai = getOpenAIClient()
     const completion = await openai.chat.completions.create({
       model: 'gpt-4.1',
@@ -77,11 +82,11 @@ export async function POST(req: Request) {
         {
           role: 'system',
           content:
-            'Extrae título, notas y fecha de una descripción dictada de tarea en español para CRM. Devuelve SOLO JSON válido.',
+            `Extrae título, notas y fecha de una descripción dictada de tarea en español para CRM. Devuelve SOLO JSON válido.\n\nFecha de referencia: hoy es ${dayOfWeek} ${today}.`,
         },
         {
           role: 'user',
-          content: `Del siguiente texto dictado por voz, extrae un título conciso (máximo 10 palabras), las notas detalladas, y la fecha límite si se menciona. Hoy es ${todayDate || new Date().toISOString().slice(0, 10)}. Responde SOLO con JSON válido:\n\n{
+          content: `Del siguiente texto dictado por voz, extrae un título conciso (máximo 10 palabras), las notas detalladas, y la fecha límite si se menciona. Responde SOLO con JSON válido:\n\n{
   "title": string|null,
   "notes": string|null,
   "dueDate": string|null
@@ -90,8 +95,10 @@ export async function POST(req: Request) {
 Reglas:
 - El título debe ser una frase corta y clara que resuma la tarea.
 - Las notas deben contener los detalles relevantes, bien redactadas y organizadas.
-- dueDate en formato YYYY-MM-DD. Interpretar referencias relativas como "mañana", "el viernes", "la próxima semana", etc.
-- Si no se menciona fecha, usar null.
+- dueDate en formato YYYY-MM-DD. DEBES calcular la fecha exacta a partir de hoy (${dayOfWeek} ${today}).
+- Ejemplos de cálculo: "mañana" = sumar 1 día, "en 4 días" = sumar 4 días, "en una semana" = sumar 7 días, "el viernes" = próximo viernes, "la próxima semana" = lunes siguiente, "en 2 semanas" = sumar 14 días, "fin de mes" = último día del mes actual.
+- Si no se menciona ninguna fecha o plazo, usar null.
+- No incluir la referencia de fecha en las notas, solo en dueDate.
 - Corrige ortografía y gramática en título y notas.
 - Si no hay suficiente información para un campo, usa null.
 - Mantén todo en español.
