@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useMemo, useCallback, useOptimistic, useTransition } from 'react'
 import dynamic from 'next/dynamic'
+import { useRouter } from 'next/navigation'
 import { getUserTasks, toggleTaskComplete, getTaskCounts, type TaskWithOpportunity } from '@/app/actions/tasks'
 import { createTask, updateTask, deleteTask } from '@/app/actions/opportunities'
-import { getOpportunity } from '@/app/actions/crm'
-import type { Opportunity } from '@/types'
+import { getOpportunity, updateOpportunity } from '@/app/actions/crm'
+import type { Opportunity, OpportunityStage } from '@/types'
 import toast from 'react-hot-toast'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import { useTaskCompletionFollowUp } from '@/hooks/useTaskCompletionFollowUp'
@@ -13,6 +14,8 @@ import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useSharedData } from '@/hooks/useSharedData'
 import { useFormConfigCache } from '@/hooks/useFormConfigCache'
+import { buildOpportunityFormData } from '@/components/crm/opportunity/opportunityFormPayload'
+import { normalizeAutomationStage, shouldRunMeetingAutomation } from '@/components/crm/opportunity/opportunityAutomationLogic'
 import AssignmentIcon from '@mui/icons-material/Assignment'
 import GroupsIcon from '@mui/icons-material/Groups'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
@@ -21,14 +24,15 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PhoneIcon from '@mui/icons-material/Phone'
 import EmailIcon from '@mui/icons-material/Email'
 import PersonIcon from '@mui/icons-material/Person'
-import { formatRelativeTime, getTodayInPanama, formatDateForPanama, formatShortDateNoYear, daysUntil } from '@/lib/date'
+import { getTodayInPanama, formatDateForPanama, formatShortDateNoYear, daysUntil } from '@/lib/date'
+import { addBusinessDaysInPanama } from '@/lib/date/timezone'
 import {
   EntityPageHeader,
   UserFilterDropdown,
   type FilterTab,
   type ColumnConfig
 } from '@/components/shared'
-import { EntityTable, CellStack, TableRow, TableCell } from '@/components/shared/table'
+import { EntityTable, TableRow, TableCell } from '@/components/shared/table'
 import { sortEntities, type SortDirection } from '@/hooks/useEntityPage'
 
 // Lazy load modals
@@ -38,7 +42,7 @@ const TaskModal = dynamic(() => import('@/components/crm/opportunity/TaskModal')
 })
 
 // Import parseMeetingData for validation
-import { parseMeetingData } from '@/components/crm/opportunity/TaskModal'
+import { parseMeetingData, type MeetingData } from '@/components/crm/opportunity/TaskModal'
 
 const OpportunityFormModal = dynamic(() => import('@/components/crm/opportunity/OpportunityFormModal'), {
   loading: () => null,
@@ -80,7 +84,13 @@ const COLUMNS: ColumnConfig[] = [
 
 type FilterType = 'all' | 'pending' | 'completed' | 'overdue' | 'meetings' | 'todos'
 
+interface MeetingPipelineAutomationResult {
+  didMutateOpportunity: boolean
+  navigatedToRequest: boolean
+}
+
 export default function TasksPageClient() {
+  const router = useRouter()
   const { isAdmin } = useUserRole()
   const { users } = useSharedData()
   const confirmDialog = useConfirmDialog()
@@ -234,6 +244,300 @@ export default function TasksPageClient() {
     }
   }, [optimisticTasks, serverCounts])
 
+  const openCreateRequestFromOpportunity = useCallback((opportunity: Opportunity) => {
+    const business = opportunity.business
+    if (!business) {
+      toast.error('No se puede crear la solicitud porque falta la empresa vinculada')
+      return
+    }
+
+    const params = new URLSearchParams()
+    params.set('fromOpportunity', opportunity.id)
+    params.set('businessId', business.id)
+    params.set('businessName', business.name || '')
+    if (business.contactEmail) params.set('businessEmail', business.contactEmail)
+    if (business.contactName) params.set('contactName', business.contactName)
+    if (business.contactPhone) params.set('contactPhone', business.contactPhone)
+
+    if (business.category) {
+      if (business.category.parentCategory) params.set('parentCategory', business.category.parentCategory)
+      if (business.category.subCategory1) params.set('subCategory1', business.category.subCategory1)
+      if (business.category.subCategory2) params.set('subCategory2', business.category.subCategory2)
+    }
+
+    if (business.razonSocial) params.set('legalName', business.razonSocial)
+    if (business.ruc) params.set('ruc', business.ruc)
+    if (business.provinceDistrictCorregimiento) params.set('provinceDistrictCorregimiento', business.provinceDistrictCorregimiento)
+    if (business.address) params.set('address', business.address)
+    if (business.neighborhood) params.set('neighborhood', business.neighborhood)
+    if (business.bank) params.set('bank', business.bank)
+    if (business.beneficiaryName) params.set('bankAccountName', business.beneficiaryName)
+    if (business.accountNumber) params.set('accountNumber', business.accountNumber)
+    if (business.accountType) params.set('accountType', business.accountType)
+    if (business.paymentPlan) params.set('paymentPlan', business.paymentPlan)
+    if (business.website) params.set('website', business.website)
+    if (business.instagram) params.set('instagram', business.instagram)
+
+    router.push(`/booking-requests/new?${params.toString()}`)
+  }, [router])
+
+  const fetchOpportunityForAutomation = useCallback(async (opportunityId: string): Promise<Opportunity | null> => {
+    const result = await getOpportunity(opportunityId)
+    if (!result.success || !result.data) {
+      toast.error(result.error || 'No se pudo cargar la oportunidad para la automatización')
+      return null
+    }
+    return result.data
+  }, [])
+
+  const updateOpportunityStageForAutomation = useCallback(async (
+    opportunity: Opportunity,
+    newStage: OpportunityStage,
+  ): Promise<Opportunity | null> => {
+    const formData = buildOpportunityFormData({
+      values: {
+        businessId: opportunity.businessId,
+        startDate: formatDateForPanama(new Date(opportunity.startDate)),
+        closeDate: opportunity.closeDate ? formatDateForPanama(new Date(opportunity.closeDate)) : null,
+        notes: opportunity.notes,
+        categoryId: opportunity.categoryId,
+        tier: opportunity.tier?.toString() || null,
+        contactName: opportunity.contactName,
+        contactPhone: opportunity.contactPhone,
+        contactEmail: opportunity.contactEmail,
+      },
+      fallbackBusinessId: opportunity.businessId,
+      stage: newStage,
+      responsibleId: opportunity.responsibleId,
+      responsibleMode: 'if_present',
+      lostReason: newStage === 'lost' ? (opportunity.lostReason || undefined) : undefined,
+    })
+
+    const result = await updateOpportunity(opportunity.id, formData)
+    if (!result.success || !result.data) {
+      toast.error(result.error || 'No se pudo actualizar la etapa de la oportunidad')
+      return null
+    }
+
+    setTasks((prev) => prev.map((task) => {
+      if (task.opportunityId !== opportunity.id || !task.opportunity) return task
+      return {
+        ...task,
+        opportunity: {
+          ...task.opportunity,
+          stage: result.data.stage,
+        },
+      }
+    }))
+
+    return result.data
+  }, [])
+
+  const createProposalFollowUpTaskForAutomation = useCallback(async (opportunityId: string): Promise<boolean> => {
+    const followUpDate = addBusinessDaysInPanama(getTodayInPanama(), 2)
+    const formData = new FormData()
+    formData.append('opportunityId', opportunityId)
+    formData.append('category', 'todo')
+    formData.append('title', 'Dar seguimiento a propuesta enviada')
+    formData.append('date', followUpDate)
+    formData.append('notes', 'Tarea creada automáticamente tras marcar la oportunidad en "Propuesta enviada".')
+
+    const result = await createTask(formData)
+    if (!result.success) {
+      toast.error(result.error || 'No se pudo crear la tarea automática de seguimiento')
+      return false
+    }
+
+    return true
+  }, [])
+
+  const askStageDecision = useCallback((opts: {
+    title: string
+    description: string
+    options: Array<{ value: string; label: string; className: string }>
+    cancelLabel: string
+  }): Promise<string | null> => {
+    return new Promise((resolve) => {
+      let settled = false
+      const settle = (value: string | null) => {
+        if (settled) return
+        settled = true
+        resolve(value)
+      }
+
+      const buttons = (
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600 text-center">{opts.description}</p>
+          <div className="flex flex-col gap-2">
+            {opts.options.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                className={`w-full py-2.5 px-4 text-sm font-semibold rounded-lg transition-colors ${opt.className}`}
+                onClick={() => {
+                  settle(opt.value)
+                  confirmDialog.handleCancel()
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )
+
+      confirmDialog.confirm({
+        title: opts.title,
+        message: buttons,
+        confirmText: '',
+        cancelText: opts.cancelLabel,
+        confirmVariant: 'primary',
+      }).then(() => {
+        settle(null)
+      }).catch(() => {
+        settle(null)
+      })
+    })
+  }, [confirmDialog])
+
+  const askIniciacionAgreementDecision = useCallback(async (): Promise<'reunion' | 'propuesta_enviada' | 'won' | 'keep'> => {
+    const decision = await askStageDecision({
+      title: 'Acuerdo alcanzado',
+      description: '¿A qué etapa desea mover esta oportunidad?',
+      options: [
+        { value: 'reunion', label: 'Reunión', className: 'bg-blue-600 text-white hover:bg-blue-700' },
+        { value: 'propuesta_enviada', label: 'Propuesta Enviada', className: 'bg-indigo-600 text-white hover:bg-indigo-700' },
+        { value: 'won', label: 'Won (Ganada)', className: 'bg-green-600 text-white hover:bg-green-700' },
+      ],
+      cancelLabel: 'Mantener en Iniciación',
+    })
+
+    return (decision as 'reunion' | 'propuesta_enviada' | 'won') || 'keep'
+  }, [askStageDecision])
+
+  const askAgreementPipelineDecision = useCallback(async (): Promise<'keep_reunion' | 'propuesta_enviada' | 'won'> => {
+    const decision = await askStageDecision({
+      title: 'Acuerdo alcanzado',
+      description: '¿A qué etapa desea mover esta oportunidad?',
+      options: [
+        { value: 'propuesta_enviada', label: 'Propuesta Enviada', className: 'bg-indigo-600 text-white hover:bg-indigo-700' },
+        { value: 'won', label: 'Won (Ganada)', className: 'bg-green-600 text-white hover:bg-green-700' },
+      ],
+      cancelLabel: 'Mantener en Reunión',
+    })
+
+    return (decision as 'propuesta_enviada' | 'won') || 'keep_reunion'
+  }, [askStageDecision])
+
+  const handleWonPostActions = useCallback(async (opportunity: Opportunity): Promise<boolean> => {
+    const createRequestNow = await confirmDialog.confirm({
+      title: 'Oportunidad ganada',
+      message: '¿Desea crear la solicitud/contrato ahora?',
+      confirmText: 'Sí, crear solicitud',
+      cancelText: 'No, después',
+      confirmVariant: 'primary',
+    })
+
+    if (createRequestNow) {
+      openCreateRequestFromOpportunity(opportunity)
+      return true
+    }
+
+    return false
+  }, [confirmDialog, openCreateRequestFromOpportunity])
+
+  const runMeetingCompletionPipelineAutomation = useCallback(async (params: {
+    opportunityId?: string | null
+    capturedStage?: string | null
+    meetingData: MeetingData | null
+  }): Promise<MeetingPipelineAutomationResult> => {
+    const result: MeetingPipelineAutomationResult = {
+      didMutateOpportunity: false,
+      navigatedToRequest: false,
+    }
+
+    if (!params.opportunityId || !params.meetingData?.nextSteps?.trim()) {
+      return result
+    }
+
+    const initialOpportunity = await fetchOpportunityForAutomation(params.opportunityId)
+    if (!initialOpportunity) return result
+    let opportunity: Opportunity = initialOpportunity
+
+    const normalizedStage = normalizeAutomationStage(opportunity.stage || params.capturedStage)
+    if (normalizedStage !== 'iniciacion' && normalizedStage !== 'reunion') {
+      return result
+    }
+
+    const changeStage = async (newStage: OpportunityStage): Promise<boolean> => {
+      if (opportunity.stage === newStage) return true
+      const updated = await updateOpportunityStageForAutomation(opportunity, newStage)
+      if (!updated) return false
+      opportunity = updated
+      result.didMutateOpportunity = true
+      return true
+    }
+
+    if (normalizedStage === 'iniciacion') {
+      if (params.meetingData.reachedAgreement === 'no') {
+        await changeStage('reunion')
+        return result
+      }
+
+      if (params.meetingData.reachedAgreement !== 'si') {
+        return result
+      }
+
+      const decision = await askIniciacionAgreementDecision()
+      if (decision === 'reunion') {
+        await changeStage('reunion')
+      } else if (decision === 'propuesta_enviada') {
+        const changed = await changeStage('propuesta_enviada')
+        if (changed) {
+          const created = await createProposalFollowUpTaskForAutomation(opportunity.id)
+          result.didMutateOpportunity = result.didMutateOpportunity || created
+        }
+      } else if (decision === 'won') {
+        const changed = await changeStage('won')
+        if (changed) {
+          result.navigatedToRequest = await handleWonPostActions(opportunity)
+        }
+      }
+
+      return result
+    }
+
+    if (params.meetingData.reachedAgreement !== 'si') {
+      return result
+    }
+
+    const pipelineDecision = await askAgreementPipelineDecision()
+    if (pipelineDecision === 'propuesta_enviada') {
+      const changed = await changeStage('propuesta_enviada')
+      if (changed) {
+        const created = await createProposalFollowUpTaskForAutomation(opportunity.id)
+        result.didMutateOpportunity = result.didMutateOpportunity || created
+      }
+      return result
+    }
+
+    if (pipelineDecision === 'won') {
+      const changed = await changeStage('won')
+      if (changed) {
+        result.navigatedToRequest = await handleWonPostActions(opportunity)
+      }
+    }
+
+    return result
+  }, [
+    askAgreementPipelineDecision,
+    askIniciacionAgreementDecision,
+    createProposalFollowUpTaskForAutomation,
+    fetchOpportunityForAutomation,
+    handleWonPostActions,
+    updateOpportunityStageForAutomation,
+  ])
+
   const openNewTaskModalForOpportunity = useCallback((task: TaskWithOpportunity) => {
     setSelectedTask(null)
     setTaskCreationContext(task)
@@ -248,9 +552,10 @@ export default function TasksPageClient() {
   })
 
   const handleToggleComplete = (task: TaskWithOpportunity) => {
+    const meetingData = task.category === 'meeting' ? parseMeetingData(task.notes || null) : null
+
     // If trying to complete a meeting, check if outcome fields are filled
     if (task.category === 'meeting' && !task.completed) {
-      const meetingData = parseMeetingData(task.notes || null)
       // Meeting outcome fields must be filled (nextSteps) before completing
       const hasNextSteps = meetingData?.nextSteps?.trim()
       if (!meetingData || !hasNextSteps) {
@@ -275,7 +580,23 @@ export default function TasksPageClient() {
 
         const isCompleting = !task.completed
         if (isCompleting) {
-          void taskCompletionFollowUp.maybeOfferNewTaskAfterCompletion(task)
+          if (task.category === 'meeting') {
+            const pipelineResult = await runMeetingCompletionPipelineAutomation({
+              opportunityId: task.opportunityId,
+              capturedStage: task.opportunity?.stage,
+              meetingData,
+            })
+
+            if (pipelineResult.didMutateOpportunity) {
+              await loadTasks({ responsibleId: responsibleFilter || undefined })
+            }
+
+            if (pipelineResult.navigatedToRequest) {
+              return
+            }
+          }
+
+          await taskCompletionFollowUp.maybeOfferNewTaskAfterCompletion(task)
         }
       } else {
         // On failure, the optimistic state will automatically revert when transition ends
@@ -400,6 +721,20 @@ export default function TasksPageClient() {
         const completedFromModal = isEditMode
           ? !selectedTask!.completed && finalTask.completed
           : finalTask.completed
+        const previousMeetingData = selectedTask?.category === 'meeting'
+          ? parseMeetingData(selectedTask.notes || null)
+          : null
+        const currentMeetingData = data.category === 'meeting'
+          ? parseMeetingData(data.notes || null)
+          : null
+        const shouldRunPipelineAutomation = data.category === 'meeting'
+          && !!promptTaskContext?.opportunityId
+          && shouldRunMeetingAutomation({
+            previousMeetingData,
+            currentMeetingData,
+            wasCompletedBefore: !!selectedTask?.completed,
+            isCompletedNow: finalTask.completed,
+          })
         const shouldOfferNewTask = completedFromModal && !!promptTaskContext && taskCompletionFollowUp.canOfferNewTaskAfterCompletion(promptTaskContext, data.notes)
 
         if (isEditMode) {
@@ -415,7 +750,23 @@ export default function TasksPageClient() {
           setSelectedTask(null)
         }
 
-        await loadTasks()
+        let pipelineResult: MeetingPipelineAutomationResult = {
+          didMutateOpportunity: false,
+          navigatedToRequest: false,
+        }
+        if (shouldRunPipelineAutomation) {
+          pipelineResult = await runMeetingCompletionPipelineAutomation({
+            opportunityId: promptTaskContext?.opportunityId,
+            capturedStage: promptTaskContext?.opportunity?.stage,
+            meetingData: currentMeetingData,
+          })
+        }
+
+        await loadTasks({ responsibleId: responsibleFilter || undefined })
+
+        if (pipelineResult.navigatedToRequest) {
+          return
+        }
 
         if (shouldOfferNewTask && promptTaskContext) {
           await taskCompletionFollowUp.maybeOfferNewTaskAfterCompletion(promptTaskContext, data.notes)
