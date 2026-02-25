@@ -2,7 +2,7 @@
  * Sales Meeting Reminders Cron Job
  *
  * Sends daily reminder emails at 4:00 PM Panama time (21:00 UTC)
- * to active sales users that have not registered meetings for today.
+ * to active sales users that have not registered meetings in the last 48 hours.
  *
  * This endpoint is protected by the CRON_SECRET environment variable.
  */
