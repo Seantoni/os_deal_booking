@@ -18,6 +18,7 @@ import AiVoiceVisualizer from '@/components/shared/AiVoiceVisualizer'
 import { getTodayInPanama, formatDateForPanama } from '@/lib/date/timezone'
 import { useMeetingAiAssistant } from '@/components/crm/opportunity/useMeetingAiAssistant'
 import { useTaskAiAssistant } from '@/components/crm/opportunity/useTaskAiAssistant'
+import type { ClassifiedActivityFields } from './useActivityDictation'
 
 // Meeting data structure stored as JSON in notes
 export interface MeetingData {
@@ -69,6 +70,7 @@ interface TaskModalProps {
   forCompletion?: boolean // When true, outcome fields are required before saving
   responsibleName?: string | null // Name of the responsible user
   onViewOpportunity?: () => void // Callback to open opportunity modal
+  prefillData?: ClassifiedActivityFields | null
 }
 
 export default function TaskModal({ 
@@ -82,6 +84,7 @@ export default function TaskModal({
   forCompletion = false,
   responsibleName,
   onViewOpportunity,
+  prefillData,
 }: TaskModalProps) {
   const [taskCategory, setTaskCategory] = useState<'meeting' | 'todo'>('todo')
   
@@ -200,6 +203,36 @@ export default function TaskModal({
         setTaskTitle(task.title)
         setTaskNotes(task.notes || '')
       }
+    } else if (prefillData) {
+      // Pre-fill from AI dictation classification
+      setTaskCategory(prefillData.category)
+      setTaskDate(prefillData.dueDate || getTodayInPanama())
+
+      if (prefillData.category === 'meeting') {
+        setMeetingWith(prefillData.meetingWith || '')
+        setPosition(prefillData.position || '')
+        setIsDecisionMaker(prefillData.isDecisionMaker || '')
+        setMeetingDetails(prefillData.meetingDetails || '')
+        setMeetingHappened(prefillData.nextSteps ? 'si' : '')
+        setReachedAgreement(prefillData.reachedAgreement || 'si')
+        setMainObjection(prefillData.mainObjection || '')
+        setObjectionSolution(prefillData.objectionSolution || '')
+        setNextSteps(prefillData.nextSteps || '')
+        setTaskTitle(prefillData.meetingWith || '')
+        setTaskNotes('')
+      } else {
+        setTaskTitle(prefillData.title || '')
+        setTaskNotes(prefillData.notes || '')
+        setMeetingWith('')
+        setPosition('')
+        setIsDecisionMaker('')
+        setMeetingDetails('')
+        setMeetingHappened('')
+        setReachedAgreement('si')
+        setMainObjection('')
+        setObjectionSolution('')
+        setNextSteps('')
+      }
     } else {
       // Reset all fields for new task
       setTaskCategory('todo')
@@ -217,7 +250,7 @@ export default function TaskModal({
       setObjectionSolution('')
       setNextSteps('')
     }
-  }, [task, isOpen, businessName, forCompletion, resetAssistantState, taskAi.resetAssistantState])
+  }, [task, isOpen, businessName, forCompletion, resetAssistantState, taskAi.resetAssistantState, prefillData])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   async function handleSubmit(e: React.FormEvent) {

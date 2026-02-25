@@ -39,6 +39,8 @@ const BusinessFormModal = lazy(() => import('@/components/crm/business/BusinessF
 
 // Import for checking meeting data (non-lazy, small utility function)
 import { parseMeetingData } from './TaskModal'
+import { useActivityDictation, type ClassifiedActivityFields } from './useActivityDictation'
+import AiVoiceVisualizer from '@/components/shared/AiVoiceVisualizer'
 
 // Lazy load tab content - only loaded when tab is active
 const TaskManager = lazy(() => import('./TaskManager'))
@@ -113,6 +115,17 @@ export default function OpportunityFormModal({
   const [pendingLostStage, setPendingLostStage] = useState<OpportunityStage | null>(null)
   const [businessModalOpen, setBusinessModalOpen] = useState(false)
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null)
+
+  const [taskPrefill, setTaskPrefill] = useState<ClassifiedActivityFields | null>(null)
+
+  const activityDictation = useActivityDictation({
+    onResult: (fields) => {
+      setTaskPrefill(fields)
+      setSelectedTask(null)
+      setCompletingTaskId(null)
+      setTaskModalOpen(true)
+    },
+  })
 
   const confirmDialog = useConfirmDialog()
 
@@ -649,7 +662,7 @@ export default function OpportunityFormModal({
 
   function openTaskModal(task?: Task, forCompletion = false) {
     setSelectedTask(task || null)
-    // Only keep completingTaskId if explicitly opening for completion
+    setTaskPrefill(null)
     if (!forCompletion) {
       setCompletingTaskId(null)
     }
@@ -1064,11 +1077,13 @@ export default function OpportunityFormModal({
                       <TaskManager
                         tasks={tasks}
                         onAddTask={() => openTaskModal()}
+                        onDictateTask={() => activityDictation.toggle()}
                         onEditTask={(task) => openTaskModal(task)}
                         onDeleteTask={handleDeleteTask}
                         onToggleComplete={handleToggleTaskComplete}
                         isAdmin={isAdmin}
                         readOnly={false}
+                        isDictating={activityDictation.state === 'recording' || activityDictation.state === 'processing'}
                       />
                     )}
                   </Suspense>
@@ -1124,7 +1139,8 @@ export default function OpportunityFormModal({
             onClose={() => {
               setTaskModalOpen(false)
               setSelectedTask(null)
-              setCompletingTaskId(null) // Clear completing state on close
+              setCompletingTaskId(null)
+              setTaskPrefill(null)
             }}
             task={selectedTask}
             onSubmit={handleTaskSubmit}
@@ -1133,6 +1149,7 @@ export default function OpportunityFormModal({
             businessName={linkedBusiness?.name || opportunity?.business?.name || ''}
             forCompletion={!!completingTaskId}
             responsibleName={opportunity?.responsible?.name || opportunity?.responsible?.email}
+            prefillData={taskPrefill}
           />
         </Suspense>
       )}
@@ -1191,6 +1208,72 @@ export default function OpportunityFormModal({
             onConfirm={confirmDialog.handleConfirm}
             onCancel={confirmDialog.handleCancel}
             zIndex={80}
+          />
+        </Suspense>
+      )}
+
+      {/* Activity Dictation Dialog */}
+      {activityDictation.dialog.isOpen && (
+        <Suspense fallback={null}>
+          <ConfirmDialog
+            isOpen={activityDictation.dialog.isOpen}
+            title={activityDictation.dialog.mode === 'processing' ? 'Clasificando actividad' : 'Dictar Actividad'}
+            message={(
+              <div className="space-y-4 text-left">
+                <AiVoiceVisualizer
+                  mode={activityDictation.dialog.mode === 'recording' ? 'listening' : 'processing'}
+                  className="mb-2"
+                />
+
+                {activityDictation.dialog.mode === 'recording' && (
+                  <>
+                    <p className="text-sm text-gray-600 text-center">
+                      Describa la actividad. La IA detectará si es una tarea o reunión y completará los campos:
+                    </p>
+                    <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-3">
+                      <ul className="list-disc pl-5 space-y-1 text-xs text-gray-700">
+                        {activityDictation.dialog.items.map((item) => (
+                          <li key={`activity-guide-${item.label}`}>
+                            <span className="font-semibold">{item.label}:</span> {item.suggestion}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </>
+                )}
+
+                {activityDictation.dialog.mode === 'processing' && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-indigo-700 text-center">
+                      Clasificando la actividad y extrayendo los datos...
+                    </p>
+                    <p className="text-xs text-gray-500 text-center">
+                      Esto puede tomar unos segundos.
+                    </p>
+                  </div>
+                )}
+
+                {activityDictation.error && (
+                  <p className="text-xs text-red-600 text-center">{activityDictation.error}</p>
+                )}
+              </div>
+            )}
+            confirmText={activityDictation.dialog.mode === 'processing' ? 'Procesando...' : 'Detener dictado'}
+            cancelText={activityDictation.dialog.mode === 'processing' ? '' : 'Ocultar guía'}
+            confirmVariant="primary"
+            loading={activityDictation.dialog.mode === 'processing'}
+            loadingText="Procesando..."
+            onConfirm={
+              activityDictation.dialog.mode === 'processing'
+                ? () => {}
+                : activityDictation.handleDialogStop
+            }
+            onCancel={
+              activityDictation.dialog.mode === 'processing'
+                ? () => {}
+                : activityDictation.handleDialogHide
+            }
+            zIndex={82}
           />
         </Suspense>
       )}

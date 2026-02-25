@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { PANAMA_TIMEZONE, getTodayInPanama, formatDateForPanama } from '@/lib/date/timezone'
 import AddIcon from '@mui/icons-material/Add'
+import MicIcon from '@mui/icons-material/Mic'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
@@ -17,11 +18,13 @@ import { Button } from '@/components/ui'
 interface TaskManagerProps {
   tasks: Task[]
   onAddTask: () => void
+  onDictateTask?: () => void
   onEditTask: (task: Task) => void
   onDeleteTask: (taskId: string) => void
   onToggleComplete: (task: Task) => void
   isAdmin?: boolean
   readOnly?: boolean
+  isDictating?: boolean
 }
 
 type TaskFilter = 'all' | 'task' | 'meeting'
@@ -29,11 +32,13 @@ type TaskFilter = 'all' | 'task' | 'meeting'
 export default function TaskManager({
   tasks,
   onAddTask,
+  onDictateTask,
   onEditTask,
   onDeleteTask,
   onToggleComplete,
   isAdmin = false,
   readOnly = false,
+  isDictating = false,
 }: TaskManagerProps) {
   const [filter, setFilter] = useState<TaskFilter>('all')
   const todayStr = getTodayInPanama() // YYYY-MM-DD in Panama timezone
@@ -74,16 +79,32 @@ export default function TaskManager({
         <EventIcon className="text-gray-400 mx-auto mb-3" style={{ fontSize: 48 }} />
         <p className="text-sm text-gray-500 mb-2">No hay tareas aún</p>
         {!readOnly && (
-          <Button
-            type="button"
-            onClick={onAddTask}
-            variant="secondary"
-            size="sm"
-            leftIcon={<AddIcon fontSize="small" />}
-            className="border-orange-200 text-orange-600 hover:bg-orange-50"
-          >
-            Crear Primera Tarea
-          </Button>
+          <div className="flex items-center justify-center gap-2">
+            <Button
+              type="button"
+              onClick={onAddTask}
+              variant="secondary"
+              size="sm"
+              leftIcon={<AddIcon fontSize="small" />}
+              className="border-orange-200 text-orange-600 hover:bg-orange-50"
+            >
+              Crear Tarea
+            </Button>
+            {onDictateTask && (
+              <Button
+                type="button"
+                onClick={onDictateTask}
+                variant="secondary"
+                size="sm"
+                leftIcon={<MicIcon fontSize="small" />}
+                className={isDictating
+                  ? 'border-rose-300 bg-rose-50 text-rose-600 animate-pulse'
+                  : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'}
+              >
+                {isDictating ? 'Grabando...' : 'Dictar'}
+              </Button>
+            )}
+          </div>
         )}
       </div>
     )
@@ -134,15 +155,30 @@ export default function TaskManager({
           <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
             <h3 className="text-sm font-bold text-gray-700">Tareas Pendientes</h3>
             {!readOnly && (
-              <Button
-                type="button"
-                onClick={onAddTask}
-                size="xs"
-                leftIcon={<AddIcon style={{ fontSize: 14 }} />}
-                className="bg-orange-600 hover:bg-orange-700"
-              >
-                Nueva Tarea
-              </Button>
+              <div className="flex items-center gap-1.5">
+                {onDictateTask && (
+                  <Button
+                    type="button"
+                    onClick={onDictateTask}
+                    size="xs"
+                    leftIcon={<MicIcon style={{ fontSize: 14 }} />}
+                    className={isDictating
+                      ? 'bg-rose-500 hover:bg-rose-600 animate-pulse'
+                      : 'bg-emerald-600 hover:bg-emerald-700'}
+                  >
+                    {isDictating ? 'Grabando...' : 'Dictar'}
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  onClick={onAddTask}
+                  size="xs"
+                  leftIcon={<AddIcon style={{ fontSize: 14 }} />}
+                  className="bg-orange-600 hover:bg-orange-700"
+                >
+                  Nueva
+                </Button>
+              </div>
             )}
           </div>
           <div className="p-2 space-y-0">
@@ -167,15 +203,30 @@ export default function TaskManager({
           <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
             <h3 className="text-sm font-bold text-gray-700">Tareas Pasadas</h3>
             {!readOnly && futureTasks.length === 0 && (
-              <Button
-                type="button"
-                onClick={onAddTask}
-                size="xs"
-                leftIcon={<AddIcon style={{ fontSize: 14 }} />}
-                className="bg-orange-600 hover:bg-orange-700"
-              >
-                Nueva Tarea
-              </Button>
+              <div className="flex items-center gap-1.5">
+                {onDictateTask && (
+                  <Button
+                    type="button"
+                    onClick={onDictateTask}
+                    size="xs"
+                    leftIcon={<MicIcon style={{ fontSize: 14 }} />}
+                    className={isDictating
+                      ? 'bg-rose-500 hover:bg-rose-600 animate-pulse'
+                      : 'bg-emerald-600 hover:bg-emerald-700'}
+                  >
+                    {isDictating ? 'Grabando...' : 'Dictar'}
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  onClick={onAddTask}
+                  size="xs"
+                  leftIcon={<AddIcon style={{ fontSize: 14 }} />}
+                  className="bg-orange-600 hover:bg-orange-700"
+                >
+                  Nueva
+                </Button>
+              </div>
             )}
           </div>
           <div className="p-2 space-y-0">
