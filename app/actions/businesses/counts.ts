@@ -6,6 +6,7 @@ import { getUserRole } from '@/lib/auth/roles'
 
 import {
   NOT_ARCHIVED_CONDITION,
+  SALES_VISIBLE_REASSIGNMENT_CONDITION,
   type BusinessWhereClause,
 } from './_shared/constants'
 
@@ -30,8 +31,8 @@ export async function getBusinessCounts(filters?: { ownerId?: string; myBusiness
     // Sales users can VIEW all businesses, so no ownerId filter needed for counts by default
     const baseWhere: Record<string, unknown> = {}
     if (role === 'sales') {
-      // Sales can view all businesses, but filter out those pending reassignment
-      baseWhere.reassignmentStatus = null
+      // Keep auto-recurrent pending reassignments visible to sales.
+      Object.assign(baseWhere, SALES_VISIBLE_REASSIGNMENT_CONDITION)
       
       // "My Businesses Only" filter - defaults to TRUE for sales users
       // Only show all businesses if explicitly set to false
@@ -151,7 +152,7 @@ export async function getBusinessActiveDealUrls() {
     const baseWhere: Record<string, unknown> = {}
     if (role === 'sales') {
       baseWhere.ownerId = userId
-      baseWhere.reassignmentStatus = null
+      Object.assign(baseWhere, SALES_VISIBLE_REASSIGNMENT_CONDITION)
     } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { 
         success: true, 
@@ -244,7 +245,7 @@ export async function getBusinessTableCounts() {
     const baseWhere: BusinessWhereClause = {}
     if (role === 'sales') {
       baseWhere.ownerId = userId
-      baseWhere.reassignmentStatus = null
+      Object.assign(baseWhere, SALES_VISIBLE_REASSIGNMENT_CONDITION)
     } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
       return { 
         success: true, 

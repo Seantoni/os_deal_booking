@@ -12,6 +12,7 @@ import {
   BUSINESS_LIST_INCLUDE,
   LIVE_METRIC_SORT_COLUMNS,
   NOT_ARCHIVED_CONDITION,
+  SALES_VISIBLE_REASSIGNMENT_CONDITION,
   SORT_COLUMN_MAP,
   type BusinessListRecord,
   type BusinessWhereClause,
@@ -44,8 +45,8 @@ export async function getBusinesses() {
         if (role === 'sales') {
           // Sales only see businesses where they are the owner
           whereClause.ownerId = userId
-          // Filter out businesses pending reassignment
-          whereClause.reassignmentStatus = null
+          // Hide pending reassignment except auto-recurrent assignments.
+          Object.assign(whereClause, SALES_VISIBLE_REASSIGNMENT_CONDITION)
         } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
           // Editors and ERE don't have access to businesses
           return []
@@ -165,8 +166,8 @@ export async function getBusinessesPaginated(options: {
     // They can only EDIT assigned ones (handled by editableBusinessIds)
     const whereClause: BusinessWhereClause = {}
     if (role === 'sales') {
-      // Sales can view all businesses, but filter out those pending reassignment
-      whereClause.reassignmentStatus = null
+      // Sales can view eligible businesses while keeping auto-recurrent pending reassignments visible.
+      Object.assign(whereClause, SALES_VISIBLE_REASSIGNMENT_CONDITION)
       
       // "My Businesses Only" filter - defaults to TRUE for sales users
       // Only show all businesses if explicitly set to false
@@ -472,8 +473,8 @@ export async function searchBusinesses(query: string, options: {
     // Sales users can VIEW all businesses (no ownerId filter by default)
     const roleFilter: BusinessWhereClause = {}
     if (role === 'sales') {
-      // Sales can view all businesses, but filter out those pending reassignment
-      roleFilter.reassignmentStatus = null
+      // Sales can view eligible businesses while keeping auto-recurrent pending reassignments visible.
+      Object.assign(roleFilter, SALES_VISIBLE_REASSIGNMENT_CONDITION)
       
       // "My Businesses Only" filter - defaults to TRUE for sales users
       // Only show all businesses if explicitly set to false
