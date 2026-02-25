@@ -45,6 +45,7 @@ import { getRequestsByBusiness } from '@/app/actions/booking-requests'
 import { getDealsByBusiness } from '@/app/actions/deals'
 import { fetchEditableBusinessIds } from '@/app/actions/businesses'
 import type { Business, Opportunity, BookingRequest, Deal } from '@/types'
+import type { OpportunityModalSuccessMeta } from '@/components/crm/opportunity/opportunityModalTypes'
 
 function InfoRow({ label, value, icon, isLink, href }: { label: string; value?: string | null; icon?: React.ReactNode; isLink?: boolean; href?: string }) {
   if (!value && value !== '0') return null
@@ -265,9 +266,11 @@ export default function BusinessDetailClient({
     setIsDealModalOpen(true)
   }
 
-  const handleOpportunitySuccess = async (opportunity: Opportunity) => {
-    setIsOpportunityModalOpen(false)
-    setSelectedOpportunity(null)
+  const handleOpportunitySuccess = async (opportunity: Opportunity, meta?: OpportunityModalSuccessMeta) => {
+    if (meta?.source !== 'stage') {
+      setIsOpportunityModalOpen(false)
+      setSelectedOpportunity(null)
+    }
     // Reload opportunities
     const result = await getOpportunitiesByBusiness(business.id)
     if (result.success && result.data) {

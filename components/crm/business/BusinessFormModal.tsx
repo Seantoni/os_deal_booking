@@ -30,6 +30,7 @@ import { getActiveFocus, getFocusInfo, FOCUS_PERIOD_LABELS, type FocusPeriod } f
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useBusinessForm } from './useBusinessForm'
+import type { OpportunityModalSuccessMeta } from '../opportunity/opportunityModalTypes'
 import ReferenceInfoBar from '@/components/shared/ReferenceInfoBar'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
 import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
@@ -767,22 +768,31 @@ export default function BusinessFormModal({
     onClose() // Close the business modal
   }
 
-  async function handleOpportunitySuccess(opportunity: Opportunity) {
-    // Close the opportunity modal
-    setOpportunityModalOpen(false)
-    setSelectedOpportunity(null)
-    
+  async function handleOpportunitySuccess(opportunity: Opportunity, meta?: OpportunityModalSuccessMeta) {
+    const isStageUpdate = meta?.source === 'stage'
+
+    if (!isStageUpdate) {
+      // Close modal only when the opportunity form itself was submitted.
+      setOpportunityModalOpen(false)
+      setSelectedOpportunity(null)
+    }
+
     if (business) {
-      // Editing existing business - refresh data and stay in business modal
+      // Editing existing business - refresh business context and keep parent data fresh.
       await loadFormData()
       onSuccess(business)
-    } else if (createdBusiness) {
-      // New business was just created - notify parent, close modal, and redirect to opportunity
+      return
+    }
+
+    if (createdBusiness) {
+      if (isStageUpdate) {
+        return
+      }
+
+      // New business flow: close parent and redirect only after explicit form submit.
       onSuccess(createdBusiness)
       setCreatedBusiness(null)
       onClose()
-      
-      // Redirect to opportunities page with the new opportunity open
       sessionStorage.setItem('openOpportunityId', opportunity.id)
       router.push('/opportunities')
     }
