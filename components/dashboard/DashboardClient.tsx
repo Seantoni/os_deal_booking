@@ -513,7 +513,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                     <DateRangeIcon style={{ fontSize: 14 }} />
                   </div>
                   <div className="text-left min-w-0">
-                    <div className="text-[9px] uppercase tracking-wide text-gray-400 font-semibold">Período</div>
+                    <div className="text-xs uppercase tracking-wide text-gray-400 font-semibold">Período</div>
                     <div className="text-xs text-gray-800 font-semibold truncate">{rangeControlLabel}</div>
                   </div>
                 </div>
@@ -526,7 +526,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
               {isDateRangeOpen && (
                 <div className="absolute left-0 top-full mt-2 z-40 w-[min(92vw,380px)] bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
                   <div className="px-3 py-2 border-b border-gray-100 bg-white">
-                    <p className="text-[11px] font-medium text-gray-600">Selecciona un rango útil</p>
+                    <p className="text-sm font-medium text-gray-600">Selecciona un rango útil</p>
                   </div>
 
                   <div className="p-3 grid grid-cols-2 gap-2 border-b border-gray-100">
@@ -548,7 +548,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
 
                   <div className="p-3 space-y-3">
                     <div className="grid grid-cols-2 gap-2">
-                      <label className="text-[11px] text-gray-500">
+                      <label className="text-sm text-gray-500">
                         Desde
                         <input
                           type="date"
@@ -557,7 +557,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                           className="mt-1 w-full text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-200"
                         />
                       </label>
-                      <label className="text-[11px] text-gray-500">
+                      <label className="text-sm text-gray-500">
                         Hasta
                         <input
                           type="date"
@@ -569,7 +569,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                     </div>
 
                     {!isDraftRangeValid && draftStartDate && draftEndDate && (
-                      <p className="text-[11px] text-red-500">La fecha final debe ser igual o posterior a la inicial.</p>
+                      <p className="text-sm text-red-500">La fecha final debe ser igual o posterior a la inicial.</p>
                     )}
 
                     <div className="flex items-center justify-between">
@@ -629,7 +629,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                 <h3 className="text-sm font-semibold text-gray-900">Por Reservar</h3>
               </div>
               {pendingBookings.length > 0 && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded-full">
+                <span className="text-[13px] font-bold px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded-full">
                   {pendingBookings.length}
                 </span>
               )}
@@ -660,13 +660,13 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-medium text-gray-900 truncate">{item.name}</span>
-                          <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${
+                          <span className={`text-xs font-bold px-1 py-0.5 rounded ${
                             item.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'
                           }`}>
                             {item.status === 'pending' ? 'PEND' : 'APROB'}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                        <div className="flex items-center gap-2 text-[13px] text-gray-400">
                           <span>{item.businessName || 'Sin negocio'}</span>
                           <span>•</span>
                           <span>{new Date(item.startDate).toLocaleDateString('es-PA', { month: 'short', day: 'numeric' })}</span>
@@ -680,7 +680,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
             {pendingBookings.length > 5 && (
               <button
                 onClick={() => router.push('/events')}
-                className="w-full px-4 py-2 text-[10px] text-orange-600 hover:bg-orange-50 font-medium border-t border-gray-100"
+                className="w-full px-4 py-2 text-[13px] text-orange-600 hover:bg-orange-50 font-medium border-t border-gray-100"
               >
                 Ver {pendingBookings.length - 5} más →
               </button>
@@ -697,7 +697,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                 <h3 className="text-sm font-semibold text-gray-900">Por asignar</h3>
               </div>
               {pendingAssignments.length > 0 && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded-full">
+                <span className="text-[13px] font-bold px-1.5 py-0.5 bg-violet-100 text-violet-700 rounded-full">
                   {pendingAssignments.length}
                 </span>
               )}
@@ -729,7 +729,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-medium text-gray-900 truncate">{item.bookingRequest.name}</span>
                           </div>
-                          <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                          <div className="flex items-center gap-2 text-[13px] text-gray-400">
                             <span>{new Date(start).toLocaleDateString('es-PA', { month: 'short', day: 'numeric' })}</span>
                             <span>•</span>
                             <span>{new Date(end).toLocaleDateString('es-PA', { month: 'short', day: 'numeric' })}</span>
@@ -744,7 +744,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
             {pendingAssignments.length > 5 && (
               <button
                 onClick={() => router.push('/deals')}
-                className="w-full px-4 py-2 text-[10px] text-violet-600 hover:bg-violet-50 font-medium border-t border-gray-100"
+                className="w-full px-4 py-2 text-[13px] text-violet-600 hover:bg-violet-50 font-medium border-t border-gray-100"
               >
                 Ver {pendingAssignments.length - 5} más →
               </button>
@@ -761,7 +761,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                 <h3 className="text-sm font-semibold text-gray-900">Inbox</h3>
               </div>
               {inboxItems.length > 0 && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full">
+                <span className="text-[13px] font-bold px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full">
                   {inboxItems.length}
                 </span>
               )}
@@ -795,9 +795,9 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                             <span className="text-xs font-medium text-gray-900 truncate">
                               {item.author.name || 'Usuario'}
                             </span>
-                            <span className="text-[10px] text-gray-400">{formatRelativeTime(item.createdAt)}</span>
+                            <span className="text-[13px] text-gray-400">{formatRelativeTime(item.createdAt)}</span>
                           </div>
-                          <p className="text-[10px] text-gray-500 truncate">{truncateContent(item.content, 50)}</p>
+                          <p className="text-[13px] text-gray-500 truncate">{truncateContent(item.content, 50)}</p>
                         </div>
                       </button>
                       <button
@@ -814,7 +814,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
             {inboxItems.length > 5 && (
               <button
                 onClick={() => router.push('/dashboard')}
-                className="w-full px-4 py-2 text-[10px] text-blue-600 hover:bg-blue-50 font-medium border-t border-gray-100"
+                className="w-full px-4 py-2 text-[13px] text-blue-600 hover:bg-blue-50 font-medium border-t border-gray-100"
               >
                 Ver {inboxItems.length - 5} más →
               </button>
@@ -831,7 +831,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                 <h3 className="text-sm font-semibold text-gray-900">Sin Respuesta</h3>
               </div>
               {pendingComments.length > 0 && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full">
+                <span className="text-[13px] font-bold px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full">
                   {pendingComments.length}
                 </span>
               )}
@@ -865,10 +865,10 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                           <span className="text-xs font-medium text-gray-900 truncate">
                             {item.author.name || 'Usuario'}
                           </span>
-                          <span className="text-[10px] text-gray-400">{formatRelativeTime(item.createdAt)}</span>
+                          <span className="text-[13px] text-gray-400">{formatRelativeTime(item.createdAt)}</span>
                         </div>
-                        <p className="text-[10px] text-gray-500 truncate">{truncateContent(item.content, 40)}</p>
-                        <p className="text-[9px] text-gray-400 truncate">{item.entityName}</p>
+                        <p className="text-[13px] text-gray-500 truncate">{truncateContent(item.content, 40)}</p>
+                        <p className="text-xs text-gray-400 truncate">{item.entityName}</p>
                       </div>
                     </button>
                   ))}
@@ -878,7 +878,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
             {pendingComments.length > 5 && (
               <button
                 onClick={() => router.push('/settings')}
-                className="w-full px-4 py-2 text-[10px] text-purple-600 hover:bg-purple-50 font-medium border-t border-gray-100"
+                className="w-full px-4 py-2 text-[13px] text-purple-600 hover:bg-purple-50 font-medium border-t border-gray-100"
               >
                 Ver más en Settings →
               </button>
@@ -892,7 +892,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
           <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
               <HandshakeIcon className="text-green-500" style={{ fontSize: 16 }} />
-              <span className="text-[10px] font-semibold text-gray-500 uppercase">Ganadas</span>
+              <span className="text-[13px] font-semibold text-gray-500 uppercase">Ganadas</span>
             </div>
             <div className="flex items-baseline gap-1">
               <span className="text-2xl font-bold text-gray-900">{stats?.opportunities?.byStage?.['won'] || 0}</span>
@@ -910,7 +910,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
           <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
               <GroupIcon className="text-blue-500" style={{ fontSize: 16 }} />
-              <span className="text-[10px] font-semibold text-gray-500 uppercase">Reuniones</span>
+              <span className="text-[13px] font-semibold text-gray-500 uppercase">Reuniones</span>
             </div>
             <div className="flex items-baseline gap-1">
               <span className="text-2xl font-bold text-gray-900">{stats?.tasks?.meetingsCompleted || 0}</span>
@@ -922,12 +922,12 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
           <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
               <DescriptionIcon className="text-purple-500" style={{ fontSize: 16 }} />
-              <span className="text-[10px] font-semibold text-gray-500 uppercase">Solicitudes</span>
+              <span className="text-[13px] font-semibold text-gray-500 uppercase">Solicitudes</span>
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-bold text-gray-900">{stats?.bookings?.total || 0}</span>
             </div>
-            <div className="flex gap-2 mt-1 text-[10px]">
+            <div className="flex gap-2 mt-1 text-[13px]">
               <span className="text-green-600">{stats?.bookings?.byStatus?.['approved'] || 0} aprob</span>
               <span className="text-blue-600">{stats?.bookings?.byStatus?.['booked'] || 0} res</span>
             </div>
@@ -937,7 +937,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
           <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
               <CheckIcon className="text-emerald-500" style={{ fontSize: 16 }} />
-              <span className="text-[10px] font-semibold text-gray-500 uppercase">Tareas</span>
+              <span className="text-[13px] font-semibold text-gray-500 uppercase">Tareas</span>
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-bold text-gray-900">{stats?.tasks?.completed || 0}</span>
@@ -962,20 +962,20 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                 <div className="p-1 bg-yellow-50 rounded">
                   <HandshakeIcon className="text-yellow-600" style={{ fontSize: 16 }} />
                 </div>
-                <h3 className="text-sm font-semibold text-gray-900">Clasificación</h3>
+                <h3 className="text-base font-semibold text-gray-900">Clasificación</h3>
               </div>
-              <span className="text-[10px] text-gray-400">Por score ponderado</span>
+              <span className="text-sm text-gray-400">Por score ponderado</span>
             </div>
             
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50/80 border-b border-gray-100">
-                    <th className="px-4 py-2 font-semibold text-gray-500 text-left">Miembro</th>
-                    <th className="px-3 py-2 font-semibold text-gray-500 text-center">Aprob</th>
-                    <th className="px-3 py-2 font-semibold text-gray-500 text-center">Reserv</th>
-                    <th className="px-3 py-2 font-semibold text-gray-500 text-center">Meet</th>
-                    <th className="px-3 py-2 font-semibold text-gray-500 text-center">Tasks</th>
+                    <th className="px-4 py-2.5 font-semibold text-gray-500 text-left">Miembro</th>
+                    <th className="px-3 py-2.5 font-semibold text-gray-500 text-center">Aprob</th>
+                    <th className="px-3 py-2.5 font-semibold text-gray-500 text-center">Reserv</th>
+                    <th className="px-3 py-2.5 font-semibold text-gray-500 text-center">Meet</th>
+                    <th className="px-3 py-2.5 font-semibold text-gray-500 text-center">Tasks</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -984,9 +984,9 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                       key={member.userId} 
                       className={`${member.isCurrentUser ? 'bg-blue-50/40' : 'hover:bg-gray-50/50'}`}
                     >
-                      <td className="px-4 py-2">
+                      <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2">
-                          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${
+                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold ${
                             index === 0 ? 'bg-yellow-100 text-yellow-700' :
                             index === 1 ? 'bg-gray-200 text-gray-600' :
                             index === 2 ? 'bg-orange-100 text-orange-700' :
@@ -995,30 +995,30 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                             {index + 1}
                           </span>
                           <div>
-                            <span className={`font-medium ${member.isCurrentUser ? 'text-blue-700' : 'text-gray-900'}`}>
+                            <span className={`text-sm font-medium ${member.isCurrentUser ? 'text-blue-700' : 'text-gray-900'}`}>
                               {member.name}
                             </span>
-                            {member.isCurrentUser && <span className="ml-1 text-[9px] text-blue-500">(tú)</span>}
+                            {member.isCurrentUser && <span className="ml-1 text-sm text-blue-500">(tú)</span>}
                           </div>
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-center">
-                        <span className="px-1.5 py-0.5 bg-green-50 text-green-700 rounded font-medium">
+                      <td className="px-3 py-2.5 text-center">
+                        <span className="px-1.5 py-0.5 bg-green-50 text-green-700 rounded text-sm font-medium">
                           {member.approvedRequests || 0}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-center">
-                        <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded font-semibold">
+                      <td className="px-3 py-2.5 text-center">
+                        <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-sm font-semibold">
                           {member.bookedRequests || 0}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-center text-gray-600">{member.meetings || 0}</td>
-                      <td className="px-3 py-2 text-center text-gray-600">{member.todos || 0}</td>
+                      <td className="px-3 py-2.5 text-center text-sm text-gray-600">{member.meetings || 0}</td>
+                      <td className="px-3 py-2.5 text-center text-sm text-gray-600">{member.todos || 0}</td>
                     </tr>
                   ))}
                   {rankedTeamPerformance.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-xs">
+                      <td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-sm">
                         Sin actividad en este período
                       </td>
                     </tr>
@@ -1031,7 +1031,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
           {/* Request Flow */}
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-900">Flujo de Solicitudes</h3>
+              <h3 className="text-base font-semibold text-gray-900">Flujo de Solicitudes</h3>
             </div>
             <div className="p-4 space-y-3">
               {[
@@ -1044,7 +1044,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                 <div key={item.label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full bg-${item.color}-400`}></div>
-                    <span className="text-xs text-gray-600">{item.label}</span>
+                    <span className="text-sm text-gray-600">{item.label}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-20 h-1 bg-gray-100 rounded-full overflow-hidden">
@@ -1053,7 +1053,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                         style={{ width: `${getPercent(item.count, stats?.bookings?.total || 0)}%` }}
                       />
                     </div>
-                    <span className={`text-xs font-semibold text-${item.color}-600 w-6 text-right`}>{item.count}</span>
+                    <span className={`text-sm font-semibold text-${item.color}-600 w-6 text-right`}>{item.count}</span>
                   </div>
                 </div>
               ))}
@@ -1073,7 +1073,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
           <div className="p-4 space-y-3">
             <div className="flex items-end justify-between gap-3">
               <div>
-                <div className="text-[10px] font-semibold text-gray-500 uppercase">Nuevos Negocios (Q Actual)</div>
+                <div className="text-[13px] font-semibold text-gray-500 uppercase">Nuevos Negocios (Q Actual)</div>
                 <div className="mt-1 text-2xl font-bold text-gray-900">
                   {stats?.businesses?.quarterTotal || 0}
                 </div>
@@ -1087,18 +1087,18 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                   const arrow = delta?.direction === 'up' ? '▲' : delta?.direction === 'down' ? '▼' : '•'
                   const label = delta ? `WoW ${arrow} ${delta.value}%` : 'WoW • 0%'
                   return (
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${color}`}>
+                    <span className={`text-[13px] font-semibold px-2 py-0.5 rounded-full ${color}`}>
                       {label}
                     </span>
                   )
                 })()}
-                <div className="text-[10px] text-gray-400">Por mes</div>
+                <div className="text-[13px] text-gray-400">Por mes</div>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {stats?.businesses?.quarterMonths?.map((month) => (
                 <div key={month.month} className="rounded-lg border border-gray-100 bg-gray-50/60 p-3">
-                  <div className="text-[10px] font-semibold text-gray-500 uppercase">{month.label}</div>
+                  <div className="text-[13px] font-semibold text-gray-500 uppercase">{month.label}</div>
                   <div className="mt-1 text-xl font-bold text-gray-900">{month.count}</div>
                 </div>
               ))}

@@ -19,7 +19,7 @@ export interface SelectProps extends Omit<SelectHTMLAttributes<HTMLSelectElement
 }
 
 const sizeClasses: Record<SelectSize, string> = {
-  sm: 'px-3 py-1.5 text-xs',
+  sm: 'px-3 py-1.5 text-sm',
   md: 'px-3 py-2 text-sm',
   lg: 'text-base px-4 py-2.5',
 }
@@ -263,7 +263,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
   return (
     <div className={cn('flex flex-col gap-0.5', fullWidth && 'w-full')}>
       {label && (
-        <label className="block text-xs font-medium text-slate-600">
+        <label className="block text-sm font-medium text-slate-600">
           {label}
         </label>
       )}
@@ -313,9 +313,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         {dropdownContent}
       </div>
       {error ? (
-        <span className="text-xs text-red-600">{error}</span>
+        <span className="text-sm text-red-600">{error}</span>
       ) : helperText ? (
-        <span className="text-xs text-gray-500">{helperText}</span>
+        <span className="text-sm text-gray-500">{helperText}</span>
       ) : null}
     </div>
   )

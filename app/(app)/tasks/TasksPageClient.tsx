@@ -20,7 +20,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PhoneIcon from '@mui/icons-material/Phone'
 import EmailIcon from '@mui/icons-material/Email'
 import PersonIcon from '@mui/icons-material/Person'
-import { formatShortDate, formatRelativeTime, getTodayInPanama, formatDateForPanama } from '@/lib/date'
+import { formatRelativeTime, getTodayInPanama, formatDateForPanama, formatShortDateNoYear, daysUntil } from '@/lib/date'
 import {
   EntityPageHeader,
   UserFilterDropdown,
@@ -65,17 +65,16 @@ const STAGE_COLORS: Record<string, string> = {
 
 // Table columns
 const COLUMNS: ColumnConfig[] = [
-  { key: 'status', label: '', width: 'w-10', align: 'center' },
-  { key: 'title', label: 'Tarea', sortable: true },
-  { key: 'responsible', label: 'Responsable', sortable: true, width: 'w-40' },
-  { key: 'category', label: 'Tipo', sortable: true, width: 'w-24', align: 'center' },
-  { key: 'date', label: 'Vencimiento', sortable: true, width: 'w-32' },
-  { key: 'business', label: 'Negocio', sortable: true },
-  { key: 'stage', label: 'Etapa', sortable: true, width: 'w-32' },
-  { key: 'contactName', label: 'Contacto', width: 'w-32' },
-  { key: 'contactEmail', label: 'Email', width: 'w-48' },
-  { key: 'contactPhone', label: 'Teléfono', width: 'w-32' },
-  { key: 'actions', label: '', width: 'w-16', align: 'right' },
+  { key: 'status', label: '', width: 'w-[40px]', align: 'center' },
+  { key: 'title', label: 'Tarea', sortable: true, width: 'w-[122px]' },
+  { key: 'responsible', label: 'Responsable', sortable: true, width: 'w-[80px]' },
+  { key: 'date', label: 'Vencimiento', sortable: true, width: 'w-[77px]' },
+  { key: 'business', label: 'Negocio', sortable: true, width: 'w-[93px]' },
+  { key: 'stage', label: 'Etapa', sortable: true, width: 'w-[64px]' },
+  { key: 'contactName', label: 'Contacto', width: 'w-[88px]' },
+  { key: 'contactEmail', label: 'Email', width: 'w-[140px]' },
+  { key: 'contactPhone', label: 'Teléfono', width: 'w-[77px]' },
+  { key: 'actions', label: '', width: 'w-[48px]', align: 'right' },
 ]
 
 type FilterType = 'all' | 'pending' | 'completed' | 'overdue' | 'meetings' | 'todos'
@@ -448,35 +447,41 @@ export default function TasksPageClient() {
     }
   }
 
-  // Check if task is overdue (using Panama timezone)
-  const isOverdue = (task: TaskWithOpportunity) => {
-    if (task.completed) return false
-    const todayStr = getTodayInPanama()
-    const taskDateStr = formatDateForPanama(new Date(task.date))
-    return taskDateStr < todayStr
+  const getDaysUntil = (task: TaskWithOpportunity) => {
+    const diff = daysUntil(task.date)
+    return diff ?? 0
   }
 
-  // Check if task is due today (using Panama timezone)
-  const isDueToday = (task: TaskWithOpportunity) => {
-    const todayStr = getTodayInPanama()
-    const taskDateStr = formatDateForPanama(new Date(task.date))
-    return taskDateStr === todayStr
+  // Check if task is overdue (using shared daysUntil helper)
+  const isOverdue = (task: TaskWithOpportunity) => !task.completed && getDaysUntil(task) < 0
+
+  // Check if task is due today (using shared daysUntil helper)
+  const isDueToday = (task: TaskWithOpportunity) => getDaysUntil(task) === 0
+
+  const getDaysUntilText = (daysUntil: number) => {
+    if (daysUntil === 0) return 'Hoy'
+    if (daysUntil > 0) return `${daysUntil} día${daysUntil === 1 ? '' : 's'}`
+    const overdueDays = Math.abs(daysUntil)
+    return `-${overdueDays} día${overdueDays === 1 ? '' : 's'}`
   }
 
-  const getDaysUntilLabel = (task: TaskWithOpportunity) => {
-    const todayStr = getTodayInPanama()
-    const taskDateStr = formatDateForPanama(new Date(task.date))
+  const getDueDateBadgeStyles = (daysUntil: number) => {
+    if (daysUntil < 0) return 'bg-red-100 text-red-700'
+    if (daysUntil <= 2) return 'bg-amber-100 text-amber-700'
+    return 'bg-blue-100 text-blue-700'
+  }
 
-    const toUtcMidnight = (dateStr: string) => {
-      const [year, month, day] = dateStr.split('-').map(Number)
-      return Date.UTC(year, month - 1, day)
+  const getDueDateTitle = (task: TaskWithOpportunity, daysUntil: number) => {
+    const dueDateLabel = formatShortDateNoYear(task.date)
+
+    if (daysUntil < 0) {
+      const overdueDays = Math.abs(daysUntil)
+      return `${dueDateLabel} (${overdueDays} día${overdueDays === 1 ? '' : 's'} vencida)`
     }
-
-    const diffDays = Math.round((toUtcMidnight(taskDateStr) - toUtcMidnight(todayStr)) / (24 * 60 * 60 * 1000))
-
-    if (diffDays === 0) return 'Hoy'
-    if (diffDays > 0) return `${diffDays} día${diffDays === 1 ? '' : 's'}`
-    return `${Math.abs(diffDays)} día${Math.abs(diffDays) === 1 ? '' : 's'} vencida`
+    if (daysUntil === 0) {
+      return `${dueDateLabel} (Hoy)`
+    }
+    return `${dueDateLabel} (${daysUntil} día${daysUntil === 1 ? '' : 's'})`
   }
 
   const filterTabs: FilterTab[] = [
@@ -624,7 +629,7 @@ export default function TasksPageClient() {
                                   ? 'text-orange-600'
                                   : 'text-slate-700'
                               }`}>
-                                {formatShortDate(task.date)}
+                                {formatShortDateNoYear(task.date)}
                               </span>
                               {(overdue || today) && (
                                 <span className={`text-[10px] uppercase tracking-wide ${
@@ -702,15 +707,13 @@ export default function TasksPageClient() {
             {/* Desktop table */}
             <div className="hidden md:block">
               <EntityTable
+                tableClassName="table-fixed [&_th]:px-2 [&_td]:px-2 [&_td]:overflow-hidden [&_td]:text-sm"
                 columns={COLUMNS}
                 sortColumn={sortColumn}
                 sortDirection={sortDirection}
                 onSort={handleSort}
               >
                 {sortedTasks.map((task, index) => {
-                  const overdue = isOverdue(task)
-                  const today = isDueToday(task)
-
                   return (
                     <TableRow 
                       key={task.id} 
@@ -720,10 +723,10 @@ export default function TasksPageClient() {
                       className={task.completed ? 'opacity-60' : ''}
                     >
                       {/* Status */}
-                      <TableCell align="center" className="w-10" onClick={(e) => e.stopPropagation()}>
+                      <TableCell align="center" className="w-[40px] px-0" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => handleToggleComplete(task)}
-                          className={`transition-colors ${
+                          className={`mx-auto flex h-5 w-5 items-center justify-center transition-colors ${
                             task.completed
                               ? 'text-green-500 hover:text-green-600'
                               : 'text-gray-400 hover:text-gray-500'
@@ -739,13 +742,21 @@ export default function TasksPageClient() {
                       </TableCell>
 
                       {/* Title */}
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span className={`font-medium whitespace-nowrap text-[13px] ${task.completed ? 'line-through text-gray-500' : 'text-slate-900'}`}>
+                      <TableCell className="w-[122px]">
+                        <div className="flex min-w-0 items-center gap-2">
+                          {task.category === 'meeting' ? (
+                            <GroupsIcon className="text-blue-600 flex-shrink-0" style={{ fontSize: 16 }} />
+                          ) : (
+                            <AssignmentIcon className="text-orange-600 flex-shrink-0" style={{ fontSize: 16 }} />
+                          )}
+                          <span
+                            className={`min-w-0 flex-1 truncate font-medium text-sm ${task.completed ? 'line-through text-gray-500' : 'text-slate-900'}`}
+                            title={task.title}
+                          >
                             {task.title}
                           </span>
                           {task.notes && (
-                            <span className="text-slate-400 text-xs truncate max-w-[200px]" title={task.notes}>
+                            <span className="text-slate-400 text-xs truncate max-w-[68px]" title={task.notes}>
                               - {task.notes}
                             </span>
                           )}
@@ -753,53 +764,45 @@ export default function TasksPageClient() {
                       </TableCell>
 
                       {/* Responsible */}
-                      <TableCell>
+                      <TableCell className="w-[80px]">
                         <span
-                          className="text-[13px] text-slate-700 truncate block max-w-[140px]"
+                          className="text-sm text-slate-700 truncate block max-w-[80px]"
                           title={task.opportunity?.responsible?.name || task.opportunity?.responsible?.email || ''}
                         >
                           {task.opportunity?.responsible?.name || task.opportunity?.responsible?.email || '-'}
                         </span>
                       </TableCell>
 
-                      {/* Category */}
-                      <TableCell align="center">
-                        <div className="flex justify-center">
-                          {task.category === 'meeting' ? (
-                            <div className="text-blue-600" title="Reunión">
-                              <GroupsIcon fontSize="small" />
-                            </div>
-                          ) : (
-                            <div className="text-orange-600" title="To-do">
-                              <AssignmentIcon fontSize="small" />
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-
                       {/* Date */}
-                      <TableCell>
-                        <span className={`text-[13px] whitespace-nowrap ${
-                          overdue 
-                            ? 'text-red-600 font-medium' 
-                            : today 
-                            ? 'text-orange-600 font-medium' 
-                            : 'text-slate-700'
-                        }`}>
-                          {formatShortDate(task.date)} ({getDaysUntilLabel(task)})
-                        </span>
+                      <TableCell className="w-[77px]">
+                        {(() => {
+                          const daysUntil = getDaysUntil(task)
+                          return (
+                            <div
+                              className="flex items-center gap-1.5"
+                              title={getDueDateTitle(task, daysUntil)}
+                            >
+                              <span className="text-sm text-slate-700 whitespace-nowrap">
+                                {formatShortDateNoYear(task.date)}
+                              </span>
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${getDueDateBadgeStyles(daysUntil)}`}>
+                                {getDaysUntilText(daysUntil)}
+                              </span>
+                            </div>
+                          )
+                        })()}
                       </TableCell>
 
                       {/* Business */}
-                      <TableCell>
-                        <span className="text-[13px] text-slate-900 truncate block max-w-[180px]" title={task.opportunity?.business?.name || ''}>
+                      <TableCell className="w-[93px]">
+                        <span className="text-sm text-slate-900 truncate block w-full" title={task.opportunity?.business?.name || ''}>
                           {task.opportunity?.business?.name || '-'}
                         </span>
                       </TableCell>
 
                       {/* Stage */}
-                      <TableCell>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
+                      <TableCell className="w-[64px]">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ${
                           STAGE_COLORS[task.opportunity?.stage || ''] || 'bg-gray-100 text-gray-600'
                         }`}>
                           {STAGE_LABELS[task.opportunity?.stage || ''] || task.opportunity?.stage || '-'}
@@ -807,45 +810,45 @@ export default function TasksPageClient() {
                       </TableCell>
 
                       {/* Contact Name */}
-                      <TableCell>
-                        <span className="text-[13px] text-slate-600 truncate block max-w-[120px]" title={task.opportunity?.business?.contactName || ''}>
+                      <TableCell className="w-[88px]">
+                        <span className="text-sm text-slate-600 truncate block w-full" title={task.opportunity?.business?.contactName || ''}>
                           {task.opportunity?.business?.contactName || '-'}
                         </span>
                       </TableCell>
 
                       {/* Contact Email */}
-                      <TableCell>
+                      <TableCell className="w-[140px]">
                         {task.opportunity?.business?.contactEmail ? (
                           <a 
                             href={`mailto:${task.opportunity.business.contactEmail}`}
-                            className="text-[13px] text-blue-600 hover:underline truncate block max-w-[180px]"
+                            className="text-sm text-blue-600 hover:underline truncate block w-full"
                             onClick={(e) => e.stopPropagation()}
                             title={task.opportunity.business.contactEmail}
                           >
                             {task.opportunity.business.contactEmail}
                           </a>
                         ) : (
-                          <span className="text-[13px] text-slate-400">-</span>
+                          <span className="text-sm text-slate-400">-</span>
                         )}
                       </TableCell>
 
                       {/* Contact Phone */}
-                      <TableCell>
+                      <TableCell className="w-[77px]">
                         {task.opportunity?.business?.contactPhone ? (
                           <a 
                             href={`tel:${task.opportunity.business.contactPhone}`}
-                            className="text-[13px] text-blue-600 hover:underline whitespace-nowrap"
+                            className="text-sm text-blue-600 hover:underline whitespace-nowrap"
                             onClick={(e) => e.stopPropagation()}
                           >
                             {task.opportunity.business.contactPhone}
                           </a>
                         ) : (
-                          <span className="text-[13px] text-slate-400">-</span>
+                          <span className="text-sm text-slate-400">-</span>
                         )}
                       </TableCell>
 
                       {/* Actions */}
-                      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                      <TableCell align="right" className="w-[48px]" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
                           {task.opportunityId && (
                             <button

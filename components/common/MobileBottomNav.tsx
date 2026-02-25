@@ -20,6 +20,8 @@ import CloseIcon from '@mui/icons-material/Close'
 import CampaignIcon from '@mui/icons-material/Campaign'
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import HistoryIcon from '@mui/icons-material/History'
+import GroupsIcon from '@mui/icons-material/Groups'
 
 type NavItem = {
   name: string
@@ -32,7 +34,7 @@ type NavSection = {
   items: NavItem[]
 }
 
-// Primary nav items (shown in bottom bar): Business - Opps - Requests - Calendar
+// Primary nav items (shown in bottom bar), role-specific
 const adminPrimaryNav: NavItem[] = [
   { name: 'Negocios', href: '/businesses', Icon: BusinessIcon },
   { name: 'Opps', href: '/opportunities', Icon: HandshakeIcon },
@@ -51,6 +53,18 @@ const editorPrimaryNav: NavItem[] = [
   { name: 'Deals', href: '/deals', Icon: ListAltIcon },
 ]
 
+const editorSeniorPrimaryNav: NavItem[] = [
+  { name: 'Deals', href: '/deals', Icon: ListAltIcon },
+  { name: 'Requests', href: '/booking-requests', Icon: DescriptionIcon },
+  { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
+  { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
+]
+
+const marketingPrimaryNav: NavItem[] = [
+  { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
+  { name: 'Marketing', href: '/marketing', Icon: AssignmentIcon },
+]
+
 // Secondary nav items (shown in "More" menu) — organized by sections
 const adminSecondarySections: NavSection[] = [
   {
@@ -59,22 +73,30 @@ const adminSecondarySections: NavSection[] = [
       { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
       { name: 'Proyección', href: '/proyeccion', Icon: TrendingUpIcon },
       { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
+      { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
     ],
   },
   {
     label: 'Gestión',
     items: [
       { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
-      { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
-      { name: 'Marketing', href: '/marketing', Icon: AssignmentIcon },
-      { name: 'Reservaciones', href: '/reservations', Icon: ListAltIcon },
+      { name: 'Deals', href: '/deals', Icon: ListAltIcon },
     ],
   },
   {
     label: 'Adquisición',
     items: [
       { name: 'Leads', href: '/leads', Icon: PersonAddIcon },
+      { name: 'Marketing', href: '/marketing', Icon: AssignmentIcon },
       { name: 'Asignaciones', href: '/assignments', Icon: AssignmentReturnIcon },
+      { name: 'Leads Neg.', href: '/leads-negocios', Icon: TrendingUpIcon },
+    ],
+  },
+  {
+    label: 'Admin',
+    items: [
+      { name: 'Actividad', href: '/activity-log', Icon: HistoryIcon },
+      { name: 'Ventas', href: '/sales-users', Icon: GroupsIcon },
     ],
   },
   {
@@ -92,20 +114,30 @@ const salesSecondarySections: NavSection[] = [
       { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
       { name: 'Proyección', href: '/proyeccion', Icon: TrendingUpIcon },
       { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
+      { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
     ],
   },
   {
     label: 'Gestión',
     items: [
       { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
-      { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
-      { name: 'Marketing', href: '/marketing', Icon: AssignmentIcon },
-      { name: 'Reservaciones', href: '/reservations', Icon: ListAltIcon },
+      { name: 'Deals', href: '/deals', Icon: ListAltIcon },
     ],
   },
 ]
 
 const editorSecondarySections: NavSection[] = []
+
+const editorSeniorSecondarySections: NavSection[] = [
+  {
+    label: 'Monitoreo',
+    items: [
+      { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
+    ],
+  },
+]
+
+const marketingSecondarySections: NavSection[] = []
 
 export default function MobileBottomNav() {
   const pathname = usePathname()
@@ -125,8 +157,11 @@ export default function MobileBottomNav() {
         return { primaryNav: salesPrimaryNav, secondarySections: salesSecondarySections }
       case 'editor':
       case 'ere':
-      case 'editor_senior':
         return { primaryNav: editorPrimaryNav, secondarySections: editorSecondarySections }
+      case 'editor_senior':
+        return { primaryNav: editorSeniorPrimaryNav, secondarySections: editorSeniorSecondarySections }
+      case 'marketing':
+        return { primaryNav: marketingPrimaryNav, secondarySections: marketingSecondarySections }
       default:
         return { primaryNav: [], secondarySections: [] }
     }

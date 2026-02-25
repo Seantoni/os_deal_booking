@@ -11,7 +11,7 @@ export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElemen
 }
 
 const sizeClasses: Record<TextareaSize, string> = {
-  sm: 'text-xs px-3 py-1.5',
+  sm: 'text-sm px-3 py-1.5',
   md: 'text-sm px-3 py-2',
   lg: 'text-base px-4 py-2.5',
 }
@@ -42,7 +42,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
   return (
     <label className={cn('flex flex-col gap-0.5', fullWidth && 'w-full')}>
       {label && (
-        <span className="text-xs font-medium text-slate-600 flex items-center gap-1">
+        <span className="text-sm font-medium text-slate-600 flex items-center gap-1">
           {label}
           {isRequired && <span className="text-red-500">*</span>}
         </span>
@@ -59,13 +59,12 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
         {...props}
       />
       {error ? (
-        <span className="text-xs text-red-600">{error}</span>
+        <span className="text-sm text-red-600">{error}</span>
       ) : helperText ? (
-        <span className="text-xs text-gray-500">{helperText}</span>
+        <span className="text-sm text-gray-500">{helperText}</span>
       ) : null}
     </label>
   )
 })
 
 export default Textarea
-

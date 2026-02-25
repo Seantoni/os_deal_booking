@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
       return response
     } catch (dbError) {
       logger.error('[api/access/check] Database error:', dbError)
-      // Return explicit transient failure so middleware can handle without treating as deny.
+      // Return explicit transient failure so middleware can enforce its unavailable-backend policy.
       return NextResponse.json(
         {
           hasAccess: null,

@@ -66,19 +66,19 @@ export function SortableTableHeader({
           return (
             <th
               key={column.key}
-              className={`px-4 py-3 text-xs font-bold text-slate-700 uppercase tracking-wider whitespace-nowrap ${alignClass} ${
+              className={`px-4 py-3 text-xs font-bold text-slate-700 uppercase tracking-wider whitespace-nowrap overflow-hidden ${alignClass} ${
                 column.sortable ? 'cursor-pointer hover:bg-slate-200/50 transition-colors' : ''
               } ${column.width || ''} ${column.className || ''}`}
               onClick={column.sortable ? () => onSort(column.key) : undefined}
             >
-              <div className={`flex items-center gap-1 ${
+              <div className={`flex min-w-0 items-center gap-1 ${
                 column.align === 'center' ? 'justify-center' : column.align === 'right' ? 'justify-end' : ''
               }`}>
-                <span>{column.label}</span>
+                <span className="truncate">{column.label}</span>
                 {column.sortable && isActive && (
                   sortDirection === 'asc' 
-                    ? <ArrowUpwardIcon style={{ fontSize: 14 }} className="text-blue-600" /> 
-                    : <ArrowDownwardIcon style={{ fontSize: 14 }} className="text-blue-600" />
+                    ? <ArrowUpwardIcon style={{ fontSize: 14 }} className="text-blue-600 shrink-0" /> 
+                    : <ArrowDownwardIcon style={{ fontSize: 14 }} className="text-blue-600 shrink-0" />
                 )}
               </div>
             </th>
@@ -164,4 +164,3 @@ export function TableLoadingState({
     </div>
   )
 }
-

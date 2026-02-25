@@ -34,18 +34,18 @@ const adminSidebarConfig = {
   // Monitor & Analyze (top - high-level overview)
   monitorItems: [
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
-    { name: 'Proyección', href: '/proyeccion', Icon: TrendingUpIcon },
-    { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
-    { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
   ],
   // Work (daily execution - heart of the product)
   workItems: [
     { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
-    { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
-    { name: 'Deals', href: '/deals', Icon: ListAltIcon },
-    { name: 'Solicitudes', href: '/booking-requests', Icon: DescriptionIcon },
     { name: 'Negocios', href: '/businesses', Icon: BusinessIcon },
     { name: 'Opps', href: '/opportunities', Icon: HandshakeIcon },
+    { name: 'Deals', href: '/deals', Icon: ListAltIcon },
+    { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
+    { name: 'Proyección', href: '/proyeccion', Icon: TrendingUpIcon },
+    { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
+    { name: 'Solicitudes', href: '/booking-requests', Icon: DescriptionIcon },
+    { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
   ],
   // Acquire & Grow (less frequent)
   acquireItems: [
@@ -67,17 +67,17 @@ const adminSidebarConfig = {
 const salesSidebarConfig = {
   monitorItems: [
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
-    { name: 'Proyección', href: '/proyeccion', Icon: TrendingUpIcon },
-    { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
-    { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
   ],
   workItems: [
     { name: 'Tareas', href: '/tasks', Icon: CheckCircleIcon },
-    { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
-    { name: 'Deals', href: '/deals', Icon: ListAltIcon },
-    { name: 'Solicitudes', href: '/booking-requests', Icon: DescriptionIcon },
     { name: 'Negocios', href: '/businesses', Icon: BusinessIcon },
     { name: 'Opps', href: '/opportunities', Icon: HandshakeIcon },
+    { name: 'Deals', href: '/deals', Icon: ListAltIcon },
+    { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
+    { name: 'Proyección', href: '/proyeccion', Icon: TrendingUpIcon },
+    { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
+    { name: 'Solicitudes', href: '/booking-requests', Icon: DescriptionIcon },
+    { name: 'Campañas', href: '/campaigns', Icon: CampaignIcon },
   ],
   acquireItems: [] as SidebarItem[],
   adminItems: [] as SidebarItem[],
@@ -98,11 +98,11 @@ const editorSeniorSidebarConfig = {
   monitorItems: [
     { name: 'Dashboard', href: '/dashboard', Icon: DashboardIcon },
     { name: 'Calendario', href: '/events', Icon: CalendarMonthIcon },
+    { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
+    { name: 'Solicitudes', href: '/booking-requests', Icon: DescriptionIcon },
   ],
   workItems: [
-    { name: 'Pipeline', href: '/pipeline', Icon: AccountTreeIcon },
     { name: 'Deals', href: '/deals', Icon: ListAltIcon },
-    { name: 'Solicitudes', href: '/booking-requests', Icon: DescriptionIcon },
   ],
   acquireItems: [] as SidebarItem[],
   adminItems: [] as SidebarItem[],
@@ -239,31 +239,36 @@ export default function HamburgerMenu() {
                 {/* Work (daily execution) */}
                 {sidebarConfig.workItems.length > 0 && (
                   <div className="space-y-0.5">
-                    {sidebarConfig.workItems.map((item) => {
+                    {sidebarConfig.workItems.map((item, idx) => {
                       const isActive = pathname === item.href || pathname?.startsWith(item.href + '/')
                       const Icon = item.Icon
+                      const showDividerBelow =
+                        (item.name === 'Deals' || item.name === 'Solicitudes') &&
+                        idx < sidebarConfig.workItems.length - 1
                       return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          onClick={() => {
-                            if (isCalendarPage) {
-                              setIsOpen(false)
-                            }
-                          }}
-                          className={`group flex flex-col items-center justify-center py-1.5 px-1 rounded-lg transition-all duration-200 ${
-                            isActive 
-                              ? 'bg-orange-100 text-orange-600' 
-                              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-                          }`}
-                        >
-                          <Icon style={{ fontSize: '1rem' }} className={isActive ? 'text-orange-600' : ''} />
-                          <span className={`text-[9px] font-medium mt-0.5 leading-tight truncate w-full text-center ${
-                            isActive ? 'text-orange-600' : 'text-slate-500 group-hover:text-slate-700'
-                          }`}>
-                            {item.name}
-                          </span>
-                        </Link>
+                        <div key={item.href}>
+                          <Link
+                            href={item.href}
+                            onClick={() => {
+                              if (isCalendarPage) {
+                                setIsOpen(false)
+                              }
+                            }}
+                            className={`group flex flex-col items-center justify-center py-1.5 px-1 rounded-lg transition-all duration-200 ${
+                              isActive 
+                                ? 'bg-orange-100 text-orange-600' 
+                                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                            }`}
+                          >
+                            <Icon style={{ fontSize: '1rem' }} className={isActive ? 'text-orange-600' : ''} />
+                            <span className={`text-[9px] font-medium mt-0.5 leading-tight truncate w-full text-center ${
+                              isActive ? 'text-orange-600' : 'text-slate-500 group-hover:text-slate-700'
+                            }`}>
+                              {item.name}
+                            </span>
+                          </Link>
+                          {showDividerBelow && <div className="h-px bg-slate-200/60 mx-1.5 my-1" />}
+                        </div>
                       )
                     })}
                   </div>

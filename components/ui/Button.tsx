@@ -77,8 +77,8 @@ const variantClasses: Record<Variant, string> = {
 }
 
 const sizeClasses: Record<Size, string> = {
-  xs: 'text-xs px-2.5 py-1 gap-1.5',
-  sm: 'text-xs px-3 py-1.5 gap-1.5',
+  xs: 'text-[13px] px-2.5 py-1 gap-1.5',
+  sm: 'text-sm px-3 py-1.5 gap-1.5',
   md: 'text-sm px-4 py-2 gap-2',
   lg: 'text-sm px-5 py-2.5 gap-2',
 }
@@ -162,4 +162,3 @@ export function Button({
 }
 
 export default Button
-

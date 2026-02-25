@@ -10,8 +10,6 @@ const ACCESS_COOKIE_NAME = 'os_access_verified'
 const LOGIN_LOGGED_COOKIE = 'os_login_logged'
 // Keep middleware from stalling on upstream access-check timeouts.
 const ACCESS_CHECK_TIMEOUT_MS = 6000
-// Temporary cache when access-check backend is unavailable.
-const ACCESS_CHECK_GRACE_SECONDS = 60
 
 function setAccessCookie(response: NextResponse, userId: string, maxAgeSeconds: number = CACHE_ACCESS_CHECK_SECONDS) {
   response.cookies.set(ACCESS_COOKIE_NAME, `${userId}:${Date.now()}`, {
@@ -122,12 +120,11 @@ export default clerkMiddleware(async (auth, request) => {
       }).finally(() => clearTimeout(timeoutId))
       
       if (!response.ok) {
-        // Access-check backend transient failures should not be treated as explicit denial.
         if (response.status >= 500) {
-          logger.warn('[middleware] Access check unavailable (status), allowing temporarily:', response.status)
-          const gracefulResponse = NextResponse.next()
-          setAccessCookie(gracefulResponse, userId, ACCESS_CHECK_GRACE_SECONDS)
-          return gracefulResponse
+          logger.error('[middleware] Access check unavailable (status), denying access:', response.status)
+          const redirectResponse = NextResponse.redirect(new URL('/no-access', request.url))
+          redirectResponse.cookies.delete(ACCESS_COOKIE_NAME)
+          return redirectResponse
         }
 
         logger.warn('[middleware] Access check API failed:', response.status)
@@ -162,10 +159,9 @@ export default clerkMiddleware(async (auth, request) => {
       const isTimeout = error instanceof Error && error.name === 'AbortError'
       logger.error('[middleware] Error during access check:', isTimeout ? 'timeout' : error)
 
-      // Network/timeouts are treated as transient failures (not explicit denial).
-      const gracefulResponse = NextResponse.next()
-      setAccessCookie(gracefulResponse, userId, ACCESS_CHECK_GRACE_SECONDS)
-      return gracefulResponse
+      const redirectResponse = NextResponse.redirect(new URL('/no-access', request.url))
+      redirectResponse.cookies.delete(ACCESS_COOKIE_NAME)
+      return redirectResponse
     }
   }
 })
