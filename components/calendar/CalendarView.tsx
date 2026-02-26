@@ -2,9 +2,9 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { getDaysDifference, getCategoryColors } from '@/lib/categories'
-import { getEventsOnDate, getDailyLimitStatus } from '@/lib/event-validation'
+import { getDailyLimitStatus } from '@/lib/event-validation'
 import { getSettings } from '@/lib/settings'
-import { formatDateForPanama, PANAMA_TIMEZONE, getDateComponentsInPanama } from '@/lib/date/timezone'
+import { PANAMA_TIMEZONE, getDateComponentsInPanama } from '@/lib/date/timezone'
 import EventSearchResults from '@/components/events/EventSearchResults'
 import PublicIcon from '@mui/icons-material/Public'
 import LockIcon from '@mui/icons-material/Lock'
@@ -41,6 +41,18 @@ interface CalendarViewProps {
   onNewRequestClick?: () => void
   onCreateEventClick?: () => void
   userRole?: UserRole
+}
+
+type EventDateRange = {
+  event: Event
+  startDate: Date
+  endDate: Date
+  startYear: number
+  startMonth: number // 1-12
+  startDay: number
+  endYear: number
+  endMonth: number // 1-12
+  endDay: number
 }
 
 export default function CalendarView({ events, selectedCategories, showPendingBooking, categoryFilter, searchQuery = '', draggingRequest, bookingRequests = [], onSearchChange, onRequestDropOnDate, onDateClick, onDateRangeSelect, onEventClick, onEventMove, onEventResize, onDayExpand, readOnly = false, externalDate, externalView, externalRange, onViewChange, onCurrentDateChange, onNewRequestClick, onCreateEventClick, userRole }: CalendarViewProps) {
@@ -189,8 +201,6 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
 
   const viewRange = getViewRange()
   const { startDay, endDay, startingDayOfWeek, daysToShow, isCustomRange } = viewRange
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  
   // Determine grid columns based on view mode
   const getGridCols = () => {
     if (isCustomRange) {
@@ -274,6 +284,87 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
 
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
+  const viewStartDate = useMemo(
+    () => new Date(year, month, startDay),
+    [year, month, startDay]
+  )
+  const viewEndDate = useMemo(
+    () => new Date(year, month, endDay),
+    [year, month, endDay]
+  )
+
+  const dayDates = useMemo(() => {
+    const days: Array<{ dayNum: number; date: Date }> = []
+    for (let dayNum = startDay; dayNum <= endDay; dayNum++) {
+      days.push({ dayNum, date: new Date(year, month, dayNum) })
+    }
+    return days
+  }, [year, month, startDay, endDay])
+
+  const filteredEventRanges = useMemo<EventDateRange[]>(() => {
+    return filteredEvents.map((event) => {
+      const startDate = new Date(event.startDate)
+      const endDate = new Date(event.endDate)
+      const startPanama = getDateComponentsInPanama(startDate)
+      const endPanama = getDateComponentsInPanama(endDate)
+
+      return {
+        event,
+        startDate: new Date(startPanama.year, startPanama.month - 1, startPanama.day),
+        endDate: new Date(endPanama.year, endPanama.month - 1, endPanama.day),
+        startYear: startPanama.year,
+        startMonth: startPanama.month,
+        startDay: startPanama.day,
+        endYear: endPanama.year,
+        endMonth: endPanama.month,
+        endDay: endPanama.day,
+      }
+    })
+  }, [filteredEvents])
+
+  const liveEventsByDay = useMemo(() => {
+    const byDay = new Map<number, Event[]>()
+    if (viewMode !== 'live') return byDay
+
+    for (const { dayNum } of dayDates) {
+      byDay.set(dayNum, [])
+    }
+
+    for (const range of filteredEventRanges) {
+      if (range.endDate < viewStartDate || range.startDate > viewEndDate) continue
+
+      for (const { dayNum, date } of dayDates) {
+        if (range.startDate <= date && range.endDate >= date) {
+          byDay.get(dayNum)!.push(range.event)
+        }
+      }
+    }
+
+    return byDay
+  }, [viewMode, dayDates, filteredEventRanges, viewStartDate, viewEndDate])
+
+  const dailyLaunchCountByDay = useMemo(() => {
+    const byDay = new Map<number, number>()
+    for (const { dayNum } of dayDates) {
+      byDay.set(dayNum, 0)
+    }
+
+    for (const event of events) {
+      if (event.status !== 'booked' && event.status !== 'approved') continue
+      const startPanama = getDateComponentsInPanama(new Date(event.startDate))
+      if (
+        startPanama.year === year &&
+        startPanama.month === month + 1 &&
+        startPanama.day >= startDay &&
+        startPanama.day <= endDay
+      ) {
+        byDay.set(startPanama.day, (byDay.get(startPanama.day) || 0) + 1)
+      }
+    }
+
+    return byDay
+  }, [events, dayDates, year, month, startDay, endDay])
+
   // Process events for display - mutually exclusive views
   const { eventsByDate, spanningEvents, overflowPerDay } = useMemo(() => {
     const grouped: { [key: string]: Event[] } = {}
@@ -281,53 +372,40 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
     
     if (viewMode === 'launch') {
       // Launch date mode: ONLY show on start date as blocks (ALL VIEWS)
-      filteredEvents.forEach(event => {
-        const startDate = new Date(event.startDate)
-        // Use Panama timezone for consistent date display
-        const eventPanama = getDateComponentsInPanama(startDate)
-        const eventYear = eventPanama.year
-        const eventMonth = eventPanama.month - 1 // Convert to 0-indexed
-        const eventDay = eventPanama.day
-        
+      filteredEventRanges.forEach((range) => {
         // Check if start date is within current view range
-        if (eventMonth === month && eventYear === year && 
-            eventDay >= startDay && eventDay <= endDay) {
-          const dateKey = `${year}-${month}-${eventDay}`
+        if (
+          range.startYear === year &&
+          range.startMonth === month + 1 &&
+          range.startDay >= startDay &&
+          range.startDay <= endDay
+        ) {
+          const dateKey = `${year}-${month}-${range.startDay}`
           if (!grouped[dateKey]) {
             grouped[dateKey] = []
           }
-          grouped[dateKey].push(event)
+          grouped[dateKey].push(range.event)
         }
       })
     } else {
       // Live dates mode: Show as continuous spanning bars
-      filteredEvents.forEach(event => {
-        const startDate = new Date(event.startDate)
-        const endDate = new Date(event.endDate)
-        
-        // Use Panama timezone to get correct dates
-        const startDateStr = formatDateForPanama(startDate)
-        const endDateStr = formatDateForPanama(endDate)
-        
-        const [eventStartYear, eventStartMonthRaw, eventStartDate] = startDateStr.split('-').map(Number)
-        const [eventEndYear, eventEndMonthRaw, eventEndDate] = endDateStr.split('-').map(Number)
-        const eventStartMonth = eventStartMonthRaw - 1
-        const eventEndMonth = eventEndMonthRaw - 1
-        
+      filteredEventRanges.forEach((range) => {
+        if (range.endDate < viewStartDate || range.startDate > viewEndDate) return
+
         // Calculate event's visible range in current view
-        const eventStartDay = eventStartMonth === month && eventStartYear === year 
-          ? Math.max(eventStartDate, startDay)
-          : (new Date(eventStartYear, eventStartMonth, eventStartDate) < new Date(year, month, startDay) ? startDay : null)
-        
-        const eventEndDay = eventEndMonth === month && eventEndYear === year
-          ? Math.min(eventEndDate, endDay)
-          : (new Date(eventEndYear, eventEndMonth, eventEndDate) > new Date(year, month, endDay) ? endDay : null)
+        const eventStartDay = range.startYear === year && range.startMonth === month + 1
+          ? Math.max(range.startDay, startDay)
+          : startDay
+
+        const eventEndDay = range.endYear === year && range.endMonth === month + 1
+          ? Math.min(range.endDay, endDay)
+          : endDay
         
         if (eventStartDay !== null && eventEndDay !== null && eventStartDay <= endDay && eventEndDay >= startDay) {
           const spanDays = eventEndDay - eventStartDay + 1
           
           spanning.push({
-            ...event,
+            ...range.event,
             startDay: eventStartDay,
             endDay: eventEndDay,
             spanDays
@@ -398,7 +476,7 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
       spanningEvents: visibleSpanningEvents,
       overflowPerDay
     }
-  }, [filteredEvents, viewMode, year, month, calendarView, startDay, endDay])
+  }, [filteredEventRanges, viewMode, year, month, calendarView, startDay, endDay, viewStartDate, viewEndDate])
 
   const getEventsForDay = (day: number) => {
     const dateKey = `${year}-${month}-${day}`
@@ -600,15 +678,14 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
   // Days in the current view
   for (let dayNum = startDay; dayNum <= endDay; dayNum++) {
     const dayEvents = getEventsForDay(dayNum)
+    const liveEventsOnDay = viewMode === 'live' ? (liveEventsByDay.get(dayNum) || []) : []
+    const eventsToShow = viewMode === 'launch' ? dayEvents : liveEventsOnDay
+    const eventCount = eventsToShow.length
     const today = isToday(dayNum)
     const inDragRange = isInDragRange(dayNum)
     
     // Calculate daily event count and status
-    // Count events with 'booked' or 'approved' status (both count for restrictions)
-    const bookedEvents = events.filter(event => event.status === 'booked' || event.status === 'approved')
-    const dateToCheck = new Date(year, month, dayNum)
-    const eventsOnThisDay = getEventsOnDate(bookedEvents, dateToCheck)
-    const dailyCount = eventsOnThisDay.length
+    const dailyCount = dailyLaunchCountByDay.get(dayNum) || 0
     const dailyStatus = getDailyLimitStatus(
       dailyCount, 
       userSettings.minDailyLaunches, 
@@ -663,22 +740,7 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
               </span>
             )}
           </div>
-          {(() => {
-            // Calculate events for this day based on view mode
-            const liveEventsOnDay = viewMode === 'live' ? filteredEvents.filter(event => {
-              const startDateStr = formatDateForPanama(new Date(event.startDate))
-              const endDateStr = formatDateForPanama(new Date(event.endDate))
-              const [sy, smr, sd] = startDateStr.split('-').map(Number)
-              const [ey, emr, ed] = endDateStr.split('-').map(Number)
-              const eventStart = new Date(sy, smr - 1, sd)
-              const eventEnd = new Date(ey, emr - 1, ed)
-              const dayDate = new Date(year, month, dayNum)
-              return eventStart <= dayDate && eventEnd >= dayDate
-            }) : []
-            const eventsToShow = viewMode === 'launch' ? dayEvents : liveEventsOnDay
-            const eventCount = eventsToShow.length
-            
-            return eventCount > 0 ? (
+          {eventCount > 0 ? (
             <button
                 onMouseDown={(e) => e.stopPropagation()}
                 onMouseUp={(e) => e.stopPropagation()}
@@ -694,8 +756,7 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
               </svg>
             </button>
-            ) : null
-          })()}
+            ) : null}
         </div>
         
         <div className="space-y-[3px]" style={{ maxHeight: calendarView === 'month' ? '85px' : undefined }}>
@@ -768,20 +829,7 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
             onClick={(e) => {
               e.stopPropagation()
               e.preventDefault()
-              // Get all events active on this day
-              const allEventsOnDay = filteredEvents.filter(event => {
-                const startDateStr = formatDateForPanama(new Date(event.startDate))
-                const endDateStr = formatDateForPanama(new Date(event.endDate))
-                const [sy, smr, sd] = startDateStr.split('-').map(Number)
-                const [ey, emr, ed] = endDateStr.split('-').map(Number)
-                const sm = smr - 1
-                const em = emr - 1
-                const eventStart = new Date(sy, sm, sd)
-                const eventEnd = new Date(ey, em, ed)
-                const dayDate = new Date(year, month, dayNum)
-                return eventStart <= dayDate && eventEnd >= dayDate
-              })
-              onDayExpand?.(new Date(year, month, dayNum), allEventsOnDay)
+              onDayExpand?.(new Date(year, month, dayNum), liveEventsOnDay)
             }}
             className="absolute bottom-0.5 left-0.5 right-0.5 text-[8px] text-blue-700 font-semibold bg-blue-100/90 hover:bg-blue-200 rounded py-0.5 px-1 transition-all border border-blue-300 z-20 backdrop-blur-sm"
           >

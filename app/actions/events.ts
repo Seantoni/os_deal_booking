@@ -77,10 +77,8 @@ export async function createEvent(formData: FormData) {
     category || null
   )
 
-  // Check if this is a direct admin creation (no booking request) vs from a booking request
-  // If created directly by admin on calendar, set to 'pre-booked'
-  // If created from a booking request, set to 'booked'
-  const eventStatus = bookingRequestId ? 'booked' : 'pre-booked'
+  // Always persist new calendar events as booked so they appear in the default calendar view.
+  const eventStatus = 'booked'
 
   const event = await prisma.event.create({
     data: {
@@ -94,7 +92,7 @@ export async function createEvent(formData: FormData) {
       businessId: businessId || null,
       startDate: startDateTime,
       endDate: endDateTime,
-      status: eventStatus, // Direct admin creation = 'pre-booked', from booking request = 'booked'
+      status: eventStatus,
       userId,
       bookingRequestId: bookingRequestId || null,
     },
