@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import { getOpenAIClient } from '@/lib/openai'
 import { logger } from '@/lib/logger'
 import { aiLimiter, applyRateLimit } from '@/lib/rate-limit'
+import { isValidIsoCalendarDate } from '@/lib/utils/validation'
 
 const MAX_INPUT_CHARS = 6000
 
@@ -165,9 +166,7 @@ ${normalizedText}`,
     const category = parsed.category === 'meeting' ? 'meeting' : 'todo'
 
     const rawDate = normalizeString(parsed.dueDate, 10)
-    const validDate = rawDate && /^\d{4}-\d{2}-\d{2}$/.test(rawDate) && !isNaN(Date.parse(rawDate))
-      ? rawDate
-      : null
+    const validDate = rawDate && isValidIsoCalendarDate(rawDate) ? rawDate : null
 
     const fields: ClassifiedActivity = {
       category,
