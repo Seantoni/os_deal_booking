@@ -419,7 +419,7 @@ async function triggerNextChunkWithRetry(
     }
   }
 
-  if (!lastOutcome) {
+  if (!lastOutcome || lastOutcome.ok) {
     return
   }
 

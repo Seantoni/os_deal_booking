@@ -1,22 +1,165 @@
 /**
  * Degusta Panamá Scraper
- * 
- * Scrapes restaurants with discounts from https://www.degustapanama.com/
+ *
+ * Fetches restaurants with discounts via the Degusta internal search API.
+ * No browser needed — uses plain HTTP + cheerio for HTML parsing.
  */
 
-import { getBrowser, closeBrowser, createPage } from './browser'
+import * as cheerio from 'cheerio'
 import { ScrapedRestaurant, RestaurantScrapeResult, RestaurantProgressCallback } from './types'
 
 const BASE_URL = 'https://www.degustapanama.com'
-// Search URL with discounts filter enabled
-const SEARCH_URL = 'https://www.degustapanama.com/panama/search?filters=eyJmaWx0ZXJzIjp7ImRpc2NvdW50cyI6dHJ1ZX0sInNjb3JlX3JhbmdlIjp7fSwic29ydCI6InJhbmRvbSJ9'
+const SEARCH_API = `${BASE_URL}/panama/services/search`
+const PAGE_SIZE = 10
+const REQUEST_DELAY_MS = 800
 
-// Timeouts and wait times (lighter for Vercel serverless)
-const PAGE_TIMEOUT = 60000 // 60 seconds for page load
-const CONTENT_LOAD_WAIT = 2000
+const FILTERS_B64 = Buffer.from(
+  JSON.stringify({ filters: { discounts: true }, score_range: {}, sort: 'food' })
+).toString('base64')
+
+interface DegustaGmapEntry {
+  id: number
+  position: { lat: number; lng: number }
+  infoText: string
+}
+
+interface DegustaSearchResponse {
+  count: number
+  next_page_offset: number | null
+  html: string
+  gmap: DegustaGmapEntry[]
+}
+
+function parseRestaurantsFromHtml(html: string, gmapById: Map<number, DegustaGmapEntry>): ScrapedRestaurant[] {
+  const $ = cheerio.load(html)
+  const results: ScrapedRestaurant[] = []
+  const seenUrls = new Set<string>()
+
+  $('.dg-result-restaurant').each((_, cardEl) => {
+    const card = $(cardEl)
+    const linkEl = card.find('a[href*="/restaurante/"]').first()
+    const href = linkEl.attr('href')
+    if (!href) return
+
+    const sourceUrl = href.startsWith('http') ? href : BASE_URL + href
+    if (seenUrls.has(sourceUrl)) return
+    seenUrls.add(sourceUrl)
+
+    const idMatch = href.match(/_(\d+)\.html/)
+    const degustaId = idMatch ? parseInt(idMatch[1], 10) : null
+
+    // --- Name ---
+    let name = ''
+    const titleLink = card.find('h5 a[href*="restaurante"]').first()
+    if (titleLink.length) {
+      name = titleLink.text().trim()
+    }
+    if (!name && degustaId) {
+      const gmapEntry = gmapById.get(degustaId)
+      if (gmapEntry) name = gmapEntry.infoText
+    }
+    if (!name) {
+      const slugMatch = href.match(/restaurante\/([^_]+)/)
+      if (slugMatch) {
+        name = slugMatch[1].replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+      }
+    }
+    if (!name) return
+
+    // --- Cuisine ---
+    const cuisineEl = card.find('.dg-result-restaurant-cuisine')
+    const cuisine = cuisineEl.length ? cuisineEl.text().trim() || null : null
+
+    // --- Address & Neighborhood ---
+    const addressEl = card.find('.dg-result-restaurant-address')
+    let address: string | null = null
+    let neighborhood: string | null = null
+    if (addressEl.length) {
+      address = addressEl.text().trim() || null
+      if (address) {
+        const parts = address.split(' - ')
+        if (parts.length >= 2) {
+          neighborhood = parts[parts.length - 2].trim()
+        }
+      }
+    }
+
+    // --- Price ---
+    let pricePerPerson: number | null = null
+    const priceEl = card.find('.dg-result-restaurant-price')
+    if (priceEl.length) {
+      const priceMatch = priceEl.text().match(/\$(\d+)/)
+      if (priceMatch) pricePerPerson = parseInt(priceMatch[1], 10)
+    }
+
+    // --- Discount ---
+    let discount: string | null = null
+    const discountSelectors = [
+      '.degusta_estandar', '.degusta_premium',
+      '.desc-block-v2-single', '.desc-block-v2-rsv-button-2',
+    ]
+    for (const sel of discountSelectors) {
+      const el = card.find(sel).first()
+      if (el.length) {
+        const text = el.text().trim()
+        if (text && (text.includes('%') || text.toLowerCase().includes('off'))) {
+          discount = text
+          break
+        }
+      }
+    }
+
+    // --- Votes ---
+    let votes: number | null = null
+    const votesEl = card.find('.dg-result-restaurant-number-qualifications')
+    if (votesEl.length) {
+      const votesMatch = votesEl.text().match(/(\d+)/)
+      if (votesMatch) votes = parseInt(votesMatch[1], 10)
+    }
+
+    // --- Ratings ---
+    let foodRating: number | null = null
+    let serviceRating: number | null = null
+    let ambientRating: number | null = null
+
+    card.find('.dg-result-restaurant-qualification').each((_, qualEl) => {
+      const descText = $(qualEl).find('.qualification-description').text().trim().toLowerCase()
+      const scoreText = $(qualEl).find('.score-number').text().trim()
+      const score = parseFloat(scoreText)
+      if (isNaN(score)) return
+
+      if (descText.includes('comida')) foodRating = score
+      else if (descText.includes('servicio')) serviceRating = score
+      else if (descText.includes('ambiente')) ambientRating = score
+    })
+
+    // --- Image ---
+    const imgEl = card.find('img.img-cropped-search, img[src*="degusta-pictures"]').first()
+    const imageUrl = imgEl.length ? imgEl.attr('src') || null : null
+
+    results.push({
+      sourceUrl,
+      sourceSite: 'degusta',
+      name,
+      cuisine,
+      address,
+      neighborhood,
+      pricePerPerson,
+      discount,
+      votes,
+      foodRating,
+      serviceRating,
+      ambientRating,
+      imageUrl,
+    })
+  })
+
+  return results
+}
 
 /**
- * Main scraper function for Degusta Panamá
+ * Main scraper function for Degusta Panamá.
+ * Hits the search API directly — no headless browser required.
  */
 export async function scrapeDegusta(
   maxRestaurants: number = 100,
@@ -24,476 +167,110 @@ export async function scrapeDegusta(
 ): Promise<RestaurantScrapeResult> {
   const restaurants: ScrapedRestaurant[] = []
   const errors: string[] = []
-  
+
   const reportProgress = (phase: Parameters<RestaurantProgressCallback>[0]['phase'], message: string, extra?: Partial<Parameters<RestaurantProgressCallback>[0]>) => {
     if (onProgress) {
-      onProgress({
-        site: 'degusta',
-        phase,
-        message,
-        ...extra,
-      })
+      onProgress({ site: 'degusta', phase, message, ...extra })
     }
     console.log(`[Degusta] ${message}`)
   }
-  
+
   try {
-    // Launch browser
-    reportProgress('connecting', 'Launching browser...')
-    const browser = await getBrowser()
-    const page = await createPage(browser)
-    
-    // Set viewport
-    await page.setViewport({ width: 1280, height: 800 })
-    
-    // Navigate to search page with discounts filter
-    reportProgress('loading_page', 'Loading search page...')
-    
-    try {
-      await page.goto(SEARCH_URL, { waitUntil: 'domcontentloaded', timeout: PAGE_TIMEOUT })
-      console.log(`[Degusta] Navigation successful, URL: ${page.url()}`)
-    } catch (navError) {
-      console.error(`[Degusta] Navigation failed:`, navError)
-      throw navError
-    }
-    
-    // Wait for content to load
-    await new Promise(resolve => setTimeout(resolve, CONTENT_LOAD_WAIT))
-    
-    // Try to dismiss cookie consent or any popups
-    try {
-      const cookieSelectors = [
-        'button[id*="cookie"]',
-        'button[class*="cookie"]',
-        'button[class*="accept"]',
-        '[class*="consent"] button',
-        '.cookie-banner button',
-        '#onetrust-accept-btn-handler',
-      ]
-      for (const selector of cookieSelectors) {
-        const btn = await page.$(selector)
-        if (btn) {
-          await btn.click()
-          await new Promise(resolve => setTimeout(resolve, 1000))
-          break
-        }
-      }
-    } catch {
-      // No cookie consent found, continue
-    }
-    
-    // Wait for restaurant content to appear (shorter timeout for Vercel)
-    try {
-      await page.waitForSelector('a[href*="restaurante"], .dg-result-restaurant-title', { 
-        timeout: 5000 
+    reportProgress('connecting', 'Fetching restaurants from Degusta API...')
+
+    let offset = 0
+    let totalCount = 0
+    let pageNum = 0
+    const maxPages = Math.ceil(maxRestaurants / PAGE_SIZE) + 2
+    const seenUrls = new Set<string>()
+
+    while (restaurants.length < maxRestaurants && pageNum < maxPages) {
+      const url = `${SEARCH_API}?q=&filters=${FILTERS_B64}&offset=${offset}`
+
+      reportProgress('loading_page', `Fetching page ${pageNum + 1} (offset ${offset})...`)
+
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json, text/plain, */*',
+          'X-Requested-With': 'XMLHttpRequest',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        },
       })
-      console.log(`[Degusta] Restaurant content detected`)
-    } catch {
-      console.log(`[Degusta] Timeout waiting for restaurant selector, proceeding anyway...`)
-      reportProgress('loading_page', 'Waiting for content to load...')
-    }
-    
-    // Brief wait for dynamic content
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    // Scroll down to load more restaurants (lazy loading)
-    reportProgress('loading_page', 'Scrolling to load more restaurants...')
-    
-    let previousHeight = 0
-    let scrollAttempts = 0
-    const maxScrollAttempts = 10
-    
-    while (scrollAttempts < maxScrollAttempts) {
-      const currentHeight = await page.evaluate(() => document.body.scrollHeight)
-      
-      if (currentHeight === previousHeight) {
-        // No more content to load
+
+      if (!response.ok) {
+        const errMsg = `API returned ${response.status} for offset ${offset}`
+        errors.push(errMsg)
+        reportProgress('error', errMsg)
         break
       }
-      
-      previousHeight = currentHeight
-      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      scrollAttempts++
-    }
-    
-    // Extract restaurant data
-    reportProgress('extracting', 'Extracting restaurant data...')
-    
-    const rawRestaurants = await page.evaluate((baseUrl) => {
-      const results: Array<{
-        sourceUrl: string
-        name: string
-        cuisine: string | null
-        address: string | null
-        pricePerPerson: number | null
-        discount: string | null
-        votes: number | null
-        foodRating: number | null
-        serviceRating: number | null
-        ambientRating: number | null
-        imageUrl: string | null
-      }> = []
-      
-      // Try multiple selectors to find restaurant cards
-      // Strategy 1: Original selector
-      let restaurantCards = document.querySelectorAll('.dg-result-restaurant-title')
-      
-      // Strategy 2: Look for h5 elements with restaurant links
-      if (restaurantCards.length === 0) {
-        restaurantCards = document.querySelectorAll('h5.h5 a[href*="restaurante"]')
+
+      const data: DegustaSearchResponse = await response.json()
+
+      if (pageNum === 0) {
+        totalCount = data.count
+        reportProgress('loading_page', `Found ${totalCount} restaurants with discounts`)
       }
-      
-      // Strategy 3: Look for any link to restaurant pages
-      if (restaurantCards.length === 0) {
-        const allLinks = document.querySelectorAll('a[href*="/restaurante/"]')
-        // Filter to unique restaurant links (avoid duplicates from image + text links)
-        const uniqueUrls = new Set<string>()
-        const uniqueLinks: Element[] = []
-        allLinks.forEach(link => {
-          const href = link.getAttribute('href')
-          if (href && !uniqueUrls.has(href)) {
-            uniqueUrls.add(href)
-            uniqueLinks.push(link)
-          }
+
+      if (!data.html || data.html.trim().length === 0) {
+        break
+      }
+
+      // Build gmap lookup for name fallback
+      const gmapById = new Map<number, DegustaGmapEntry>()
+      for (const entry of data.gmap ?? []) {
+        gmapById.set(entry.id, entry)
+      }
+
+      const pageRestaurants = parseRestaurantsFromHtml(data.html, gmapById)
+
+      // Break if page returned nothing (parsing failure or end of data)
+      if (pageRestaurants.length === 0) {
+        console.log(`[Degusta] Page ${pageNum + 1} returned 0 parsed restaurants, stopping.`)
+        break
+      }
+
+      let newOnThisPage = 0
+      for (const r of pageRestaurants) {
+        if (restaurants.length >= maxRestaurants) break
+        if (seenUrls.has(r.sourceUrl)) continue
+        seenUrls.add(r.sourceUrl)
+        restaurants.push(r)
+        newOnThisPage++
+
+        reportProgress('extracting', `Extracted ${restaurants.length}/${Math.min(maxRestaurants, totalCount)}: ${r.name}`, {
+          current: restaurants.length,
+          total: Math.min(maxRestaurants, totalCount),
+          restaurantName: r.name,
         })
-        restaurantCards = uniqueLinks as unknown as NodeListOf<Element>
       }
-      
-      // Strategy 4: Look for card-like containers
-      if (restaurantCards.length === 0) {
-        restaurantCards = document.querySelectorAll('[class*="card"][class*="restaurant"], [class*="result-item"]')
+
+      // Break if we got only duplicates (stuck on same page)
+      if (newOnThisPage === 0) {
+        console.log(`[Degusta] Page ${pageNum + 1} returned only duplicates, stopping.`)
+        break
       }
-      
-      restaurantCards.forEach((titleEl) => {
-        try {
-          // Get the link element - it might be the element itself or a child
-          let linkEl: Element | null = titleEl.querySelector('a')
-          if (!linkEl && titleEl.tagName === 'A') {
-            linkEl = titleEl
-          }
-          if (!linkEl) return
-          
-          // Get restaurant name and URL
-          let name = linkEl.textContent?.trim() || ''
-          const href = linkEl.getAttribute('href') || ''
-          if (!href) return
-          
-          // Build full URL
-          const sourceUrl = href.startsWith('http') ? href : baseUrl + href
-          
-          // Find the parent card container - go up several levels to get the full card
-          // The card structure has the image/discount in one column and info in another
-          let card: Element | null = linkEl.closest('.col-12')?.parentElement || 
-                                     linkEl.closest('.row') || 
-                                     linkEl.closest('[class*="result"]') ||
-                                     linkEl.closest('[class*="card"]')
-          
-          // Try to find an even larger container if needed (the full restaurant row)
-          if (card) {
-            const parentRow = card.closest('.row')?.parentElement?.closest('.row') || card.closest('.row')
-            if (parentRow) {
-              card = parentRow
-            }
-          }
-          
-          // If we couldn't find a card, use the link's parent as fallback
-          if (!card) {
-            card = linkEl.parentElement?.parentElement?.parentElement || linkEl.parentElement
-          }
-          
-          if (!card) return
-          
-          // If name is empty (e.g., we found an image link), try to get it from the card
-          if (!name) {
-            const cardTitleEl = card.querySelector('.dg-result-restaurant-title a, h5 a[href*="restaurante"]')
-            if (cardTitleEl) {
-              name = cardTitleEl.textContent?.trim() || ''
-            }
-          }
-          
-          // Extract name from URL as last resort
-          if (!name && href) {
-            // URL like /panama/restaurante/sugoi-condado-del-rey_109023.html
-            const match = href.match(/restaurante\/([^_]+)/)
-            if (match) {
-              name = match[1].replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-            }
-          }
-          
-          if (!name) return
-          
-          // Find cuisine/food type
-          let cuisine: string | null = null
-          const cuisineEl = card.querySelector('.dg-result-restaurant-cuisine')
-          if (cuisineEl) {
-            cuisine = cuisineEl.textContent?.trim() || null
-          }
-          
-          // Find address
-          let address: string | null = null
-          const addressEl = card.querySelector('.dg-result-restaurant-address')
-          if (addressEl) {
-            address = addressEl.textContent?.trim() || null
-          }
-          
-          // Find price per person
-          let pricePerPerson: number | null = null
-          const priceEl = card.querySelector('.dg-result-restaurant-price')
-          if (priceEl) {
-            const priceText = priceEl.textContent?.trim() || ''
-            const priceMatch = priceText.match(/\$(\d+)/)
-            if (priceMatch) {
-              pricePerPerson = parseInt(priceMatch[1], 10)
-            }
-          }
-          
-          // Find discount - look for elements with degusta discount classes
-          let discount: string | null = null
-          const discountSelectors = [
-            '.degusta_estandar',
-            '.degusta_premium', 
-            '[class*="degusta_estandar"]',
-            '[class*="degusta_premium"]',
-            '.desc-block-v2-single',
-            '.desc-block-v2-rsv-button-2',
-            '[class*="desc-block"][class*="degusta"]',
-          ]
-          
-          for (const selector of discountSelectors) {
-            const discountEl = card.querySelector(selector)
-            if (discountEl) {
-              const text = discountEl.textContent?.trim()
-              // Make sure it looks like a discount (contains % or OFF)
-              if (text && (text.includes('%') || text.toLowerCase().includes('off'))) {
-                discount = text
-                break
-              }
-            }
-          }
-          
-          // Find votes
-          let votes: number | null = null
-          const votesEl = card.querySelector('.dg-result-restaurant-number-qualifications')
-          if (votesEl) {
-            const votesText = votesEl.textContent?.trim() || ''
-            const votesMatch = votesText.match(/(\d+)/)
-            if (votesMatch) {
-              votes = parseInt(votesMatch[1], 10)
-            }
-          }
-          
-          // Find ratings
-          let foodRating: number | null = null
-          let serviceRating: number | null = null
-          let ambientRating: number | null = null
-          
-          const qualificationEls = card.querySelectorAll('.dg-result-restaurant-qualification')
-          qualificationEls.forEach((qualEl) => {
-            const descEl = qualEl.querySelector('.qualification-description')
-            const scoreEl = qualEl.querySelector('.score-number')
-            if (descEl && scoreEl) {
-              const desc = descEl.textContent?.trim().toLowerCase() || ''
-              const score = parseFloat(scoreEl.textContent?.trim() || '0')
-              
-              if (desc.includes('comida')) {
-                foodRating = score
-              } else if (desc.includes('servicio')) {
-                serviceRating = score
-              } else if (desc.includes('ambiente')) {
-                ambientRating = score
-              }
-            }
-          })
-          
-          // Find image
-          let imageUrl: string | null = null
-          const imgEl = card.querySelector('.img-cropped-search')
-          if (imgEl) {
-            imageUrl = imgEl.getAttribute('src') || null
-          }
-          
-          results.push({
-            sourceUrl,
-            name,
-            cuisine,
-            address,
-            pricePerPerson,
-            discount,
-            votes,
-            foodRating,
-            serviceRating,
-            ambientRating,
-            imageUrl,
-          })
-        } catch {
-          // Skip this restaurant if extraction fails
-        }
-      })
-      
-      return results
-    }, BASE_URL)
-    
-    console.log(`[Degusta] Extracted ${rawRestaurants.length} restaurants from page`)
-    
-    // If no restaurants found, try alternative extraction (like ticketplus pattern)
-    if (rawRestaurants.length === 0) {
-      console.log(`[Degusta] Trying alternative extraction method...`)
-      
-      // Wait a bit more for dynamic content
-      await new Promise(resolve => setTimeout(resolve, 3000))
-      
-      // Try alternative: extract just from links with restaurant URLs
-      const altRestaurants = await page.evaluate((baseUrl) => {
-        const results: Array<{
-          sourceUrl: string
-          name: string
-          cuisine: string | null
-          address: string | null
-          pricePerPerson: number | null
-          discount: string | null
-          votes: number | null
-          foodRating: number | null
-          serviceRating: number | null
-          ambientRating: number | null
-          imageUrl: string | null
-        }> = []
-        
-        const processedUrls = new Set<string>()
-        
-        // Find all links to restaurant pages
-        const allLinks = document.querySelectorAll('a[href*="/restaurante/"]')
-        
-        allLinks.forEach(link => {
-          const href = link.getAttribute('href') || ''
-          if (!href || processedUrls.has(href)) return
-          processedUrls.add(href)
-          
-          const sourceUrl = href.startsWith('http') ? href : baseUrl + href
-          
-          // Extract name from URL: /panama/restaurante/sugoi-condado-del-rey_109023.html
-          let name = ''
-          const urlMatch = href.match(/restaurante\/([^_]+)/)
-          if (urlMatch) {
-            name = urlMatch[1]
-              .replace(/-/g, ' ')
-              .replace(/\b\w/g, c => c.toUpperCase())
-          }
-          
-          // Also try to get name from link text if available
-          const linkText = link.textContent?.trim()
-          if (linkText && linkText.length > 2 && linkText.length < 100) {
-            name = linkText
-          }
-          
-          if (!name) return
-          
-          // Find parent container for additional info
-          let container = link.parentElement
-          for (let i = 0; i < 8 && container; i++) {
-            if (container.querySelector('.dg-result-restaurant-price') || 
-                container.querySelector('img')) {
-              break
-            }
-            container = container.parentElement
-          }
-          
-          // Try to extract other fields from container
-          let discount: string | null = null
-          let imageUrl: string | null = null
-          
-          if (container) {
-            // Look for discount
-            const discountEl = container.querySelector('[class*="degusta"], [class*="desc-block"]')
-            if (discountEl) {
-              const text = discountEl.textContent?.trim()
-              if (text && (text.includes('%') || text.toLowerCase().includes('off'))) {
-                discount = text
-              }
-            }
-            
-            // Look for image
-            const img = container.querySelector('img')
-            if (img) {
-              imageUrl = img.getAttribute('src') || null
-            }
-          }
-          
-          results.push({
-            sourceUrl,
-            name,
-            cuisine: null,
-            address: null,
-            pricePerPerson: null,
-            discount,
-            votes: null,
-            foodRating: null,
-            serviceRating: null,
-            ambientRating: null,
-            imageUrl,
-          })
-        })
-        
-        return results
-      }, BASE_URL)
-      
-      rawRestaurants.push(...altRestaurants)
-      console.log(`[Degusta] Alternative method found ${altRestaurants.length} additional restaurants`)
-    }
-    
-    if (rawRestaurants.length === 0) {
-      // Log page debug info for Vercel troubleshooting
-      const debugInfo = await page.evaluate(() => ({
-        url: window.location.href,
-        title: document.title,
-        bodyLength: document.body.innerHTML.length,
-        restaurantLinks: document.querySelectorAll('a[href*="restaurante"]').length,
-        dgResultTitles: document.querySelectorAll('.dg-result-restaurant-title').length,
-        h5Count: document.querySelectorAll('h5').length,
-        allLinksCount: document.querySelectorAll('a').length,
-      }))
-      console.log(`[Degusta] Debug info:`, JSON.stringify(debugInfo))
-      
-      errors.push('No restaurants found on page')
-      reportProgress('error', 'No restaurants found on page')
-    }
-    
-    // Process and add to results (limit to maxRestaurants)
-    const restaurantsToProcess = rawRestaurants.slice(0, maxRestaurants)
-    
-    for (let i = 0; i < restaurantsToProcess.length; i++) {
-      const raw = restaurantsToProcess[i]
-      
-      reportProgress('extracting', `Processing restaurant ${i + 1}/${restaurantsToProcess.length}: ${raw.name}`, {
-        current: i + 1,
-        total: restaurantsToProcess.length,
-        restaurantName: raw.name,
-      })
-      
-      const restaurant: ScrapedRestaurant = {
-        sourceUrl: raw.sourceUrl,
-        sourceSite: 'degusta',
-        name: raw.name,
-        cuisine: raw.cuisine,
-        address: raw.address,
-        neighborhood: null,
-        pricePerPerson: raw.pricePerPerson,
-        discount: raw.discount,
-        votes: raw.votes,
-        foodRating: raw.foodRating,
-        serviceRating: raw.serviceRating,
-        ambientRating: raw.ambientRating,
-        imageUrl: raw.imageUrl,
+
+      // Advance offset ourselves — don't trust next_page_offset
+      offset += PAGE_SIZE
+      pageNum++
+
+      if (offset >= totalCount) {
+        break
       }
-      
-      restaurants.push(restaurant)
-      console.log(`  ✓ ${raw.name} - ${raw.cuisine || 'N/A'} - ${raw.discount || 'No discount'}`)
+
+      // Polite delay between requests
+      await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY_MS))
     }
-    
-    reportProgress('complete', `Scan complete! Found ${restaurants.length} restaurants`)
-    
+
+    if (restaurants.length === 0) {
+      errors.push('No restaurants found from API')
+      reportProgress('error', 'No restaurants found from API')
+    } else {
+      reportProgress('complete', `Scan complete! Found ${restaurants.length} restaurants`)
+    }
+
     return {
-      success: errors.length < restaurants.length,
+      success: restaurants.length > 0,
       restaurants,
       errors,
       scannedAt: new Date(),
@@ -502,14 +279,12 @@ export async function scrapeDegusta(
     const errorMsg = `Degusta scraper error: ${error instanceof Error ? error.message : 'Unknown error'}`
     errors.push(errorMsg)
     reportProgress('error', errorMsg)
-    
+
     return {
       success: false,
       restaurants,
       errors,
       scannedAt: new Date(),
     }
-  } finally {
-    await closeBrowser()
   }
 }
