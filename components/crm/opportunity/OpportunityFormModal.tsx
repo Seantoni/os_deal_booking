@@ -329,7 +329,7 @@ export default function OpportunityFormModal({
         if (result.success && result.data) {
           const customFieldResult = await dynamicForm.saveCustomFields(result.data.id)
           if (!customFieldResult.success) {
-            console.warn('Failed to save custom fields:', customFieldResult.error)
+            // Best-effort save for custom fields; keep primary entity save successful.
           }
           onSuccess(result.data, { source: 'submit' })
           handleClose()

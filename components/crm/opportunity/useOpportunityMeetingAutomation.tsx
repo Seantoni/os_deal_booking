@@ -29,8 +29,6 @@ interface UseOpportunityMeetingAutomationOptions {
   onCreateRequest: () => void
 }
 
-const MEETING_AUTOMATION_LOG_PREFIX = '[OppMeetingAutomation]'
-
 export function useOpportunityMeetingAutomation({
   opportunity,
   confirmDialog,
@@ -40,18 +38,9 @@ export function useOpportunityMeetingAutomation({
   onCreateRequest,
 }: UseOpportunityMeetingAutomationOptions) {
   const logMeetingAutomation = useCallback((event: string, payload?: Record<string, unknown>) => {
-    const timestamp = new Date().toISOString()
-    if (payload) {
-      let serialized = ''
-      try {
-        serialized = JSON.stringify(payload)
-      } catch {
-        serialized = '[unserializable-payload]'
-      }
-      console.info(`${MEETING_AUTOMATION_LOG_PREFIX} ${timestamp} ${event} ${serialized}`)
-      return
-    }
-    console.info(`${MEETING_AUTOMATION_LOG_PREFIX} ${timestamp} ${event}`)
+    // Intentionally silent: avoid noisy client console output for automation flow.
+    void event
+    void payload
   }, [])
 
   const createProposalFollowUpTask = useCallback(async () => {
