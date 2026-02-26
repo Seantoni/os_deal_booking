@@ -51,6 +51,30 @@ export async function requireAdmin(): Promise<{ userId: string } | ServerActionR
 }
 
 /**
+ * Require authentication and throw when unauthorized.
+ * Useful for actions whose return type cannot represent auth failures cleanly.
+ */
+export async function requireAuthOrThrow(): Promise<{ userId: string }> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    throw new Error(authResult.error || 'Unauthorized')
+  }
+  return authResult
+}
+
+/**
+ * Require admin role and throw when unauthorized.
+ * Useful for actions whose return type cannot represent auth failures cleanly.
+ */
+export async function requireAdminOrThrow(): Promise<{ userId: string }> {
+  const adminResult = await requireAdmin()
+  if (!('userId' in adminResult)) {
+    throw new Error(adminResult.error || 'Unauthorized: Admin access required')
+  }
+  return adminResult
+}
+
+/**
  * Handle server action errors consistently
  * Wraps error handling with consistent logging and response format
  */

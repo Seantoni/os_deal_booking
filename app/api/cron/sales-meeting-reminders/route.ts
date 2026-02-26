@@ -12,26 +12,11 @@ import { sendSalesMeetingReminders } from '@/lib/email'
 import { startCronJobLog, completeCronJobLog, cleanupOldCronJobLogs } from '@/app/actions/cron-logs'
 import { sendCronFailureEmail } from '@/lib/email/services/cron-failure'
 import { logger } from '@/lib/logger'
+import { verifyCronSecret } from '@/lib/cron/verify-secret'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
-
-function verifyCronSecret(request: Request): boolean {
-  const authHeader = request.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
-
-  if (process.env.NODE_ENV === 'development' && !cronSecret) {
-    return true
-  }
-
-  if (!cronSecret) {
-    logger.warn('CRON_SECRET is not configured')
-    return false
-  }
-
-  return authHeader === `Bearer ${cronSecret}`
-}
 
 export async function GET(request: Request) {
   const startTime = Date.now()

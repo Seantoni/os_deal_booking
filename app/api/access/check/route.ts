@@ -105,18 +105,8 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Build response
-      const response = NextResponse.json({ 
-        hasAccess,
-        email,
-        normalizedEmail,
-        userId: user.id,
-        allEmails: user.emailAddresses.map(e => e.emailAddress),
-        allowedEmail: allowedEmail ? { 
-          email: allowedEmail.email, 
-          isActive: allowedEmail.isActive 
-        } : null
-      })
+      // Build response with only the field middleware needs.
+      const response = NextResponse.json({ hasAccess })
 
       // Set login logged cookie if we just logged the login
       if (shouldLogLogin) {

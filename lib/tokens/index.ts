@@ -76,7 +76,9 @@ export function verifyApprovalToken(token: string): {
     hmac.update(payload)
     const expectedSignature = hmac.digest('hex')
     
-    if (signature !== expectedSignature) {
+    const sigBuf = Buffer.from(signature, 'utf-8')
+    const expectedBuf = Buffer.from(expectedSignature, 'utf-8')
+    if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
       return { valid: false, error: 'Invalid signature' }
     }
     

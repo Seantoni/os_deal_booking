@@ -3,7 +3,7 @@
 // Access control server actions for managing user permissions and invitations
 import { clerkClient } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
-import { requireAdmin } from '@/lib/utils/server-actions'
+import { requireAdmin, requireAdminOrThrow } from '@/lib/utils/server-actions'
 import { validateAndNormalizeEmail } from '@/lib/auth/email-validation'
 import { invalidateEntity } from '@/lib/cache'
 import { addToClerkAllowlist, removeFromClerkAllowlist } from '@/lib/clerk-allowlist'
@@ -43,7 +43,7 @@ export async function checkEmailAccess(email: string): Promise<boolean> {
  */
 export async function getAllowedEmails() {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
     
     const allowedEmails = await prisma.allowedEmail.findMany({
       orderBy: { createdAt: 'desc' },
@@ -275,7 +275,7 @@ export async function reactivateAccess(email: string, notes?: string) {
  */
 export async function getAccessAuditLogs(email?: string, limit: number = 100) {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
     
     const logs = await prisma.accessAuditLog.findMany({
       where: email ? { email: validateAndNormalizeEmail(email) } : undefined,
@@ -1040,7 +1040,7 @@ export async function getEntityAccessList(
   entityId: string
 ): Promise<{ success: boolean; data?: EntityAccessRecord[]; error?: string }> {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
     
     const accessList = await prisma.entityAccess.findMany({
       where: {
@@ -1225,7 +1225,7 @@ export async function searchEntitiesForAccess(
   limit: number = 20
 ): Promise<{ success: boolean; data?: { id: string; name: string; subtitle?: string }[]; error?: string }> {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
     
     const query = searchQuery.toLowerCase().trim()
     
@@ -1406,4 +1406,3 @@ export async function searchEntitiesForAccess(
     return handleServerActionError(error, 'searchEntitiesForAccess')
   }
 }
-

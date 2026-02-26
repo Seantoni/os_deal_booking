@@ -1,4 +1,5 @@
 import { NextResponse, after } from 'next/server'
+import crypto from 'crypto'
 import { auth } from '@clerk/nextjs/server'
 import { getUserRole } from '@/lib/auth/roles'
 import { runFullScan, runSiteScan, runChunkedScan, SourceSite, ScanProgress } from '@/lib/scraping'
@@ -7,6 +8,15 @@ import { sendCronFailureEmail } from '@/lib/email/services/cron-failure'
 import { logger } from '@/lib/logger'
 
 export const maxDuration = 300 // 5 minutes max for scanning
+const NEXT_CHUNK_REQUEST_TIMEOUT_MS = 30_000
+const NEXT_CHUNK_MAX_RETRIES = 3
+const NEXT_CHUNK_RETRY_BASE_DELAY_MS = 1_500
+const NEXT_CHUNK_RETRY_MAX_DELAY_MS = 8_000
+const RETRYABLE_HTTP_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504])
+
+type TriggerNextChunkOutcome =
+  | { ok: true; status: number }
+  | { ok: false; retryable: boolean; reason: string; status?: number; timedOut?: boolean }
 
 // Get base URL for self-invocation
 function getBaseUrl(): string {
@@ -160,21 +170,26 @@ export async function POST(request: Request) {
  */
 export async function GET(request: Request) {
   const startTime = Date.now()
+  let activeLogId: string | null = null
 
   try {
     const url = new URL(request.url)
     const site = url.searchParams.get('site') as SourceSite | null
     const startFrom = parseInt(url.searchParams.get('startFrom') || '0', 10)
     const existingLogId = url.searchParams.get('logId')
+    activeLogId = existingLogId
     
     // Auth: single path for both Vercel Cron and internal chunk calls.
     // Both use Authorization: Bearer <CRON_SECRET> header.
-    const authHeader = request.headers.get('authorization')
+    const authHeader = request.headers.get('authorization') || ''
     const expectedSecret = process.env.CRON_SECRET
     
     if (expectedSecret) {
-      // CRON_SECRET is configured: require matching Bearer token
-      if (authHeader !== `Bearer ${expectedSecret}`) {
+      const expected = `Bearer ${expectedSecret}`
+      const isValid =
+        authHeader.length === expected.length &&
+        crypto.timingSafeEqual(Buffer.from(authHeader, 'utf-8'), Buffer.from(expected, 'utf-8'))
+      if (!isValid) {
         return NextResponse.json({ error: 'Invalid cron secret' }, { status: 401 })
       }
     } else {
@@ -199,6 +214,7 @@ export async function GET(request: Request) {
       // Start cron job log at the beginning of the scan sequence
       const logResult = await startCronJobLog('market-intelligence-scan', 'cron')
       const logId = logResult.logId
+      activeLogId = logId ?? null
       
       // Start with oferta24 (fast, completes in one go)
       const result = await runChunkedScan('oferta24', 0)
@@ -221,10 +237,10 @@ export async function GET(request: Request) {
       // This breaks the cascading-timeout chain — each invocation only
       // occupies its own time, and the next chunk runs independently.
       if (result.nextStartFrom !== undefined) {
-        after(() => triggerNextChunk('oferta24', result.nextStartFrom!, expectedSecret, logId))
+        after(() => triggerNextChunkWithRetry('oferta24', result.nextStartFrom!, expectedSecret, logId))
       } else {
         // Oferta24 complete, start RantanOfertas
-        after(() => triggerNextChunk('rantanofertas', 0, expectedSecret, logId))
+        after(() => triggerNextChunkWithRetry('rantanofertas', 0, expectedSecret, logId))
       }
       
       return NextResponse.json({
@@ -248,8 +264,8 @@ export async function GET(request: Request) {
     const result = await runChunkedScan(site, startFrom)
     
     // Log per-chunk progress so the admin dashboard shows where the scan is
-    if (existingLogId) {
-      await updateCronJobProgress(existingLogId, {
+    if (activeLogId) {
+      await updateCronJobProgress(activeLogId, {
         site,
         chunkStartFrom: startFrom,
         chunkDealsProcessed: result.dealsProcessed,
@@ -264,16 +280,16 @@ export async function GET(request: Request) {
     // Fire-and-forget: schedule the next chunk AFTER the response is sent.
     if (result.nextStartFrom !== undefined) {
       // More deals to process for this site
-      after(() => triggerNextChunk(site, result.nextStartFrom!, expectedSecret, existingLogId))
+      after(() => triggerNextChunkWithRetry(site, result.nextStartFrom!, expectedSecret, activeLogId))
     } else if (site === 'oferta24') {
       // Oferta24 complete, start RantanOfertas
-      after(() => triggerNextChunk('rantanofertas', 0, expectedSecret, existingLogId))
+      after(() => triggerNextChunkWithRetry('rantanofertas', 0, expectedSecret, activeLogId))
     } else if (site === 'rantanofertas' && result.isComplete) {
       // Scan is fully done - complete the log
       const durationMs = Date.now() - startTime
       
-      if (existingLogId) {
-        await completeCronJobLog(existingLogId, result.success ? 'success' : 'failed', {
+      if (activeLogId) {
+        await completeCronJobLog(activeLogId, result.success ? 'success' : 'failed', {
           message: `Market intelligence scan completed`,
           details: {
             dealsProcessed: result.dealsProcessed,
@@ -328,14 +344,12 @@ export async function GET(request: Request) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     const durationMs = Date.now() - startTime
-    const url = new URL(request.url)
-    const existingLogId = url.searchParams.get('logId')
     
     logger.error('Market-intelligence-scan cron job failed:', error)
     
     // Complete the log as failed
-    if (existingLogId) {
-      await completeCronJobLog(existingLogId, 'failed', {
+    if (activeLogId) {
+      await completeCronJobLog(activeLogId, 'failed', {
         error: errorMessage,
       })
     }
@@ -359,20 +373,82 @@ export async function GET(request: Request) {
 }
 
 /**
- * Trigger the next chunk of scanning.
+ * Trigger the next chunk of scanning with retries.
  *
  * Called inside `after()` so it runs AFTER the current response is sent,
  * breaking the cascading-timeout chain that previously caused the scan
  * to get stuck.
  *
- * We add a 30 s abort timeout so this invocation doesn't hang forever
- * waiting for the downstream chunk's response headers.  Even if the
- * abort fires, the downstream chunk is already running in its own
- * serverless invocation and will continue independently.
+ * Keeps the downstream call short so the handoff phase stays well under
+ * Vercel function limits, and retries transient 429/5xx/network failures.
  *
  * Auth is sent via Authorization header — never in the URL query string.
  */
-async function triggerNextChunk(site: SourceSite, startFrom: number, secret?: string, logId?: string | null): Promise<void> {
+async function triggerNextChunkWithRetry(
+  site: SourceSite,
+  startFrom: number,
+  secret?: string,
+  logId?: string | null,
+): Promise<void> {
+  let lastOutcome: TriggerNextChunkOutcome | null = null
+
+  for (let attempt = 1; attempt <= NEXT_CHUNK_MAX_RETRIES; attempt++) {
+    const outcome = await triggerNextChunkOnce(site, startFrom, secret, logId)
+    lastOutcome = outcome
+
+    if (outcome.ok) {
+      return
+    }
+
+    if (!outcome.retryable) {
+      logger.error(
+        `[market-intelligence-scan] Non-retryable chunk handoff failure (${site} #${startFrom}): ${outcome.reason}`,
+      )
+      break
+    }
+
+    if (attempt < NEXT_CHUNK_MAX_RETRIES) {
+      const delayMs = Math.min(
+        NEXT_CHUNK_RETRY_BASE_DELAY_MS * (2 ** (attempt - 1)),
+        NEXT_CHUNK_RETRY_MAX_DELAY_MS,
+      )
+      logger.warn(
+        `[market-intelligence-scan] Retry handoff ${attempt}/${NEXT_CHUNK_MAX_RETRIES - 1} for ${site} #${startFrom} in ${delayMs}ms (${outcome.reason})`,
+      )
+      await new Promise(resolve => setTimeout(resolve, delayMs))
+    }
+  }
+
+  if (!lastOutcome) {
+    return
+  }
+
+  // Timeout means downstream might still be running; avoid force-failing
+  // to prevent false negatives in logs.
+  if (lastOutcome.timedOut) {
+    logger.warn(
+      `[market-intelligence-scan] Handoff timed out after retries for ${site} #${startFrom}. Downstream execution may still continue.`,
+    )
+    return
+  }
+
+  if (logId) {
+    await completeCronJobLog(logId, 'failed', {
+      error: `Failed to trigger next chunk (${site} #${startFrom}): ${lastOutcome.reason}`,
+    })
+  }
+
+  logger.error(
+    `[market-intelligence-scan] Failed to hand off next chunk after ${NEXT_CHUNK_MAX_RETRIES} attempts (${site} #${startFrom}): ${lastOutcome.reason}`,
+  )
+}
+
+async function triggerNextChunkOnce(
+  site: SourceSite,
+  startFrom: number,
+  secret?: string,
+  logId?: string | null,
+): Promise<TriggerNextChunkOutcome> {
   const baseUrl = getBaseUrl()
   const nextUrl = new URL('/api/cron/market-intelligence-scan', baseUrl)
   nextUrl.searchParams.set('site', site)
@@ -395,7 +471,7 @@ async function triggerNextChunk(site: SourceSite, startFrom: number, secret?: st
   // chunk to finish.  30 s is plenty of time for the HTTP request to be
   // accepted; the downstream chunk will continue on its own.
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 30_000)
+  const timeout = setTimeout(() => controller.abort(), NEXT_CHUNK_REQUEST_TIMEOUT_MS)
   
   try {
     const res = await fetch(nextUrl.toString(), {
@@ -403,13 +479,46 @@ async function triggerNextChunk(site: SourceSite, startFrom: number, secret?: st
       headers,
       signal: controller.signal,
     })
-    logger.info(`Next chunk triggered: ${site} startFrom=${startFrom} status=${res.status}`)
+
+    if (res.ok) {
+      logger.info(`Next chunk triggered: ${site} startFrom=${startFrom} status=${res.status}`)
+      return { ok: true, status: res.status }
+    }
+
+    const reason = `Downstream returned HTTP ${res.status}`
+    const retryable = RETRYABLE_HTTP_STATUSES.has(res.status)
+
+    if (retryable) {
+      logger.warn(`Retryable handoff response: ${site} startFrom=${startFrom} status=${res.status}`)
+    } else {
+      logger.error(`Non-retryable handoff response: ${site} startFrom=${startFrom} status=${res.status}`)
+    }
+
+    return {
+      ok: false,
+      retryable,
+      reason,
+      status: res.status,
+    }
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      // Expected — the downstream chunk is already running
-      logger.info(`triggerNextChunk timed out waiting for response (downstream chunk continues): ${site} startFrom=${startFrom}`)
-    } else {
-      logger.error('Failed to trigger next chunk:', err)
+      logger.warn(
+        `triggerNextChunk timed out after ${NEXT_CHUNK_REQUEST_TIMEOUT_MS}ms (downstream may continue): ${site} startFrom=${startFrom}`,
+      )
+      return {
+        ok: false,
+        retryable: true,
+        timedOut: true,
+        reason: `Timed out after ${NEXT_CHUNK_REQUEST_TIMEOUT_MS}ms waiting for downstream response`,
+      }
+    }
+
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    logger.error('Failed to trigger next chunk:', err)
+    return {
+      ok: false,
+      retryable: true,
+      reason: `Network error triggering downstream chunk: ${message}`,
     }
   } finally {
     clearTimeout(timeout)

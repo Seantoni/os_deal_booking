@@ -1,7 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
-import { requireAuth, requireAdmin, handleServerActionError } from '@/lib/utils/server-actions'
+import { requireAuthOrThrow, requireAdminOrThrow, handleServerActionError } from '@/lib/utils/server-actions'
 import type { 
   FormEntityType, 
   FormSection, 
@@ -32,7 +32,7 @@ export async function getFormConfiguration(entityType: FormEntityType): Promise<
   error?: string
 }> {
   try {
-    await requireAuth()
+    await requireAuthOrThrow()
 
     // Get sections with their field configs
     const sections = await prisma.formSection.findMany({
@@ -106,7 +106,7 @@ export async function initializeFormConfiguration(entityType: FormEntityType): P
   error?: string
 }> {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
 
     // Check if already initialized
     const existingSections = await prisma.formSection.count({
@@ -222,7 +222,7 @@ export async function createFormSection(
   name: string
 ): Promise<{ success: boolean; data?: FormSection; error?: string }> {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
 
     // Get max display order
     const maxOrder = await prisma.formSection.aggregate({
@@ -256,7 +256,7 @@ export async function updateFormSection(
   data: { name?: string; isCollapsed?: boolean }
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
 
     await prisma.formSection.update({
       where: { id: sectionId },
@@ -275,7 +275,7 @@ export async function deleteFormSection(sectionId: string): Promise<{
   error?: string
 }> {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
 
     // Get the section with its fields
     const section = await prisma.formSection.findUnique({
@@ -339,7 +339,7 @@ export async function reorderSections(
   sectionIds: string[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
 
     await prisma.$transaction(
       sectionIds.map((id, index) =>
@@ -372,7 +372,7 @@ export async function updateFormFieldConfig(
   }
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
 
     // Get the field config to check constraints
     const fieldConfig = await prisma.formFieldConfig.findUnique({
@@ -421,7 +421,7 @@ export async function moveFieldToSection(
   displayOrder?: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
 
     // Get current max order in target section if not specified
     let newOrder = displayOrder
@@ -453,7 +453,7 @@ export async function reorderFieldsInSection(
   fieldIds: string[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
 
     await prisma.$transaction(
       fieldIds.map((id, index) =>
@@ -482,6 +482,8 @@ export async function addCustomFieldToFormConfig(
   targetSectionId?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    await requireAdminOrThrow()
+
     // Check if form config is initialized for this entity
     const existingSections = await prisma.formSection.findMany({
       where: { entityType, isActive: true },
@@ -560,7 +562,7 @@ export async function removeCustomFieldFromFormConfig(
   fieldKey: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
 
     await prisma.formFieldConfig.deleteMany({
       where: { entityType, fieldKey, fieldSource: 'custom' },
@@ -581,7 +583,7 @@ export async function syncCustomFieldsToFormConfig(
   entityType: FormEntityType
 ): Promise<{ success: boolean; addedCount: number; error?: string }> {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
 
     // Get all custom fields for this entity
     const customFields = await prisma.customField.findMany({
@@ -618,7 +620,7 @@ export async function resetFormConfiguration(entityType: FormEntityType): Promis
   error?: string
 }> {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
 
     // Delete all existing sections and field configs for this entity type
     await prisma.$transaction(async (tx) => {
@@ -726,7 +728,7 @@ export async function syncBuiltinFieldsToFormConfig(entityType: FormEntityType):
   error?: string
 }> {
   try {
-    await requireAdmin()
+    await requireAdminOrThrow()
 
     // Get all built-in fields for this entity type
     const builtinFields = getBuiltinFieldsForEntity(entityType)

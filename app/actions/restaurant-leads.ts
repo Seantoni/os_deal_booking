@@ -1,7 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
-import { requireAuth } from '@/lib/utils/server-actions'
+import { requireAuthOrThrow } from '@/lib/utils/server-actions'
 import { Prisma } from '@prisma/client'
 import { runBulkMatching } from '@/lib/matching/restaurant-business'
 
@@ -64,7 +64,7 @@ export async function getRestaurantLeads({
   total: number
   totalPages: number
 }> {
-  await requireAuth()
+  await requireAuthOrThrow()
   
   // Build where clause
   const where: Prisma.RestaurantLeadWhereInput = {}
@@ -178,7 +178,7 @@ export async function getRestaurantLeadStats(): Promise<{
   newToday: number
   avgFoodRating: number | null
 }> {
-  await requireAuth()
+  await requireAuthOrThrow()
   
   // Get counts
   const [
@@ -237,7 +237,7 @@ export async function getAllRestaurantLeadsForExport({
   search,
   hasDiscount,
 }: GetAllRestaurantLeadsParams = {}): Promise<RestaurantLeadWithStats[]> {
-  await requireAuth()
+  await requireAuthOrThrow()
   
   // Build where clause
   const where: Prisma.RestaurantLeadWhereInput = {}
@@ -305,7 +305,7 @@ export async function runRestaurantBusinessMatching(): Promise<{
   }
   error?: string
 }> {
-  await requireAuth()
+  await requireAuthOrThrow()
   
   try {
     const result = await runBulkMatching(0.8)
@@ -334,7 +334,7 @@ export async function updateRestaurantLeadMatch(
   success: boolean
   error?: string
 }> {
-  await requireAuth()
+  await requireAuthOrThrow()
   
   try {
     await prisma.restaurantLead.update({

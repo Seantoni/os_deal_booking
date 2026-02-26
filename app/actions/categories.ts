@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { unstable_cache } from 'next/cache'
-import { requireAuth, handleServerActionError, ServerActionResponse } from '@/lib/utils/server-actions'
+import { requireAdmin, handleServerActionError, ServerActionResponse } from '@/lib/utils/server-actions'
 import type { Category as PrismaCategory } from '.prisma/client'
 import type { CategoryHierarchy, CategoryNode } from '@/types'
 import { SEVEN_DAY_CATEGORIES } from '@/lib/categories'
@@ -59,9 +59,9 @@ export async function getCategories(): Promise<ServerActionResponse<Category[]>>
  * Get all categories (including inactive) - requires authentication
  */
 export async function getAllCategoriesAdmin(): Promise<ServerActionResponse<Category[]>> {
-  const authResult = await requireAuth()
-  if (!('userId' in authResult)) {
-    return authResult
+  const adminResult = await requireAdmin()
+  if (!('userId' in adminResult)) {
+    return adminResult
   }
 
   try {
@@ -164,9 +164,9 @@ export async function getMaxDurationForCategory(
 export async function syncCategoriesToDatabase(
   hierarchy: CategoryHierarchy
 ): Promise<ServerActionResponse<{ created: number; updated: number; deactivated: number }>> {
-  const authResult = await requireAuth()
-  if (!('userId' in authResult)) {
-    return authResult
+  const adminResult = await requireAdmin()
+  if (!('userId' in adminResult)) {
+    return adminResult
   }
 
   try {
@@ -338,4 +338,3 @@ export async function syncCategoriesToDatabase(
     return handleServerActionError(error, 'syncCategoriesToDatabase')
   }
 }
-

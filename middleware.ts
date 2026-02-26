@@ -61,12 +61,14 @@ const isPublicRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, request) => {
   const isPublic = isPublicRoute(request)
   const isApiRoute = request.nextUrl.pathname.startsWith('/api/')
+  const isCronApiRoute = request.nextUrl.pathname.startsWith('/api/cron/')
 
   // Logging only in development
   logger.debug('[middleware] path:', request.nextUrl.pathname, 'public:', isPublic, 'api:', isApiRoute)
 
-  // Apply general rate limiting for all API routes (if configured)
-  if (isApiRoute && isRateLimitConfigured()) {
+  // Apply general rate limiting for API routes (except cron).
+  // Cron endpoints are protected by CRON_SECRET and may self-invoke for chunking.
+  if (isApiRoute && !isCronApiRoute && isRateLimitConfigured()) {
     // Use IP for public routes, will use userId for auth routes after auth check
     const ip = getClientIp(request)
     const rateLimitResult = await checkRateLimit(generalLimiter, ip)
