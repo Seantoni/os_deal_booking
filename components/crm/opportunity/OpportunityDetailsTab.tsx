@@ -29,9 +29,7 @@ interface OpportunityDetailsTabProps {
   opportunity?: Opportunity | null
   stage: OpportunityStage
   linkedBusiness: Business | null
-  linkedBusinessProjection: any
   linkedBookingRequest: BookingRequest | null
-  linkedBookingRequestProjection: any
   onEditBusiness: (business: Business) => void
   onViewLinkedRequest: () => void
   onOpenLostReasonEditor: () => void
@@ -49,9 +47,7 @@ export default function OpportunityDetailsTab({
   opportunity,
   stage,
   linkedBusiness,
-  linkedBusinessProjection,
   linkedBookingRequest,
-  linkedBookingRequestProjection,
   onEditBusiness,
   onViewLinkedRequest,
   onOpenLostReasonEditor,
@@ -101,7 +97,6 @@ export default function OpportunityDetailsTab({
       {linkedBusiness && (
         <LinkedBusinessSection
           business={linkedBusiness}
-          projectionSummary={linkedBusinessProjection}
           onEdit={onEditBusiness}
         />
       )}
@@ -109,7 +104,6 @@ export default function OpportunityDetailsTab({
       {linkedBookingRequest && (
         <LinkedRequestSection
           request={linkedBookingRequest}
-          projection={linkedBookingRequestProjection}
           onView={onViewLinkedRequest}
         />
       )}

@@ -96,7 +96,6 @@ export default function OpportunityFormModal({
 
   const {
     businessId,
-    setBusinessId,
     stage,
     setStage,
     responsibleId,
@@ -109,14 +108,11 @@ export default function OpportunityFormModal({
     linkedBusiness,
     setLinkedBusiness,
     linkedBookingRequest,
-    linkedBusinessProjection,
-    linkedBookingRequestProjection,
     loadingData,
   } = useOpportunityForm({
     isOpen,
     opportunity,
     initialBusinessId,
-    isAdmin,
     currentUserId: user?.id,
     preloadedBusinesses,
     preloadedCategories,
@@ -424,9 +420,7 @@ export default function OpportunityFormModal({
               opportunity={opportunity}
               stage={stage}
               linkedBusiness={linkedBusiness}
-              linkedBusinessProjection={linkedBusinessProjection}
               linkedBookingRequest={linkedBookingRequest}
-              linkedBookingRequestProjection={linkedBookingRequestProjection}
               onEditBusiness={handleEditBusiness}
               onViewLinkedRequest={handleViewLinkedRequest}
               onOpenLostReasonEditor={stageManager.openLostReasonEditor}

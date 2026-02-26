@@ -1,21 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getOpportunityFormData } from '@/app/actions/opportunities'
 import { getBusiness } from '@/app/actions/crm'
-import {
-  getBookingRequestProjectionMap,
-  getBusinessProjectionSummaryMap,
-  type BookingRequestProjectionValue,
-} from '@/app/actions/revenue-projections'
 import { getTodayInPanama, formatDateForPanama } from '@/lib/date/timezone'
 import type { Opportunity, OpportunityStage, Task, Business, BookingRequest, UserData } from '@/types'
 import type { Category } from '@prisma/client'
-import type { ProjectionEntitySummary } from '@/lib/projections/summary'
 
 interface UseOpportunityFormProps {
   isOpen: boolean
   opportunity?: Opportunity | null
   initialBusinessId?: string
-  isAdmin: boolean
   currentUserId?: string | null // Current logged-in user ID
   // Pre-loaded data to skip fetching
   preloadedBusinesses?: Business[]
@@ -27,7 +20,6 @@ export function useOpportunityForm({
   isOpen,
   opportunity,
   initialBusinessId,
-  isAdmin,
   currentUserId,
   preloadedBusinesses,
   preloadedCategories,
@@ -53,8 +45,6 @@ export function useOpportunityForm({
   const [tasks, setTasks] = useState<Task[]>([])
   const [linkedBusiness, setLinkedBusiness] = useState<Business | null>(null)
   const [linkedBookingRequest, setLinkedBookingRequest] = useState<BookingRequest | null>(null)
-  const [linkedBusinessProjection, setLinkedBusinessProjection] = useState<ProjectionEntitySummary | null>(null)
-  const [linkedBookingRequestProjection, setLinkedBookingRequestProjection] = useState<BookingRequestProjectionValue | null>(null)
 
   // Loading state
   const [loadingData, setLoadingData] = useState(false)
@@ -62,43 +52,7 @@ export function useOpportunityForm({
   // Track what we've loaded to prevent re-fetching
   const loadedForRef = useRef<string | null>(null)
   const opportunityRef = useRef(opportunity)
-  const projectionRequestRef = useRef(0)
   opportunityRef.current = opportunity
-
-  const loadLinkedProjections = useCallback(async (
-    linkedBusinessData: Business | null,
-    linkedRequestData: BookingRequest | null,
-  ) => {
-    const requestId = ++projectionRequestRef.current
-
-    try {
-      const [businessProjectionResult, requestProjectionResult] = await Promise.all([
-        linkedBusinessData?.id
-          ? getBusinessProjectionSummaryMap([linkedBusinessData.id])
-          : Promise.resolve({ success: true as const, data: {} as Record<string, ProjectionEntitySummary> }),
-        linkedRequestData?.id
-          ? getBookingRequestProjectionMap([linkedRequestData.id])
-          : Promise.resolve({ success: true as const, data: {} as Record<string, BookingRequestProjectionValue> }),
-      ])
-
-      if (requestId !== projectionRequestRef.current) return
-
-      setLinkedBusinessProjection(
-        businessProjectionResult.success && businessProjectionResult.data && linkedBusinessData?.id
-          ? businessProjectionResult.data[linkedBusinessData.id] || null
-          : null
-      )
-      setLinkedBookingRequestProjection(
-        requestProjectionResult.success && requestProjectionResult.data && linkedRequestData?.id
-          ? requestProjectionResult.data[linkedRequestData.id] || null
-          : null
-      )
-    } catch {
-      if (requestId !== projectionRequestRef.current) return
-      setLinkedBusinessProjection(null)
-      setLinkedBookingRequestProjection(null)
-    }
-  }, [])
 
   // Reusable load function using single batched request
   const loadFormData = useCallback(async (skipClear = false) => {
@@ -120,8 +74,6 @@ export function useOpportunityForm({
       setTasks([])
       setLinkedBusiness(null)
       setLinkedBookingRequest(null)
-      setLinkedBusinessProjection(null)
-      setLinkedBookingRequestProjection(null)
     }
 
     // Check if we have all preloaded data for a new opportunity
@@ -154,9 +106,6 @@ export function useOpportunityForm({
         setContactPhone(selectedBusiness.contactPhone || '')
         setContactEmail(selectedBusiness.contactEmail || '')
         setLinkedBusiness(selectedBusiness)
-        setLinkedBusinessProjection(null)
-        setLinkedBookingRequestProjection(null)
-        void loadLinkedProjections(selectedBusiness, null)
       }
       return
     }
@@ -192,9 +141,6 @@ export function useOpportunityForm({
 
         setLinkedBusiness(linkedBusinessData)
         setLinkedBookingRequest(linkedRequestData)
-        setLinkedBusinessProjection(null)
-        setLinkedBookingRequestProjection(null)
-        void loadLinkedProjections(linkedBusinessData, linkedRequestData)
         
         // Pre-fill form if editing
         if (currentOpportunity) {
@@ -249,13 +195,12 @@ export function useOpportunityForm({
     } finally {
       setLoadingData(false)
     }
-  }, [initialBusinessId, currentUserId, loadLinkedProjections, preloadedBusinesses, preloadedCategories, preloadedUsers])
+  }, [initialBusinessId, currentUserId, preloadedBusinesses, preloadedCategories, preloadedUsers])
 
   // Main load effect
   useEffect(() => {
     if (!isOpen) {
       loadedForRef.current = null
-      projectionRequestRef.current += 1
       return
     }
 
@@ -281,14 +226,9 @@ export function useOpportunityForm({
         setContactEmail(selectedBusiness.contactEmail || '')
         // Also set linkedBusiness when business selection changes
         setLinkedBusiness(selectedBusiness)
-        setLinkedBusinessProjection(null)
-        setLinkedBookingRequestProjection(null)
-        void loadLinkedProjections(selectedBusiness, null)
-      } else {
-        setLinkedBusinessProjection(null)
       }
     }
-  }, [businessId, businesses, loadLinkedProjections, opportunity])
+  }, [businessId, businesses, opportunity])
 
   // Load business when stage changes to WON
   useEffect(() => {
@@ -298,17 +238,14 @@ export function useOpportunityForm({
           const businessResult = await getBusiness(businessId)
           if (businessResult.success && businessResult.data) {
             setLinkedBusiness(businessResult.data)
-            setLinkedBusinessProjection(null)
-            setLinkedBookingRequestProjection(null)
-            void loadLinkedProjections(businessResult.data, linkedBookingRequest)
           }
         } catch {
-          setLinkedBusinessProjection(null)
+          // Ignore - linked business stays unchanged.
         }
       }
       loadBusiness()
     }
-  }, [stage, businessId, linkedBookingRequest, linkedBusiness, loadLinkedProjections])
+  }, [stage, businessId, linkedBusiness])
 
   return {
     // Form state
@@ -344,8 +281,6 @@ export function useOpportunityForm({
     linkedBusiness,
     setLinkedBusiness,
     linkedBookingRequest,
-    linkedBusinessProjection,
-    linkedBookingRequestProjection,
     
     // Loading
     loadingData,
