@@ -196,7 +196,7 @@ export default function MiniCalendar({
       <div className="flex items-center justify-between mb-1.5">
         <button
           onClick={navigatePrevious}
-          className="p-0.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded transition-all"
+          className="w-6 h-6 inline-flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded transition-all"
         >
           <ChevronLeftIcon style={{ fontSize: 16 }} />
         </button>
@@ -211,7 +211,7 @@ export default function MiniCalendar({
         
         <button
           onClick={navigateNext}
-          className="p-0.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded transition-all"
+          className="w-6 h-6 inline-flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded transition-all"
         >
           <ChevronRightIcon style={{ fontSize: 16 }} />
         </button>
@@ -308,4 +308,3 @@ export default function MiniCalendar({
     </div>
   )
 }
-

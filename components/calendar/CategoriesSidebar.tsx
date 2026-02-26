@@ -150,7 +150,7 @@ export default function CategoriesSidebar({
         {userRole === 'admin' && onPendingBookingToggle && pendingCount > 0 && (
             <button
               onClick={onPendingBookingToggle}
-            className={`w-full flex items-center justify-between gap-1.5 px-2 py-1.5 rounded text-xs font-medium transition-colors ${
+            className={`w-full flex items-center justify-between gap-1.5 px-2 py-1.5 rounded text-sm font-medium transition-colors ${
                 showPendingBooking
                   ? 'bg-orange-100 text-orange-900 border border-orange-300'
                 : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
@@ -162,7 +162,7 @@ export default function CategoriesSidebar({
               </svg>
               <span>{showPendingBooking ? 'Pending Booking' : 'Show Pending'}</span>
             </div>
-            <span className="bg-orange-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">{pendingCount}</span>
+            <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold">{pendingCount}</span>
             </button>
         )}
         
@@ -171,7 +171,7 @@ export default function CategoriesSidebar({
           placeholder="Search categories..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
@@ -179,7 +179,7 @@ export default function CategoriesSidebar({
         {/* All Categories Option */}
         <button
           onClick={toggleAll}
-          className={`w-full flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-colors ${
+          className={`w-full flex items-center gap-1.5 px-2 py-1.5 rounded text-sm transition-colors ${
             allSelected
               ? 'bg-blue-50 text-blue-900 font-medium'
               : 'text-gray-700 hover:bg-gray-100'
@@ -196,7 +196,7 @@ export default function CategoriesSidebar({
               </svg>
             )}
           </div>
-          <span className="text-[13px]">All Categories</span>
+          <span className="text-sm">All Categories</span>
         </button>
 
         {/* Divider */}
@@ -222,7 +222,7 @@ export default function CategoriesSidebar({
                             e.stopPropagation();
                             toggleExpand(mainCategory);
                           }}
-                          className="p-0.5 hover:bg-gray-100 rounded text-gray-500"
+                          className="w-6 h-6 inline-flex items-center justify-center hover:bg-gray-100 rounded text-gray-500"
                         >
                           <svg
                             className={`w-3 h-3 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
@@ -234,12 +234,12 @@ export default function CategoriesSidebar({
                           </svg>
                         </button>
                       ) : (
-                        <div className="w-4" />
+                        <div className="w-6 h-6" />
                       )}
 
                     <button
                       onClick={() => onCategoryToggle(mainCategory)}
-                      className={`flex-1 flex items-center gap-1.5 px-1.5 py-1 rounded text-xs transition-colors ${
+                      className={`flex-1 flex items-center gap-1.5 px-1.5 py-1.5 rounded text-sm transition-colors ${
                         isSelected
                           ? 'bg-blue-50'
                           : 'text-gray-700 hover:bg-gray-50'
@@ -256,7 +256,7 @@ export default function CategoriesSidebar({
                           </svg>
                         )}
                       </div>
-                      <span className="truncate font-medium text-[13px]">{formatCategoryName(mainCategory)}</span>
+                      <span className="truncate font-medium text-sm">{formatCategoryName(mainCategory)}</span>
                     </button>
                   </div>
 
@@ -273,7 +273,7 @@ export default function CategoriesSidebar({
                           <div key={subName}>
                             <button
                                 onClick={() => onCategoryToggle(subKey)}
-                                className={`w-full flex items-center gap-1.5 px-1.5 py-0.5 rounded text-xs transition-colors ${
+                                className={`w-full flex items-center gap-1.5 px-1.5 py-1 rounded text-sm transition-colors ${
                                   isSubSelected
                                     ? 'bg-gray-100 text-gray-900'
                                     : 'text-gray-600 hover:bg-gray-50'
@@ -290,7 +290,7 @@ export default function CategoriesSidebar({
                                     </svg>
                                   )}
                                 </div>
-                                <span className="truncate text-left text-[11px]">{formatCategoryName(subName)}</span>
+                                <span className="truncate text-left text-sm">{formatCategoryName(subName)}</span>
                             </button>
 
                             {/* Leaves */}
@@ -303,7 +303,7 @@ export default function CategoriesSidebar({
                                      <button
                                       key={leaf}
                                       onClick={() => onCategoryToggle(leafKey)}
-                                      className={`w-full flex items-center gap-1.5 px-1 py-0.5 rounded text-[11px] transition-colors ${
+                                      className={`w-full flex items-center gap-1.5 px-1 py-1 rounded text-sm transition-colors ${
                                         isLeafSelected
                                           ? 'text-blue-700 font-medium'
                                           : 'text-gray-500 hover:text-gray-900'
@@ -320,7 +320,7 @@ export default function CategoriesSidebar({
                                             </svg>
                                           )}
                                         </div>
-                                        <span className="truncate text-left text-[11px]">{formatCategoryName(leaf)}</span>
+                                        <span className="truncate text-left text-sm">{formatCategoryName(leaf)}</span>
                                      </button>
                                    )
                                  })}

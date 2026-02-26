@@ -127,6 +127,8 @@ export function BusinessTableRow({
                   : 'hover:bg-slate-100 text-slate-500 hover:text-slate-700'
             }`}
             disabled={isExpandDisabled}
+            aria-label={isExpanded ? `Colapsar ${business.name}` : `Expandir ${business.name}`}
+            title={isExpanded ? 'Colapsar fila' : 'Expandir fila'}
           >
             {isExpanded ? (
               <ExpandMoreIcon style={{ fontSize: 20 }} className={isArrowMuted ? 'opacity-40' : ''} />

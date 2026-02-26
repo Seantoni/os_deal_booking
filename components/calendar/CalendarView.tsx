@@ -864,7 +864,7 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
               </button>
               <button
                 onClick={navigatePrevious}
-                className="p-1 text-gray-500 hover:bg-gray-100 transition-colors border-l border-gray-200"
+                className="w-6 h-6 inline-flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors border-l border-gray-200"
                 title="Previous"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -873,7 +873,7 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
               </button>
               <button
                 onClick={navigateNext}
-                className="p-1 text-gray-500 hover:bg-gray-100 rounded-r transition-colors border-l border-gray-200"
+                className="w-6 h-6 inline-flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-r transition-colors border-l border-gray-200"
                 title="Next"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -886,7 +886,7 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
             <div className="flex items-center bg-gray-100 rounded p-0.5 flex-shrink-0">
                 <button
                 onClick={() => handleViewChange('day')}
-                className={`px-1.5 py-1 text-[10px] font-semibold rounded transition-all ${
+                className={`w-6 h-6 inline-flex items-center justify-center text-[10px] font-semibold rounded transition-all ${
                     calendarView === 'day'
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-gray-600 hover:bg-white'
@@ -896,7 +896,7 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
                 </button>
                 <button
                 onClick={() => handleViewChange('week')}
-                className={`px-1.5 py-1 text-[10px] font-semibold rounded transition-all ${
+                className={`w-6 h-6 inline-flex items-center justify-center text-[10px] font-semibold rounded transition-all ${
                     calendarView === 'week'
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-gray-600 hover:bg-white'
@@ -906,7 +906,7 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
                 </button>
                 <button
                 onClick={() => handleViewChange('month')}
-                className={`px-1.5 py-1 text-[10px] font-semibold rounded transition-all ${
+                className={`w-6 h-6 inline-flex items-center justify-center text-[10px] font-semibold rounded transition-all ${
                     calendarView === 'month'
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-gray-600 hover:bg-white'

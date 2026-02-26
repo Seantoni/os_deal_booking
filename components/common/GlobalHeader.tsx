@@ -72,7 +72,7 @@ export default function GlobalHeader() {
           className="flex items-center gap-2 flex-shrink-0 hover:opacity-80 transition-opacity"
         >
           <div className="relative w-8 h-8 rounded-lg overflow-hidden bg-white shadow-sm ring-1 ring-gray-200">
-            <Image src="/icon.png" alt="OS Deals" fill className="object-cover" />
+            <Image src="/icon.png" alt="" fill className="object-cover" aria-hidden="true" />
           </div>
           <span className="text-sm font-bold text-gray-900 hidden sm:block">OS Deals</span>
         </Link>
@@ -135,4 +135,3 @@ export default function GlobalHeader() {
     </header>
   )
 }
-
