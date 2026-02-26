@@ -28,7 +28,7 @@ export function renderEmailLayout(props: EmailLayoutProps): string {
 <html xmlns="http://www.w3.org/1999/xhtml" style="font-family: ${EMAIL_STYLES.fontFamily};">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>${title}</title>
   <style type="text/css">
     body { margin: 0; padding: 0; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: ${EMAIL_STYLES.colors.background}; }
