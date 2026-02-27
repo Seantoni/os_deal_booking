@@ -4,6 +4,7 @@ import {
   renderWeeklyTaskReportEmail,
   type WeeklyTaskReportInsights,
   type WeeklyTaskReportObjection,
+  type WeeklyTaskReportObjectionCategory,
   type WeeklyTaskReportPerformer,
 } from '../templates/weekly-task-report'
 import { getAppBaseUrl } from '@/lib/config/env'
@@ -184,6 +185,32 @@ function safeStringArray(value: unknown, limit: number): string[] {
     .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
     .map((item) => item.trim())
     .slice(0, limit)
+}
+
+function safeObjectionCategories(value: unknown, limit: number): WeeklyTaskReportObjectionCategory[] {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .slice(0, limit)
+    .map((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        return null
+      }
+
+      const record = item as Record<string, unknown>
+      const category = safeString(record.category)
+      const count = typeof record.count === 'number' && Number.isFinite(record.count)
+        ? Math.max(0, Math.round(record.count))
+        : 0
+      const examples = safeStringArray(record.examples, 3)
+
+      if (!category || count <= 0) {
+        return null
+      }
+
+      return { category, count, examples }
+    })
+    .filter((item): item is WeeklyTaskReportObjectionCategory => item !== null)
 }
 
 function computePerformerScore(perf: PerformerAccumulator): number {
@@ -423,6 +450,11 @@ function buildFallbackInsights(payload: AiInputPayload): WeeklyTaskReportInsight
   const meetingTrend = payload.trend.meetingsDelta
   const todoTrend = payload.trend.todosDelta
   const agreementTrend = payload.trend.agreementRateDeltaPct
+  const objectionCategories = payload.objections.slice(0, 5).map((item) => ({
+    category: item.text,
+    count: item.count,
+    examples: [item.text],
+  }))
 
   const trendHighlights = [
     `Reuniones completadas: ${payload.metrics.completedMeetings} (${meetingTrend >= 0 ? '+' : ''}${meetingTrend} vs semana anterior).`,
@@ -457,11 +489,17 @@ function buildFallbackInsights(payload: AiInputPayload): WeeklyTaskReportInsight
   return {
     executiveSummary:
       'La semana muestra señales útiles para optimizar la ejecución comercial. Prioridad: elevar conversión de reuniones con acuerdo hacia propuesta y fortalecer coaching a usuarios con menor tracción.',
+    executivePoints: [
+      'Priorizar seguimiento de reuniones con acuerdo para aumentar paso a propuesta enviada.',
+      'Aplicar coaching enfocado en usuarios de menor tracción comercial con métricas semanales.',
+      'Atacar objeciones repetidas con guiones de respuesta y seguimiento estructurado.',
+    ],
     trendHighlights,
     bestPractices,
     actionPlan7d,
     actionPlan30d,
     weakPerformerCoaching,
+    objectionCategories,
   }
 }
 
@@ -493,7 +531,7 @@ async function generateAiInsights(payload: AiInputPayload): Promise<WeeklyTaskRe
       },
       {
         role: 'user',
-        content: `Con los siguientes datos semanales, devuelve SOLO JSON con esta estructura exacta:\n\n{\n  "executiveSummary": string,\n  "trendHighlights": string[],\n  "bestPractices": string[],\n  "actionPlan7d": string[],\n  "actionPlan30d": string[],\n  "weakPerformerCoaching": string[]\n}\n\nReglas:\n- Español profesional y directo.\n- Máximo 6 elementos por arreglo.\n- Cada acción debe ser concreta y medible.\n- Señala patrones de desempeño y objeciones recurrentes.\n- Usa los usuarios fuertes y débiles como base para recomendaciones de coaching.\n\nDatos:\n${JSON.stringify(payload, null, 2)}`,
+        content: `Con los siguientes datos semanales, devuelve SOLO JSON con esta estructura exacta:\n\n{\n  "executiveSummary": string,\n  "executivePoints": string[],\n  "objectionCategories": [\n    {\n      "category": string,\n      "count": number,\n      "examples": string[]\n    }\n  ],\n  "trendHighlights": string[],\n  "bestPractices": string[],\n  "actionPlan7d": string[],\n  "actionPlan30d": string[],\n  "weakPerformerCoaching": string[]\n}\n\nReglas:\n- Español profesional y directo.\n- Máximo 6 elementos por arreglo.\n- En objectionCategories, consolida objeciones similares en categorías claras y agrega conteo.\n- Los conteos de objectionCategories deben reflejar los datos de entrada lo mejor posible.\n- Cada acción debe ser concreta y medible.\n- Usa los usuarios fuertes y débiles como base para recomendaciones de coaching.\n\nDatos:\n${JSON.stringify(payload, null, 2)}`,
       },
     ],
   })
@@ -514,10 +552,24 @@ async function generateAiInsights(payload: AiInputPayload): Promise<WeeklyTaskRe
     throw new Error('No se pudo parsear JSON del análisis AI semanal')
   }
 
+  const executiveSummary =
+    safeString(parsed.executiveSummary) ||
+    'Resumen no disponible por respuesta incompleta de IA.'
+
+  const executivePoints = safeStringArray(parsed.executivePoints, MAX_AI_ITEMS)
+  const objectionCategories = safeObjectionCategories(parsed.objectionCategories, 8)
+
   return {
-    executiveSummary:
-      safeString(parsed.executiveSummary) ||
-      'Resumen no disponible por respuesta incompleta de IA.',
+    executiveSummary,
+    executivePoints: executivePoints.length > 0 ? executivePoints : [executiveSummary],
+    objectionCategories:
+      objectionCategories.length > 0
+        ? objectionCategories
+        : payload.objections.slice(0, 5).map((item) => ({
+            category: item.text,
+            count: item.count,
+            examples: [item.text],
+          })),
     trendHighlights: safeStringArray(parsed.trendHighlights, MAX_AI_ITEMS),
     bestPractices: safeStringArray(parsed.bestPractices, MAX_AI_ITEMS),
     actionPlan7d: safeStringArray(parsed.actionPlan7d, MAX_AI_ITEMS),
@@ -677,7 +729,6 @@ export async function sendWeeklyTaskPerformanceReport(): Promise<SendWeeklyTaskR
           todosDelta: currentPeriod.completedTodos - previousPeriod.completedTodos,
           agreementRateDeltaPct: currentAgreementRatePct - previousAgreementRatePct,
         },
-        topObjections: currentPeriod.objections.slice(0, 5),
         strongPerformers,
         weakPerformers,
         insights,

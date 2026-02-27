@@ -11,6 +11,12 @@ export interface WeeklyTaskReportObjection {
   count: number
 }
 
+export interface WeeklyTaskReportObjectionCategory {
+  category: string
+  count: number
+  examples: string[]
+}
+
 export interface WeeklyTaskReportPerformer {
   name: string
   meetingsCompleted: number
@@ -24,11 +30,13 @@ export interface WeeklyTaskReportPerformer {
 
 export interface WeeklyTaskReportInsights {
   executiveSummary: string
+  executivePoints: string[]
   trendHighlights: string[]
   bestPractices: string[]
   actionPlan7d: string[]
   actionPlan30d: string[]
   weakPerformerCoaching: string[]
+  objectionCategories: WeeklyTaskReportObjectionCategory[]
 }
 
 export interface WeeklyTaskReportEmailProps {
@@ -50,10 +58,14 @@ export interface WeeklyTaskReportEmailProps {
     todosDelta: number
     agreementRateDeltaPct: number
   }
-  topObjections: WeeklyTaskReportObjection[]
   strongPerformers: WeeklyTaskReportPerformer[]
   weakPerformers: WeeklyTaskReportPerformer[]
   insights: WeeklyTaskReportInsights
+}
+
+interface MetricItem {
+  label: string
+  value: string
 }
 
 function formatDelta(value: number, suffix = ''): string {
@@ -62,28 +74,51 @@ function formatDelta(value: number, suffix = ''): string {
   return `0${suffix}`
 }
 
-function renderMetricCard(label: string, value: string | number): string {
-  return `
-    <div style="display: inline-block; width: 48%; margin: 0 1% 12px 1%; vertical-align: top;">
-      <div style="border: 1px solid ${EMAIL_STYLES.colors.border}; border-radius: 10px; padding: 12px; background: #fff;">
-        <div style="font-size: 11px; text-transform: uppercase; color: ${EMAIL_STYLES.colors.secondary}; letter-spacing: 0.04em; margin-bottom: 6px;">
-          ${escapeHtml(label)}
-        </div>
-        <div style="font-size: 22px; font-weight: 700; color: ${EMAIL_STYLES.colors.text};">
-          ${escapeHtml(String(value))}
-        </div>
-      </div>
-    </div>
-  `
-}
-
-function renderSimpleList(items: string[]): string {
-  if (items.length === 0) {
-    return `<p style="margin: 0; color: ${EMAIL_STYLES.colors.secondary}; font-size: 13px;">Sin hallazgos relevantes.</p>`
+function renderMetricCell(metric: MetricItem | null): string {
+  if (!metric) {
+    return '<td style="width: 50%; padding: 6px;"></td>'
   }
 
   return `
-    <ul style="margin: 0; padding-left: 18px; color: ${EMAIL_STYLES.colors.text};">
+    <td style="width: 50%; padding: 6px; vertical-align: top;">
+      <div style="border: 1px solid ${EMAIL_STYLES.colors.border}; border-radius: 10px; padding: 12px; background: #fff;">
+        <div style="font-size: 11px; text-transform: uppercase; color: ${EMAIL_STYLES.colors.secondary}; letter-spacing: 0.04em; margin-bottom: 6px;">
+          ${escapeHtml(metric.label)}
+        </div>
+        <div style="font-size: 22px; font-weight: 700; color: ${EMAIL_STYLES.colors.text};">
+          ${escapeHtml(metric.value)}
+        </div>
+      </div>
+    </td>
+  `
+}
+
+function renderMetricGrid(metrics: MetricItem[]): string {
+  const rows: string[] = []
+
+  for (let i = 0; i < metrics.length; i += 2) {
+    rows.push(`
+      <tr>
+        ${renderMetricCell(metrics[i])}
+        ${renderMetricCell(metrics[i + 1] || null)}
+      </tr>
+    `)
+  }
+
+  return `
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="width: 100%; border-collapse: separate; border-spacing: 0;">
+      ${rows.join('')}
+    </table>
+  `
+}
+
+function renderSimpleList(items: string[], emptyText = 'Sin hallazgos relevantes.'): string {
+  if (items.length === 0) {
+    return `<p style="margin: 0; color: ${EMAIL_STYLES.colors.secondary}; font-size: 13px;">${escapeHtml(emptyText)}</p>`
+  }
+
+  return `
+    <ul style="margin: 0; padding-left: 18px; color: ${EMAIL_STYLES.colors.text}; list-style-type: disc;">
       ${items
         .map((item) => `<li style="margin: 0 0 8px 0; font-size: 14px; line-height: 1.45;">${escapeHtml(item)}</li>`)
         .join('')}
@@ -91,20 +126,32 @@ function renderSimpleList(items: string[]): string {
   `
 }
 
-function renderObjections(objections: WeeklyTaskReportObjection[]): string {
-  if (objections.length === 0) {
+function renderObjectionCategories(categories: WeeklyTaskReportObjectionCategory[]): string {
+  if (categories.length === 0) {
     return `<p style="margin: 0; color: ${EMAIL_STYLES.colors.secondary}; font-size: 13px;">No se detectaron objeciones frecuentes esta semana.</p>`
   }
 
   return `
-    <ul style="margin: 0; padding-left: 18px; color: ${EMAIL_STYLES.colors.text};">
-      ${objections
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="width: 100%; border-collapse: separate; border-spacing: 0;">
+      ${categories
         .map(
-          (objection) =>
-            `<li style="margin: 0 0 8px 0; font-size: 14px; line-height: 1.45;"><strong>${escapeHtml(objection.text)}</strong> (${objection.count})</li>`,
+          (item) => `
+            <tr>
+              <td style="padding: 0 0 10px 0;">
+                <div style="border: 1px solid ${EMAIL_STYLES.colors.border}; border-radius: 10px; background: #fff; padding: 12px;">
+                  <div style="font-size: 14px; font-weight: 700; color: ${EMAIL_STYLES.colors.text}; margin-bottom: 4px;">
+                    ${escapeHtml(item.category)} (${item.count})
+                  </div>
+                  ${item.examples.length > 0
+                    ? `<div style="font-size: 12px; color: ${EMAIL_STYLES.colors.secondary}; line-height: 1.45;">Ejemplos: ${escapeHtml(item.examples.join(' | '))}</div>`
+                    : ''}
+                </div>
+              </td>
+            </tr>
+          `,
         )
         .join('')}
-    </ul>
+    </table>
   `
 }
 
@@ -147,13 +194,21 @@ export function renderWeeklyTaskReportEmail(props: WeeklyTaskReportEmailProps): 
     appBaseUrl,
     metrics,
     trends,
-    topObjections,
     strongPerformers,
     weakPerformers,
     insights,
   } = props
 
   const settingsUrl = `${appBaseUrl}/settings?tab=cron-jobs`
+
+  const kpiMetrics: MetricItem[] = [
+    { label: 'Reuniones completadas', value: String(metrics.meetingsCompleted) },
+    { label: 'To-dos completados', value: String(metrics.todosCompleted) },
+    { label: 'Acuerdo: Sí', value: String(metrics.agreementsYes) },
+    { label: 'Acuerdo: No', value: String(metrics.agreementsNo) },
+    { label: 'Tareas creadas', value: String(metrics.createdTotal) },
+    { label: 'Tasa de acuerdo', value: `${metrics.agreementRatePct.toFixed(1)}%` },
+  ]
 
   const content = `
     <div style="text-align: center; margin-bottom: 26px;">
@@ -169,12 +224,7 @@ export function renderWeeklyTaskReportEmail(props: WeeklyTaskReportEmailProps): 
     </p>
 
     ${renderSectionTitle('KPI Clave')}
-    ${renderMetricCard('Reuniones completadas', metrics.meetingsCompleted)}
-    ${renderMetricCard('To-dos completados', metrics.todosCompleted)}
-    ${renderMetricCard('Acuerdo: Sí', metrics.agreementsYes)}
-    ${renderMetricCard('Acuerdo: No', metrics.agreementsNo)}
-    ${renderMetricCard('Tareas creadas', metrics.createdTotal)}
-    ${renderMetricCard('Tasa de acuerdo', `${metrics.agreementRatePct.toFixed(1)}%`)}
+    ${renderMetricGrid(kpiMetrics)}
 
     ${renderSectionTitle('Tendencia vs Semana Previa')}
     <div style="font-size: 14px; color: ${EMAIL_STYLES.colors.text}; line-height: 1.6; margin-bottom: 18px;">
@@ -183,8 +233,8 @@ export function renderWeeklyTaskReportEmail(props: WeeklyTaskReportEmailProps): 
       <div>Tasa de acuerdo: <strong>${formatDelta(trends.agreementRateDeltaPct, ' pp')}</strong></div>
     </div>
 
-    ${renderSectionTitle('Objeciones Principales')}
-    ${renderObjections(topObjections)}
+    ${renderSectionTitle('Objeciones (Consolidación IA)')}
+    ${renderObjectionCategories(insights.objectionCategories)}
 
     ${renderSectionTitle('Desempeño del Equipo')}
     ${renderPerformers(
@@ -199,9 +249,13 @@ export function renderWeeklyTaskReportEmail(props: WeeklyTaskReportEmailProps): 
     )}
 
     ${renderSectionTitle('Lectura de Dirección Comercial (IA)')}
-    <p style="margin: 0 0 12px 0; font-size: 14px; line-height: 1.5; color: ${EMAIL_STYLES.colors.text};">
-      ${escapeHtml(insights.executiveSummary)}
-    </p>
+    <div style="margin-bottom: 14px; border-left: 4px solid ${EMAIL_STYLES.colors.brand}; background: #fff7f2; padding: 10px 12px; border-radius: 6px;">
+      <div style="font-size: 13px; font-weight: 700; color: ${EMAIL_STYLES.colors.text}; margin-bottom: 6px;">Resumen ejecutivo</div>
+      <div style="font-size: 14px; line-height: 1.5; color: ${EMAIL_STYLES.colors.text};">${escapeHtml(insights.executiveSummary)}</div>
+    </div>
+
+    <h3 style="margin: 18px 0 8px 0; font-size: 15px; color: ${EMAIL_STYLES.colors.text};">Puntos clave de dirección</h3>
+    ${renderSimpleList(insights.executivePoints)}
 
     <h3 style="margin: 18px 0 8px 0; font-size: 15px; color: ${EMAIL_STYLES.colors.text};">Hallazgos de tendencia</h3>
     ${renderSimpleList(insights.trendHighlights)}
