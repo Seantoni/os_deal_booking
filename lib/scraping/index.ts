@@ -11,6 +11,7 @@ import { scrapeTicketplus } from './ticketplus'
 import { scrapePanatickets } from './panatickets'
 import { scrapeEnLaTaquilla } from './enlataquilla'
 import { scrapeDegusta } from './degusta'
+import { scrapeBGeneral } from './bgeneral'
 import { findMatchingBusiness } from '@/lib/matching/restaurant-business'
 import { 
   ScrapedDeal, 
@@ -28,6 +29,9 @@ import {
   RestaurantSourceSite,
   RestaurantProgressCallback,
   RestaurantScanProgress,
+  ScrapedBGeneralPromo,
+  BGeneralScrapeResult,
+  BGeneralProgressCallback,
 } from './types'
 
 export * from './types'
@@ -36,6 +40,7 @@ export { scrapeTicketplus } from './ticketplus'
 export { scrapePanatickets } from './panatickets'
 export { scrapeEnLaTaquilla } from './enlataquilla'
 export { scrapeDegusta } from './degusta'
+export { scrapeBGeneral } from './bgeneral'
 
 const MAX_DEALS_PER_SITE = 150 // 100 per site = 300 total max
 const CHUNK_SIZE = 50 // 50 deals per invocation — rantanofertas now uses HTTP (no browser), so each deal is ~0.3-0.5s

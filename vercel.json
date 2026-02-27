@@ -29,6 +29,10 @@
       "schedule": "0 8 * * *"
     },
     {
+      "path": "/api/cron/bank-promos-sync",
+      "schedule": "0 12 * * 1,5"
+    },
+    {
       "path": "/api/cron/weekly-task-report",
       "schedule": "0 13 * * 5"
     }

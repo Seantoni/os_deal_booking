@@ -146,3 +146,46 @@ export interface RestaurantScanProgress {
   restaurantName?: string
 }
 
+// ============================================
+// Banco General Promotions (bgeneral.com)
+// ============================================
+
+export type BGeneralSourceSite = 'bgeneral'
+
+export interface ScrapedBGeneralPromo {
+  sourceUrl: string
+  sourceSite: BGeneralSourceSite
+  externalId: string // WordPress post ID
+  businessName: string
+  discountText: string // e.g. "75% de descuento", "2×1"
+  discountPercent: number | null // parsed when possible (e.g. 75, 40)
+  startDate: string // YYYY-MM-DD
+  endDate: string // YYYY-MM-DD
+  conditions: string | null // Full "Condiciones" block text
+}
+
+export interface BGeneralScrapeResult {
+  success: boolean
+  promos: ScrapedBGeneralPromo[]
+  errors: string[]
+  scannedAt: Date
+}
+
+export type BGeneralProgressCallback = (progress: BGeneralScanProgress) => void
+
+export interface BGeneralScanProgress {
+  site: BGeneralSourceSite
+  phase: 'connecting' | 'loading_list' | 'loading_detail' | 'extracting' | 'complete' | 'error'
+  message: string
+  current?: number
+  total?: number
+  businessName?: string
+}
+
+export const BGENERAL_SOURCE_SITES: Record<BGeneralSourceSite, { name: string; baseUrl: string }> = {
+  bgeneral: {
+    name: 'Banco General Promociones',
+    baseUrl: 'https://www.bgeneral.com',
+  },
+}
+

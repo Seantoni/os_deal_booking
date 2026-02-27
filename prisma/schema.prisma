@@ -272,6 +272,7 @@ model Business {
   campaigns                     BusinessCampaign[]
   eventLeads                    EventLead[]
   restaurantLeads               RestaurantLead[]
+  bankPromos                    BankPromo[]
   events                        Event[]
 
   @@index([categoryId])
@@ -902,6 +903,38 @@ model RestaurantLead {
   @@index([cuisine])
   @@index([matchedBusinessId])
   @@map("restaurant_leads")
+}
+
+// ============================================
+// Bank Promos (Banco General promociones)
+// ============================================
+
+model BankPromo {
+  id                 String    @id @default(cuid())
+  sourceUrl          String    @unique
+  sourceSite         String    @default("bgeneral") // e.g. 'bgeneral'
+  externalId         String    // WordPress post ID
+  businessName       String
+  discountText       String    // e.g. "75% de descuento", "2×1"
+  discountPercent    Int?      // Parsed when possible (75, 40, etc.)
+  startDate          String    // YYYY-MM-DD
+  endDate            String    // YYYY-MM-DD
+  conditions         String?   @db.Text // Full "Condiciones" block
+  matchedBusinessId  String?   // Linked business (auto or manual matched)
+  matchConfidence    Decimal?  @db.Decimal(3, 2) // 0.00-1.00
+  lastScannedAt      DateTime  @default(now())
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  matchedBusiness    Business? @relation(fields: [matchedBusinessId], references: [id], onDelete: SetNull)
+
+  @@index([sourceSite])
+  @@index([businessName])
+  @@index([lastScannedAt])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([matchedBusinessId])
+  @@map("bank_promos")
 }
 
 // Item-level access control - grants specific users access to specific entities

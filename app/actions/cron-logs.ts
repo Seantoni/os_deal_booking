@@ -13,6 +13,7 @@ export type CronJobName =
   | 'market-intelligence-scan'
   | 'event-leads-sync'
   | 'restaurant-leads-sync'
+  | 'bank-promos-sync'
   | 'daily-comment-summaries'
   | 'weekly-task-report'
 
@@ -307,6 +308,7 @@ export async function getCronJobStats(): Promise<{
       'market-intelligence-scan',
       'event-leads-sync',
       'restaurant-leads-sync',
+      'bank-promos-sync',
       'weekly-task-report',
     ]
 

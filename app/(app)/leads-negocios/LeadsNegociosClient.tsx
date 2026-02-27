@@ -12,9 +12,14 @@ import {
   getRestaurantLeads,
   getRestaurantLeadStats,
   getAllRestaurantLeadsForExport,
-  runRestaurantBusinessMatching,
   RestaurantLeadWithStats,
 } from '@/app/actions/restaurant-leads'
+import { useBusinessMatching } from '@/hooks/useBusinessMatching'
+import {
+  getBankPromos,
+  getBankPromoStats,
+  type BankPromoWithMeta,
+} from '@/app/actions/bank-promos'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import SearchIcon from '@mui/icons-material/Search'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
@@ -29,6 +34,7 @@ import RestaurantIcon from '@mui/icons-material/Restaurant'
 import EventIcon from '@mui/icons-material/Event'
 import StarIcon from '@mui/icons-material/Star'
 import LinkIcon from '@mui/icons-material/Link'
+import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import { Button } from '@/components/ui'
 import { EntityTable, StatusPill, TableRow, TableCell } from '@/components/shared/table'
 import { EmptyTableState, type ColumnConfig } from '@/components/shared'
@@ -37,11 +43,11 @@ import toast from 'react-hot-toast'
 import { formatCompactDateTime, getTodayInPanama, formatDateForPanama } from '@/lib/date'
 import { exportEventLeadsToCsv } from './csv-export'
 import { PromoterBusinessSelect } from './components/PromoterBusinessSelect'
-import { RestaurantBusinessSelect } from './components/RestaurantBusinessSelect'
+import { LeadBusinessSelect } from './components/LeadBusinessSelect'
 import { getBusiness } from '@/app/actions/businesses'
 import type { Business } from '@/types'
 
-type LeadTab = 'eventos' | 'restaurantes'
+type LeadTab = 'eventos' | 'restaurantes' | 'banco-general'
 
 // Lazy load business modal
 const BusinessFormModal = dynamic(() => import('@/components/crm/business/BusinessFormModal'), {
@@ -365,6 +371,20 @@ const RESTAURANT_COLUMNS: ColumnConfig[] = [
   { key: 'actions', label: '', align: 'center', width: 'w-20' },
 ]
 
+type BankPromoSortField = 'businessName' | 'discountText' | 'startDate' | 'endDate' | 'lastScannedAt'
+
+const BANK_PROMO_COLUMNS: ColumnConfig[] = [
+  { key: 'businessName', label: 'Negocio', sortable: true },
+  { key: 'matchedBusiness', label: 'Vinculado', sortable: false, width: 'w-36' },
+  { key: 'discountText', label: 'Descuento', sortable: true, width: 'w-32' },
+  { key: 'discountPercent', label: '%', sortable: true, width: 'w-16' },
+  { key: 'startDate', label: 'Inicio', sortable: true, width: 'w-24' },
+  { key: 'endDate', label: 'Fin', sortable: true, width: 'w-24' },
+  { key: 'conditions', label: 'Condiciones', sortable: false },
+  { key: 'lastScannedAt', label: 'Actualizado', sortable: true, width: 'w-28' },
+  { key: 'actions', label: '', align: 'center', width: 'w-20' },
+]
+
 export default function LeadsNegociosClient() {
   // Tab state
   const [activeTab, setActiveTab] = useState<LeadTab>('eventos')
@@ -393,7 +413,20 @@ export default function LeadsNegociosClient() {
   const [showDiscountOnly, setShowDiscountOnly] = useState(true)
   const [showRestaurantExportMenu, setShowRestaurantExportMenu] = useState(false)
   const [restaurantExporting, setRestaurantExporting] = useState(false)
-  const [matching, setMatching] = useState(false)
+
+  // Banco General state
+  const [bankPromos, setBankPromos] = useState<BankPromoWithMeta[]>([])
+  const [bankPromoLoading, setBankPromoLoading] = useState(true)
+  const [bankPromoStats, setBankPromoStats] = useState<{ totalPromos: number; lastScanAt: Date | null } | null>(null)
+  const [bankPromoScanning, setBankPromoScanning] = useState(false)
+  const [bankPromoScanProgress, setBankPromoScanProgress] = useState<{ message: string; current?: number; total?: number; businessName?: string } | null>(null)
+  const [bankPromoPage, setBankPromoPage] = useState(1)
+  const [bankPromoTotalPages, setBankPromoTotalPages] = useState(1)
+  const [bankPromoTotal, setBankPromoTotal] = useState(0)
+  const [bankPromoSearch, setBankPromoSearch] = useState('')
+  const [bankPromoCommittedSearch, setBankPromoCommittedSearch] = useState('')
+  const [bankPromoSortBy, setBankPromoSortBy] = useState<BankPromoSortField>('lastScannedAt')
+  const [bankPromoSortOrder, setBankPromoSortOrder] = useState<'asc' | 'desc'>('desc')
   
   // Pagination
   const [page, setPage] = useState(1)
@@ -494,6 +527,46 @@ export default function LeadsNegociosClient() {
     }
   }, [])
   
+  // Banco General loaders
+  const loadBankPromos = useCallback(async () => {
+    setBankPromoLoading(true)
+    try {
+      const result = await getBankPromos({
+        page: bankPromoPage,
+        pageSize,
+        search: bankPromoCommittedSearch || undefined,
+        sortBy: bankPromoSortBy,
+        sortOrder: bankPromoSortOrder,
+      })
+      setBankPromos(result.promos)
+      setBankPromoTotalPages(result.totalPages)
+      setBankPromoTotal(result.total)
+    } catch (error) {
+      console.error('Failed to load bank promos:', error)
+      toast.error('Error al cargar promociones Banco General')
+    } finally {
+      setBankPromoLoading(false)
+    }
+  }, [bankPromoPage, pageSize, bankPromoCommittedSearch, bankPromoSortBy, bankPromoSortOrder])
+
+  const restaurantMatch = useBusinessMatching({
+    source: 'restaurant-leads',
+    onSuccess: loadRestaurants,
+  })
+  const bankPromoMatch = useBusinessMatching({
+    source: 'bank-promos',
+    onSuccess: loadBankPromos,
+  })
+  
+  const loadBankPromoStats = useCallback(async () => {
+    try {
+      const statsResult = await getBankPromoStats()
+      setBankPromoStats(statsResult)
+    } catch (error) {
+      console.error('Failed to load bank promo stats:', error)
+    }
+  }, [])
+  
   // Export handlers
   const handleExportCurrentView = useCallback(() => {
     setShowExportMenu(false)
@@ -551,6 +624,18 @@ export default function LeadsNegociosClient() {
   useEffect(() => {
     loadRestaurantStats()
   }, [loadRestaurantStats])
+  
+  // Load bank promos when tab is banco-general
+  useEffect(() => {
+    if (activeTab === 'banco-general') {
+      loadBankPromos()
+    }
+  }, [loadBankPromos, activeTab])
+  
+  // Load bank promo stats on mount
+  useEffect(() => {
+    loadBankPromoStats()
+  }, [loadBankPromoStats])
   
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -849,30 +934,96 @@ export default function LeadsNegociosClient() {
     }
   }, [restaurantCommittedSearch, showDiscountOnly])
   
-  // Handle bulk matching
-  const handleBulkMatching = async () => {
-    setMatching(true)
+  // Banco General handlers
+  const handleBankPromoSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    setBankPromoPage(1)
+    setBankPromoCommittedSearch(bankPromoSearch)
+  }
+  
+  const handleBankPromoSort = (column: string) => {
+    const field = column as BankPromoSortField
+    if (bankPromoSortBy === field) {
+      setBankPromoSortOrder(bankPromoSortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setBankPromoSortBy(field)
+      setBankPromoSortOrder(field === 'startDate' || field === 'endDate' ? 'asc' : 'desc')
+    }
+    setBankPromoPage(1)
+  }
+  
+  const handleBankPromoScan = async () => {
+    setBankPromoScanning(true)
+    setBankPromoScanProgress(null)
     try {
-      const result = await runRestaurantBusinessMatching()
-      if (result.success && result.data) {
-        const { total, matched, updated } = result.data
-        if (updated > 0) {
-          toast.success(`Encontrados ${matched} de ${total} sin match. ${updated} actualizados.`)
-          loadRestaurants()
-          loadRestaurantStats()
-        } else if (total === 0) {
-          toast.success('Todos los restaurantes ya tienen match.')
-        } else {
-          toast.success(`No se encontraron nuevos matches (${total} sin match)`)
+      const response = await fetch('/api/bank-promos/scan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+        },
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        toast.error(errorData.error || 'Scan failed')
+        setBankPromoScanning(false)
+        return
+      }
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+      if (!reader) {
+        toast.error('Failed to start scan stream')
+        setBankPromoScanning(false)
+        return
+      }
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        for (const line of lines) {
+          if (line.startsWith('event: ')) continue
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+              const eventIndex = lines.indexOf(line) - 1
+              const eventLine = eventIndex >= 0 ? lines[eventIndex] : ''
+              if (eventLine.includes('progress')) {
+                setBankPromoScanProgress(data)
+              } else if (eventLine.includes('complete')) {
+                setBankPromoScanProgress(null)
+                if (data.errors?.length > 0) {
+                  toast.error(
+                    `Scan had errors: ${data.errors[0]}${data.errors.length > 1 ? ` (+${data.errors.length - 1} more)` : ''}`,
+                    { duration: 10000 }
+                  )
+                } else if (data.promosFound === 0) {
+                  toast.error('No promos found. The site structure may have changed.')
+                } else {
+                  toast.success(
+                    `Scan complete! Found ${data.promosFound} promos (${data.created ?? 0} new, ${data.updated ?? 0} updated)`,
+                    { duration: 5000 }
+                  )
+                }
+                loadBankPromos()
+                loadBankPromoStats()
+              } else if (eventLine.includes('error')) {
+                toast.error(data.message || 'Scan failed')
+              }
+            } catch (parseError) {
+              console.error('Failed to parse SSE data:', parseError)
+            }
+          }
         }
-      } else {
-        toast.error(result.error || 'Error al buscar matches')
       }
     } catch (error) {
-      console.error('Matching error:', error)
-      toast.error('Error al buscar matches')
+      console.error('Bank promo scan error:', error)
+      toast.error(error instanceof Error ? error.message : 'Scan failed')
     } finally {
-      setMatching(false)
+      setBankPromoScanning(false)
+      setBankPromoScanProgress(null)
     }
   }
   
@@ -914,6 +1065,24 @@ export default function LeadsNegociosClient() {
                 activeTab === 'restaurantes' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
               }`}>
                 {restaurantStats.totalRestaurants}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('banco-general')}
+            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'banco-general'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <AccountBalanceIcon style={{ fontSize: 18 }} />
+            Banco General
+            {bankPromoStats && (
+              <span className={`ml-1 px-1.5 py-0.5 text-xs rounded-full ${
+                activeTab === 'banco-general' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+              }`}>
+                {bankPromoStats.totalPromos}
               </span>
             )}
           </button>
@@ -1383,19 +1552,19 @@ export default function LeadsNegociosClient() {
                 
                 {/* Match Button */}
                 <Button
-                  onClick={handleBulkMatching}
-                  disabled={matching || restaurantScanning}
+                  onClick={restaurantMatch.runMatch}
+                  disabled={restaurantMatch.matching || restaurantScanning}
                   variant="secondary"
                   size="sm"
-                  leftIcon={matching ? <RefreshIcon className="animate-spin" style={{ fontSize: 14 }} /> : <LinkIcon style={{ fontSize: 14 }} />}
+                  leftIcon={restaurantMatch.matching ? <RefreshIcon className="animate-spin" style={{ fontSize: 14 }} /> : <LinkIcon style={{ fontSize: 14 }} />}
                 >
-                  {matching ? 'Buscando...' : 'Buscar Matches'}
+                  {restaurantMatch.matching ? 'Buscando...' : 'Buscar Matches'}
                 </Button>
                 
                 {/* Scan Button */}
                 <Button
                   onClick={handleRestaurantScan}
-                  disabled={restaurantScanning || matching}
+                  disabled={restaurantScanning || restaurantMatch.matching}
                   variant="primary"
                   size="sm"
                   leftIcon={restaurantScanning ? <RefreshIcon className="animate-spin" style={{ fontSize: 14 }} /> : <PlayArrowIcon style={{ fontSize: 14 }} />}
@@ -1482,8 +1651,9 @@ export default function LeadsNegociosClient() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <RestaurantBusinessSelect
-                          restaurantId={restaurant.id}
+                        <LeadBusinessSelect
+                          entityType="restaurant-lead"
+                          entityId={restaurant.id}
                           matchedBusinessId={restaurant.matchedBusinessId}
                           matchedBusinessName={restaurant.matchedBusiness?.name || null}
                           matchConfidence={restaurant.matchConfidence}
@@ -1576,6 +1746,201 @@ export default function LeadsNegociosClient() {
                       <Button
                         onClick={() => setRestaurantPage(p => Math.min(restaurantTotalPages, p + 1))}
                         disabled={restaurantPage === restaurantTotalPages || restaurantLoading}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        Siguiente
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+      
+      {/* Banco General Tab Content */}
+      {activeTab === 'banco-general' && (
+        <>
+          <div className="bg-white border-b border-gray-200 px-4 py-3">
+            {bankPromoStats && (
+              <div className="flex items-center gap-4 mb-3 text-[13px]">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-gray-500">Total:</span>
+                  <span className="font-medium text-gray-900">{bankPromoStats.totalPromos}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-gray-500">Último scan:</span>
+                  <span className="font-medium text-gray-700">
+                    {bankPromoStats.lastScanAt ? formatCompactDateTime(bankPromoStats.lastScanAt) : 'Nunca'}
+                  </span>
+                </div>
+              </div>
+            )}
+            <div className="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
+              <form onSubmit={handleBankPromoSearch} className="flex gap-2 flex-1 max-w-md">
+                <div className="relative flex-1">
+                  <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" style={{ fontSize: '1rem' }} />
+                  <input
+                    type="text"
+                    value={bankPromoSearch}
+                    onChange={(e) => setBankPromoSearch(e.target.value)}
+                    placeholder="Buscar negocio o descuento..."
+                    className="w-full pl-9 pr-3 py-1.5 text-[13px] border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <Button type="submit" variant="secondary" size="sm">
+                  Buscar
+                </Button>
+              </form>
+              <div className="flex gap-2 items-center">
+                <Button
+                  onClick={bankPromoMatch.runMatch}
+                  disabled={bankPromoMatch.matching || bankPromoScanning}
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={bankPromoMatch.matching ? <RefreshIcon className="animate-spin" style={{ fontSize: 14 }} /> : <LinkIcon style={{ fontSize: 14 }} />}
+                >
+                  {bankPromoMatch.matching ? 'Buscando...' : 'Buscar Matches'}
+                </Button>
+                <Button
+                  onClick={handleBankPromoScan}
+                  disabled={bankPromoScanning || bankPromoMatch.matching}
+                  variant="primary"
+                  size="sm"
+                  leftIcon={bankPromoScanning ? <RefreshIcon className="animate-spin" style={{ fontSize: 14 }} /> : <PlayArrowIcon style={{ fontSize: 14 }} />}
+                >
+                  {bankPromoScanning ? 'Escaneando...' : 'Escanear'}
+                </Button>
+              </div>
+            </div>
+            {bankPromoScanProgress && (
+              <div className="mt-3 p-2.5 bg-blue-50 rounded-md border border-blue-200">
+                <div className="flex items-center gap-2">
+                  <RefreshIcon className="animate-spin text-blue-600" style={{ fontSize: '0.9rem' }} />
+                  <span className="text-[13px] text-blue-700">
+                    {bankPromoScanProgress.message}
+                    {bankPromoScanProgress.current != null && bankPromoScanProgress.total != null && (
+                      <span className="ml-1">({bankPromoScanProgress.current}/{bankPromoScanProgress.total})</span>
+                    )}
+                  </span>
+                </div>
+                {bankPromoScanProgress.businessName && (
+                  <div className="text-xs text-blue-600 mt-1 truncate">
+                    {bankPromoScanProgress.businessName}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="flex-1 overflow-auto p-4">
+            {bankPromoLoading ? (
+              <div className="p-6 text-[13px] text-gray-500 bg-white rounded-lg border border-gray-200 flex items-center gap-2">
+                <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                Cargando...
+              </div>
+            ) : bankPromos.length === 0 ? (
+              <EmptyTableState
+                icon={<AccountBalanceIcon className="w-full h-full" />}
+                title="No hay promociones Banco General"
+                description={
+                  bankPromoCommittedSearch
+                    ? 'Intente ajustar la búsqueda'
+                    : 'Haga clic en "Escanear" para obtener promociones de bgeneral.com'
+                }
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <div className="text-[13px] text-gray-500 mb-2">
+                  Mostrando {bankPromos.length} de {bankPromoTotal} promociones
+                  {bankPromoCommittedSearch && <span className="ml-1">que coinciden con &quot;{bankPromoCommittedSearch}&quot;</span>}
+                </div>
+                <EntityTable
+                  columns={BANK_PROMO_COLUMNS}
+                  sortColumn={bankPromoSortBy}
+                  sortDirection={bankPromoSortOrder}
+                  onSort={handleBankPromoSort}
+                >
+                  {bankPromos.map((promo, index) => (
+                    <TableRow key={promo.id} index={index}>
+                      <TableCell>
+                        <div className="font-medium text-gray-900 text-[13px]" title={promo.businessName}>
+                          {promo.businessName}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <LeadBusinessSelect
+                            entityType="bank-promo"
+                            entityId={promo.id}
+                            matchedBusinessId={promo.matchedBusinessId}
+                            matchedBusinessName={promo.matchedBusiness?.name ?? null}
+                            matchConfidence={promo.matchConfidence}
+                            onSuccess={loadBankPromos}
+                          />
+                          {promo.matchedBusinessId && (
+                            <a
+                              href={`/businesses/${promo.matchedBusinessId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600 transition-colors shrink-0"
+                              title="Ver negocio"
+                            >
+                              <OpenInNewIcon style={{ fontSize: '1rem' }} />
+                            </a>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <StatusPill label={promo.discountText} tone="success" />
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-[13px] text-gray-700">
+                          {promo.discountPercent != null ? `${promo.discountPercent}%` : '-'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-[13px] text-gray-600">{promo.startDate}</TableCell>
+                      <TableCell className="text-[13px] text-gray-600">{promo.endDate}</TableCell>
+                      <TableCell>
+                        <div className="text-[13px] text-gray-600 max-w-[280px] truncate" title={promo.conditions ?? undefined}>
+                          {promo.conditions ? promo.conditions.slice(0, 80) + (promo.conditions.length > 80 ? '…' : '') : '-'}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-[13px] text-gray-500">
+                        {formatCompactDateTime(promo.lastScannedAt)}
+                      </TableCell>
+                      <TableCell align="center">
+                        <a
+                          href={promo.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Ver en Banco General"
+                        >
+                          <OpenInNewIcon style={{ fontSize: '1rem' }} />
+                        </a>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </EntityTable>
+                {bankPromoTotalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-200">
+                    <div className="text-[13px] text-gray-500">
+                      Página {bankPromoPage} de {bankPromoTotalPages}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => setBankPromoPage((p) => Math.max(1, p - 1))}
+                        disabled={bankPromoPage === 1 || bankPromoLoading}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        Anterior
+                      </Button>
+                      <Button
+                        onClick={() => setBankPromoPage((p) => Math.min(bankPromoTotalPages, p + 1))}
+                        disabled={bankPromoPage === bankPromoTotalPages || bankPromoLoading}
                         variant="secondary"
                         size="sm"
                       >
