@@ -438,14 +438,14 @@ export default function DealsPageClient({
   }, [displayDeals, responsibleFilter, isSearching, sortColumn, sortDirection, getSortValue, applyFiltersToData])
 
   // Deals to display in the table:
-  // - Editors see ALL their deals (regardless of assignment status)
-  // - Admin/EditorSenior see only fully-assigned deals (unassigned go to assignments tab)
+  // - Editors and Admin see all deals
+  // - Editor Senior sees only fully-assigned deals (unassigned go to assignments tab)
   const tableDeals = useMemo(() => {
-    if (!canViewAssignments) {
+    if (!canViewAssignments || isAdmin) {
       return filteredDeals
     }
     return filteredDeals.filter(deal => deal.responsibleId && deal.ereResponsibleId && deal.deliveryDate)
-  }, [filteredDeals, canViewAssignments])
+  }, [filteredDeals, canViewAssignments, isAdmin])
 
   const sortedTableDeals = useMemo(() => {
     if (hasManualSort && sortColumn) {
