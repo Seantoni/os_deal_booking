@@ -18,6 +18,7 @@ const JOB_LABELS: Record<string, string> = {
   'market-intelligence-scan': 'Escaneo de Mercado',
   'event-leads-sync': 'Sync de Eventos',
   'restaurant-leads-sync': 'Sync de Restaurantes',
+  'bank-promos-sync': 'Sync Promos Banco General',
   'weekly-task-report': 'Reporte Semanal Comercial',
 }
 
@@ -122,6 +123,7 @@ export default function CronJobsTab() {
         'market-intelligence-scan': '/api/cron/market-intelligence-scan',
         'event-leads-sync': '/api/cron/event-leads-sync',
         'restaurant-leads-sync': '/api/cron/restaurant-leads-sync',
+        'bank-promos-sync': '/api/cron/bank-promos-sync',
         'weekly-task-report': '/api/cron/weekly-task-report',
       }
 

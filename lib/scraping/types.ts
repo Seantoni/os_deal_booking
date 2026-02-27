@@ -188,4 +188,3 @@ export const BGENERAL_SOURCE_SITES: Record<BGeneralSourceSite, { name: string; b
     baseUrl: 'https://www.bgeneral.com',
   },
 }
-
