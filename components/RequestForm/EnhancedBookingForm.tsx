@@ -16,6 +16,7 @@ import type { BackfillChange } from '@/lib/business-backfill'
 import type { BookingFormData } from './types'
 import { STEPS, INITIAL_FORM_DATA, getStepKeyByIndex, getStepIndexByKey, getStepIdByKey } from './constants'
 import { validateStep, buildFormDataForSubmit, getErrorFieldLabels } from './request_form_utils'
+import { extractBusinessName } from '@/lib/utils/request-name-parsing'
 import ProgressBar from './components/ProgressBar'
 import NavigationButtons from './components/NavigationButtons'
 import CategoryAvailabilityList from './components/CategoryAvailabilityList'
@@ -196,7 +197,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
             const updatedData = {
               ...prev,
               // Configuración
-              businessName: data.name || data.merchant || '',
+              businessName: data.merchant || (data.name ? extractBusinessName(data.name) : ''),
               partnerEmail: data.businessEmail || '',
               additionalEmails: Array.isArray(data.additionalEmails) ? data.additionalEmails : [],
               category: data.category || '',
@@ -886,7 +887,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
       ...prev,
       pricingOptions: [
         ...prev.pricingOptions,
-        { title: '', description: '', price: '', realValue: '', quantity: 'Ilimitado', limitByUser: '', maxGiftsPerUser: '', endAt: '', expiresIn: '' }
+        { title: '', description: '', price: '', realValue: '', quantity: '', limitByUser: '', maxGiftsPerUser: '', endAt: '', expiresIn: '' }
       ]
     }))
   }
@@ -1343,4 +1344,3 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     </div>
   )
 }
-

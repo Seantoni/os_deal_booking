@@ -605,9 +605,13 @@ export default function EstructuraStep({
                     )}
                   </label>
                   <Input
+                    type="number"
+                    inputMode="numeric"
                     value={option.quantity}
-                    onChange={(e) => updatePricingOption(index, 'quantity', e.target.value)}
-                    placeholder="Ilimitado"
+                    onChange={(e) => updatePricingOption(index, 'quantity', e.target.value.replace(/[^\d]/g, ''))}
+                    placeholder="Ej: 100"
+                    min="1"
+                    step="1"
                     size="sm"
                     className={errors[`pricingOptions.${index}.quantity`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
                   />
@@ -901,4 +905,3 @@ export default function EstructuraStep({
     </div>
   )
 }
-

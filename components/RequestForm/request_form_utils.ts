@@ -208,6 +208,9 @@ export const validateStep = (
           if (isRequired('pricingOptions.quantity') && isEmpty(option.quantity)) {
             newErrors[`pricingOptions.${index}.quantity`] = 'Cantidad requerida'
           }
+          if (option.quantity && !/^\d+$/.test(option.quantity.trim())) {
+            newErrors[`pricingOptions.${index}.quantity`] = 'Cantidad debe ser un número entero'
+          }
           if (isRequired('pricingOptions.limitByUser') && isEmpty(option.limitByUser)) {
             newErrors[`pricingOptions.${index}.limitByUser`] = 'Max Usuario requerido'
           }
@@ -378,4 +381,3 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
   
   return fd
 }
-

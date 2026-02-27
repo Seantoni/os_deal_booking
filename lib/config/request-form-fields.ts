@@ -130,7 +130,7 @@ export const REQUEST_FORM_STEPS: RequestFormStep[] = [
       { key: 'pricingOptions.description', label: 'Descripción de Opción', type: 'textarea' },
       { key: 'pricingOptions.price', label: 'Precio (Cliente Paga)', type: 'number' },
       { key: 'pricingOptions.realValue', label: 'Valor Real', type: 'number' },
-      { key: 'pricingOptions.quantity', label: 'Cantidad Disponible', type: 'text' },
+      { key: 'pricingOptions.quantity', label: 'Cantidad Disponible', type: 'number' },
       { key: 'pricingOptions.limitByUser', label: 'Max Usuario', type: 'number' },
       { key: 'pricingOptions.maxGiftsPerUser', label: 'Max Regalo', type: 'number' },
       { key: 'pricingOptions.endAt', label: 'Fecha Fin de Opción', type: 'date' },

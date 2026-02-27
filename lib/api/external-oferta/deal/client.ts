@@ -12,6 +12,7 @@ import type { ExternalOfertaDealRequest, ExternalOfertaDealResponse, ExternalOfe
 import type { BookingFormData } from '@/components/RequestForm/types'
 import type { Prisma } from '@prisma/client'
 import { formatDateForPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
+import { extractBusinessName } from '@/lib/utils/request-name-parsing'
 
 /**
  * Generate a URL-safe slug from a business name and launch date
@@ -358,8 +359,12 @@ export async function sendDealToExternalApi(
   
   const campaignMonths = parseCampaignDuration(bookingRequest.campaignDuration)
   
-  // Get business name (merchant field in DB, fallback to name)
-  const businessName = bookingRequest.merchant || bookingRequest.name || bookingRequest.businessName || 'Unknown Business'
+  // Get business name (merchant field in DB, fallback to name), and normalize
+  // any formatted request-name values like "Business | Feb-27-2026 | #5".
+  const normalizedMerchant = bookingRequest.merchant ? extractBusinessName(bookingRequest.merchant) : ''
+  const normalizedName = bookingRequest.name ? extractBusinessName(bookingRequest.name) : ''
+  const normalizedBusinessName = bookingRequest.businessName ? extractBusinessName(bookingRequest.businessName) : ''
+  const businessName = normalizedMerchant || normalizedName || normalizedBusinessName || 'Unknown Business'
   
   // Convert pricing options to proper format (handle JSON parsing if needed)
   let pricingOptions: Array<{

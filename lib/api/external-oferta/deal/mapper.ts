@@ -19,12 +19,22 @@ function stringToBoolean(value: string | null | undefined, defaultValue: boolean
  * Parse quantity string to number or null
  * Handles "Ilimitado" → null
  */
-function parseQuantity(quantity: string | null | undefined): number | null {
-  if (!quantity) return null
-  const lower = String(quantity).toLowerCase()
+function parseQuantity(quantity: string | number | null | undefined): number | null {
+  if (quantity === null || quantity === undefined) return null
+
+  if (typeof quantity === 'number') {
+    return Number.isInteger(quantity) && quantity >= 0 ? quantity : null
+  }
+
+  const normalized = quantity.trim()
+  if (!normalized) return null
+
+  const lower = normalized.toLowerCase()
   if (lower === 'ilimitado' || lower === 'unlimited') return null
-  const parsed = parseInt(String(quantity), 10)
-  return isNaN(parsed) ? null : parsed
+  if (!/^\d+$/.test(normalized)) return null
+
+  const parsed = Number.parseInt(normalized, 10)
+  return Number.isNaN(parsed) ? null : parsed
 }
 
 /**

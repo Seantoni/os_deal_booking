@@ -118,7 +118,7 @@ export const INITIAL_FORM_DATA: BookingFormData = {
     description: '',
     price: '',
     realValue: '',
-    quantity: 'Ilimitado',
+    quantity: '',
     limitByUser: '',
     maxGiftsPerUser: '',
     endAt: '',
