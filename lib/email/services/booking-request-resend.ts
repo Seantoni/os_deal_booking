@@ -114,7 +114,7 @@ export async function resendBookingRequestEmail(bookingRequest: BookingRequestFo
 
     // Send email to business (with CTAs)
     await resend.emails.send({
-      from: `OS Deals Booking <${EMAIL_CONFIG.from}>`,
+      from: `OfertaSimple <${EMAIL_CONFIG.from}>`,
       to: bookingRequest.businessEmail,
       replyTo: userEmail || EMAIL_CONFIG.replyTo,
       subject: `Solicitud de Reserva: ${bookingRequest.name}${bookingRequest.merchant ? ` (${bookingRequest.merchant})` : ''}`,
@@ -145,7 +145,7 @@ export async function resendBookingRequestEmail(bookingRequest: BookingRequestFo
       })
 
       await resend.emails.send({
-        from: `OS Deals Booking <${EMAIL_CONFIG.from}>`,
+        from: `OfertaSimple <${EMAIL_CONFIG.from}>`,
         to: userEmail,
         replyTo: userEmail || EMAIL_CONFIG.replyTo,
         subject: `Copia de tu solicitud: ${bookingRequest.name}${bookingRequest.merchant ? ` (${bookingRequest.merchant})` : ''}`,
@@ -168,4 +168,3 @@ export async function resendBookingRequestEmail(bookingRequest: BookingRequestFo
     }
   }
 }
-

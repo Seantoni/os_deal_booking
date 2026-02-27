@@ -213,8 +213,10 @@ model Business {
   id                            String             @id @default(cuid())
   name                          String
   contactName                   String
+  contactRole                   String?
   contactPhone                  String
   contactEmail                  String
+  additionalContacts            Json?
   categoryId                    String?
   createdAt                     DateTime           @default(now())
   updatedAt                     DateTime           @updatedAt

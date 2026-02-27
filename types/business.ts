@@ -26,10 +26,20 @@ export type BusinessCore = {
   updatedAt: Date
 }
 
+export type BusinessAdditionalContact = {
+  name: string
+  email: string
+  phone: string
+  role: string
+  isPrimary: boolean
+}
+
 export type BusinessContact = {
   contactName: string
+  contactRole?: Nullable<string>
   contactPhone: string
   contactEmail: string
+  additionalContacts?: Nullable<BusinessAdditionalContact[]>
 }
 
 export type BusinessClassification = {

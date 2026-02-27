@@ -59,7 +59,7 @@ export async function sendBookingConfirmationEmail(
     const cc = requesterEmail ? [requesterEmail] : []
 
     await resend.emails.send({
-      from: `OS Deals Booking <${EMAIL_CONFIG.from}>`,
+      from: `OfertaSimple <${EMAIL_CONFIG.from}>`,
       to: recipients,
       cc: cc,
       replyTo: EMAIL_CONFIG.replyTo,

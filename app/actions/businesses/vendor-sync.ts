@@ -98,6 +98,7 @@ export async function syncVendorToExternal(
     fieldsUpdated: number
   }
   error?: string
+  errorDetails?: string
 }> {
   try {
     const authResult = await requireAuth()
@@ -153,9 +154,15 @@ export async function syncVendorToExternal(
     // Step 1: Save locally first (auto-save)
     const updateResult = await updateBusiness(businessId, formData)
     if (!updateResult.success || !updateResult.data) {
+      const localErrorDetail = updateResult.error || 'Error desconocido'
+      const localErrorMessage = localErrorDetail.includes('Unknown argument `contactRole`')
+        ? 'No se pudo guardar localmente por desajuste de versión del servidor.'
+        : 'No se pudieron guardar los cambios localmente.'
+
       return { 
         success: false, 
-        error: `Error al guardar localmente: ${updateResult.error || 'Error desconocido'}` 
+        error: localErrorMessage,
+        errorDetails: localErrorDetail,
       }
     }
 
@@ -187,7 +194,8 @@ export async function syncVendorToExternal(
     if (!syncResult.success) {
       return {
         success: false,
-        error: `Guardado local exitoso, pero error al sincronizar: ${syncResult.error}`,
+        error: 'Cambios guardados localmente, pero falló la sincronización con OfertaSimple.',
+        errorDetails: syncResult.error || 'Error desconocido al sincronizar con OfertaSimple',
       }
     }
 
@@ -200,6 +208,11 @@ export async function syncVendorToExternal(
       },
     }
   } catch (error) {
-    return handleServerActionError(error, 'syncVendorToExternal')
+    const fallback = handleServerActionError(error, 'syncVendorToExternal')
+    return {
+      success: false,
+      error: 'No se pudo completar la sincronización.',
+      errorDetails: fallback.error || (error instanceof Error ? error.message : 'Error desconocido'),
+    }
   }
 }

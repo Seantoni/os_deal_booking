@@ -623,7 +623,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
     try {
       if (uniqueRecipients.length > 0) {
         await resend.emails.send({
-          from: `OS Deals Booking <${EMAIL_CONFIG.from}>`,
+          from: `OfertaSimple <${EMAIL_CONFIG.from}>`,
           to: uniqueRecipients,
           replyTo: userEmail || EMAIL_CONFIG.replyTo,
           subject: `Solicitud de Reserva: ${name}${merchant ? ` (${merchant})` : ''}`,
@@ -656,7 +656,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
         })
 
         await resend.emails.send({
-          from: `OS Deals Booking <${EMAIL_CONFIG.from}>`,
+          from: `OfertaSimple <${EMAIL_CONFIG.from}>`,
           to: [userEmail],
           replyTo: userEmail || EMAIL_CONFIG.replyTo,
           subject: `Copia de tu solicitud: ${name}${merchant ? ` (${merchant})` : ''}`,

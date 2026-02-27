@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, useCallback, useActionState, useTransition, lazy, Suspense } from 'react'
+import { useEffect, useState, useMemo, useCallback, useActionState, useTransition, lazy, Suspense, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { createBusiness, updateBusiness, createOpportunity, deleteBusiness } from '@/app/actions/crm'
@@ -34,7 +34,7 @@ import type { OpportunityModalSuccessMeta } from '../opportunity/opportunityModa
 import ReferenceInfoBar from '@/components/shared/ReferenceInfoBar'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
 import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
-import { Button, Alert } from '@/components/ui'
+import { Button, Alert, Input } from '@/components/ui'
 import FormModalSkeleton from '@/components/common/FormModalSkeleton'
 
 // Lazy load nested modals - only loaded when opened
@@ -71,6 +71,56 @@ function getProjectionSourceLabel(source: ProjectionEntitySummary['projectionSou
     default:
       return 'Sin datos'
   }
+}
+
+type AdditionalContactInput = {
+  id: string
+  name: string
+  email: string
+  phone: string
+  role: string
+  isPrimary: boolean
+}
+
+const CONTACT_PRIMARY_FIELD_ORDER: Record<string, number> = {
+  contactName: 0,
+  contactRole: 1,
+  contactEmail: 2,
+  contactPhone: 3,
+}
+const CONTACT_PRIMARY_FIELD_KEYS = new Set<string>(Object.keys(CONTACT_PRIMARY_FIELD_ORDER))
+
+function createAdditionalContactId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID()
+  }
+  return `contact-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+function createEmptyAdditionalContact(): AdditionalContactInput {
+  return {
+    id: createAdditionalContactId(),
+    name: '',
+    email: '',
+    phone: '',
+    role: '',
+    isPrimary: false,
+  }
+}
+
+function parseAdditionalContacts(rawValue: unknown): AdditionalContactInput[] {
+  if (!Array.isArray(rawValue)) return []
+
+  return rawValue
+    .filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object' && !Array.isArray(entry))
+    .map((entry) => ({
+      id: createAdditionalContactId(),
+      name: typeof entry.name === 'string' ? entry.name : '',
+      email: typeof entry.email === 'string' ? entry.email : '',
+      phone: typeof entry.phone === 'string' ? entry.phone : '',
+      role: typeof entry.role === 'string' ? entry.role : '',
+      isPrimary: typeof entry.isPrimary === 'boolean' ? entry.isPrimary : false,
+    }))
 }
 
 interface BusinessFormModalProps {
@@ -321,6 +371,10 @@ export default function BusinessFormModal({
       
       // Step 4: Show result dialog
       const isOk = syncResult.success
+      const syncErrorDetails = !isOk
+        ? (syncResult.errorDetails || syncResult.error || '').trim()
+        : ''
+
       const resultContent = (
         <div className="text-left space-y-2">
           <p className={isOk ? 'text-green-700 font-medium' : 'text-red-700 font-medium'}>
@@ -333,6 +387,34 @@ export default function BusinessFormModal({
             <p className="text-gray-700 text-sm">
               <span className="font-medium">Error:</span> {syncResult.error}
             </p>
+          )}
+
+          {!isOk && syncErrorDetails && (
+            <div className="space-y-2">
+              <details className="rounded border border-gray-200 bg-gray-50 p-2">
+                <summary className="cursor-pointer text-xs font-medium text-gray-700">
+                  Ver detalle técnico
+                </summary>
+                <pre className="mt-2 max-h-44 overflow-auto whitespace-pre-wrap break-words rounded bg-white p-2 text-[11px] text-gray-600">
+                  {syncErrorDetails}
+                </pre>
+              </details>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={async () => {
+                  if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return
+                  try {
+                    await navigator.clipboard.writeText(syncErrorDetails)
+                  } catch {
+                    // Silent fallback - user can still expand and copy manually.
+                  }
+                }}
+              >
+                Copiar detalle para dev
+              </Button>
+            </div>
           )}
           
           <p className="text-gray-500 text-xs pt-2 border-t border-gray-200">
@@ -379,6 +461,10 @@ export default function BusinessFormModal({
   const [localFocusSetAt, setLocalFocusSetAt] = useState<Date | string | null>(null)
   // Track unlocked state for fields with canEditAfterCreation
   const [unlockedFields, setUnlockedFields] = useState<Record<string, boolean>>({})
+  const [additionalContacts, setAdditionalContacts] = useState<AdditionalContactInput[]>([])
+  const [isAdditionalContactsOpen, setIsAdditionalContactsOpen] = useState(false)
+  const [expandedAdditionalContactId, setExpandedAdditionalContactId] = useState<string | null>(null)
+  const loadedAdditionalContactsForRef = useRef<string | null>(null)
 
   // Get cached form configuration (instant if already prefetched)
   const { sections: cachedSections, initialized: cachedInitialized, loading: configLoading } = useCachedFormConfig('business')
@@ -407,6 +493,75 @@ export default function BusinessFormModal({
     preloadedCategories,
     preloadedUsers,
   })
+
+  useEffect(() => {
+    if (!isOpen) {
+      loadedAdditionalContactsForRef.current = null
+      return
+    }
+
+    const currentKey = business?.id || '__new__'
+    if (loadedAdditionalContactsForRef.current === currentKey) {
+      return
+    }
+
+    loadedAdditionalContactsForRef.current = currentKey
+    setAdditionalContacts(parseAdditionalContacts(business?.additionalContacts))
+    setIsAdditionalContactsOpen(false)
+    setExpandedAdditionalContactId(null)
+  }, [isOpen, business?.id, business?.additionalContacts])
+
+  const handleAddAdditionalContact = useCallback(() => {
+    const newContact = createEmptyAdditionalContact()
+    setAdditionalContacts((prev) => [...prev, newContact])
+    setIsAdditionalContactsOpen(true)
+    setExpandedAdditionalContactId(newContact.id)
+  }, [])
+
+  const handleRemoveAdditionalContact = useCallback((id: string) => {
+    setAdditionalContacts((prev) => prev.filter((contact) => contact.id !== id))
+    setExpandedAdditionalContactId((current) => (current === id ? null : current))
+  }, [])
+
+  const handleAdditionalContactChange = useCallback((
+    id: string,
+    field: keyof Omit<AdditionalContactInput, 'id'>,
+    value: string | boolean
+  ) => {
+    setAdditionalContacts((prev) => prev.map((contact) => {
+      if (contact.id !== id) return contact
+      return {
+        ...contact,
+        [field]: value,
+      }
+    }))
+  }, [])
+
+  const handleToggleAdditionalContactsPanel = useCallback(() => {
+    setIsAdditionalContactsOpen((prev) => {
+      const nextOpen = !prev
+      if (nextOpen && !expandedAdditionalContactId && additionalContacts.length > 0) {
+        setExpandedAdditionalContactId(additionalContacts[0].id)
+      }
+      return nextOpen
+    })
+  }, [additionalContacts, expandedAdditionalContactId])
+
+  const handleToggleAdditionalContactItem = useCallback((id: string) => {
+    setExpandedAdditionalContactId((current) => (current === id ? null : id))
+  }, [])
+
+  const getAdditionalContactSummary = useCallback((contact: AdditionalContactInput): string => {
+    const summaryParts = [contact.role, contact.email, contact.phone]
+      .map((part) => part.trim())
+      .filter(Boolean)
+
+    if (summaryParts.length === 0) {
+      return 'Sin datos de contacto'
+    }
+
+    return summaryParts.join(' · ')
+  }, [])
 
   const handleOwnerChange = useCallback((newOwnerId: string) => {
     setOwnerId(newOwnerId)
@@ -444,6 +599,7 @@ export default function BusinessFormModal({
     return {
       name: business.name || null,
       contactName: business.contactName || null,
+      contactRole: business.contactRole || null,
       contactPhone: business.contactPhone || null,
       contactEmail: business.contactEmail || null,
       categoryId: business.categoryId || null,
@@ -802,10 +958,20 @@ export default function BusinessFormModal({
   function buildFormData(): FormData {
     const formData = new FormData()
     const allValues = dynamicForm.getAllValues()
+    const normalizedAdditionalContacts = additionalContacts
+      .map((contact) => ({
+        name: contact.name.trim(),
+        email: contact.email.trim(),
+        phone: contact.phone.trim(),
+        role: contact.role.trim(),
+        isPrimary: contact.isPrimary,
+      }))
+      .filter((contact) => contact.name || contact.email || contact.phone || contact.role)
 
     // Built-in fields
     formData.append('name', allValues.name || '')
     formData.append('contactName', allValues.contactName || '')
+    formData.append('contactRole', allValues.contactRole || '')
     formData.append('contactPhone', allValues.contactPhone || '')
     formData.append('contactEmail', allValues.contactEmail || '')
     
@@ -835,6 +1001,7 @@ export default function BusinessFormModal({
     if (allValues.address) formData.append('address', allValues.address)
     if (allValues.neighborhood) formData.append('neighborhood', allValues.neighborhood)
     if (allValues.osAdminVendorId) formData.append('osAdminVendorId', allValues.osAdminVendorId)
+    formData.append('additionalContacts', JSON.stringify(normalizedAdditionalContacts))
 
     return formData
   }
@@ -1187,21 +1354,190 @@ export default function BusinessFormModal({
                   // Collapse sections with many fields (10+) by default for better UX
                   const visibleFieldCount = section.fields.filter(f => f.isVisible).length
                   const shouldCollapse = section.isCollapsed || visibleFieldCount >= 10
+                  const fieldKeys = new Set(section.fields.map((field) => field.fieldKey))
+                  const isContactDetailsSection = fieldKeys.has('contactName')
+                    && fieldKeys.has('contactPhone')
+                    && fieldKeys.has('contactEmail')
+                  const sectionForRender = isContactDetailsSection
+                    ? {
+                        ...section,
+                        fields: section.fields
+                          .map((field, originalIndex) => ({ field, originalIndex }))
+                          .sort((a, b) => {
+                            const aOrder = CONTACT_PRIMARY_FIELD_ORDER[a.field.fieldKey] ?? Number.MAX_SAFE_INTEGER
+                            const bOrder = CONTACT_PRIMARY_FIELD_ORDER[b.field.fieldKey] ?? Number.MAX_SAFE_INTEGER
+                            if (aOrder !== bOrder) return aOrder - bOrder
+                            return a.originalIndex - b.originalIndex
+                          })
+                          .map(({ field }) => (
+                            CONTACT_PRIMARY_FIELD_KEYS.has(field.fieldKey)
+                              ? { ...field, width: 'half' as const }
+                              : field
+                          )),
+                      }
+                    : section
                   return (
-                  <DynamicFormSection
-                    key={section.id}
-                    section={section}
-                    values={allFormValues}
-                    onChange={dynamicForm.setValue}
-                    disabled={loading || !canEdit}
-                    categories={categoryOptions}
-                    users={userOptions}
-                    categoryDisplayMode="parentOnly"
-                    fieldOverrides={canEdit ? fieldOverrides : undefined}
-                    fieldAddons={canEdit ? fieldAddons : undefined}
+                  <div key={section.id} className="space-y-2">
+                    <DynamicFormSection
+                      section={sectionForRender}
+                      values={allFormValues}
+                      onChange={dynamicForm.setValue}
+                      disabled={loading || !canEdit}
+                      categories={categoryOptions}
+                      users={userOptions}
+                      categoryDisplayMode="parentOnly"
+                      fieldOverrides={canEdit ? fieldOverrides : undefined}
+                      fieldAddons={canEdit ? fieldAddons : undefined}
                       defaultExpanded={!shouldCollapse}
-                    collapsible={true}
-                  />
+                      collapsible={true}
+                    />
+
+                    {isContactDetailsSection && (
+                      <div className="rounded-lg border border-slate-200/70 bg-slate-50/50">
+                        <div className="px-3 py-2 flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={handleToggleAdditionalContactsPanel}
+                            className="flex-1 min-w-0 flex items-center gap-2 text-left"
+                            aria-expanded={isAdditionalContactsOpen}
+                            aria-label={isAdditionalContactsOpen ? 'Contraer contactos adicionales' : 'Expandir contactos adicionales'}
+                          >
+                            <span className="text-xs font-semibold text-slate-700">Contactos adicionales</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-600">
+                              {additionalContacts.length}
+                            </span>
+                            <svg
+                              className={`w-4 h-4 text-slate-400 transition-transform ${isAdditionalContactsOpen ? 'rotate-180' : ''}`}
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                          {canEdit && (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={handleAddAdditionalContact}
+                              disabled={loading}
+                            >
+                              Agregar
+                            </Button>
+                          )}
+                        </div>
+
+                        {isAdditionalContactsOpen && (
+                          <div className="px-3 pb-3 space-y-2">
+                            {additionalContacts.length === 0 ? (
+                              <p className="text-xs text-slate-500 bg-white border border-slate-200 rounded-md px-3 py-2">
+                                No hay contactos adicionales.
+                              </p>
+                            ) : (
+                              additionalContacts.map((contact, index) => {
+                                const isExpanded = expandedAdditionalContactId === contact.id
+                                const contactTitle = contact.name.trim() || `Contacto ${index + 1}`
+                                const contactSummary = getAdditionalContactSummary(contact)
+
+                                return (
+                                  <div key={contact.id} className="rounded-md border border-slate-200 bg-white overflow-hidden">
+                                    <div className="px-3 py-2 flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleToggleAdditionalContactItem(contact.id)}
+                                        className="flex-1 min-w-0 text-left"
+                                        aria-expanded={isExpanded}
+                                      >
+                                        <p className="text-xs font-medium text-slate-700 truncate">{contactTitle}</p>
+                                        <p className="text-[11px] text-slate-500 truncate">{contactSummary}</p>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => handleToggleAdditionalContactItem(contact.id)}
+                                        className="p-1 rounded text-slate-400 hover:text-slate-600"
+                                        aria-label={isExpanded ? 'Contraer contacto' : 'Expandir contacto'}
+                                      >
+                                        <svg
+                                          className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                          stroke="currentColor"
+                                        >
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                      </button>
+                                    </div>
+
+                                    {isExpanded && (
+                                      <div className="px-3 pb-3 pt-2 space-y-2 border-t border-slate-100">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                          <Input
+                                            label="Nombre"
+                                            value={contact.name}
+                                            onChange={(e) => handleAdditionalContactChange(contact.id, 'name', e.target.value)}
+                                            disabled={loading || !canEdit}
+                                            size="sm"
+                                          />
+                                          <Input
+                                            label="Rol"
+                                            value={contact.role}
+                                            onChange={(e) => handleAdditionalContactChange(contact.id, 'role', e.target.value)}
+                                            disabled={loading || !canEdit}
+                                            size="sm"
+                                          />
+                                          <Input
+                                            type="email"
+                                            label="Email"
+                                            value={contact.email}
+                                            onChange={(e) => handleAdditionalContactChange(contact.id, 'email', e.target.value)}
+                                            disabled={loading || !canEdit}
+                                            size="sm"
+                                          />
+                                          <Input
+                                            type="tel"
+                                            label="Teléfono"
+                                            value={contact.phone}
+                                            onChange={(e) => handleAdditionalContactChange(contact.id, 'phone', e.target.value)}
+                                            disabled={loading || !canEdit}
+                                            size="sm"
+                                          />
+                                        </div>
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                          <label className="inline-flex items-center gap-2 text-xs text-slate-600">
+                                            <input
+                                              type="checkbox"
+                                              checked={contact.isPrimary}
+                                              onChange={(e) => handleAdditionalContactChange(contact.id, 'isPrimary', e.target.checked)}
+                                              disabled={loading || !canEdit}
+                                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500/20"
+                                            />
+                                            Marcar como principal (referencia)
+                                          </label>
+                                          {canEdit && (
+                                            <Button
+                                              type="button"
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => handleRemoveAdditionalContact(contact.id)}
+                                              disabled={loading}
+                                            >
+                                              Eliminar
+                                            </Button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   )
                 })}
 

@@ -54,7 +54,7 @@ export async function sendRejectionEmail(
     }
 
     await resend.emails.send({
-      from: `OS Deals Booking <${EMAIL_CONFIG.from}>`,
+      from: `OfertaSimple <${EMAIL_CONFIG.from}>`,
       to: bookingRequest.businessEmail,
       cc: requesterEmail ? [requesterEmail] : [],
       replyTo: EMAIL_CONFIG.replyTo,
@@ -68,4 +68,3 @@ export async function sendRejectionEmail(
     throw error
   }
 }
-

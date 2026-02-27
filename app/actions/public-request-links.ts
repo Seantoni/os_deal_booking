@@ -67,7 +67,7 @@ export async function generateAndSendPublicLink(recipientEmails: string | string
     // Send email with link to all recipients
     try {
       await resend.emails.send({
-        from: `OS Deals Booking <${EMAIL_CONFIG.from}>`,
+        from: `OfertaSimple <${EMAIL_CONFIG.from}>`,
         to: uniqueEmails, // All recipient emails
         cc: userEmail ? [userEmail] : [], // Copy to: logged-in user who created the link
         replyTo: userEmail || EMAIL_CONFIG.replyTo,

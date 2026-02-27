@@ -105,7 +105,7 @@ export async function sendDealAssignmentReadyEmail(bookingRequestId: string) {
     })
 
     await resend.emails.send({
-      from: `OS Deals Booking <${EMAIL_CONFIG.from}>`,
+      from: `OfertaSimple <${EMAIL_CONFIG.from}>`,
       to: recipients,
       replyTo: EMAIL_CONFIG.replyTo,
       subject: `Deal listo para asignar: ${bookingRequest.name}`,

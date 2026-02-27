@@ -76,6 +76,7 @@ export interface FormFieldWithDefinition extends FormFieldConfig {
 export const BUSINESS_BUILTIN_FIELDS: BuiltinFieldDefinition[] = [
   { key: 'name', label: 'Business Name', type: 'text', defaultRequired: true, canHide: false, canSetRequired: false },
   { key: 'contactName', label: 'Contact Name', type: 'text', defaultRequired: true, canHide: true, canSetRequired: true },
+  { key: 'contactRole', label: 'Contact Role', type: 'text', defaultRequired: false, canHide: true, canSetRequired: true },
   { key: 'contactPhone', label: 'Contact Phone', type: 'phone', defaultRequired: true, canHide: true, canSetRequired: true },
   { key: 'contactEmail', label: 'Contact Email', type: 'email', defaultRequired: true, canHide: true, canSetRequired: true },
   { key: 'categoryId', label: 'Category', type: 'category', defaultRequired: false, canHide: true, canSetRequired: true },
@@ -180,7 +181,7 @@ export function getBuiltinFieldDefinition(entityType: FormEntityType, fieldKey: 
 export const DEFAULT_SECTIONS: Record<FormEntityType, { name: string; fields: string[] }[]> = {
   business: [
     { name: 'Basic Information', fields: ['name', 'categoryId', 'tier', 'description'] },
-    { name: 'Contact Details', fields: ['contactName', 'contactPhone', 'contactEmail'] },
+    { name: 'Contact Details', fields: ['contactName', 'contactRole', 'contactPhone', 'contactEmail'] },
     { name: 'Online Presence', fields: ['website', 'instagram', 'salesTeam'] },
     { name: 'Datos Fiscales', fields: ['razonSocial', 'ruc'] },
     { name: 'Ubicación', fields: ['address', 'neighborhood', 'provinceDistrictCorregimiento'] },

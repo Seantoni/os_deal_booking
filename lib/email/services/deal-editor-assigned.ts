@@ -99,7 +99,7 @@ export async function sendDealEditorAssignedEmail(dealId: string, editorClerkId:
     })
 
     await resend.emails.send({
-      from: `OS Deals Booking <${EMAIL_CONFIG.from}>`,
+      from: `OfertaSimple <${EMAIL_CONFIG.from}>`,
       to: editor.email,
       replyTo: EMAIL_CONFIG.replyTo,
       subject: `Nueva oferta asignada: ${deal.bookingRequest.name}`,

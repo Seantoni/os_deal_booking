@@ -17,6 +17,122 @@ import {
 } from './_shared/constants'
 import { resolveCategoryId } from './_shared/categories'
 
+type AdditionalContactValue = {
+  name: string
+  email: string
+  phone: string
+  role: string
+  isPrimary: boolean
+}
+
+type CompatibilityField = 'contactRole' | 'additionalContacts'
+
+function getUnsupportedBusinessDataFields(error: unknown): CompatibilityField[] {
+  if (!(error instanceof Error)) {
+    return []
+  }
+
+  const message = error.message
+  const unsupportedFields: CompatibilityField[] = []
+
+  if (
+    message.includes('Unknown argument `contactRole`') ||
+    message.includes('Unknown field `contactRole`') ||
+    (message.includes('contactRole') && message.toLowerCase().includes('does not exist'))
+  ) {
+    unsupportedFields.push('contactRole')
+  }
+
+  if (
+    message.includes('Unknown argument `additionalContacts`') ||
+    message.includes('Unknown field `additionalContacts`') ||
+    (message.includes('additionalContacts') && message.toLowerCase().includes('does not exist'))
+  ) {
+    unsupportedFields.push('additionalContacts')
+  }
+
+  return unsupportedFields
+}
+
+async function withBusinessWriteCompatibility<T>(
+  initialData: Record<string, unknown>,
+  execute: (data: Record<string, unknown>) => Promise<T>,
+): Promise<{
+  result: T
+  appliedData: Record<string, unknown>
+  strippedFields: CompatibilityField[]
+}> {
+  const appliedData = { ...initialData }
+  const strippedFields = new Set<CompatibilityField>()
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const result = await execute(appliedData)
+      return {
+        result,
+        appliedData,
+        strippedFields: Array.from(strippedFields),
+      }
+    } catch (error) {
+      const unsupportedFields = getUnsupportedBusinessDataFields(error)
+        .filter((field) => field in appliedData && !strippedFields.has(field))
+
+      if (unsupportedFields.length === 0) {
+        throw error
+      }
+
+      unsupportedFields.forEach((field) => {
+        delete appliedData[field]
+        strippedFields.add(field)
+      })
+    }
+  }
+
+  throw new Error('No se pudo guardar por desajuste temporal de versión del servidor.')
+}
+
+function parseAdditionalContactsFromFormValue(rawValue: FormDataEntryValue | null): {
+  data: AdditionalContactValue[] | null
+  error?: string
+} {
+  if (rawValue === null) {
+    return { data: null }
+  }
+
+  if (typeof rawValue !== 'string') {
+    return { data: null, error: 'Formato inválido de contactos adicionales' }
+  }
+
+  const trimmed = rawValue.trim()
+  if (!trimmed) {
+    return { data: null }
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(trimmed)
+  } catch {
+    return { data: null, error: 'Formato inválido de contactos adicionales' }
+  }
+
+  if (!Array.isArray(parsed)) {
+    return { data: null, error: 'Formato inválido de contactos adicionales' }
+  }
+
+  const normalized = parsed
+    .filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object' && !Array.isArray(entry))
+    .map((entry) => ({
+      name: typeof entry.name === 'string' ? entry.name.trim() : '',
+      email: typeof entry.email === 'string' ? entry.email.trim() : '',
+      phone: typeof entry.phone === 'string' ? entry.phone.trim() : '',
+      role: typeof entry.role === 'string' ? entry.role.trim() : '',
+      isPrimary: typeof entry.isPrimary === 'boolean' ? entry.isPrimary : false,
+    }))
+    .filter((entry) => entry.name || entry.email || entry.phone || entry.role)
+
+  return { data: normalized.length > 0 ? normalized : null }
+}
+
 /**
  * Update business focus period
  * Only assigned sales rep or admin can update focus
@@ -132,6 +248,7 @@ export async function createBusiness(formData: FormData) {
     const admin = await isAdmin()
     const name = formData.get('name') as string
     const contactName = formData.get('contactName') as string
+    const contactRole = formData.get('contactRole') as string | null
     const contactPhone = formData.get('contactPhone') as string
     const contactEmail = formData.get('contactEmail') as string
     const categoryId = formData.get('categoryId') as string | null
@@ -158,6 +275,11 @@ export async function createBusiness(formData: FormData) {
     const neighborhood = formData.get('neighborhood') as string | null
     const osAdminVendorId = formData.get('osAdminVendorId') as string | null
     const ownerIdRaw = formData.get('ownerId') as string | null
+    const additionalContactsResult = parseAdditionalContactsFromFormValue(formData.get('additionalContacts'))
+
+    if (additionalContactsResult.error) {
+      return { success: false, error: additionalContactsResult.error }
+    }
 
     // Prevent duplicates by business name (case-insensitive)
     const existingBusiness = await prisma.business.findFirst({
@@ -228,6 +350,7 @@ export async function createBusiness(formData: FormData) {
     const businessData: Record<string, unknown> = {
       name,
       contactName,
+      contactRole: contactRole || null,
       contactPhone,
       contactEmail,
       salesTeam: effectiveSalesTeam,
@@ -252,6 +375,7 @@ export async function createBusiness(formData: FormData) {
       address: address || null,
       neighborhood: neighborhood || null,
       osAdminVendorId: osAdminVendorId || null,
+      additionalContacts: additionalContactsResult.data,
     }
 
     // Set owner if userId exists
@@ -270,28 +394,38 @@ export async function createBusiness(formData: FormData) {
       }
     }
 
-    const business = await prisma.business.create({
-      data: businessData as Parameters<typeof prisma.business.create>[0]['data'],
-      include: {
-        category: {
-          select: {
-            id: true,
-            categoryKey: true,
-            parentCategory: true,
-            subCategory1: true,
-            subCategory2: true,
+    const createWrite = await withBusinessWriteCompatibility(
+      businessData,
+      async (compatibleData) => prisma.business.create({
+        data: compatibleData as Parameters<typeof prisma.business.create>[0]['data'],
+        include: {
+          category: {
+            select: {
+              id: true,
+              categoryKey: true,
+              parentCategory: true,
+              subCategory1: true,
+              subCategory2: true,
+            },
+          },
+          owner: {
+            select: {
+              id: true,
+              clerkId: true,
+              name: true,
+              email: true,
+            },
           },
         },
-        owner: {
-          select: {
-            id: true,
-            clerkId: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    })
+      }),
+    )
+    const business = createWrite.result
+
+    if (createWrite.strippedFields.length > 0) {
+      console.warn(
+        `[createBusiness] Saved with compatibility fallback; skipped fields: ${createWrite.strippedFields.join(', ')}`
+      )
+    }
 
     // Send to external vendor API (non-blocking, don't fail if API fails)
     // This creates the vendor in the external OfertaSimple system
@@ -417,6 +551,7 @@ export async function updateBusiness(businessId: string, formData: FormData) {
 
     const name = formData.get('name') as string
     const contactName = formData.get('contactName') as string
+    const contactRole = formData.get('contactRole') as string | null
     const contactPhone = formData.get('contactPhone') as string
     const contactEmail = formData.get('contactEmail') as string
     const categoryId = formData.get('categoryId') as string | null
@@ -442,6 +577,14 @@ export async function updateBusiness(businessId: string, formData: FormData) {
     const address = formData.get('address') as string | null
     const neighborhood = formData.get('neighborhood') as string | null
     const osAdminVendorId = formData.get('osAdminVendorId') as string | null
+    const hasAdditionalContacts = formData.has('additionalContacts')
+    const additionalContactsResult = hasAdditionalContacts
+      ? parseAdditionalContactsFromFormValue(formData.get('additionalContacts'))
+      : { data: null as AdditionalContactValue[] | null }
+
+    if (additionalContactsResult.error) {
+      return { success: false, error: additionalContactsResult.error }
+    }
 
     // Only 'name' is always required at server level (canSetRequired: false in form config)
     // Other field requirements are determined by admin in Settings → Entity Fields
@@ -459,6 +602,7 @@ export async function updateBusiness(businessId: string, formData: FormData) {
     const updateData: Record<string, unknown> = {
       name,
       contactName,
+      contactRole: contactRole || null,
       contactPhone,
       contactEmail,
       salesTeam: admin ? (salesTeam || null) : (currentBusiness?.salesTeam || null),
@@ -483,6 +627,10 @@ export async function updateBusiness(businessId: string, formData: FormData) {
       address: address || null,
       neighborhood: neighborhood || null,
       osAdminVendorId: osAdminVendorId || null,
+    }
+
+    if (hasAdditionalContacts) {
+      updateData.additionalContacts = additionalContactsResult.data
     }
 
     // Use relation field for category
@@ -515,29 +663,40 @@ export async function updateBusiness(businessId: string, formData: FormData) {
       }
     }
 
-    const business = await prisma.business.update({
-      where: { id: businessId },
-      data: updateData as Parameters<typeof prisma.business.update>[0]['data'],
-      include: {
-        category: {
-          select: {
-            id: true,
-            categoryKey: true,
-            parentCategory: true,
-            subCategory1: true,
-            subCategory2: true,
+    const updateWrite = await withBusinessWriteCompatibility(
+      updateData,
+      async (compatibleData) => prisma.business.update({
+        where: { id: businessId },
+        data: compatibleData as Parameters<typeof prisma.business.update>[0]['data'],
+        include: {
+          category: {
+            select: {
+              id: true,
+              categoryKey: true,
+              parentCategory: true,
+              subCategory1: true,
+              subCategory2: true,
+            },
+          },
+          owner: {
+            select: {
+              id: true,
+              clerkId: true,
+              name: true,
+              email: true,
+            },
           },
         },
-        owner: {
-          select: {
-            id: true,
-            clerkId: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    })
+      }),
+    )
+    const business = updateWrite.result
+    const appliedUpdateData = updateWrite.appliedData
+
+    if (updateWrite.strippedFields.length > 0) {
+      console.warn(
+        `[updateBusiness] Saved with compatibility fallback for ${businessId}; skipped fields: ${updateWrite.strippedFields.join(', ')}`
+      )
+    }
 
     // Calculate changes for logging
     const previousValues: Record<string, unknown> = {}
@@ -546,23 +705,40 @@ export async function updateBusiness(businessId: string, formData: FormData) {
 
     if (currentBusiness) {
       const fieldsToCheck = [
-        'name', 'contactName', 'contactPhone', 'contactEmail', 
+        'name',
+        'contactName',
+        ...(Object.prototype.hasOwnProperty.call(appliedUpdateData, 'contactRole') ? ['contactRole'] : []),
+        'contactPhone',
+        'contactEmail',
         'website', 'instagram', 'description', 'tier', 'ruc', 
-        'razonSocial', 'paymentPlan', 'bank', 'accountNumber'
+        'razonSocial', 'paymentPlan', 'bank', 'accountNumber',
+        ...(Object.prototype.hasOwnProperty.call(appliedUpdateData, 'additionalContacts') ? ['additionalContacts'] : []),
       ]
       
       fieldsToCheck.forEach(field => {
         const oldValue = currentBusiness[field as keyof typeof currentBusiness]
-        const newValue = updateData[field]
-        
+        const newValue = appliedUpdateData[field]
+
+        if (field === 'additionalContacts') {
+          const oldJson = JSON.stringify(oldValue ?? null)
+          const newJson = JSON.stringify(newValue ?? null)
+
+          if (oldJson !== newJson) {
+            changedFields.push(field)
+            previousValues[field] = oldValue
+            newValues[field] = newValue
+          }
+          return
+        }
+
         // Check for inequality (handling null/undefined/empty string nuances)
         const normalizedOld = oldValue === null ? undefined : oldValue
         const normalizedNew = newValue === null ? undefined : newValue
-        
+
         if (normalizedOld !== normalizedNew) {
-           changedFields.push(field)
-           previousValues[field] = oldValue
-           newValues[field] = newValue
+          changedFields.push(field)
+          previousValues[field] = oldValue
+          newValues[field] = newValue
         }
       })
     }
