@@ -69,10 +69,10 @@ export default function ChatMessage({
   // Parse content to highlight mentions
   // Handles multi-word names like "@Jose Antonio Paez"
   const renderContent = (content: string) => {
-    // Regex to find @mentions - captures @ followed by words (including accented chars)
-    // Stops at punctuation, newlines, or when we hit another @
-    // Pattern: @Word or @Word Word (up to 3 words for full names)
-    const mentionRegex = /@[\p{L}\p{N}]+(?:\s+[\p{L}\p{N}]+){0,3}/gu
+    // Mentions may contain up to 4 words separated by a single space.
+    // We intentionally require a single space so a double-space delimiter
+    // after an inserted mention does not consume the next sentence words.
+    const mentionRegex = /@[\p{L}\p{N}]+(?: [\p{L}\p{N}]+){0,3}/gu
     
     const result: React.ReactNode[] = []
     let lastIndex = 0
@@ -88,7 +88,7 @@ export default function ChatMessage({
       result.push(
         <span 
           key={match.index} 
-          className="text-blue-600 font-medium bg-blue-50 px-1 py-0.5 rounded text-[13px]"
+          className="text-blue-600 font-medium bg-blue-50 px-1 py-0.5 rounded text-sm"
         >
           {match[0]}
         </span>
@@ -156,19 +156,19 @@ export default function ChatMessage({
     >
       {/* Avatar */}
       <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center flex-shrink-0 border border-blue-100 mt-0.5">
-        <span className="text-[10px] text-blue-700 font-bold">{authorInitial}</span>
+        <span className="text-xs text-blue-700 font-bold">{authorInitial}</span>
       </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
         {/* Header */}
         <div className="flex items-center gap-1.5 mb-0">
-          <span className="text-xs font-semibold text-gray-900">{authorName}</span>
-          <span className="text-[10px] text-gray-400">
+          <span className="text-sm font-semibold text-gray-900">{authorName}</span>
+          <span className="text-xs text-gray-400">
             {formatRelativeTime(comment.createdAt)}
           </span>
           {comment.isEdited && (
-            <span className="text-[9px] text-gray-300 italic">(editado)</span>
+            <span className="text-xs text-gray-300 italic">(editado)</span>
           )}
         </div>
 
@@ -180,7 +180,7 @@ export default function ChatMessage({
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
                 rows={2}
-                className="text-sm border-none p-0 focus:ring-0 resize-none min-h-[60px]"
+                className="text-base border-none p-0 focus:ring-0 resize-none min-h-[60px]"
                 autoFocus
               />
             </div>
@@ -193,7 +193,7 @@ export default function ChatMessage({
                   handleSaveEdit()
                 }}
                 disabled={saving || !editContent.trim()}
-                className="px-3 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed shadow-sm"
+                className="px-3 py-1 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed shadow-sm"
               >
                 Guardar Cambios
               </button>
@@ -204,7 +204,7 @@ export default function ChatMessage({
                   e.preventDefault()
                   handleCancelEdit()
                 }}
-                className="px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                className="px-3 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
               >
                 Cancelar
               </button>
@@ -212,7 +212,7 @@ export default function ChatMessage({
           </div>
         ) : (
           <>
-            <div className="text-xs leading-relaxed text-gray-700 whitespace-pre-wrap break-words">
+            <div className="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap break-words">
               {renderContent(comment.content)}
             </div>
 
@@ -240,7 +240,7 @@ export default function ChatMessage({
                         <div className="p-1.5 bg-white rounded-md border border-gray-100 shadow-sm">
                           <AttachFileIcon style={{ fontSize: 16 }} className="text-blue-500" />
                         </div>
-                        <span className="text-xs font-medium text-gray-700 truncate max-w-[140px]">{att.filename}</span>
+                        <span className="text-sm font-medium text-gray-700 truncate max-w-[140px]">{att.filename}</span>
                       </div>
                     )}
                   </a>
@@ -261,14 +261,14 @@ export default function ChatMessage({
                       if (!disabled) handleReaction(emoji)
                     }}
                     disabled={disabled}
-                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium transition-all border ${
+                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium transition-all border ${
                       hasReacted
                         ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
                         : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
                     } disabled:cursor-not-allowed`}
                   >
-                    <span className="text-[10px]">{emoji}</span>
-                    <span className="text-[9px] opacity-80">{count}</span>
+                    <span className="text-xs">{emoji}</span>
+                    <span className="text-[10px] opacity-80">{count}</span>
                   </button>
                 ))}
               </div>

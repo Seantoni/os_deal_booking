@@ -204,7 +204,7 @@ export default function ChatThread({
     <div className={`flex flex-col ${isCompact ? 'gap-3' : 'gap-4'} ${className}`}>
       {/* Header */}
       <div className={`flex items-center justify-between border-b ${isCompact ? 'border-gray-100 pb-2' : 'border-gray-200 pb-3'}`}>
-        <h4 className={`font-semibold ${isCompact ? 'text-xs text-gray-500 uppercase tracking-wide' : 'text-sm text-gray-700'}`}>
+        <h4 className={`font-semibold ${isCompact ? 'text-sm text-gray-500 uppercase tracking-wide' : 'text-base text-gray-700'}`}>
           {title}
         </h4>
         <button
@@ -272,7 +272,7 @@ export default function ChatThread({
         </div>
       ) : (
         <div className={isCompact ? 'mt-2' : 'mt-4 pt-4 border-t border-gray-200'}>
-          <p className="text-xs text-gray-400 text-center">
+          <p className="text-sm text-gray-400 text-center">
             Solo el responsable o administradores pueden comentar
           </p>
         </div>
@@ -280,4 +280,3 @@ export default function ChatThread({
     </div>
   )
 }
-

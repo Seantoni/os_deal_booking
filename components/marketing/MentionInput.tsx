@@ -131,10 +131,12 @@ export default function MentionInput({
     if (mentionStartIndex === null) return
 
     const displayName = user.name || user.email?.split('@')[0] || 'user'
+    const mentionEndIndex = mentionStartIndex + mentionSearch.length + 1 // +1 for "@"
     const beforeMention = value.substring(0, mentionStartIndex)
-    const afterMention = value.substring(textareaRef.current?.selectionStart || mentionStartIndex)
+    const afterMention = value.substring(mentionEndIndex).replace(/^\s+/, '')
+    const spacer = '  '
 
-    const newValue = `${beforeMention}@${displayName} ${afterMention}`
+    const newValue = `${beforeMention}@${displayName}${spacer}${afterMention}`
     setValue(newValue)
 
     // Add to selected mentions if not already
@@ -149,7 +151,7 @@ export default function MentionInput({
     // Focus back on textarea
     setTimeout(() => {
       textareaRef.current?.focus()
-      const newCursorPos = beforeMention.length + displayName.length + 2 // +2 for @ and space
+      const newCursorPos = beforeMention.length + displayName.length + 1 + spacer.length // +1 for "@"
       textareaRef.current?.setSelectionRange(newCursorPos, newCursorPos)
     }, 0)
   }
