@@ -22,6 +22,16 @@ export interface WeeklyTaskReportPerformer {
   score: number
 }
 
+export interface WeeklyTaskLifecycleSegment {
+  key: 'new' | 'recurrent' | 'unknown'
+  label: string
+  meetingsCompleted: number
+  todosCompleted: number
+  agreementsYes: number
+  agreementsNo: number
+  agreementRatePct: number
+}
+
 export interface WeeklyTaskReportInsights {
   executiveSummary: string
   trendHighlights: string[]
@@ -50,6 +60,7 @@ export interface WeeklyTaskReportEmailProps {
     todosDelta: number
     agreementRateDeltaPct: number
   }
+  lifecycleSegments: WeeklyTaskLifecycleSegment[]
   topObjections: WeeklyTaskReportObjection[]
   strongPerformers: WeeklyTaskReportPerformer[]
   weakPerformers: WeeklyTaskReportPerformer[]
@@ -108,6 +119,39 @@ function renderObjections(objections: WeeklyTaskReportObjection[]): string {
   `
 }
 
+function renderLifecycleSegments(segments: WeeklyTaskLifecycleSegment[]): string {
+  const withActivity = segments.filter(
+    (segment) =>
+      segment.meetingsCompleted > 0 ||
+      segment.todosCompleted > 0 ||
+      segment.agreementsYes > 0 ||
+      segment.agreementsNo > 0,
+  )
+
+  if (withActivity.length === 0) {
+    return `<p style="margin: 0; color: ${EMAIL_STYLES.colors.secondary}; font-size: 13px;">Sin actividad suficiente para segmentar por tipo de negocio.</p>`
+  }
+
+  return `
+    <div>
+      ${withActivity
+        .map(
+          (segment) => `
+            <div style="padding: 10px 12px; border: 1px solid ${EMAIL_STYLES.colors.border}; border-radius: 10px; margin-bottom: 8px;">
+              <div style="font-size: 13px; font-weight: 700; color: ${EMAIL_STYLES.colors.text}; margin-bottom: 4px;">
+                ${escapeHtml(segment.label)}
+              </div>
+              <div style="font-size: 12px; color: ${EMAIL_STYLES.colors.secondary}; line-height: 1.5;">
+                Reuniones ${segment.meetingsCompleted} · To-dos ${segment.todosCompleted} · Acuerdo Sí/No ${segment.agreementsYes}/${segment.agreementsNo} · Tasa ${segment.agreementRatePct.toFixed(1)}%
+              </div>
+            </div>
+          `,
+        )
+        .join('')}
+    </div>
+  `
+}
+
 function renderPerformers(title: string, performers: WeeklyTaskReportPerformer[], emptyText: string): string {
   if (performers.length === 0) {
     return `
@@ -147,6 +191,7 @@ export function renderWeeklyTaskReportEmail(props: WeeklyTaskReportEmailProps): 
     appBaseUrl,
     metrics,
     trends,
+    lifecycleSegments,
     topObjections,
     strongPerformers,
     weakPerformers,
@@ -182,6 +227,9 @@ export function renderWeeklyTaskReportEmail(props: WeeklyTaskReportEmailProps): 
       <div>To-dos: <strong>${formatDelta(trends.todosDelta)}</strong></div>
       <div>Tasa de acuerdo: <strong>${formatDelta(trends.agreementRateDeltaPct, ' pp')}</strong></div>
     </div>
+
+    ${renderSectionTitle('Segmentación Nuevo vs Recurrente')}
+    ${renderLifecycleSegments(lifecycleSegments)}
 
     ${renderSectionTitle('Objeciones Principales')}
     ${renderObjections(topObjections)}

@@ -98,6 +98,7 @@ const ActionsColumnHeader = () => (
 const COLUMNS: ColumnConfig[] = [
   { key: 'expand', label: '', width: 'w-4' },
   { key: 'name', label: 'Nombre del Negocio', sortable: true },
+  { key: 'lifecycle', label: 'N/R', align: 'center', width: 'w-12' },
   { key: 'category', label: 'Categoría', sortable: true },
   { key: 'tier', label: 'Tier', sortable: true, align: 'center', width: 'w-14' },
   { key: 'owner', label: 'Propietario', sortable: true },

@@ -2,7 +2,7 @@
  * Weekly Task Performance Report Cron Job
  *
  * Sends a weekly AI-assisted commercial performance report to admins.
- * Scheduled for Fridays at 10:00 AM Panama time (15:00 UTC).
+ * Scheduled for Fridays at 8:00 AM Panama time (13:00 UTC).
  *
  * This endpoint is protected by the CRON_SECRET environment variable.
  */

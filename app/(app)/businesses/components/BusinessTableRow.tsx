@@ -63,6 +63,34 @@ function getProjectionSourceLabel(source: ProjectionEntitySummary['projectionSou
   }
 }
 
+function getLifecycleDisplay(lifecycle: Business['businessLifecycle']): {
+  label: 'N' | 'R' | '-'
+  title: string
+  className: string
+} {
+  if (lifecycle === 'NEW') {
+    return {
+      label: 'N',
+      title: 'Negocio Nuevo',
+      className: 'bg-emerald-100 text-emerald-700',
+    }
+  }
+
+  if (lifecycle === 'RECURRENT') {
+    return {
+      label: 'R',
+      title: 'Negocio Recurrente',
+      className: 'bg-blue-100 text-blue-700',
+    }
+  }
+
+  return {
+    label: '-',
+    title: 'Sin clasificar',
+    className: 'bg-gray-100 text-gray-500',
+  }
+}
+
 export function BusinessTableRow({
   business,
   index,
@@ -105,6 +133,7 @@ export function BusinessTableRow({
     : projectedRequests > 0
       ? `${projectionSourceLabel} · ${projectedRequests}/${totalRequests}`
       : `${projectionSourceLabel} · Guía`
+  const lifecycleDisplay = getLifecycleDisplay(business.businessLifecycle)
 
   return (
     <Fragment key={business.id}>
@@ -163,6 +192,16 @@ export function BusinessTableRow({
               </span>
             )}
           </div>
+        </TableCell>
+
+        {/* Lifecycle (N/R) */}
+        <TableCell align="center" className="w-12">
+          <span
+            className={`inline-flex min-w-[18px] justify-center rounded px-1 py-0.5 text-[10px] font-semibold ${lifecycleDisplay.className}`}
+            title={lifecycleDisplay.title}
+          >
+            {lifecycleDisplay.label}
+          </span>
         </TableCell>
         
         {/* Category */}

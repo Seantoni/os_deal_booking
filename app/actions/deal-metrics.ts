@@ -14,6 +14,14 @@ import { fetchDealMetrics, fetchAllDealMetrics } from '@/lib/api/external-oferta
 import type { DealMetric } from '@/lib/api/external-oferta/deal/types'
 import type { Prisma } from '@prisma/client'
 
+const RECURRING_DEALS_THRESHOLD = 2
+
+function deriveBusinessLifecycle(totalDeals360d: number): 'RECURRENT' | 'NEW' {
+  // Keep current recurring business rule aligned with assignments:
+  // "más de 2 deals en 360 días".
+  return totalDeals360d > RECURRING_DEALS_THRESHOLD ? 'RECURRENT' : 'NEW'
+}
+
 export interface SyncMetricsResult {
   success: boolean
   message: string
@@ -317,6 +325,7 @@ async function updateBusinessMetricsForVendors(vendorIds: string[]): Promise<{ u
       }
 
       // Update the business
+      const businessLifecycle = deriveBusinessLifecycle(totalDeals360d)
       await prisma.business.update({
         where: { id: business.id },
         data: {
@@ -327,6 +336,7 @@ async function updateBusinessMetricsForVendors(vendorIds: string[]): Promise<{ u
           lastLaunchDate,
           totalDeals360d: totalDeals360d > 0 ? totalDeals360d : null,
           metricsLastSyncedAt: now,
+          businessLifecycle,
         },
       })
 
@@ -334,7 +344,7 @@ async function updateBusinessMetricsForVendors(vendorIds: string[]): Promise<{ u
 
       // Auto-add to assignments if recurring (>2 deals in 360 days)
       // Only for businesses with salesTeam = 'Outside Sales' or null/blank
-      if (totalDeals360d > 2) {
+      if (businessLifecycle === 'RECURRENT') {
         const salesTeam = business.salesTeam
         if (!salesTeam || salesTeam === 'Outside Sales') {
           const result = await autoAddRecurringBusiness(

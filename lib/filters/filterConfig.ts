@@ -182,6 +182,15 @@ export const SALES_TEAM_OPTIONS = [
 ]
 
 /**
+ * Business lifecycle options
+ */
+export const BUSINESS_LIFECYCLE_OPTIONS = [
+  { value: 'NEW', label: 'Nuevo' },
+  { value: 'RECURRENT', label: 'Recurrente' },
+  { value: 'UNKNOWN', label: 'Sin clasificar' },
+]
+
+/**
  * Field definitions for Deals
  */
 export const DEAL_FIELDS: FilterFieldDefinition[] = [
@@ -302,6 +311,7 @@ export const BUSINESS_FIELDS: FilterFieldDefinition[] = [
   { key: 'ere', label: 'ERE', type: 'text' },
   { key: 'owner.name', label: 'Owner Name', type: 'text' },
   { key: 'focusPeriod', label: 'Focus Period', type: 'select', options: FOCUS_PERIOD_OPTIONS },
+  { key: 'businessLifecycle', label: 'Lifecycle', type: 'select', options: BUSINESS_LIFECYCLE_OPTIONS },
   
   // Fiscal / Legal
   { key: 'razonSocial', label: 'Razón Social', type: 'text' },

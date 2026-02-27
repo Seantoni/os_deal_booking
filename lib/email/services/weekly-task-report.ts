@@ -3,6 +3,7 @@ import { resend, EMAIL_CONFIG } from '../config'
 import {
   renderWeeklyTaskReportEmail,
   type WeeklyTaskReportInsights,
+  type WeeklyTaskLifecycleSegment,
   type WeeklyTaskReportObjection,
   type WeeklyTaskReportPerformer,
 } from '../templates/weekly-task-report'
@@ -15,6 +16,8 @@ const ONE_DAY_MS = 24 * 60 * 60 * 1000
 const MIN_ACTIVITY_FOR_RANKING = 3
 const MAX_OBJECTION_ITEMS = 8
 const MAX_AI_ITEMS = 6
+
+type LifecycleBucket = 'new' | 'recurrent' | 'unknown'
 
 interface MeetingNotesData {
   reachedAgreement?: unknown
@@ -34,6 +37,15 @@ interface PerformerAccumulator {
   losses: number
 }
 
+interface LifecycleAccumulator {
+  key: LifecycleBucket
+  label: string
+  meetingsCompleted: number
+  todosCompleted: number
+  agreementsYes: number
+  agreementsNo: number
+}
+
 interface PeriodSnapshot {
   startAt: Date
   endAt: Date
@@ -48,6 +60,7 @@ interface PeriodSnapshot {
   agreementsUnknown: number
   objections: WeeklyTaskReportObjection[]
   performerStats: WeeklyTaskReportPerformer[]
+  lifecycleSegments: WeeklyTaskLifecycleSegment[]
 }
 
 interface AiInputPayload {
@@ -64,6 +77,7 @@ interface AiInputPayload {
     todosDelta: number
     agreementRateDeltaPct: number
   }
+  lifecycleSegments: WeeklyTaskLifecycleSegment[]
   objections: WeeklyTaskReportObjection[]
   strongPerformers: WeeklyTaskReportPerformer[]
   weakPerformers: WeeklyTaskReportPerformer[]
@@ -186,6 +200,59 @@ function safeStringArray(value: unknown, limit: number): string[] {
     .slice(0, limit)
 }
 
+function mapBusinessLifecycleToBucket(lifecycle: string | null | undefined): LifecycleBucket {
+  if (lifecycle === 'RECURRENT') return 'recurrent'
+  if (lifecycle === 'NEW') return 'new'
+  return 'unknown'
+}
+
+function createLifecycleAccumulatorMap(): Record<LifecycleBucket, LifecycleAccumulator> {
+  return {
+    new: {
+      key: 'new',
+      label: 'Negocio Nuevo',
+      meetingsCompleted: 0,
+      todosCompleted: 0,
+      agreementsYes: 0,
+      agreementsNo: 0,
+    },
+    recurrent: {
+      key: 'recurrent',
+      label: 'Negocio Recurrente',
+      meetingsCompleted: 0,
+      todosCompleted: 0,
+      agreementsYes: 0,
+      agreementsNo: 0,
+    },
+    unknown: {
+      key: 'unknown',
+      label: 'Negocio Sin Clasificar',
+      meetingsCompleted: 0,
+      todosCompleted: 0,
+      agreementsYes: 0,
+      agreementsNo: 0,
+    },
+  }
+}
+
+function toLifecycleSegments(accumulator: Record<LifecycleBucket, LifecycleAccumulator>): WeeklyTaskLifecycleSegment[] {
+  return (Object.keys(accumulator) as LifecycleBucket[]).map((key) => {
+    const item = accumulator[key]
+    const denominator = item.agreementsYes + item.agreementsNo
+    const agreementRatePct = denominator > 0 ? (item.agreementsYes / denominator) * 100 : 0
+
+    return {
+      key: item.key,
+      label: item.label,
+      meetingsCompleted: item.meetingsCompleted,
+      todosCompleted: item.todosCompleted,
+      agreementsYes: item.agreementsYes,
+      agreementsNo: item.agreementsNo,
+      agreementRatePct,
+    }
+  })
+}
+
 function computePerformerScore(perf: PerformerAccumulator): number {
   const agreementSample = perf.agreementsYes + perf.agreementsNo
   const agreementRate = agreementSample > 0 ? perf.agreementsYes / agreementSample : 0
@@ -254,6 +321,11 @@ async function buildPeriodSnapshot(startAt: Date, endAt: Date): Promise<PeriodSn
         opportunity: {
           select: {
             responsibleId: true,
+            business: {
+              select: {
+                businessLifecycle: true,
+              },
+            },
           },
         },
       },
@@ -275,6 +347,11 @@ async function buildPeriodSnapshot(startAt: Date, endAt: Date): Promise<PeriodSn
         responsibleId: true,
         stage: true,
         lostReason: true,
+        business: {
+          select: {
+            businessLifecycle: true,
+          },
+        },
       },
     }),
   ])
@@ -290,6 +367,7 @@ async function buildPeriodSnapshot(startAt: Date, endAt: Date): Promise<PeriodSn
   let agreementsUnknown = 0
 
   const objectionInputs: string[] = []
+  const lifecycleAccumulator = createLifecycleAccumulatorMap()
 
   const responsibleIds = new Set<string>()
   for (const task of completedTasks) {
@@ -346,19 +424,24 @@ async function buildPeriodSnapshot(startAt: Date, endAt: Date): Promise<PeriodSn
   for (const task of completedTasks) {
     const responsibleId = task.opportunity.responsibleId
     const performer = responsibleId ? ensurePerformer(responsibleId) : null
+    const lifecycleBucket = mapBusinessLifecycleToBucket(task.opportunity.business?.businessLifecycle)
+    const lifecycle = lifecycleAccumulator[lifecycleBucket]
 
     if (task.category === 'meeting') {
       completedMeetings += 1
       if (performer) performer.meetingsCompleted += 1
+      lifecycle.meetingsCompleted += 1
 
       const meetingData = parseMeetingNotes(task.notes)
 
       if (meetingData.reachedAgreement === 'si') {
         agreementsYes += 1
         if (performer) performer.agreementsYes += 1
+        lifecycle.agreementsYes += 1
       } else if (meetingData.reachedAgreement === 'no') {
         agreementsNo += 1
         if (performer) performer.agreementsNo += 1
+        lifecycle.agreementsNo += 1
 
         if (meetingData.mainObjection) {
           objectionInputs.push(meetingData.mainObjection)
@@ -369,6 +452,7 @@ async function buildPeriodSnapshot(startAt: Date, endAt: Date): Promise<PeriodSn
     } else if (task.category === 'todo') {
       completedTodos += 1
       if (performer) performer.todosCompleted += 1
+      lifecycle.todosCompleted += 1
     }
   }
 
@@ -416,6 +500,7 @@ async function buildPeriodSnapshot(startAt: Date, endAt: Date): Promise<PeriodSn
     agreementsUnknown,
     objections: countTopTexts(objectionInputs, MAX_OBJECTION_ITEMS),
     performerStats,
+    lifecycleSegments: toLifecycleSegments(lifecycleAccumulator),
   }
 }
 
@@ -606,6 +691,7 @@ export async function sendWeeklyTaskPerformanceReport(): Promise<SendWeeklyTaskR
         todosDelta: currentPeriod.completedTodos - previousPeriod.completedTodos,
         agreementRateDeltaPct: currentAgreementRatePct - previousAgreementRatePct,
       },
+      lifecycleSegments: currentPeriod.lifecycleSegments,
       objections: currentPeriod.objections.slice(0, 5),
       strongPerformers,
       weakPerformers,
@@ -677,6 +763,7 @@ export async function sendWeeklyTaskPerformanceReport(): Promise<SendWeeklyTaskR
           todosDelta: currentPeriod.completedTodos - previousPeriod.completedTodos,
           agreementRateDeltaPct: currentAgreementRatePct - previousAgreementRatePct,
         },
+        lifecycleSegments: currentPeriod.lifecycleSegments,
         topObjections: currentPeriod.objections.slice(0, 5),
         strongPerformers,
         weakPerformers,

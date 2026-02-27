@@ -96,6 +96,7 @@ export type BusinessMetrics = {
   lastLaunchDate?: Nullable<DateLike>
   totalDeals360d?: Nullable<number>
   metricsLastSyncedAt?: Nullable<DateLike>
+  businessLifecycle?: Nullable<'NEW' | 'RECURRENT' | 'UNKNOWN'>
 }
 
 export type BusinessReassignment = {

@@ -402,7 +402,7 @@ export default function CronJobsTab() {
           <li>Sync de Eventos: 2:00 AM</li>
           <li>Recordatorios de Tareas: 8:00 AM</li>
           <li>Resumen de Comentarios: 8:00 AM (L-V)</li>
-          <li>Reporte Semanal Comercial: 10:00 AM (Viernes)</li>
+          <li>Reporte Semanal Comercial: 8:00 AM (Viernes)</li>
           <li>Recordatorio de Reuniones: 4:00 PM</li>
         </ul>
         <p className="mt-2">Los logs se mantienen por 30 días.</p>

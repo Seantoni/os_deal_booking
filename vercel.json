@@ -30,7 +30,7 @@
     },
     {
       "path": "/api/cron/weekly-task-report",
-      "schedule": "0 15 * * 5"
+      "schedule": "0 13 * * 5"
     }
   ],
   "functions": {
