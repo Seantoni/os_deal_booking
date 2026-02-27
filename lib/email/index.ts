@@ -13,6 +13,7 @@ export { renderBookingConfirmationEmail } from './templates/booking-confirmation
 export { renderRejectionEmail } from './templates/rejection'
 export { renderTaskReminderEmail } from './templates/task-reminder'
 export { renderDealAssignmentReadyEmail } from './templates/deal-assignment-ready'
+export { renderDealEditorAssignedEmail } from './templates/deal-editor-assigned'
 export { renderDailyCommentsEmail } from './templates/daily-comments'
 export { renderSalesMeetingReminderEmail } from './templates/sales-meeting-reminder'
 export { renderWeeklyTaskReportEmail } from './templates/weekly-task-report'
@@ -35,3 +36,4 @@ export { sendOpportunityMentionNotificationEmail } from './services/opportunity-
 export { sendCronFailureEmail } from './services/cron-failure'
 export { sendApiFailureEmail } from './services/api-failure'
 export { sendDealAssignmentReadyEmail } from './services/deal-assignment-ready'
+export { sendDealEditorAssignedEmail } from './services/deal-editor-assigned'

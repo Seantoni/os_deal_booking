@@ -893,6 +893,15 @@ export async function updateDealResponsible(dealId: string, responsibleId: strin
   }
 
   try {
+    const existingDeal = await prisma.deal.findUnique({
+      where: { id: dealId },
+      select: { responsibleId: true },
+    })
+
+    if (!existingDeal) {
+      return { success: false, error: 'Deal not found' }
+    }
+
     // Update responsible users
     const updateData: { responsibleId: string | null; ereResponsibleId?: string | null } = {
       responsibleId: responsibleId || null,
@@ -922,6 +931,15 @@ export async function updateDealResponsible(dealId: string, responsibleId: strin
         },
       },
     })
+
+    if (updated.responsibleId && updated.responsibleId !== existingDeal.responsibleId) {
+      try {
+        const { sendDealEditorAssignedEmail } = await import('@/lib/email/services/deal-editor-assigned')
+        await sendDealEditorAssignedEmail(updated.id, updated.responsibleId)
+      } catch (emailError) {
+        logger.error('Failed to send deal editor assigned email:', emailError)
+      }
+    }
 
     // Revalidate cache
     invalidateEntity('deals')
