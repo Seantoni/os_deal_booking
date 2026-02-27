@@ -1068,21 +1068,17 @@ export async function createTask(formData: FormData) {
       include: { tasks: true, business: true },
     })
 
-    // Log task creation as Task entity (not Opportunity)
+    // Log activity for task creation on the opportunity
     await logActivity({
       action: 'CREATE',
-      entityType: 'Task',
-      entityId: task.id,
-      entityName: task.title,
+      entityType: 'Opportunity',
+      entityId: opportunityId,
+      entityName: opportunity?.business?.name || undefined,
       details: {
         taskAction: 'created',
-        taskTitle: task.title,
-        taskCategory: task.category,
+        taskTitle: title,
+        taskCategory: category,
         taskDate: date,
-        metadata: {
-          opportunityId,
-          ...(opportunity?.business?.name ? { opportunityName: opportunity.business.name } : {}),
-        },
       },
     })
 
@@ -1165,23 +1161,34 @@ export async function updateTask(taskId: string, formData: FormData) {
       },
     })
 
-    // Log task update as Task entity (not Opportunity)
+    // Log activity for task update on the opportunity
+    // Determine what changed
     const completionChanged = existingTask.completed !== completed
-    await logActivity({
-      action: 'UPDATE',
-      entityType: 'Task',
-      entityId: task.id,
-      entityName: task.title,
-      details: {
-        taskAction: completionChanged ? (completed ? 'completed' : 'reopened') : 'updated',
-        taskTitle: task.title,
-        taskCategory: task.category,
-        metadata: {
-          opportunityId: existingTask.opportunityId,
-          ...(existingTask.opportunity?.business?.name ? { opportunityName: existingTask.opportunity.business.name } : {}),
+    if (completionChanged) {
+      await logActivity({
+        action: 'UPDATE',
+        entityType: 'Opportunity',
+        entityId: existingTask.opportunityId,
+        entityName: existingTask.opportunity?.business?.name || undefined,
+        details: {
+          taskAction: completed ? 'completed' : 'reopened',
+          taskTitle: title,
+          taskCategory: category,
         },
-      },
-    })
+      })
+    } else {
+      await logActivity({
+        action: 'UPDATE',
+        entityType: 'Opportunity',
+        entityId: existingTask.opportunityId,
+        entityName: existingTask.opportunity?.business?.name || undefined,
+        details: {
+          taskAction: 'updated',
+          taskTitle: title,
+          taskCategory: category,
+        },
+      })
+    }
 
     // Update opportunity's nextActivityDate and lastActivityDate (using Panama timezone)
     const allTasks = await prisma.task.findMany({
@@ -1241,20 +1248,16 @@ export async function deleteTask(taskId: string) {
       where: { id: taskId },
     })
 
-    // Log task deletion as Task entity (not Opportunity)
+    // Log activity for task deletion on the opportunity
     await logActivity({
       action: 'DELETE',
-      entityType: 'Task',
-      entityId: task.id,
-      entityName: task.title,
+      entityType: 'Opportunity',
+      entityId: task.opportunityId,
+      entityName: task.opportunity?.business?.name || undefined,
       details: {
         taskAction: 'deleted',
         taskTitle: task.title,
         taskCategory: task.category,
-        metadata: {
-          opportunityId: task.opportunityId,
-          ...(task.opportunity?.business?.name ? { opportunityName: task.opportunity.business.name } : {}),
-        },
       },
     })
 

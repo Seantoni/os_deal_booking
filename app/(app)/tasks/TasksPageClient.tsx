@@ -72,6 +72,7 @@ const STAGE_COLORS: Record<string, string> = {
 const COLUMNS: ColumnConfig[] = [
   { key: 'status', label: '', width: 'w-[40px]', align: 'center' },
   { key: 'title', label: 'Tarea', sortable: true, width: 'w-[122px]' },
+  { key: 'meetingOutcome', label: '¿Acuerdo?', width: 'w-[50px]' },
   { key: 'responsible', label: 'Responsable', sortable: true, width: 'w-[80px]' },
   { key: 'date', label: 'Vencimiento', sortable: true, width: 'w-[77px]' },
   { key: 'business', label: 'Negocio', sortable: true, width: 'w-[93px]' },
@@ -1048,6 +1049,14 @@ export default function TasksPageClient() {
                 onSort={handleSort}
               >
                 {sortedTasks.map((task, index) => {
+                  const meetingData = task.category === 'meeting' ? parseMeetingData(task.notes || null) : null
+                  const meetingOutcome =
+                    meetingData?.reachedAgreement === 'si'
+                      ? 'Sí'
+                      : meetingData?.reachedAgreement === 'no'
+                        ? 'No'
+                        : ''
+
                   return (
                     <TableRow 
                       key={task.id} 
@@ -1095,6 +1104,13 @@ export default function TasksPageClient() {
                             </span>
                           )}
                         </div>
+                      </TableCell>
+
+                      {/* Meeting Outcome */}
+                      <TableCell className="w-[50px]">
+                        <span className="text-sm text-slate-700 truncate block w-full">
+                          {task.category === 'meeting' ? meetingOutcome : ''}
+                        </span>
                       </TableCell>
 
                       {/* Responsible */}
