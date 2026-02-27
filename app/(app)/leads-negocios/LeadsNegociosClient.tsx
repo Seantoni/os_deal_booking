@@ -225,10 +225,12 @@ function formatDateSpanish(date: Date | null): string {
  * Export restaurant leads to CSV
  */
 function exportRestaurantLeadsToCsv(restaurants: RestaurantLeadWithStats[], filename: string): void {
-  const headers = ['Nombre', 'Tipo', 'Descuento', 'Precio/Persona', 'Comida', 'Servicio', 'Ambiente', 'Votos', 'Dirección', 'URL', 'Primera vez', 'Actualizado']
+  const headers = ['Nombre', 'Negocio', 'Responsable', 'Tipo', 'Descuento', 'Precio/Persona', 'Comida', 'Servicio', 'Ambiente', 'Votos', 'Dirección', 'URL', 'Primera vez', 'Actualizado']
   
   const rows = restaurants.map(r => [
     r.name,
+    r.matchedBusiness?.name || '',
+    r.matchedBusiness?.owner?.name || r.matchedBusiness?.owner?.email || '',
     r.cuisine || '',
     r.discount || '',
     r.pricePerPerson ? `$${r.pricePerPerson}` : '',
@@ -353,6 +355,7 @@ type RestaurantSortField = 'name' | 'cuisine' | 'pricePerPerson' | 'votes' | 'fo
 const RESTAURANT_COLUMNS: ColumnConfig[] = [
   { key: 'name', label: 'Restaurante', sortable: true },
   { key: 'matchedBusiness', label: 'Negocio', sortable: false, width: 'w-36' },
+  { key: 'businessResponsible', label: 'Responsable', sortable: false, width: 'w-32' },
   { key: 'cuisine', label: 'Tipo', sortable: true, width: 'w-28' },
   { key: 'discount', label: 'Descuento', sortable: true, width: 'w-24' },
   { key: 'pricePerPerson', label: 'Precio', sortable: true, width: 'w-20' },
@@ -1486,6 +1489,13 @@ export default function LeadsNegociosClient() {
                           matchConfidence={restaurant.matchConfidence}
                           onSuccess={loadRestaurants}
                         />
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-[13px] text-gray-600 truncate max-w-[130px]" title={restaurant.matchedBusiness?.owner?.name || restaurant.matchedBusiness?.owner?.email || undefined}>
+                          {restaurant.matchedBusiness?.owner
+                            ? (restaurant.matchedBusiness.owner.name || restaurant.matchedBusiness.owner.email || <span className="text-gray-400">-</span>)
+                            : <span className="text-gray-400">-</span>}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="text-[13px] text-gray-600 truncate max-w-[100px]" title={restaurant.cuisine || undefined}>

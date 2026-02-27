@@ -15,6 +15,7 @@ export { renderTaskReminderEmail } from './templates/task-reminder'
 export { renderDealAssignmentReadyEmail } from './templates/deal-assignment-ready'
 export { renderDailyCommentsEmail } from './templates/daily-comments'
 export { renderSalesMeetingReminderEmail } from './templates/sales-meeting-reminder'
+export { renderWeeklyTaskReportEmail } from './templates/weekly-task-report'
 export { 
   renderMentionNotificationEmail,
   renderMarketingMentionNotificationEmail,
@@ -28,6 +29,7 @@ export { sendRejectionEmail } from './services/rejection'
 export { sendAllTaskReminders } from './services/task-reminder'
 export { sendDailyCommentsSummary } from './services/daily-comments'
 export { sendSalesMeetingReminders } from './services/sales-meeting-reminder'
+export { sendWeeklyTaskPerformanceReport } from './services/weekly-task-report'
 export { sendMentionNotificationEmail } from './services/mention-notification'
 export { sendOpportunityMentionNotificationEmail } from './services/opportunity-mention-notification'
 export { sendCronFailureEmail } from './services/cron-failure'

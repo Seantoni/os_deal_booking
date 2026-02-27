@@ -25,7 +25,14 @@ export type RestaurantLeadWithStats = {
   ambientRating: number | null
   imageUrl: string | null
   matchedBusinessId: string | null
-  matchedBusiness: { id: string; name: string } | null
+  matchedBusiness: {
+    id: string
+    name: string
+    owner: {
+      name: string | null
+      email: string | null
+    } | null
+  } | null
   matchConfidence: number | null
   firstSeenAt: Date
   lastScannedAt: Date
@@ -125,6 +132,12 @@ export async function getRestaurantLeads({
         select: {
           id: true,
           name: true,
+          owner: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
         },
       },
     },
@@ -261,6 +274,20 @@ export async function getAllRestaurantLeadsForExport({
   const restaurants = await prisma.restaurantLead.findMany({
     where,
     orderBy: { lastScannedAt: 'desc' },
+    include: {
+      matchedBusiness: {
+        select: {
+          id: true,
+          name: true,
+          owner: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+        },
+      },
+    },
   })
   
   const yesterday = new Date()
@@ -281,9 +308,9 @@ export async function getAllRestaurantLeadsForExport({
     serviceRating: r.serviceRating ? Number(r.serviceRating) : null,
     ambientRating: r.ambientRating ? Number(r.ambientRating) : null,
     imageUrl: r.imageUrl,
-    matchedBusinessId: null,
-    matchedBusiness: null,
-    matchConfidence: null,
+    matchedBusinessId: r.matchedBusinessId,
+    matchedBusiness: r.matchedBusiness,
+    matchConfidence: r.matchConfidence ? Number(r.matchConfidence) : null,
     firstSeenAt: r.firstSeenAt,
     lastScannedAt: r.lastScannedAt,
     createdAt: r.createdAt,

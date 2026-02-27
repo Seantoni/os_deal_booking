@@ -34,6 +34,7 @@ function getJobDisplayName(jobName: string): string {
     'market-intelligence-scan': 'Escaneo de Inteligencia de Mercado',
     'event-leads-sync': 'Sincronización de Event Leads',
     'restaurant-leads-sync': 'Sincronización de Restaurant Leads',
+    'weekly-task-report': 'Reporte Semanal Comercial',
   }
   return names[jobName] || jobName
 }

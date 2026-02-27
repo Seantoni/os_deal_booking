@@ -18,6 +18,7 @@ const JOB_LABELS: Record<string, string> = {
   'market-intelligence-scan': 'Escaneo de Mercado',
   'event-leads-sync': 'Sync de Eventos',
   'restaurant-leads-sync': 'Sync de Restaurantes',
+  'weekly-task-report': 'Reporte Semanal Comercial',
 }
 
 const STATUS_CONFIG = {
@@ -121,6 +122,7 @@ export default function CronJobsTab() {
         'market-intelligence-scan': '/api/cron/market-intelligence-scan',
         'event-leads-sync': '/api/cron/event-leads-sync',
         'restaurant-leads-sync': '/api/cron/restaurant-leads-sync',
+        'weekly-task-report': '/api/cron/weekly-task-report',
       }
 
       const response = await fetch(endpoints[jobName], {
@@ -221,6 +223,7 @@ export default function CronJobsTab() {
             <option value="market-intelligence-scan">Escaneo de Mercado</option>
             <option value="event-leads-sync">Sync de Eventos</option>
             <option value="restaurant-leads-sync">Sync de Restaurantes</option>
+            <option value="weekly-task-report">Reporte Semanal Comercial</option>
           </select>
 
           <select
@@ -399,6 +402,7 @@ export default function CronJobsTab() {
           <li>Sync de Eventos: 2:00 AM</li>
           <li>Recordatorios de Tareas: 8:00 AM</li>
           <li>Resumen de Comentarios: 8:00 AM (L-V)</li>
+          <li>Reporte Semanal Comercial: 10:00 AM (Viernes)</li>
           <li>Recordatorio de Reuniones: 4:00 PM</li>
         </ul>
         <p className="mt-2">Los logs se mantienen por 30 días.</p>
