@@ -16,6 +16,7 @@ type CalendarViewMode = 'month' | 'week' | 'day'
 
 interface CalendarViewProps {
   events: Event[]
+  isLoading?: boolean
   selectedCategories: string[]
   showPendingBooking: boolean
   categoryFilter?: string | null
@@ -56,7 +57,7 @@ type EventDateRange = {
   endDay: number
 }
 
-export default function CalendarView({ events, selectedCategories, showPendingBooking, categoryFilter, searchQuery = '', draggingRequest, bookingRequests = [], onSearchChange, onRequestDropOnDate, onDateClick, onDateRangeSelect, onEventClick, onEventMove, onEventResize, onDayExpand, readOnly = false, externalDate, externalView, externalRange, onViewChange, onCurrentDateChange, onVisibleRangeChange, onNewRequestClick, onCreateEventClick, userRole }: CalendarViewProps) {
+export default function CalendarView({ events, isLoading = false, selectedCategories, showPendingBooking, categoryFilter, searchQuery = '', draggingRequest, bookingRequests = [], onSearchChange, onRequestDropOnDate, onDateClick, onDateRangeSelect, onEventClick, onEventMove, onEventResize, onDayExpand, readOnly = false, externalDate, externalView, externalRange, onViewChange, onCurrentDateChange, onVisibleRangeChange, onNewRequestClick, onCreateEventClick, userRole }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [dragStartDay, setDragStartDay] = useState<number | null>(null)
   const [dragEndDay, setDragEndDay] = useState<number | null>(null)
@@ -846,7 +847,15 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
   }
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-gray-50 to-white">
+    <div className="relative flex flex-col h-full bg-gradient-to-br from-gray-50 to-white">
+      {isLoading && (
+        <div className="absolute inset-0 z-50 bg-white/70 backdrop-blur-[1px] flex items-center justify-center pointer-events-none">
+          <div className="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 border border-gray-200 shadow-sm">
+            <span className="w-3 h-3 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+            <span className="text-xs font-medium text-gray-700">Loading calendar...</span>
+          </div>
+        </div>
+      )}
       {/* Calendar Header - Compact */}
       <div className="bg-white border-b border-gray-200 px-2 py-2 md:px-3">
         <div className="flex items-center justify-between gap-2">
