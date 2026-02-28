@@ -19,7 +19,9 @@
     "db:migrate:settings": "tsx prisma/migrate-settings-to-db.ts",
     "db:import:businesses": "tsx prisma/import-businesses-csv.ts",
     "db:import:opportunities": "tsx prisma/import-opportunities-csv.ts",
-    "db:migrate:payment-plan": "tsx prisma/migrate-payment-plan-values.ts"
+    "db:import:events": "node --import tsx prisma/import-events-csv.ts",
+    "db:migrate:payment-plan": "tsx prisma/migrate-payment-plan-values.ts",
+    "db:rollback:sales-agent": "prisma db execute --schema prisma/schema.prisma --file prisma/manual/remove_sales_manager_agent.sql"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.953.0",
