@@ -63,3 +63,9 @@ export const CACHE_CLIENT_USER_ROLE_REVALIDATE_MS = 5 * 60 * 1000
  * Used in middleware to cache user access verification
  */
 export const CACHE_ACCESS_CHECK_SECONDS = 300
+
+/**
+ * Server-side in-memory cache duration for business projection summaries (12 hours).
+ * Used to avoid recomputing expensive projection aggregations for the same business-id set.
+ */
+export const CACHE_SERVER_BUSINESS_PROJECTION_SUMMARY_MS = 12 * 60 * 60 * 1000

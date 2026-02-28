@@ -28,6 +28,7 @@ import { useFormConfigCache } from '@/hooks/useFormConfigCache'
 import { usePaginatedSearch } from '@/hooks/usePaginatedSearch'
 import { useAdvancedFilters } from '@/hooks/useAdvancedFilters'
 import { sortEntities } from '@/hooks/useEntityPage'
+import { useSidebar } from '@/components/common/AppClientProviders'
 import { 
   EntityPageHeader, 
   EmptyTableState, 
@@ -44,6 +45,11 @@ import { BusinessTableRow, DealsTab, BusinessMobileCard } from './components'
 
 // Tab type
 type PageTab = 'businesses' | 'deals'
+
+type IdleSchedulerWindow = Window & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
+  cancelIdleCallback?: (handle: number) => void
+}
 
 // Lazy load heavy modal components
 const BusinessFormModal = dynamic(() => import('@/components/crm/business/BusinessFormModal'), {
@@ -126,6 +132,7 @@ export default function BusinessesPageClient({
   const router = useRouter()
   const searchParams = useSearchParams()
   const { role: userRole } = useUserRole()
+  const { isMobile } = useSidebar()
   const isAdmin = userRole === 'admin'
   const confirmDialog = useConfirmDialog()
   
@@ -288,39 +295,85 @@ export default function BusinessesPageClient({
   // Determine which businesses to display
   const displayBusinesses = searchResults !== null ? searchResults : businesses
   const [businessProjectionMap, setBusinessProjectionMap] = useState<Record<string, ProjectionEntitySummary>>({})
+  const projectionInFlightIdsRef = useRef<Set<string>>(new Set())
+  const projectionsUnmountedRef = useRef(false)
+
+  useEffect(() => {
+    return () => {
+      projectionsUnmountedRef.current = true
+    }
+  }, [])
 
   const projectionBusinessIds = useMemo(
     () => displayBusinesses.map(business => business.id),
     [displayBusinesses]
   )
 
-  // Load projection summaries for the currently visible businesses
+  // Load projection summaries lazily for visible businesses, fetching only missing IDs
   useEffect(() => {
-    let cancelled = false
+    const projectionInFlightIds = projectionInFlightIdsRef.current
+    const missingBusinessIds = projectionBusinessIds.filter((businessId) => {
+      if (Object.prototype.hasOwnProperty.call(businessProjectionMap, businessId)) return false
+      return !projectionInFlightIds.has(businessId)
+    })
 
-    async function loadProjectionSummaries() {
-      if (projectionBusinessIds.length === 0) {
-        setBusinessProjectionMap({})
+    if (missingBusinessIds.length === 0) {
+      return
+    }
+
+    // Mark immediately to avoid duplicate requests while waiting for idle slot.
+    missingBusinessIds.forEach(businessId => projectionInFlightIds.add(businessId))
+
+    let fetchStarted = false
+    let timeoutHandle: number | null = null
+    let idleHandle: number | null = null
+
+    async function fetchMissingProjectionSummaries() {
+      fetchStarted = true
+      try {
+        const result = await getBusinessProjectionSummaryMap(missingBusinessIds)
+        if (!projectionsUnmountedRef.current && result.success && result.data) {
+          setBusinessProjectionMap(prev => ({
+            ...prev,
+            ...result.data,
+          }))
+        }
+      } finally {
+        missingBusinessIds.forEach(businessId => projectionInFlightIds.delete(businessId))
+      }
+    }
+
+    const scheduleFetch = () => {
+      const idleWindow = window as IdleSchedulerWindow
+      if (typeof idleWindow.requestIdleCallback === 'function') {
+        idleHandle = idleWindow.requestIdleCallback(() => {
+          void fetchMissingProjectionSummaries()
+        }, { timeout: 1200 })
         return
       }
 
-      try {
-        const result = await getBusinessProjectionSummaryMap(projectionBusinessIds)
-        if (!cancelled) {
-          setBusinessProjectionMap(result.success && result.data ? result.data : {})
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setBusinessProjectionMap({})
-        }
-      }
+      timeoutHandle = window.setTimeout(() => {
+        void fetchMissingProjectionSummaries()
+      }, 0)
     }
 
-    loadProjectionSummaries()
+    scheduleFetch()
+
     return () => {
-      cancelled = true
+      if (idleHandle !== null) {
+        const idleWindow = window as IdleSchedulerWindow
+        if (typeof idleWindow.cancelIdleCallback === 'function') {
+          idleWindow.cancelIdleCallback(idleHandle)
+        }
+      }
+      if (timeoutHandle !== null) {
+        window.clearTimeout(timeoutHandle)
+      }
+      if (!fetchStarted) {
+        missingBusinessIds.forEach(businessId => projectionInFlightIds.delete(businessId))
+      }
     }
-  }, [projectionBusinessIds])
+  }, [projectionBusinessIds, businessProjectionMap])
 
   // Helper to check if business has active focus
   const businessActiveFocus = useMemo(() => {
@@ -720,90 +773,92 @@ export default function BusinessesPageClient({
           </div>
         ) : (
           <>
-            {/* Mobile card list */}
-            <div className="md:hidden">
-              <SearchIndicator />
-              
-              {/* Results count */}
-              <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
-                <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
-                  {filteredBusinesses.length} negocio{filteredBusinesses.length !== 1 ? 's' : ''}
-                </span>
-              </div>
+            {isMobile ? (
+              /* Mobile card list */
+              <div>
+                <SearchIndicator />
+                
+                {/* Results count */}
+                <div className="px-4 py-2 bg-gray-50 border-b border-gray-100">
+                  <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+                    {filteredBusinesses.length} negocio{filteredBusinesses.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
 
-              <div className="bg-white">
-                {filteredBusinesses.map((business) => (
-                  <BusinessMobileCard
-                    key={business.id}
-                    business={business}
-                    activeFocus={businessActiveFocus.get(business.id)}
-                    activeDealUrl={activeDealUrls[business.id]}
-                    openOpportunityCount={businessOpenOpportunityCount.get(business.id) || 0}
-                    pendingRequestCount={businessPendingRequestCount.get(business.id) || 0}
-                    campaignCount={businessCampaignCounts[business.id] || 0}
-                    projectionSummary={businessProjectionMap[business.id]}
-                    isAdmin={isAdmin}
-                    canEdit={canEditBusiness(business.id)}
-                    onCardTap={(b: Business) => pageState.openBusinessModal(b)}
-                    onRowHover={handleRowHover}
-                    onSetFocus={pageState.openFocusModal}
-                    onCreateOpportunity={pageState.openOpportunityModal}
-                    onCreateRequest={handleCreateRequest}
-                    onOpenCampaignModal={pageState.openCampaignModal}
-                    onOpenReassignmentModal={pageState.openReassignmentModal}
-                  />
-                ))}
-              </div>
+                <div className="bg-white">
+                  {filteredBusinesses.map((business) => (
+                    <BusinessMobileCard
+                      key={business.id}
+                      business={business}
+                      activeFocus={businessActiveFocus.get(business.id)}
+                      activeDealUrl={activeDealUrls[business.id]}
+                      openOpportunityCount={businessOpenOpportunityCount.get(business.id) || 0}
+                      pendingRequestCount={businessPendingRequestCount.get(business.id) || 0}
+                      campaignCount={businessCampaignCounts[business.id] || 0}
+                      projectionSummary={businessProjectionMap[business.id]}
+                      isAdmin={isAdmin}
+                      canEdit={canEditBusiness(business.id)}
+                      onCardTap={(b: Business) => pageState.openBusinessModal(b)}
+                      onRowHover={handleRowHover}
+                      onSetFocus={pageState.openFocusModal}
+                      onCreateOpportunity={pageState.openOpportunityModal}
+                      onCreateRequest={handleCreateRequest}
+                      onOpenCampaignModal={pageState.openCampaignModal}
+                      onOpenReassignmentModal={pageState.openReassignmentModal}
+                    />
+                  ))}
+                </div>
 
-              <div className="px-4 py-3">
+                <div className="px-4 py-3">
+                  <PaginationControls />
+                </div>
+              </div>
+            ) : (
+              /* Desktop table */
+              <div className="overflow-x-auto">
+                <SearchIndicator />
+                
+                <div className="bg-white rounded-lg border border-gray-200">
+                  <table className="w-full text-[13px] text-left">
+                    <SortableTableHeader
+                      columns={COLUMNS}
+                      sortColumn={sortColumn}
+                      sortDirection={sortDirection}
+                      onSort={handleSort}
+                    />
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredBusinesses.map((business, index) => (
+                        <BusinessTableRow
+                          key={business.id}
+                          business={business}
+                          index={index}
+                          activeFocus={businessActiveFocus.get(business.id)}
+                          isExpanded={pageState.isBusinessExpanded(business.id)}
+                          cachedDeals={pageState.getBusinessDeals(business.id)}
+                          activeDealUrl={activeDealUrls[business.id]}
+                          openOpportunityCount={businessOpenOpportunityCount.get(business.id) || 0}
+                          pendingRequestCount={businessPendingRequestCount.get(business.id) || 0}
+                          campaignCount={businessCampaignCounts[business.id] || 0}
+                          projectionSummary={businessProjectionMap[business.id]}
+                          isAdmin={isAdmin}
+                          canEdit={canEditBusiness(business.id)}
+                          onRowClick={(b) => pageState.openBusinessModal(b)}
+                          onRowHover={handleRowHover}
+                          onToggleExpand={pageState.toggleExpandBusiness}
+                          onSetFocus={pageState.openFocusModal}
+                          onCreateOpportunity={pageState.openOpportunityModal}
+                          onCreateRequest={handleCreateRequest}
+                          onOpenCampaignModal={pageState.openCampaignModal}
+                          onOpenReassignmentModal={pageState.openReassignmentModal}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                
                 <PaginationControls />
               </div>
-            </div>
-
-            {/* Desktop table */}
-            <div className="hidden md:block overflow-x-auto">
-              <SearchIndicator />
-              
-              <div className="bg-white rounded-lg border border-gray-200">
-                <table className="w-full text-[13px] text-left">
-                  <SortableTableHeader
-                    columns={COLUMNS}
-                    sortColumn={sortColumn}
-                    sortDirection={sortDirection}
-                    onSort={handleSort}
-                  />
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredBusinesses.map((business, index) => (
-                      <BusinessTableRow
-                        key={business.id}
-                        business={business}
-                        index={index}
-                        activeFocus={businessActiveFocus.get(business.id)}
-                        isExpanded={pageState.isBusinessExpanded(business.id)}
-                        cachedDeals={pageState.getBusinessDeals(business.id)}
-                        activeDealUrl={activeDealUrls[business.id]}
-                        openOpportunityCount={businessOpenOpportunityCount.get(business.id) || 0}
-                        pendingRequestCount={businessPendingRequestCount.get(business.id) || 0}
-                        campaignCount={businessCampaignCounts[business.id] || 0}
-                        projectionSummary={businessProjectionMap[business.id]}
-                        isAdmin={isAdmin}
-                        canEdit={canEditBusiness(business.id)}
-                        onRowClick={(b) => pageState.openBusinessModal(b)}
-                        onRowHover={handleRowHover}
-                        onToggleExpand={pageState.toggleExpandBusiness}
-                        onSetFocus={pageState.openFocusModal}
-                        onCreateOpportunity={pageState.openOpportunityModal}
-                        onCreateRequest={handleCreateRequest}
-                        onOpenCampaignModal={pageState.openCampaignModal}
-                        onOpenReassignmentModal={pageState.openReassignmentModal}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              
-              <PaginationControls />
-            </div>
+            )}
           </>
         )}
       </div>

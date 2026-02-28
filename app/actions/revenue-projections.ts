@@ -4,6 +4,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getUserRole } from '@/lib/auth/roles'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
+import { CACHE_SERVER_BUSINESS_PROJECTION_SUMMARY_MS } from '@/lib/constants/cache'
 import {
   buildProjectionEntitySummaryMap,
   getEmptyProjectionEntitySummary,
@@ -126,6 +127,32 @@ type CategoryBenchmarkStats = {
 
 type BusinessHistoryStats = {
   medianRevenue: number
+}
+
+interface BusinessProjectionSummaryCacheEntry {
+  data: Record<string, ProjectionEntitySummary>
+  expiresAt: number
+}
+
+const businessProjectionSummaryCache = new Map<string, BusinessProjectionSummaryCacheEntry>()
+const businessProjectionSummaryInFlight = new Map<string, Promise<ProjectionEntitySummaryMapResult>>()
+
+function pruneExpiredBusinessProjectionSummaryCache() {
+  const now = Date.now()
+  for (const [cacheKey, entry] of businessProjectionSummaryCache.entries()) {
+    if (entry.expiresAt <= now) {
+      businessProjectionSummaryCache.delete(cacheKey)
+    }
+  }
+}
+
+function buildBusinessProjectionSummaryCacheKey(params: {
+  role: string
+  userId: string
+  businessIds: string[]
+}): string {
+  const userScope = params.role === 'sales' ? params.userId : 'shared'
+  return `business-projection-summary:v1:${params.role}:${userScope}:${params.businessIds.join(',')}`
 }
 
 function normalizeLookupKey(value: string | null | undefined): string | null {
@@ -497,8 +524,11 @@ async function buildBusinessHistoryByBusinessId(
   return byBusinessId
 }
 
-async function getRoleScopedBookingRequestWhere(userId: string): Promise<Prisma.BookingRequestWhereInput | null> {
-  const role = await getUserRole()
+async function getRoleScopedBookingRequestWhere(
+  userId: string,
+  roleOverride?: string
+): Promise<Prisma.BookingRequestWhereInput | null> {
+  const role = roleOverride ?? await getUserRole()
   if (role === 'admin') return {}
   if (role === 'sales') return { userId }
 
@@ -506,7 +536,14 @@ async function getRoleScopedBookingRequestWhere(userId: string): Promise<Prisma.
   return null
 }
 
-async function buildProjectionRows(requests: ProjectionRequestRow[]): Promise<BookingRequestProjectionRow[]> {
+interface BuildProjectionRowsOptions {
+  scopedBusinesses?: ProjectionBusinessRow[]
+}
+
+async function buildProjectionRows(
+  requests: ProjectionRequestRow[],
+  options: BuildProjectionRowsOptions = {}
+): Promise<BookingRequestProjectionRow[]> {
   if (requests.length === 0) return []
 
   const opportunityIds = [...new Set(
@@ -521,16 +558,21 @@ async function buildProjectionRows(requests: ProjectionRequestRow[]): Promise<Bo
       .filter((id): id is string => !!id)
   )]
 
+  const scopedBusinesses = options.scopedBusinesses
+  const businessesPromise = scopedBusinesses
+    ? Promise.resolve(scopedBusinesses)
+    : prisma.business.findMany({
+        select: {
+          id: true,
+          name: true,
+          contactEmail: true,
+          osAdminVendorId: true,
+          metricsLastSyncedAt: true,
+        },
+      }) as Promise<ProjectionBusinessRow[]>
+
   const [businesses, opportunities, metricByExternalDealId, categoryBenchmarkByRequestId] = await Promise.all([
-    prisma.business.findMany({
-      select: {
-        id: true,
-        name: true,
-        contactEmail: true,
-        osAdminVendorId: true,
-        metricsLastSyncedAt: true,
-      },
-    }) as Promise<ProjectionBusinessRow[]>,
+    businessesPromise,
     opportunityIds.length > 0
       ? prisma.opportunity.findMany({
           where: { id: { in: opportunityIds } },
@@ -792,111 +834,147 @@ export async function getBusinessProjectionSummaryMap(
   if (normalizedBusinessIds.length === 0) {
     return { success: true, data: {} }
   }
+  const sortedBusinessIds = [...normalizedBusinessIds].sort()
 
   try {
-    const whereRole = await getRoleScopedBookingRequestWhere(authResult.userId)
+    const role = await getUserRole()
+    const whereRole = await getRoleScopedBookingRequestWhere(authResult.userId, role)
     if (whereRole === null) {
       return { success: true, data: {} }
     }
 
-    const businesses = await prisma.business.findMany({
-      where: { id: { in: normalizedBusinessIds } },
-      select: {
-        id: true,
-        name: true,
-        contactEmail: true,
-        osAdminVendorId: true,
-        metricsLastSyncedAt: true,
-        category: {
-          select: {
-            parentCategory: true,
-            subCategory1: true,
-            subCategory2: true,
-            subCategory3: true,
-            subCategory4: true,
+    const cacheKey = buildBusinessProjectionSummaryCacheKey({
+      role,
+      userId: authResult.userId,
+      businessIds: sortedBusinessIds,
+    })
+
+    pruneExpiredBusinessProjectionSummaryCache()
+    const cachedEntry = businessProjectionSummaryCache.get(cacheKey)
+    if (cachedEntry) {
+      return { success: true, data: cachedEntry.data }
+    }
+
+    const inFlightRequest = businessProjectionSummaryInFlight.get(cacheKey)
+    if (inFlightRequest) {
+      return inFlightRequest
+    }
+
+    const computePromise: Promise<ProjectionEntitySummaryMapResult> = (async () => {
+      const businesses = await prisma.business.findMany({
+        where: { id: { in: normalizedBusinessIds } },
+        select: {
+          id: true,
+          name: true,
+          contactEmail: true,
+          osAdminVendorId: true,
+          metricsLastSyncedAt: true,
+          category: {
+            select: {
+              parentCategory: true,
+              subCategory1: true,
+              subCategory2: true,
+              subCategory3: true,
+              subCategory4: true,
+            },
           },
         },
-      },
-    })
+      })
 
-    if (businesses.length === 0) {
-      return { success: true, data: {} }
-    }
-
-    const linkedOpportunities = await prisma.opportunity.findMany({
-      where: { businessId: { in: normalizedBusinessIds } },
-      select: { id: true },
-    })
-
-    const merchantMatchers: Prisma.BookingRequestWhereInput[] = uniqueIds(businesses.map(business => business.name))
-      .map(name => ({
-        merchant: { equals: name, mode: 'insensitive' as const },
-      }))
-
-    const emailMatchers: Prisma.BookingRequestWhereInput[] = uniqueIds(businesses.map(business => business.contactEmail))
-      .map(email => ({
-        businessEmail: { equals: email, mode: 'insensitive' as const },
-      }))
-
-    const requestOrConditions: Prisma.BookingRequestWhereInput[] = [
-      ...(linkedOpportunities.length > 0
-        ? [{ opportunityId: { in: linkedOpportunities.map(opportunity => opportunity.id) } }]
-        : []),
-      ...merchantMatchers,
-      ...emailMatchers,
-    ]
-
-    const requests = requestOrConditions.length === 0
-      ? ([] as ProjectionRequestRow[])
-      : await prisma.bookingRequest.findMany({
-          where: {
-            ...whereRole,
-            status: { in: INCLUDED_DASHBOARD_STATUSES },
-            OR: requestOrConditions,
-          },
-          select: {
-            id: true,
-            name: true,
-            merchant: true,
-            businessEmail: true,
-            status: true,
-            startDate: true,
-            endDate: true,
-            createdAt: true,
-            processedAt: true,
-            dealId: true,
-            opportunityId: true,
-            parentCategory: true,
-            subCategory1: true,
-            subCategory2: true,
-            subCategory3: true,
-            subCategory4: true,
-          },
-        }) as ProjectionRequestRow[]
-
-    const rows = await buildProjectionRows(requests)
-    const requestedBusinessIdSet = new Set(normalizedBusinessIds)
-    const filteredRows = rows.filter(row => row.businessId && requestedBusinessIdSet.has(row.businessId))
-
-    const summaryMap = buildProjectionEntitySummaryMap(filteredRows, row => row.businessId)
-    const businessHistoryByBusinessId = await buildBusinessHistoryByBusinessId(businesses)
-    const categoryBenchmarkByBusinessId = await buildCategoryBenchmarkByBusinessId(businesses)
-    const data: Record<string, ProjectionEntitySummary> = {}
-    for (const business of businesses) {
-      const summary = summaryMap[business.id] || getEmptyProjectionEntitySummary()
-      data[business.id] = applyEntityFallbackProjection(
-        summary,
-        businessHistoryByBusinessId.get(business.id)?.medianRevenue,
-        categoryBenchmarkByBusinessId.get(business.id)?.medianRevenue
-      )
-    }
-    for (const businessId of normalizedBusinessIds) {
-      if (!data[businessId]) {
-        data[businessId] = getEmptyProjectionEntitySummary()
+      if (businesses.length === 0) {
+        return { success: true, data: {} }
       }
-    }
 
-    return { success: true, data }
+      const linkedOpportunities = await prisma.opportunity.findMany({
+        where: { businessId: { in: normalizedBusinessIds } },
+        select: { id: true },
+      })
+
+      const merchantMatchers: Prisma.BookingRequestWhereInput[] = uniqueIds(businesses.map(business => business.name))
+        .map(name => ({
+          merchant: { equals: name, mode: 'insensitive' as const },
+        }))
+
+      const emailMatchers: Prisma.BookingRequestWhereInput[] = uniqueIds(businesses.map(business => business.contactEmail))
+        .map(email => ({
+          businessEmail: { equals: email, mode: 'insensitive' as const },
+        }))
+
+      const requestOrConditions: Prisma.BookingRequestWhereInput[] = [
+        ...(linkedOpportunities.length > 0
+          ? [{ opportunityId: { in: linkedOpportunities.map(opportunity => opportunity.id) } }]
+          : []),
+        ...merchantMatchers,
+        ...emailMatchers,
+      ]
+
+      const requests = requestOrConditions.length === 0
+        ? ([] as ProjectionRequestRow[])
+        : await prisma.bookingRequest.findMany({
+            where: {
+              ...whereRole,
+              status: { in: INCLUDED_DASHBOARD_STATUSES },
+              OR: requestOrConditions,
+            },
+            select: {
+              id: true,
+              name: true,
+              merchant: true,
+              businessEmail: true,
+              status: true,
+              startDate: true,
+              endDate: true,
+              createdAt: true,
+              processedAt: true,
+              dealId: true,
+              opportunityId: true,
+              parentCategory: true,
+              subCategory1: true,
+              subCategory2: true,
+              subCategory3: true,
+              subCategory4: true,
+            },
+          }) as ProjectionRequestRow[]
+
+      const rows = await buildProjectionRows(requests, {
+        scopedBusinesses: businesses as ProjectionBusinessRow[],
+      })
+      const requestedBusinessIdSet = new Set(normalizedBusinessIds)
+      const filteredRows = rows.filter(row => row.businessId && requestedBusinessIdSet.has(row.businessId))
+
+      const summaryMap = buildProjectionEntitySummaryMap(filteredRows, row => row.businessId)
+      const businessHistoryByBusinessId = await buildBusinessHistoryByBusinessId(businesses)
+      const categoryBenchmarkByBusinessId = await buildCategoryBenchmarkByBusinessId(businesses)
+      const data: Record<string, ProjectionEntitySummary> = {}
+      for (const business of businesses) {
+        const summary = summaryMap[business.id] || getEmptyProjectionEntitySummary()
+        data[business.id] = applyEntityFallbackProjection(
+          summary,
+          businessHistoryByBusinessId.get(business.id)?.medianRevenue,
+          categoryBenchmarkByBusinessId.get(business.id)?.medianRevenue
+        )
+      }
+      for (const businessId of normalizedBusinessIds) {
+        if (!data[businessId]) {
+          data[businessId] = getEmptyProjectionEntitySummary()
+        }
+      }
+
+      pruneExpiredBusinessProjectionSummaryCache()
+      businessProjectionSummaryCache.set(cacheKey, {
+        data,
+        expiresAt: Date.now() + CACHE_SERVER_BUSINESS_PROJECTION_SUMMARY_MS,
+      })
+
+      return { success: true, data }
+    })()
+
+    businessProjectionSummaryInFlight.set(cacheKey, computePromise)
+    try {
+      return await computePromise
+    } finally {
+      businessProjectionSummaryInFlight.delete(cacheKey)
+    }
   } catch (error) {
     return handleServerActionError(error, 'getBusinessProjectionSummaryMap')
   }
@@ -986,7 +1064,7 @@ export async function getOpportunityProjectionSummaryMap(
       },
     }) as ProjectionRequestRow[]
 
-    const rows = await buildProjectionRows(requests)
+    const rows = await buildProjectionRows(requests, { scopedBusinesses: businesses })
     const summaryMap = buildProjectionEntitySummaryMap(rows, row => row.opportunityId)
     const data: Record<string, ProjectionEntitySummary> = {}
     for (const opportunityId of normalizedOpportunityIds) {
