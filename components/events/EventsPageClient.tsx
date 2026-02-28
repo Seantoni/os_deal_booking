@@ -10,9 +10,9 @@ import DayEventsModal from '@/components/calendar/DayEventsModal'
 import NewRequestModal from '@/components/booking/NewRequestModal'
 import {
   updateEvent,
-  getEvents,
   refreshCalendarData,
   getCalendarPendingRequests,
+  getDailyEventCounts,
 } from '@/app/actions/events'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import CloseIcon from '@mui/icons-material/Close'
@@ -75,11 +75,13 @@ export default function EventsPageClient({
   const searchParams = useSearchParams()
 
   const [events, setEvents] = useState<Event[]>(initialEvents)
-  const [miniCalendarEvents, setMiniCalendarEvents] = useState<Event[]>(initialEvents)
   const [pendingRequests, setPendingRequests] = useState<BookingRequest[]>([])
   const [pendingCount, setPendingCount] = useState(initialPendingCount)
   const [hasLoadedPendingRequests, setHasLoadedPendingRequests] = useState(false)
   const [isCalendarLoading, setIsCalendarLoading] = useState(false)
+
+  const [dayCounts, setDayCounts] = useState<Record<string, number>>({})
+  const [isLoadingCounts, setIsLoadingCounts] = useState(true)
 
   const [calendarRange, setCalendarRange] = useState<CalendarRange>(initialRange)
   const calendarRangeRef = useRef(initialRange)
@@ -124,25 +126,28 @@ export default function EventsPageClient({
     setEvents(initialEvents)
   }, [initialEvents])
 
+  // Load initial mini calendar counts for the current month
   useEffect(() => {
     let cancelled = false
+    const now = new Date()
+    const yr = now.getFullYear()
+    const mo = now.getMonth() + 1
 
-    async function loadAllEventsForMiniCalendar() {
+    async function loadInitialCounts() {
       try {
-        const result = await getEvents()
+        const result = await getDailyEventCounts(yr, mo)
         if (!cancelled && result.success && result.data) {
-          setMiniCalendarEvents(result.data)
+          setDayCounts(result.data)
         }
       } catch (error) {
-        console.error('Failed to load mini calendar events:', error)
+        console.error('Failed to load mini calendar counts:', error)
+      } finally {
+        if (!cancelled) setIsLoadingCounts(false)
       }
     }
 
-    loadAllEventsForMiniCalendar()
-
-    return () => {
-      cancelled = true
-    }
+    loadInitialCounts()
+    return () => { cancelled = true }
   }, [])
 
   useEffect(() => {
@@ -181,14 +186,20 @@ export default function EventsPageClient({
     }
   }, [])
 
-  const refreshMiniCalendarEvents = useCallback(async () => {
+  const dayCountsMonthRef = useRef<{ year: number; month: number }>({
+    year: new Date().getFullYear(),
+    month: new Date().getMonth() + 1,
+  })
+
+  const refreshDayCounts = useCallback(async () => {
     try {
-      const result = await getEvents()
+      const { year, month } = dayCountsMonthRef.current
+      const result = await getDailyEventCounts(year, month)
       if (result.success && result.data) {
-        setMiniCalendarEvents(result.data)
+        setDayCounts(result.data)
       }
     } catch (error) {
-      console.error('Failed to refresh mini calendar events:', error)
+      console.error('Failed to refresh mini calendar counts:', error)
     }
   }, [])
 
@@ -261,7 +272,6 @@ export default function EventsPageClient({
       endDate: newEndDate,
     }
     setEvents((prev) => prev.map((e) => (e.id === event.id ? updatedEvent : e)))
-    setMiniCalendarEvents((prev) => prev.map((e) => (e.id === event.id ? updatedEvent : e)))
 
     try {
       const formData = new FormData()
@@ -278,13 +288,10 @@ export default function EventsPageClient({
       formData.set('endDate', formatDateForServer(newEndDate))
 
       await updateEvent(event.id, formData)
-      // Refresh data in background (fetches only current event range)
       refreshEvents()
-      refreshMiniCalendarEvents()
+      refreshDayCounts()
     } catch (error) {
-      // Rollback on error
       setEvents((prev) => prev.map((e) => (e.id === event.id ? event : e)))
-      setMiniCalendarEvents((prev) => prev.map((e) => (e.id === event.id ? event : e)))
       console.error('Failed to move event:', error)
     }
   }
@@ -299,7 +306,6 @@ export default function EventsPageClient({
       endDate: newEndDate,
     }
     setEvents((prev) => prev.map((e) => (e.id === event.id ? updatedEvent : e)))
-    setMiniCalendarEvents((prev) => prev.map((e) => (e.id === event.id ? updatedEvent : e)))
 
     try {
       const formData = new FormData()
@@ -313,7 +319,6 @@ export default function EventsPageClient({
       formData.set('business', event.business || '')
       formData.set('businessId', event.businessId || '')
 
-      // Keep original start date, only update end date
       const originalStart = new Date(event.startDate)
       const startYear = originalStart.getUTCFullYear()
       const startMonth = originalStart.getUTCMonth()
@@ -324,13 +329,10 @@ export default function EventsPageClient({
       formData.set('endDate', formatDateForServer(newEndDate))
 
       await updateEvent(event.id, formData)
-      // Refresh data in background (fetches only current event range)
       refreshEvents()
-      refreshMiniCalendarEvents()
+      refreshDayCounts()
     } catch (error) {
-      // Rollback on error
       setEvents((prev) => prev.map((e) => (e.id === event.id ? event : e)))
-      setMiniCalendarEvents((prev) => prev.map((e) => (e.id === event.id ? event : e)))
       console.error('Failed to resize event:', error)
     }
   }
@@ -351,30 +353,20 @@ export default function EventsPageClient({
 
   const handleEventSuccess = (event: Event, action: 'create' | 'update' | 'delete' | 'book' | 'reject') => {
     if (action === 'create') {
-      // Add new event to the top
       setEvents((prev) => [event, ...prev])
-      setMiniCalendarEvents((prev) => [event, ...prev])
     } else if (action === 'update') {
-      // Update existing event
       setEvents((prev) => prev.map((e) => (e.id === event.id ? event : e)))
-      setMiniCalendarEvents((prev) => prev.map((e) => (e.id === event.id ? event : e)))
     } else if (action === 'delete') {
-      // Remove event
       setEvents((prev) => prev.filter((e) => e.id !== event.id))
-      setMiniCalendarEvents((prev) => prev.filter((e) => e.id !== event.id))
     } else if (action === 'book') {
-      // Update event status for booked events
       setEvents((prev) => prev.map((e) => (e.id === event.id ? event : e)))
-      setMiniCalendarEvents((prev) => prev.map((e) => (e.id === event.id ? event : e)))
 
       if (event.bookingRequestId) {
         setPendingRequests((prev) => prev.filter((r) => r.id !== event.bookingRequestId))
         setPendingCount((prev) => Math.max(0, prev - 1))
       }
     } else if (action === 'reject') {
-      // Remove event from calendar when rejected
       setEvents((prev) => prev.filter((e) => e.id !== event.id))
-      setMiniCalendarEvents((prev) => prev.filter((e) => e.id !== event.id))
 
       if (event.bookingRequestId) {
         setPendingRequests((prev) => prev.filter((r) => r.id !== event.bookingRequestId))
@@ -382,9 +374,8 @@ export default function EventsPageClient({
       }
     }
 
-    // Refresh data in background (fetches only current event range)
     refreshEvents()
-    refreshMiniCalendarEvents()
+    refreshDayCounts()
   }
 
   const handleDayModalClose = () => {
@@ -444,9 +435,23 @@ export default function EventsPageClient({
   const handleMiniCalendarClearSelection = () => {
     setSelectedMiniDate(null)
     setSelectedMiniRange(null)
-    // Keep the current date but switch to month view
     setExternalCalendarView('month')
   }
+
+  const handleMiniCalendarMonthChange = useCallback(async (year: number, month: number) => {
+    dayCountsMonthRef.current = { year, month }
+    setIsLoadingCounts(true)
+    try {
+      const result = await getDailyEventCounts(year, month)
+      if (result.success && result.data) {
+        setDayCounts(result.data)
+      }
+    } catch (error) {
+      console.error('Failed to load mini calendar counts:', error)
+    } finally {
+      setIsLoadingCounts(false)
+    }
+  }, [])
 
   const handleCalendarViewChange = (view: CalendarViewMode) => {
     // When user clicks Day/Week/Month buttons, clear mini calendar selection
@@ -510,21 +515,14 @@ export default function EventsPageClient({
         prev.map((r) => (r.id === request.id ? { ...r, startDate: newStartDate, endDate: newEndDateLocal } : r))
       )
 
-      // Optimistically update local events state (find the linked event by bookingRequestId)
       setEvents((prev) =>
         prev.map((e) =>
           e.bookingRequestId === request.id ? { ...e, startDate: newStartDate, endDate: newEndDateLocal } : e
         )
       )
-      setMiniCalendarEvents((prev) =>
-        prev.map((e) =>
-          e.bookingRequestId === request.id ? { ...e, startDate: newStartDate, endDate: newEndDateLocal } : e
-        )
-      )
 
-      // Refresh data in background (fetches only current event range)
       refreshEvents()
-      refreshMiniCalendarEvents()
+      refreshDayCounts()
     } else {
       console.error('Failed to update booking request:', result.error)
     }
@@ -612,9 +610,11 @@ export default function EventsPageClient({
                   onMiniCalendarRangeSelect={handleMiniCalendarRangeSelect}
                   onMiniCalendarMonthSelect={handleMiniCalendarMonthSelect}
                   onMiniCalendarClearSelection={handleMiniCalendarClearSelection}
+                  onMiniCalendarMonthChange={handleMiniCalendarMonthChange}
                   selectedMiniDate={selectedMiniDate}
                   selectedMiniRange={selectedMiniRange}
-                  events={miniCalendarEvents}
+                  dayCounts={dayCounts}
+                  isLoadingCounts={isLoadingCounts}
                   pendingCount={pendingCount}
                 />
               )}

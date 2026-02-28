@@ -3,7 +3,7 @@
 import { getCategoryHierarchy, getMainCategories, getCategoryColors } from '@/lib/categories'
 import { useState, useEffect, useMemo } from 'react'
 import MiniCalendar from './MiniCalendar'
-import type { UserRole, CategoryNode, Event } from '@/types'
+import type { UserRole, CategoryNode } from '@/types'
 
 // Helper to check if a node is a leaf array
 function isLeafArray(node: CategoryNode): node is string[] {
@@ -21,9 +21,11 @@ interface CategoriesSidebarProps {
   onMiniCalendarRangeSelect?: (startDate: Date, endDate: Date) => void
   onMiniCalendarMonthSelect?: (year: number, month: number) => void
   onMiniCalendarClearSelection?: () => void
+  onMiniCalendarMonthChange?: (year: number, month: number) => void
   selectedMiniDate?: Date | null
   selectedMiniRange?: { start: Date; end: Date } | null
-  events?: Event[]
+  dayCounts?: Record<string, number>
+  isLoadingCounts?: boolean
   pendingCount?: number
 }
 
@@ -37,9 +39,11 @@ export default function CategoriesSidebar({
   onMiniCalendarRangeSelect,
   onMiniCalendarMonthSelect,
   onMiniCalendarClearSelection,
+  onMiniCalendarMonthChange,
   selectedMiniDate,
   selectedMiniRange,
-  events = [],
+  dayCounts = {},
+  isLoadingCounts = false,
   pendingCount = 0,
 }: CategoriesSidebarProps) {
   const [searchQuery, setSearchQuery] = useState('')
@@ -139,9 +143,11 @@ export default function CategoriesSidebar({
           onRangeSelect={onMiniCalendarRangeSelect}
           onMonthSelect={onMiniCalendarMonthSelect}
           onClearSelection={onMiniCalendarClearSelection}
+          onMonthChange={onMiniCalendarMonthChange}
           selectedDate={selectedMiniDate}
           selectedRange={selectedMiniRange}
-          events={events}
+          dayCounts={dayCounts}
+          isLoadingCounts={isLoadingCounts}
         />
       </div>
 

@@ -440,6 +440,59 @@ export async function getCalendarPendingRequests() {
   }
 }
 
+/**
+ * Lightweight daily event counts for a single month.
+ * Returns { "YYYY-MM-DD": count } for booked/pre-booked events starting on each day.
+ * Cached for 5 minutes and tagged with 'events' for invalidation on mutations.
+ */
+export async function getDailyEventCounts(year: number, month: number) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return { success: true, data: {} as Record<string, number> }
+  }
+
+  try {
+    const cacheKey = `daily-counts-${year}-${month}`
+
+    const getCached = unstable_cache(
+      async () => {
+        const monthStart = parseDateInPanamaTime(
+          `${year}-${String(month).padStart(2, '0')}-01`
+        )
+        const nextMonthStart = month === 12
+          ? parseDateInPanamaTime(`${year + 1}-01-01`)
+          : parseDateInPanamaTime(
+              `${year}-${String(month + 1).padStart(2, '0')}-01`
+            )
+
+        const rows = await prisma.event.groupBy({
+          by: ['startDate'],
+          where: {
+            status: { in: ['booked', 'pre-booked'] },
+            startDate: { gte: monthStart, lt: nextMonthStart },
+          },
+          _count: { id: true },
+        })
+
+        const counts: Record<string, number> = {}
+        for (const row of rows) {
+          const d = new Date(row.startDate)
+          const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+          counts[key] = (counts[key] || 0) + row._count.id
+        }
+        return counts
+      },
+      [cacheKey],
+      { tags: ['events'], revalidate: 300 }
+    )
+
+    const data = await getCached()
+    return { success: true, data }
+  } catch (error) {
+    return handleServerActionError(error, 'getDailyEventCounts')
+  }
+}
+
 export async function getCalendarPendingRequestsCount() {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {

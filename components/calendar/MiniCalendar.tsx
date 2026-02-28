@@ -3,18 +3,19 @@
 import { useState, useMemo } from 'react'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
-import { getEventsOnDate, getDailyLimitStatus } from '@/lib/event-validation'
+import { getDailyLimitStatus } from '@/lib/event-validation'
 import { getSettings } from '@/lib/settings'
-import type { Event } from '@/types'
 
 interface MiniCalendarProps {
   onDateSelect?: (date: Date, mode: 'day') => void
   onRangeSelect?: (startDate: Date, endDate: Date) => void
   onMonthSelect?: (year: number, month: number) => void
   onClearSelection?: () => void
+  onMonthChange?: (year: number, month: number) => void
   selectedDate?: Date | null
   selectedRange?: { start: Date; end: Date } | null
-  events?: Event[]
+  dayCounts?: Record<string, number>
+  isLoadingCounts?: boolean
 }
 
 export default function MiniCalendar({
@@ -22,9 +23,11 @@ export default function MiniCalendar({
   onRangeSelect,
   onMonthSelect,
   onClearSelection,
+  onMonthChange,
   selectedDate,
   selectedRange,
-  events = [],
+  dayCounts = {},
+  isLoadingCounts = false,
 }: MiniCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [dragStartDay, setDragStartDay] = useState<number | null>(null)
@@ -36,17 +39,9 @@ export default function MiniCalendar({
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
   
-  // Filter to only booked/pre-booked events for status calculation
-  const bookedEvents = useMemo(() => 
-    events.filter(event => event.status === 'booked' || event.status === 'pre-booked'),
-    [events]
-  )
-  
-  // Calculate daily status for each day in the month
   const getDayStatus = (day: number) => {
-    const dateToCheck = new Date(year, month, day)
-    const eventsOnDay = getEventsOnDate(bookedEvents, dateToCheck)
-    const dailyCount = eventsOnDay.length
+    const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    const dailyCount = dayCounts[key] || 0
     return getDailyLimitStatus(
       dailyCount,
       userSettings.minDailyLaunches,
@@ -61,7 +56,6 @@ export default function MiniCalendar({
 
   const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
-  // Calculate calendar grid
   const calendarData = useMemo(() => {
     const firstDayOfMonth = new Date(year, month, 1)
     const lastDayOfMonth = new Date(year, month + 1, 0)
@@ -70,12 +64,10 @@ export default function MiniCalendar({
 
     const days: (number | null)[] = []
     
-    // Empty cells before month starts
     for (let i = 0; i < startingDayOfWeek; i++) {
       days.push(null)
     }
     
-    // Days of the month
     for (let d = 1; d <= daysInMonth; d++) {
       days.push(d)
     }
@@ -84,11 +76,19 @@ export default function MiniCalendar({
   }, [year, month])
 
   const navigatePrevious = () => {
-    setCurrentDate(new Date(year, month - 1, 1))
+    const newDate = new Date(year, month - 1, 1)
+    setCurrentDate(newDate)
+    const newMonth = newDate.getMonth()
+    const newYear = newDate.getFullYear()
+    onMonthChange?.(newYear, newMonth + 1)
   }
 
   const navigateNext = () => {
-    setCurrentDate(new Date(year, month + 1, 1))
+    const newDate = new Date(year, month + 1, 1)
+    setCurrentDate(newDate)
+    const newMonth = newDate.getMonth()
+    const newYear = newDate.getFullYear()
+    onMonthChange?.(newYear, newMonth + 1)
   }
 
   const isToday = (day: number) => {
@@ -163,21 +163,17 @@ export default function MiniCalendar({
       const endDate = new Date(year, month, endDay, 12, 0, 0)
       
       if (startDay === endDay) {
-        // Single day click - check if already selected, then deselect
         const isAlreadySelected = selectedDate && 
           selectedDate.getDate() === day &&
           selectedDate.getMonth() === month &&
           selectedDate.getFullYear() === year
         
         if (isAlreadySelected) {
-          // Clicking same date again - clear selection
           onClearSelection?.()
         } else {
-          // Select new date - go to day view
           onDateSelect?.(startDate, 'day')
         }
       } else {
-        // Range selection
         onRangeSelect?.(startDate, endDate)
       }
       
@@ -191,7 +187,14 @@ export default function MiniCalendar({
   }
 
   return (
-    <div className="p-2 bg-gradient-to-br from-slate-50 to-white rounded-lg border border-slate-200/80 shadow-sm">
+    <div className="p-2 bg-gradient-to-br from-slate-50 to-white rounded-lg border border-slate-200/80 shadow-sm relative">
+      {/* Loading overlay */}
+      {isLoadingCounts && (
+        <div className="absolute inset-0 z-10 bg-white/60 rounded-lg flex items-center justify-center backdrop-blur-[0.5px]">
+          <span className="w-4 h-4 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-1.5">
         <button
@@ -251,12 +254,10 @@ export default function MiniCalendar({
           const rangeStart = isRangeStart(day)
           const rangeEnd = isRangeEnd(day)
           const inDrag = isInDragRange(day)
-          const dayStatus = getDayStatus(day)
+          const dayStatus = isLoadingCounts ? null : getDayStatus(day)
           
-          // Determine if we should show status color (only when not selected/dragging)
-          const showStatusColor = !selected && !inSelectedRange && !rangeStart && !rangeEnd && !inDrag && !today
+          const showStatusColor = dayStatus && !selected && !inSelectedRange && !rangeStart && !rangeEnd && !inDrag && !today
           
-          // Status-based background colors
           const getStatusBg = () => {
             if (!showStatusColor) return ''
             if (dayStatus === 'under') return 'bg-red-50 text-red-700 ring-1 ring-red-200'
