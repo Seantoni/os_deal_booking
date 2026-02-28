@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import CategoriesSidebar from '@/components/calendar/CategoriesSidebar'
@@ -8,11 +8,14 @@ import PendingRequestsSidebar from '@/components/booking/PendingRequestsSidebar'
 import CalendarView from '@/components/calendar/CalendarView'
 import DayEventsModal from '@/components/calendar/DayEventsModal'
 import NewRequestModal from '@/components/booking/NewRequestModal'
-import { updateEvent, refreshCalendarData } from '@/app/actions/events'
+import {
+  updateEvent,
+  refreshCalendarData,
+  getCalendarPendingRequests,
+} from '@/app/actions/events'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import CloseIcon from '@mui/icons-material/Close'
 import type { Event, BookingRequest, UserRole } from '@/types'
-import { buildEventNameFromBookingRequest } from '@/lib/utils/request-name-parsing'
 
 // Lazy load heavy modal component
 const EventModal = dynamic(() => import('@/components/events/EventModal'), {
@@ -20,20 +23,65 @@ const EventModal = dynamic(() => import('@/components/events/EventModal'), {
   ssr: false,
 })
 
+type CalendarViewMode = 'day' | 'week' | 'month'
+
+type CalendarRange = {
+  startDate: string
+  endDate: string
+  view: CalendarViewMode
+}
+
 interface EventsPageClientProps {
   events: Event[]
-  bookingRequests: BookingRequest[]
+  initialRange: CalendarRange
+  initialPendingCount: number
   userRole: UserRole
 }
 
-type BookingRequestWithPricing = BookingRequest & {
-  pricingOptions?: unknown
+function formatDateForServer(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
-export default function EventsPageClient({ events: initialEvents, bookingRequests: initialBookingRequests, userRole }: EventsPageClientProps) {
+function applyRangeBuffer(start: Date, end: Date, view: CalendarViewMode): CalendarRange {
+  const bufferDays = view === 'month' ? 7 : view === 'week' ? 3 : 1
+
+  const bufferedStart = new Date(start)
+  bufferedStart.setDate(bufferedStart.getDate() - bufferDays)
+
+  const bufferedEnd = new Date(end)
+  bufferedEnd.setDate(bufferedEnd.getDate() + bufferDays)
+
+  return {
+    startDate: formatDateForServer(bufferedStart),
+    endDate: formatDateForServer(bufferedEnd),
+    view,
+  }
+}
+
+function rangesEqual(a: CalendarRange, b: CalendarRange): boolean {
+  return a.startDate === b.startDate && a.endDate === b.endDate && a.view === b.view
+}
+
+export default function EventsPageClient({
+  events: initialEvents,
+  initialRange,
+  initialPendingCount,
+  userRole,
+}: EventsPageClientProps) {
   const searchParams = useSearchParams()
+
   const [events, setEvents] = useState<Event[]>(initialEvents)
-  const [bookingRequests, setBookingRequests] = useState<BookingRequest[]>(initialBookingRequests)
+  const [pendingRequests, setPendingRequests] = useState<BookingRequest[]>([])
+  const [pendingCount, setPendingCount] = useState(initialPendingCount)
+  const [hasLoadedPendingRequests, setHasLoadedPendingRequests] = useState(false)
+
+  const [calendarRange, setCalendarRange] = useState<CalendarRange>(initialRange)
+  const calendarRangeRef = useRef(initialRange)
+  const hasSkippedInitialRangeFetch = useRef(false)
+
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [showPendingBooking, setShowPendingBooking] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -49,13 +97,13 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [shouldLoadModal, setShouldLoadModal] = useState(false)
   const [showMobileFilters, setShowMobileFilters] = useState(false)
-  
+
   // Mini calendar navigation state
   const [externalCalendarDate, setExternalCalendarDate] = useState<Date | null>(null)
-  const [externalCalendarView, setExternalCalendarView] = useState<'day' | 'week' | 'month' | null>(null)
+  const [externalCalendarView, setExternalCalendarView] = useState<CalendarViewMode | null>(null)
   const [selectedMiniDate, setSelectedMiniDate] = useState<Date | null>(null)
   const [selectedMiniRange, setSelectedMiniRange] = useState<{ start: Date; end: Date } | null>(null)
-  
+
   // New Request Modal state
   const [showNewRequestModal, setShowNewRequestModal] = useState(false)
 
@@ -64,78 +112,73 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
     setIsModalOpen(true)
   }
 
-  // Refresh calendar data - fetches only events/bookings, NOT user data
-  // This avoids Clerk API calls on calendar changes
-  const refreshData = useCallback(async () => {
-    const result = await refreshCalendarData()
-    if (result.success) {
-      if (result.events) setEvents(result.events)
-      if (result.bookingRequests) setBookingRequests(result.bookingRequests as BookingRequest[])
-    }
-  }, [])
+  useEffect(() => {
+    calendarRangeRef.current = calendarRange
+  }, [calendarRange])
 
-  // Update local state when props change
+  // Update local state when server props change
   useEffect(() => {
     setEvents(initialEvents)
   }, [initialEvents])
 
   useEffect(() => {
-    setBookingRequests(initialBookingRequests)
-  }, [initialBookingRequests])
+    setPendingCount(initialPendingCount)
+  }, [initialPendingCount])
 
-  const bookingRequestsById = useMemo(() => {
-    const map = new Map<string, BookingRequestWithPricing>()
-    bookingRequests.forEach((request) => {
-      map.set(request.id, request as BookingRequestWithPricing)
+  const refreshEvents = useCallback(async () => {
+    const range = calendarRangeRef.current
+    const result = await refreshCalendarData({
+      startDate: range.startDate,
+      endDate: range.endDate,
     })
-    return map
-  }, [bookingRequests])
 
-  // Keep booking-linked event names generated from the latest booking request data.
-  const eventsWithResolvedNames = useMemo(() => {
-    return events.map((event) => {
-      if (!event.bookingRequestId) return event
+    if (result.success && result.events) {
+      setEvents(result.events)
+    }
+  }, [])
 
-      const bookingRequest = bookingRequestsById.get(event.bookingRequestId)
-      if (!bookingRequest) return event
+  const loadPendingRequests = useCallback(async () => {
+    const result = await getCalendarPendingRequests()
+    if (result.success && result.data) {
+      const requests = result.data as BookingRequest[]
+      setPendingRequests(requests)
+      setPendingCount(requests.length)
+      setHasLoadedPendingRequests(true)
+    }
+  }, [])
 
-      const generatedName = buildEventNameFromBookingRequest({
-        requestName: bookingRequest.name || '',
-        merchant: bookingRequest.merchant || event.business || null,
-        pricingOptions: bookingRequest.pricingOptions,
-      })
-
-      if (!generatedName || generatedName === event.name) return event
-      return { ...event, name: generatedName }
-    })
-  }, [events, bookingRequestsById])
+  // Load events when visible calendar range changes
+  useEffect(() => {
+    if (!hasSkippedInitialRangeFetch.current && rangesEqual(calendarRange, initialRange)) {
+      hasSkippedInitialRangeFetch.current = true
+      return
+    }
+    hasSkippedInitialRangeFetch.current = true
+    refreshEvents()
+  }, [calendarRange, initialRange, refreshEvents])
 
   // Handle opening event from URL query params (e.g., from search)
   useEffect(() => {
     const openFromUrl = searchParams.get('open')
-    if (openFromUrl && eventsWithResolvedNames.length > 0) {
-      const event = eventsWithResolvedNames.find(e => e.id === openFromUrl)
+    if (openFromUrl && events.length > 0) {
+      const event = events.find((e) => e.id === openFromUrl)
       if (event) {
         setEventToEdit(event)
         setSelectedDate(undefined)
         openEventModal()
       }
     }
-  }, [searchParams, eventsWithResolvedNames])
-  
-  // Filter booking requests to only show approved ones
-  const pendingRequests = bookingRequests.filter(r => r.status === 'approved')
-  
+  }, [searchParams, events])
+
   // When category filter is active, filter calendar to show only booked events in that category
   const calendarSelectedCategories = categoryFilter ? [categoryFilter] : selectedCategories
 
   const handleCategoryToggle = (category: string) => {
-    setSelectedCategories(prev => {
+    setSelectedCategories((prev) => {
       if (prev.includes(category)) {
-        return prev.filter(c => c !== category)
-      } else {
-        return [...prev, category]
+        return prev.filter((c) => c !== category)
       }
+      return [...prev, category]
     })
   }
 
@@ -162,25 +205,18 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
     openEventModal()
   }
 
-  const formatDateForServer = (date: Date) => {
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  }
-
   const handleEventMove = async (event: Event, newStartDate: Date, newEndDate: Date) => {
     // Only admins can move events
     if (userRole !== 'admin') return
-    
+
     // Optimistic update: update event in UI immediately
     const updatedEvent = {
       ...event,
       startDate: newStartDate,
       endDate: newEndDate,
     }
-    setEvents(prev => prev.map(e => e.id === event.id ? updatedEvent : e))
-    
+    setEvents((prev) => prev.map((e) => (e.id === event.id ? updatedEvent : e)))
+
     try {
       const formData = new FormData()
       formData.set('name', event.name)
@@ -194,13 +230,13 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
       formData.set('businessId', event.businessId || '')
       formData.set('startDate', formatDateForServer(newStartDate))
       formData.set('endDate', formatDateForServer(newEndDate))
-      
+
       await updateEvent(event.id, formData)
-      // Refresh data in background (fetches only events/bookings, NOT user data)
-      refreshData()
+      // Refresh data in background (fetches only current event range)
+      refreshEvents()
     } catch (error) {
       // Rollback on error
-      setEvents(prev => prev.map(e => e.id === event.id ? event : e))
+      setEvents((prev) => prev.map((e) => (e.id === event.id ? event : e)))
       console.error('Failed to move event:', error)
     }
   }
@@ -208,14 +244,14 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
   const handleEventResize = async (event: Event, newEndDate: Date) => {
     // Only admins can resize events
     if (userRole !== 'admin') return
-    
+
     // Optimistic update: update event in UI immediately
     const updatedEvent = {
       ...event,
       endDate: newEndDate,
     }
-    setEvents(prev => prev.map(e => e.id === event.id ? updatedEvent : e))
-    
+    setEvents((prev) => prev.map((e) => (e.id === event.id ? updatedEvent : e)))
+
     try {
       const formData = new FormData()
       formData.set('name', event.name)
@@ -227,23 +263,23 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
       formData.set('subCategory3', event.subCategory3 || '')
       formData.set('business', event.business || '')
       formData.set('businessId', event.businessId || '')
-      
+
       // Keep original start date, only update end date
       const originalStart = new Date(event.startDate)
       const startYear = originalStart.getUTCFullYear()
       const startMonth = originalStart.getUTCMonth()
       const startDay = originalStart.getUTCDate()
       const startDateLocal = new Date(startYear, startMonth, startDay, 12, 0, 0)
-      
+
       formData.set('startDate', formatDateForServer(startDateLocal))
       formData.set('endDate', formatDateForServer(newEndDate))
-      
+
       await updateEvent(event.id, formData)
-      // Refresh data in background (fetches only events/bookings, NOT user data)
-      refreshData()
+      // Refresh data in background (fetches only current event range)
+      refreshEvents()
     } catch (error) {
       // Rollback on error
-      setEvents(prev => prev.map(e => e.id === event.id ? event : e))
+      setEvents((prev) => prev.map((e) => (e.id === event.id ? event : e)))
       console.error('Failed to resize event:', error)
     }
   }
@@ -265,40 +301,33 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
   const handleEventSuccess = (event: Event, action: 'create' | 'update' | 'delete' | 'book' | 'reject') => {
     if (action === 'create') {
       // Add new event to the top
-      setEvents(prev => [event, ...prev])
+      setEvents((prev) => [event, ...prev])
     } else if (action === 'update') {
       // Update existing event
-      setEvents(prev => prev.map(e => e.id === event.id ? event : e))
+      setEvents((prev) => prev.map((e) => (e.id === event.id ? event : e)))
     } else if (action === 'delete') {
       // Remove event
-      setEvents(prev => prev.filter(e => e.id !== event.id))
+      setEvents((prev) => prev.filter((e) => e.id !== event.id))
     } else if (action === 'book') {
       // Update event status for booked events
-      setEvents(prev => prev.map(e => e.id === event.id ? event : e))
-      
-      // Update the linked booking request status
+      setEvents((prev) => prev.map((e) => (e.id === event.id ? event : e)))
+
       if (event.bookingRequestId) {
-        setBookingRequests(prev => prev.map(r => 
-          r.id === event.bookingRequestId 
-            ? { ...r, status: 'booked' } 
-            : r
-        ))
+        setPendingRequests((prev) => prev.filter((r) => r.id !== event.bookingRequestId))
+        setPendingCount((prev) => Math.max(0, prev - 1))
       }
     } else if (action === 'reject') {
       // Remove event from calendar when rejected
-      setEvents(prev => prev.filter(e => e.id !== event.id))
-      
-      // Update the linked booking request status
+      setEvents((prev) => prev.filter((e) => e.id !== event.id))
+
       if (event.bookingRequestId) {
-        setBookingRequests(prev => prev.map(r => 
-          r.id === event.bookingRequestId 
-            ? { ...r, status: 'rejected' } 
-            : r
-        ))
+        setPendingRequests((prev) => prev.filter((r) => r.id !== event.bookingRequestId))
+        setPendingCount((prev) => Math.max(0, prev - 1))
       }
     }
-    // Refresh data in background (fetches only events/bookings, NOT user data)
-    refreshData()
+
+    // Refresh data in background (fetches only current event range)
+    refreshEvents()
   }
 
   const handleDayModalClose = () => {
@@ -310,7 +339,7 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
   const handleRequestClick = (request: BookingRequest) => {
     // If the request has a linked event, open that event for editing (with Approve/Reject buttons)
     if (request.eventId) {
-      const linkedEvent = eventsWithResolvedNames.find(e => e.id === request.eventId)
+      const linkedEvent = events.find((e) => e.id === request.eventId)
       if (linkedEvent) {
         setEventToEdit(linkedEvent)
         setBookingRequestId(undefined)
@@ -320,7 +349,7 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
         return
       }
     }
-    
+
     // Fallback: Open the request details in the event modal (create mode)
     setEventToEdit(null)
     setBookingRequestId(request.id)
@@ -332,7 +361,7 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
   }
 
   // Mini calendar handlers
-  const handleMiniCalendarDateSelect = (date: Date, mode: 'day') => {
+  const handleMiniCalendarDateSelect = (date: Date) => {
     setSelectedMiniDate(date)
     setSelectedMiniRange(null)
     setExternalCalendarDate(date)
@@ -362,7 +391,7 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
     setExternalCalendarView('month')
   }
 
-  const handleCalendarViewChange = (view: 'day' | 'week' | 'month') => {
+  const handleCalendarViewChange = (view: CalendarViewMode) => {
     // When user clicks Day/Week/Month buttons, clear mini calendar selection
     // and show the standard calendar view
     setSelectedMiniDate(null)
@@ -378,23 +407,28 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
     }
   }
 
+  const handleCalendarVisibleRangeChange = useCallback((start: Date, end: Date, view: CalendarViewMode) => {
+    const nextRange = applyRangeBuffer(start, end, view)
+    setCalendarRange((prev) => (rangesEqual(prev, nextRange) ? prev : nextRange))
+  }, [])
+
   const handleRequestDropOnDate = async (request: BookingRequest, date: Date) => {
     // Import category duration check
     const { getMaxDuration } = await import('@/lib/categories')
-    
+
     // Determine duration based on category (7 days for hotels/restaurants/shows, 5 days for others)
     const durationDays = getMaxDuration(request.parentCategory || null)
-    
+
     // Calculate new dates
     const startDateStr = formatDateForServer(date)
     const newEndDate = new Date(date)
     newEndDate.setDate(newEndDate.getDate() + durationDays - 1)
     const endDateStr = formatDateForServer(newEndDate)
-    
+
     // Calculate dates in local timezone for immediate UI update
     const newStartDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0)
     const newEndDateLocal = new Date(date.getFullYear(), date.getMonth(), date.getDate() + durationDays - 1, 12, 0, 0)
-    
+
     // Update the booking request (which also updates the linked event)
     const { updateBookingRequest } = await import('@/app/actions/booking-requests')
     const formData = new FormData()
@@ -408,28 +442,26 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
     formData.append('subCategory1', request.subCategory1 || '')
     formData.append('subCategory2', request.subCategory2 || '')
     formData.append('subCategory3', request.subCategory3 || '')
-    
+
     const result = await updateBookingRequest(request.id, formData)
-    
+
     setDraggingRequest(null)
-    
+
     if (result.success) {
-      // Optimistically update local booking requests state
-      setBookingRequests(prev => prev.map(r => 
-        r.id === request.id 
-          ? { ...r, startDate: newStartDate, endDate: newEndDateLocal }
-          : r
-      ))
-      
+      // Optimistically update local pending requests state
+      setPendingRequests((prev) =>
+        prev.map((r) => (r.id === request.id ? { ...r, startDate: newStartDate, endDate: newEndDateLocal } : r))
+      )
+
       // Optimistically update local events state (find the linked event by bookingRequestId)
-      setEvents(prev => prev.map(e => 
-        e.bookingRequestId === request.id
-          ? { ...e, startDate: newStartDate, endDate: newEndDateLocal }
-          : e
-      ))
-      
-      // Refresh data in background (fetches only events/bookings, NOT user data)
-      refreshData()
+      setEvents((prev) =>
+        prev.map((e) =>
+          e.bookingRequestId === request.id ? { ...e, startDate: newStartDate, endDate: newEndDateLocal } : e
+        )
+      )
+
+      // Refresh data in background (fetches only current event range)
+      refreshEvents()
     } else {
       console.error('Failed to update booking request:', result.error)
     }
@@ -438,13 +470,23 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
   // Listen for custom events from header buttons
   useEffect(() => {
     const handleOpenModal = () => openEventModal()
-    
+
     window.addEventListener('openEventModal', handleOpenModal)
-    
+
     return () => {
       window.removeEventListener('openEventModal', handleOpenModal)
     }
   }, [])
+
+  const handlePendingBookingToggle = useCallback(async () => {
+    const nextShowPending = !showPendingBooking
+
+    if (nextShowPending && !hasLoadedPendingRequests) {
+      await loadPendingRequests()
+    }
+
+    setShowPendingBooking(nextShowPending)
+  }, [showPendingBooking, hasLoadedPendingRequests, loadPendingRequests])
 
   // Sales users should never see pending requests - admin only feature
   const canSeePendingRequests = userRole === 'admin'
@@ -455,29 +497,28 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
       <div className="h-full flex relative">
         {/* Mobile Filter Toggle Overlay */}
         {showMobileFilters && (
-          <div 
-            className="fixed inset-0 bg-black/50 z-30 md:hidden"
-            onClick={() => setShowMobileFilters(false)}
-          />
+          <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setShowMobileFilters(false)} />
         )}
 
         {/* Sidebar - Categories or Pending Requests (admin only) */}
-        <div className={`
+        <div
+          className={`
           fixed inset-y-0 left-0 z-40 w-72 bg-white transform transition-transform duration-300 shadow-xl md:shadow-none md:relative md:translate-x-0 md:w-auto md:block h-full
           ${showMobileFilters ? 'translate-x-0' : '-translate-x-full'}
-        `}>
+        `}
+        >
           <div className="h-full flex flex-col">
             {/* Mobile Sidebar Header */}
             <div className="md:hidden flex items-center justify-between p-4 border-b border-gray-100">
               <span className="font-semibold text-gray-800">Filtros y Categorías</span>
-              <button 
+              <button
                 onClick={() => setShowMobileFilters(false)}
                 className="p-1 text-gray-500 hover:bg-gray-100 rounded-full"
               >
                 <CloseIcon fontSize="small" />
               </button>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto">
               {effectiveShowPendingBooking ? (
                 <PendingRequestsSidebar
@@ -502,7 +543,7 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
                   selectedCategories={selectedCategories}
                   onCategoryToggle={handleCategoryToggle}
                   showPendingBooking={effectiveShowPendingBooking}
-                  onPendingBookingToggle={canSeePendingRequests ? () => setShowPendingBooking(!showPendingBooking) : undefined}
+                  onPendingBookingToggle={canSeePendingRequests ? handlePendingBookingToggle : undefined}
                   userRole={userRole}
                   onMiniCalendarDateSelect={handleMiniCalendarDateSelect}
                   onMiniCalendarRangeSelect={handleMiniCalendarRangeSelect}
@@ -510,8 +551,8 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
                   onMiniCalendarClearSelection={handleMiniCalendarClearSelection}
                   selectedMiniDate={selectedMiniDate}
                   selectedMiniRange={selectedMiniRange}
-                  events={eventsWithResolvedNames}
-                  pendingCount={pendingRequests.length}
+                  events={events}
+                  pendingCount={pendingCount}
                 />
               )}
             </div>
@@ -534,14 +575,14 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
 
           {/* Calendar View */}
           <div className="flex-1 overflow-hidden relative z-0">
-            <CalendarView 
-              events={eventsWithResolvedNames} 
+            <CalendarView
+              events={events}
               selectedCategories={calendarSelectedCategories}
               showPendingBooking={effectiveShowPendingBooking}
               categoryFilter={categoryFilter}
               searchQuery={searchQuery}
               draggingRequest={draggingRequest}
-              bookingRequests={bookingRequests}
+              bookingRequests={pendingRequests}
               onSearchChange={setSearchQuery}
               onRequestDropOnDate={userRole === 'admin' ? handleRequestDropOnDate : undefined}
               onDateClick={userRole === 'admin' ? handleDateClick : undefined}
@@ -556,6 +597,7 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
               externalRange={selectedMiniRange}
               onViewChange={handleCalendarViewChange}
               onCurrentDateChange={handleCalendarDateChange}
+              onVisibleRangeChange={handleCalendarVisibleRangeChange}
               onNewRequestClick={() => setShowNewRequestModal(true)}
               onCreateEventClick={openEventModal}
               userRole={userRole}
@@ -566,14 +608,14 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
 
       {/* Event Modal */}
       {shouldLoadModal && (
-        <EventModal 
-          isOpen={isModalOpen} 
+        <EventModal
+          isOpen={isModalOpen}
           onClose={handleModalClose}
           selectedDate={selectedDate}
           selectedEndDate={selectedEndDate}
           eventToEdit={eventToEdit}
           bookingRequestId={bookingRequestId}
-          allEvents={eventsWithResolvedNames}
+          allEvents={events}
           userRole={userRole}
           readOnly={userRole === 'sales' && !!eventToEdit}
           onSuccess={handleEventSuccess}
@@ -590,10 +632,7 @@ export default function EventsPageClient({ events: initialEvents, bookingRequest
       />
 
       {/* New Request Modal */}
-      <NewRequestModal
-        isOpen={showNewRequestModal}
-        onClose={() => setShowNewRequestModal(false)}
-      />
+      <NewRequestModal isOpen={showNewRequestModal} onClose={() => setShowNewRequestModal(false)} />
     </>
   )
 }

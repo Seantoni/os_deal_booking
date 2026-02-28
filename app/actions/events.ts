@@ -1,18 +1,197 @@
 'use server'
 
-import { auth } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 import { unstable_cache } from 'next/cache'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
 import { invalidateEntity, invalidateEntities } from '@/lib/cache'
 import { getUserRole } from '@/lib/auth/roles'
 import { parseDateInPanamaTime, parseEndDateInPanamaTime } from '@/lib/date/timezone'
-import { validateDateRange } from '@/lib/utils/validation'
 import { buildCategoryKey } from '@/lib/category-utils'
 import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
 import { logActivity } from '@/lib/activity-log'
 import { logger } from '@/lib/logger'
 import { buildEventNameFromBookingRequest } from '@/lib/utils/request-name-parsing'
+import type { BookingRequest, Event } from '@/types'
+import type { Prisma } from '@prisma/client'
+
+type RefreshCalendarDataOptions = {
+  startDate?: string
+  endDate?: string
+  includePendingRequests?: boolean
+}
+
+const calendarEventSelect = {
+  id: true,
+  name: true,
+  description: true,
+  category: true,
+  parentCategory: true,
+  subCategory1: true,
+  subCategory2: true,
+  subCategory3: true,
+  subCategory4: true,
+  business: true,
+  businessId: true,
+  startDate: true,
+  endDate: true,
+  status: true,
+  userId: true,
+  bookingRequestId: true,
+  createdAt: true,
+  updatedAt: true,
+} as const
+
+const calendarPendingRequestSelect = {
+  id: true,
+  name: true,
+  category: true,
+  parentCategory: true,
+  subCategory1: true,
+  subCategory2: true,
+  subCategory3: true,
+  subCategory4: true,
+  merchant: true,
+  businessEmail: true,
+  startDate: true,
+  endDate: true,
+  status: true,
+  eventId: true,
+  opportunityId: true,
+  dealId: true,
+  userId: true,
+  processedAt: true,
+  processedBy: true,
+  rejectionReason: true,
+  sourceType: true,
+  publicLinkToken: true,
+  createdAt: true,
+  updatedAt: true,
+} as const
+
+type CalendarEventRecord = Prisma.EventGetPayload<{ select: typeof calendarEventSelect }>
+type CalendarPendingRequestRecord = Prisma.BookingRequestGetPayload<{ select: typeof calendarPendingRequestSelect }>
+
+function buildCalendarEventWhere(
+  role: string,
+  userId: string,
+  startDate?: Date,
+  endDate?: Date
+): Prisma.EventWhereInput {
+  const visibilityFilters: Prisma.EventWhereInput[] = [
+    { status: 'booked' },
+    { status: 'pre-booked' },
+    {
+      status: 'approved',
+      ...(role === 'admin' ? {} : { userId }),
+    },
+    {
+      status: 'pending',
+      ...(role === 'admin' ? {} : { userId }),
+    },
+  ]
+
+  return {
+    OR: visibilityFilters,
+    ...(startDate && endDate
+      ? {
+          startDate: { lte: endDate },
+          endDate: { gte: startDate },
+        }
+      : {}),
+  }
+}
+
+function toCalendarEvent(record: CalendarEventRecord): Event {
+  return {
+    ...record,
+    bookingRequestId: record.bookingRequestId ?? null,
+    subCategory4: record.subCategory4 ?? null,
+  }
+}
+
+async function resolveBookingLinkedNames(events: Event[]): Promise<Event[]> {
+  const bookingRequestIds = Array.from(
+    new Set(events.map((event) => event.bookingRequestId).filter((id): id is string => Boolean(id)))
+  )
+
+  if (bookingRequestIds.length === 0) return events
+
+  const bookingRequests = await prisma.bookingRequest.findMany({
+    where: { id: { in: bookingRequestIds } },
+    select: {
+      id: true,
+      name: true,
+      merchant: true,
+      pricingOptions: true,
+    },
+  })
+
+  const bookingRequestById = new Map(bookingRequests.map((request) => [request.id, request]))
+
+  return events.map((event) => {
+    if (!event.bookingRequestId) return event
+    const bookingRequest = bookingRequestById.get(event.bookingRequestId)
+    if (!bookingRequest) return event
+
+    const generatedName = buildEventNameFromBookingRequest({
+      requestName: bookingRequest.name || '',
+      merchant: bookingRequest.merchant || event.business || null,
+      pricingOptions: bookingRequest.pricingOptions,
+    })
+
+    if (!generatedName || generatedName === event.name) return event
+    return { ...event, name: generatedName }
+  })
+}
+
+async function fetchCalendarEvents(
+  role: string,
+  userId: string,
+  startDate?: Date,
+  endDate?: Date
+): Promise<Event[]> {
+  const eventRows = await prisma.event.findMany({
+    where: buildCalendarEventWhere(role, userId, startDate, endDate),
+    select: calendarEventSelect,
+    orderBy: { startDate: 'asc' },
+  })
+
+  return resolveBookingLinkedNames(eventRows.map(toCalendarEvent))
+}
+
+async function fetchCalendarPendingRequests(role: string, userId: string): Promise<BookingRequest[]> {
+  if (role !== 'admin' && role !== 'sales') {
+    return []
+  }
+
+  const pendingRows = await prisma.bookingRequest.findMany({
+    where: {
+      status: 'approved',
+      ...(role === 'admin' ? {} : { userId }),
+    },
+    select: calendarPendingRequestSelect,
+    orderBy: { createdAt: 'desc' },
+  })
+
+  return pendingRows.map((request: CalendarPendingRequestRecord) => ({
+    ...request,
+    status: request.status as BookingRequest['status'],
+    merchant: request.merchant ?? null,
+    category: request.category ?? null,
+    parentCategory: request.parentCategory ?? null,
+    subCategory1: request.subCategory1 ?? null,
+    subCategory2: request.subCategory2 ?? null,
+    subCategory3: request.subCategory3 ?? null,
+    subCategory4: request.subCategory4 ?? null,
+    eventId: request.eventId ?? null,
+    opportunityId: request.opportunityId ?? null,
+    dealId: request.dealId ?? null,
+    processedAt: request.processedAt ?? null,
+    processedBy: request.processedBy ?? null,
+    rejectionReason: request.rejectionReason ?? null,
+    publicLinkToken: request.publicLinkToken ?? null,
+  }))
+}
 
 export async function createEvent(formData: FormData) {
   try {
@@ -206,34 +385,7 @@ export async function getEvents() {
     const cacheKey = `events-${userId}-${role}`
 
     const getCachedEvents = unstable_cache(
-      async () => {
-        // Return pending, approved, pre-booked, and booked events
-        // Filtering by booking status happens in the UI (CalendarView)
-        // IMPORTANT: All users see ALL booked and pre-booked events, but only their own pending/approved events
-        return await prisma.event.findMany({
-          where: {
-            OR: [
-              // All booked events (visible to everyone)
-              { status: 'booked' },
-              // All pre-booked events (visible to everyone)
-              { status: 'pre-booked' },
-              // Approved events (filtered by user role)
-              {
-                status: 'approved',
-                ...(role === 'admin' ? {} : { userId })
-              },
-              // Pending events (filtered by user role) - for drag and drop functionality
-              {
-                status: 'pending',
-                ...(role === 'admin' ? {} : { userId })
-              }
-            ]
-          },
-          orderBy: {
-            startDate: 'asc',
-          },
-        })
-      },
+      async () => fetchCalendarEvents(role, userId),
       [cacheKey],
       {
         tags: ['events'],
@@ -249,10 +401,76 @@ export async function getEvents() {
 }
 
 /**
+ * Fetch events for only the requested calendar range.
+ * Date format expected: YYYY-MM-DD
+ */
+export async function getCalendarEventsInRange(startDate: string, endDate: string) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    const role = await getUserRole()
+    const rangeStart = parseDateInPanamaTime(startDate)
+    const rangeEnd = parseEndDateInPanamaTime(endDate)
+    const events = await fetchCalendarEvents(role, authResult.userId, rangeStart, rangeEnd)
+
+    return { success: true, data: events }
+  } catch (error) {
+    return handleServerActionError(error, 'getCalendarEventsInRange')
+  }
+}
+
+/**
+ * Fetch only calendar-pending booking requests (approved, not yet booked/rejected).
+ */
+export async function getCalendarPendingRequests() {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    const role = await getUserRole()
+    const bookingRequests = await fetchCalendarPendingRequests(role, authResult.userId)
+    return { success: true, data: bookingRequests }
+  } catch (error) {
+    return handleServerActionError(error, 'getCalendarPendingRequests')
+  }
+}
+
+export async function getCalendarPendingRequestsCount() {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    const role = await getUserRole()
+
+    if (role !== 'admin' && role !== 'sales') {
+      return { success: true, data: 0 }
+    }
+
+    const pendingCount = await prisma.bookingRequest.count({
+      where: {
+        status: 'approved',
+        ...(role === 'admin' ? {} : { userId: authResult.userId }),
+      },
+    })
+
+    return { success: true, data: pendingCount }
+  } catch (error) {
+    return handleServerActionError(error, 'getCalendarPendingRequestsCount')
+  }
+}
+
+/**
  * Refresh calendar data (events + booking requests) without full page refresh
  * This is more efficient than router.refresh() as it doesn't re-fetch user data
  */
-export async function refreshCalendarData(): Promise<{
+export async function refreshCalendarData(options: RefreshCalendarDataOptions = {}): Promise<{
   success: boolean
   events?: Event[]
   bookingRequests?: BookingRequest[]
@@ -267,53 +485,27 @@ export async function refreshCalendarData(): Promise<{
   try {
     const role = await getUserRole()
 
-    // Fetch events (bypass cache to get fresh data)
-    const events = await prisma.event.findMany({
-      where: {
-        OR: [
-          { status: 'booked' },
-          { status: 'pre-booked' },
-          {
-            status: 'approved',
-            ...(role === 'admin' ? {} : { userId })
-          },
-          {
-            status: 'pending',
-            ...(role === 'admin' ? {} : { userId })
-          }
-        ]
-      },
-      orderBy: { startDate: 'asc' },
-    })
+    const hasRange = Boolean(options.startDate && options.endDate)
+    const rangeStart = hasRange ? parseDateInPanamaTime(options.startDate!) : undefined
+    const rangeEnd = hasRange ? parseEndDateInPanamaTime(options.endDate!) : undefined
 
-    // Fetch booking requests
-    let bookingRequests: BookingRequest[]
-    if (role === 'admin') {
-      bookingRequests = await prisma.bookingRequest.findMany({
-        orderBy: { createdAt: 'desc' },
-      }) as BookingRequest[]
-    } else if (role === 'sales') {
-      bookingRequests = await prisma.bookingRequest.findMany({
-        where: { userId },
-        orderBy: { createdAt: 'desc' },
-      }) as BookingRequest[]
-    } else {
-      bookingRequests = []
+    // Fetch events (bypass cache to get fresh data)
+    const events = await fetchCalendarEvents(role, userId, rangeStart, rangeEnd)
+
+    let bookingRequests: BookingRequest[] | undefined
+    if (options.includePendingRequests) {
+      bookingRequests = await fetchCalendarPendingRequests(role, userId)
     }
 
     return {
       success: true,
-      events: events as Event[],
-      bookingRequests,
+      events,
+      ...(options.includePendingRequests ? { bookingRequests } : {}),
     }
   } catch (error) {
     return handleServerActionError(error, 'refreshCalendarData')
   }
 }
-
-// Type aliases for refreshCalendarData
-type Event = Awaited<ReturnType<typeof prisma.event.findMany>>[0]
-type BookingRequest = Awaited<ReturnType<typeof prisma.bookingRequest.findMany>>[0]
 
 /**
  * Get all booked events regardless of user role
@@ -410,8 +602,8 @@ export async function updateEvent(eventId: string, formData: FormData) {
   invalidateEntity('events')
 
   // Calculate changes for logging
-  const previousValues: Record<string, any> = {}
-  const newValues: Record<string, any> = {}
+  const previousValues: Record<string, unknown> = {}
+  const newValues: Record<string, unknown> = {}
   const changedFields: string[] = []
 
   if (currentEvent) {
@@ -431,7 +623,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
     const simpleFields = ['name', 'description', 'category', 'parentCategory', 'subCategory1', 'subCategory2', 'business', 'businessId']
     
     // Helper values map for comparison
-    const updateValues: Record<string, any> = {
+    const updateValues: Record<string, unknown> = {
       name,
       description: description || null,
       category: standardizedCategory,

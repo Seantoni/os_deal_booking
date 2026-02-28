@@ -1,6 +1,6 @@
 'use client'
 
-import { createEvent, updateEvent, deleteEvent, bookEvent, rejectEvent, refreshCalendarData } from '@/app/actions/events'
+import { createEvent, updateEvent, deleteEvent, bookEvent, rejectEvent, getEvents } from '@/app/actions/events'
 import { useState, useEffect, useCallback, useTransition, useReducer } from 'react'
 import dynamic from 'next/dynamic'
 import CategorySelect from '@/components/shared/CategorySelect'
@@ -147,6 +147,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
   const [userSettings, setUserSettings] = useState(getSettings())
   const [linkedBookingRequest, setLinkedBookingRequest] = useState<LinkedBookingRequest | null>(null)
   const [loadingLinkedBookingRequest, setLoadingLinkedBookingRequest] = useState(false)
+  const [validationEvents, setValidationEvents] = useState<Event[]>(allEvents)
   
   // Helper functions to dispatch common actions
   const setField = useCallback(<K extends keyof FormState>(field: K, value: FormState[K]) => {
@@ -172,6 +173,37 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
   useEffect(() => {
     if (isOpen) {
       setUserSettings(getSettings())
+    }
+  }, [isOpen])
+
+  // Keep validation dataset in sync with currently loaded calendar range when modal is closed.
+  useEffect(() => {
+    if (!isOpen) {
+      setValidationEvents(allEvents)
+    }
+  }, [allEvents, isOpen])
+
+  // Load full validation dataset only when modal opens.
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadValidationEvents() {
+      if (!isOpen) return
+
+      try {
+        const result = await getEvents()
+        if (!cancelled && result.success && result.data) {
+          setValidationEvents(result.data as Event[])
+        }
+      } catch (error) {
+        console.error('Failed to load validation events:', error)
+      }
+    }
+
+    loadValidationEvents()
+
+    return () => {
+      cancelled = true
     }
   }, [isOpen])
 
@@ -360,7 +392,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       // Reset when modal closes
       dispatch({ type: 'RESET_FORM' })
     }
-  }, [selectedDate, selectedEndDate, eventToEdit, isOpen, allEvents, linkedBookingRequest, setFormData, setField])
+  }, [selectedDate, selectedEndDate, eventToEdit, isOpen, linkedBookingRequest, setFormData, setField])
 
   // Check all validations whenever relevant fields change
   useEffect(() => {
@@ -399,10 +431,12 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       }
     }
     
+    const eventsForValidation = validationEvents.length > 0 ? validationEvents : allEvents
+
     // Uniqueness validation
     if (categoryLabel) {
       const uniqueCheck = checkUniquenesViolation(
-        allEvents,
+        eventsForValidation,
         { category: categoryLabel, startDate: start, endDate: end },
         eventToEdit?.id
       )
@@ -415,7 +449,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
     // 30-day merchant rule (with business exceptions)
     if (business) {
       const businessCheck = check30DayMerchantRule(
-        allEvents, 
+        eventsForValidation, 
         business, 
         start, 
         eventToEdit?.id,
@@ -440,7 +474,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       // Only check the launch date (start date) for daily limits
       // Daily count is based on launch date, not on all days in the event range
       // Count events with 'booked' or 'pre-booked' status (both count for restrictions)
-      const bookedEvents = allEvents.filter(event => event.status === 'booked' || event.status === 'pre-booked')
+      const bookedEvents = eventsForValidation.filter(event => event.status === 'booked' || event.status === 'pre-booked')
       const launchDate = new Date(start)
       const eventsOnLaunchDay = getEventsOnDate(bookedEvents, launchDate).filter(e => 
         e.id !== eventToEdit?.id // Exclude current event if editing
@@ -466,7 +500,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       },
     })
     
-  }, [startDate, endDate, categoryOption, business, businessId, allEvents, eventToEdit, userSettings])
+  }, [startDate, endDate, categoryOption, business, businessId, allEvents, validationEvents, eventToEdit, userSettings])
 
   // Check if all required fields are filled
   const hasEmptyRequiredFields = () => {

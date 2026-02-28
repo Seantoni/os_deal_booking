@@ -37,6 +37,7 @@ interface CalendarViewProps {
   externalRange?: { start: Date; end: Date } | null
   onViewChange?: (view: CalendarViewMode) => void
   onCurrentDateChange?: (date: Date) => void
+  onVisibleRangeChange?: (start: Date, end: Date, view: CalendarViewMode) => void
   // Action buttons
   onNewRequestClick?: () => void
   onCreateEventClick?: () => void
@@ -55,7 +56,7 @@ type EventDateRange = {
   endDay: number
 }
 
-export default function CalendarView({ events, selectedCategories, showPendingBooking, categoryFilter, searchQuery = '', draggingRequest, bookingRequests = [], onSearchChange, onRequestDropOnDate, onDateClick, onDateRangeSelect, onEventClick, onEventMove, onEventResize, onDayExpand, readOnly = false, externalDate, externalView, externalRange, onViewChange, onCurrentDateChange, onNewRequestClick, onCreateEventClick, userRole }: CalendarViewProps) {
+export default function CalendarView({ events, selectedCategories, showPendingBooking, categoryFilter, searchQuery = '', draggingRequest, bookingRequests = [], onSearchChange, onRequestDropOnDate, onDateClick, onDateRangeSelect, onEventClick, onEventMove, onEventResize, onDayExpand, readOnly = false, externalDate, externalView, externalRange, onViewChange, onCurrentDateChange, onVisibleRangeChange, onNewRequestClick, onCreateEventClick, userRole }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [dragStartDay, setDragStartDay] = useState<number | null>(null)
   const [dragEndDay, setDragEndDay] = useState<number | null>(null)
@@ -292,6 +293,10 @@ export default function CalendarView({ events, selectedCategories, showPendingBo
     () => new Date(year, month, endDay),
     [year, month, endDay]
   )
+
+  useEffect(() => {
+    onVisibleRangeChange?.(viewStartDate, viewEndDate, calendarView)
+  }, [onVisibleRangeChange, viewStartDate, viewEndDate, calendarView])
 
   const dayDates = useMemo(() => {
     const days: Array<{ dayNum: number; date: Date }> = []
