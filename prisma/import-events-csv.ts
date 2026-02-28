@@ -156,7 +156,30 @@ function parseCSV(content: string): CsvRow[] {
   const data: CsvRow[] = []
   for (let i = 1; i < rows.length; i += 1) {
     const values = parseCSVLine(rows[i])
-    const row = Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ''])) as CsvRow
+    const rowMap: Record<string, string> = Object.fromEntries(
+      headers.map((header, index) => [header, values[index] ?? ''])
+    )
+
+    const row: CsvRow = {
+      id: rowMap.id ?? '',
+      name: rowMap.name ?? '',
+      description: rowMap.description ?? '',
+      startDate: rowMap.startDate ?? '',
+      endDate: rowMap.endDate ?? '',
+      userId: rowMap.userId ?? '',
+      createdAt: rowMap.createdAt ?? '',
+      updatedAt: rowMap.updatedAt ?? '',
+      category: rowMap.category ?? '',
+      merchant: rowMap.merchant ?? '',
+      parentCategory: rowMap.parentCategory ?? '',
+      subCategory1: rowMap.subCategory1 ?? '',
+      subCategory2: rowMap.subCategory2 ?? '',
+      subCategory3: rowMap.subCategory3 ?? '',
+      bookingRequestId: rowMap.bookingRequestId ?? '',
+      status: rowMap.status ?? '',
+      subCategory4: rowMap.subCategory4 ?? '',
+      businessId: rowMap.businessId ?? '',
+    }
     data.push(row)
   }
 
