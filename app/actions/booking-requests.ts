@@ -1111,6 +1111,13 @@ export async function getBookingRequest(requestId: string) {
     const processedByUser = bookingRequest.processedBy ? userProfileMap.get(bookingRequest.processedBy) || null : null
     const createdByUser = bookingRequest.userId ? userProfileMap.get(bookingRequest.userId) || null : null
 
+    const linkedEventDates = bookingRequest.eventId
+      ? await prisma.event.findUnique({
+          where: { id: bookingRequest.eventId },
+          select: { startDate: true, endDate: true },
+        })
+      : null
+
     // Find linked business info using centralized utility
     const linkedBusiness = await findLinkedBusiness({
       opportunityId: bookingRequest.opportunityId,
@@ -1123,6 +1130,12 @@ export async function getBookingRequest(requestId: string) {
         ...bookingRequest,
         processedByUser,
         createdByUser,
+        eventDates: linkedEventDates
+          ? {
+              startDate: linkedEventDates.startDate,
+              endDate: linkedEventDates.endDate,
+            }
+          : null,
         marketingCampaignId: bookingRequest.marketingCampaign?.id || null,
         // Add linked business info for backfill and replication
         linkedBusiness,

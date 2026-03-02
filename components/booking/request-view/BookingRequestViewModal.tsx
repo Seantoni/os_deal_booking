@@ -1140,8 +1140,10 @@ export default function BookingRequestViewModal({
           {!loading && requestData && (() => {
             const status = requestData.status || 'draft'
             const processedAt = requestData.processedAt ? new Date(requestData.processedAt) : null
-            const startDate = requestData.startDate ? new Date(requestData.startDate) : null
-            const endDate = requestData.endDate ? new Date(requestData.endDate) : null
+            const campaignStartDateSource = requestData.eventDates?.startDate ?? requestData.startDate
+            const campaignEndDateSource = requestData.eventDates?.endDate ?? requestData.endDate
+            const startDate = campaignStartDateSource ? new Date(campaignStartDateSource) : null
+            const endDate = campaignEndDateSource ? new Date(campaignEndDateSource) : null
             const createdAt = requestData.createdAt ? new Date(requestData.createdAt) : null
             const processedByUser = requestData.processedByUser
             const createdByUser = requestData.createdByUser

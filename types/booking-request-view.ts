@@ -124,6 +124,10 @@ export interface BookingRequestViewData {
   // Relations (populated by includes)
   processedByUser?: UserReference | null
   createdByUser?: UserReference | null
+  eventDates?: {
+    startDate: Date | string
+    endDate: Date | string
+  } | null
   
   // Marketing Campaign (populated if booked)
   marketingCampaignId?: string | null
@@ -152,4 +156,3 @@ export interface SectionDefinition {
   title: string
   fields: FieldDefinition[]
 }
-
