@@ -28,6 +28,11 @@ model BookingRequest {
   userId                        String
   createdAt                     DateTime             @default(now())
   updatedAt                     DateTime             @updatedAt
+  sentAt                        DateTime?
+  approvedAt                    DateTime?
+  bookedAt                      DateTime?
+  rejectedAt                    DateTime?
+  cancelledAt                   DateTime?
   eventId                       String?
   processedAt                   DateTime?
   processedBy                   String?
@@ -90,6 +95,11 @@ model BookingRequest {
   @@index([opportunityId])
   @@index([parentCategory])
   @@index([publicLinkToken])
+  @@index([sentAt])
+  @@index([approvedAt])
+  @@index([bookedAt])
+  @@index([rejectedAt])
+  @@index([cancelledAt])
   @@index([sourceType])
   @@index([status])
   @@index([userId])
@@ -644,6 +654,7 @@ model Opportunity {
   contactPhone     String?
   contactEmail     String?
   stage            String               @default("iniciacion")
+  wonAt            DateTime?
   startDate        DateTime
   closeDate        DateTime?
   notes            String?
@@ -668,6 +679,7 @@ model Opportunity {
   @@index([dealId])
   @@index([responsibleId])
   @@index([stage])
+  @@index([wonAt])
   @@index([userId])
   @@map("opportunities")
 }

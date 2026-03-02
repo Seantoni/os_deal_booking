@@ -629,6 +629,7 @@ export async function createOpportunity(formData: FormData) {
 
     const startDateTime = startDate ? new Date(startDate) : new Date()
     const closeDateTime = closeDate ? new Date(closeDate) : null
+    const isWonStage = stage === 'won'
 
     // Set responsible to current user by default if not provided
     const finalResponsibleId = responsibleId || userId
@@ -643,6 +644,7 @@ export async function createOpportunity(formData: FormData) {
         contactPhone,
         contactEmail,
         stage,
+        wonAt: isWonStage ? new Date() : null,
         startDate: startDateTime,
         closeDate: closeDateTime,
         notes: notes || null,
@@ -739,6 +741,14 @@ export async function updateOpportunity(opportunityId: string, formData: FormDat
       closeDate: closeDateTime,
       notes: notes || null,
       lostReason: lostReason || null,
+    }
+
+    if (currentOpportunity && currentOpportunity.stage !== stage) {
+      if (stage === 'won') {
+        updateData.wonAt = new Date()
+      } else if (currentOpportunity.stage === 'won') {
+        updateData.wonAt = null
+      }
     }
     
     // Only update startDate if provided

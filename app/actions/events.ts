@@ -319,14 +319,32 @@ export async function createEvent(formData: FormData) {
 
   // If linked to a booking request, update the request with the event ID and status
   if (bookingRequestId) {
+    const previousRequest = await prisma.bookingRequest.findUnique({
+      where: { id: bookingRequestId },
+      select: { id: true, name: true, status: true },
+    })
+
     await prisma.bookingRequest.update({
       where: { id: bookingRequestId },
       data: { 
         eventId: event.id,
         status: 'booked',
         processedAt: new Date(),
+        bookedAt: new Date(),
       },
     })
+
+    if (previousRequest && previousRequest.status !== 'booked') {
+      await logActivity({
+        action: 'STATUS_CHANGE',
+        entityType: 'BookingRequest',
+        entityId: previousRequest.id,
+        entityName: previousRequest.name,
+        details: {
+          statusChange: { from: previousRequest.status, to: 'booked' },
+        },
+      })
+    }
     
     // Automatically create a marketing campaign for the booked request
     try {
@@ -384,6 +402,7 @@ export async function createEvent(formData: FormData) {
     }
     
     invalidateEntity('booking-requests')
+    invalidateDashboard()
   }
 
   invalidateEntity('events')
@@ -847,6 +866,7 @@ export async function bookEvent(eventId: string) {
           data: { 
             status: 'booked',
             processedAt: new Date(),
+            bookedAt: new Date(),
             processedBy: userId,
           },
         })
@@ -1052,6 +1072,7 @@ export async function rejectEvent(eventId: string, rejectionReason: string) {
         data: { 
           status: 'rejected',
           processedAt: new Date(),
+          rejectedAt: new Date(),
           processedBy: userId,
           rejectionReason,
         },

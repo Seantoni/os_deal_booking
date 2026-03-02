@@ -21,7 +21,7 @@ import { logger } from '@/lib/logger'
 import { getAppBaseUrl } from '@/lib/config/env'
 import { parseDateInPanamaTime, parseEndDateInPanamaTime, PANAMA_TIMEZONE, formatDateForDisplay } from '@/lib/date'
 import { buildCategoryKey } from '@/lib/category-utils'
-import { logActivity } from '@/lib/activity-log'
+import { logActivity, logActivities } from '@/lib/activity-log'
 import { generateRequestName, countBusinessRequests } from '@/lib/utils/request-naming'
 import { findLinkedBusiness, findLinkedBusinessFull } from '@/lib/business'
 import { approveBookingRequestWithFollowUp } from '@/lib/booking-requests/approval'
@@ -336,6 +336,15 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       requestName = generateRequestName(name, existingCount)
     }
     
+    const existingRequestForMilestones = requestId
+      ? await prisma.bookingRequest.findUnique({
+          where: { id: requestId },
+          select: { sentAt: true },
+        })
+      : null
+
+    const sentAtValue = existingRequestForMilestones?.sentAt ?? new Date()
+
     const data = {
       name: requestName,
       category: category || null,
@@ -348,6 +357,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       startDate: startDateTime,
       endDate: endDateTime,
       status: 'pending' as BookingRequestStatus,
+      sentAt: sentAtValue,
       opportunityId,
       userId,
       // Configuración: Configuración General y Vigencia
@@ -1283,12 +1293,28 @@ export async function updateBookingRequestStatus(
     // Get current status for logging
     const currentRequest = await prisma.bookingRequest.findUnique({
       where: { id: requestId },
-      select: { status: true, name: true },
+      select: {
+        status: true,
+        name: true,
+        sentAt: true,
+        approvedAt: true,
+        bookedAt: true,
+        rejectedAt: true,
+        cancelledAt: true,
+      },
     })
+
+    const now = new Date()
+    const statusMilestones: Prisma.BookingRequestUpdateInput = {}
+    if (status !== 'draft' && !currentRequest?.sentAt) statusMilestones.sentAt = now
+    if (status === 'approved' && !currentRequest?.approvedAt) statusMilestones.approvedAt = now
+    if (status === 'booked' && !currentRequest?.bookedAt) statusMilestones.bookedAt = now
+    if (status === 'rejected' && !currentRequest?.rejectedAt) statusMilestones.rejectedAt = now
+    if (status === 'cancelled' && !currentRequest?.cancelledAt) statusMilestones.cancelledAt = now
 
     const bookingRequest = await prisma.bookingRequest.update({
       where: { id: requestId },
-      data: { status },
+      data: { status, ...statusMilestones },
     })
 
     // Log status change
@@ -1367,10 +1393,34 @@ export async function bulkUpdateBookingRequestStatus(requestIds: string[], statu
       return { success: false, error: 'Unauthorized' }
     }
 
+    const existingRequests = await prisma.bookingRequest.findMany({
+      where: {
+        id: { in: requestIds },
+        ...whereClause.whereClause,
+      },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        sentAt: true,
+        approvedAt: true,
+        bookedAt: true,
+        rejectedAt: true,
+        cancelledAt: true,
+      },
+    })
+
+    if (existingRequests.length === 0) {
+      return { success: true, updatedCount: 0 }
+    }
+
+    const targetIds = existingRequests.map(request => request.id)
+    const now = new Date()
+
     // Update multiple requests
     const result = await prisma.bookingRequest.updateMany({
       where: {
-        id: { in: requestIds },
+        id: { in: targetIds },
         ...whereClause.whereClause,
       },
       data: {
@@ -1378,6 +1428,51 @@ export async function bulkUpdateBookingRequestStatus(requestIds: string[], statu
         processedAt: status !== 'draft' && status !== 'pending' ? new Date() : undefined,
       },
     })
+
+    // Preserve first milestone timestamp (set only when null).
+    if (status !== 'draft') {
+      await prisma.bookingRequest.updateMany({
+        where: { id: { in: targetIds }, sentAt: null },
+        data: { sentAt: now },
+      })
+    }
+
+    if (status === 'approved') {
+      await prisma.bookingRequest.updateMany({
+        where: { id: { in: targetIds }, approvedAt: null },
+        data: { approvedAt: now },
+      })
+    } else if (status === 'booked') {
+      await prisma.bookingRequest.updateMany({
+        where: { id: { in: targetIds }, bookedAt: null },
+        data: { bookedAt: now },
+      })
+    } else if (status === 'rejected') {
+      await prisma.bookingRequest.updateMany({
+        where: { id: { in: targetIds }, rejectedAt: null },
+        data: { rejectedAt: now },
+      })
+    } else if (status === 'cancelled') {
+      await prisma.bookingRequest.updateMany({
+        where: { id: { in: targetIds }, cancelledAt: null },
+        data: { cancelledAt: now },
+      })
+    }
+
+    const changedRequests = existingRequests.filter(request => request.status !== status)
+    if (changedRequests.length > 0) {
+      await logActivities(
+        changedRequests.map(request => ({
+          action: 'STATUS_CHANGE',
+          entityType: 'BookingRequest',
+          entityId: request.id,
+          entityName: request.name,
+          details: {
+            statusChange: { from: request.status, to: status },
+          },
+        }))
+      )
+    }
 
     invalidateEntity('booking-requests')
     invalidateDashboard()
@@ -1534,6 +1629,7 @@ export async function rejectBookingRequestWithReason(token: string, rejectionRea
       data: { 
         status: 'rejected',
         processedAt: new Date(),
+        rejectedAt: new Date(),
         processedBy: existingRequest.businessEmail,
         rejectionReason: rejectionReason.trim(),
       },
@@ -1633,6 +1729,7 @@ export async function cancelBookingRequest(requestId: string) {
       data: { 
         status: 'cancelled',
         processedAt: new Date(),
+        cancelledAt: new Date(),
         processedBy: cancelledBy,
       },
     })

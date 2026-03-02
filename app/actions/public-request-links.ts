@@ -6,7 +6,7 @@ import { Prisma } from '@prisma/client'
 import { generatePublicLinkToken } from '@/lib/tokens'
 import { resend, EMAIL_CONFIG } from '@/lib/email/config'
 import { handleServerActionError, requireAuth } from '@/lib/utils/server-actions'
-import { invalidateEntities } from '@/lib/cache'
+import { invalidateDashboard, invalidateEntities } from '@/lib/cache'
 import { extractBookingRequestFromFormData } from '@/lib/utils/form-data'
 import { validateRequiredFields, isValidEmail, validateDateRange } from '@/lib/utils/validation'
 import { parseDateInPanamaTime, parseEndDateInPanamaTime } from '@/lib/date/timezone'
@@ -236,6 +236,8 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
         startDate: startDateTime,
         endDate: endDateTime,
         status: 'approved', // Public submissions are automatically approved
+        sentAt: new Date(),
+        approvedAt: new Date(),
         sourceType: 'public_link',
         publicLinkToken: token,
         userId: publicLink.createdBy, // Use the creator's userId
@@ -312,6 +314,27 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
       data: { eventId: event.id },
     })
 
+    // Log externally submitted approval milestone for audit/history reconstruction.
+    try {
+      await prisma.activityLog.create({
+        data: {
+          userId: 'external',
+          userName: bookingRequest.businessEmail,
+          userEmail: bookingRequest.businessEmail,
+          action: 'APPROVE',
+          entityType: 'BookingRequest',
+          entityId: bookingRequest.id,
+          entityName: bookingRequest.name,
+          details: {
+            statusChange: { from: 'public_submission', to: 'approved' },
+            metadata: { source: 'public_request_link' },
+          },
+        },
+      })
+    } catch (logError) {
+      logger.error('Error logging public request approval activity:', logError)
+    }
+
     // Mark the public link as used
     await prisma.publicRequestLink.update({
       where: { id: publicLink.id },
@@ -323,6 +346,7 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
 
     // Revalidate cache
     invalidateEntities(['booking-requests', 'public-request-links', 'events'])
+    invalidateDashboard()
 
     return {
       success: true,

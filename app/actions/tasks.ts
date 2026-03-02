@@ -5,6 +5,7 @@ import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions
 import { invalidateEntity, invalidateDashboard } from '@/lib/cache'
 import { getUserRole, isAdmin } from '@/lib/auth/roles'
 import { getTodayInPanama, formatDateForPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
+import { logActivity } from '@/lib/activity-log'
 import type { Task } from '@/types'
 
 export interface TaskWithOpportunity extends Task {
@@ -348,6 +349,15 @@ export async function toggleTaskComplete(taskId: string): Promise<{
     // Get current task
     const existingTask = await prisma.task.findUnique({
       where: { id: taskId },
+      include: {
+        opportunity: {
+          include: {
+            business: {
+              select: { name: true },
+            },
+          },
+        },
+      },
     })
 
     if (!existingTask) {
@@ -364,6 +374,18 @@ export async function toggleTaskComplete(taskId: string): Promise<{
 
     // Update opportunity's activity dates
     await updateOpportunityActivityDates(existingTask.opportunityId)
+
+    await logActivity({
+      action: 'UPDATE',
+      entityType: 'Opportunity',
+      entityId: existingTask.opportunityId,
+      entityName: existingTask.opportunity?.business?.name || undefined,
+      details: {
+        taskAction: task.completed ? 'completed' : 'reopened',
+        taskTitle: existingTask.title,
+        taskCategory: existingTask.category,
+      },
+    })
 
     invalidateEntity('opportunities')
     invalidateEntity('tasks')

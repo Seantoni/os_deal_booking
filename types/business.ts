@@ -150,6 +150,7 @@ export type Opportunity = {
   contactEmail: string | null
   name: string | null
   stage: OpportunityStage
+  wonAt?: Date | null
   startDate: Date
   closeDate: Date | null
   notes: string | null

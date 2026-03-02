@@ -18,6 +18,11 @@ export type BookingRequest = {
   startDate: Date
   endDate: Date
   status: BookingRequestStatus
+  sentAt?: Date | null
+  approvedAt?: Date | null
+  bookedAt?: Date | null
+  rejectedAt?: Date | null
+  cancelledAt?: Date | null
   eventId: string | null
   opportunityId: string | null
   dealId: string | null
@@ -32,4 +37,3 @@ export type BookingRequest = {
 }
 
 // BookingRequestStatus is now exported from @/lib/constants
-

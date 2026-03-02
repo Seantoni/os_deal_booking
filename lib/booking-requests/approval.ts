@@ -43,6 +43,7 @@ export async function approveBookingRequestWithFollowUp({
       data: {
         status: 'approved',
         processedAt: now,
+        approvedAt: now,
         processedBy,
       },
     })
