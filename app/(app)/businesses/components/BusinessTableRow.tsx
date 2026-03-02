@@ -137,7 +137,7 @@ export function BusinessTableRow({
       ? `${projectionSourceLabel} · ${projectedRequests}/${totalRequests}`
       : `${projectionSourceLabel} · Guía`
   const lifecycleDisplay = getLifecycleDisplay(business.businessLifecycle)
-  const daysSinceLastLaunch = daysSince(business.lastLaunchDate)
+  const daysSinceLastLaunch = daysSince(business.lastLaunchDate ?? null)
 
   return (
     <Fragment key={business.id}>
