@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import CategoriesSidebar from '@/components/calendar/CategoriesSidebar'
@@ -582,6 +582,17 @@ export default function EventsPageClient({
   // Sales users should never see pending requests - admin only feature
   const canSeePendingRequests = userRole === 'admin'
   const effectiveShowPendingBooking = canSeePendingRequests && showPendingBooking
+  const calendarEvents = useMemo(() => {
+    // Default calendar visibility: booked entries only.
+    // Keep pending mode behavior by allowing approved entries when Pending view is active.
+    if (effectiveShowPendingBooking) {
+      return events.filter(
+        (event) => event.status === 'booked' || event.status === 'pre-booked' || event.status === 'approved'
+      )
+    }
+
+    return events.filter((event) => event.status === 'booked' || event.status === 'pre-booked')
+  }, [events, effectiveShowPendingBooking])
 
   return (
     <>
@@ -669,7 +680,7 @@ export default function EventsPageClient({
           {/* Calendar View */}
           <div className="flex-1 overflow-hidden relative z-0">
             <CalendarView
-              events={events}
+              events={calendarEvents}
               searchEvents={searchEvents}
               isSearchLoading={isSearchLoading}
               isLoading={isCalendarLoading}

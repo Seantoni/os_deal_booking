@@ -16,8 +16,6 @@ import EditIcon from '@mui/icons-material/Edit'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import SendIcon from '@mui/icons-material/Send'
 import BlockIcon from '@mui/icons-material/Block'
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import CheckBoxIcon from '@mui/icons-material/CheckBox'
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank'
 import { formatShortDate } from '@/lib/date'
@@ -32,10 +30,11 @@ import { useUserRole } from '@/hooks/useUserRole'
 import { useSharedData } from '@/hooks/useSharedData'
 import { useUser } from '@clerk/nextjs'
 import { Button, Input } from '@/components/ui'
-import { FilterTabs, UserFilterDropdown } from '@/components/shared'
+import { FilterTabs, UserFilterDropdown, SortableTableHeader, type ColumnConfig } from '@/components/shared'
 import { TableRow, TableCell } from '@/components/shared/table'
 import { translateStatus } from '@/lib/utils/translations'
 import { logger } from '@/lib/logger'
+import { useResizableColumns } from '@/hooks/useResizableColumns'
 
 // Lazy load heavy modal component
 const BookingRequestViewModal = dynamic(() => import('@/components/booking/request-view/BookingRequestViewModal'), {
@@ -50,6 +49,56 @@ interface BookingRequestsClientProps {
 type ProjectionValue = {
   projectedRevenue: number | null
   projectionSource: 'actual_deal' | 'business_history' | 'category_benchmark' | 'none'
+}
+
+const BOOKING_REQUESTS_BASE_COLUMNS: ColumnConfig[] = [
+  { key: 'status', label: 'Estado', sortable: true, className: 'normal-case text-sm font-medium tracking-normal text-gray-500' },
+  { key: 'source', label: 'Origen', className: 'normal-case text-sm font-medium tracking-normal text-gray-500' },
+  { key: 'dealId', label: 'Deal ID', className: 'normal-case text-sm font-medium tracking-normal text-gray-500' },
+  { key: 'name', label: 'Nombre', sortable: true, className: 'normal-case text-sm font-medium tracking-normal text-gray-500' },
+  { key: 'email', label: 'Correo', sortable: true, className: 'normal-case text-sm font-medium tracking-normal text-gray-500' },
+  { key: 'projectedRevenue', label: 'Proyección', sortable: true, align: 'right', className: 'normal-case text-sm font-medium tracking-normal text-gray-500' },
+  { key: 'startDate', label: 'Fechas', sortable: true, className: 'normal-case text-sm font-medium tracking-normal text-gray-500' },
+  { key: 'createdAt', label: 'Creado', sortable: true, className: 'normal-case text-sm font-medium tracking-normal text-gray-500' },
+  { key: 'days', label: 'Días', sortable: true, className: 'normal-case text-sm font-medium tracking-normal text-gray-500' },
+  { key: 'sent', label: 'Enviado', sortable: true, className: 'normal-case text-sm font-medium tracking-normal text-gray-500' },
+  { key: 'processed', label: 'Procesado', sortable: true, className: 'normal-case text-sm font-medium tracking-normal text-gray-500' },
+  { key: 'rejectionReason', label: 'Razón de Rechazo', className: 'normal-case text-sm font-medium tracking-normal text-gray-500' },
+  { key: 'actions', label: 'Acciones', align: 'right', className: 'normal-case text-sm font-medium tracking-normal text-gray-500' },
+]
+
+const BOOKING_REQUESTS_TABLE_DEFAULT_WIDTHS: Record<string, number> = {
+  select: 56,
+  status: 130,
+  source: 110,
+  dealId: 90,
+  name: 240,
+  email: 220,
+  projectedRevenue: 130,
+  startDate: 160,
+  createdAt: 100,
+  days: 75,
+  sent: 100,
+  processed: 100,
+  rejectionReason: 220,
+  actions: 220,
+}
+
+const BOOKING_REQUESTS_TABLE_MIN_WIDTHS: Record<string, number> = {
+  select: 48,
+  status: 96,
+  source: 84,
+  dealId: 72,
+  name: 140,
+  email: 130,
+  projectedRevenue: 100,
+  startDate: 120,
+  createdAt: 84,
+  days: 60,
+  sent: 84,
+  processed: 84,
+  rejectionReason: 120,
+  actions: 140,
 }
 
 export default function BookingRequestsClient({ bookingRequests: initialBookingRequests }: BookingRequestsClientProps) {
@@ -535,16 +584,16 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
   const allFilteredSelected = filteredRequests.length > 0 && filteredRequests.every(r => selectedIds.has(r.id))
   const someFilteredSelected = filteredRequests.some(r => selectedIds.has(r.id))
 
-  const handleSelectAll = () => {
+  const handleSelectAll = useCallback(() => {
     if (!isAdmin) return
     if (allFilteredSelected) {
       setSelectedIds(new Set())
     } else {
       setSelectedIds(new Set(filteredRequests.map(r => r.id)))
     }
-  }
+  }, [isAdmin, allFilteredSelected, filteredRequests])
 
-  const handleSelectOne = (id: string) => {
+  const handleSelectOne = useCallback((id: string) => {
     if (!isAdmin) return
     const newSelected = new Set(selectedIds)
     if (newSelected.has(id)) {
@@ -553,7 +602,45 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
       newSelected.add(id)
     }
     setSelectedIds(newSelected)
-  }
+  }, [isAdmin, selectedIds])
+
+  const selectColumnHeader = useMemo(() => (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        handleSelectAll()
+      }}
+      className="flex items-center justify-center w-5 h-5 rounded border border-gray-300 hover:bg-gray-100 transition-colors mx-auto"
+      title={allFilteredSelected ? 'Deseleccionar todo' : 'Seleccionar todo'}
+    >
+      {allFilteredSelected ? (
+        <CheckBoxIcon className="w-4 h-4 text-blue-600" />
+      ) : someFilteredSelected ? (
+        <div className="w-4 h-4 border-2 border-blue-600 bg-blue-100 rounded" />
+      ) : (
+        <CheckBoxOutlineBlankIcon className="w-4 h-4 text-gray-400" />
+      )}
+    </button>
+  ), [allFilteredSelected, someFilteredSelected, handleSelectAll])
+
+  const desktopColumns = useMemo(() => {
+    if (!isAdmin) return BOOKING_REQUESTS_BASE_COLUMNS
+    return [
+      {
+        key: 'select',
+        label: selectColumnHeader,
+        align: 'center' as const,
+        className: 'normal-case text-sm font-medium tracking-normal text-gray-500',
+      },
+      ...BOOKING_REQUESTS_BASE_COLUMNS,
+    ]
+  }, [isAdmin, selectColumnHeader])
+
+  const { columnsWithUserWidths, handleColumnResize, getColumnCellStyle } = useResizableColumns(desktopColumns, {
+    storageKey: 'booking-requests-table-column-widths',
+    defaultWidths: BOOKING_REQUESTS_TABLE_DEFAULT_WIDTHS,
+    minWidths: BOOKING_REQUESTS_TABLE_MIN_WIDTHS,
+  })
 
   // Bulk operations
   const handleBulkDelete = async () => {
@@ -820,135 +907,14 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
             {/* Desktop table */}
             <div className="hidden md:block bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-gray-50 border-b border-gray-200 font-medium text-gray-500">
-                    <tr>
-                      {isAdmin && (
-                        <th className="px-4 py-[5px] w-12">
-                          <button
-                            onClick={handleSelectAll}
-                            className="flex items-center justify-center w-5 h-5 rounded border border-gray-300 hover:bg-gray-100 transition-colors"
-                            title={allFilteredSelected ? 'Deseleccionar todo' : 'Seleccionar todo'}
-                          >
-                            {allFilteredSelected ? (
-                              <CheckBoxIcon className="w-4 h-4 text-blue-600" />
-                            ) : someFilteredSelected ? (
-                              <div className="w-4 h-4 border-2 border-blue-600 bg-blue-100 rounded" />
-                            ) : (
-                              <CheckBoxOutlineBlankIcon className="w-4 h-4 text-gray-400" />
-                            )}
-                          </button>
-                        </th>
-                      )}
-                      <th 
-                        className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
-                        onClick={() => handleSort('status')}
-                      >
-                        <div className="flex items-center gap-1">
-                          <span>Estado</span>
-                          {sortColumn === 'status' && (
-                            sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                          )}
-                        </div>
-                      </th>
-                      <th className="px-4 py-3 font-medium">
-                        <span>Origen</span>
-                      </th>
-                      <th className="px-4 py-3 font-medium">
-                        <span>Deal ID</span>
-                      </th>
-                      <th 
-                        className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
-                        onClick={() => handleSort('name')}
-                      >
-                        <div className="flex items-center gap-1">
-                          <span>Nombre</span>
-                          {sortColumn === 'name' && (
-                            sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                          )}
-                        </div>
-                      </th>
-                      <th 
-                        className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
-                        onClick={() => handleSort('email')}
-                      >
-                        <div className="flex items-center gap-1">
-                          <span>Correo</span>
-                          {sortColumn === 'email' && (
-                            sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                          )}
-                        </div>
-                      </th>
-                      <th 
-                        className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
-                        onClick={() => handleSort('projectedRevenue')}
-                      >
-                        <div className="flex items-center gap-1 justify-end">
-                          <span>Proyección</span>
-                          {sortColumn === 'projectedRevenue' && (
-                            sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                          )}
-                        </div>
-                      </th>
-                      <th 
-                        className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
-                        onClick={() => handleSort('startDate')}
-                      >
-                        <div className="flex items-center gap-1">
-                          <span>Fechas</span>
-                          {sortColumn === 'startDate' && (
-                            sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                          )}
-                        </div>
-                      </th>
-                      <th 
-                        className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
-                        onClick={() => handleSort('createdAt')}
-                      >
-                        <div className="flex items-center gap-1">
-                          <span>Creado</span>
-                          {sortColumn === 'createdAt' && (
-                            sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                          )}
-                        </div>
-                      </th>
-                      <th 
-                        className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
-                        onClick={() => handleSort('days')}
-                      >
-                        <div className="flex items-center gap-1">
-                          <span>Días</span>
-                          {sortColumn === 'days' && (
-                            sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                          )}
-                        </div>
-                      </th>
-                      <th 
-                        className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
-                        onClick={() => handleSort('sent')}
-                      >
-                        <div className="flex items-center gap-1">
-                          <span>Enviado</span>
-                          {sortColumn === 'sent' && (
-                            sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                          )}
-                        </div>
-                      </th>
-                      <th 
-                        className="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 transition-colors"
-                        onClick={() => handleSort('processed')}
-                      >
-                        <div className="flex items-center gap-1">
-                          <span>Procesado</span>
-                          {sortColumn === 'processed' && (
-                            sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />
-                          )}
-                        </div>
-                      </th>
-                      <th className="px-4 py-3 font-medium">Razón de Rechazo</th>
-                      <th className="px-4 py-3 font-medium text-right">Acciones</th>
-                    </tr>
-                  </thead>
+                <table className="w-full table-fixed text-sm text-left">
+                  <SortableTableHeader
+                    columns={columnsWithUserWidths}
+                    sortColumn={sortColumn}
+                    sortDirection={sortDirection}
+                    onSort={handleSort}
+                    onColumnResize={handleColumnResize}
+                  />
                   <tbody className="divide-y divide-gray-100">
                   {visibleRequests.map((request, index) => {
                     const sentDate = getSentDate(request)
@@ -977,7 +943,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                         onMouseEnter={() => handleRowHover(request.id)}
                       >
                         {isAdmin && (
-                          <TableCell>
+                          <TableCell style={getColumnCellStyle('select')}>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
@@ -994,10 +960,10 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                             </button>
                           </TableCell>
                         )}
-                        <TableCell>
+                        <TableCell style={getColumnCellStyle('status')}>
                           {getStatusBadge(request.status, request.status === 'pending' ? daysSinceSent : null)}
                         </TableCell>
-                        <TableCell>
+                        <TableCell style={getColumnCellStyle('source')}>
                           <span className={`px-2 py-0.5 rounded text-[13px] font-medium ${
                             request.sourceType === 'public_link' 
                               ? 'bg-purple-50 text-purple-700' 
@@ -1006,7 +972,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                             {request.sourceType === 'public_link' ? 'Enlace Público' : 'Interno'}
                           </span>
                         </TableCell>
-                        <TableCell>
+                        <TableCell style={getColumnCellStyle('dealId')}>
                           {request.dealId ? (
                             <span className="inline-flex items-center px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[12px] font-mono font-medium">
                               {request.dealId}
@@ -1015,13 +981,13 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                             <span className="text-gray-400 text-[13px]">—</span>
                           )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell style={getColumnCellStyle('name')}>
                           <span className="font-medium text-gray-900 truncate block text-[13px]">{request.name}</span>
                         </TableCell>
-                        <TableCell className="text-gray-600">
-                          <span className="truncate block max-w-[180px] text-[13px]">{request.businessEmail}</span>
+                        <TableCell className="text-gray-600" style={getColumnCellStyle('email')}>
+                          <span className="truncate block w-full text-[13px]">{request.businessEmail}</span>
                         </TableCell>
-                        <TableCell align="right">
+                        <TableCell align="right" style={getColumnCellStyle('projectedRevenue')}>
                           {projection?.projectedRevenue !== null && projection?.projectedRevenue !== undefined ? (
                             <div className="flex flex-col items-end leading-tight">
                               <span className="font-semibold text-emerald-700 text-[13px]">
@@ -1037,26 +1003,26 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-gray-600">
+                        <TableCell className="text-gray-600" style={getColumnCellStyle('startDate')}>
                           <span className="whitespace-nowrap text-[13px]">
                             {formatDateShortYear(request.startDate)} - {formatDateShortYear(request.endDate)}
                           </span>
                         </TableCell>
-                        <TableCell className="text-gray-600">
+                        <TableCell className="text-gray-600" style={getColumnCellStyle('createdAt')}>
                           <span className="whitespace-nowrap text-[13px]">{formatShortDate(request.createdAt)}</span>
                         </TableCell>
-                        <TableCell>
+                        <TableCell style={getColumnCellStyle('days')}>
                           <span className="font-medium text-gray-900 text-[13px]">
                             {daysSinceCreated !== null ? `${daysSinceCreated}` : '—'}
                           </span>
                         </TableCell>
-                        <TableCell className="text-gray-600">
+                        <TableCell className="text-gray-600" style={getColumnCellStyle('sent')}>
                           <span className="whitespace-nowrap text-[13px]">{formatShortDate(sentDate)}</span>
                         </TableCell>
-                        <TableCell className="text-gray-600">
+                        <TableCell className="text-gray-600" style={getColumnCellStyle('processed')}>
                           <span className="whitespace-nowrap text-[13px]">{formatShortDate(request.processedAt)}</span>
                         </TableCell>
-                        <TableCell>
+                        <TableCell style={getColumnCellStyle('rejectionReason')}>
                           {request.status === 'rejected' && request.rejectionReason ? (
                             <div className="max-w-[200px]">
                               <p className="text-[13px] text-red-700 line-clamp-2" title={request.rejectionReason}>
@@ -1067,7 +1033,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                             <span className="text-gray-400 text-[13px]">—</span>
                           )}
                         </TableCell>
-                        <TableCell align="right" className="relative">
+                        <TableCell align="right" className="relative" style={getColumnCellStyle('actions')}>
                           <div className="flex items-center justify-end gap-1">
                             <Button
                               onClick={(e) => {

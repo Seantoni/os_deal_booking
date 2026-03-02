@@ -6,7 +6,7 @@
 
 'use client'
 
-import { Fragment } from 'react'
+import { Fragment, type CSSProperties } from 'react'
 import type { Business } from '@/types'
 import type { SimplifiedDeal } from '@/app/actions/deal-metrics'
 import type { ProjectionEntitySummary } from '@/lib/projections/summary'
@@ -38,6 +38,7 @@ interface BusinessTableRowProps {
   projectionSummary?: ProjectionEntitySummary
   isAdmin: boolean
   canEdit: boolean // Whether user can edit this business
+  getColumnCellStyle: (columnKey: string) => CSSProperties | undefined
   
   // Callbacks
   onRowClick: (business: Business) => void
@@ -104,6 +105,7 @@ export function BusinessTableRow({
   projectionSummary,
   isAdmin,
   canEdit,
+  getColumnCellStyle,
   onRowClick,
   onRowHover,
   onToggleExpand,
@@ -145,7 +147,7 @@ export function BusinessTableRow({
         className={activeFocus ? 'bg-amber-50/50 hover:bg-amber-50' : undefined}
       >
         {/* Expand/Collapse Button */}
-        <TableCell onClick={(e) => e.stopPropagation()}>
+        <TableCell style={getColumnCellStyle('expand')} onClick={(e) => e.stopPropagation()}>
           <button
             onClick={() => onToggleExpand(business)}
             className={`p-1 rounded transition-colors ${
@@ -168,7 +170,7 @@ export function BusinessTableRow({
         </TableCell>
         
         {/* Name with badges */}
-        <TableCell>
+        <TableCell style={getColumnCellStyle('name')}>
           <div className="flex items-center gap-2">
             <span className="font-medium text-gray-900 text-[13px]">
               {business.name}
@@ -195,7 +197,7 @@ export function BusinessTableRow({
         </TableCell>
 
         {/* Lifecycle (N/R) */}
-        <TableCell align="center" className="w-12">
+        <TableCell align="center" style={getColumnCellStyle('lifecycle')}>
           <span
             className={`inline-flex min-w-[18px] justify-center rounded px-1 py-0.5 text-[10px] font-semibold ${lifecycleDisplay.className}`}
             title={lifecycleDisplay.title}
@@ -205,7 +207,7 @@ export function BusinessTableRow({
         </TableCell>
         
         {/* Category */}
-        <TableCell>
+        <TableCell style={getColumnCellStyle('category')}>
           {business.category ? (
             <span className="text-xs text-gray-600">
               {business.category.parentCategory}
@@ -216,7 +218,7 @@ export function BusinessTableRow({
         </TableCell>
         
         {/* Tier */}
-        <TableCell align="center">
+        <TableCell align="center" style={getColumnCellStyle('tier')}>
           {business.tier ? (
             <span className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${
               business.tier === 1 ? 'bg-emerald-100 text-emerald-700' :
@@ -231,7 +233,7 @@ export function BusinessTableRow({
         </TableCell>
         
         {/* Owner */}
-        <TableCell>
+        <TableCell style={getColumnCellStyle('owner')}>
           {business.owner ? (
             <span className="text-xs text-gray-600" title={business.owner.email || undefined}>
               {business.owner.name || business.owner.email || '-'}
@@ -242,7 +244,7 @@ export function BusinessTableRow({
         </TableCell>
         
         {/* Top Vendido */}
-        <TableCell align="right">
+        <TableCell align="right" style={getColumnCellStyle('topSold')}>
           {business.topSoldQuantity ? (
             business.topSoldDealUrl ? (
               <a
@@ -265,7 +267,7 @@ export function BusinessTableRow({
         </TableCell>
         
         {/* Top Ingresos */}
-        <TableCell align="right">
+        <TableCell align="right" style={getColumnCellStyle('topRevenue')}>
           {business.topRevenueAmount ? (
             business.topRevenueDealUrl ? (
               <a
@@ -288,7 +290,7 @@ export function BusinessTableRow({
         </TableCell>
         
         {/* Último Lanzamiento */}
-        <TableCell align="center">
+        <TableCell align="center" style={getColumnCellStyle('lastLaunch')}>
           {business.lastLaunchDate ? (
             <span 
               className="text-xs text-slate-600"
@@ -302,7 +304,7 @@ export function BusinessTableRow({
         </TableCell>
         
         {/* Deals (360d) */}
-        <TableCell align="center">
+        <TableCell align="center" style={getColumnCellStyle('deals360d')}>
           {business.totalDeals360d ? (
             <span className="text-xs font-medium text-gray-700">
               {business.totalDeals360d}
@@ -313,7 +315,7 @@ export function BusinessTableRow({
         </TableCell>
         
         {/* Open Opportunities */}
-        <TableCell align="center">
+        <TableCell align="center" style={getColumnCellStyle('openOpps')}>
           {openOpportunityCount > 0 ? (
             <span className="inline-flex px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">
               {openOpportunityCount}
@@ -324,7 +326,7 @@ export function BusinessTableRow({
         </TableCell>
         
         {/* Pending Requests */}
-        <TableCell align="center">
+        <TableCell align="center" style={getColumnCellStyle('pendingReqs')}>
           {pendingRequestCount > 0 ? (
             <span className="inline-flex px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded text-xs font-medium">
               {pendingRequestCount}
@@ -335,7 +337,7 @@ export function BusinessTableRow({
         </TableCell>
 
         {/* Projected Revenue */}
-        <TableCell align="right">
+        <TableCell align="right" style={getColumnCellStyle('projectedRevenue')}>
           <div className="flex flex-col items-end leading-tight">
             {projectedRevenue > 0 ? (
               <span className="text-xs font-semibold text-emerald-700">
@@ -351,7 +353,7 @@ export function BusinessTableRow({
         </TableCell>
         
         {/* Actions */}
-        <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+        <TableCell align="right" style={getColumnCellStyle('actions')} onClick={(e) => e.stopPropagation()}>
           <BusinessActionButtons
             business={business}
             activeFocus={activeFocus}

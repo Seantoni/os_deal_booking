@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback, useOptimistic, useTransition } from 'react'
+import { useState, useEffect, useMemo, useCallback, useOptimistic, useTransition, useRef, type CSSProperties } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
+import { useUser } from '@clerk/nextjs'
 import { getUserTasks, toggleTaskComplete, getTaskCounts, type TaskWithOpportunity } from '@/app/actions/tasks'
 import { createTask, updateTask, deleteTask } from '@/app/actions/opportunities'
 import { getOpportunity, updateOpportunity } from '@/app/actions/crm'
@@ -70,18 +71,47 @@ const STAGE_COLORS: Record<string, string> = {
 
 // Table columns
 const COLUMNS: ColumnConfig[] = [
-  { key: 'status', label: '', width: 'w-[40px]', align: 'center' },
-  { key: 'title', label: 'Tarea', sortable: true, width: 'w-[122px]' },
-  { key: 'meetingOutcome', label: '¿Acuerdo?', width: 'w-[50px]' },
-  { key: 'responsible', label: 'Responsable', sortable: true, width: 'w-[80px]' },
-  { key: 'date', label: 'Vencimiento', sortable: true, width: 'w-[77px]' },
-  { key: 'business', label: 'Negocio', sortable: true, width: 'w-[93px]' },
-  { key: 'stage', label: 'Etapa', sortable: true, width: 'w-[64px]' },
-  { key: 'contactName', label: 'Contacto', width: 'w-[88px]' },
-  { key: 'contactEmail', label: 'Email', width: 'w-[140px]' },
-  { key: 'contactPhone', label: 'Teléfono', width: 'w-[77px]' },
-  { key: 'actions', label: '', width: 'w-[48px]', align: 'right' },
+  { key: 'status', label: '', align: 'center' },
+  { key: 'title', label: 'Tarea', sortable: true },
+  { key: 'meetingOutcome', label: '¿Acuerdo?' },
+  { key: 'responsible', label: 'Responsable', sortable: true },
+  { key: 'date', label: 'Vencimiento', sortable: true },
+  { key: 'business', label: 'Negocio', sortable: true },
+  { key: 'stage', label: 'Etapa', sortable: true },
+  { key: 'contactName', label: 'Contacto' },
+  { key: 'contactEmail', label: 'Email' },
+  { key: 'contactPhone', label: 'Teléfono' },
+  { key: 'actions', label: '', align: 'right' },
 ]
+
+const TASKS_COLUMN_WIDTHS_STORAGE_KEY = 'tasks-table-column-widths'
+const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
+  status: 40,
+  title: 122,
+  meetingOutcome: 50,
+  responsible: 80,
+  date: 120,
+  business: 110,
+  stage: 88,
+  contactName: 105,
+  contactEmail: 180,
+  contactPhone: 110,
+  actions: 48,
+}
+
+const MIN_COLUMN_WIDTHS: Record<string, number> = {
+  status: 36,
+  title: 90,
+  meetingOutcome: 50,
+  responsible: 70,
+  date: 95,
+  business: 80,
+  stage: 72,
+  contactName: 80,
+  contactEmail: 120,
+  contactPhone: 90,
+  actions: 40,
+}
 
 type FilterType = 'all' | 'pending' | 'completed' | 'overdue' | 'meetings' | 'todos'
 
@@ -92,6 +122,8 @@ interface MeetingPipelineAutomationResult {
 
 export default function TasksPageClient() {
   const router = useRouter()
+  const { user } = useUser()
+  const userId = user?.id || null
   const { isAdmin } = useUserRole()
   const { categories, users } = useSharedData()
   const confirmDialog = useConfirmDialog()
@@ -137,6 +169,81 @@ export default function TasksPageClient() {
   // Sorting state
   const [sortColumn, setSortColumn] = useState<string | null>('date')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(DEFAULT_COLUMN_WIDTHS)
+  const loadedColumnWidthsForUserRef = useRef<string | null>(null)
+  const skipNextColumnWidthsPersistRef = useRef(false)
+
+  useEffect(() => {
+    if (!userId || typeof window === 'undefined') return
+    const storageKey = `${TASKS_COLUMN_WIDTHS_STORAGE_KEY}:${userId}`
+    try {
+      const stored = localStorage.getItem(storageKey)
+      if (!stored) {
+        loadedColumnWidthsForUserRef.current = userId
+        skipNextColumnWidthsPersistRef.current = true
+        return
+      }
+      const parsed = JSON.parse(stored) as Record<string, unknown>
+      const sanitized: Record<string, number> = { ...DEFAULT_COLUMN_WIDTHS }
+      Object.keys(DEFAULT_COLUMN_WIDTHS).forEach((columnKey) => {
+        const raw = parsed[columnKey]
+        if (typeof raw === 'number' && Number.isFinite(raw)) {
+          const min = MIN_COLUMN_WIDTHS[columnKey] || 48
+          sanitized[columnKey] = Math.max(min, Math.min(640, Math.round(raw)))
+        }
+      })
+      setColumnWidths(sanitized)
+    } catch {
+      setColumnWidths(DEFAULT_COLUMN_WIDTHS)
+    } finally {
+      loadedColumnWidthsForUserRef.current = userId
+      skipNextColumnWidthsPersistRef.current = true
+    }
+  }, [userId])
+
+  useEffect(() => {
+    if (!userId || typeof window === 'undefined') return
+    if (loadedColumnWidthsForUserRef.current !== userId) return
+    if (skipNextColumnWidthsPersistRef.current) {
+      skipNextColumnWidthsPersistRef.current = false
+      return
+    }
+    const storageKey = `${TASKS_COLUMN_WIDTHS_STORAGE_KEY}:${userId}`
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(columnWidths))
+    } catch {
+      // Ignore storage write failures (private mode / quota)
+    }
+  }, [columnWidths, userId])
+
+  const columnsWithUserWidths = useMemo(() => {
+    return COLUMNS.map((column) => ({
+      ...column,
+      widthPx: columnWidths[column.key] || DEFAULT_COLUMN_WIDTHS[column.key] || 120,
+      minWidth: MIN_COLUMN_WIDTHS[column.key] || 48,
+      maxWidth: 640,
+      // Keep resize enabled for all task table columns
+      resizable: true,
+    }))
+  }, [columnWidths])
+
+  const handleColumnResize = useCallback((columnKey: string, widthPx: number) => {
+    const min = MIN_COLUMN_WIDTHS[columnKey] || 48
+    const nextWidth = Math.max(min, Math.min(640, Math.round(widthPx)))
+    setColumnWidths((prev) => {
+      if (prev[columnKey] === nextWidth) return prev
+      return { ...prev, [columnKey]: nextWidth }
+    })
+  }, [])
+
+  const getColumnCellStyle = useCallback((columnKey: string): CSSProperties => {
+    const width = columnWidths[columnKey] || DEFAULT_COLUMN_WIDTHS[columnKey] || 120
+    return {
+      width: `${width}px`,
+      minWidth: `${width}px`,
+      maxWidth: `${width}px`,
+    }
+  }, [columnWidths])
 
   // Load tasks
   const loadTasks = useCallback(async (filters?: { responsibleId?: string }) => {
@@ -1043,10 +1150,11 @@ export default function TasksPageClient() {
             <div className="hidden md:block">
               <EntityTable
                 tableClassName="table-fixed [&_th]:px-2 [&_td]:px-2 [&_td]:overflow-hidden [&_td]:text-sm"
-                columns={COLUMNS}
+                columns={columnsWithUserWidths}
                 sortColumn={sortColumn}
                 sortDirection={sortDirection}
                 onSort={handleSort}
+                onColumnResize={handleColumnResize}
               >
                 {sortedTasks.map((task, index) => {
                   const meetingData = task.category === 'meeting' ? parseMeetingData(task.notes || null) : null
@@ -1066,7 +1174,12 @@ export default function TasksPageClient() {
                       className={task.completed ? 'opacity-60' : ''}
                     >
                       {/* Status */}
-                      <TableCell align="center" className="w-[40px] px-0" onClick={(e) => e.stopPropagation()}>
+                      <TableCell
+                        align="center"
+                        className="px-0"
+                        style={getColumnCellStyle('status')}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <button
                           onClick={() => handleToggleComplete(task)}
                           className={`mx-auto flex h-5 w-5 items-center justify-center transition-colors ${
@@ -1085,7 +1198,7 @@ export default function TasksPageClient() {
                       </TableCell>
 
                       {/* Title */}
-                      <TableCell className="w-[122px]">
+                      <TableCell style={getColumnCellStyle('title')}>
                         <div className="flex min-w-0 items-center gap-2">
                           {task.category === 'meeting' ? (
                             <GroupsIcon className="text-blue-600 flex-shrink-0" style={{ fontSize: 16 }} />
@@ -1107,16 +1220,16 @@ export default function TasksPageClient() {
                       </TableCell>
 
                       {/* Meeting Outcome */}
-                      <TableCell className="w-[50px]">
+                      <TableCell style={getColumnCellStyle('meetingOutcome')}>
                         <span className="text-sm text-slate-700 truncate block w-full">
                           {task.category === 'meeting' ? meetingOutcome : ''}
                         </span>
                       </TableCell>
 
                       {/* Responsible */}
-                      <TableCell className="w-[80px]">
+                      <TableCell style={getColumnCellStyle('responsible')}>
                         <span
-                          className="text-sm text-slate-700 truncate block max-w-[80px]"
+                          className="text-sm text-slate-700 truncate block w-full"
                           title={task.opportunity?.responsible?.name || task.opportunity?.responsible?.email || ''}
                         >
                           {task.opportunity?.responsible?.name || task.opportunity?.responsible?.email || '-'}
@@ -1124,7 +1237,7 @@ export default function TasksPageClient() {
                       </TableCell>
 
                       {/* Date */}
-                      <TableCell className="w-[77px]">
+                      <TableCell style={getColumnCellStyle('date')}>
                         {(() => {
                           const daysUntil = getDaysUntil(task)
                           return (
@@ -1144,14 +1257,14 @@ export default function TasksPageClient() {
                       </TableCell>
 
                       {/* Business */}
-                      <TableCell className="w-[93px]">
+                      <TableCell style={getColumnCellStyle('business')}>
                         <span className="text-sm text-slate-900 truncate block w-full" title={task.opportunity?.business?.name || ''}>
                           {task.opportunity?.business?.name || '-'}
                         </span>
                       </TableCell>
 
                       {/* Stage */}
-                      <TableCell className="w-[64px]">
+                      <TableCell style={getColumnCellStyle('stage')}>
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ${
                           STAGE_COLORS[task.opportunity?.stage || ''] || 'bg-gray-100 text-gray-600'
                         }`}>
@@ -1160,14 +1273,14 @@ export default function TasksPageClient() {
                       </TableCell>
 
                       {/* Contact Name */}
-                      <TableCell className="w-[88px]">
+                      <TableCell style={getColumnCellStyle('contactName')}>
                         <span className="text-sm text-slate-600 truncate block w-full" title={task.opportunity?.business?.contactName || ''}>
                           {task.opportunity?.business?.contactName || '-'}
                         </span>
                       </TableCell>
 
                       {/* Contact Email */}
-                      <TableCell className="w-[140px]">
+                      <TableCell style={getColumnCellStyle('contactEmail')}>
                         {task.opportunity?.business?.contactEmail ? (
                           <a 
                             href={`mailto:${task.opportunity.business.contactEmail}`}
@@ -1183,7 +1296,7 @@ export default function TasksPageClient() {
                       </TableCell>
 
                       {/* Contact Phone */}
-                      <TableCell className="w-[77px]">
+                      <TableCell style={getColumnCellStyle('contactPhone')}>
                         {task.opportunity?.business?.contactPhone ? (
                           <a 
                             href={`tel:${task.opportunity.business.contactPhone}`}
@@ -1198,7 +1311,11 @@ export default function TasksPageClient() {
                       </TableCell>
 
                       {/* Actions */}
-                      <TableCell align="right" className="w-[48px]" onClick={(e) => e.stopPropagation()}>
+                      <TableCell
+                        align="right"
+                        style={getColumnCellStyle('actions')}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div className="flex items-center justify-end gap-1">
                           {task.opportunityId && (
                             <button

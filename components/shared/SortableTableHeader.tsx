@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import type { SortDirection } from '@/hooks/useEntityPage'
@@ -17,6 +18,14 @@ export interface ColumnConfig {
   className?: string
   /** Column width (e.g., 'w-28', 'w-10') */
   width?: string
+  /** Fixed width in pixels (for user-resizable tables) */
+  widthPx?: number
+  /** Allow dragging this column edge to resize */
+  resizable?: boolean
+  /** Minimum width in pixels when resizable */
+  minWidth?: number
+  /** Maximum width in pixels when resizable */
+  maxWidth?: number
 }
 
 interface SortableTableHeaderProps {
@@ -24,6 +33,7 @@ interface SortableTableHeaderProps {
   sortColumn: string | null
   sortDirection: SortDirection
   onSort: (column: string) => void
+  onColumnResize?: (column: string, widthPx: number) => void
 }
 
 /**
@@ -51,7 +61,47 @@ export function SortableTableHeader({
   sortColumn,
   sortDirection,
   onSort,
+  onColumnResize,
 }: SortableTableHeaderProps) {
+  const [activeResize, setActiveResize] = useState<{
+    columnKey: string
+    startX: number
+    startWidth: number
+    minWidth: number
+    maxWidth: number
+  } | null>(null)
+
+  useEffect(() => {
+    if (!activeResize || !onColumnResize) return
+
+    const handleMouseMove = (event: MouseEvent) => {
+      const delta = event.clientX - activeResize.startX
+      const nextWidth = Math.max(
+        activeResize.minWidth,
+        Math.min(activeResize.maxWidth, Math.round(activeResize.startWidth + delta))
+      )
+      onColumnResize(activeResize.columnKey, nextWidth)
+    }
+
+    const handleMouseUp = () => {
+      setActiveResize(null)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    const previousCursor = document.body.style.cursor
+    const previousUserSelect = document.body.style.userSelect
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = previousCursor
+      document.body.style.userSelect = previousUserSelect
+    }
+  }, [activeResize, onColumnResize])
+
   return (
     <thead className="bg-slate-100 border-b border-slate-200">
       <tr>
@@ -68,8 +118,9 @@ export function SortableTableHeader({
               key={column.key}
               className={`px-4 py-3 text-xs font-bold text-slate-700 uppercase tracking-wider whitespace-nowrap overflow-hidden ${alignClass} ${
                 column.sortable ? 'cursor-pointer hover:bg-slate-200/50 transition-colors' : ''
-              } ${column.width || ''} ${column.className || ''}`}
+              } ${column.width || ''} ${column.className || ''} ${column.resizable ? 'relative' : ''}`}
               onClick={column.sortable ? () => onSort(column.key) : undefined}
+              style={column.widthPx ? { width: `${column.widthPx}px`, minWidth: `${column.widthPx}px`, maxWidth: `${column.widthPx}px` } : undefined}
             >
               <div className={`flex min-w-0 items-center gap-1 ${
                 column.align === 'center' ? 'justify-center' : column.align === 'right' ? 'justify-end' : ''
@@ -81,6 +132,25 @@ export function SortableTableHeader({
                     : <ArrowDownwardIcon style={{ fontSize: 14 }} className="text-blue-600 shrink-0" />
                 )}
               </div>
+              {column.resizable && onColumnResize && (
+                <button
+                  type="button"
+                  aria-label={`Resize ${typeof column.label === 'string' ? column.label : column.key} column`}
+                  className="absolute top-0 right-0 h-full w-2 cursor-col-resize border-r border-transparent hover:border-slate-400 focus:outline-none"
+                  onClick={(event) => event.stopPropagation()}
+                  onMouseDown={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    setActiveResize({
+                      columnKey: column.key,
+                      startX: event.clientX,
+                      startWidth: column.widthPx || column.minWidth || 80,
+                      minWidth: column.minWidth || 48,
+                      maxWidth: column.maxWidth || 640,
+                    })
+                  }}
+                />
+              )}
             </th>
           )
         })}

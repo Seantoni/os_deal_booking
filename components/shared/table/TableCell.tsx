@@ -5,19 +5,19 @@ interface TableCellProps {
   className?: string
   onClick?: (e: React.MouseEvent) => void
   align?: 'left' | 'center' | 'right'
+  style?: React.CSSProperties
 }
 
-export function TableCell({ children, className = '', onClick, align = 'left' }: TableCellProps) {
+export function TableCell({ children, className = '', onClick, align = 'left', style }: TableCellProps) {
   const alignClass = align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left'
   
   return (
     <td
       className={`px-4 py-[5px] ${alignClass} ${className}`}
       onClick={onClick}
-      style={{ height: '32px', verticalAlign: 'middle' }}
+      style={{ height: '32px', verticalAlign: 'middle', ...style }}
     >
       {children}
     </td>
   )
 }
-

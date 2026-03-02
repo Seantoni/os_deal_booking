@@ -9,6 +9,7 @@ interface EntityTableProps {
   sortColumn: string | null
   sortDirection: SortDirection
   onSort: (column: string) => void
+  onColumnResize?: (column: string, widthPx: number) => void
   children: ReactNode
   className?: string
   tableClassName?: string
@@ -19,6 +20,7 @@ export default function EntityTable({
   sortColumn,
   sortDirection,
   onSort,
+  onColumnResize,
   children,
   className = '',
   tableClassName = '',
@@ -32,6 +34,7 @@ export default function EntityTable({
             sortColumn={sortColumn}
             sortDirection={sortDirection}
             onSort={onSort}
+            onColumnResize={onColumnResize}
           />
           <tbody className="divide-y divide-slate-100">
             {children}

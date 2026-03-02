@@ -28,6 +28,7 @@ import { useFormConfigCache } from '@/hooks/useFormConfigCache'
 import { usePaginatedSearch } from '@/hooks/usePaginatedSearch'
 import { useAdvancedFilters } from '@/hooks/useAdvancedFilters'
 import { sortEntities } from '@/hooks/useEntityPage'
+import { useResizableColumns } from '@/hooks/useResizableColumns'
 import { useSidebar } from '@/components/common/AppClientProviders'
 import { 
   EntityPageHeader, 
@@ -117,6 +118,40 @@ const COLUMNS: ColumnConfig[] = [
   { key: 'projectedRevenue', label: 'Proy. $', sortable: true, align: 'right' },
   { key: 'actions', label: <ActionsColumnHeader />, align: 'right' },
 ]
+
+const BUSINESS_TABLE_DEFAULT_WIDTHS: Record<string, number> = {
+  expand: 40,
+  name: 240,
+  lifecycle: 56,
+  category: 160,
+  tier: 70,
+  owner: 160,
+  topSold: 90,
+  topRevenue: 105,
+  lastLaunch: 80,
+  deals360d: 75,
+  openOpps: 70,
+  pendingReqs: 70,
+  projectedRevenue: 130,
+  actions: 250,
+}
+
+const BUSINESS_TABLE_MIN_WIDTHS: Record<string, number> = {
+  expand: 36,
+  name: 140,
+  lifecycle: 48,
+  category: 100,
+  tier: 56,
+  owner: 100,
+  topSold: 70,
+  topRevenue: 80,
+  lastLaunch: 64,
+  deals360d: 64,
+  openOpps: 60,
+  pendingReqs: 60,
+  projectedRevenue: 100,
+  actions: 180,
+}
 
 interface BusinessesPageClientProps {
   initialBusinesses?: Business[]
@@ -644,6 +679,11 @@ export default function BusinessesPageClient({
   )
 
   const isLoading = loading || searchLoading
+  const { columnsWithUserWidths, handleColumnResize, getColumnCellStyle } = useResizableColumns(COLUMNS, {
+    storageKey: 'businesses-table-column-widths',
+    defaultWidths: BUSINESS_TABLE_DEFAULT_WIDTHS,
+    minWidths: BUSINESS_TABLE_MIN_WIDTHS,
+  })
 
   // Tab state
   const [activeTab, setActiveTab] = useState<PageTab>(() => {
@@ -819,12 +859,13 @@ export default function BusinessesPageClient({
                 <SearchIndicator />
                 
                 <div className="bg-white rounded-lg border border-gray-200">
-                  <table className="w-full text-[13px] text-left">
+                  <table className="w-full table-fixed text-[13px] text-left">
                     <SortableTableHeader
-                      columns={COLUMNS}
+                      columns={columnsWithUserWidths}
                       sortColumn={sortColumn}
                       sortDirection={sortDirection}
                       onSort={handleSort}
+                      onColumnResize={handleColumnResize}
                     />
                     <tbody className="divide-y divide-slate-100">
                       {filteredBusinesses.map((business, index) => (
@@ -842,6 +883,7 @@ export default function BusinessesPageClient({
                           projectionSummary={businessProjectionMap[business.id]}
                           isAdmin={isAdmin}
                           canEdit={canEditBusiness(business.id)}
+                          getColumnCellStyle={getColumnCellStyle}
                           onRowClick={(b) => pageState.openBusinessModal(b)}
                           onRowHover={handleRowHover}
                           onToggleExpand={pageState.toggleExpandBusiness}

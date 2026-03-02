@@ -28,6 +28,7 @@ import { useFormConfigCache } from '@/hooks/useFormConfigCache'
 import { usePaginatedSearch } from '@/hooks/usePaginatedSearch'
 import { useAdvancedFilters } from '@/hooks/useAdvancedFilters'
 import { sortEntities } from '@/hooks/useEntityPage'
+import { useResizableColumns } from '@/hooks/useResizableColumns'
 import { 
   EntityPageHeader, 
   EmptyTableState, 
@@ -79,6 +80,26 @@ const COLUMNS: ColumnConfig[] = [
   { key: 'notes', label: 'Notas', sortable: true },
   { key: 'actions', label: '', align: 'right', width: 'w-28' },
 ]
+
+const OPPORTUNITIES_TABLE_DEFAULT_WIDTHS: Record<string, number> = {
+  business: 220,
+  stage: 150,
+  startDate: 90,
+  closeDate: 90,
+  projectedRevenue: 130,
+  notes: 260,
+  actions: 80,
+}
+
+const OPPORTUNITIES_TABLE_MIN_WIDTHS: Record<string, number> = {
+  business: 120,
+  stage: 110,
+  startDate: 80,
+  closeDate: 80,
+  projectedRevenue: 100,
+  notes: 140,
+  actions: 60,
+}
 
 interface OpportunitiesPageClientProps {
   initialOpportunities?: Opportunity[]
@@ -581,6 +602,11 @@ export default function OpportunitiesPageClient({
   ) : null
 
   const isLoading = loading || searchLoading
+  const { columnsWithUserWidths, handleColumnResize, getColumnCellStyle } = useResizableColumns(COLUMNS, {
+    storageKey: 'opportunities-table-column-widths',
+    defaultWidths: OPPORTUNITIES_TABLE_DEFAULT_WIDTHS,
+    minWidths: OPPORTUNITIES_TABLE_MIN_WIDTHS,
+  })
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
@@ -663,10 +689,11 @@ export default function OpportunitiesPageClient({
               <SearchIndicator />
 
               <EntityTable
-                columns={COLUMNS}
+                columns={columnsWithUserWidths}
                 sortColumn={sortColumn}
                 sortDirection={sortDirection}
                 onSort={handleSort}
+                onColumnResize={handleColumnResize}
               >
                 {filteredOpportunities.map((opportunity, index) => {
                   const projectionSummary = opportunityProjectionMap[opportunity.id]
@@ -686,12 +713,12 @@ export default function OpportunitiesPageClient({
                     onClick={() => handleEditOpportunity(opportunity)}
                     onMouseEnter={handleRowHover}
                   >
-                    <TableCell>
+                    <TableCell style={getColumnCellStyle('business')}>
                       <span className="font-medium text-gray-900 text-[13px]">
                         {opportunity.business?.name || 'Unknown Business'}
                       </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell style={getColumnCellStyle('stage')}>
                       <StatusPill
                         label={STAGE_LABELS[opportunity.stage] || opportunity.stage}
                         tone={
@@ -703,14 +730,14 @@ export default function OpportunitiesPageClient({
                         }
                       />
                     </TableCell>
-                    <TableCell className="text-[13px] text-gray-600">
+                    <TableCell className="text-[13px] text-gray-600" style={getColumnCellStyle('startDate')}>
                       {new Date(opportunity.startDate).toLocaleDateString('en-US', {
                         timeZone: PANAMA_TIMEZONE,
                         month: 'short',
                         day: 'numeric',
                       })}
                     </TableCell>
-                    <TableCell className="text-[13px] text-gray-600">
+                    <TableCell className="text-[13px] text-gray-600" style={getColumnCellStyle('closeDate')}>
                       {opportunity.closeDate ? (
                         new Date(opportunity.closeDate).toLocaleDateString('en-US', {
                           timeZone: PANAMA_TIMEZONE,
@@ -721,7 +748,7 @@ export default function OpportunitiesPageClient({
                         <span className="text-gray-400">-</span>
                       )}
                     </TableCell>
-                    <TableCell align="right">
+                    <TableCell align="right" style={getColumnCellStyle('projectedRevenue')}>
                       <div className="flex flex-col items-end leading-tight">
                         {projectedRevenue > 0 ? (
                           <span className="text-[13px] font-semibold text-emerald-700">
@@ -735,16 +762,16 @@ export default function OpportunitiesPageClient({
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell style={getColumnCellStyle('notes')}>
                       {opportunity.notes ? (
-                        <div className="text-[13px] text-gray-500 max-w-[240px] truncate" title={opportunity.notes}>
+                        <div className="text-[13px] text-gray-500 w-full truncate" title={opportunity.notes}>
                           {opportunity.notes}
                         </div>
                       ) : (
                         <span className="text-gray-400 text-[13px]">-</span>
                       )}
                     </TableCell>
-                    <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                    <TableCell align="right" style={getColumnCellStyle('actions')} onClick={(e) => e.stopPropagation()}>
                       {/* Actions removed - row click opens edit modal */}
                     </TableCell>
                   </TableRow>
