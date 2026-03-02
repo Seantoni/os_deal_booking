@@ -437,6 +437,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       data.subCategory1,
       data.subCategory2,
       null, // subCategory3
+      null, // subCategory4
       data.category
     )
 
@@ -1209,6 +1210,7 @@ export async function updateBookingRequest(requestId: string, formData: FormData
         fields.subCategory1,
         fields.subCategory2,
         fields.subCategory3,
+        null, // subCategory4
         fields.category
       )
 

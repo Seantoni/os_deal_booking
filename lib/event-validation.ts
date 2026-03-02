@@ -86,6 +86,7 @@ export function checkUniquenesViolation(
     newEvent.subCategory1,
     newEvent.subCategory2,
     newEvent.subCategory3,
+    null,
     newEvent.category
   )
   

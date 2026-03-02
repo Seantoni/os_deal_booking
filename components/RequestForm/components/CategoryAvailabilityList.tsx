@@ -45,7 +45,8 @@ export default function CategoryAvailabilityList({
         option.parent,
         option.sub1 || null,
         option.sub2 || null,
-        null, // subCategory3
+        option.sub3 || null,
+        option.sub4 || null,
         option.value
       )
 

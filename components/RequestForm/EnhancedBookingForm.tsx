@@ -17,6 +17,7 @@ import type { BookingFormData } from './types'
 import { STEPS, INITIAL_FORM_DATA, getStepIndexByKey, getStepIdByKey } from './constants'
 import { validateStep, buildFormDataForSubmit, getErrorFieldLabels } from './request_form_utils'
 import { extractBusinessName } from '@/lib/utils/request-name-parsing'
+import { getSettings as getLocalSettings, saveSettings as saveLocalSettings } from '@/lib/settings'
 import ProgressBar from './components/ProgressBar'
 import NavigationButtons from './components/NavigationButtons'
 import type { RequestFormFieldsConfig } from '@/types'
@@ -51,6 +52,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   const [formData, setFormData] = useState<BookingFormData>({ ...INITIAL_FORM_DATA, ...initialFormData })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [requiredFields, setRequiredFields] = useState<RequestFormFieldsConfig>({})
+  const [settingsSyncVersion, setSettingsSyncVersion] = useState(0)
   const [loadingEdit, setLoadingEdit] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   
@@ -161,8 +163,24 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         const response = await fetch('/api/settings?t=' + Date.now())
         if (response.ok) {
           const result = await response.json()
-          if (result.success && result.data?.requestFormFields) {
-            setRequiredFields(result.data.requestFormFields)
+          if (result.success && result.data) {
+            if (result.data.requestFormFields) {
+              setRequiredFields(result.data.requestFormFields)
+            }
+
+            // Keep client-side settings in sync for CategorySelect/getCategoryOptions.
+            const localSettings = getLocalSettings()
+            saveLocalSettings({
+              ...localSettings,
+              ...result.data,
+              requestFormFields: result.data.requestFormFields ?? localSettings.requestFormFields,
+              customCategories: result.data.customCategories ?? localSettings.customCategories,
+              hiddenCategoryPaths: result.data.hiddenCategoryPaths ?? localSettings.hiddenCategoryPaths,
+            })
+
+            // Force Configuración step to remount once after settings sync so CategorySelect
+            // reads updated category visibility/customization from local settings.
+            setSettingsSyncVersion(prev => prev + 1)
           }
         }
       } catch (error) {
@@ -937,6 +955,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
                 <div className="animate-fadeIn overflow-visible">
                 {currentStepKey === 'configuracion' && (
                   <ConfiguracionStep 
+                    key={`configuracion-${settingsSyncVersion}`}
                     formData={formData}
                     errors={errors}
                     updateFormData={updateFormData}

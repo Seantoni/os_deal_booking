@@ -285,6 +285,7 @@ export async function createEvent(formData: FormData) {
     subCategory1 || null,
     subCategory2 || null,
     null, // subCategory3
+    null, // subCategory4
     category || null
   )
 
@@ -644,6 +645,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
     subCategory1 || null,
     subCategory2 || null,
     null, // subCategory3
+    null, // subCategory4
     category || null
   )
 

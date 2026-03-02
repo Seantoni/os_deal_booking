@@ -24,10 +24,21 @@ export async function GET() {
     const result = await getSettingsFromDB()
     if (result.success) {
       if (role !== 'admin') {
+        const data = result.data
         return NextResponse.json(
           {
             success: true,
-            data: { requestFormFields: result.data?.requestFormFields || {} },
+            // Non-admin users only get the settings needed to render forms and
+            // client-side date/category logic consistently.
+            data: {
+              requestFormFields: data?.requestFormFields || {},
+              customCategories: data?.customCategories,
+              hiddenCategoryPaths: data?.hiddenCategoryPaths || {},
+              minDailyLaunches: data?.minDailyLaunches,
+              maxDailyLaunches: data?.maxDailyLaunches,
+              merchantRepeatDays: data?.merchantRepeatDays,
+              businessExceptions: data?.businessExceptions || [],
+            },
           },
           {
             headers: {

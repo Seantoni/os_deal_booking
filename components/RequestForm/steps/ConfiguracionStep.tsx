@@ -73,6 +73,7 @@ export default function ConfiguracionStep({
             formData.subCategory1 || null,
             formData.subCategory2 || null,
             formData.subCategory3 || null,
+            null,
             formData.category || null
           )
           

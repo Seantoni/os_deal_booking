@@ -59,16 +59,37 @@ type EventDateRange = {
   endDay: number
 }
 
+function compareEventsByNameAsc(a: Event, b: Event): number {
+  return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' })
+}
+
 function normalizeCategoryKey(value: string | null | undefined): string | null {
   if (!value) return null
 
+  // Normalize accents and Unicode variants so legacy/imported categories still match sidebar keys.
+  const normalizedUnicode = value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+
   const normalized = value
+    // Support both ">" and "›" hierarchy separators.
     .replace(/\s*[>›]\s*/g, ':')
+    // Normalize spacing around separators.
     .replace(/\s*:\s*/g, ':')
+    // Collapse internal spacing differences.
+    .replace(/\s+/g, ' ')
     .trim()
     .toUpperCase()
 
-  return normalized || null
+  const normalizedFromUnicode = normalizedUnicode
+    .replace(/\s*[>›]\s*/g, ':')
+    .replace(/\s*:\s*/g, ':')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase()
+
+  // Prefer accent-stripped representation for stable matching across data sources.
+  return normalizedFromUnicode || normalized || null
 }
 
 function buildEventCategoryCandidates(event: Event): string[] {
@@ -380,6 +401,10 @@ export default function CalendarView({ events, searchEvents = [], isSearchLoadin
       }
     }
 
+    for (const dayEvents of byDay.values()) {
+      dayEvents.sort(compareEventsByNameAsc)
+    }
+
     return byDay
   }, [viewMode, dayDates, filteredEventRanges, viewStartDate, viewEndDate])
 
@@ -427,6 +452,10 @@ export default function CalendarView({ events, searchEvents = [], isSearchLoadin
           grouped[dateKey].push(range.event)
         }
       })
+
+      for (const dateKey of Object.keys(grouped)) {
+        grouped[dateKey].sort(compareEventsByNameAsc)
+      }
     } else {
       // Live dates mode: Show as continuous spanning bars
       filteredEventRanges.forEach((range) => {

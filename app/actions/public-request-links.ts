@@ -198,6 +198,7 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
       fields.subCategory1 || null,
       fields.subCategory2 || null,
       fields.subCategory3 || null,
+      null, // subCategory4
       fields.category
     )
 
