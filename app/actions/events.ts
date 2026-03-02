@@ -11,6 +11,7 @@ import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
 import { logActivity } from '@/lib/activity-log'
 import { logger } from '@/lib/logger'
 import { buildEventNameFromBookingRequest } from '@/lib/utils/request-name-parsing'
+import { getSalesBookingRequestVisibilityWhere } from '@/lib/auth/booking-request-visibility'
 import type { EventForValidation } from '@/lib/event-validation'
 import type { BookingRequest, Event } from '@/types'
 import type { Prisma } from '@prisma/client'
@@ -196,11 +197,17 @@ async function fetchCalendarPendingRequests(role: string, userId: string): Promi
     return []
   }
 
+  const whereClause: Prisma.BookingRequestWhereInput = role === 'admin'
+    ? { status: 'approved' }
+    : {
+        AND: [
+          await getSalesBookingRequestVisibilityWhere(userId),
+          { status: 'approved' },
+        ],
+      }
+
   const pendingRows = await prisma.bookingRequest.findMany({
-    where: {
-      status: 'approved',
-      ...(role === 'admin' ? {} : { userId }),
-    },
+    where: whereClause,
     select: calendarPendingRequestSelect,
     orderBy: { createdAt: 'desc' },
   })
@@ -538,11 +545,17 @@ export async function getCalendarPendingRequestsCount() {
       return { success: true, data: 0 }
     }
 
+    const whereClause: Prisma.BookingRequestWhereInput = role === 'admin'
+      ? { status: 'approved' }
+      : {
+          AND: [
+            await getSalesBookingRequestVisibilityWhere(authResult.userId),
+            { status: 'approved' },
+          ],
+        }
+
     const pendingCount = await prisma.bookingRequest.count({
-      where: {
-        status: 'approved',
-        ...(role === 'admin' ? {} : { userId: authResult.userId }),
-      },
+      where: whereClause,
     })
 
     return { success: true, data: pendingCount }

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { getUserRole } from '@/lib/auth/roles'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
 import { CACHE_SERVER_BUSINESS_PROJECTION_SUMMARY_MS } from '@/lib/constants/cache'
+import { getSalesBookingRequestVisibilityWhere } from '@/lib/auth/booking-request-visibility'
 import {
   buildProjectionEntitySummaryMap,
   getEmptyProjectionEntitySummary,
@@ -531,7 +532,7 @@ async function getRoleScopedBookingRequestWhere(
 ): Promise<Prisma.BookingRequestWhereInput | null> {
   const role = roleOverride ?? await getUserRole()
   if (role === 'admin') return {}
-  if (role === 'sales') return { userId }
+  if (role === 'sales') return await getSalesBookingRequestVisibilityWhere(userId)
 
   // Keep parity with booking actions: non-admin/sales gets empty datasets.
   return null

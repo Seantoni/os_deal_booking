@@ -5,6 +5,7 @@ import { unstable_cache } from 'next/cache'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
 import { getUserRole } from '@/lib/auth/roles'
 import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
+import { getSalesBookingRequestVisibilityWhere } from '@/lib/auth/booking-request-visibility'
 import type { Prisma } from '@prisma/client'
 
 // Pipeline data types
@@ -45,6 +46,15 @@ type UnifiedPipelineItem = {
   data: PipelineItemData
 }
 
+function andBookingRequestWhere(
+  ...filters: Array<Prisma.BookingRequestWhereInput | undefined>
+): Prisma.BookingRequestWhereInput {
+  const validFilters = filters.filter((filter): filter is Prisma.BookingRequestWhereInput => Boolean(filter))
+  if (validFilters.length === 0) return {}
+  if (validFilters.length === 1) return validFilters[0]
+  return { AND: validFilters }
+}
+
 /**
  * Get pipeline data: all opportunities with their linked booking requests
  * Returns unified data for the pipeline view
@@ -64,6 +74,9 @@ export async function getPipelineData() {
       async () => {
         // Build where clause based on role
         const whereClause: Record<string, unknown> = {}
+        const salesRequestVisibility = role === 'sales'
+          ? await getSalesBookingRequestVisibilityWhere(userId)
+          : undefined
         
         if (role === 'sales') {
           whereClause.responsibleId = userId
@@ -99,16 +112,19 @@ export async function getPipelineData() {
         
         const linkedRequests = opportunityIdsWithRequests.length > 0
           ? await prisma.bookingRequest.findMany({
-              where: { id: { in: opportunityIdsWithRequests } },
+              where: andBookingRequestWhere(
+                { id: { in: opportunityIdsWithRequests } },
+                salesRequestVisibility
+              ),
               orderBy: { createdAt: 'desc' },
             })
           : []
 
         // Get standalone booking requests (not linked to any opportunity)
-        const standaloneWhere: Record<string, unknown> = { opportunityId: null }
-        if (role === 'sales') {
-          standaloneWhere.userId = userId
-        }
+        const standaloneWhere = andBookingRequestWhere(
+          { opportunityId: null },
+          salesRequestVisibility
+        )
 
         const standaloneRequests = await prisma.bookingRequest.findMany({
           where: standaloneWhere,
@@ -259,12 +275,17 @@ export async function getPipelineDataPaginated(options: {
 
     // Build where clauses based on role
     const opportunityWhere: Record<string, unknown> = {}
-    const standaloneRequestWhere: Record<string, unknown> = { opportunityId: null }
+    const salesRequestVisibility = role === 'sales'
+      ? await getSalesBookingRequestVisibilityWhere(userId)
+      : undefined
+    const standaloneRequestWhere = andBookingRequestWhere(
+      { opportunityId: null },
+      salesRequestVisibility
+    )
     const eventWhere: Record<string, unknown> = { status: 'pre-booked', bookingRequestId: null }
     
     if (role === 'sales') {
       opportunityWhere.responsibleId = userId
-      standaloneRequestWhere.userId = userId
       eventWhere.userId = userId
     }
 
@@ -312,7 +333,10 @@ export async function getPipelineDataPaginated(options: {
     
     const linkedRequests = opportunityIdsWithRequests.length > 0
       ? await prisma.bookingRequest.findMany({
-          where: { id: { in: opportunityIdsWithRequests } },
+          where: andBookingRequestWhere(
+            { id: { in: opportunityIdsWithRequests } },
+            salesRequestVisibility
+          ),
         })
       : []
 
@@ -463,12 +487,17 @@ export async function searchPipelineData(query: string, options: { limit?: numbe
 
     // Build base where clauses
     const opportunityWhere: Record<string, unknown> = {}
-    const requestWhere: Record<string, unknown> = { opportunityId: null }
+    const salesRequestVisibility = role === 'sales'
+      ? await getSalesBookingRequestVisibilityWhere(userId)
+      : undefined
+    const requestScopeWhere = andBookingRequestWhere(
+      { opportunityId: null },
+      salesRequestVisibility
+    )
     const eventWhere: Record<string, unknown> = { status: 'pre-booked', bookingRequestId: null }
     
     if (role === 'sales') {
       opportunityWhere.responsibleId = userId
-      requestWhere.userId = userId
       eventWhere.userId = userId
     }
 
@@ -494,7 +523,10 @@ export async function searchPipelineData(query: string, options: { limit?: numbe
     
     const linkedRequests = opportunityIdsWithRequests.length > 0
       ? await prisma.bookingRequest.findMany({
-          where: { id: { in: opportunityIdsWithRequests } },
+          where: andBookingRequestWhere(
+            { id: { in: opportunityIdsWithRequests } },
+            salesRequestVisibility
+          ),
         })
       : []
 
@@ -507,14 +539,16 @@ export async function searchPipelineData(query: string, options: { limit?: numbe
 
     // Search standalone booking requests
     const standaloneRequests = await prisma.bookingRequest.findMany({
-      where: {
-        ...requestWhere,
-        OR: [
-          { name: { contains: query, mode: 'insensitive' } },
-          { merchant: { contains: query, mode: 'insensitive' } },
-          { businessEmail: { contains: query, mode: 'insensitive' } },
-        ],
-      },
+      where: andBookingRequestWhere(
+        requestScopeWhere,
+        {
+          OR: [
+            { name: { contains: query, mode: 'insensitive' } },
+            { merchant: { contains: query, mode: 'insensitive' } },
+            { businessEmail: { contains: query, mode: 'insensitive' } },
+          ],
+        }
+      ),
       orderBy: { createdAt: 'desc' },
       take: limit,
     })

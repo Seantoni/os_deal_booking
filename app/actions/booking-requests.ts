@@ -25,6 +25,7 @@ import { logActivity } from '@/lib/activity-log'
 import { generateRequestName, countBusinessRequests } from '@/lib/utils/request-naming'
 import { findLinkedBusiness, findLinkedBusinessFull } from '@/lib/business'
 import { approveBookingRequestWithFollowUp } from '@/lib/booking-requests/approval'
+import { canSalesAccessBookingRequest, getSalesBookingRequestVisibilityWhere } from '@/lib/auth/booking-request-visibility'
 import { 
   previewBackfillFromRequest, 
   executeBackfillFromRequest,
@@ -494,7 +495,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
     // Ensure linked business has a vendor in OfertaSimple (non-blocking)
     // If the business exists but has no osAdminVendorId, create the vendor now
     // so it's ready when the deal is sent on booking.
-    let vendorAutoCreateResult: { attempted: boolean; success?: boolean; externalVendorId?: number; error?: string; businessName?: string } = { attempted: false }
+    const vendorAutoCreateResult: { attempted: boolean; success?: boolean; externalVendorId?: number; error?: string; businessName?: string } = { attempted: false }
     try {
       const opportunityId = formData.get('opportunityId') as string | null
       
@@ -699,7 +700,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
 /**
  * Get booking requests based on user role
  * - Admin: sees all requests
- * - Sales: sees only their own requests
+ * - Sales: sees requests they created OR requests for businesses they own
  */
 export async function getBookingRequests() {
   const authResult = await requireAuth()
@@ -720,9 +721,10 @@ export async function getBookingRequests() {
             orderBy: { createdAt: 'desc' },
           })
         } else if (role === 'sales') {
-          // Sales sees only their own requests
+          // Sales sees created requests and requests for owned businesses
+          const salesWhere = await getSalesBookingRequestVisibilityWhere(userId)
           return await prisma.bookingRequest.findMany({
-            where: { userId },
+            where: salesWhere,
             orderBy: { createdAt: 'desc' },
           })
         } else {
@@ -771,7 +773,7 @@ export async function getBookingRequestsPaginated(options: {
     // Build where clause based on role
     const whereClause: Prisma.BookingRequestWhereInput = {}
     if (role === 'sales') {
-      whereClause.userId = userId
+      Object.assign(whereClause, await getSalesBookingRequestVisibilityWhere(userId))
     } else if (role !== 'admin') {
       return { success: true, data: [], total: 0, page, pageSize }
     }
@@ -846,35 +848,39 @@ export async function searchBookingRequests(query: string, options: {
 
     const searchTerm = query.trim()
 
-    // Build where clause based on role
-    const roleFilter: Prisma.BookingRequestWhereInput = {}
+    const filters: Prisma.BookingRequestWhereInput[] = []
+
     if (role === 'sales') {
-      roleFilter.userId = userId
+      filters.push(await getSalesBookingRequestVisibilityWhere(userId))
     } else if (role !== 'admin') {
       return { success: true, data: [] }
     }
     
     // Apply creator filter (admin quick filter)
     if (creatorId && role === 'admin') {
-      roleFilter.userId = creatorId
+      filters.push({ userId: creatorId })
     }
 
     // Add status filter if provided
     if (status && status !== 'all') {
-      roleFilter.status = status
+      filters.push({ status })
     }
+
+    filters.push({
+      OR: [
+        { name: { contains: searchTerm, mode: 'insensitive' } },
+        { merchant: { contains: searchTerm, mode: 'insensitive' } },
+        { businessEmail: { contains: searchTerm, mode: 'insensitive' } },
+        { parentCategory: { contains: searchTerm, mode: 'insensitive' } },
+      ],
+    })
+
+    const whereClause: Prisma.BookingRequestWhereInput =
+      filters.length === 1 ? filters[0] : { AND: filters }
 
     // Search across multiple fields
     const requests = await prisma.bookingRequest.findMany({
-      where: {
-        ...roleFilter,
-        OR: [
-          { name: { contains: searchTerm, mode: 'insensitive' } },
-          { merchant: { contains: searchTerm, mode: 'insensitive' } },
-          { businessEmail: { contains: searchTerm, mode: 'insensitive' } },
-          { parentCategory: { contains: searchTerm, mode: 'insensitive' } },
-        ],
-      },
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
       take: limit,
     })
@@ -901,7 +907,7 @@ export async function getBookingRequestCounts(filters?: { creatorId?: string }) 
     // Build base where clause based on role
     const baseWhere: Prisma.BookingRequestWhereInput = {}
     if (role === 'sales') {
-      baseWhere.userId = userId
+      Object.assign(baseWhere, await getSalesBookingRequestVisibilityWhere(userId))
     } else if (role !== 'admin') {
       return { success: true, data: { all: 0, draft: 0, pending: 0, approved: 0, booked: 0, rejected: 0, cancelled: 0 } }
     }
@@ -956,8 +962,9 @@ export async function refreshBookingRequests(): Promise<{
         orderBy: { createdAt: 'desc' },
       }) as BookingRequest[]
     } else if (role === 'sales') {
+      const salesWhere = await getSalesBookingRequestVisibilityWhere(userId)
       requests = await prisma.bookingRequest.findMany({
-        where: { userId },
+        where: salesWhere,
         orderBy: { createdAt: 'desc' },
       }) as BookingRequest[]
     } else {
@@ -1075,9 +1082,18 @@ export async function getBookingRequest(requestId: string) {
       return { success: false, error: 'Booking request not found' }
     }
 
-    // Sales users can only see their own requests
-    if (role === 'sales' && bookingRequest.userId !== userId) {
-      return { success: false, error: 'Unauthorized' }
+    // Sales users can see created requests and requests for owned businesses
+    if (role === 'sales') {
+      const canAccess = await canSalesAccessBookingRequest(userId, {
+        id: bookingRequest.id,
+        userId: bookingRequest.userId,
+        opportunityId: bookingRequest.opportunityId,
+        eventId: bookingRequest.eventId,
+      })
+
+      if (!canAccess) {
+        return { success: false, error: 'Unauthorized' }
+      }
     }
 
     // Fetch user profiles for processedBy and userId (creator) in a single query

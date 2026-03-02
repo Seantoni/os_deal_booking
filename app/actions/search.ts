@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@prisma/client'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
 import { getUserRole } from '@/lib/auth/roles'
+import { getSalesBookingRequestVisibilityWhere } from '@/lib/auth/booking-request-visibility'
 
 export interface SearchResult {
   id: string
@@ -166,7 +167,7 @@ async function searchOpportunities(searchTerm: string, isIdSearch: boolean, role
     orConditions.push({ id: searchTerm })
   }
 
-  let where: Prisma.OpportunityWhereInput = { OR: orConditions }
+  const where: Prisma.OpportunityWhereInput = { OR: orConditions }
 
   if (role === 'sales') {
     where.responsibleId = userId
@@ -217,11 +218,14 @@ async function searchBookingRequests(searchTerm: string, isIdSearch: boolean, ro
     orConditions.push({ id: searchTerm })
   }
 
-  let where: Prisma.BookingRequestWhereInput = { OR: orConditions }
+  const filters: Prisma.BookingRequestWhereInput[] = [{ OR: orConditions }]
 
   if (role === 'sales') {
-    where.userId = userId
+    filters.push(await getSalesBookingRequestVisibilityWhere(userId))
   }
+
+  const where: Prisma.BookingRequestWhereInput =
+    filters.length === 1 ? filters[0] : { AND: filters }
 
   const bookingRequests = await prisma.bookingRequest.findMany({
     where,
@@ -251,7 +255,7 @@ async function searchDeals(searchTerm: string, isIdSearch: boolean, role: string
     orConditions.push({ id: searchTerm })
   }
 
-  let where: Prisma.DealWhereInput = { OR: orConditions }
+  const where: Prisma.DealWhereInput = { OR: orConditions }
 
   if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
     where.responsibleId = userId
@@ -299,7 +303,7 @@ async function searchEvents(searchTerm: string, isIdSearch: boolean, role: strin
     orConditions.push({ id: searchTerm })
   }
 
-  let where: Prisma.EventWhereInput = { OR: orConditions }
+  const where: Prisma.EventWhereInput = { OR: orConditions }
 
   if (role === 'sales') {
     where.userId = userId
@@ -338,7 +342,7 @@ async function searchTasks(searchTerm: string, isIdSearch: boolean, role: string
     orConditions.push({ id: searchTerm })
   }
 
-  let where: Prisma.TaskWhereInput = { OR: orConditions }
+  const where: Prisma.TaskWhereInput = { OR: orConditions }
 
   // For sales role, filter by opportunity's responsibleId
   if (role === 'sales') {
@@ -381,7 +385,7 @@ async function searchLeads(searchTerm: string, isIdSearch: boolean, role: string
     orConditions.push({ id: searchTerm })
   }
 
-  let where: Prisma.LeadWhereInput = { OR: orConditions }
+  const where: Prisma.LeadWhereInput = { OR: orConditions }
 
   if (role === 'sales') {
     where.responsibleId = userId
