@@ -94,9 +94,7 @@ export default function DealFormModal({
 
   const maxDeliveryDate = useMemo(() => {
     if (!startDateKey) return undefined
-    const start = parseDateInPanamaTime(startDateKey)
-    const dayBefore = new Date(start.getTime() - ONE_DAY_MS)
-    return formatDateForPanama(dayBefore)
+    return startDateKey
   }, [startDateKey])
 
   const canShowSuggestedDeliveryDate = useMemo(
@@ -178,8 +176,8 @@ export default function DealFormModal({
       return
     }
 
-    if (deliveryDate && startDateKey && deliveryDate >= startDateKey) {
-      setError('La fecha de entrega debe ser antes de la fecha de inicio.')
+    if (deliveryDate && startDateKey && deliveryDate > startDateKey) {
+      setError('La fecha de entrega no puede ser después de la fecha de inicio.')
       return
     }
     
@@ -291,7 +289,7 @@ export default function DealFormModal({
 
   useEffect(() => {
     if (!isOpen || !startDateKey || !deliveryDate) return
-    if (deliveryDate >= startDateKey) {
+    if (deliveryDate > startDateKey) {
       setDeliveryDate('')
     }
   }, [deliveryDate, isOpen, setDeliveryDate, startDateKey])
@@ -573,7 +571,7 @@ export default function DealFormModal({
                             </button>
                           </div>
                         ) : (
-                          'No hay cupo disponible antes de la fecha de inicio.'
+                          'No hay cupo disponible hasta la fecha de inicio.'
                         )}
                       </div>
                     )}
