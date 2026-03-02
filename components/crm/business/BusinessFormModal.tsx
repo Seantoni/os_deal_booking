@@ -1100,15 +1100,32 @@ export default function BusinessFormModal({
   const shouldShowSyncButton = isEditMode && (isAdmin || isBusinessOwner) && !!business?.osAdminVendorId
 
   // Prepare categories and users for dynamic fields
-  const categoryOptions = useMemo(() => categories.map(cat => ({
-    id: cat.id,
-    categoryKey: cat.categoryKey,
-    parentCategory: cat.parentCategory,
-    subCategory1: cat.subCategory1,
-    subCategory2: cat.subCategory2,
-    subCategory3: cat.subCategory3,
-    subCategory4: cat.subCategory4,
-  })), [categories])
+  const categoryOptions = useMemo(() => {
+    const mapped = categories.map(cat => ({
+      id: cat.id,
+      categoryKey: cat.categoryKey,
+      parentCategory: cat.parentCategory,
+      subCategory1: cat.subCategory1,
+      subCategory2: cat.subCategory2,
+      subCategory3: cat.subCategory3,
+      subCategory4: cat.subCategory4,
+    }))
+
+    const currentCategory = business?.category
+    if (currentCategory && !mapped.some(category => category.id === currentCategory.id)) {
+      mapped.push({
+        id: currentCategory.id,
+        categoryKey: currentCategory.categoryKey,
+        parentCategory: currentCategory.parentCategory,
+        subCategory1: currentCategory.subCategory1 ?? null,
+        subCategory2: currentCategory.subCategory2 ?? null,
+        subCategory3: null,
+        subCategory4: null,
+      })
+    }
+
+    return mapped
+  }, [categories, business?.category])
 
   const userOptions = useMemo(() => users.map(user => ({
     clerkId: user.clerkId,

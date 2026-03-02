@@ -86,9 +86,22 @@ export function useBusinessForm({
       const result = await getBusinessFormData(currentBusiness?.id)
       
       if (result.success && result.data) {
-        // Only update categories/users if not preloaded
+        const fetchedCategories = result.data.categories as Category[]
+
+        // If categories were preloaded, merge in any missing categories from the
+        // per-business payload (e.g. current inactive category in edit mode).
         if (!preloadedCategories || preloadedCategories.length === 0) {
-          setCategories(result.data.categories)
+          setCategories(fetchedCategories)
+        } else if (currentBusiness && fetchedCategories.length > 0) {
+          setCategories(prev => {
+            const mergedById = new Map(prev.map(category => [category.id, category]))
+            for (const category of fetchedCategories) {
+              if (!mergedById.has(category.id)) {
+                mergedById.set(category.id, category)
+              }
+            }
+            return Array.from(mergedById.values())
+          })
         }
         if (!preloadedUsers || preloadedUsers.length === 0) {
           setUsers(result.data.users)

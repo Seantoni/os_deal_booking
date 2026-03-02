@@ -212,6 +212,12 @@ function arePropsEqual(
   if (prevProps.collapsible !== nextProps.collapsible) return false
   // Edit mode
   if (prevProps.isEditMode !== nextProps.isEditMode) return false
+  // Option sources
+  if (prevProps.categories !== nextProps.categories) return false
+  if (prevProps.users !== nextProps.users) return false
+  if (prevProps.businesses !== nextProps.businesses) return false
+  if (prevProps.categoryDisplayMode !== nextProps.categoryDisplayMode) return false
+  if (prevProps.hiddenFieldTypes !== nextProps.hiddenFieldTypes) return false
   
   // Check if any field value in this section changed
   const visibleFields = prevProps.section.fields.filter(f => f.isVisible)

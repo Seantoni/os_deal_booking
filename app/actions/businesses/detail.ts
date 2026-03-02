@@ -26,11 +26,32 @@ export async function getBusinessFormData(businessId?: string | null) {
     const role = await getUserRole()
     const admin = role === 'admin'
 
+    let businessName = ''
+    let businessCategoryId: string | null = null
+
+    if (businessId) {
+      const business = await prisma.business.findUnique({
+        where: { id: businessId },
+        select: { name: true, categoryId: true },
+      })
+      businessName = business?.name?.toLowerCase() || ''
+      businessCategoryId = business?.categoryId || null
+    }
+
+    const categoryWhere: Prisma.CategoryWhereInput = businessCategoryId
+      ? {
+          OR: [
+            { isActive: true },
+            { id: businessCategoryId },
+          ],
+        }
+      : { isActive: true }
+
     // Build parallel fetch promises
     const fetchPromises: Promise<unknown>[] = [
       // Categories (always needed)
       prisma.category.findMany({
-        where: { isActive: true },
+        where: categoryWhere,
         orderBy: [{ displayOrder: 'asc' }, { parentCategory: 'asc' }],
       }),
     ]
@@ -56,7 +77,6 @@ export async function getBusinessFormData(businessId?: string | null) {
     }
 
     // Business-specific data (only if editing existing business)
-    let businessName = ''
     if (businessId) {
       // Opportunities for this business
       fetchPromises.push(
@@ -80,13 +100,6 @@ export async function getBusinessFormData(businessId?: string | null) {
           orderBy: { createdAt: 'desc' },
         })
       )
-
-      // Get business name for request lookup
-      const business = await prisma.business.findUnique({
-        where: { id: businessId },
-        select: { name: true },
-      })
-      businessName = business?.name?.toLowerCase() || ''
 
       // Requests matching this business name
       fetchPromises.push(

@@ -346,6 +346,17 @@ function arePropsEqual(prevProps: DynamicFormFieldProps, nextProps: DynamicFormF
   if (prevProps.canEdit !== nextProps.canEdit) return false
   if (prevProps.disabled !== nextProps.disabled) return false
   if (prevProps.field.id !== nextProps.field.id) return false
+  if (prevProps.isEditMode !== nextProps.isEditMode) return false
+  if (prevProps.categoryDisplayMode !== nextProps.categoryDisplayMode) return false
+
+  const fieldType = prevProps.field.fieldSource === 'custom'
+    ? prevProps.field.customFieldType || 'text'
+    : prevProps.field.definition?.type || 'text'
+
+  if (fieldType === 'category' && prevProps.categories !== nextProps.categories) return false
+  if (fieldType === 'user-select' && prevProps.users !== nextProps.users) return false
+  if (fieldType === 'business-select' && prevProps.businesses !== nextProps.businesses) return false
+
   return true
 }
 
