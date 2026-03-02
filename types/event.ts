@@ -14,6 +14,7 @@ export type Event = {
   subCategory4: string | null
   business: string | null
   businessId: string | null
+  linkedBusinessName?: string | null
   startDate: Date
   endDate: Date
   status: string // 'pending' | 'approved' | 'pre-booked' | 'booked' | 'rejected'

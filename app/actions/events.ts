@@ -32,6 +32,11 @@ const calendarEventSelect = {
   subCategory4: true,
   business: true,
   businessId: true,
+  linkedBusiness: {
+    select: {
+      name: true,
+    },
+  },
   startDate: true,
   endDate: true,
   status: true,
@@ -102,10 +107,13 @@ function buildCalendarEventWhere(
 }
 
 function toCalendarEvent(record: CalendarEventRecord): Event {
+  const { linkedBusiness, ...eventFields } = record
+
   return {
-    ...record,
-    bookingRequestId: record.bookingRequestId ?? null,
-    subCategory4: record.subCategory4 ?? null,
+    ...eventFields,
+    linkedBusinessName: linkedBusiness?.name ?? null,
+    bookingRequestId: eventFields.bookingRequestId ?? null,
+    subCategory4: eventFields.subCategory4 ?? null,
   }
 }
 

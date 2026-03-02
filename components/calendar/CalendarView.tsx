@@ -73,7 +73,7 @@ export default function CalendarView({ events, isLoading = false, selectedCatego
     return map
   }, [bookingRequests])
   const [isDragging, setIsDragging] = useState(false)
-  const [viewMode, setViewMode] = useState<ViewMode>('live')
+  const [viewMode, setViewMode] = useState<ViewMode>('launch')
   const [calendarView, setCalendarView] = useState<CalendarViewMode>('month')
   const [draggingEvent, setDraggingEvent] = useState<Event | null>(null)
   const [dropTargetDay, setDropTargetDay] = useState<number | null>(null)

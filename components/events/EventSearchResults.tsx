@@ -19,6 +19,7 @@ export default function EventSearchResults({ events, searchQuery, onEventClick, 
       event.name.toLowerCase().includes(query) ||
       event.description?.toLowerCase().includes(query) ||
       event.business?.toLowerCase().includes(query) ||
+      event.linkedBusinessName?.toLowerCase().includes(query) ||
       event.category?.toLowerCase().includes(query) ||
       event.parentCategory?.toLowerCase().includes(query) ||
       event.subCategory1?.toLowerCase().includes(query) ||
@@ -34,6 +35,13 @@ export default function EventSearchResults({ events, searchQuery, onEventClick, 
       return parts.join(' > ')
     }
     return event.category || '-'
+  }
+
+  const getStatusClasses = (status: Event['status']) => {
+    if (status === 'booked') return 'bg-green-100 text-green-800'
+    if (status === 'pre-booked') return 'bg-blue-100 text-blue-800'
+    if (status === 'approved') return 'bg-orange-100 text-orange-800'
+    return 'bg-gray-100 text-gray-800'
   }
 
   return (
@@ -56,82 +64,51 @@ export default function EventSearchResults({ events, searchQuery, onEventClick, 
         </div>
       </div>
 
-      {/* Results Table */}
+      {/* Results Cards */}
       <div className="flex-1 overflow-auto p-6">
         {filteredEvents.length > 0 ? (
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-              <tr>
-                  <th className="px-4 py-[5px] text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  Event Name
-                </th>
-                  <th className="px-4 py-[5px] text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Merchant
-                  </th>
-                  <th className="px-4 py-[5px] text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  Category
-                </th>
-                  <th className="px-4 py-[5px] text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  Run At
-                </th>
-                  <th className="px-4 py-[5px] text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  End At
-                </th>
-                  <th className="px-4 py-[5px] text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-                {filteredEvents.map((event) => {
-                const colors = getCategoryColors(event.parentCategory)
-                const isBooked = event.status === 'booked'
-                const isPreBooked = event.status === 'pre-booked'
-                const isApproved = event.status === 'approved'
-                
-                return (
-                  <tr
-                    key={event.id}
-                    onClick={() => onEventClick?.(event)}
-                      className="hover:bg-gray-50 transition-colors cursor-pointer"
-                  >
-                      <td className="px-4 py-[5px] whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full ${colors.indicator} flex-shrink-0`}></div>
-                        <span className="text-sm font-medium text-gray-900">{event.name}</span>
-                      </div>
-                    </td>
-                      <td className="px-4 py-[5px] whitespace-nowrap">
-                      <span className="text-sm text-gray-700">{event.business || '-'}</span>
-                    </td>
-                      <td className="px-4 py-[5px]">
-                        <span className="text-sm text-gray-600">{getCategoryDisplay(event)}</span>
-                      </td>
-                      <td className="px-4 py-[5px] whitespace-nowrap">
-                        <span className="text-sm text-gray-900 font-medium">{formatShortDateWithWeekday(event.startDate)}</span>
-                    </td>
-                      <td className="px-4 py-[5px] whitespace-nowrap">
-                        <span className="text-sm text-gray-900">{formatShortDateWithWeekday(event.endDate)}</span>
-                    </td>
-                      <td className="px-4 py-[5px] whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        isBooked
-                          ? 'bg-green-100 text-green-800'
-                          : isPreBooked
-                          ? 'bg-blue-100 text-blue-800'
-                          : isApproved
-                          ? 'bg-orange-100 text-orange-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {event.status}
-                      </span>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          <div className="space-y-2">
+            {filteredEvents.map((event) => {
+              const colors = getCategoryColors(event.parentCategory)
+
+              return (
+                <button
+                  type="button"
+                  key={event.id}
+                  onClick={() => onEventClick?.(event)}
+                  className="w-full text-left bg-white rounded-lg border border-gray-200 p-4 hover:border-blue-300 hover:shadow-sm transition-all"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <div className={`w-3 h-3 rounded-full ${colors.indicator} flex-shrink-0 mt-1`} />
+                      <h3 className="text-sm font-semibold text-gray-900 leading-5 line-clamp-2">{event.name}</h3>
+                    </div>
+                    <span className={`inline-flex px-2 py-1 text-[11px] font-semibold rounded-full ${getStatusClasses(event.status)}`}>
+                      {event.status}
+                    </span>
+                  </div>
+
+                  <div className="mb-3 rounded-md bg-gray-50 border border-gray-100 px-2.5 py-2">
+                    <div className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold">Dates</div>
+                    <div className="mt-1 text-sm font-medium text-gray-900">
+                      {formatShortDateWithWeekday(event.startDate)} - {formatShortDateWithWeekday(event.endDate)}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs text-gray-700">
+                    <p>
+                      <span className="font-semibold text-gray-900">Merchant:</span> {event.business || '-'}
+                    </p>
+                    <p>
+                      <span className="font-semibold text-gray-900">Category:</span> {getCategoryDisplay(event)}
+                    </p>
+                    {event.description && (
+                      <p className="text-gray-600 line-clamp-2">{event.description}</p>
+                    )}
+                  </div>
+                </button>
+              )
+            })}
           </div>
         ) : (
           <div className="text-center py-12">
