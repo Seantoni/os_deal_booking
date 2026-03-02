@@ -6,7 +6,7 @@ import * as dotenv from 'dotenv'
 
 dotenv.config()
 
-const DEFAULT_CSV_PATH = '/Users/josepaez/Downloads/calendarmigrationv1.csv'
+const DEFAULT_CSV_PATH = '/Users/josepaez/Downloads/test_event_upload_prod - Sheet1.csv'
 
 interface ImportArgs {
   csvPath: string

@@ -84,6 +84,7 @@ type ProjectionRequestRow = {
   subCategory2: string | null
   subCategory3: string | null
   subCategory4: string | null
+  directBusinessId?: string | null
 }
 
 type ProjectionBusinessRow = {
@@ -612,11 +613,17 @@ async function buildProjectionRows(
   for (const request of requests) {
     let matchedBusiness: ProjectionBusinessRow | null = null
 
-    const businessIdFromOpportunity = request.opportunityId
-      ? businessIdByOpportunityId.get(request.opportunityId)
-      : undefined
-    if (businessIdFromOpportunity) {
-      matchedBusiness = businessById.get(businessIdFromOpportunity) || null
+    if (request.directBusinessId) {
+      matchedBusiness = businessById.get(request.directBusinessId) || null
+    }
+
+    if (!matchedBusiness) {
+      const businessIdFromOpportunity = request.opportunityId
+        ? businessIdByOpportunityId.get(request.opportunityId)
+        : undefined
+      if (businessIdFromOpportunity) {
+        matchedBusiness = businessById.get(businessIdFromOpportunity) || null
+      }
     }
 
     if (!matchedBusiness) {
@@ -1098,7 +1105,8 @@ export async function getRevenueProjectionDashboardData(): Promise<{
   }
 
   try {
-    const whereRole = await getRoleScopedBookingRequestWhere(authResult.userId)
+    const role = await getUserRole()
+    const whereRole = await getRoleScopedBookingRequestWhere(authResult.userId, role)
     if (whereRole === null) {
       return {
         success: true,
@@ -1118,33 +1126,79 @@ export async function getRevenueProjectionDashboardData(): Promise<{
       }
     }
 
-    const requests = await prisma.bookingRequest.findMany({
-      where: {
-        ...whereRole,
-        status: { in: INCLUDED_DASHBOARD_STATUSES },
-      },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        name: true,
-        merchant: true,
-        businessEmail: true,
-        status: true,
-        startDate: true,
-        endDate: true,
-        createdAt: true,
-        processedAt: true,
-        dealId: true,
-        opportunityId: true,
-        parentCategory: true,
-        subCategory1: true,
-        subCategory2: true,
-        subCategory3: true,
-        subCategory4: true,
-      },
-    }) as ProjectionRequestRow[]
+    const eventUserScope = role === 'sales' ? { userId: authResult.userId } : {}
 
-    const rows = await buildProjectionRows(requests)
+    const [requests, bookedEvents] = await Promise.all([
+      prisma.bookingRequest.findMany({
+        where: {
+          ...whereRole,
+          status: { in: INCLUDED_DASHBOARD_STATUSES },
+        },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          name: true,
+          merchant: true,
+          businessEmail: true,
+          status: true,
+          startDate: true,
+          endDate: true,
+          createdAt: true,
+          processedAt: true,
+          dealId: true,
+          opportunityId: true,
+          parentCategory: true,
+          subCategory1: true,
+          subCategory2: true,
+          subCategory3: true,
+          subCategory4: true,
+        },
+      }) as Promise<ProjectionRequestRow[]>,
+      prisma.event.findMany({
+        where: {
+          ...eventUserScope,
+          status: 'booked',
+          bookingRequestId: null,
+        },
+        select: {
+          id: true,
+          name: true,
+          business: true,
+          businessId: true,
+          startDate: true,
+          endDate: true,
+          createdAt: true,
+          parentCategory: true,
+          subCategory1: true,
+          subCategory2: true,
+          subCategory3: true,
+          subCategory4: true,
+        },
+      }),
+    ])
+
+    const eventRows: ProjectionRequestRow[] = bookedEvents.map((event) => ({
+      id: event.id,
+      name: event.name,
+      merchant: event.business,
+      businessEmail: '',
+      status: 'booked',
+      startDate: event.startDate,
+      endDate: event.endDate,
+      createdAt: event.createdAt,
+      processedAt: null,
+      dealId: null,
+      opportunityId: null,
+      parentCategory: event.parentCategory,
+      subCategory1: event.subCategory1,
+      subCategory2: event.subCategory2,
+      subCategory3: event.subCategory3,
+      subCategory4: event.subCategory4,
+      directBusinessId: event.businessId,
+    }))
+
+    const allRequestRows = [...requests, ...eventRows]
+    const rows = await buildProjectionRows(allRequestRows)
     const summary = buildDashboardSummary(rows)
 
     return { success: true, data: rows, summary }
