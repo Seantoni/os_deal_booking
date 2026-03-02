@@ -16,6 +16,8 @@ type CalendarViewMode = 'month' | 'week' | 'day'
 
 interface CalendarViewProps {
   events: Event[]
+  searchEvents?: Event[]
+  isSearchLoading?: boolean
   isLoading?: boolean
   selectedCategories: string[]
   showPendingBooking: boolean
@@ -57,7 +59,7 @@ type EventDateRange = {
   endDay: number
 }
 
-export default function CalendarView({ events, isLoading = false, selectedCategories, showPendingBooking, categoryFilter, searchQuery = '', draggingRequest, bookingRequests = [], onSearchChange, onRequestDropOnDate, onDateClick, onDateRangeSelect, onEventClick, onEventMove, onEventResize, onDayExpand, readOnly = false, externalDate, externalView, externalRange, onViewChange, onCurrentDateChange, onVisibleRangeChange, onNewRequestClick, onCreateEventClick, userRole }: CalendarViewProps) {
+export default function CalendarView({ events, searchEvents = [], isSearchLoading = false, isLoading = false, selectedCategories, showPendingBooking, categoryFilter, searchQuery = '', draggingRequest, bookingRequests = [], onSearchChange, onRequestDropOnDate, onDateClick, onDateRangeSelect, onEventClick, onEventMove, onEventResize, onDayExpand, readOnly = false, externalDate, externalView, externalRange, onViewChange, onCurrentDateChange, onVisibleRangeChange, onNewRequestClick, onCreateEventClick, userRole }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [dragStartDay, setDragStartDay] = useState<number | null>(null)
   const [dragEndDay, setDragEndDay] = useState<number | null>(null)
@@ -1000,12 +1002,21 @@ export default function CalendarView({ events, isLoading = false, selectedCatego
 
       {/* Show Search Results or Calendar */}
       {searchQuery.trim() ? (
-        <EventSearchResults
-          events={events}
-          searchQuery={searchQuery}
-          onEventClick={onEventClick}
-          onClearSearch={() => onSearchChange?.('')}
-        />
+        isSearchLoading && searchEvents.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 border border-gray-200 shadow-sm">
+              <span className="w-3 h-3 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+              <span className="text-xs font-medium text-gray-700">Loading search results...</span>
+            </div>
+          </div>
+        ) : (
+          <EventSearchResults
+            events={searchEvents}
+            searchQuery={searchQuery}
+            onEventClick={onEventClick}
+            onClearSearch={() => onSearchChange?.('')}
+          />
+        )
       ) : isLoading ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 border border-gray-200 shadow-sm">

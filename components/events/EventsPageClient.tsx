@@ -13,6 +13,7 @@ import {
   refreshCalendarData,
   getCalendarPendingRequests,
   getDailyEventCounts,
+  getEvents,
 } from '@/app/actions/events'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import CloseIcon from '@mui/icons-material/Close'
@@ -90,6 +91,9 @@ export default function EventsPageClient({
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [showPendingBooking, setShowPendingBooking] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchEvents, setSearchEvents] = useState<Event[]>([])
+  const [isSearchLoading, setIsSearchLoading] = useState(false)
+  const hasLoadedSearchEvents = useRef(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const [selectedEndDate, setSelectedEndDate] = useState<Date | undefined>(undefined)
@@ -153,6 +157,32 @@ export default function EventsPageClient({
   useEffect(() => {
     setPendingCount(initialPendingCount)
   }, [initialPendingCount])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadSearchEvents() {
+      if (!searchQuery.trim() || hasLoadedSearchEvents.current) return
+
+      setIsSearchLoading(true)
+      try {
+        const result = await getEvents()
+        if (!cancelled && result.success && result.data) {
+          setSearchEvents(result.data)
+          hasLoadedSearchEvents.current = true
+        }
+      } finally {
+        if (!cancelled) {
+          setIsSearchLoading(false)
+        }
+      }
+    }
+
+    loadSearchEvents()
+    return () => {
+      cancelled = true
+    }
+  }, [searchQuery])
 
   const refreshEvents = useCallback(async (showLoading = false) => {
     const range = calendarRangeRef.current
@@ -640,6 +670,8 @@ export default function EventsPageClient({
           <div className="flex-1 overflow-hidden relative z-0">
             <CalendarView
               events={events}
+              searchEvents={searchEvents}
+              isSearchLoading={isSearchLoading}
               isLoading={isCalendarLoading}
               selectedCategories={calendarSelectedCategories}
               showPendingBooking={effectiveShowPendingBooking}
