@@ -15,6 +15,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
 import CampaignIcon from '@mui/icons-material/Campaign'
 import { FOCUS_PERIOD_LABELS, type FocusPeriod } from '@/lib/utils/focus-period'
+import { daysSince } from '@/lib/date'
 import { TableRow, TableCell } from '@/components/shared/table'
 import { BusinessActionButtons } from './BusinessActionButtons'
 import { BusinessExpandedDeals } from './BusinessExpandedDeals'
@@ -136,6 +137,7 @@ export function BusinessTableRow({
       ? `${projectionSourceLabel} · ${projectedRequests}/${totalRequests}`
       : `${projectionSourceLabel} · Guía`
   const lifecycleDisplay = getLifecycleDisplay(business.businessLifecycle)
+  const daysSinceLastLaunch = daysSince(business.lastLaunchDate)
 
   return (
     <Fragment key={business.id}>
@@ -296,7 +298,7 @@ export function BusinessTableRow({
               className="text-xs text-slate-600"
               title={new Date(business.lastLaunchDate).toLocaleDateString()}
             >
-              {Math.floor((Date.now() - new Date(business.lastLaunchDate).getTime()) / (1000 * 60 * 60 * 24))}d
+              {daysSinceLastLaunch !== null ? `${daysSinceLastLaunch}d` : '-'}
             </span>
           ) : (
             <span className="text-gray-400 text-xs">-</span>

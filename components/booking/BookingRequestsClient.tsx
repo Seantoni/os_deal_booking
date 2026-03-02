@@ -1024,7 +1024,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                         </TableCell>
                         <TableCell style={getColumnCellStyle('rejectionReason')}>
                           {request.status === 'rejected' && request.rejectionReason ? (
-                            <div className="max-w-[200px]">
+                            <div className="w-full">
                               <p className="text-[13px] text-red-700 line-clamp-2" title={request.rejectionReason}>
                                 {request.rejectionReason}
                               </p>

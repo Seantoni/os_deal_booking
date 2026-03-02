@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback, useOptimistic, useTransition, useRef, type CSSProperties } from 'react'
+import { useState, useEffect, useMemo, useCallback, useOptimistic, useTransition } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import { useUser } from '@clerk/nextjs'
 import { getUserTasks, toggleTaskComplete, getTaskCounts, type TaskWithOpportunity } from '@/app/actions/tasks'
 import { createTask, updateTask, deleteTask } from '@/app/actions/opportunities'
 import { getOpportunity, updateOpportunity } from '@/app/actions/crm'
@@ -35,6 +34,7 @@ import {
 } from '@/components/shared'
 import { EntityTable, TableRow, TableCell } from '@/components/shared/table'
 import { sortEntities, type SortDirection } from '@/hooks/useEntityPage'
+import { useResizableColumns } from '@/hooks/useResizableColumns'
 
 // Lazy load modals
 const TaskModal = dynamic(() => import('@/components/crm/opportunity/TaskModal'), {
@@ -122,8 +122,6 @@ interface MeetingPipelineAutomationResult {
 
 export default function TasksPageClient() {
   const router = useRouter()
-  const { user } = useUser()
-  const userId = user?.id || null
   const { isAdmin } = useUserRole()
   const { categories, users } = useSharedData()
   const confirmDialog = useConfirmDialog()
@@ -169,81 +167,11 @@ export default function TasksPageClient() {
   // Sorting state
   const [sortColumn, setSortColumn] = useState<string | null>('date')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
-  const [columnWidths, setColumnWidths] = useState<Record<string, number>>(DEFAULT_COLUMN_WIDTHS)
-  const loadedColumnWidthsForUserRef = useRef<string | null>(null)
-  const skipNextColumnWidthsPersistRef = useRef(false)
-
-  useEffect(() => {
-    if (!userId || typeof window === 'undefined') return
-    const storageKey = `${TASKS_COLUMN_WIDTHS_STORAGE_KEY}:${userId}`
-    try {
-      const stored = localStorage.getItem(storageKey)
-      if (!stored) {
-        loadedColumnWidthsForUserRef.current = userId
-        skipNextColumnWidthsPersistRef.current = true
-        return
-      }
-      const parsed = JSON.parse(stored) as Record<string, unknown>
-      const sanitized: Record<string, number> = { ...DEFAULT_COLUMN_WIDTHS }
-      Object.keys(DEFAULT_COLUMN_WIDTHS).forEach((columnKey) => {
-        const raw = parsed[columnKey]
-        if (typeof raw === 'number' && Number.isFinite(raw)) {
-          const min = MIN_COLUMN_WIDTHS[columnKey] || 48
-          sanitized[columnKey] = Math.max(min, Math.min(640, Math.round(raw)))
-        }
-      })
-      setColumnWidths(sanitized)
-    } catch {
-      setColumnWidths(DEFAULT_COLUMN_WIDTHS)
-    } finally {
-      loadedColumnWidthsForUserRef.current = userId
-      skipNextColumnWidthsPersistRef.current = true
-    }
-  }, [userId])
-
-  useEffect(() => {
-    if (!userId || typeof window === 'undefined') return
-    if (loadedColumnWidthsForUserRef.current !== userId) return
-    if (skipNextColumnWidthsPersistRef.current) {
-      skipNextColumnWidthsPersistRef.current = false
-      return
-    }
-    const storageKey = `${TASKS_COLUMN_WIDTHS_STORAGE_KEY}:${userId}`
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(columnWidths))
-    } catch {
-      // Ignore storage write failures (private mode / quota)
-    }
-  }, [columnWidths, userId])
-
-  const columnsWithUserWidths = useMemo(() => {
-    return COLUMNS.map((column) => ({
-      ...column,
-      widthPx: columnWidths[column.key] || DEFAULT_COLUMN_WIDTHS[column.key] || 120,
-      minWidth: MIN_COLUMN_WIDTHS[column.key] || 48,
-      maxWidth: 640,
-      // Keep resize enabled for all task table columns
-      resizable: true,
-    }))
-  }, [columnWidths])
-
-  const handleColumnResize = useCallback((columnKey: string, widthPx: number) => {
-    const min = MIN_COLUMN_WIDTHS[columnKey] || 48
-    const nextWidth = Math.max(min, Math.min(640, Math.round(widthPx)))
-    setColumnWidths((prev) => {
-      if (prev[columnKey] === nextWidth) return prev
-      return { ...prev, [columnKey]: nextWidth }
-    })
-  }, [])
-
-  const getColumnCellStyle = useCallback((columnKey: string): CSSProperties => {
-    const width = columnWidths[columnKey] || DEFAULT_COLUMN_WIDTHS[columnKey] || 120
-    return {
-      width: `${width}px`,
-      minWidth: `${width}px`,
-      maxWidth: `${width}px`,
-    }
-  }, [columnWidths])
+  const { columnsWithUserWidths, handleColumnResize, getColumnCellStyle } = useResizableColumns(COLUMNS, {
+    storageKey: TASKS_COLUMN_WIDTHS_STORAGE_KEY,
+    defaultWidths: DEFAULT_COLUMN_WIDTHS,
+    minWidths: MIN_COLUMN_WIDTHS,
+  })
 
   // Load tasks
   const loadTasks = useCallback(async (filters?: { responsibleId?: string }) => {

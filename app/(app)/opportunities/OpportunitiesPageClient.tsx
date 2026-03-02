@@ -689,6 +689,7 @@ export default function OpportunitiesPageClient({
               <SearchIndicator />
 
               <EntityTable
+                tableClassName="table-fixed"
                 columns={columnsWithUserWidths}
                 sortColumn={sortColumn}
                 sortDirection={sortDirection}
