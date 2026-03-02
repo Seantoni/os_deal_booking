@@ -1336,54 +1336,58 @@ export default function BookingRequestViewModal({
                                   return (
                                     <div key={field.key} className="md:col-span-2">
                                       {renderFieldCommentControls(field.key, field.label)}
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                      <div className="rounded-xl border border-slate-200 bg-white divide-y divide-slate-200">
                                         {(rawValue as Array<{ title?: string; description?: string; price?: string; realValue?: string; quantity?: string; imageUrl?: string; limitByUser?: string; maxGiftsPerUser?: string; endAt?: string; expiresIn?: string }>).map((opt, idx) => (
-                                          <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow">
-                                            {opt.imageUrl && (
-                                              <button
-                                                type="button"
-                                                onClick={() => openLightbox(pricingImages, pricingImages.indexOf(opt.imageUrl!))}
-                                                className="relative w-full h-32 rounded-lg overflow-hidden mb-3 cursor-zoom-in group"
-                                              >
-                                                <Image
-                                                  src={opt.imageUrl}
-                                                  alt={opt.title || `Opción ${idx + 1}`}
-                                                  fill
-                                                  className="object-cover"
-                                                  sizes="(max-width: 640px) 100vw, 33vw"
-                                                />
-                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                                                  <ZoomInIcon className="text-white opacity-0 group-hover:opacity-100 drop-shadow-lg" style={{ fontSize: 28 }} />
-                                                </div>
-                                              </button>
-                                            )}
-                                            <p className="font-semibold text-slate-800 text-sm mb-1">{opt.title || `Opción ${idx + 1}`}</p>
+                                          <div key={idx} className="p-4 md:p-5">
+                                            <div className="flex flex-col sm:flex-row gap-4">
+                                              {opt.imageUrl && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => openLightbox(pricingImages, pricingImages.indexOf(opt.imageUrl!))}
+                                                  className="relative w-full sm:w-40 h-32 rounded-lg overflow-hidden cursor-zoom-in group shrink-0"
+                                                >
+                                                  <Image
+                                                    src={opt.imageUrl}
+                                                    alt={opt.title || `Opción ${idx + 1}`}
+                                                    fill
+                                                    className="object-cover"
+                                                    sizes="(max-width: 640px) 100vw, 160px"
+                                                  />
+                                                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                    <ZoomInIcon className="text-white opacity-0 group-hover:opacity-100 drop-shadow-lg" style={{ fontSize: 28 }} />
+                                                  </div>
+                                                </button>
+                                              )}
+                                              <div className="min-w-0 flex-1">
+                                                <p className="font-semibold text-slate-800 text-sm mb-1 break-words">{opt.title || `Opción ${idx + 1}`}</p>
                                             {opt.description && (
-                                              <p className="text-xs text-slate-500 mb-2 line-clamp-2">{opt.description}</p>
+                                                  <p className="text-xs text-slate-500 mb-2 whitespace-pre-wrap break-words">{opt.description}</p>
                                             )}
-                                            <div className="flex items-center gap-3">
-                                              <span className="text-lg font-bold text-blue-600">${opt.price || '0'}</span>
-                                              {opt.realValue && parseFloat(opt.realValue) > 0 && (
-                                                <span className="text-sm text-slate-400 line-through">${opt.realValue}</span>
-                                              )}
-                                            </div>
-                                            {/* Quantity and limits */}
-                                            <div className="mt-2 space-y-1">
-                                              {opt.quantity && opt.quantity !== 'Ilimitado' && (
-                                                <p className="text-xs text-slate-500">Cantidad: {opt.quantity}</p>
-                                              )}
-                                              {opt.limitByUser && (
-                                                <p className="text-xs text-slate-500">Max Usuario: {opt.limitByUser}</p>
-                                              )}
-                                              {opt.maxGiftsPerUser && (
-                                                <p className="text-xs text-slate-500">Max Regalo: {opt.maxGiftsPerUser}</p>
-                                              )}
-                                              {opt.endAt && (
-                                                <p className="text-xs text-slate-500">Fecha fin: {new Date(opt.endAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                                              )}
-                                              {opt.expiresIn && (
-                                                <p className="text-xs text-slate-500">Vence en: {opt.expiresIn} días</p>
-                                              )}
+                                                <div className="flex items-center gap-3">
+                                                  <span className="text-lg font-bold text-blue-600">${opt.price || '0'}</span>
+                                                  {opt.realValue && parseFloat(opt.realValue) > 0 && (
+                                                    <span className="text-sm text-slate-400 line-through">${opt.realValue}</span>
+                                                  )}
+                                                </div>
+                                                {/* Quantity and limits */}
+                                                <div className="mt-2 space-y-1">
+                                                  {opt.quantity && opt.quantity !== 'Ilimitado' && (
+                                                    <p className="text-xs text-slate-500 break-words">Cantidad: {opt.quantity}</p>
+                                                  )}
+                                                  {opt.limitByUser && (
+                                                    <p className="text-xs text-slate-500 break-words">Max Usuario: {opt.limitByUser}</p>
+                                                  )}
+                                                  {opt.maxGiftsPerUser && (
+                                                    <p className="text-xs text-slate-500 break-words">Max Regalo: {opt.maxGiftsPerUser}</p>
+                                                  )}
+                                                  {opt.endAt && (
+                                                    <p className="text-xs text-slate-500">Fecha fin: {new Date(opt.endAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                                                  )}
+                                                  {opt.expiresIn && (
+                                                    <p className="text-xs text-slate-500 break-words">Vence en: {opt.expiresIn} días</p>
+                                                  )}
+                                                </div>
+                                              </div>
                                             </div>
                                           </div>
                                         ))}
