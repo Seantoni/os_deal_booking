@@ -121,6 +121,7 @@ export default function DealsPageClient({
   const router = useRouter()
   const searchParams = useSearchParams()
   const { isAdmin, isEditorSenior, isEditor } = useUserRole()
+  const canManageDeals = isAdmin || isEditorSenior
   const { isMobile } = useSidebar()
   
   // Get form config cache for prefetching
@@ -173,22 +174,22 @@ export default function DealsPageClient({
   const [activeTab, setActiveTab] = useState<'deals' | 'assignments'>('deals')
   const lastTabParamRef = useRef<string | null>(null)
   useEffect(() => {
-    if (!isEditorSenior && !isAdmin && activeTab !== 'deals') {
+    if (!canManageDeals && activeTab !== 'deals') {
       setActiveTab('deals')
     }
-  }, [isEditorSenior, isAdmin, activeTab])
+  }, [canManageDeals, activeTab])
   useEffect(() => {
     const tabParam = searchParams.get('tab')
     if (tabParam === lastTabParamRef.current) return
     lastTabParamRef.current = tabParam
-    if (tabParam === 'assignments' && (isEditorSenior || isAdmin)) {
+    if (tabParam === 'assignments' && canManageDeals) {
       setActiveTab('assignments')
       return
     }
     if (tabParam === 'deals') {
       setActiveTab('deals')
     }
-  }, [searchParams, isEditorSenior, isAdmin])
+  }, [searchParams, canManageDeals])
 
   // Assignments tab state
   const [assignmentsLoading, setAssignmentsLoading] = useState(false)
@@ -209,7 +210,7 @@ export default function DealsPageClient({
   }, [assignmentDeals])
 
   const loadAssignments = useCallback(async () => {
-    if (!isEditorSenior && !isAdmin) return
+    if (!canManageDeals) return
     setAssignmentsLoading(true)
     setAssignmentsError(null)
     try {
@@ -236,13 +237,13 @@ export default function DealsPageClient({
       setAssignmentsLoading(false)
       setAssignmentsLoaded(true)
     }
-  }, [isEditorSenior, isAdmin])
+  }, [canManageDeals])
 
   useEffect(() => {
-    if ((isEditorSenior || isAdmin) && activeTab === 'assignments') {
+    if (canManageDeals && activeTab === 'assignments') {
       loadAssignments()
     }
-  }, [isEditorSenior, isAdmin, activeTab, loadAssignments])
+  }, [canManageDeals, activeTab, loadAssignments])
 
   // Responsible filter is now managed by the hook
   const responsibleFilter = (filters.responsibleId as string) || 'all'
@@ -375,9 +376,9 @@ export default function DealsPageClient({
     ]
   }, [displayDeals, responsibleUsers, totalCount, isSearching, counts])
 
-  const canViewAssignments = isEditorSenior || isAdmin
-  const canViewOsAdminLink = isAdmin || isEditorSenior || isEditor
-  const canEditStatus = isEditorSenior || isAdmin || isEditor
+  const canViewAssignments = canManageDeals
+  const canViewOsAdminLink = canManageDeals || isEditor
+  const canEditStatus = canManageDeals || isEditor
 
   useEffect(() => {
     if (!canViewAssignments || assignmentsLoaded || assignmentsLoading) return
@@ -769,7 +770,7 @@ export default function DealsPageClient({
             filterTabs={filterTabs}
             activeFilter={responsibleFilter}
             onFilterChange={setResponsibleFilter}
-            isAdmin={isAdmin}
+            isAdmin={canManageDeals}
             {...advancedFilterProps}
           />
 

@@ -1600,7 +1600,6 @@ export async function cancelBookingRequest(requestId: string) {
       return { success: false, error: 'No tienes permiso para cancelar esta solicitud' }
     }
 
-    // Check if status allows cancellation (only draft or pending)
     if (bookingRequest.status !== 'draft' && bookingRequest.status !== 'pending') {
       return { 
         success: false, 

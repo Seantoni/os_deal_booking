@@ -44,7 +44,8 @@ export default function DealFormModal({
   containerClassName,
 }: DealFormModalProps) {
   const { isAdmin, isSales, isEditor, isEditorSenior } = useUserRole()
-  const canViewOsAdminLink = isAdmin || isEditorSenior || isEditor
+  const canManageDeal = isAdmin || isEditorSenior
+  const canViewOsAdminLink = canManageDeal || isEditor
   const [error, setError] = useState('')
   const [bookingRequestModalOpen, setBookingRequestModalOpen] = useState(false)
   const [publicDealSlug, setPublicDealSlug] = useState<string | null>(null)
@@ -82,7 +83,7 @@ export default function DealFormModal({
   } = useDealForm({
     isOpen,
     deal,
-    isAdmin,
+    canManageDeal,
   })
 
   const startDateKey = useMemo(() => {
@@ -126,7 +127,7 @@ export default function DealFormModal({
 
   // React 19: Status change handler using useTransition
   function handleStatusChange(newStatus: string) {
-    if (!deal || !isAdmin || savingStatus) return
+    if (!deal || !canManageDeal || savingStatus) return
     
     const previousStatus = status
     setStatus(newStatus)
@@ -168,7 +169,7 @@ export default function DealFormModal({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     
-    if (!isAdmin) {
+    if (!canManageDeal) {
       return
     }
     
@@ -403,11 +404,11 @@ export default function DealFormModal({
       footer={
         <ModalFooter
           onCancel={onClose}
-          cancelLabel={isAdmin ? 'Cancelar' : 'Cerrar'}
+          cancelLabel={canManageDeal ? 'Cancelar' : 'Cerrar'}
           submitLabel="Guardar"
           submitLoading={loading || loadingData || dynamicForm.loading}
-          submitDisabled={loading || loadingData || dynamicForm.loading || !isAdmin}
-          leftContent={isAdmin ? 'Asignar un usuario responsable para esta oferta' : isSales ? 'Modo solo lectura - Puede ver ofertas de sus oportunidades' : 'Modo solo lectura'}
+          submitDisabled={loading || loadingData || dynamicForm.loading || !canManageDeal}
+          leftContent={canManageDeal ? 'Asignar un usuario responsable para esta oferta' : isSales ? 'Modo solo lectura - Puede ver ofertas de sus oportunidades' : 'Modo solo lectura'}
           formId="deal-modal-form"
         />
       }
@@ -439,7 +440,7 @@ export default function DealFormModal({
               <DealStatusPipeline
                 status={status}
                 onStatusChange={handleStatusChange}
-                isAdmin={isAdmin}
+                isAdmin={canManageDeal}
                 saving={savingStatus}
               />
               <div className="h-px bg-gray-200/70" />
@@ -482,7 +483,7 @@ export default function DealFormModal({
                 onEreResponsibleChange={setEreResponsibleId}
                 editorUsers={editorUsers}
                 ereUsers={ereUsers}
-                isAdmin={isAdmin}
+                isAdmin={canManageDeal}
                 extraContent={
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-3">
@@ -494,7 +495,7 @@ export default function DealFormModal({
                           type="date"
                           value={deliveryDate || ''}
                           onChange={(e) => setDeliveryDate(e.target.value)}
-                          disabled={!isAdmin || loading || loadingData}
+                          disabled={!canManageDeal || loading || loadingData}
                           max={maxDeliveryDate}
                           className="text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white"
                         />
@@ -528,7 +529,7 @@ export default function DealFormModal({
                               <button
                                 type="button"
                                 onClick={() => setDeliveryDate(suggestedDeliveryDate)}
-                                disabled={!isAdmin || loading || loadingData}
+                                disabled={!canManageDeal || loading || loadingData}
                                 className="inline-flex items-center rounded-md border border-amber-300 bg-white px-2 py-0.5 font-semibold text-amber-900 underline decoration-amber-600 hover:bg-amber-100 hover:text-amber-950 disabled:opacity-50"
                               >
                                 {suggestedDeliveryDate}
@@ -565,7 +566,7 @@ export default function DealFormModal({
                             <button
                               type="button"
                               onClick={() => setDeliveryDate(suggestedDeliveryDate)}
-                              disabled={!isAdmin || loading || loadingData}
+                              disabled={!canManageDeal || loading || loadingData}
                               className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
                             >
                               Usar
@@ -590,7 +591,7 @@ export default function DealFormModal({
                   }}
                   values={dynamicForm.getAllValues()}
                   onChange={dynamicForm.setValue}
-                  disabled={loading || !isAdmin}
+                  disabled={loading || !canManageDeal}
                   users={userOptions}
                   defaultExpanded={!section.isCollapsed}
                   collapsible={true}

@@ -1097,11 +1097,15 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                                 <BlockIcon fontSize="small" />
                               </Button>
                             )}
-                      {request.status === 'draft' && (
+                      {(request.status === 'draft' || request.status === 'pending') && (
                         <Button
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  router.push(`/booking-requests/edit/${request.id}`)
+                                  if (request.status === 'draft') {
+                                    router.push(`/booking-requests/edit/${request.id}`)
+                                  } else {
+                                    setViewRequestId(request.id)
+                                  }
                                 }}
                                 variant="ghost"
                                 size="sm"

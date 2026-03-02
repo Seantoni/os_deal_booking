@@ -517,6 +517,43 @@ export async function getDealAssignmentsOverview() {
 }
 
 /**
+ * Get users for deal form assignment and custom field user pickers.
+ * Access is limited to admin/editor_senior.
+ */
+export async function getDealFormUsers() {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    const role = await getUserRole()
+    if (role !== 'admin' && role !== 'editor_senior') {
+      return { success: false, error: 'Unauthorized: Admin or Editor Senior access required' }
+    }
+
+    const users = await prisma.userProfile.findMany({
+      select: {
+        id: true,
+        clerkId: true,
+        name: true,
+        email: true,
+        role: true,
+        team: true,
+        maxActiveDeals: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { name: 'asc' },
+    })
+
+    return { success: true, data: users }
+  } catch (error) {
+    return handleServerActionError(error, 'getDealFormUsers')
+  }
+}
+
+/**
  * Search deals across ALL records (server-side search)
  */
 export async function searchDeals(query: string, options: {
@@ -1248,10 +1285,10 @@ export async function deleteDeal(dealId: string) {
   }
 
   try {
-    // Only admins can delete deals
+    // Admin and Editor Senior can delete deals
     const role = await getUserRole()
-    if (role !== 'admin') {
-      return { success: false, error: 'Unauthorized: Admin access required' }
+    if (role !== 'admin' && role !== 'editor_senior') {
+      return { success: false, error: 'Unauthorized: Admin or Editor Senior access required' }
     }
 
     // Get deal info for logging

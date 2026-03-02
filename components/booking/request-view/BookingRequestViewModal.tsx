@@ -684,6 +684,115 @@ export default function BookingRequestViewModal({
     router.push(`/booking-requests/new?editId=${requestId}`)
   }
 
+  // Edit request: drafts edit in place, others cancel + replicate
+  const [showEditConfirm, setShowEditConfirm] = useState(false)
+  const [editProcessing, setEditProcessing] = useState(false)
+
+  function handleEditClick() {
+    if (!requestId || !requestData) return
+    if (requestData.status === 'draft') {
+      handleContinueEditing()
+      return
+    }
+    setShowEditConfirm(true)
+  }
+
+  async function handleEditConfirm() {
+    if (!requestId || !requestData) return
+
+    setEditProcessing(true)
+
+    const result = await cancelBookingRequest(requestId)
+
+    if (!result.success) {
+      toast.error(result.error || 'Error al cancelar la solicitud')
+      setEditProcessing(false)
+      return
+    }
+
+    // Replicate into a new draft using the same sessionStorage approach
+    try {
+      const businessName = requestData.name ? String(requestData.name).split(' | ')[0].trim() : ''
+
+      const payload: Partial<BookingFormData> & { linkedBusinessId?: string } = {
+        businessName: businessName || '',
+        partnerEmail: requestData.businessEmail ? String(requestData.businessEmail) : '',
+        additionalEmails: Array.isArray(requestData.additionalEmails) ? (requestData.additionalEmails as string[]) : [],
+        category: requestData.category ? String(requestData.category) : '',
+        parentCategory: requestData.parentCategory ? String(requestData.parentCategory) : '',
+        subCategory1: requestData.subCategory1 ? String(requestData.subCategory1) : '',
+        subCategory2: requestData.subCategory2 ? String(requestData.subCategory2) : '',
+        subCategory3: requestData.subCategory3 ? String(requestData.subCategory3) : '',
+        campaignDuration: requestData.campaignDuration ? String(requestData.campaignDuration) : '',
+        campaignDurationUnit: (requestData.campaignDurationUnit as 'days' | 'months') || 'months',
+        linkedBusinessId: requestData.linkedBusiness?.id || undefined,
+        redemptionMode: requestData.redemptionMode ? String(requestData.redemptionMode) : undefined,
+        isRecurring: requestData.isRecurring ? String(requestData.isRecurring) : undefined,
+        recurringOfferLink: requestData.recurringOfferLink ? String(requestData.recurringOfferLink) : undefined,
+        paymentType: requestData.paymentType ? String(requestData.paymentType) : undefined,
+        paymentInstructions: requestData.paymentInstructions ? String(requestData.paymentInstructions) : undefined,
+        redemptionContactName: requestData.redemptionContactName ? String(requestData.redemptionContactName) : undefined,
+        redemptionContactEmail: requestData.redemptionContactEmail ? String(requestData.redemptionContactEmail) : undefined,
+        redemptionContactPhone: requestData.redemptionContactPhone ? String(requestData.redemptionContactPhone) : undefined,
+        legalName: requestData.legalName ? String(requestData.legalName) : undefined,
+        rucDv: requestData.rucDv ? String(requestData.rucDv) : undefined,
+        bankAccountName: requestData.bankAccountName ? String(requestData.bankAccountName) : undefined,
+        bank: requestData.bank ? String(requestData.bank) : undefined,
+        accountNumber: requestData.accountNumber ? String(requestData.accountNumber) : undefined,
+        accountType: requestData.accountType ? String(requestData.accountType) : undefined,
+        addressAndHours: requestData.addressAndHours ? String(requestData.addressAndHours) : undefined,
+        provinceDistrictCorregimiento: requestData.provinceDistrictCorregimiento ? String(requestData.provinceDistrictCorregimiento) : undefined,
+        includesTaxes: requestData.includesTaxes ? String(requestData.includesTaxes) : undefined,
+        validOnHolidays: requestData.validOnHolidays ? String(requestData.validOnHolidays) : undefined,
+        hasExclusivity: requestData.hasExclusivity ? String(requestData.hasExclusivity) : undefined,
+        blackoutDates: requestData.blackoutDates ? String(requestData.blackoutDates) : undefined,
+        exclusivityCondition: requestData.exclusivityCondition ? String(requestData.exclusivityCondition) : undefined,
+        hasOtherBranches: requestData.hasOtherBranches ? String(requestData.hasOtherBranches) : undefined,
+        redemptionMethods: Array.isArray(requestData.redemptionMethods) ? requestData.redemptionMethods : undefined,
+        contactDetails: requestData.contactDetails ? String(requestData.contactDetails) : undefined,
+        socialMedia: requestData.socialMedia ? String(requestData.socialMedia) : undefined,
+        shortTitle: requestData.shortTitle ? String(requestData.shortTitle) : undefined,
+        whatWeLike: requestData.whatWeLike ? String(requestData.whatWeLike) : undefined,
+        aboutCompany: requestData.aboutCompany ? String(requestData.aboutCompany) : undefined,
+        aboutOffer: requestData.aboutOffer ? String(requestData.aboutOffer) : undefined,
+        goodToKnow: requestData.goodToKnow ? String(requestData.goodToKnow) : undefined,
+        offerMargin: requestData.offerMargin ? String(requestData.offerMargin) : undefined,
+        pricingOptions: Array.isArray(requestData.pricingOptions) 
+          ? requestData.pricingOptions.map(opt => ({
+              title: opt.title,
+              description: opt.description ?? '',
+              price: String(opt.price ?? ''),
+              realValue: String(opt.realValue ?? ''),
+              quantity: String(opt.quantity ?? ''),
+            }))
+          : undefined,
+        dealImages: Array.isArray(requestData.dealImages) ? requestData.dealImages : undefined,
+        cancellationPolicy: requestData.cancellationPolicy ? String(requestData.cancellationPolicy) : undefined,
+        marketValidation: requestData.marketValidation ? String(requestData.marketValidation) : undefined,
+        additionalComments: requestData.additionalComments ? String(requestData.additionalComments) : undefined,
+      }
+
+      const additionalInfo = requestData.additionalInfo && typeof requestData.additionalInfo === 'object'
+        ? requestData.additionalInfo
+        : null
+
+      const replicateKey = `${Date.now()}_${Math.random().toString(16).slice(2)}`
+      sessionStorage.setItem(`replicate:${replicateKey}`, JSON.stringify(payload))
+      if (additionalInfo) {
+        sessionStorage.setItem(`replicate:${replicateKey}:additionalInfo`, JSON.stringify(additionalInfo))
+      }
+
+      setShowEditConfirm(false)
+      onClose()
+      router.push(`/booking-requests/new?replicateKey=${encodeURIComponent(replicateKey)}`)
+    } catch (e) {
+      console.error('Failed to create editable copy', e)
+      toast.error('La solicitud fue cancelada pero no se pudo crear la copia. Usa el botón Replicar.')
+    } finally {
+      setEditProcessing(false)
+    }
+  }
+
   // Cancel request - show confirmation dialog
   function handleCancelClick() {
     if (!requestId || !requestData) return
@@ -941,13 +1050,13 @@ export default function BookingRequestViewModal({
                   <CheckCircleOutlineIcon style={{ fontSize: 20 }} />
                 </button>
               )}
-              {/* Continue Editing Button - Only for drafts */}
-              {requestData?.status === 'draft' && (
+              {/* Edit Button - Only for draft or pending */}
+              {(requestData?.status === 'draft' || requestData?.status === 'pending') && (
                 <button
-                  onClick={handleContinueEditing}
-                  disabled={loading}
+                  onClick={handleEditClick}
+                  disabled={loading || editProcessing}
                   className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 border border-transparent hover:border-blue-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Editar borrador"
+                  title={requestData?.status === 'draft' ? 'Editar borrador' : 'Editar solicitud'}
                 >
                   <EditNoteIcon style={{ fontSize: 20 }} />
                 </button>
@@ -1599,6 +1708,38 @@ export default function BookingRequestViewModal({
         onCancel={() => setShowCancelConfirm(false)}
         loading={cancelling}
         loadingText="Cancelando..."
+        zIndex={90}
+      />
+
+      {/* Edit Request Confirmation Modal (cancel + replicate) */}
+      <ConfirmDialog
+        isOpen={showEditConfirm}
+        title="Editar solicitud"
+        message={
+          <div className="space-y-3">
+            <p className="text-gray-600">
+              Para editar esta solicitud se cancelará la actual y se creará una nueva con los mismos datos.
+            </p>
+            <p className="text-gray-900 font-semibold px-4 py-2 bg-gray-50 rounded-lg">
+              {requestData?.name}
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm text-blue-800 font-medium">Al proceder:</p>
+              <ul className="mt-1 text-sm text-blue-700 list-disc list-inside space-y-0.5">
+                <li>La solicitud actual será cancelada</li>
+                <li>Se creará una nueva solicitud con los mismos datos</li>
+                <li>Podrás editarla antes de enviarla</li>
+              </ul>
+            </div>
+          </div>
+        }
+        confirmText="Proceder"
+        cancelText="Volver"
+        confirmVariant="primary"
+        onConfirm={handleEditConfirm}
+        onCancel={() => setShowEditConfirm(false)}
+        loading={editProcessing}
+        loadingText="Procesando..."
         zIndex={90}
       />
 

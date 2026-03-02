@@ -109,7 +109,7 @@ export default function BookingRequestMobileCard({
   // Determine available actions
   const isCreator = request.userId === currentUserId
   const canCancel = (request.status === 'draft' || request.status === 'pending') && (isCreator || isAdmin)
-  const canEdit = request.status === 'draft'
+  const canEdit = request.status === 'draft' || request.status === 'pending'
   const canResend = request.status === 'draft' || request.status === 'pending'
   const hasActions = canCancel || canEdit || canResend || isAdmin
 
@@ -236,7 +236,14 @@ export default function BookingRequestMobileCard({
 
               {canEdit && (
                 <button
-                  onClick={() => { router.push(`/booking-requests/edit/${request.id}`); setSheetOpen(false) }}
+                  onClick={() => {
+                    setSheetOpen(false)
+                    if (request.status === 'draft') {
+                      router.push(`/booking-requests/edit/${request.id}`)
+                    } else {
+                      onView(request.id)
+                    }
+                  }}
                   className="w-full flex items-center gap-4 px-5 py-3.5 text-left active:bg-gray-50"
                 >
                   <EditIcon style={{ fontSize: 20 }} className="text-gray-500" />

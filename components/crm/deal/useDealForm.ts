@@ -1,18 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { getAllUsers } from '@/app/actions/crm'
+import { getDealFormUsers } from '@/app/actions/deals'
 import { formatDateForPanama } from '@/lib/date/timezone'
 import type { Deal, UserProfile } from '@/types'
 
 interface UseDealFormProps {
   isOpen: boolean
   deal: Deal | null
-  isAdmin: boolean
+  canManageDeal: boolean
 }
 
 export function useDealForm({
   isOpen,
   deal,
-  isAdmin,
+  canManageDeal,
 }: UseDealFormProps) {
   // Form state
   const [responsibleId, setResponsibleId] = useState('')
@@ -39,9 +39,9 @@ export function useDealForm({
 
     setLoadingData(true)
     try {
-      // Load users if admin
-      if (isAdmin) {
-        const usersResult = await getAllUsers()
+      // Load users if current role can manage deals
+      if (canManageDeal) {
+        const usersResult = await getDealFormUsers()
         if (usersResult.success && usersResult.data) {
           setUsers(usersResult.data)
           // Filter users by role
@@ -65,7 +65,7 @@ export function useDealForm({
     } finally {
       setLoadingData(false)
     }
-  }, [isAdmin])
+  }, [canManageDeal])
 
   // Main load effect
   useEffect(() => {

@@ -160,6 +160,25 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
   
   const setError = useCallback((value: string) => setField('error', value), [setField])
 
+  const buildEventFormData = useCallback(() => {
+    const formData = new FormData()
+    formData.set('name', name)
+    formData.set('description', description || '')
+    formData.set('business', business)
+    formData.set('businessId', businessId)
+    formData.set('startDate', startDate)
+    formData.set('endDate', endDate)
+
+    if (categoryOption) {
+      formData.set('category', categoryOption.label)
+      formData.set('parentCategory', categoryOption.parent)
+      if (categoryOption.sub1) formData.set('subCategory1', categoryOption.sub1)
+      if (categoryOption.sub2) formData.set('subCategory2', categoryOption.sub2)
+    }
+
+    return formData
+  }, [name, description, business, businessId, startDate, endDate, categoryOption])
+
   // Helper to generate event name from business and date
   const generateEventName = useCallback((businessName: string, dateStr: string) => {
     if (!businessName || !dateStr) return ''
@@ -523,13 +542,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
     
     setError('')
 
-    const formData = new FormData(event.currentTarget)
-    if (categoryOption) {
-      formData.set('category', categoryOption.label) // Store full path as category for display
-      formData.set('parentCategory', categoryOption.parent)
-      if (categoryOption.sub1) formData.set('subCategory1', categoryOption.sub1)
-      if (categoryOption.sub2) formData.set('subCategory2', categoryOption.sub2)
-    }
+    const formData = buildEventFormData()
     
     // If creating from a booking request, include the booking request ID
     if (!eventToEdit && linkedBookingRequest) {
@@ -636,21 +649,25 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
 
     if (!confirmed) return
 
-    // Optimistic update: update status immediately
-    const updatedEvent = { ...eventToEdit, status: 'booked' as const }
-    if (onSuccess) {
-      onSuccess(updatedEvent, 'book')
-    }
     setIsBooking(true)
 
     startTransition(async () => {
       try {
+        const updateFormData = buildEventFormData()
+        const updateResult = await updateEvent(eventToEdit.id, updateFormData)
+        if (!updateResult.success) {
+          setField('error', updateResult.error || 'Error al actualizar el evento antes de reservar')
+          setIsBooking(false)
+          return
+        }
+
         // Import the book function
         const { bookEvent } = await import('@/app/actions/events')
         const result = await bookEvent(eventToEdit.id) as {
           success: boolean
+          error?: string
           data?: {
-            event?: unknown
+            event?: Event
             externalApi?: {
               success: boolean
               externalId?: number
@@ -659,6 +676,20 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
             } | null
           }
         }
+        if (!result.success) {
+          const bookingError = result.error || 'Error al reservar el evento'
+          setField('error', bookingError)
+          toast.error(bookingError)
+          setIsBooking(false)
+          return
+        }
+
+        const bookedEventFromServer = result?.data?.event
+        const bookedEvent = bookedEventFromServer || (updateResult.data ? { ...updateResult.data, status: 'booked' } : null)
+        if (bookedEvent && onSuccess) {
+          onSuccess(bookedEvent, 'book')
+        }
+
         const externalApi = result?.data?.externalApi ?? null
         // Dismiss loader before showing the result dialog
         setIsBooking(false)
