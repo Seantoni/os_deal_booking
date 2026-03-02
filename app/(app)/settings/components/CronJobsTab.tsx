@@ -400,8 +400,10 @@ export default function CronJobsTab() {
         <strong>Horarios de Cron Jobs (hora Panamá):</strong>
         <ul className="mt-1 ml-4 list-disc">
           <li>Sync de Métricas: 12:00 AM (medianoche)</li>
-          <li>Escaneo de Mercado: 1:00 AM</li>
-          <li>Sync de Eventos: 2:00 AM</li>
+          <li>Escaneo de Mercado: 8:00 AM</li>
+          <li>Sync de Eventos: 1:00 PM</li>
+          <li>Sync de Restaurantes (Degusta): 11:00 AM</li>
+          <li>Sync Promos Banco General: 12:00 PM (Lunes y Viernes)</li>
           <li>Recordatorios de Tareas: 8:00 AM</li>
           <li>Resumen de Comentarios: 8:00 AM (L-V)</li>
           <li>Reporte Semanal Comercial: 8:00 AM (Viernes)</li>

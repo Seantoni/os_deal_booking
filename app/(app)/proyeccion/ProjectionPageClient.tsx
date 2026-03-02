@@ -156,6 +156,7 @@ export default function ProjectionPageClient({ initialRows, initialSummary }: Pr
   const [summary] = useState<ProjectionSummary>(initialSummary)
   const [searchQuery, setSearchQuery] = useState('')
   const [bucketFilter, setBucketFilter] = useState<'all' | 'in_process' | 'booked'>('all')
+  const [monthFilter, setMonthFilter] = useState('all')
   const [sortColumn, setSortColumn] = useState<SortColumn>('projectedRevenue')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [visibleCount, setVisibleCount] = useState(50)
@@ -253,6 +254,10 @@ export default function ProjectionPageClient({ initialRows, initialSummary }: Pr
       next = next.filter(row => row.bucket === bucketFilter)
     }
 
+    if (monthFilter !== 'all') {
+      next = next.filter(row => getPanamaMonthKey(row.startDate) === monthFilter)
+    }
+
     if (searchQuery.trim()) {
       const query = searchQuery.trim().toLowerCase()
       next = next.filter(row => {
@@ -305,7 +310,7 @@ export default function ProjectionPageClient({ initialRows, initialSummary }: Pr
       if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
       return 0
     })
-  }, [rows, bucketFilter, searchQuery, sortColumn, sortDirection])
+  }, [rows, bucketFilter, monthFilter, searchQuery, sortColumn, sortDirection])
 
   const visibleRows = useMemo(
     () => filteredRows.slice(0, visibleCount),
@@ -320,6 +325,26 @@ export default function ProjectionPageClient({ initialRows, initialSummary }: Pr
       { id: 'in_process', label: 'En proceso', count: inProcessCount },
       { id: 'booked', label: 'Reservadas', count: bookedCount },
     ]
+  }, [rows])
+
+  const monthOptions = useMemo(() => {
+    const monthCounts = new Map<string, number>()
+
+    rows.forEach((row) => {
+      const monthKey = getPanamaMonthKey(row.startDate)
+      if (!monthKey) return
+      monthCounts.set(monthKey, (monthCounts.get(monthKey) || 0) + 1)
+    })
+
+    return Array.from(monthCounts.entries())
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([value, count]) => {
+        const [year, month] = value.split('-').map(Number)
+        return {
+          value,
+          label: `${formatMonthLabel(year, month)} (${count})`,
+        }
+      })
   }, [rows])
 
   const latestSyncLabel = summary.latestMetricsSyncAt
@@ -433,15 +458,34 @@ export default function ProjectionPageClient({ initialRows, initialSummary }: Pr
           </div>
         </div>
 
-        <div className="mt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <FilterTabs
             items={filterTabs}
             activeId={bucketFilter}
+            className="shrink-0"
             onChange={(id) => {
               setBucketFilter(id as 'all' | 'in_process' | 'booked')
               setVisibleCount(50)
             }}
           />
+          <span className="text-sm text-gray-300 select-none">|</span>
+          <div className="w-full sm:w-auto">
+            <select
+              value={monthFilter}
+              onChange={(event) => {
+                setMonthFilter(event.target.value)
+                setVisibleCount(50)
+              }}
+              className="h-8 rounded-full border border-gray-200 bg-white px-3 text-[11px] font-medium text-gray-700 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            >
+              <option value="all">Todos los meses</option>
+              {monthOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 

@@ -689,6 +689,7 @@ export default function LeadsNegociosClient() {
       }
       
       let buffer = ''
+      let currentEvent = ''
       
       while (true) {
         const { done, value } = await reader.read()
@@ -700,20 +701,25 @@ export default function LeadsNegociosClient() {
         const lines = buffer.split('\n')
         buffer = lines.pop() || ''
         
-        for (const line of lines) {
+        for (const rawLine of lines) {
+          const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine
+
+          if (line === '') {
+            currentEvent = ''
+            continue
+          }
+
           if (line.startsWith('event: ')) {
+            currentEvent = line.slice(7).trim()
             continue
           }
           if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.slice(6))
-              
-              const eventIndex = lines.indexOf(line) - 1
-              const eventLine = eventIndex >= 0 ? lines[eventIndex] : ''
-              
-              if (eventLine.includes('progress')) {
+
+              if (currentEvent === 'progress') {
                 setScanProgress(data)
-              } else if (eventLine.includes('complete')) {
+              } else if (currentEvent === 'complete') {
                 setScanProgress(null)
                 
                 if (data.errors && data.errors.length > 0) {
@@ -733,7 +739,7 @@ export default function LeadsNegociosClient() {
                 // Reload data
                 loadEvents()
                 loadStats()
-              } else if (eventLine.includes('error')) {
+              } else if (currentEvent === 'error') {
                 toast.error(data.message || 'Scan failed')
               }
             } catch (parseError) {
@@ -844,6 +850,7 @@ export default function LeadsNegociosClient() {
       }
       
       let buffer = ''
+      let currentEvent = ''
       
       while (true) {
         const { done, value } = await reader.read()
@@ -854,17 +861,25 @@ export default function LeadsNegociosClient() {
         const lines = buffer.split('\n')
         buffer = lines.pop() || ''
         
-        for (const line of lines) {
-          if (line.startsWith('event: ')) continue
+        for (const rawLine of lines) {
+          const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine
+
+          if (line === '') {
+            currentEvent = ''
+            continue
+          }
+
+          if (line.startsWith('event: ')) {
+            currentEvent = line.slice(7).trim()
+            continue
+          }
           if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.slice(6))
-              const eventIndex = lines.indexOf(line) - 1
-              const eventLine = eventIndex >= 0 ? lines[eventIndex] : ''
-              
-              if (eventLine.includes('progress')) {
+
+              if (currentEvent === 'progress') {
                 setRestaurantScanProgress(data)
-              } else if (eventLine.includes('complete')) {
+              } else if (currentEvent === 'complete') {
                 setRestaurantScanProgress(null)
                 
                 if (data.errors && data.errors.length > 0) {
@@ -883,7 +898,7 @@ export default function LeadsNegociosClient() {
                 
                 loadRestaurants()
                 loadRestaurantStats()
-              } else if (eventLine.includes('error')) {
+              } else if (currentEvent === 'error') {
                 toast.error(data.message || 'Scan failed')
               }
             } catch (parseError) {
@@ -977,22 +992,31 @@ export default function LeadsNegociosClient() {
         return
       }
       let buffer = ''
+      let currentEvent = ''
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
         buffer += decoder.decode(value, { stream: true })
         const lines = buffer.split('\n')
         buffer = lines.pop() || ''
-        for (const line of lines) {
-          if (line.startsWith('event: ')) continue
+        for (const rawLine of lines) {
+          const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine
+
+          if (line === '') {
+            currentEvent = ''
+            continue
+          }
+
+          if (line.startsWith('event: ')) {
+            currentEvent = line.slice(7).trim()
+            continue
+          }
           if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.slice(6))
-              const eventIndex = lines.indexOf(line) - 1
-              const eventLine = eventIndex >= 0 ? lines[eventIndex] : ''
-              if (eventLine.includes('progress')) {
+              if (currentEvent === 'progress') {
                 setBankPromoScanProgress(data)
-              } else if (eventLine.includes('complete')) {
+              } else if (currentEvent === 'complete') {
                 setBankPromoScanProgress(null)
                 if (data.errors?.length > 0) {
                   toast.error(
@@ -1009,7 +1033,7 @@ export default function LeadsNegociosClient() {
                 }
                 loadBankPromos()
                 loadBankPromoStats()
-              } else if (eventLine.includes('error')) {
+              } else if (currentEvent === 'error') {
                 toast.error(data.message || 'Scan failed')
               }
             } catch (parseError) {

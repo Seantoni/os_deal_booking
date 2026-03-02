@@ -2,7 +2,8 @@
  * Restaurant Leads Sync Cron Job
  *
  * Daily sync of restaurant leads from Degusta Panama.
- * Scheduled to run at 8:00 AM UTC (3:00 AM Panama time).
+ * Scheduled to run at 4:00 PM UTC (11:00 AM Panama time).
+ * Cron expression: 0 16 * * * (configured in vercel.json).
  *
  * Now uses Degusta's internal search API directly (no headless browser).
  *

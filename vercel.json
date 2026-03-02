@@ -18,19 +18,19 @@
     },
     {
       "path": "/api/cron/market-intelligence-scan",
-      "schedule": "0 6 * * *"
+      "schedule": "0 13 * * *"
     },
     {
       "path": "/api/cron/event-leads-sync",
-      "schedule": "0 7 * * *"
+      "schedule": "0 18 * * *"
     },
     {
       "path": "/api/cron/restaurant-leads-sync",
-      "schedule": "0 8 * * *"
+      "schedule": "0 16 * * *"
     },
     {
       "path": "/api/cron/bank-promos-sync",
-      "schedule": "0 12 * * 1,5"
+      "schedule": "0 17 * * 1,5"
     },
     {
       "path": "/api/cron/weekly-task-report",
