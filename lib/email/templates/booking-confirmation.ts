@@ -49,8 +49,8 @@ export function renderBookingConfirmationEmail(data: BookingConfirmationEmailPro
         ${parentCategory ? renderKeyValue('Categoría', escapeHtml(parentCategory), true) : ''}
         
         <div style="margin-top: 12px;">
-          ${renderKeyValue('Fecha de Inicio', escapeHtml(startDate))}
-          ${renderKeyValue('Fecha de Fin', escapeHtml(endDate))}
+          ${renderKeyValue('Fecha de Inicio (Final)', escapeHtml(startDate))}
+          ${renderKeyValue('Fecha de Fin (Final)', escapeHtml(endDate))}
         </div>
       </div>
 

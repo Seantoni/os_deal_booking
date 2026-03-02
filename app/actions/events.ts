@@ -927,8 +927,8 @@ export async function bookEvent(eventId: string) {
               userId,
               triggeredBy: 'system',
               // OfertaSimple dates should match the final booked event dates
-              runAt: event.startDate,
-              endAt: event.endDate,
+              runAt: updatedEvent.startDate,
+              endAt: updatedEvent.endDate,
             })
             externalApiResult = apiResult
             logger.info('Deal sent to external API for booking request:', bookingRequest.id)
@@ -960,7 +960,7 @@ export async function bookEvent(eventId: string) {
         const requesterEmail = user?.emailAddresses?.[0]?.emailAddress
 
         await sendBookingConfirmationEmail(
-          event,
+          updatedEvent,
           bookingRequest.businessEmail,
           requesterEmail
         )
