@@ -18,7 +18,7 @@
     },
     {
       "path": "/api/cron/market-intelligence-scan",
-      "schedule": "0 13 * * *"
+      "schedule": "10 13 * * *"
     },
     {
       "path": "/api/cron/event-leads-sync",

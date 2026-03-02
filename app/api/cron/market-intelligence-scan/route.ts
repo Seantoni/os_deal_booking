@@ -1,12 +1,14 @@
 import { NextResponse, after } from 'next/server'
-import crypto from 'crypto'
 import { auth } from '@clerk/nextjs/server'
 import { getUserRole } from '@/lib/auth/roles'
 import { runFullScan, runSiteScan, runChunkedScan, SourceSite, ScanProgress } from '@/lib/scraping'
 import { startCronJobLog, completeCronJobLog, cleanupOldCronJobLogs, markStaleCronJobsAsFailed, updateCronJobProgress } from '@/app/actions/cron-logs'
 import { sendCronFailureEmail } from '@/lib/email/services/cron-failure'
 import { logger } from '@/lib/logger'
+import { verifyCronSecret } from '@/lib/cron/verify-secret'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 export const maxDuration = 300 // 5 minutes max for scanning
 const NEXT_CHUNK_REQUEST_TIMEOUT_MS = 30_000
 const NEXT_CHUNK_MAX_RETRIES = 3
@@ -179,30 +181,13 @@ export async function GET(request: Request) {
     const existingLogId = url.searchParams.get('logId')
     activeLogId = existingLogId
     
-    // Auth: single path for both Vercel Cron and internal chunk calls.
-    // Both use Authorization: Bearer <CRON_SECRET> header.
-    const authHeader = request.headers.get('authorization') || ''
-    const expectedSecret = process.env.CRON_SECRET
-    
-    if (expectedSecret) {
-      const expected = `Bearer ${expectedSecret}`
-      const isValid =
-        authHeader.length === expected.length &&
-        crypto.timingSafeEqual(Buffer.from(authHeader, 'utf-8'), Buffer.from(expected, 'utf-8'))
-      if (!isValid) {
-        return NextResponse.json({ error: 'Invalid cron secret' }, { status: 401 })
-      }
-    } else {
-      // Fail closed: no CRON_SECRET configured, require admin session auth
-      const { userId } = await auth()
-      if (!userId) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-      const role = await getUserRole()
-      if (role !== 'admin') {
-        return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
-      }
+    // Auth: shared verifier for both Vercel Cron and internal chunk calls.
+    if (!verifyCronSecret(request)) {
+      logger.warn('Unauthorized cron request attempted for market-intelligence-scan')
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const expectedSecret = process.env.CRON_SECRET
     
     // If no site specified, start the scan sequence
     if (!site) {
