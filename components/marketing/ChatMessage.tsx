@@ -8,6 +8,7 @@ import MoreHorizIcon from '@mui/icons-material/MoreHoriz'
 import AttachFileIcon from '@mui/icons-material/AttachFile'
 import CheckIcon from '@mui/icons-material/Check'
 import CloseIcon from '@mui/icons-material/Close'
+import ReplyIcon from '@mui/icons-material/Reply'
 import { formatRelativeTime } from '@/lib/date'
 import { Textarea } from '@/components/ui'
 
@@ -45,6 +46,7 @@ interface ChatMessageProps {
   onEdit: (commentId: string, content: string) => Promise<void>
   onDelete: (commentId: string) => Promise<void>
   onReact: (commentId: string, emoji: string) => Promise<void>
+  onReply?: (comment: Comment) => void
   disabled?: boolean
 }
 
@@ -53,6 +55,7 @@ export default function ChatMessage({
   onEdit,
   onDelete,
   onReact,
+  onReply,
   disabled = false,
 }: ChatMessageProps) {
   const { user } = useUser()
@@ -271,6 +274,24 @@ export default function ChatMessage({
                     <span className="text-[10px] opacity-80">{count}</span>
                   </button>
                 ))}
+              </div>
+            )}
+
+            {onReply && (
+              <div className="mt-1.5">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    onReply(comment)
+                  }}
+                  disabled={disabled}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-[11px] font-semibold text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <ReplyIcon style={{ fontSize: 12 }} />
+                  Responder
+                </button>
               </div>
             )}
           </>

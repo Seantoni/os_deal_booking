@@ -45,6 +45,8 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import CampaignIcon from '@mui/icons-material/Campaign'
 import ListAltIcon from '@mui/icons-material/ListAlt'
 import AddCommentIcon from '@mui/icons-material/AddComment'
+import ReplyIcon from '@mui/icons-material/Reply'
+import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import MentionInput from '@/components/marketing/MentionInput'
 import ImageLightbox from '@/components/common/ImageLightbox'
 import DealFormModal from '@/components/crm/deal/DealFormModal'
@@ -182,6 +184,31 @@ interface BookingRequestViewModalProps {
   hideBackdrop?: boolean // Hide backdrop when used alongside another modal
 }
 
+type MentionableUser = {
+  clerkId: string
+  name: string | null
+  email: string | null
+}
+
+type CommentReplyPrefill = {
+  fieldKey: string
+  value: string
+  mentions: MentionableUser[]
+  nonce: number
+}
+
+function getCommentAuthorDisplayName(comment: FieldComment): string {
+  return comment.authorName || comment.authorEmail?.split('@')[0] || 'usuario'
+}
+
+function getFieldContainerId(fieldKey: string): string {
+  return `booking-field-${fieldKey}`
+}
+
+function getInlineCommentId(commentId: string): string {
+  return `booking-field-comment-${commentId}`
+}
+
 export default function BookingRequestViewModal({
   isOpen,
   onClose,
@@ -204,6 +231,8 @@ export default function BookingRequestViewModal({
   const [activeCommentField, setActiveCommentField] = useState<string | null>(null)
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [editCommentText, setEditCommentText] = useState('')
+  const [commentInputPrefill, setCommentInputPrefill] = useState<CommentReplyPrefill | null>(null)
+  const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null)
   const [showSidebar, setShowSidebar] = useState(false)
   const [savingComment, setSavingComment] = useState(false)
   const [cancelling, setCancelling] = useState(false)
@@ -299,15 +328,21 @@ export default function BookingRequestViewModal({
   const renderInlineComments = (fieldKey: string) => {
     const fieldComments = getCommentsForField(comments, fieldKey)
     const isAddingComment = activeCommentField === fieldKey
+    const fieldPrefill = commentInputPrefill?.fieldKey === fieldKey ? commentInputPrefill : null
 
     return (
       <>
         {fieldComments.length > 0 && (
           <div className="mt-3 pt-3 border-t border-blue-100/50 space-y-2">
-            {fieldComments.slice(0, 2).map((comment) => (
+            {fieldComments.map((comment) => (
               <div
                 key={comment.id}
-                className="text-xs text-slate-600 bg-white/50 p-2 rounded border border-slate-100"
+                id={getInlineCommentId(comment.id)}
+                className={`text-xs text-slate-600 bg-white/50 p-2 rounded border transition-colors ${
+                  highlightedCommentId === comment.id
+                    ? 'border-blue-400 ring-2 ring-blue-100'
+                    : 'border-slate-100'
+                }`}
               >
                 <div className="flex items-start gap-2">
                 <CommentIcon style={{ fontSize: 12 }} className="text-blue-500 mt-0.5 flex-shrink-0" />
@@ -315,28 +350,45 @@ export default function BookingRequestViewModal({
                   <span className="font-semibold text-slate-800">
                     {comment.authorName || comment.authorEmail?.split('@')[0] || 'User'}:
                   </span>
-                  <span className="ml-1 line-clamp-2">{renderCommentText(comment.text)}</span>
+                  <span className="ml-1 whitespace-pre-wrap">{renderCommentText(comment.text)}</span>
+                  <div className="mt-1.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleReplyToComment(comment)
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-[11px] font-semibold text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
+                    >
+                      <ReplyIcon style={{ fontSize: 12 }} />
+                      Responder
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           ))}
-            {fieldComments.length > 2 && (
-              <p className="text-[10px] font-medium text-blue-600 pl-1 hover:underline cursor-pointer">
-                +{fieldComments.length - 2} more comments
-              </p>
-            )}
           </div>
         )}
 
         {isAddingComment && (
           <div className="mt-3 pt-3 border-t border-blue-100 relative z-10">
+            {fieldPrefill && (
+              <p className="mb-2 text-[11px] text-slate-500">
+                Respuesta con mención automática.
+              </p>
+            )}
             <MentionInput
+              key={fieldPrefill ? `${fieldKey}-${fieldPrefill.nonce}` : fieldKey}
               onSubmit={async (content, mentions) => {
                 await handleAddComment(fieldKey, content, mentions)
               }}
               disabled={savingComment}
               showAttachments={false}
               getUsersAction={getUsersForFieldCommentMention}
+              initialValue={fieldPrefill?.value}
+              initialMentions={fieldPrefill?.mentions}
+              autoFocus={true}
             />
             <div className="flex justify-end gap-2 mt-2">
               <button
@@ -360,6 +412,8 @@ export default function BookingRequestViewModal({
     if (!requestId) return
     
     setLoading(true)
+    setCommentInputPrefill(null)
+    setHighlightedCommentId(null)
     try {
       const [requestResult, commentsResult] = await Promise.all([
         getBookingRequest(requestId),
@@ -533,6 +587,78 @@ export default function BookingRequestViewModal({
     return BASE_SECTIONS
   }, [additionalSection])
 
+  const expandSectionForField = useCallback((fieldKey: string) => {
+    const section = allSections.find(s => s.fields.some(f => f.key === fieldKey))
+    if (!section) return
+    setExpandedSections(prev => {
+      if (prev.has(section.title)) return prev
+      const next = new Set(prev)
+      next.add(section.title)
+      return next
+    })
+  }, [allSections])
+
+  const highlightCommentTemporarily = useCallback((commentId: string) => {
+    setHighlightedCommentId(commentId)
+    window.setTimeout(() => {
+      setHighlightedCommentId(current => (current === commentId ? null : current))
+    }, 2200)
+  }, [])
+
+  const scrollToCommentLocation = useCallback((comment: FieldComment) => {
+    expandSectionForField(comment.fieldKey)
+
+    let attempts = 0
+    const maxAttempts = 6
+    let searchReset = false
+
+    const tryScroll = () => {
+      const commentElement = document.getElementById(getInlineCommentId(comment.id))
+      const fieldElement = document.getElementById(getFieldContainerId(comment.fieldKey))
+      const target = commentElement || fieldElement
+
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        highlightCommentTemporarily(comment.id)
+        return
+      }
+
+      if (attempts < maxAttempts) {
+        attempts += 1
+        window.setTimeout(tryScroll, 90)
+      } else if (!searchReset && searchQuery.trim()) {
+        searchReset = true
+        setSearchQuery('')
+        attempts = 0
+        window.setTimeout(tryScroll, 120)
+      }
+    }
+
+    window.setTimeout(tryScroll, 80)
+  }, [expandSectionForField, highlightCommentTemporarily, searchQuery])
+
+  function handleReplyToComment(comment: FieldComment) {
+    const authorDisplayName = getCommentAuthorDisplayName(comment)
+    const mentionTarget: MentionableUser = {
+      clerkId: comment.authorId,
+      name: comment.authorName,
+      email: comment.authorEmail,
+    }
+
+    setCommentInputPrefill({
+      fieldKey: comment.fieldKey,
+      value: `@${authorDisplayName}  `,
+      mentions: [mentionTarget],
+      nonce: Date.now(),
+    })
+    setActiveCommentField(comment.fieldKey)
+    scrollToCommentLocation(comment)
+  }
+
+  function handleSidebarCommentClick(comment: FieldComment) {
+    scrollToCommentLocation(comment)
+  }
+
   // Filter sections based on search query
   const filteredSections = useMemo(() => {
     if (!searchQuery.trim()) {
@@ -617,6 +743,7 @@ export default function BookingRequestViewModal({
       if (result.success && result.data) {
         setComments(prev => [...prev, result.data!])
         setActiveCommentField(null)
+        setCommentInputPrefill(null)
         toast.success('Comentario agregado')
       } else {
         toast.error(result.error || 'Error al agregar comentario')
@@ -675,6 +802,7 @@ export default function BookingRequestViewModal({
   // Toggle comment field - used by FieldWithComments
   const handleToggleComment = useCallback((fieldKey: string | null) => {
     setActiveCommentField(fieldKey)
+    setCommentInputPrefill(current => (fieldKey && current?.fieldKey === fieldKey ? current : null))
   }, [])
 
   // Continue editing draft request
@@ -1336,7 +1464,7 @@ export default function BookingRequestViewModal({
                                     .map(opt => opt.imageUrl!)
                                   
                                   return (
-                                    <div key={field.key} className="md:col-span-2">
+                                    <div key={field.key} id={getFieldContainerId(field.key)} className="md:col-span-2">
                                       {renderFieldCommentControls(field.key, field.label)}
                                       <div className="rounded-xl border border-slate-200 bg-white divide-y divide-slate-200">
                                         {(rawValue as Array<{ title?: string; description?: string; price?: string; realValue?: string; quantity?: string; imageUrl?: string; limitByUser?: string; maxGiftsPerUser?: string; endAt?: string; expiresIn?: string }>).map((opt, idx) => (
@@ -1406,7 +1534,7 @@ export default function BookingRequestViewModal({
                                   const galleryUrls = sortedImages.map(img => img.url)
                                   
                                   return (
-                                    <div key={field.key} className="md:col-span-2">
+                                    <div key={field.key} id={getFieldContainerId(field.key)} className="md:col-span-2">
                                       {renderFieldCommentControls(field.key, field.label)}
                                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                                         {sortedImages.map((img, idx) => (
@@ -1446,14 +1574,18 @@ export default function BookingRequestViewModal({
                                   <FieldWithComments
                                     key={field.key}
                                     fieldKey={field.key}
+                                    containerId={getFieldContainerId(field.key)}
                                     label={field.label}
                                     value={formatFieldValue(rawValue, field.type)}
                                     comments={getCommentsForField(comments, field.key)}
                                     isHighlighted={!!isFieldMatch}
+                                    highlightedCommentId={highlightedCommentId}
                                     activeCommentField={activeCommentField}
                                     savingComment={savingComment}
+                                    commentInputPrefill={commentInputPrefill?.fieldKey === field.key ? commentInputPrefill : null}
                                     onToggleComment={handleToggleComment}
                                     onAddComment={(text, mentions) => handleAddComment(field.key, text, mentions)}
+                                    onReplyToComment={handleReplyToComment}
                                     getUsersAction={getUsersForFieldCommentMention}
                                   />
                                 )
@@ -1500,7 +1632,11 @@ export default function BookingRequestViewModal({
                           .find(f => f.key === comment.fieldKey)?.label || comment.fieldKey
 
                         return (
-                          <div key={comment.id} className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                          <div
+                            key={comment.id}
+                            className="group bg-white rounded-xl p-4 border border-slate-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                            onClick={() => handleSidebarCommentClick(comment)}
+                          >
                             {/* Comment header */}
                             <div className="flex items-start justify-between gap-2 mb-2">
                               <div>
@@ -1521,7 +1657,10 @@ export default function BookingRequestViewModal({
                                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                   {canEdit && (
                                     <button
-                                      onClick={() => startEditComment(comment)}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        startEditComment(comment)
+                                      }}
                                       className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                                       title="Editar comentario"
                                     >
@@ -1530,7 +1669,10 @@ export default function BookingRequestViewModal({
                                   )}
                                   {canDelete && (
                                     <button
-                                      onClick={() => handleDeleteComment(comment.id)}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleDeleteComment(comment.id)
+                                      }}
                                       className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
                                       title="Eliminar comentario"
                                     >
@@ -1547,13 +1689,15 @@ export default function BookingRequestViewModal({
                                 <textarea
                                   value={editCommentText}
                                   onChange={e => setEditCommentText(e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
                                   className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
                                   rows={3}
                                   autoFocus
                                 />
                                 <div className="flex justify-end gap-2 mt-2">
                                   <button
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                      e.stopPropagation()
                                       setEditingCommentId(null)
                                       setEditCommentText('')
                                     }}
@@ -1562,7 +1706,10 @@ export default function BookingRequestViewModal({
                                     Cancelar
                                   </button>
                                   <button
-                                    onClick={() => handleEditComment(comment.id)}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleEditComment(comment.id)
+                                    }}
                                     disabled={!editCommentText.trim() || savingComment}
                                     className="px-2.5 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
                                   >
@@ -1573,6 +1720,22 @@ export default function BookingRequestViewModal({
                             ) : (
                               <div className="mt-2 text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
                                 {renderCommentText(comment.text)}
+                              </div>
+                            )}
+
+                            {!isEditing && (
+                              <div className="mt-3 pt-2 border-t border-slate-100">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleSidebarCommentClick(comment)
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-100 text-[11px] font-semibold text-slate-700 hover:bg-slate-200 transition-colors"
+                                >
+                                  <ArrowBackIcon style={{ fontSize: 13 }} />
+                                  <span>Ir al comentario</span>
+                                </button>
                               </div>
                             )}
 

@@ -70,14 +70,16 @@ REGLAS CRÍTICAS (NUNCA VIOLAR):
 4. NUNCA contradigas los datos proporcionados. Si dice "Válido en feriados: No", NUNCA digas que es válido en feriados.
 5. Si una restricción está marcada como "No" o tiene un valor negativo, DEBES mencionarla como restricción, NO como beneficio.
 6. Las fechas blackout, restricciones de feriados, y límites de vouchers son RESTRICCIONES que deben aparecer claramente.
+7. NUNCA muestres datos de contacto en la salida. PROHIBIDO incluir: nombres de contacto, emails/correos, teléfonos, WhatsApp, usuarios @, enlaces o URLs.
 
 REGLAS DE FORMATO:
 1. Siempre genera contenido en español neutro
-2. Usa viñetas con asterisco (*) para listas
+2. En la sección LO QUE NOS GUSTA, NO uses viñetas, asteriscos ni numeración; escribe una línea por beneficio.
 3. Mantén un tono positivo y vendedor, pero SIEMPRE respetando las restricciones
 4. SOLO menciona información que esté explícitamente proporcionada. Si no hay información sobre horarios, NO inventes horarios. Si no hay dirección, NO inventes una dirección.
 5. Evita errores de ortografía
 6. Mantén cada sección breve (2-5 oraciones por párrafo)
+7. Si hay información de contacto en los datos de entrada, trátala como interna y NO la expongas.
 
 LÍMITES DE CARACTERES POR SECCIÓN (RESPETAR ESTRICTAMENTE):
 - TÍTULO (shortTitle): Máximo 100 caracteres - Formato: "$PRECIO por DESCRIPCIÓN" (ej: "$14 por Rodizio todo incluido"). NO incluir el nombre del negocio.
@@ -98,7 +100,7 @@ MANEJO DE RESTRICCIONES:
 SECCIONES REQUERIDAS:
 
 1. LO QUE NOS GUSTA (whatWeLike)
-- Lista de 4-6 puntos destacando beneficios y atractivos REALES
+- 4-6 beneficios en texto plano (una línea por beneficio, sin viñetas/asteriscos/numeración)
 - Solo mencionar "válido en feriados" SI el dato indica que sí es válido
 - Enfócate en variedad, ideal para grupos, horarios
 
@@ -106,7 +108,7 @@ SECCIONES REQUERIDAS:
 - Nombre del negocio
 - Ubicación: Dirección completa
 - Horario: Días y horas (usar L-D para Lunes a Domingo)
-- Redes Sociales: Lista de plataformas
+- Redes Sociales: Solo plataformas, sin usuarios ni enlaces
 
 3. ACERCA DE ESTA OFERTA (aboutOffer)
 - Descripción del negocio y productos
@@ -118,16 +120,37 @@ SECCIONES REQUERIDAS:
 - INFORMACIÓN GENERAL: Detalles sobre vouchers, impuestos (respetar si incluye o no)
 - RESTRICCIONES: TODAS las limitaciones proporcionadas (feriados, fechas blackout, límites)
 - RESERVACIONES Y CANCELACIONES: Requisitos y políticas exactas
-- MÉTODO DE CANJE: Cómo redimir el voucher
+- MÉTODO DE CANJE: Cómo redimir el voucher sin exponer datos de contacto
 - PERIODO DE VALIDEZ: Fechas exactas y exclusiones`
 
 // Section-specific prompts
 const SECTION_PROMPTS: Record<keyof BookingContentOutput, string> = {
-  shortTitle: `Genera un título corto y atractivo para la oferta usando el formato "$PRECIO por DESCRIPCIÓN". Usa el precio más bajo de las opciones de precio y una descripción breve de lo que incluye. NO incluyas el nombre del negocio. Ejemplo: "$14 por Rodizio todo incluido" o "$25 por Spa Day con masaje". Máximo 100 caracteres. Solo el título, sin comillas ni explicación. IMPORTANTE: Si no hay información de precios, responde con el mensaje de error.`,
-  whatWeLike: `Genera la sección "LO QUE NOS GUSTA" con 4-6 puntos destacando los beneficios y atractivos de esta oferta. Usa viñetas con asterisco (*). Máximo 800 caracteres. No incluyas el encabezado de la sección. IMPORTANTE: Solo menciona beneficios que estén explícitamente en la información proporcionada. NO inventes información.`,
-  aboutCompany: `Genera la sección "LA EMPRESA" con nombre, ubicación, horario y redes sociales del negocio. Formato estructurado y claro. Máximo 600 caracteres. No incluyas el encabezado de la sección. IMPORTANTE: Si falta la ubicación o el nombre del negocio, responde con el mensaje de error. NO inventes direcciones o horarios.`,
-  aboutOffer: `Genera la sección "ACERCA DE ESTA OFERTA" con descripción del negocio, explicación detallada de la oferta y llamada a acción. Máximo 1200 caracteres. No incluyas el encabezado de la sección. IMPORTANTE: Solo usa información proporcionada. NO inventes descripciones de productos o servicios.`,
-  goodToKnow: `Genera la sección "LO QUE CONVIENE SABER" con información general, restricciones, reservaciones, método de canje y periodo de validez. Usa sub-secciones claras. Máximo 1500 caracteres. No incluyas el encabezado de la sección. IMPORTANTE: Solo menciona información que esté explícitamente proporcionada. NO inventes políticas o métodos de canje.`,
+  shortTitle: `Genera un título corto y atractivo para la oferta usando el formato "$PRECIO por DESCRIPCIÓN". Usa el precio más bajo de las opciones de precio y una descripción breve de lo que incluye. NO incluyas el nombre del negocio. Ejemplo: "$14 por Rodizio todo incluido" o "$25 por Spa Day con masaje". Máximo 100 caracteres. Solo el título, sin comillas ni explicación. IMPORTANTE: Si no hay información de precios, responde con el mensaje de error. NO incluyas ningún dato de contacto.`,
+  whatWeLike: `Genera la sección "LO QUE NOS GUSTA" con 4-6 beneficios destacando los atractivos reales de esta oferta. Formato obligatorio: texto plano con una línea por beneficio, sin viñetas, sin asteriscos y sin numeración. Máximo 800 caracteres. No incluyas el encabezado de la sección. IMPORTANTE: Solo menciona beneficios que estén explícitamente en la información proporcionada. NO inventes información. NO incluyas datos de contacto (emails, teléfonos, WhatsApp, usuarios @ ni enlaces).`,
+  aboutCompany: `Genera la sección "LA EMPRESA" con nombre, ubicación, horario y redes sociales del negocio. Formato estructurado y claro. Máximo 600 caracteres. No incluyas el encabezado de la sección. IMPORTANTE: Si falta la ubicación o el nombre del negocio, responde con el mensaje de error. NO inventes direcciones o horarios. Si mencionas redes sociales, indica solo la plataforma (ej. Instagram/Facebook), sin usuarios ni enlaces. NO incluyas datos de contacto.`,
+  aboutOffer: `Genera la sección "ACERCA DE ESTA OFERTA" con descripción del negocio, explicación detallada de la oferta y llamada a acción. Máximo 1200 caracteres. No incluyas el encabezado de la sección. IMPORTANTE: Solo usa información proporcionada. NO inventes descripciones de productos o servicios. NO incluyas datos de contacto (emails, teléfonos, WhatsApp, usuarios @ ni enlaces).`,
+  goodToKnow: `Genera la sección "LO QUE CONVIENE SABER" con información general, restricciones, reservaciones, método de canje y periodo de validez. Usa sub-secciones claras. Máximo 1500 caracteres. No incluyas el encabezado de la sección. IMPORTANTE: Solo menciona información que esté explícitamente proporcionada. NO inventes políticas o métodos de canje. Describe el método de canje sin nombres de contacto, sin emails, sin teléfonos, sin WhatsApp, sin usuarios @ y sin enlaces.`,
+}
+
+const CONTACT_FIELD_PATTERN = /(email|correo|mail|phone|telefono|teléfono|celular|whatsapp|contact|instagram|facebook|tiktok|linkedin|twitter|url|website|web|sitio)/i
+
+function extractSocialPlatforms(rawSocialMedia: string): string {
+  const lowerValue = rawSocialMedia.toLowerCase()
+  const platforms = [
+    { key: 'instagram', label: 'Instagram' },
+    { key: 'facebook', label: 'Facebook' },
+    { key: 'tiktok', label: 'TikTok' },
+    { key: 'linkedin', label: 'LinkedIn' },
+    { key: 'youtube', label: 'YouTube' },
+    { key: 'twitter', label: 'X/Twitter' },
+    { key: 'x.com', label: 'X/Twitter' },
+  ]
+
+  const found = platforms
+    .filter(platform => lowerValue.includes(platform.key))
+    .map(platform => platform.label)
+
+  return found.length > 0 ? Array.from(new Set(found)).join(', ') : 'Disponibles (sin detalle público)'
 }
 
 // Validate required fields before generating content
@@ -166,7 +189,7 @@ function formatBusinessInfo(input: BookingContentInput): string {
   
   // Basic info
   lines.push(`Nombre del negocio: ${input.businessName || 'No especificado'}`)
-  lines.push(`Email del negocio: ${input.partnerEmail || 'No especificado'}`)
+  lines.push('Datos de contacto: [INTERNOS - NO MOSTRAR EN EL CONTENIDO FINAL]')
   
   // Categories
   if (input.parentCategory) {
@@ -194,10 +217,7 @@ function formatBusinessInfo(input: BookingContentInput): string {
     lines.push(`Dirección y horario: ${input.addressAndHours}`)
   }
   if (input.socialMedia) {
-    lines.push(`Redes sociales: ${input.socialMedia}`)
-  }
-  if (input.contactDetails) {
-    lines.push(`Detalles de contacto: ${input.contactDetails}`)
+    lines.push(`Redes sociales (solo plataformas, sin usuarios/enlaces): ${extractSocialPlatforms(input.socialMedia)}`)
   }
   
   // Pricing options
@@ -238,17 +258,8 @@ function formatBusinessInfo(input: BookingContentInput): string {
   }
   
   // Contact
-  if (input.redemptionContactName || input.redemptionContactEmail || input.redemptionContactPhone) {
-    lines.push(`\nContacto de canje:`)
-    if (input.redemptionContactName) {
-      lines.push(`  - Nombre: ${input.redemptionContactName}`)
-    }
-    if (input.redemptionContactEmail) {
-      lines.push(`  - Email: ${input.redemptionContactEmail}`)
-    }
-    if (input.redemptionContactPhone) {
-      lines.push(`  - Teléfono: ${input.redemptionContactPhone}`)
-    }
+  if (input.contactDetails || input.redemptionContactName || input.redemptionContactEmail || input.redemptionContactPhone) {
+    lines.push(`\nContacto de canje: [INFORMACIÓN INTERNA - NO PUBLICAR DATOS ESPECÍFICOS]`)
   }
   if (input.redemptionMethods && input.redemptionMethods.length > 0) {
     lines.push(`  - Métodos de canje: ${input.redemptionMethods.join(', ')}`)
@@ -274,7 +285,10 @@ function formatBusinessInfo(input: BookingContentInput): string {
   ])
   
   const additionalFields = Object.entries(input).filter(([key, value]) => 
-    !knownFields.has(key) && value != null && value !== ''
+    !knownFields.has(key) &&
+    !CONTACT_FIELD_PATTERN.test(key) &&
+    value != null &&
+    value !== ''
   )
   
   if (additionalFields.length > 0) {
@@ -319,6 +333,7 @@ INFORMACIÓN DEL NEGOCIO:
 ${businessInfo}
 
 IMPORTANTE: Si falta información esencial para esta sección, responde con: "No hay información suficiente para generar este contenido. Por favor complete los campos requeridos."
+- NO incluyas datos de contacto visibles (nombres de contacto, emails, teléfonos, WhatsApp, usuarios @ ni enlaces).
 
 Genera SOLO la sección solicitada.`
       },
@@ -376,6 +391,7 @@ IMPORTANTE:
 - Responde SOLO con el JSON, sin texto adicional ni bloques de código.
 - NO excedas los límites de caracteres indicados para cada sección.
 - NO inventes información. Solo usa la información proporcionada.
+- NO incluyas datos de contacto visibles (nombres de contacto, emails, teléfonos, WhatsApp, usuarios @ ni enlaces).
 - Si falta información importante para una sección, usa el mensaje de error para esa sección específica.`
       },
     ],
@@ -395,7 +411,7 @@ IMPORTANTE:
       aboutOffer: parsed.aboutOffer || '',
       goodToKnow: parsed.goodToKnow || '',
     }
-  } catch (error) {
+  } catch {
     console.error('Failed to parse AI response:', content)
     throw new Error('Failed to parse AI-generated content')
   }
@@ -440,4 +456,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

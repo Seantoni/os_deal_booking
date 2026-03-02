@@ -193,9 +193,6 @@ export const validateStep = (
           const realValue = parseFloat(option.realValue) || 0
           
           // Check required fields for each pricing option
-          if (isRequired('pricingOptions.title') && isEmpty(option.title)) {
-            newErrors[`pricingOptions.${index}.title`] = 'Título requerido'
-          }
           if (isRequired('pricingOptions.description') && isEmpty(option.description)) {
             newErrors[`pricingOptions.${index}.description`] = 'Descripción requerida'
           }

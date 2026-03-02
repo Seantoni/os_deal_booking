@@ -92,7 +92,7 @@ export function mapBookingFormToApi(
   const nameEs = firstPricingOption?.title || firstPricingOption?.description || formData.businessName || ''
   
   // summaryEs (required by API): use "Acerca de esta oferta" first, then fall back
-  const summaryEs = formData.aboutOffer || firstPricingOption?.title || formData.businessName || ''
+  const summaryEs = formData.aboutOffer || firstPricingOption?.description || firstPricingOption?.title || formData.businessName || ''
   
   // Extract email subject (use business name as default)
   const emailSubject = formData.businessName || nameEs || ''
@@ -118,20 +118,22 @@ export function mapBookingFormToApi(
   // Map pricing options - filter out invalid ones and ensure required fields
   const priceOptions: ExternalOfertaPriceOption[] = (formData.pricingOptions || [])
     .filter(opt => {
-      const title = opt.title || ''
+      const optionText = (opt.description || opt.title || '').trim()
       const price = parseFloat(opt.price || '0') || 0
-      // Only include options with valid title and price
-      return title.trim() !== '' && price > 0
+      // Only include options with text and valid price
+      return optionText !== '' && price > 0
     })
-    .map(opt => {
-      const title = (opt.title || '').trim()
+    .map((opt, index) => {
+      const description = opt.description?.trim() || null
+      const titleFromDescription = description ? description.split('\n')[0].trim().slice(0, 120) : ''
+      const title = (opt.title || '').trim() || titleFromDescription || `Opción ${index + 1}`
       const price = parseFloat(opt.price || '0') || 0
       
       return {
         title,
         price,
         value: opt.realValue ? parseFloat(opt.realValue) || null : null,
-        description: opt.description?.trim() || null,
+        description,
         maximumQuantity: parseQuantity(opt.quantity),
         limitByUser: parseOptionalInt(opt.limitByUser),
         giftLimitPerUser: parseOptionalInt(opt.maxGiftsPerUser),

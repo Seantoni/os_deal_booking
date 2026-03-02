@@ -107,6 +107,7 @@ export default function OpportunityChatThread({ opportunityId, canEdit }: Opport
       showAttachments={false}
       variant="default"
       pollingInterval={15000} // Poll every 15 seconds
+      enableReplyAction={true}
     />
   )
 }

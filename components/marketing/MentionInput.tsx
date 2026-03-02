@@ -27,6 +27,9 @@ interface MentionInputProps {
   optionId?: string // Optional - only used for marketing options
   showAttachments?: boolean // Whether to show the attachment button
   getUsersAction?: (search?: string) => Promise<{ success: boolean; data?: User[]; error?: string }> // Custom action for getting users
+  initialValue?: string
+  initialMentions?: User[]
+  autoFocus?: boolean
 }
 
 export default function MentionInput({
@@ -36,12 +39,15 @@ export default function MentionInput({
   optionId,
   showAttachments = true,
   getUsersAction,
+  initialValue = '',
+  initialMentions = [],
+  autoFocus = false,
 }: MentionInputProps) {
-  const [value, setValue] = useState('')
+  const [value, setValue] = useState(initialValue)
   const [showMentions, setShowMentions] = useState(false)
   const [mentionSearch, setMentionSearch] = useState('')
   const [mentionUsers, setMentionUsers] = useState<User[]>([])
-  const [selectedMentions, setSelectedMentions] = useState<User[]>([])
+  const [selectedMentions, setSelectedMentions] = useState<User[]>(initialMentions)
   const [mentionStartIndex, setMentionStartIndex] = useState<number | null>(null)
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -70,6 +76,24 @@ export default function MentionInput({
       setLoading(false)
     }
   }, [getUsersAction])
+
+  useEffect(() => {
+    setValue(initialValue)
+  }, [initialValue])
+
+  useEffect(() => {
+    setSelectedMentions(initialMentions)
+  }, [initialMentions])
+
+  useEffect(() => {
+    if (!autoFocus || !initialValue) return
+    const cursorPos = initialValue.length
+    const timer = window.setTimeout(() => {
+      textareaRef.current?.focus()
+      textareaRef.current?.setSelectionRange(cursorPos, cursorPos)
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [autoFocus, initialValue])
 
   // Debounce the search
   useEffect(() => {
@@ -282,6 +306,7 @@ export default function MentionInput({
           onBlur={() => setIsFocused(false)}
           placeholder={placeholder}
           disabled={disabled || submitting}
+          autoFocus={autoFocus}
           rows={1}
           className="w-full resize-none bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none disabled:cursor-not-allowed min-h-[44px] max-h-[160px] p-3 rounded-lg"
           style={{ height: 'auto' }}

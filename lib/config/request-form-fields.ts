@@ -126,7 +126,6 @@ export const REQUEST_FORM_STEPS: RequestFormStep[] = [
       { key: 'dealImages', label: 'Imágenes del Deal', type: 'array' },
       { key: 'offerMargin', label: 'Margen de Oferta', type: 'text' },
       { key: 'pricingOptions', label: 'Opciones de Precio', type: 'array' },
-      { key: 'pricingOptions.title', label: 'Título de Opción', type: 'text' },
       { key: 'pricingOptions.description', label: 'Descripción de Opción', type: 'textarea' },
       { key: 'pricingOptions.price', label: 'Precio (Cliente Paga)', type: 'number' },
       { key: 'pricingOptions.realValue', label: 'Valor Real', type: 'number' },

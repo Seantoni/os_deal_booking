@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import MentionInput from '@/components/marketing/MentionInput'
 import ChatMessage from '@/components/marketing/ChatMessage'
+import CloseIcon from '@mui/icons-material/Close'
 import { ChatLoadingSkeleton, ChatEmptyState } from '@/components/common/ChatLoadingSkeleton'
 import toast from 'react-hot-toast'
 
@@ -50,6 +51,20 @@ interface ChatThreadProps {
   className?: string
   // Polling
   pollingInterval?: number // In milliseconds, 0 to disable
+  enableReplyAction?: boolean
+}
+
+type MentionableUser = {
+  clerkId: string
+  name: string | null
+  email: string | null
+}
+
+type ReplyPrefill = {
+  value: string
+  mentions: MentionableUser[]
+  nonce: number
+  authorName: string
 }
 
 export default function ChatThread({
@@ -64,11 +79,14 @@ export default function ChatThread({
   variant = 'default',
   className = '',
   pollingInterval = 0,
+  enableReplyAction = false,
 }: ChatThreadProps) {
   const [comments, setComments] = useState<ChatComment[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [replyPrefill, setReplyPrefill] = useState<ReplyPrefill | null>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
+  const inputContainerRef = useRef<HTMLDivElement>(null)
 
   // Load comments
   const loadComments = useCallback(async (silent = false) => {
@@ -135,6 +153,7 @@ export default function ChatThread({
 
       if (result.success && result.data) {
         setComments((prev) => [...prev, result.data!])
+        setReplyPrefill(null)
         // Scroll to bottom after adding new comment
         setTimeout(scrollToBottom, 100)
       } else {
@@ -198,6 +217,26 @@ export default function ChatThread({
     }
   }
 
+  const handleReplyToComment = useCallback((comment: ChatComment) => {
+    const displayName = comment.author?.name || comment.author?.email?.split('@')[0] || 'usuario'
+    const mentionTarget: MentionableUser = {
+      clerkId: comment.author?.clerkId || comment.userId,
+      name: comment.author?.name || displayName,
+      email: comment.author?.email || null,
+    }
+
+    setReplyPrefill({
+      value: `@${displayName}  `,
+      mentions: [mentionTarget],
+      nonce: Date.now(),
+      authorName: displayName,
+    })
+
+    window.setTimeout(() => {
+      inputContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }, 80)
+  }, [])
+
   const isCompact = variant === 'compact'
 
   return (
@@ -251,6 +290,7 @@ export default function ChatThread({
                 onEdit={handleEditComment}
                 onDelete={handleDeleteComment}
                 onReact={handleToggleReaction}
+                onReply={enableReplyAction && canEdit ? handleReplyToComment : undefined}
                 disabled={!canEdit}
               />
             ))}
@@ -260,14 +300,40 @@ export default function ChatThread({
 
       {/* Input area */}
       {canEdit ? (
-        <div className={isCompact ? 'mt-2' : 'mt-4 pt-4 border-t border-gray-200'}>
+        <div
+          ref={inputContainerRef}
+          className={isCompact ? 'mt-2' : 'mt-4 pt-4 border-t border-gray-200'}
+        >
+          {enableReplyAction && replyPrefill && (
+            <div className="mb-2 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
+              <p className="text-xs font-medium text-blue-700">
+                Respondiendo a @{replyPrefill.authorName}
+              </p>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  e.preventDefault()
+                  setReplyPrefill(null)
+                }}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+              >
+                <CloseIcon style={{ fontSize: 12 }} />
+                Cancelar
+              </button>
+            </div>
+          )}
           <MentionInput
+            key={enableReplyAction && replyPrefill ? `${entityId}-${replyPrefill.nonce}` : entityId}
             onSubmit={handleCreateComment}
             disabled={loading}
             showAttachments={showAttachments}
             optionId={uploadFolder || entityId}
             getUsersAction={actions.getUsersForMention}
             placeholder="Escribe un comentario... usa @ para mencionar"
+            initialValue={enableReplyAction ? replyPrefill?.value : undefined}
+            initialMentions={enableReplyAction ? replyPrefill?.mentions : undefined}
+            autoFocus={enableReplyAction && !!replyPrefill}
           />
         </div>
       ) : (

@@ -20,46 +20,49 @@ export async function POST(req: Request) {
     )
     if (rateLimitResult) return rateLimitResult
 
-    const { description, price, realValue, businessName } = await req.json()
-    
-    if (!description || typeof description !== 'string' || !description.trim()) {
-      return NextResponse.json({ error: 'Descripción requerida' }, { status: 400 })
-    }
+    const { description, price } = await req.json()
+    const safeDescription = typeof description === 'string' ? description.trim() : ''
 
     const openai = getOpenAIClient()
     
-    // Generate a short, engaging summary of the description
-    const prompt = `Basándote en la siguiente descripción de oferta, genera un resumen muy corto (máximo 10 palabras) que capture la esencia de lo que incluye. Debe ser atractivo y directo. Solo responde con el resumen, sin puntuación final.
+    const normalizedPrice = typeof price === 'string' ? price.trim() : ''
 
-Descripción: ${description}`
+    const prompt = `Corrige y pule la siguiente descripción de opción de oferta en español, manteniendo el significado exacto.
+
+Reglas:
+- Corrige ortografía, acentos y puntuación.
+- Mantén tono comercial claro y natural.
+- No inventes información.
+- El resultado DEBE iniciar con el formato: "Paga $x por ...".
+- Usa exactamente este precio en "x": ${normalizedPrice || 'X'}.
+- Si el texto original ya trae horarios o condiciones, intégralos después sin inventar datos.
+- Devuelve solo el texto final, sin comillas ni explicaciones.
+
+Si la descripción original está vacía:
+- No inventes detalles.
+- Devuelve una frase base útil siguiendo el formato, por ejemplo: "Paga $x por esta oferta".
+
+Descripción original:
+${safeDescription || '(vacía)'}`
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4.1',
       messages: [
-        { role: 'system', content: 'Eres un experto en marketing que crea títulos de ofertas cortos y atractivos en español.' },
+        { role: 'system', content: 'Eres un editor experto en redacción comercial de ofertas en español.' },
         { role: 'user', content: prompt },
       ],
-      temperature: 0.7,
-      max_tokens: 50,
+      temperature: 0.2,
+      max_tokens: 180,
     })
 
-    const summary = completion.choices[0]?.message?.content?.trim()
-    if (!summary) {
-      return NextResponse.json({ error: 'No se pudo generar el resumen.' }, { status: 500 })
+    const proofreadDescription = completion.choices[0]?.message?.content?.trim()
+    if (!proofreadDescription) {
+      return NextResponse.json({ error: 'No se pudo corregir la descripción.' }, { status: 500 })
     }
 
-    // Build the title with the format: $X por [summary] en [businessName]. (Valor $Y)
-    let title = `$${price || '0'} por ${summary}`
-    if (businessName) {
-      title += ` en ${businessName}`
-    }
-    if (realValue) {
-      title += `. (Valor $${realValue})`
-    }
-
-    return NextResponse.json({ title, summary })
+    return NextResponse.json({ description: proofreadDescription })
   } catch (error) {
-    logger.error('AI generate-offer-title error:', error)
+    logger.error('AI proofread-offer-description error:', error)
     return NextResponse.json({ error: 'Error al procesar la solicitud.' }, { status: 500 })
   }
 }

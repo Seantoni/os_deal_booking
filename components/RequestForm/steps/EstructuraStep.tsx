@@ -1,9 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import Image from 'next/image'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
-import InfoIcon from '@mui/icons-material/Info'
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 import ImageIcon from '@mui/icons-material/Image'
 import CloseIcon from '@mui/icons-material/Close'
@@ -39,6 +38,7 @@ export default function EstructuraStep({
   const [aiLoadingIndex, setAiLoadingIndex] = useState<number | null>(null)
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null)
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([])
+  const autoFilledPriceByIndexRef = useRef<Record<number, string>>({})
 
   const handleImageUpload = async (index: number, file: File) => {
     // Validate file type
@@ -229,9 +229,8 @@ export default function EstructuraStep({
     updateFormData('dealImages', reorderedImages)
   }
 
-  const handleGenerateTitleWithAI = async (index: number) => {
+  const handleProofreadDescriptionWithAI = useCallback(async (index: number, options?: { silent?: boolean }) => {
     const option = formData.pricingOptions[index]
-    if (!option.description?.trim()) return
     
     setAiLoadingIndex(index)
     try {
@@ -240,29 +239,34 @@ export default function EstructuraStep({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           description: option.description,
-          price: option.price || '0',
-          realValue: option.realValue || '',
-          businessName: formData.businessName || '',
+          price: option.price || '',
         }),
       })
       
-      if (!response.ok) throw new Error('No se pudo generar el título.')
+      if (!response.ok) throw new Error('No se pudo corregir la descripción.')
       
       const data = await response.json()
-      if (data?.title) {
-        updatePricingOption(index, 'title', data.title)
+      if (data?.description) {
+        updatePricingOption(index, 'description', data.description)
+        if (!options?.silent) {
+          toast.success('Descripción corregida')
+        }
       }
     } catch (error) {
-      console.error('AI generate title error', error)
+      console.error('AI proofread description error', error)
+      if (!options?.silent) {
+        toast.error('No se pudo corregir la descripción')
+      }
     } finally {
       setAiLoadingIndex(null)
     }
-  }
+  }, [formData.pricingOptions, updatePricingOption])
 
   // Ensure pricingOptions is always an array
-  const pricingOptions = Array.isArray(formData.pricingOptions) 
-    ? formData.pricingOptions 
-    : []
+  const pricingOptions = useMemo(
+    () => (Array.isArray(formData.pricingOptions) ? formData.pricingOptions : []),
+    [formData.pricingOptions]
+  )
 
   // Calculate margin breakdown for each option
   const marginPercent = parseFloat(formData.offerMargin || '0') || 0
@@ -271,10 +275,31 @@ export default function EstructuraStep({
     if (price > 0 && marginPercent > 0) {
       const osShare = (price * marginPercent) / 100
       const partnerShare = price - osShare
-      return { idx, price, osShare, partnerShare, title: opt.title || `Opción ${idx + 1}` }
+      return { idx, price, osShare, partnerShare, title: opt.description || opt.title || `Opción ${idx + 1}` }
     }
     return null
   }).filter(Boolean) as { idx: number; price: number; osShare: number; partnerShare: number; title: string }[]
+
+  // Auto-fill description when price is provided and description is empty.
+  useEffect(() => {
+    if (pricingOptions.length === 0) return
+
+    const runAutoFill = async () => {
+      for (let index = 0; index < pricingOptions.length; index += 1) {
+        const option = pricingOptions[index]
+        const price = (option?.price || '').trim()
+        const description = (option?.description || '').trim()
+        const lastAutoFilledPrice = autoFilledPriceByIndexRef.current[index]
+
+        if (!price || description || lastAutoFilledPrice === price) continue
+
+        autoFilledPriceByIndexRef.current[index] = price
+        await handleProofreadDescriptionWithAI(index, { silent: true })
+      }
+    }
+
+    void runAutoFill()
+  }, [pricingOptions, handleProofreadDescriptionWithAI])
 
   return (
     <div className="space-y-8">
@@ -379,63 +404,37 @@ export default function EstructuraStep({
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
               <div className="md:col-span-8 space-y-4">
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center justify-between mb-1.5 gap-3">
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
-                      <span>Título de Opción</span>
-                      {isFieldRequired('pricingOptions.title') ? (
+                      <span>Descripción (Detalles incluidos)</span>
+                      {isFieldRequired('pricingOptions.description') ? (
                         <span className="text-red-500">*</span>
                       ) : (
                         <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
                       )}
                     </label>
-                    {option.description?.trim() && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        disabled={aiLoadingIndex === index}
-                        onClick={() => handleGenerateTitleWithAI(index)}
-                        className="whitespace-nowrap bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 hover:text-white focus-visible:ring-purple-500 shadow-sm hover:shadow-md flex items-center gap-1.5 py-1 px-2 text-[10px]"
-                      >
-                        <AutoFixHighIcon style={{ fontSize: 14 }} />
-                        {aiLoadingIndex === index ? 'Generando...' : 'Generar con AI'}
-                      </Button>
-                    )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={aiLoadingIndex === index}
+                      onClick={() => handleProofreadDescriptionWithAI(index)}
+                      className="whitespace-nowrap bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 hover:text-white focus-visible:ring-purple-500 shadow-sm hover:shadow-md flex items-center gap-1.5 py-1 px-2 text-[10px]"
+                    >
+                      <AutoFixHighIcon style={{ fontSize: 14 }} />
+                      {aiLoadingIndex === index ? 'Corrigiendo...' : 'Corregir con AI'}
+                    </Button>
                   </div>
-                  <Input
-                    value={option.title}
-                    onChange={(e) => updatePricingOption(index, 'title', e.target.value)}
-                    placeholder='Ej: "Paga $7 por menú completo en Restaurante. Valor $15"'
-                    size="sm"
-                    className={errors[`pricingOptions.${index}.title`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
-                  />
-                  {errors[`pricingOptions.${index}.title`] && (
-                    <p className="text-xs text-red-600 font-medium mt-1">{errors[`pricingOptions.${index}.title`]}</p>
-                  )}
-                  {!option.description?.trim() && !errors[`pricingOptions.${index}.title`] && (
-                    <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
-                      <InfoIcon style={{ fontSize: 12 }} />
-                      <span>Completa la descripción para generar el título con AI</span>
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
-                    <span>Descripción (Detalles incluidos)</span>
-                    {isFieldRequired('pricingOptions.description') ? (
-                      <span className="text-red-500">*</span>
-                    ) : (
-                      <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
-                    )}
-                  </label>
                   <Textarea
                     value={option.description}
                     onChange={(e) => updatePricingOption(index, 'description', e.target.value)}
                     rows={2}
-                    placeholder="Detalles incluidos en esta opción..."
+                    placeholder="Ej: Paga $20 por comidas y bebidas"
                     className={errors[`pricingOptions.${index}.description`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
                   />
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Ejemplo: <span className="font-medium">Paga $20 por comidas y bebidas</span>
+                  </p>
                   {errors[`pricingOptions.${index}.description`] && (
                     <p className="text-xs text-red-600 font-medium mt-1">{errors[`pricingOptions.${index}.description`]}</p>
                   )}
