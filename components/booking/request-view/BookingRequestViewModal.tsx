@@ -700,9 +700,19 @@ export default function BookingRequestViewModal({
   }
 
   // Format field value for display
-  function formatFieldValue(value: unknown, type?: string): string {
+  function formatFieldValue(value: unknown, type?: string, fieldKey?: string): string {
     if (value === null || value === undefined || value === '') {
       return '-'
+    }
+    if (fieldKey === 'campaignDuration') {
+      const duration = String(value).trim()
+      const durationNumber = Number.parseInt(duration, 10)
+      const unit = requestData?.campaignDurationUnit === 'days' ? 'days' : 'months'
+      const label =
+        unit === 'days'
+          ? durationNumber === 1 ? 'día' : 'días'
+          : durationNumber === 1 ? 'mes' : 'meses'
+      return `${duration} ${label}`
     }
     if (type === 'date' && (value instanceof Date || typeof value === 'string')) {
       const date = value instanceof Date ? value : new Date(value)
@@ -1576,7 +1586,7 @@ export default function BookingRequestViewModal({
                                     fieldKey={field.key}
                                     containerId={getFieldContainerId(field.key)}
                                     label={field.label}
-                                    value={formatFieldValue(rawValue, field.type)}
+                                    value={formatFieldValue(rawValue, field.type, field.key)}
                                     comments={getCommentsForField(comments, field.key)}
                                     isHighlighted={!!isFieldMatch}
                                     highlightedCommentId={highlightedCommentId}
