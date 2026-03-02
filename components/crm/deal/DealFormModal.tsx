@@ -516,6 +516,12 @@ export default function DealFormModal({
                         })()}
                       </div>
                     </div>
+                    {deliveryDate && startDateKey && deliveryDate === startDateKey && (
+                      <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-800">
+                        <WarningAmberIcon style={{ fontSize: 14 }} className="mt-0.5" />
+                        <span>La fecha seleccionada es la misma que la fecha de lanzamiento.</span>
+                      </div>
+                    )}
                     {!loadingDeliveryWorkload && deliveryWorkload && deliveryWorkload.count + 1 > deliveryWorkload.max && (
                       <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-800">
                         <WarningAmberIcon style={{ fontSize: 14 }} className="mt-0.5" />
