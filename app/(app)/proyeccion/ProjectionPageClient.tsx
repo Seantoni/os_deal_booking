@@ -164,6 +164,7 @@ export default function ProjectionPageClient({ initialRows, initialSummary }: Pr
     const now = new Date()
     const nowYM = getPanamaYearMonth(now)
     const lastMonth = shiftYearMonth(nowYM.year, nowYM.month, -1)
+    const currentMonth = { year: nowYM.year, month: nowYM.month }
     const forecastMonths = [
       shiftYearMonth(nowYM.year, nowYM.month, 1),
       shiftYearMonth(nowYM.year, nowYM.month, 2),
@@ -171,11 +172,28 @@ export default function ProjectionPageClient({ initialRows, initialSummary }: Pr
     ]
 
     const lastMonthKey = toMonthKey(lastMonth.year, lastMonth.month)
+    const currentMonthKey = toMonthKey(currentMonth.year, currentMonth.month)
+
     const realLastMonth = rows.reduce((sum, row) => {
       if (row.projectedRevenue === null) return sum
       if (row.bucket !== 'booked') return sum
       if (row.projectionSource !== 'actual_deal') return sum
       if (getPanamaMonthKey(row.startDate) !== lastMonthKey) return sum
+      return sum + row.projectedRevenue
+    }, 0)
+
+    const currentReal = rows.reduce((sum, row) => {
+      if (row.projectedRevenue === null) return sum
+      if (row.bucket !== 'booked') return sum
+      if (row.projectionSource !== 'actual_deal') return sum
+      if (getPanamaMonthKey(row.startDate) !== currentMonthKey) return sum
+      return sum + row.projectedRevenue
+    }, 0)
+
+    const currentForecast = rows.reduce((sum, row) => {
+      if (row.projectedRevenue === null) return sum
+      if (row.bucket === 'booked' && row.projectionSource === 'actual_deal') return sum
+      if (getPanamaMonthKey(row.startDate) !== currentMonthKey) return sum
       return sum + row.projectedRevenue
     }, 0)
 
@@ -192,6 +210,8 @@ export default function ProjectionPageClient({ initialRows, initialSummary }: Pr
         label: formatMonthLabel(monthDate.year, monthDate.month),
         kind: 'forecast' as const,
         amount,
+        realAmount: 0,
+        forecastAmount: amount,
       }
     })
 
@@ -201,11 +221,23 @@ export default function ProjectionPageClient({ initialRows, initialSummary }: Pr
         label: formatMonthLabel(lastMonth.year, lastMonth.month),
         kind: 'real' as const,
         amount: realLastMonth,
+        realAmount: realLastMonth,
+        forecastAmount: 0,
+      },
+      {
+        key: currentMonthKey,
+        label: formatMonthLabel(currentMonth.year, currentMonth.month),
+        kind: 'current' as const,
+        amount: currentReal + currentForecast,
+        realAmount: currentReal,
+        forecastAmount: currentForecast,
       },
       ...forecastValues,
     ].map(item => ({
       ...item,
       amount: Number(item.amount.toFixed(2)),
+      realAmount: Number(item.realAmount.toFixed(2)),
+      forecastAmount: Number(item.forecastAmount.toFixed(2)),
     }))
   }, [rows])
 
@@ -315,7 +347,7 @@ export default function ProjectionPageClient({ initialRows, initialSummary }: Pr
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold">MoM Breakdown</p>
-              <p className="text-xs text-gray-500 mt-0.5">Último mes real + próximos 3 meses forecast</p>
+              <p className="text-xs text-gray-500 mt-0.5">Último mes real + mes actual (real + proj) + próximos 3 meses forecast</p>
             </div>
             <div className="flex items-center gap-2 text-[10px]">
               <span className="inline-flex items-center gap-1 text-gray-600">
@@ -332,9 +364,33 @@ export default function ProjectionPageClient({ initialRows, initialSummary }: Pr
             {latestSyncLabel ? `Métricas actualizadas: ${latestSyncLabel}` : 'Sin fecha de sync de métricas'}
           </p>
 
-          <div className="mt-3 grid grid-cols-4 gap-2 items-end h-36">
+          <div className="mt-3 grid grid-cols-5 gap-1.5 items-end h-36">
             {momSeries.map((item) => {
               const heightPct = Math.max((item.amount / momMaxAmount) * 100, item.amount > 0 ? 8 : 3)
+
+              if (item.kind === 'current') {
+                const realPct = item.amount > 0 ? (item.realAmount / item.amount) * 100 : 0
+                const forecastPct = 100 - realPct
+                return (
+                  <div key={item.key} className="flex flex-col items-center gap-1">
+                    <div className="text-[10px] font-semibold text-gray-700 leading-none text-center">
+                      {formatCurrency(item.amount)}
+                    </div>
+                    <div className="h-24 w-full flex items-end">
+                      <div
+                        className="w-full flex flex-col rounded-t-md overflow-hidden transition-all"
+                        style={{ height: `${heightPct}%` }}
+                        title={`${item.label}: ${formatCurrency(item.realAmount)} real + ${formatCurrency(item.forecastAmount)} proj`}
+                      >
+                        <div className="bg-blue-500" style={{ height: `${forecastPct}%` }} />
+                        <div className="bg-emerald-500" style={{ height: `${realPct}%` }} />
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-gray-500 text-center leading-tight">{item.label}</div>
+                  </div>
+                )
+              }
+
               return (
                 <div key={item.key} className="flex flex-col items-center gap-1">
                   <div className="text-[10px] font-semibold text-gray-700 leading-none">
