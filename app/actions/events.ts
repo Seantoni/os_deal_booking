@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { unstable_cache } from 'next/cache'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
-import { invalidateEntity, invalidateEntities } from '@/lib/cache'
+import { invalidateDashboard, invalidateEntity, invalidateEntities } from '@/lib/cache'
 import { getUserRole } from '@/lib/auth/roles'
 import { parseDateInPanamaTime, parseEndDateInPanamaTime } from '@/lib/date/timezone'
 import { buildCategoryKey } from '@/lib/category-utils'
@@ -851,6 +851,18 @@ export async function bookEvent(eventId: string) {
           },
         })
 
+        if (bookingRequest.status !== 'booked') {
+          await logActivity({
+            action: 'STATUS_CHANGE',
+            entityType: 'BookingRequest',
+            entityId: bookingRequest.id,
+            entityName: bookingRequest.name,
+            details: {
+              statusChange: { from: bookingRequest.status, to: 'booked' },
+            },
+          })
+        }
+
         // Automatically create a deal for the booked request
         try {
           // Check if deal already exists
@@ -970,6 +982,7 @@ export async function bookEvent(eventId: string) {
     // Invalidate only affected entities - deals and marketing-campaigns don't need refresh here
     // since the deal was just created and marketing-campaigns are unrelated
     invalidateEntities(['events', 'booking-requests'])
+    invalidateDashboard()
 
     // Log activity
     await logActivity({
@@ -1052,9 +1065,23 @@ export async function rejectEvent(eventId: string, rejectionReason: string) {
         logger.error('Error sending rejection email:', emailError)
         // Don't fail the rejection if email fails
       }
+
+      if (bookingRequest.status !== 'rejected') {
+        await logActivity({
+          action: 'REJECT',
+          entityType: 'BookingRequest',
+          entityId: bookingRequest.id,
+          entityName: bookingRequest.name,
+          details: {
+            statusChange: { from: bookingRequest.status, to: 'rejected' },
+            metadata: { rejectionReason },
+          },
+        })
+      }
     }
 
     invalidateEntities(['events', 'booking-requests'])
+    invalidateDashboard()
 
     // Log activity
     await logActivity({

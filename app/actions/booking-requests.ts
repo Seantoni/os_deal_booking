@@ -687,6 +687,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
     })
 
     invalidateEntity('booking-requests')
+    invalidateDashboard()
     return { 
       success: true, 
       data: bookingRequest,
@@ -1379,6 +1380,7 @@ export async function bulkUpdateBookingRequestStatus(requestIds: string[], statu
     })
 
     invalidateEntity('booking-requests')
+    invalidateDashboard()
     return { success: true, updatedCount: result.count }
   } catch (error) {
     return handleServerActionError(error, 'bulkUpdateBookingRequestStatus')
@@ -1575,6 +1577,7 @@ export async function rejectBookingRequestWithReason(token: string, rejectionRea
     }
 
     invalidateEntities(['booking-requests', 'events'])
+    invalidateDashboard()
 
     return { success: true, data: bookingRequest }
   } catch (error) {
@@ -1646,6 +1649,7 @@ export async function cancelBookingRequest(requestId: string) {
     })
 
     invalidateEntity('booking-requests')
+    invalidateDashboard()
     return { success: true, data: updatedRequest }
   } catch (error) {
     return handleServerActionError(error, 'cancelBookingRequest')
@@ -1775,6 +1779,7 @@ export async function adminApproveBookingRequest(requestId: string) {
     }
 
     invalidateEntities(['booking-requests', 'events', 'opportunities', 'tasks'])
+    invalidateDashboard()
     return { success: true, data: updatedRequest }
   } catch (error) {
     return handleServerActionError(error, 'adminApproveBookingRequest')

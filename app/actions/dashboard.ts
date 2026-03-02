@@ -25,6 +25,23 @@ type UserProfileData = {
   role: string
 }
 
+function getStatusChangeFromDetails(details: Prisma.JsonValue | null): { from?: string; to?: string } {
+  if (!details || typeof details !== 'object' || Array.isArray(details)) {
+    return {}
+  }
+
+  const statusChange = (details as Record<string, unknown>).statusChange
+  if (!statusChange || typeof statusChange !== 'object' || Array.isArray(statusChange)) {
+    return {}
+  }
+
+  const statusChangeRecord = statusChange as Record<string, unknown>
+  const from = typeof statusChangeRecord.from === 'string' ? statusChangeRecord.from : undefined
+  const to = typeof statusChangeRecord.to === 'string' ? statusChangeRecord.to : undefined
+
+  return { from, to }
+}
+
 // Internal function that fetches stats (no auth check - auth is done outside)
 // User profile is passed in to avoid calling auth() inside cache
 async function fetchDashboardStatsInternal(filters: DashboardFilters = {}, userProfile: UserProfileData) {
@@ -298,13 +315,64 @@ async function fetchDashboardStatsInternal(filters: DashboardFilters = {}, userP
         userId: { in: teamUserIds },
         ...teamPerformanceDateFilter
       },
-      select: { status: true, userId: true }
+      select: { id: true, status: true, userId: true }
     })
+
+    const teamBookingIds = teamBookings.map(booking => booking.id)
+    const bookingApprovalLogs = teamBookingIds.length > 0
+      ? await prisma.activityLog.findMany({
+          where: {
+            entityType: 'BookingRequest',
+            entityId: { in: teamBookingIds },
+            action: { in: ['APPROVE', 'STATUS_CHANGE', 'REJECT'] },
+          },
+          select: {
+            entityId: true,
+            action: true,
+            details: true,
+          },
+        })
+      : []
+
+    const approvedHistoryByRequestId = new Set<string>()
+    for (const log of bookingApprovalLogs) {
+      const requestId = log.entityId
+      if (!requestId) continue
+
+      if (log.action === 'APPROVE') {
+        approvedHistoryByRequestId.add(requestId)
+        continue
+      }
+
+      const statusChange = getStatusChangeFromDetails(log.details as Prisma.JsonValue | null)
+      if (statusChange.to === 'approved' || statusChange.to === 'booked') {
+        approvedHistoryByRequestId.add(requestId)
+        continue
+      }
+
+      if (
+        log.action === 'REJECT' &&
+        (statusChange.from === 'approved' || statusChange.from === 'booked')
+      ) {
+        approvedHistoryByRequestId.add(requestId)
+      }
+    }
 
     const teamPerformance = users.map(user => {
       const userOpps = teamOpps.filter(o => o.responsibleId === user.clerkId || o.userId === user.clerkId)
       const userTasks = teamTasks.filter(t => t.opportunity?.responsibleId === user.clerkId)
       const userBookings = teamBookings.filter(b => b.userId === user.clerkId)
+      const approvedRequestIds = new Set<string>()
+
+      for (const booking of userBookings) {
+        if (
+          booking.status === 'approved' ||
+          booking.status === 'booked' ||
+          approvedHistoryByRequestId.has(booking.id)
+        ) {
+          approvedRequestIds.add(booking.id)
+        }
+      }
       
       return {
         userId: user.clerkId,
@@ -316,7 +384,7 @@ async function fetchDashboardStatsInternal(filters: DashboardFilters = {}, userP
         tasksPending: userTasks.filter(t => !t.completed).length,
         meetings: userTasks.filter(t => t.category === 'meeting').length,
         todos: userTasks.filter(t => t.category === 'todo').length,
-        approvedRequests: userBookings.filter(b => b.status === 'approved').length,
+        approvedRequests: approvedRequestIds.size,
         bookedRequests: userBookings.filter(b => b.status === 'booked').length,
       }
     }).filter(stat => 

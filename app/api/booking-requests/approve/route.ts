@@ -4,7 +4,7 @@ import { verifyApprovalToken } from '@/lib/tokens'
 import { getAppBaseUrl } from '@/lib/config/env'
 import { logger } from '@/lib/logger'
 import { applyPublicRateLimit } from '@/lib/rate-limit'
-import { invalidateEntities } from '@/lib/cache'
+import { invalidateDashboard, invalidateEntities } from '@/lib/cache'
 import { approveBookingRequestWithFollowUp } from '@/lib/booking-requests/approval'
 
 function getBaseUrl(request: NextRequest): string {
@@ -125,8 +125,30 @@ export async function GET(request: NextRequest) {
     logger.info('Booking request approved successfully:', bookingRequest.id)
     logger.debug('Approved by:', bookingRequest.processedBy, 'at:', bookingRequest.processedAt)
 
+    // Persist approval transition so dashboard can compute "ever approved" counts.
+    try {
+      await prisma.activityLog.create({
+        data: {
+          userId: 'external',
+          userName: existingRequest.businessEmail,
+          userEmail: existingRequest.businessEmail,
+          action: 'APPROVE',
+          entityType: 'BookingRequest',
+          entityId: bookingRequest.id,
+          entityName: bookingRequest.name,
+          details: {
+            statusChange: { from: existingRequest.status, to: 'approved' },
+            metadata: { approvalMethod: 'public_link' },
+          },
+        },
+      })
+    } catch (logError) {
+      logger.error('Error logging approval activity:', logError)
+    }
+
     // Revalidate affected entities
     invalidateEntities(['booking-requests', 'events', 'opportunities', 'tasks'])
+    invalidateDashboard()
 
     // Redirect to success page with approver email
     const baseUrl = getBaseUrl(request)
