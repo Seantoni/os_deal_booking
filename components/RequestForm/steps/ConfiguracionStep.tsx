@@ -6,8 +6,9 @@ import { getMaxDuration } from '@/lib/categories'
 import { calculateNextAvailableDate } from '@/lib/event-validation'
 import { getAllBookedEvents } from '@/app/actions/events'
 import { getSettings } from '@/lib/settings'
-import { formatDateForDisplay } from '@/lib/date'
+import { formatDateForDisplay, calculateDaysDifference } from '@/lib/date'
 import { ONE_DAY_MS } from '@/lib/constants'
+import type { EventForValidation } from '@/lib/event-validation'
 import type { BookingFormData } from '../types'
 import { Input } from '@/components/ui'
 
@@ -19,9 +20,20 @@ interface ConfiguracionStepProps {
   isFieldRequired?: (fieldKey: string) => boolean
   /** Callback when a business is selected (for backfill tracking) */
   onBusinessSelect?: (businessId: string | null) => void
+  bookedEvents?: EventForValidation[] | null
+  loadingBookedEvents?: boolean
 }
 
-export default function ConfiguracionStep({ formData, errors, updateFormData, isPublicForm = false, isFieldRequired = () => false, onBusinessSelect }: ConfiguracionStepProps) {
+export default function ConfiguracionStep({
+  formData,
+  errors,
+  updateFormData,
+  isPublicForm = false,
+  isFieldRequired = () => false,
+  onBusinessSelect,
+  bookedEvents = null,
+  loadingBookedEvents = false,
+}: ConfiguracionStepProps) {
   const [daysUntilLaunch, setDaysUntilLaunch] = useState<number | null>(null)
   const [calculatingDate, setCalculatingDate] = useState(false)
   const [selectedBusiness, setSelectedBusiness] = useState<BusinessWithStatus | null>(null)
@@ -41,12 +53,16 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
     
     const calculateDate = async () => {
       if (formData.parentCategory && !calculatingDate) {
+        if (loadingBookedEvents && !bookedEvents) return
+
         setCalculatingDate(true)
         try {
-          // Fetch ALL booked events (regardless of user) and settings
-          // This ensures accurate date calculation based on all reserved dates
-          const eventsResult = await getAllBookedEvents()
-          const events = eventsResult.success ? eventsResult.data || [] : []
+          // Reuse booked events loaded by parent to avoid repeated server calls.
+          let resolvedEvents = bookedEvents ?? []
+          if (bookedEvents === null) {
+            const eventsResult = await getAllBookedEvents()
+            resolvedEvents = eventsResult.success ? eventsResult.data || [] : []
+          }
           const settings = getSettings()
           
           // Build standardized category key for matching
@@ -63,7 +79,7 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
           // Use the universal function directly
           // Pass the standardized key and parent for duration calculation
           const result = calculateNextAvailableDate(
-            events,
+            resolvedEvents,
             categoryKey, // Use standardized key for matching
             formData.parentCategory, // Parent for duration calculation
             formData.businessName || null,
@@ -105,8 +121,15 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
     }
     
     calculateDate()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.parentCategory, formData.subCategory1, formData.subCategory2, formData.category, isPublicForm])
+  }, [
+    formData.parentCategory,
+    formData.subCategory1,
+    formData.subCategory2,
+    formData.category,
+    isPublicForm,
+    bookedEvents,
+    loadingBookedEvents,
+  ])
 
   const handleStartDateChange = (date: string) => {
     updateFormData('startDate', date)
@@ -116,7 +139,6 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       const startDate = new Date(date + 'T00:00:00')
-      const { ONE_DAY_MS } = require('@/lib/constants')
       const days = Math.ceil((startDate.getTime() - today.getTime()) / ONE_DAY_MS)
       setDaysUntilLaunch(days)
     }
@@ -159,7 +181,6 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
   // Calculate total active days using utility
   const calculateTotalDays = (): number => {
     if (!formData.startDate || !formData.endDate) return 0
-    const { calculateDaysDifference } = require('@/lib/date/formatting')
     return calculateDaysDifference(formData.startDate, formData.endDate)
   }
   
@@ -382,4 +403,3 @@ export default function ConfiguracionStep({ formData, errors, updateFormData, is
     </div>
   )
 }
-

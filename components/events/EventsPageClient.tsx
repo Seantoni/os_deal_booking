@@ -674,7 +674,6 @@ export default function EventsPageClient({
               isSearchLoading={isSearchLoading}
               isLoading={isCalendarLoading}
               selectedCategories={calendarSelectedCategories}
-              showPendingBooking={effectiveShowPendingBooking}
               categoryFilter={categoryFilter}
               searchQuery={searchQuery}
               draggingRequest={draggingRequest}

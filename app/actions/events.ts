@@ -11,6 +11,7 @@ import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
 import { logActivity } from '@/lib/activity-log'
 import { logger } from '@/lib/logger'
 import { buildEventNameFromBookingRequest } from '@/lib/utils/request-name-parsing'
+import type { EventForValidation } from '@/lib/event-validation'
 import type { BookingRequest, Event } from '@/types'
 import type { Prisma } from '@prisma/client'
 
@@ -76,23 +77,48 @@ const calendarPendingRequestSelect = {
 type CalendarEventRecord = Prisma.EventGetPayload<{ select: typeof calendarEventSelect }>
 type CalendarPendingRequestRecord = Prisma.BookingRequestGetPayload<{ select: typeof calendarPendingRequestSelect }>
 
+const availabilityEventSelect = {
+  name: true,
+  id: true,
+  category: true,
+  parentCategory: true,
+  subCategory1: true,
+  subCategory2: true,
+  subCategory3: true,
+  subCategory4: true,
+  business: true,
+  businessId: true,
+  startDate: true,
+  endDate: true,
+} as const
+
+const getCachedAvailabilityEvents = unstable_cache(
+  async () =>
+    prisma.event.findMany({
+      where: {
+        status: { in: ['booked', 'pre-booked'] },
+      },
+      select: availabilityEventSelect,
+      orderBy: {
+        startDate: 'asc',
+      },
+    }),
+  ['all-booked-events-availability-v1'],
+  {
+    tags: ['events'],
+    revalidate: CACHE_REVALIDATE_SECONDS,
+  }
+)
+
 function buildCalendarEventWhere(
-  role: string,
-  userId: string,
   startDate?: Date,
   endDate?: Date
 ): Prisma.EventWhereInput {
   const visibilityFilters: Prisma.EventWhereInput[] = [
     { status: 'booked' },
     { status: 'pre-booked' },
-    {
-      status: 'approved',
-      ...(role === 'admin' ? {} : { userId }),
-    },
-    {
-      status: 'pending',
-      ...(role === 'admin' ? {} : { userId }),
-    },
+    { status: 'approved' },
+    { status: 'pending' },
   ]
 
   return {
@@ -153,13 +179,11 @@ async function resolveBookingLinkedNames(events: Event[]): Promise<Event[]> {
 }
 
 async function fetchCalendarEvents(
-  role: string,
-  userId: string,
   startDate?: Date,
   endDate?: Date
 ): Promise<Event[]> {
   const eventRows = await prisma.event.findMany({
-    where: buildCalendarEventWhere(role, userId, startDate, endDate),
+    where: buildCalendarEventWhere(startDate, endDate),
     select: calendarEventSelect,
     orderBy: { startDate: 'asc' },
   })
@@ -393,7 +417,7 @@ export async function getEvents() {
     const cacheKey = `events-${userId}-${role}`
 
     const getCachedEvents = unstable_cache(
-      async () => fetchCalendarEvents(role, userId),
+      async () => fetchCalendarEvents(),
       [cacheKey],
       {
         tags: ['events'],
@@ -419,10 +443,9 @@ export async function getCalendarEventsInRange(startDate: string, endDate: strin
   }
 
   try {
-    const role = await getUserRole()
     const rangeStart = parseDateInPanamaTime(startDate)
     const rangeEnd = parseEndDateInPanamaTime(endDate)
-    const events = await fetchCalendarEvents(role, authResult.userId, rangeStart, rangeEnd)
+    const events = await fetchCalendarEvents(rangeStart, rangeEnd)
 
     return { success: true, data: events }
   } catch (error) {
@@ -551,7 +574,7 @@ export async function refreshCalendarData(options: RefreshCalendarDataOptions = 
     const rangeEnd = hasRange ? parseEndDateInPanamaTime(options.endDate!) : undefined
 
     // Fetch events (bypass cache to get fresh data)
-    const events = await fetchCalendarEvents(role, userId, rangeStart, rangeEnd)
+    const events = await fetchCalendarEvents(rangeStart, rangeEnd)
 
     let bookingRequests: BookingRequest[] | undefined
     if (options.includePendingRequests) {
@@ -576,21 +599,13 @@ export async function getAllBookedEvents() {
   try {
     const authResult = await requireAuth()
     if (!('userId' in authResult)) {
-      return { success: true, data: [] } // Return empty for unauthenticated users
+      return { success: true, data: [] as EventForValidation[] } // Return empty for unauthenticated users
     }
 
-    // Return all booked and pre-booked events (no user filtering)
-    // Both statuses count for restrictions (days apart, deals per day)
-    const events = await prisma.event.findMany({
-      where: {
-        status: { in: ['booked', 'pre-booked'] }
-      },
-      orderBy: {
-        startDate: 'asc',
-      },
-    })
-
-    return { success: true, data: events }
+    // Return all booked and pre-booked events (no user filtering).
+    // Cached and projected to the fields needed by availability validation.
+    const events = await getCachedAvailabilityEvents()
+    return { success: true, data: events as EventForValidation[] }
   } catch (error) {
     return handleServerActionError(error, 'getAllBookedEvents')
   }

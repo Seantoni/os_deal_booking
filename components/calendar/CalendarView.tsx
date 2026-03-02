@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { getDaysDifference, getCategoryColors } from '@/lib/categories'
+import { getEventCategoryKey } from '@/lib/category-utils'
 import { getDailyLimitStatus } from '@/lib/event-validation'
 import { getSettings } from '@/lib/settings'
 import { PANAMA_TIMEZONE, getDateComponentsInPanama } from '@/lib/date/timezone'
@@ -20,7 +21,6 @@ interface CalendarViewProps {
   isSearchLoading?: boolean
   isLoading?: boolean
   selectedCategories: string[]
-  showPendingBooking: boolean
   categoryFilter?: string | null
   searchQuery?: string
   draggingRequest?: BookingRequest | null
@@ -59,7 +59,48 @@ type EventDateRange = {
   endDay: number
 }
 
-export default function CalendarView({ events, searchEvents = [], isSearchLoading = false, isLoading = false, selectedCategories, showPendingBooking, categoryFilter, searchQuery = '', draggingRequest, bookingRequests = [], onSearchChange, onRequestDropOnDate, onDateClick, onDateRangeSelect, onEventClick, onEventMove, onEventResize, onDayExpand, readOnly = false, externalDate, externalView, externalRange, onViewChange, onCurrentDateChange, onVisibleRangeChange, onNewRequestClick, onCreateEventClick, userRole }: CalendarViewProps) {
+function normalizeCategoryKey(value: string | null | undefined): string | null {
+  if (!value) return null
+
+  const normalized = value
+    .replace(/\s*[>›]\s*/g, ':')
+    .replace(/\s*:\s*/g, ':')
+    .trim()
+    .toUpperCase()
+
+  return normalized || null
+}
+
+function buildEventCategoryCandidates(event: Event): string[] {
+  const candidates = new Set<string>()
+  const addCandidate = (value: string | null | undefined) => {
+    const normalized = normalizeCategoryKey(value)
+    if (normalized) candidates.add(normalized)
+  }
+
+  // Canonical key from hierarchical fields (with legacy fallback).
+  addCandidate(getEventCategoryKey(event))
+  addCandidate(event.category)
+
+  // Include all prefixes so selecting a main or subcategory still matches deeper nodes.
+  if (event.parentCategory) {
+    const parts = [
+      event.parentCategory,
+      event.subCategory1,
+      event.subCategory2,
+      event.subCategory3,
+      event.subCategory4,
+    ].filter((part): part is string => Boolean(part && part.trim()))
+
+    for (let i = 1; i <= parts.length; i++) {
+      addCandidate(parts.slice(0, i).join(':'))
+    }
+  }
+
+  return Array.from(candidates)
+}
+
+export default function CalendarView({ events, searchEvents = [], isSearchLoading = false, isLoading = false, selectedCategories, categoryFilter, searchQuery = '', draggingRequest, bookingRequests = [], onSearchChange, onRequestDropOnDate, onDateClick, onDateRangeSelect, onEventClick, onEventMove, onEventResize, onDayExpand, readOnly = false, externalDate, externalView, externalRange, onViewChange, onCurrentDateChange, onVisibleRangeChange, onNewRequestClick, onCreateEventClick, userRole }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [dragStartDay, setDragStartDay] = useState<number | null>(null)
   const [dragEndDay, setDragEndDay] = useState<number | null>(null)
@@ -99,45 +140,36 @@ export default function CalendarView({ events, searchEvents = [], isSearchLoadin
 
   // Filter events by categories and booking status
   const filteredEvents = useMemo(() => {
-    let filtered = events
-    
-    // When NOT in pending booking view (categories sidebar visible), only show booked and approved events
-    // When IN pending booking view (pending requests sidebar visible), show all events
-    if (!showPendingBooking) {
-      filtered = filtered.filter(event => event.status === 'booked' || event.status === 'approved')
-    }
-    
-    // Filter by categories
-    if (selectedCategories.length === 0) return filtered
-    
-    return filtered.filter(event => {
-       // Check if any of the event's hierarchy matches the selected categories
-       // selectedCategories can contain composite keys like "Main", "Main:Sub", "Main:Sub:Leaf".
-       
-       const parent = event.parentCategory;
-       // Ensure we handle potential nulls
-       const sub1 = parent && event.subCategory1 ? `${parent}:${event.subCategory1}` : null;
-       const sub2 = sub1 && event.subCategory2 ? `${sub1}:${event.subCategory2}` : null;
+    const activeSelectedCategories = categoryFilter ? [categoryFilter] : selectedCategories
 
-       // Direct legacy match or composite key match
-       if (parent && selectedCategories.includes(parent)) {
-         return true;
-       }
-       if (sub1 && selectedCategories.includes(sub1)) {
-         return true;
-       }
-       if (sub2 && selectedCategories.includes(sub2)) {
-         return true;
-       }
-       
-       // Fallback for legacy category field
-       if (event.category && selectedCategories.includes(event.category)) {
-         return true;
-       }
+    if (activeSelectedCategories.length === 0) return events
 
-       return false;
+    const normalizedSelectedCategories = new Set(
+      activeSelectedCategories
+        .map((category) => normalizeCategoryKey(category))
+        .filter((category): category is string => Boolean(category))
+    )
+
+    if (normalizedSelectedCategories.size === 0) return events
+
+    return events.filter((event) => {
+      const candidates = buildEventCategoryCandidates(event)
+
+      return candidates.some((candidate) => {
+        if (normalizedSelectedCategories.has(candidate)) return true
+
+        // Prefix matching allows selecting "MAIN" to match "MAIN:SUB:LEAF".
+        const parts = candidate.split(':')
+        for (let i = 1; i < parts.length; i++) {
+          if (normalizedSelectedCategories.has(parts.slice(0, i).join(':'))) {
+            return true
+          }
+        }
+
+        return false
+      })
     })
-  }, [events, selectedCategories, showPendingBooking, categoryFilter])
+  }, [events, selectedCategories, categoryFilter])
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()

@@ -14,15 +14,12 @@ import {
 } from '@/app/actions/booking-requests'
 import type { BackfillChange } from '@/lib/business-backfill'
 import type { BookingFormData } from './types'
-import { STEPS, INITIAL_FORM_DATA, getStepKeyByIndex, getStepIndexByKey, getStepIdByKey } from './constants'
+import { STEPS, INITIAL_FORM_DATA, getStepIndexByKey, getStepIdByKey } from './constants'
 import { validateStep, buildFormDataForSubmit, getErrorFieldLabels } from './request_form_utils'
 import { extractBusinessName } from '@/lib/utils/request-name-parsing'
 import ProgressBar from './components/ProgressBar'
 import NavigationButtons from './components/NavigationButtons'
-import CategoryAvailabilityList from './components/CategoryAvailabilityList'
-import { Dropdown } from '@/components/ui'
-import { getCategoryOptions } from '@/lib/categories'
-import type { CategoryOption, RequestFormFieldsConfig } from '@/types'
+import type { RequestFormFieldsConfig } from '@/types'
 import ConfiguracionStep from './steps/ConfiguracionStep'
 import OperatividadStep from './steps/OperatividadStep'
 import DirectorioStep from './steps/DirectorioStep'
@@ -53,7 +50,6 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   const [currentStepKey, setCurrentStepKey] = useState<string>('configuracion')
   const [formData, setFormData] = useState<BookingFormData>({ ...INITIAL_FORM_DATA, ...initialFormData })
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([])
   const [requiredFields, setRequiredFields] = useState<RequestFormFieldsConfig>({})
   const [loadingEdit, setLoadingEdit] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
@@ -587,11 +583,6 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     }
   }, [searchParams])
   
-  // Load category options (client-side)
-  useEffect(() => {
-    setCategoryOptions(getCategoryOptions())
-  }, [])
-  
   // All categories now have the "Información Adicional" step (dynamic templates handle content)
   const availableSteps = STEPS
   
@@ -933,75 +924,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     >
       {/* Mobile: Full bleed, Desktop: padded */}
       <div className="max-w-7xl mx-auto px-0 md:px-4 pt-4 md:pt-8">
-        <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
-          {/* Category Availability Sidebar - Only visible on Configuración */}
-          {currentStepKey === 'configuracion' && (
-            <div className="flex-shrink-0 w-full lg:w-80 order-1 px-3 md:px-0">
-              <div className="mb-3 w-full">
-                <p className="text-xs font-semibold text-gray-700 mb-1">Seleccionar categoría</p>
-                <Dropdown
-                  fullWidth
-                  items={categoryOptions.map(opt => ({
-                    value: opt.value,
-                    label: opt.label,
-                    description: opt.parent,
-                  }))}
-                  value={formData.category || ''}
-                  placeholder="Buscar y seleccionar categoría"
-                  onSelect={(value) => {
-                    const option = categoryOptions.find(o => o.value === value)
-                    if (!option) return
-                    updateFormData('category', option.value)
-                    updateFormData('parentCategory', option.parent)
-                    updateFormData('subCategory1', option.sub1 || '')
-                    updateFormData('subCategory2', option.sub2 || '')
-                  }}
-                />
-              </div>
-              
-              {/* Desktop: Always show list */}
-              <div className="hidden lg:block">
-                <CategoryAvailabilityList 
-                  onCategorySelect={(option) => {
-                    updateFormData('category', option.value)
-                    updateFormData('parentCategory', option.parent)
-                    updateFormData('subCategory1', option.sub1 || '')
-                    updateFormData('subCategory2', option.sub2 || '')
-                  }}
-                />
-              </div>
-
-              {/* Mobile: Collapsible list */}
-              <div className="lg:hidden mb-3">
-                <details className="group bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
-                  <summary className="flex items-center justify-between p-3 font-medium cursor-pointer text-sm text-gray-700 hover:bg-gray-50 transition-colors select-none">
-                    <span>Ver Disponibilidad de Categorías</span>
-                    <span className="transition-transform group-open:rotate-180">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </span>
-                  </summary>
-                  <div className="p-3 border-t border-gray-200 max-h-60 overflow-y-auto">
-                    <CategoryAvailabilityList 
-                      onCategorySelect={(option) => {
-                        updateFormData('category', option.value)
-                        updateFormData('parentCategory', option.parent)
-                        updateFormData('subCategory1', option.sub1 || '')
-                        updateFormData('subCategory2', option.sub2 || '')
-                        // Close details on select (optional, but good UX)
-                        const details = document.querySelector('details.group')
-                        if (details) details.removeAttribute('open')
-                      }}
-                    />
-                  </div>
-                </details>
-              </div>
-            </div>
-          )}
-
-          {/* Main Content Area */}
-          <div className={`flex-1 order-2 px-3 md:px-0 ${currentStepKey === 'configuracion' ? '' : 'max-w-5xl mx-auto'}`}>
+        <div className="px-3 md:px-0 max-w-5xl mx-auto">
             <ProgressBar 
               steps={availableSteps}
               currentStepKey={currentStepKey}
@@ -1120,7 +1043,6 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
             <div className="hidden md:block mt-8 text-center text-sm text-gray-400 pb-8">
               OfertaSimple Booking System • {new Date().getFullYear()}
             </div>
-          </div>
         </div>
       </div>
       

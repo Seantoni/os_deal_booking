@@ -5,13 +5,29 @@ import { buildCategoryKey, getEventCategoryKey, categoryKeysMatch } from './cate
 import type { Event } from '@/types'
 import { logger } from './logger'
 
+export type EventForValidation = Pick<
+  Event,
+  | 'name'
+  | 'id'
+  | 'category'
+  | 'parentCategory'
+  | 'subCategory1'
+  | 'subCategory2'
+  | 'subCategory3'
+  | 'subCategory4'
+  | 'business'
+  | 'businessId'
+  | 'startDate'
+  | 'endDate'
+>
+
 // Daily limits (can be overridden by settings)
 export const MIN_DAILY_LAUNCHES = 5
 export const MAX_DAILY_LAUNCHES = 13
 
 // Get count of events that START (launch/run) on a specific date
 // This counts events based on their launch date (startDate), not if they span that day
-export function getEventsOnDate(events: Event[], date: Date): Event[] {
+export function getEventsOnDate(events: EventForValidation[], date: Date): EventForValidation[] {
   // Use Panama timezone for consistent date comparison
   // Extract target date components in Panama timezone
   // getDateComponentsInPanama returns month as 1-12 (1-indexed)
@@ -52,7 +68,7 @@ export function getDailyLimitStatus(
 
 // Validate uniqueness rule - check for similar active offers
 export function checkUniquenesViolation(
-  events: Event[],
+  events: EventForValidation[],
   newEvent: { 
     category?: string | null
     parentCategory?: string | null
@@ -63,7 +79,7 @@ export function checkUniquenesViolation(
     endDate: Date
   },
   excludeEventId?: string
-): { violated: boolean; conflictingEvent?: Event } {
+): { violated: boolean; conflictingEvent?: EventForValidation } {
   // Build standardized category key for the new event
   const newCategoryKey = buildCategoryKey(
     newEvent.parentCategory,
@@ -102,14 +118,14 @@ export function checkUniquenesViolation(
 
 // Check 30-day merchant rule (with business exceptions support)
 export function check30DayMerchantRule(
-  events: Event[],
+  events: EventForValidation[],
   merchant: string | null,
   newStartDate: Date,
   excludeEventId?: string,
   merchantRepeatDays?: number,
   businessExceptions?: BusinessException[],
   businessId?: string | null
-): { violated: boolean; lastEvent?: Event; daysUntilAllowed?: number } {
+): { violated: boolean; lastEvent?: EventForValidation; daysUntilAllowed?: number } {
   if (!merchant && !businessId) return { violated: false }
   
   // Check for business exception
@@ -166,7 +182,7 @@ export function check30DayMerchantRule(
 import { MAX_DATE_SEARCH_DAYS } from '@/lib/constants'
 
 export function calculateNextAvailableDate(
-  events: Event[],
+  events: EventForValidation[],
   category: string | null,
   parentCategory: string | null,
   merchant: string | null,

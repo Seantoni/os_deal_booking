@@ -8,6 +8,7 @@ import { getSettings } from '@/lib/settings'
 import { formatShortDate } from '@/lib/date'
 import { buildCategoryKey } from '@/lib/category-utils'
 import type { CategoryOption } from '@/types'
+import type { EventForValidation } from '@/lib/event-validation'
 
 interface CategoryAvailability {
   label: string
@@ -21,83 +22,98 @@ interface CategoryAvailability {
 
 interface CategoryAvailabilityListProps {
   onCategorySelect?: (option: CategoryOption) => void
+  bookedEvents?: EventForValidation[] | null
+  loadingBookedEvents?: boolean
 }
 
-export default function CategoryAvailabilityList({ onCategorySelect }: CategoryAvailabilityListProps) {
+export default function CategoryAvailabilityList({
+  onCategorySelect,
+  bookedEvents = null,
+  loadingBookedEvents = false,
+}: CategoryAvailabilityListProps) {
   const [availabilities, setAvailabilities] = useState<CategoryAvailability[]>([])
   const [filteredAvailabilities, setFilteredAvailabilities] = useState<CategoryAvailability[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
 
+  const buildAvailabilities = (events: EventForValidation[]): CategoryAvailability[] => {
+    const settings = getSettings()
+    const categoryOptions = getCategoryOptions()
+
+    const results = categoryOptions.map((option) => {
+      const categoryKey = buildCategoryKey(
+        option.parent,
+        option.sub1 || null,
+        option.sub2 || null,
+        null, // subCategory3
+        option.value
+      )
+
+      if (!categoryKey) {
+        return {
+          label: option.label,
+          categoryKey: '',
+          parentCategory: option.parent,
+          nextAvailableDate: null,
+          daysUntilLaunch: null,
+          error: 'Invalid category',
+          option, // Store original option
+        }
+      }
+
+      const result = calculateNextAvailableDate(
+        events,
+        categoryKey,
+        option.parent,
+        null, // merchant
+        undefined, // duration
+        undefined, // startFromDate
+        undefined, // excludeEventId
+        {
+          minDailyLaunches: settings.minDailyLaunches,
+          maxDailyLaunches: settings.maxDailyLaunches,
+          merchantRepeatDays: settings.merchantRepeatDays,
+          businessExceptions: settings.businessExceptions,
+        }
+      )
+
+      return {
+        label: option.label,
+        categoryKey,
+        parentCategory: option.parent,
+        nextAvailableDate: result.success && result.date ? result.date : null,
+        daysUntilLaunch: result.daysUntilLaunch ?? null,
+        error: result.error,
+        option, // Store original option for category selection
+      }
+    })
+
+    return results
+      .filter(r => r.nextAvailableDate !== null)
+      .sort((a, b) => {
+        if (!a.nextAvailableDate || !b.nextAvailableDate) return 0
+        const dateDiff = a.nextAvailableDate.getTime() - b.nextAvailableDate.getTime()
+        if (dateDiff !== 0) return dateDiff
+        return a.label.localeCompare(b.label)
+      })
+  }
+
   useEffect(() => {
     const calculateAvailabilities = async () => {
+      if (loadingBookedEvents && !bookedEvents) {
+        setLoading(true)
+        return
+      }
+
       setLoading(true)
       try {
-        const eventsResult = await getAllBookedEvents()
-        const events = eventsResult.success ? eventsResult.data || [] : []
-        const settings = getSettings()
-        const categoryOptions = getCategoryOptions()
+        let resolvedEvents = bookedEvents ?? []
+        if (bookedEvents === null) {
+          const eventsResult = await getAllBookedEvents()
+          resolvedEvents = eventsResult.success ? eventsResult.data || [] : []
+        }
 
-        const results = await Promise.all(
-          categoryOptions.map(async (option) => {
-            const categoryKey = buildCategoryKey(
-              option.parent,
-              option.sub1 || null,
-              option.sub2 || null,
-              null, // subCategory3
-              option.value
-            )
-
-            if (!categoryKey) {
-              return {
-                label: option.label,
-                categoryKey: '',
-                parentCategory: option.parent,
-                nextAvailableDate: null,
-                daysUntilLaunch: null,
-                error: 'Invalid category',
-                option // Store original option
-              }
-            }
-
-            const result = calculateNextAvailableDate(
-              events,
-              categoryKey,
-              option.parent,
-              null, // merchant
-              undefined, // duration
-              undefined, // startFromDate
-              undefined, // excludeEventId
-              {
-                minDailyLaunches: settings.minDailyLaunches,
-                maxDailyLaunches: settings.maxDailyLaunches,
-                merchantRepeatDays: settings.merchantRepeatDays,
-                businessExceptions: settings.businessExceptions
-              }
-            )
-
-            return {
-              label: option.label,
-              categoryKey,
-              parentCategory: option.parent,
-              nextAvailableDate: result.success && result.date ? result.date : null,
-              daysUntilLaunch: result.daysUntilLaunch ?? null,
-              error: result.error,
-              option // Store original option for category selection
-            }
-          })
-        )
-
-        // Sort by next available date (earliest first), then by category name
-        const sorted = results
-          .filter(r => r.nextAvailableDate !== null)
-          .sort((a, b) => {
-            if (!a.nextAvailableDate || !b.nextAvailableDate) return 0
-            const dateDiff = a.nextAvailableDate.getTime() - b.nextAvailableDate.getTime()
-            if (dateDiff !== 0) return dateDiff
-            return a.label.localeCompare(b.label)
-          })
-
+        const sorted = buildAvailabilities(resolvedEvents)
         setAvailabilities(sorted)
         setFilteredAvailabilities(sorted)
       } catch (error) {
@@ -108,7 +124,7 @@ export default function CategoryAvailabilityList({ onCategorySelect }: CategoryA
     }
 
     calculateAvailabilities()
-  }, [])
+  }, [bookedEvents, loadingBookedEvents])
 
   // Filter availabilities based on search query
   useEffect(() => {
@@ -194,4 +210,3 @@ if (loading) {
     </div>
   )
 }
-

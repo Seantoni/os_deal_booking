@@ -8,6 +8,11 @@
 
 import type { Event, BookingRequest } from '@/types'
 
+type EventCategoryLike = Pick<
+  Event,
+  'category' | 'parentCategory' | 'subCategory1' | 'subCategory2' | 'subCategory3' | 'subCategory4'
+>
+
 /**
  * Build a standardized category key from hierarchical category fields
  * Format: "PARENT:SUB1:SUB2:SUB3:SUB4" (omitting empty parts)
@@ -54,7 +59,7 @@ export function buildCategoryKey(
 /**
  * Extract category key from an Event object
  */
-export function getEventCategoryKey(event: Event): string | null {
+export function getEventCategoryKey(event: EventCategoryLike): string | null {
   return buildCategoryKey(
     event.parentCategory,
     event.subCategory1,
@@ -113,4 +118,3 @@ export function buildCategoryKeyFromOption(option: {
     option.value || undefined
   )
 }
-
