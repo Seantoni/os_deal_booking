@@ -5,12 +5,17 @@ import MultiEmailInput from '@/components/shared/MultiEmailInput'
 import { getMaxDuration } from '@/lib/categories'
 import { calculateNextAvailableDate } from '@/lib/event-validation'
 import { getAllBookedEvents } from '@/app/actions/events'
-import { getSettings } from '@/lib/settings'
 import { formatDateForDisplay, calculateDaysDifference } from '@/lib/date'
 import { ONE_DAY_MS } from '@/lib/constants'
 import type { EventForValidation } from '@/lib/event-validation'
+import type { BookingSettings, CategoryOption } from '@/types'
 import type { BookingFormData } from '../types'
 import { Input } from '@/components/ui'
+
+type DateValidationSettings = Pick<
+  BookingSettings,
+  'minDailyLaunches' | 'maxDailyLaunches' | 'merchantRepeatDays' | 'businessExceptions'
+>
 
 interface ConfiguracionStepProps {
   formData: BookingFormData
@@ -22,6 +27,8 @@ interface ConfiguracionStepProps {
   onBusinessSelect?: (businessId: string | null) => void
   bookedEvents?: EventForValidation[] | null
   loadingBookedEvents?: boolean
+  categoryOptions?: CategoryOption[]
+  dateValidationSettings?: DateValidationSettings | null
 }
 
 export default function ConfiguracionStep({
@@ -33,6 +40,8 @@ export default function ConfiguracionStep({
   onBusinessSelect,
   bookedEvents = null,
   loadingBookedEvents = false,
+  categoryOptions,
+  dateValidationSettings = null,
 }: ConfiguracionStepProps) {
   const [daysUntilLaunch, setDaysUntilLaunch] = useState<number | null>(null)
   const [calculatingDate, setCalculatingDate] = useState(false)
@@ -63,7 +72,7 @@ export default function ConfiguracionStep({
             const eventsResult = await getAllBookedEvents()
             resolvedEvents = eventsResult.success ? eventsResult.data || [] : []
           }
-          const settings = getSettings()
+          const settings = dateValidationSettings
           
           // Build standardized category key for matching
           // Import category utilities to build the key consistently
@@ -88,10 +97,10 @@ export default function ConfiguracionStep({
             undefined, // startFromDate - defaults to today
             undefined, // excludeEventId
             {
-              minDailyLaunches: settings.minDailyLaunches,
-              maxDailyLaunches: settings.maxDailyLaunches,
-              merchantRepeatDays: settings.merchantRepeatDays,
-              businessExceptions: settings.businessExceptions
+              minDailyLaunches: settings?.minDailyLaunches,
+              maxDailyLaunches: settings?.maxDailyLaunches,
+              merchantRepeatDays: settings?.merchantRepeatDays,
+              businessExceptions: settings?.businessExceptions || [],
             }
           )
           
@@ -126,10 +135,12 @@ export default function ConfiguracionStep({
     formData.parentCategory,
     formData.subCategory1,
     formData.subCategory2,
+    formData.subCategory3,
     formData.category,
     isPublicForm,
     bookedEvents,
     loadingBookedEvents,
+    dateValidationSettings,
   ])
 
   const handleStartDateChange = (date: string) => {
@@ -270,6 +281,7 @@ export default function ConfiguracionStep({
             <CategorySelect
               label="Categoría"
               required={isFieldRequired('category')}
+              options={categoryOptions}
               selectedOption={
                 formData.category || formData.parentCategory
                   ? {

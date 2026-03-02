@@ -13,6 +13,7 @@ interface CategorySelectProps {
   // New value-based interface (for DynamicFormField)
   value?: string | null
   onValueChange?: (id: string | null) => void
+  options?: CategoryOption[] // Optional: pass precomputed CategoryOption list directly
   categories?: CategoryRecord[] // Optional: pass categories directly instead of fetching
   
   // Display mode: 'full' shows full path (Parent > Sub1 > Sub2), 'parentOnly' shows deduplicated parents
@@ -35,6 +36,7 @@ function CategorySelect({
   // New props
   value,
   onValueChange,
+  options: externalOptions,
   categories: externalCategories,
   displayMode = 'full',
   // Common props
@@ -48,13 +50,12 @@ function CategorySelect({
 }: CategorySelectProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [search, setSearch] = useState('')
-  const [internalOptions, setInternalOptions] = useState<CategoryOption[]>([])
-  const [filteredOptions, setFilteredOptions] = useState<CategoryOption[]>([])
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 })
   const buttonRef = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([])
+  const defaultOptions = useMemo(() => getCategoryOptions(), [])
 
   // Determine if we're using the legacy or new interface
   const isLegacyMode = selectedOption !== undefined || (onChange !== undefined && onValueChange === undefined)
@@ -62,7 +63,11 @@ function CategorySelect({
   // Convert external categories to CategoryOption format
   // Keep full options for search purposes
   const fullOptions: CategoryOption[] = useMemo(() => {
-    if (externalCategories && externalCategories.length > 0) {
+    if (externalOptions !== undefined) {
+      return externalOptions
+    }
+
+    if (externalCategories !== undefined) {
       return externalCategories.map(cat => ({
         value: cat.id,
         label: `${cat.parentCategory}${cat.subCategory1 ? ` > ${cat.subCategory1}` : ''}${cat.subCategory2 ? ` > ${cat.subCategory2}` : ''}${cat.subCategory3 ? ` > ${cat.subCategory3}` : ''}${cat.subCategory4 ? ` > ${cat.subCategory4}` : ''}`,
@@ -73,8 +78,8 @@ function CategorySelect({
         sub4: cat.subCategory4,
       }))
     }
-    return internalOptions
-  }, [externalCategories, internalOptions])
+    return defaultOptions
+  }, [externalOptions, externalCategories, defaultOptions])
 
   // When displayMode is 'parentOnly', deduplicate by parent category
   const options: CategoryOption[] = useMemo(() => {
@@ -102,17 +107,9 @@ function CategorySelect({
     return fullOptions
   }, [fullOptions, displayMode])
 
-  // Fetch categories only if not provided externally
-  useEffect(() => {
-    if (!externalCategories || externalCategories.length === 0) {
-      const opts = getCategoryOptions()
-      setInternalOptions(opts)
-    }
-  }, [externalCategories])
-
-  // Filter options based on search
-  // In parentOnly mode, search against full labels to find parents (e.g., "Pizza" finds "Restaurantes")
-  useEffect(() => {
+  // Filter options based on search.
+  // In parentOnly mode, search against full labels to find parents (e.g., "Pizza" finds "Restaurantes").
+  const filteredOptions = useMemo(() => {
     const searchLower = search.toLowerCase()
     
     if (displayMode === 'parentOnly' && search) {
@@ -126,17 +123,12 @@ function CategorySelect({
       }
       
       // Filter options to only show parents that have matching sub-categories
-      const filtered = options.filter(opt => 
+      return options.filter(opt => 
         matchingParents.has(opt.value) || opt.label.toLowerCase().includes(searchLower)
       )
-      setFilteredOptions(filtered)
-    } else {
-    const filtered = options.filter(opt =>
-        opt.label.toLowerCase().includes(searchLower)
-    )
-    setFilteredOptions(filtered)
     }
-    setSelectedIndex(-1)
+
+    return options.filter(opt => opt.label.toLowerCase().includes(searchLower))
   }, [search, options, fullOptions, displayMode])
 
   // Scroll selected option into view
@@ -228,6 +220,7 @@ function CategorySelect({
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
       e.preventDefault()
       setSearch(e.key)
+      setSelectedIndex(-1)
       setIsOpen(true)
     }
     // Arrow down/up or Enter/Space to open dropdown
@@ -264,7 +257,10 @@ function CategorySelect({
           type="text"
           placeholder="Escriba para buscar..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setSelectedIndex(-1)
+          }}
           onKeyDown={(e) => {
             if (filteredOptions.length === 0) return
             
@@ -278,7 +274,7 @@ function CategorySelect({
               setSelectedIndex(prev => 
                 prev > 0 ? prev - 1 : filteredOptions.length - 1
               )
-            } else if (e.key === 'Enter' && selectedIndex >= 0) {
+            } else if (e.key === 'Enter' && selectedIndex >= 0 && selectedIndex < filteredOptions.length) {
               e.preventDefault()
               handleSelect(filteredOptions[selectedIndex])
             } else if (e.key === 'Escape') {

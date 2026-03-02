@@ -1,6 +1,6 @@
 import { getSettings } from './settings';
 import { INITIAL_CATEGORY_HIERARCHY, type CategoryHierarchy } from './initial-categories';
-import type { CategoryOption, CategoryNode } from '@/types'
+import type { BookingSettings, CategoryOption, CategoryNode } from '@/types'
 
 export type { CategoryHierarchy }; // Export type for consumers
 export { INITIAL_CATEGORY_HIERARCHY }; // Re-export for convenience to avoid breaking existing imports
@@ -10,18 +10,36 @@ function isLeafArray(node: CategoryNode): node is string[] {
   return Array.isArray(node);
 }
 
-/**
- * Get hidden category paths from settings
- */
-function getHiddenPaths(): Record<string, boolean> {
-  if (typeof window === 'undefined') {
-    return {};
+type CategorySettingsOverride = Pick<BookingSettings, 'customCategories' | 'hiddenCategoryPaths'>;
+
+function resolveCategorySettings(
+  settingsOverride?: Partial<CategorySettingsOverride> | null
+): { baseHierarchy: CategoryHierarchy; hiddenPaths: Record<string, boolean> } {
+  if (settingsOverride) {
+    return {
+      baseHierarchy: settingsOverride.customCategories || INITIAL_CATEGORY_HIERARCHY,
+      hiddenPaths: settingsOverride.hiddenCategoryPaths || {},
+    };
   }
+
+  if (typeof window === 'undefined') {
+    return {
+      baseHierarchy: INITIAL_CATEGORY_HIERARCHY,
+      hiddenPaths: {},
+    };
+  }
+
   try {
     const settings = getSettings();
-    return settings.hiddenCategoryPaths || {};
-  } catch (e) {
-    return {};
+    return {
+      baseHierarchy: settings.customCategories || INITIAL_CATEGORY_HIERARCHY,
+      hiddenPaths: settings.hiddenCategoryPaths || {},
+    };
+  } catch {
+    return {
+      baseHierarchy: INITIAL_CATEGORY_HIERARCHY,
+      hiddenPaths: {},
+    };
   }
 }
 
@@ -68,47 +86,35 @@ function filterHiddenFromNode(
 /**
  * Get category hierarchy with hidden categories filtered out
  */
-export function getCategoryHierarchy(): CategoryHierarchy {
-  if (typeof window === 'undefined') {
-    return INITIAL_CATEGORY_HIERARCHY;
+export function getCategoryHierarchy(
+  settingsOverride?: Partial<CategorySettingsOverride> | null
+): CategoryHierarchy {
+  const { baseHierarchy, hiddenPaths } = resolveCategorySettings(settingsOverride);
+
+  // If no hidden paths, return as-is
+  if (Object.keys(hiddenPaths).length === 0) {
+    return baseHierarchy;
   }
-  try {
-    const settings = getSettings();
-    const baseHierarchy = settings.customCategories || INITIAL_CATEGORY_HIERARCHY;
-    const hiddenPaths = settings.hiddenCategoryPaths || {};
-    
-    // If no hidden paths, return as-is
-    if (Object.keys(hiddenPaths).length === 0) {
-      return baseHierarchy;
-    }
-    
-    // Filter out hidden categories recursively
-    const filteredHierarchy: CategoryHierarchy = {};
-    
-    for (const main in baseHierarchy) {
-      if (hiddenPaths[main]) continue;
-      filteredHierarchy[main] = filterHiddenFromNode(baseHierarchy[main], main, hiddenPaths);
-    }
-    
-    return filteredHierarchy;
-  } catch (e) {
-    return INITIAL_CATEGORY_HIERARCHY;
+
+  // Filter out hidden categories recursively
+  const filteredHierarchy: CategoryHierarchy = {};
+  
+  for (const main in baseHierarchy) {
+    if (hiddenPaths[main]) continue;
+    filteredHierarchy[main] = filterHiddenFromNode(baseHierarchy[main], main, hiddenPaths);
   }
+
+  return filteredHierarchy;
 }
 
 /**
  * Get the FULL category hierarchy including hidden categories (for settings page)
  */
-export function getFullCategoryHierarchy(): CategoryHierarchy {
-  if (typeof window === 'undefined') {
-    return INITIAL_CATEGORY_HIERARCHY;
-  }
-  try {
-    const settings = getSettings();
-    return settings.customCategories || INITIAL_CATEGORY_HIERARCHY;
-  } catch (e) {
-    return INITIAL_CATEGORY_HIERARCHY;
-  }
+export function getFullCategoryHierarchy(
+  settingsOverride?: Partial<CategorySettingsOverride> | null
+): CategoryHierarchy {
+  const { baseHierarchy } = resolveCategorySettings(settingsOverride);
+  return baseHierarchy;
 }
 
 // Keep for backward compat if needed, but prefer function.
@@ -116,8 +122,10 @@ export const CATEGORY_HIERARCHY = INITIAL_CATEGORY_HIERARCHY;
 
 export const MAIN_CATEGORIES = Object.keys(INITIAL_CATEGORY_HIERARCHY); 
 
-export function getMainCategories(): string[] {
-  return Object.keys(getCategoryHierarchy());
+export function getMainCategories(
+  settingsOverride?: Partial<CategorySettingsOverride> | null
+): string[] {
+  return Object.keys(getCategoryHierarchy(settingsOverride));
 }
 
 /**
@@ -142,8 +150,10 @@ function collectLeafCategories(node: CategoryNode, results: string[]): void {
 /**
  * Helper to get all flat categories for backward compatibility
  */
-export function getAllCategories(): string[] {
-  const hierarchy = getCategoryHierarchy();
+export function getAllCategories(
+  settingsOverride?: Partial<CategorySettingsOverride> | null
+): string[] {
+  const hierarchy = getCategoryHierarchy(settingsOverride);
   const all: string[] = [];
   for (const main in hierarchy) {
     collectLeafCategories(hierarchy[main], all);
@@ -205,8 +215,10 @@ function buildOptionsFromNode(
   }
 }
 
-export function getCategoryOptions(): CategoryOption[] {
-  const hierarchy = getCategoryHierarchy();
+export function getCategoryOptions(
+  settingsOverride?: Partial<CategorySettingsOverride> | null
+): CategoryOption[] {
+  const hierarchy = getCategoryHierarchy(settingsOverride);
   const options: CategoryOption[] = [];
   
   for (const main in hierarchy) {

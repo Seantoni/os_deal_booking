@@ -17,10 +17,11 @@ import type { BookingFormData } from './types'
 import { STEPS, INITIAL_FORM_DATA, getStepIndexByKey, getStepIdByKey } from './constants'
 import { validateStep, buildFormDataForSubmit, getErrorFieldLabels } from './request_form_utils'
 import { extractBusinessName } from '@/lib/utils/request-name-parsing'
-import { getSettings as getLocalSettings, saveSettings as saveLocalSettings } from '@/lib/settings'
+import { getCategoryOptions } from '@/lib/categories'
+import { DEFAULT_SETTINGS } from '@/lib/settings'
 import ProgressBar from './components/ProgressBar'
 import NavigationButtons from './components/NavigationButtons'
-import type { RequestFormFieldsConfig } from '@/types'
+import type { BookingSettings, CategoryOption, RequestFormFieldsConfig } from '@/types'
 import ConfiguracionStep from './steps/ConfiguracionStep'
 import OperatividadStep from './steps/OperatividadStep'
 import DirectorioStep from './steps/DirectorioStep'
@@ -45,6 +46,11 @@ interface EnhancedBookingFormProps {
   initialFormData?: Partial<BookingFormData>
 }
 
+type DateValidationSettings = Pick<
+  BookingSettings,
+  'minDailyLaunches' | 'maxDailyLaunches' | 'merchantRepeatDays' | 'businessExceptions'
+>
+
 export default function EnhancedBookingForm({ requestId: propRequestId, initialFormData }: EnhancedBookingFormProps = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -52,7 +58,18 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   const [formData, setFormData] = useState<BookingFormData>({ ...INITIAL_FORM_DATA, ...initialFormData })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [requiredFields, setRequiredFields] = useState<RequestFormFieldsConfig>({})
-  const [settingsSyncVersion, setSettingsSyncVersion] = useState(0)
+  const [runtimeCategoryOptions, setRuntimeCategoryOptions] = useState<CategoryOption[]>(() =>
+    getCategoryOptions({
+      customCategories: DEFAULT_SETTINGS.customCategories,
+      hiddenCategoryPaths: DEFAULT_SETTINGS.hiddenCategoryPaths,
+    })
+  )
+  const [dateValidationSettings, setDateValidationSettings] = useState<DateValidationSettings>({
+    minDailyLaunches: DEFAULT_SETTINGS.minDailyLaunches,
+    maxDailyLaunches: DEFAULT_SETTINGS.maxDailyLaunches,
+    merchantRepeatDays: DEFAULT_SETTINGS.merchantRepeatDays,
+    businessExceptions: DEFAULT_SETTINGS.businessExceptions,
+  })
   const [loadingEdit, setLoadingEdit] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   
@@ -167,20 +184,20 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
             if (result.data.requestFormFields) {
               setRequiredFields(result.data.requestFormFields)
             }
-
-            // Keep client-side settings in sync for CategorySelect/getCategoryOptions.
-            const localSettings = getLocalSettings()
-            saveLocalSettings({
-              ...localSettings,
-              ...result.data,
-              requestFormFields: result.data.requestFormFields ?? localSettings.requestFormFields,
-              customCategories: result.data.customCategories ?? localSettings.customCategories,
-              hiddenCategoryPaths: result.data.hiddenCategoryPaths ?? localSettings.hiddenCategoryPaths,
+            setRuntimeCategoryOptions(
+              getCategoryOptions({
+                customCategories: result.data.customCategories ?? DEFAULT_SETTINGS.customCategories,
+                hiddenCategoryPaths: result.data.hiddenCategoryPaths ?? DEFAULT_SETTINGS.hiddenCategoryPaths,
+              })
+            )
+            setDateValidationSettings({
+              minDailyLaunches: result.data.minDailyLaunches ?? DEFAULT_SETTINGS.minDailyLaunches,
+              maxDailyLaunches: result.data.maxDailyLaunches ?? DEFAULT_SETTINGS.maxDailyLaunches,
+              merchantRepeatDays: result.data.merchantRepeatDays ?? DEFAULT_SETTINGS.merchantRepeatDays,
+              businessExceptions: Array.isArray(result.data.businessExceptions)
+                ? result.data.businessExceptions
+                : DEFAULT_SETTINGS.businessExceptions,
             })
-
-            // Force Configuración step to remount once after settings sync so CategorySelect
-            // reads updated category visibility/customization from local settings.
-            setSettingsSyncVersion(prev => prev + 1)
           }
         }
       } catch (error) {
@@ -955,12 +972,13 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
                 <div className="animate-fadeIn overflow-visible">
                 {currentStepKey === 'configuracion' && (
                   <ConfiguracionStep 
-                    key={`configuracion-${settingsSyncVersion}`}
                     formData={formData}
                     errors={errors}
                     updateFormData={updateFormData}
                     isFieldRequired={isFieldRequired}
                     onBusinessSelect={(businessId) => setLinkedBusinessId(businessId)}
+                    categoryOptions={runtimeCategoryOptions}
+                    dateValidationSettings={dateValidationSettings}
                   />
                 )}
 
