@@ -111,9 +111,9 @@ export async function addFieldComment(
     // Only invalidate booking-requests - comments are stored there, deals don't need refresh
     invalidateEntity('booking-requests')
 
-    // Send mention emails asynchronously to avoid delaying UI response.
+    // Send mention emails after saving; failures are logged and do not fail the comment creation.
     if (normalizedMentions.length > 0) {
-      sendBookingFieldMentionNotifications({
+      await sendBookingFieldMentionNotifications({
         authorId: userId,
         authorName: newComment.authorName || newComment.authorEmail?.split('@')[0] || 'Alguien',
         mentionedUserIds: normalizedMentions,

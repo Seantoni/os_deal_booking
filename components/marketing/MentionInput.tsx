@@ -40,14 +40,14 @@ export default function MentionInput({
   showAttachments = true,
   getUsersAction,
   initialValue = '',
-  initialMentions = [],
+  initialMentions,
   autoFocus = false,
 }: MentionInputProps) {
   const [value, setValue] = useState(initialValue)
   const [showMentions, setShowMentions] = useState(false)
   const [mentionSearch, setMentionSearch] = useState('')
   const [mentionUsers, setMentionUsers] = useState<User[]>([])
-  const [selectedMentions, setSelectedMentions] = useState<User[]>(initialMentions)
+  const [selectedMentions, setSelectedMentions] = useState<User[]>(initialMentions ?? [])
   const [mentionStartIndex, setMentionStartIndex] = useState<number | null>(null)
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0)
   const [loading, setLoading] = useState(false)
@@ -82,6 +82,7 @@ export default function MentionInput({
   }, [initialValue])
 
   useEffect(() => {
+    if (initialMentions === undefined) return
     setSelectedMentions(initialMentions)
   }, [initialMentions])
 
