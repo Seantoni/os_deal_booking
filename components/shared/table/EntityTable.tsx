@@ -27,8 +27,8 @@ export default function EntityTable({
 }: EntityTableProps) {
   return (
     <div className={`bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm ${className}`}>
-      <div className="overflow-x-auto">
-        <table className={`w-full text-[13px] text-left ${tableClassName}`}>
+      <div className="table-scroll-x">
+        <table className={`min-w-full w-max text-[13px] text-left ${tableClassName}`}>
           <SortableTableHeader
             columns={columns}
             sortColumn={sortColumn}

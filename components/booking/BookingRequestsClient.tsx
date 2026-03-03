@@ -906,8 +906,8 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
 
             {/* Desktop table */}
             <div className="hidden md:block bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full table-fixed text-sm text-left">
+              <div className="table-scroll-x">
+                <table className="min-w-full w-max table-fixed text-sm text-left">
                   <SortableTableHeader
                     columns={columnsWithUserWidths}
                     sortColumn={sortColumn}

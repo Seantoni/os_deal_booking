@@ -28,14 +28,18 @@ import { getTodayInPanama, formatDateForPanama, formatShortDateNoYear, daysUntil
 import { addBusinessDaysInPanama } from '@/lib/date/timezone'
 import {
   EntityPageHeader,
+  FilterTabs,
   UserFilterDropdown,
-  TruncatedTextWithTooltip,
+  DateRangeFilter,
+  TaskDescriptionCell,
   type FilterTab,
   type ColumnConfig
 } from '@/components/shared'
 import { EntityTable, TableRow, TableCell } from '@/components/shared/table'
 import { sortEntities, type SortDirection } from '@/hooks/useEntityPage'
 import { useResizableColumns } from '@/hooks/useResizableColumns'
+import { isDateInRange, type DateRangeFilterValue } from '@/lib/utils/dateRangeFilter'
+import TableViewIcon from '@mui/icons-material/TableView'
 
 // Lazy load modals
 const TaskModal = dynamic(() => import('@/components/crm/opportunity/TaskModal'), {
@@ -86,7 +90,16 @@ const COLUMNS: ColumnConfig[] = [
   { key: 'actions', label: '', align: 'right' },
 ]
 
+const ALL_TASKS_COLUMNS: ColumnConfig[] = [
+  { key: 'title', label: 'Tarea', sortable: true },
+  { key: 'category', label: 'Categoría', sortable: true },
+  { key: 'status', label: 'Estado', sortable: true },
+  { key: 'description', label: 'Descripción' },
+  { key: 'meetingOutcome', label: '¿Acuerdo?', sortable: true, align: 'center' },
+]
+
 const TASKS_COLUMN_WIDTHS_STORAGE_KEY = 'tasks-table-column-widths'
+const ALL_TASKS_COLUMN_WIDTHS_STORAGE_KEY = 'all-tasks-table-column-widths'
 const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
   status: 40,
   title: 122,
@@ -100,6 +113,14 @@ const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
   contactEmail: 180,
   contactPhone: 110,
   actions: 48,
+}
+
+const ALL_TASKS_DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
+  title: 220,
+  category: 120,
+  status: 120,
+  description: 100,
+  meetingOutcome: 96,
 }
 
 const MIN_COLUMN_WIDTHS: Record<string, number> = {
@@ -117,7 +138,18 @@ const MIN_COLUMN_WIDTHS: Record<string, number> = {
   actions: 40,
 }
 
+const ALL_TASKS_MIN_COLUMN_WIDTHS: Record<string, number> = {
+  title: 140,
+  category: 90,
+  status: 90,
+  description: 100,
+  meetingOutcome: 80,
+}
+
 type FilterType = 'all' | 'pending' | 'completed' | 'overdue' | 'meetings' | 'todos'
+type TasksPageTab = 'manage' | 'all_tasks'
+type AllTasksStatusFilter = 'all' | 'pending' | 'completed'
+type AllTasksCategoryFilter = 'all' | 'meetings' | 'tasks'
 
 interface MeetingPipelineAutomationResult {
   didMutateOpportunity: boolean
@@ -137,6 +169,10 @@ export default function TasksPageClient() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState<FilterType>('pending')
+  const [activeTab, setActiveTab] = useState<TasksPageTab>('manage')
+  const [allTasksStatusFilter, setAllTasksStatusFilter] = useState<AllTasksStatusFilter>('all')
+  const [allTasksCategoryFilter, setAllTasksCategoryFilter] = useState<AllTasksCategoryFilter>('all')
+  const [allTasksDateFilter, setAllTasksDateFilter] = useState<DateRangeFilterValue>({ preset: 'all' })
   const [responsibleFilter, setResponsibleFilter] = useState<string | null>(null)
   const [serverCounts, setServerCounts] = useState<Record<string, number>>({})
   
@@ -171,10 +207,21 @@ export default function TasksPageClient() {
   // Sorting state
   const [sortColumn, setSortColumn] = useState<string | null>('date')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+  const [allTasksSortColumn, setAllTasksSortColumn] = useState<string | null>('title')
+  const [allTasksSortDirection, setAllTasksSortDirection] = useState<SortDirection>('asc')
   const { columnsWithUserWidths, handleColumnResize, getColumnCellStyle } = useResizableColumns(COLUMNS, {
     storageKey: TASKS_COLUMN_WIDTHS_STORAGE_KEY,
     defaultWidths: DEFAULT_COLUMN_WIDTHS,
     minWidths: MIN_COLUMN_WIDTHS,
+  })
+  const {
+    columnsWithUserWidths: allTasksColumnsWithUserWidths,
+    handleColumnResize: handleAllTasksColumnResize,
+    getColumnCellStyle: getAllTasksColumnCellStyle,
+  } = useResizableColumns(ALL_TASKS_COLUMNS, {
+    storageKey: ALL_TASKS_COLUMN_WIDTHS_STORAGE_KEY,
+    defaultWidths: ALL_TASKS_DEFAULT_COLUMN_WIDTHS,
+    minWidths: ALL_TASKS_MIN_COLUMN_WIDTHS,
   })
 
   // Load tasks
@@ -204,6 +251,12 @@ export default function TasksPageClient() {
     loadTasks({ responsibleId: responsibleFilter || undefined })
   }, [loadTasks, responsibleFilter])
 
+  useEffect(() => {
+    if (!isAdmin && activeTab !== 'manage') {
+      setActiveTab('manage')
+    }
+  }, [isAdmin, activeTab])
+
   // Handle sort
   const handleSort = (column: string) => {
     if (sortColumn === column) {
@@ -211,6 +264,15 @@ export default function TasksPageClient() {
     } else {
       setSortColumn(column)
       setSortDirection('asc')
+    }
+  }
+
+  const handleAllTasksSort = (column: string) => {
+    if (allTasksSortColumn === column) {
+      setAllTasksSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setAllTasksSortColumn(column)
+      setAllTasksSortDirection('asc')
     }
   }
 
@@ -266,6 +328,79 @@ export default function TasksPageClient() {
       }
     })
   }, [filteredTasks, sortColumn, sortDirection])
+
+  const allTasksBase = useMemo(() => {
+    let filtered = optimisticTasks
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(t =>
+        t.title.toLowerCase().includes(query) ||
+        t.opportunity?.business?.name?.toLowerCase().includes(query) ||
+        t.notes?.toLowerCase().includes(query)
+      )
+    }
+
+    filtered = filtered.filter((task) => isDateInRange(new Date(task.date), allTasksDateFilter))
+
+    return filtered
+  }, [optimisticTasks, searchQuery, allTasksDateFilter])
+
+  const allTasksStatusCounts = useMemo(() => {
+    return {
+      all: allTasksBase.length,
+      pending: allTasksBase.filter((task) => !task.completed).length,
+      completed: allTasksBase.filter((task) => task.completed).length,
+    }
+  }, [allTasksBase])
+
+  const allTasksCategoryCounts = useMemo(() => {
+    return {
+      all: allTasksBase.length,
+      meetings: allTasksBase.filter((task) => task.category === 'meeting').length,
+      tasks: allTasksBase.filter((task) => task.category === 'todo').length,
+    }
+  }, [allTasksBase])
+
+  const allTasksByCategory = useMemo(() => {
+    if (allTasksCategoryFilter === 'meetings') {
+      return allTasksBase.filter((task) => task.category === 'meeting')
+    }
+    if (allTasksCategoryFilter === 'tasks') {
+      return allTasksBase.filter((task) => task.category === 'todo')
+    }
+    return allTasksBase
+  }, [allTasksBase, allTasksCategoryFilter])
+
+  const allTasksFiltered = useMemo(() => {
+    if (allTasksStatusFilter === 'pending') {
+      return allTasksByCategory.filter((task) => !task.completed)
+    }
+    if (allTasksStatusFilter === 'completed') {
+      return allTasksByCategory.filter((task) => task.completed)
+    }
+    return allTasksByCategory
+  }, [allTasksByCategory, allTasksStatusFilter])
+
+  const allTasksSorted = useMemo(() => {
+    return sortEntities(allTasksFiltered, allTasksSortColumn, allTasksSortDirection, (task, column) => {
+      switch (column) {
+        case 'title':
+          return task.title
+        case 'category':
+          return task.category
+        case 'status':
+          return task.completed ? 1 : 0
+        case 'meetingOutcome': {
+          if (task.category !== 'meeting') return ''
+          const meetingData = parseMeetingData(task.notes || null)
+          return meetingData?.reachedAgreement || ''
+        }
+        default:
+          return null
+      }
+    })
+  }, [allTasksFiltered, allTasksSortColumn, allTasksSortDirection])
 
   // Count for filters - uses server counts when available, falls back to optimistic counts
   const counts = useMemo(() => {
@@ -858,7 +993,11 @@ export default function TasksPageClient() {
     return `${dueDateLabel} (${daysUntil} día${daysUntil === 1 ? '' : 's'})`
   }
 
-  const getTaskDescription = (task: TaskWithOpportunity, meetingData?: MeetingData | null) => {
+  const getTaskDescription = (
+    task: TaskWithOpportunity,
+    meetingData?: MeetingData | null,
+    separator = ' | ',
+  ) => {
     if (!task.notes) return '-'
     if (task.category !== 'meeting') return task.notes
 
@@ -876,7 +1015,7 @@ export default function TasksPageClient() {
       if (objectionSolution) parts.push(`Solución: ${objectionSolution}`)
     }
 
-    return parts.filter(Boolean).join(' | ') || '-'
+    return parts.filter(Boolean).join(separator) || '-'
   }
 
   const filterTabs: FilterTab[] = [
@@ -888,17 +1027,82 @@ export default function TasksPageClient() {
     { id: 'todos', label: 'To-dos', count: counts.todos },
   ]
 
+  const allTasksFilterTabs: FilterTab[] = [
+    { id: 'all', label: 'Todas', count: allTasksStatusCounts.all },
+    { id: 'pending', label: 'Pendientes', count: allTasksStatusCounts.pending },
+    { id: 'completed', label: 'Completadas', count: allTasksStatusCounts.completed },
+  ]
+
+  const allTasksCategoryTabs: FilterTab[] = [
+    { id: 'all', label: 'Todas', count: allTasksCategoryCounts.all },
+    { id: 'meetings', label: 'Reuniones', count: allTasksCategoryCounts.meetings },
+    { id: 'tasks', label: 'Tareas', count: allTasksCategoryCounts.tasks },
+  ]
+
+  const isAllTasksTab = isAdmin && activeTab === 'all_tasks'
+  const activeHeaderFilter = isAllTasksTab ? allTasksStatusFilter : activeFilter
+  const headerFilterTabs = isAllTasksTab ? allTasksFilterTabs : filterTabs
+
   return (
     <div className="h-full flex flex-col bg-gray-50">
+      {isAdmin && (
+        <div className="bg-white border-b border-gray-200 px-4 pt-3">
+          <div className="flex gap-1">
+            <button
+              onClick={() => setActiveTab('manage')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${
+                activeTab === 'manage'
+                  ? 'bg-gray-100 text-gray-900 border-b-2 border-blue-500'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <AssignmentIcon style={{ fontSize: 18 }} />
+              Gestión
+            </button>
+            <button
+              onClick={() => setActiveTab('all_tasks')}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center gap-2 ${
+                activeTab === 'all_tasks'
+                  ? 'bg-gray-100 text-gray-900 border-b-2 border-blue-500'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <TableViewIcon style={{ fontSize: 18 }} />
+              Todas las tareas
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header with Search and Filters */}
       <EntityPageHeader
-        searchPlaceholder="Buscar tareas..."
+        searchPlaceholder={isAllTasksTab ? 'Buscar en todas las tareas...' : 'Buscar tareas...'}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        filterTabs={filterTabs}
-        activeFilter={activeFilter}
-        onFilterChange={(id) => setActiveFilter(id as FilterType)}
+        filterTabs={headerFilterTabs}
+        activeFilter={activeHeaderFilter}
+        onFilterChange={(id) => {
+          if (isAllTasksTab) {
+            setAllTasksStatusFilter(id as AllTasksStatusFilter)
+            return
+          }
+          setActiveFilter(id as FilterType)
+        }}
         isAdmin={isAdmin}
+        beforeFilters={isAllTasksTab ? (
+          <div className="flex items-center gap-2">
+            <DateRangeFilter
+              value={allTasksDateFilter}
+              onChange={setAllTasksDateFilter}
+            />
+            <div className="h-5 w-px bg-gray-200 mx-0.5 flex-shrink-0"></div>
+            <FilterTabs
+              items={allTasksCategoryTabs}
+              activeId={allTasksCategoryFilter}
+              onChange={(id) => setAllTasksCategoryFilter(id as AllTasksCategoryFilter)}
+            />
+          </div>
+        ) : undefined}
         userFilter={isAdmin ? (
           <UserFilterDropdown
             users={userFilterOptions}
@@ -912,7 +1116,104 @@ export default function TasksPageClient() {
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-0 md:p-4 bg-gray-50">
-        {loading ? (
+        {isAllTasksTab ? (
+          loading ? (
+            <div className="space-y-2 p-4 md:p-0">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="bg-white rounded-lg p-4 animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-1/4 mb-3" />
+                  <div className="space-y-2">
+                    <div className="h-3 bg-gray-200 rounded w-11/12" />
+                    <div className="h-3 bg-gray-200 rounded w-10/12" />
+                    <div className="h-3 bg-gray-200 rounded w-9/12" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : allTasksSorted.length === 0 ? (
+            <div className="bg-white rounded-lg p-8 text-center border border-gray-200 mx-4 md:mx-0">
+              <AssignmentIcon className="text-gray-400 mx-auto mb-3" style={{ fontSize: 48 }} />
+              <p className="text-gray-500 font-medium">No hay tareas para mostrar</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Ajuste la búsqueda, estado o rango de fechas para ver resultados
+              </p>
+            </div>
+          ) : (
+            <EntityTable
+              columns={allTasksColumnsWithUserWidths}
+              sortColumn={allTasksSortColumn}
+              sortDirection={allTasksSortDirection}
+              onSort={handleAllTasksSort}
+              onColumnResize={handleAllTasksColumnResize}
+              tableClassName="table-fixed [&_th]:px-3 [&_td]:px-3 [&_td]:text-sm"
+            >
+              {allTasksSorted.map((task, index) => {
+                const meetingData = task.category === 'meeting' ? parseMeetingData(task.notes || null) : null
+                const meetingOutcome =
+                  meetingData?.reachedAgreement === 'si'
+                    ? 'Sí'
+                    : meetingData?.reachedAgreement === 'no'
+                      ? 'No'
+                      : '-'
+                const multilineDescription = getTaskDescription(task, meetingData, '\n')
+
+                return (
+                  <TableRow
+                    key={task.id}
+                    index={index}
+                    className="hover:bg-slate-50/80"
+                  >
+                    <TableCell style={getAllTasksColumnCellStyle('title')}>
+                      <span className="text-sm font-medium text-slate-900">
+                        {task.title}
+                      </span>
+                    </TableCell>
+
+                    <TableCell style={getAllTasksColumnCellStyle('category')}>
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                        task.category === 'meeting'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-orange-100 text-orange-700'
+                      }`}>
+                        {task.category === 'meeting' ? 'Reunión' : 'To-do'}
+                      </span>
+                    </TableCell>
+
+                    <TableCell style={getAllTasksColumnCellStyle('status')}>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        task.completed
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {task.completed ? 'Completada' : 'Pendiente'}
+                      </span>
+                    </TableCell>
+
+                    <TableCell
+                      className="!overflow-visible"
+                      style={{
+                        ...getAllTasksColumnCellStyle('description'),
+                        height: 'auto',
+                        verticalAlign: 'top',
+                      }}
+                    >
+                      <TaskDescriptionCell text={multilineDescription} mode="multiline" />
+                    </TableCell>
+
+                    <TableCell
+                      align="center"
+                      style={getAllTasksColumnCellStyle('meetingOutcome')}
+                    >
+                      <span className="text-sm text-slate-700">
+                        {task.category === 'meeting' ? meetingOutcome : '-'}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </EntityTable>
+          )
+        ) : loading ? (
           <div className="space-y-2 p-4 md:p-0">
             {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="bg-white rounded-lg p-4 animate-pulse">
@@ -1173,10 +1474,7 @@ export default function TasksPageClient() {
                         style={getColumnCellStyle('description')}
                         className="!overflow-visible"
                       >
-                        <TruncatedTextWithTooltip
-                          text={taskDescription}
-                          className="text-sm text-slate-700"
-                        />
+                        <TaskDescriptionCell text={taskDescription} mode="truncate" />
                       </TableCell>
 
                       {/* Meeting Outcome */}
