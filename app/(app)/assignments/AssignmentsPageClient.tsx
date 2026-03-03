@@ -85,6 +85,10 @@ function isArchivedAssignment(business: AssignmentBusiness): boolean {
   return business.reassignmentStatus === 'archived'
 }
 
+function isInsideSalesAssignment(business: AssignmentBusiness): boolean {
+  return business.salesTeam?.trim().toLowerCase() === 'inside sales'
+}
+
 export default function AssignmentsPageClient({
   initialAssignments = [],
   initialTotal = 0,
@@ -98,7 +102,9 @@ export default function AssignmentsPageClient({
   
   // Data state
   const [assignments, setAssignments] = useState<AssignmentBusiness[]>(
-    initialAssignments.filter((assignment) => !isArchivedAssignment(assignment))
+    initialAssignments.filter(
+      (assignment) => !isArchivedAssignment(assignment) && !isInsideSalesAssignment(assignment)
+    )
   )
   const [total, setTotal] = useState(initialTotal)
   const [counts, setCounts] = useState(initialCounts || { all: 0, reasignar: 0, sacar: 0, recurrente: 0 })
@@ -140,7 +146,7 @@ export default function AssignmentsPageClient({
       if (assignmentsResult.success && assignmentsResult.data) {
         setAssignments(
           (assignmentsResult.data as AssignmentBusiness[])
-            .filter((assignment) => !isArchivedAssignment(assignment))
+            .filter((assignment) => !isArchivedAssignment(assignment) && !isInsideSalesAssignment(assignment))
         )
         setTotal('total' in assignmentsResult ? (assignmentsResult.total || 0) : 0)
       }
@@ -170,7 +176,7 @@ export default function AssignmentsPageClient({
       if (result.success && result.data) {
         setSearchResults(
           (result.data as AssignmentBusiness[])
-            .filter((assignment) => !isArchivedAssignment(assignment))
+            .filter((assignment) => !isArchivedAssignment(assignment) && !isInsideSalesAssignment(assignment))
         )
       }
     } catch (error) {
@@ -216,10 +222,10 @@ export default function AssignmentsPageClient({
 
   // Filter and sort data
   const isSearching = !!searchQuery && searchQuery.length >= 2
-  const displayAssignments = isSearching ? (searchResults || []) : assignments
 
   const filteredAssignments = useMemo(() => {
-    let filtered = displayAssignments
+    const displayAssignments = isSearching ? (searchResults || []) : assignments
+    let filtered = displayAssignments.filter((assignment) => !isInsideSalesAssignment(assignment))
 
     // Apply type filter on search results (since search doesn't filter by type)
     if (isSearching && typeFilter !== 'all') {
@@ -235,7 +241,7 @@ export default function AssignmentsPageClient({
     }
 
     return filtered
-  }, [displayAssignments, typeFilter, isSearching, sortColumn, sortDirection, getSortValue, applyFiltersToData, filterRules])
+  }, [assignments, searchResults, typeFilter, isSearching, sortColumn, sortDirection, getSortValue, applyFiltersToData])
 
   // Handle assign to new owner
   const handleAssign = (business: AssignmentBusiness) => {

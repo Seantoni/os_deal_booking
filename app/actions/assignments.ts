@@ -8,6 +8,23 @@ import { logActivity } from '@/lib/activity-log'
 
 export type ReassignmentType = 'reasignar' | 'sacar' | 'recurrente'
 const PENDING_REASSIGNMENT_STATUSES = ['pending_reassign', 'pending_removal'] as const
+const INSIDE_SALES_TEAM = 'inside sales'
+
+const pendingAssignmentsBaseWhere = {
+  reassignmentStatus: { in: [...PENDING_REASSIGNMENT_STATUSES] },
+  NOT: [
+    {
+      salesTeam: {
+        equals: 'Inside Sales',
+        mode: 'insensitive' as const,
+      },
+    },
+  ],
+}
+
+function isInsideSalesTeam(team: string | null | undefined): boolean {
+  return team?.trim().toLowerCase() === INSIDE_SALES_TEAM
+}
 
 // Business include config for consistent queries
 const businessInclude = {
@@ -167,7 +184,7 @@ export async function getAssignmentsPaginated(options: {
     // Build where clause - only businesses with pending reassignment
     // Cast to allow new fields that TypeScript may not yet recognize
     const whereClause = {
-      reassignmentStatus: { in: [...PENDING_REASSIGNMENT_STATUSES] },
+      ...pendingAssignmentsBaseWhere,
     } as Record<string, unknown>
 
     // Apply type filter
@@ -252,23 +269,23 @@ export async function getAssignmentsCounts() {
   try {
     const [total, reasignar, sacar, recurrente] = await Promise.all([
       prisma.business.count({
-        where: { reassignmentStatus: { in: [...PENDING_REASSIGNMENT_STATUSES] } } as never,
+        where: { ...pendingAssignmentsBaseWhere } as never,
       }),
       prisma.business.count({
         where: {
-          reassignmentStatus: { in: [...PENDING_REASSIGNMENT_STATUSES] },
+          ...pendingAssignmentsBaseWhere,
           reassignmentType: 'reasignar',
         } as never,
       }),
       prisma.business.count({
         where: {
-          reassignmentStatus: { in: [...PENDING_REASSIGNMENT_STATUSES] },
+          ...pendingAssignmentsBaseWhere,
           reassignmentType: 'sacar',
         } as never,
       }),
       prisma.business.count({
         where: {
-          reassignmentStatus: { in: [...PENDING_REASSIGNMENT_STATUSES] },
+          ...pendingAssignmentsBaseWhere,
           reassignmentType: 'recurrente',
         } as never,
       }),
@@ -460,7 +477,7 @@ export async function searchAssignments(query: string) {
     const businesses = await prisma.business.findMany({
       where: {
         AND: [
-          { reassignmentStatus: { in: [...PENDING_REASSIGNMENT_STATUSES] } } as never,
+          pendingAssignmentsBaseWhere as never,
           {
             OR: [
               { name: { contains: searchTerm, mode: 'insensitive' } },
@@ -483,7 +500,7 @@ export async function searchAssignments(query: string) {
 /**
  * Auto-add recurring business to assignments
  * Called during deal metrics sync when a business has >2 deals in 360 days
- * Only for businesses with salesTeam = 'Outside Sales' or null/blank
+ * Only for businesses where salesTeam is NOT "Inside Sales"
  * 
  * @param businessId - The business ID to add
  * @param businessName - The business name for logging
@@ -513,9 +530,9 @@ export async function autoAddRecurringBusiness(
       return { added: false, reason: 'Already has pending reassignment' }
     }
 
-    // Only process businesses with salesTeam = 'Outside Sales' or null/blank
+    // Only process businesses where salesTeam is not "Inside Sales"
     const salesTeam = businessWithReassignment[0].salesTeam
-    if (salesTeam && salesTeam !== 'Outside Sales') {
+    if (isInsideSalesTeam(salesTeam)) {
       return { added: false, reason: `Excluded: salesTeam is ${salesTeam}` }
     }
 

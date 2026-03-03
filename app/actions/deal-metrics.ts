@@ -15,11 +15,16 @@ import type { DealMetric } from '@/lib/api/external-oferta/deal/types'
 import type { Prisma } from '@prisma/client'
 
 const RECURRING_DEALS_THRESHOLD = 2
+const INSIDE_SALES_TEAM = 'inside sales'
 
 function deriveBusinessLifecycle(totalDeals360d: number): 'RECURRENT' | 'NEW' {
   // Keep current recurring business rule aligned with assignments:
   // "más de 2 deals en 360 días".
   return totalDeals360d > RECURRING_DEALS_THRESHOLD ? 'RECURRENT' : 'NEW'
+}
+
+function isInsideSalesTeam(team: string | null | undefined): boolean {
+  return team?.trim().toLowerCase() === INSIDE_SALES_TEAM
 }
 
 export interface SyncMetricsResult {
@@ -343,10 +348,9 @@ async function updateBusinessMetricsForVendors(vendorIds: string[]): Promise<{ u
       updated++
 
       // Auto-add to assignments if recurring (>2 deals in 360 days)
-      // Only for businesses with salesTeam = 'Outside Sales' or null/blank
+      // Only for businesses where salesTeam is not "Inside Sales".
       if (businessLifecycle === 'RECURRENT') {
-        const salesTeam = business.salesTeam
-        if (!salesTeam || salesTeam === 'Outside Sales') {
+        if (!isInsideSalesTeam(business.salesTeam)) {
           const result = await autoAddRecurringBusiness(
             business.id,
             business.name,
