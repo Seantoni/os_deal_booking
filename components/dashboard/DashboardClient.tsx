@@ -8,6 +8,7 @@ import { getInboxItems, dismissInboxItem } from '@/app/actions/inbox'
 import { clearPendingComment, getPendingComments, type PendingCommentItem } from '@/app/actions/comments'
 import { useSharedData } from '@/hooks/useSharedData'
 import { useUserRole } from '@/hooks/useUserRole'
+import { useOpportunityModal } from '@/hooks/useOpportunityModal'
 import { formatRelativeTime } from '@/lib/date'
 import { getLastNDaysRangeInPanama, PANAMA_TIMEZONE, parseDateInPanamaTime } from '@/lib/date/timezone'
 
@@ -132,7 +133,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
   const { isAdmin } = useUserRole()
   
   // Use shared users from context (already loaded in layout) - saves 1 API call
-  const { users } = useSharedData()
+  const { users, categories } = useSharedData()
   
   // Use initial data from server if available (no loading flash)
   const [loading, setLoading] = useState(!initialData?.stats)
@@ -148,6 +149,10 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
   const [draftEndDate, setDraftEndDate] = useState(filters.endDate || '')
   const [time, setTime] = useState<string>('')
   const [date, setDate] = useState<string>('')
+  const { openFromLink: openOpportunityFromLink, modalNode: opportunityModalNode } = useOpportunityModal({
+    preloadedCategories: categories,
+    preloadedUsers: users,
+  })
   
   // Debounce timer ref for filter changes
   const filterDebounceRef = useRef<NodeJS.Timeout | null>(null)
@@ -319,7 +324,19 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
     }
   }
 
-  const handleInboxItemClick = (item: InboxItem) => {
+  const handleInboxItemClick = async (item: InboxItem) => {
+    if (item.entityType === 'opportunity') {
+      const wasOpened = await openOpportunityFromLink(item.linkUrl)
+      if (wasOpened) return
+    }
+    router.push(item.linkUrl)
+  }
+
+  const handlePendingCommentClick = async (item: PendingCommentItem) => {
+    if (item.type === 'opportunity') {
+      const wasOpened = await openOpportunityFromLink(item.linkUrl)
+      if (wasOpened) return
+    }
     router.push(item.linkUrl)
   }
 
@@ -870,7 +887,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                   {pendingComments.slice(0, 5).map((item) => (
                     <div key={`${item.type}-${item.id}`} className="relative group">
                       <button
-                        onClick={() => router.push(item.linkUrl)}
+                        onClick={() => handlePendingCommentClick(item)}
                         className={`w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-3 ${
                           isAdmin ? 'pr-8' : ''
                         }`}
@@ -1167,6 +1184,8 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
             </div>
           </div>
         </div>
+
+        {opportunityModalNode}
 
       </div>
     </div>
