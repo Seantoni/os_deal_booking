@@ -79,4 +79,4 @@ export function isApiConfigured(token: string | undefined): token is string {
 /**
  * Common trigger types for API calls
  */
-export type TriggerType = 'manual' | 'cron' | 'webhook' | 'system'
+export type TriggerType = 'manual' | 'cron' | 'webhook' | 'system' | 'repost'

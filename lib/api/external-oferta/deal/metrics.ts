@@ -14,7 +14,7 @@ export interface FetchMetricsOptions {
   limit?: number // Max 1000, default 100
   offset?: number // Default 0
   userId?: string
-  triggeredBy?: 'manual' | 'cron' | 'webhook' | 'system'
+  triggeredBy?: 'manual' | 'cron' | 'webhook' | 'system' | 'repost'
 }
 
 /**

@@ -141,7 +141,7 @@ export default function ApiLogsTab() {
     const toastId = toast.custom(
       (t) => (
         <ActionToastCard
-          title="Resending request to OfertaSimple…"
+          title="Reposting request to OfertaSimple…"
           message={`Log ID: ${logId}\nThis may take a few seconds.`}
           variant="loading"
           onDismiss={() => toast.dismiss(t.id)}
@@ -156,14 +156,14 @@ export default function ApiLogsTab() {
         body: JSON.stringify({ logId }),
       })
       const json = await resp.json()
-      if (!json?.success) throw new Error(json?.error || 'Resend failed')
+      if (!json?.success) throw new Error(json?.error || 'Repost failed')
 
       const result = json.data as { success: boolean; externalId?: number; logId?: string; error?: string }
       if (result.success) {
         toast.custom(
           (t) => (
             <ActionToastCard
-              title="Resent successfully"
+              title="Reposted successfully"
               message={`${result.externalId ? `Deal #${result.externalId}\n` : ''}${result.logId ? `Log ID: ${result.logId}` : ''}`}
               variant="success"
               onDismiss={() => toast.dismiss(t.id)}
@@ -175,7 +175,7 @@ export default function ApiLogsTab() {
         toast.custom(
           (t) => (
             <ActionToastCard
-              title="Resend failed"
+              title="Repost failed"
               message={`${result.error || 'Unknown error'}${result.logId ? `\nLog ID: ${result.logId}` : ''}`}
               variant="error"
               onDismiss={() => toast.dismiss(t.id)}
@@ -190,8 +190,8 @@ export default function ApiLogsTab() {
       toast.custom(
         (t) => (
           <ActionToastCard
-            title="Resend failed"
-            message={e instanceof Error ? e.message : 'Resend failed'}
+            title="Repost failed"
+            message={e instanceof Error ? e.message : 'Repost failed'}
             variant="error"
             onDismiss={() => toast.dismiss(t.id)}
           />
@@ -408,14 +408,14 @@ export default function ApiLogsTab() {
                         {log.errorMessage || '-'}
                       </td>
                       <td className="px-3 py-2 text-right">
-                        {!log.success && requestType === 'deal' && (
+                        {!log.success && log.method?.toUpperCase() === 'POST' && (requestType === 'deal' || requestType === 'vendor') && (
                           <Button
                             size="xs"
                             variant="secondary"
                             disabled={loading || resendingId === log.id}
                             onClick={() => beginResend(log.id)}
                           >
-                            {resendingId === log.id ? 'Resending…' : 'Resend'}
+                            {resendingId === log.id ? 'Reposting…' : 'Repost'}
                           </Button>
                         )}
                       </td>
@@ -458,12 +458,12 @@ export default function ApiLogsTab() {
         )}
       </div>
 
-      {/* Resend confirmation dialog */}
+      {/* Repost confirmation dialog */}
       <ConfirmDialog
         isOpen={showResendConfirm}
-        title="Resend request to OfertaSimple?"
-        message="This will resend the exact logged payload to OfertaSimple and create a new log entry."
-        confirmText="Yes, resend"
+        title="Repost request to OfertaSimple?"
+        message="This will repost the exact logged payload to OfertaSimple and create a new log entry."
+        confirmText="Yes, repost"
         cancelText="Cancel"
         confirmVariant="primary"
         onConfirm={handleResendConfirmed}
@@ -475,4 +475,3 @@ export default function ApiLogsTab() {
     </div>
   )
 }
-

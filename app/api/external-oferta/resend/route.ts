@@ -3,7 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { auth } from '@clerk/nextjs/server'
 import { requireAdmin } from '@/lib/auth/roles'
 import type { ExternalOfertaDealRequest } from '@/lib/api/external-oferta'
-import { sendExternalDealPayload } from '@/lib/api/external-oferta'
+import type { ExternalOfertaVendorRequest } from '@/lib/api/external-oferta'
+import { sendExternalDealPayload, sendExternalVendorPayload } from '@/lib/api/external-oferta'
 import { externalApiLimiter, applyRateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
@@ -42,31 +43,38 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Log not found' }, { status: 404 })
     }
 
-    // Safety: only allow resending to the known OfertaSimple deals endpoint
+    // Safety: only allow reposting known POST endpoints.
     if (record.method?.toUpperCase() !== 'POST') {
-      return NextResponse.json({ success: false, error: 'Only POST requests can be resent' }, { status: 400 })
-    }
-    if (!record.endpoint?.includes('/external/api/deals')) {
-      return NextResponse.json({ success: false, error: 'Unsupported endpoint for resend' }, { status: 400 })
+      return NextResponse.json({ success: false, error: 'Only POST requests can be reposted' }, { status: 400 })
     }
 
-    const payload = record.requestBody as unknown as ExternalOfertaDealRequest
-    const result = await sendExternalDealPayload(payload, {
-      endpoint: record.endpoint,
-      bookingRequestId: record.bookingRequestId || undefined,
-      userId: userId || undefined,
-      triggeredBy: 'manual',
-      resendOfLogId: record.id,
-    })
+    const isDealEndpoint = record.endpoint?.includes('/external/api/deals')
+    const isVendorEndpoint = record.endpoint?.includes('/external/api/vendors')
+
+    if (!isDealEndpoint && !isVendorEndpoint) {
+      return NextResponse.json({ success: false, error: 'Unsupported endpoint for repost' }, { status: 400 })
+    }
+
+    const result = isDealEndpoint
+      ? await sendExternalDealPayload(record.requestBody as unknown as ExternalOfertaDealRequest, {
+          endpoint: record.endpoint,
+          bookingRequestId: record.bookingRequestId || undefined,
+          userId: userId || undefined,
+          triggeredBy: 'repost',
+          resendOfLogId: record.id,
+        })
+      : await sendExternalVendorPayload(record.requestBody as unknown as ExternalOfertaVendorRequest, {
+          endpoint: record.endpoint,
+          userId: userId || undefined,
+          triggeredBy: 'repost',
+        })
 
     return NextResponse.json({ success: true, data: result })
   } catch (error) {
-    console.error('Error resending external oferta request:', error)
+    console.error('Error reposting external oferta request:', error)
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }
 }
-
-

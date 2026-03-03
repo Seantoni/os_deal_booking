@@ -27,7 +27,7 @@ export async function sendExternalVendorPayload(
   options?: {
     endpoint?: string
     userId?: string
-    triggeredBy?: 'manual' | 'cron' | 'webhook' | 'system'
+    triggeredBy?: 'manual' | 'cron' | 'webhook' | 'system' | 'repost'
   }
 ): Promise<SendVendorResult & { responseStatusCode?: number; responseRaw?: string }> {
   const startTime = Date.now()
@@ -159,7 +159,7 @@ export async function sendVendorToExternalApi(
   business: Business,
   options?: {
     userId?: string
-    triggeredBy?: 'manual' | 'cron' | 'webhook' | 'system'
+    triggeredBy?: 'manual' | 'cron' | 'webhook' | 'system' | 'repost'
     /** Override default sales type (0=Regular) */
     salesType?: number
   }
@@ -260,7 +260,7 @@ export async function updateVendorInExternalApi(
   changedFields: ExternalOfertaVendorUpdateRequest,
   options?: {
     userId?: string
-    triggeredBy?: 'manual' | 'cron' | 'webhook' | 'system'
+    triggeredBy?: 'manual' | 'cron' | 'webhook' | 'system' | 'repost'
   }
 ): Promise<UpdateVendorResult> {
   const startTime = Date.now()

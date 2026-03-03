@@ -197,7 +197,7 @@ export async function sendExternalDealPayload(
     endpoint?: string
     bookingRequestId?: string
     userId?: string
-    triggeredBy?: 'manual' | 'cron' | 'webhook' | 'system'
+    triggeredBy?: 'manual' | 'cron' | 'webhook' | 'system' | 'repost'
     resendOfLogId?: string
   }
 ): Promise<SendDealResult & { responseStatusCode?: number; responseRaw?: string }> {
@@ -321,7 +321,7 @@ export async function sendDealToExternalApi(
   bookingRequest: BookingRequestData,
   options?: {
     userId?: string
-    triggeredBy?: 'manual' | 'cron' | 'webhook' | 'system'
+    triggeredBy?: 'manual' | 'cron' | 'webhook' | 'system' | 'repost'
     /** Override the deal start/end dates sent to OfertaSimple (used when booking an event) */
     runAt?: Date | string | null
     endAt?: Date | string | null
