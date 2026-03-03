@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth, handleServerActionError, ServerActionResponse } from '@/lib/utils/server-actions'
 import { getUserRole } from '@/lib/auth/roles'
 
+const PENDING_COMMENT_CLOSED_MARKER = '__pending_comment_closed__'
+
 // Types for pending comments (dashboard widget)
 export interface PendingCommentItem {
   id: string
@@ -157,6 +159,7 @@ export async function getAllComments(
 
     const getUser = (id: string) => userMap.get(id) || { name: null, email: null }
     const getUserName = (id: string) => {
+      if (id === PENDING_COMMENT_CLOSED_MARKER) return 'Cerrado'
       const user = getUser(id)
       return user.name || user.email || id
     }
@@ -313,6 +316,7 @@ export async function getPendingComments(): Promise<ServerActionResponse<Pending
         id: true,
         userId: true,
         content: true,
+        dismissedBy: true,
         createdAt: true,
         opportunityId: true,
         opportunity: {
@@ -334,6 +338,7 @@ export async function getPendingComments(): Promise<ServerActionResponse<Pending
         id: true,
         userId: true,
         content: true,
+        dismissedBy: true,
         createdAt: true,
         optionId: true,
         option: {
@@ -369,6 +374,11 @@ export async function getPendingComments(): Promise<ServerActionResponse<Pending
 
     // Find pending comments (no response from a different user after this comment)
     const pendingOppComments = oppComments.filter(comment => {
+      const dismissedBy = (comment.dismissedBy as string[]) || []
+      if (dismissedBy.includes(PENDING_COMMENT_CLOSED_MARKER) || dismissedBy.includes(userId)) {
+        return false
+      }
+
       const allCommentsForOpp = oppCommentsByOpp.get(comment.opportunityId) || []
       const hasResponse = allCommentsForOpp.some(
         c => c.userId !== comment.userId && c.createdAt > comment.createdAt
@@ -377,6 +387,11 @@ export async function getPendingComments(): Promise<ServerActionResponse<Pending
     })
 
     const pendingMktComments = mktComments.filter(comment => {
+      const dismissedBy = (comment.dismissedBy as string[]) || []
+      if (dismissedBy.includes(PENDING_COMMENT_CLOSED_MARKER) || dismissedBy.includes(userId)) {
+        return false
+      }
+
       const allCommentsForOption = mktCommentsByOption.get(comment.optionId) || []
       const hasResponse = allCommentsForOption.some(
         c => c.userId !== comment.userId && c.createdAt > comment.createdAt
@@ -449,5 +464,65 @@ export async function getPendingComments(): Promise<ServerActionResponse<Pending
     }
   } catch (error) {
     return handleServerActionError(error, 'getPendingComments')
+  }
+}
+
+/**
+ * Clear a pending comment from dashboard "Sin Respuesta" (admin only).
+ * Clear == mark as read by current admin and globally closed.
+ */
+export async function clearPendingComment(
+  commentId: string,
+  type: 'opportunity' | 'marketing'
+): Promise<ServerActionResponse<void>> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    if (role !== 'admin') {
+      return { success: false, error: 'Solo administradores pueden limpiar comentarios pendientes' }
+    }
+
+    if (type === 'opportunity') {
+      const comment = await prisma.opportunityComment.findUnique({
+        where: { id: commentId },
+        select: { dismissedBy: true },
+      })
+
+      if (!comment) {
+        return { success: false, error: 'Comentario no encontrado' }
+      }
+
+      const dismissedBy = (comment.dismissedBy as string[]) || []
+      const nextDismissedBy = Array.from(new Set([...dismissedBy, userId, PENDING_COMMENT_CLOSED_MARKER]))
+      await prisma.opportunityComment.update({
+        where: { id: commentId },
+        data: { dismissedBy: nextDismissedBy },
+      })
+    } else {
+      const comment = await prisma.marketingOptionComment.findUnique({
+        where: { id: commentId },
+        select: { dismissedBy: true },
+      })
+
+      if (!comment) {
+        return { success: false, error: 'Comentario no encontrado' }
+      }
+
+      const dismissedBy = (comment.dismissedBy as string[]) || []
+      const nextDismissedBy = Array.from(new Set([...dismissedBy, userId, PENDING_COMMENT_CLOSED_MARKER]))
+      await prisma.marketingOptionComment.update({
+        where: { id: commentId },
+        data: { dismissedBy: nextDismissedBy },
+      })
+    }
+
+    return { success: true }
+  } catch (error) {
+    return handleServerActionError(error, 'clearPendingComment')
   }
 }

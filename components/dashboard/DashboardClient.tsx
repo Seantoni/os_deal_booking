@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import { getDashboardStats, getDashboardStatsFresh, getPendingBookings, type DashboardFilters } from '@/app/actions/dashboard'
 import { getDealAssignmentsOverview } from '@/app/actions/deals'
 import { getInboxItems, dismissInboxItem } from '@/app/actions/inbox'
-import { getPendingComments, type PendingCommentItem } from '@/app/actions/comments'
+import { clearPendingComment, getPendingComments, type PendingCommentItem } from '@/app/actions/comments'
 import { useSharedData } from '@/hooks/useSharedData'
+import { useUserRole } from '@/hooks/useUserRole'
 import { formatRelativeTime } from '@/lib/date'
 import { getLastNDaysRangeInPanama, PANAMA_TIMEZONE, parseDateInPanamaTime } from '@/lib/date/timezone'
 
@@ -128,6 +129,7 @@ function getDefaultDashboardFilters(initialFilters?: DashboardFilters): Dashboar
 
 export default function DashboardClient({ initialData, initialFilters }: DashboardClientProps) {
   const router = useRouter()
+  const { isAdmin } = useUserRole()
   
   // Use shared users from context (already loaded in layout) - saves 1 API call
   const { users } = useSharedData()
@@ -330,8 +332,24 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
       } else {
         toast.error(result.error || 'Error al marcar como hecho')
       }
-    } catch (err) {
+    } catch {
       toast.error('Error al marcar como hecho')
+    }
+  }
+
+  const handleClearPendingComment = async (e: React.MouseEvent, item: PendingCommentItem) => {
+    e.stopPropagation()
+    if (!isAdmin) return
+
+    try {
+      const result = await clearPendingComment(item.id, item.type)
+      if (result.success) {
+        setPendingComments(prev => prev.filter(c => !(c.id === item.id && c.type === item.type)))
+      } else {
+        toast.error(result.error || 'Error al cerrar comentario pendiente')
+      }
+    } catch {
+      toast.error('Error al cerrar comentario pendiente')
     }
   }
 
@@ -850,27 +868,40 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
               ) : (
                 <div className="divide-y divide-gray-50">
                   {pendingComments.slice(0, 5).map((item) => (
-                    <button
-                      key={`${item.type}-${item.id}`}
-                      onClick={() => router.push(item.linkUrl)}
-                      className="w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-3"
-                    >
-                      {item.type === 'opportunity' ? (
-                        <HandshakeIcon className="text-orange-400" style={{ fontSize: 14 }} />
-                      ) : (
-                        <CampaignIcon className="text-purple-400" style={{ fontSize: 14 }} />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium text-gray-900 truncate">
-                            {item.author.name || 'Usuario'}
-                          </span>
-                          <span className="text-[13px] text-gray-400">{formatRelativeTime(item.createdAt)}</span>
+                    <div key={`${item.type}-${item.id}`} className="relative group">
+                      <button
+                        onClick={() => router.push(item.linkUrl)}
+                        className={`w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-3 ${
+                          isAdmin ? 'pr-8' : ''
+                        }`}
+                      >
+                        {item.type === 'opportunity' ? (
+                          <HandshakeIcon className="text-orange-400" style={{ fontSize: 14 }} />
+                        ) : (
+                          <CampaignIcon className="text-purple-400" style={{ fontSize: 14 }} />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-gray-900 truncate">
+                              {item.author.name || 'Usuario'}
+                            </span>
+                            <span className="text-[13px] text-gray-400">{formatRelativeTime(item.createdAt)}</span>
+                          </div>
+                          <p className="text-[13px] text-gray-500 truncate">{truncateContent(item.content, 40)}</p>
+                          <p className="text-xs text-gray-400 truncate">{item.entityName}</p>
                         </div>
-                        <p className="text-[13px] text-gray-500 truncate">{truncateContent(item.content, 40)}</p>
-                        <p className="text-xs text-gray-400 truncate">{item.entityName}</p>
-                      </div>
-                    </button>
+                      </button>
+                      {isAdmin && (
+                        <button
+                          onClick={(e) => handleClearPendingComment(e, item)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-300 hover:text-green-600 hover:bg-green-50 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                          title="Marcar como leído y cerrar"
+                          aria-label="Marcar como leído y cerrar"
+                        >
+                          <CheckIcon style={{ fontSize: 12 }} />
+                        </button>
+                      )}
+                    </div>
                   ))}
                 </div>
               )}
