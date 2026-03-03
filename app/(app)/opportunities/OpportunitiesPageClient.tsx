@@ -190,6 +190,7 @@ export default function OpportunitiesPageClient({
   
   const confirmDialog = useConfirmDialog()
   const [initialModalTab, setInitialModalTab] = useState<'details' | 'activity' | 'chat'>('details')
+  const [initialChatThreadId, setInitialChatThreadId] = useState<string | null>(null)
 
   // Load persisted view mode on mount
   useEffect(() => {
@@ -217,6 +218,7 @@ export default function OpportunitiesPageClient({
       setInitialBusinessId(createForBusinessId)
       setSelectedOpportunity(null)
       setInitialModalTab('details')
+      setInitialChatThreadId(null)
       setOpportunityModalOpen(true)
       return
     }
@@ -224,6 +226,7 @@ export default function OpportunitiesPageClient({
     if (displayOpps.length > 0) {
       const openFromUrl = searchParams.get('open')
       const tabFromUrl = searchParams.get('tab')
+      const threadFromUrl = searchParams.get('thread')
       
       if (openFromUrl) {
         const opp = displayOpps.find(o => o.id === openFromUrl)
@@ -234,6 +237,7 @@ export default function OpportunitiesPageClient({
           } else {
             setInitialModalTab('details')
           }
+          setInitialChatThreadId(threadFromUrl || null)
           setOpportunityModalOpen(true)
         }
         return
@@ -246,6 +250,7 @@ export default function OpportunitiesPageClient({
         if (opp) {
           setSelectedOpportunity(opp)
           setInitialModalTab('details')
+          setInitialChatThreadId(null)
           setOpportunityModalOpen(true)
         }
       }
@@ -794,6 +799,7 @@ export default function OpportunitiesPageClient({
           setSelectedOpportunity(null)
           setInitialBusinessId(undefined)
           setInitialModalTab('details')
+          setInitialChatThreadId(null)
         }}
         opportunity={selectedOpportunity}
         onSuccess={(newOpportunity) => {
@@ -810,6 +816,7 @@ export default function OpportunitiesPageClient({
           }
         }}
         initialTab={initialModalTab}
+        initialChatThreadId={initialChatThreadId}
         initialBusinessId={initialBusinessId}
         preloadedBusinesses={businessesFromOpportunities}
         preloadedCategories={categories}

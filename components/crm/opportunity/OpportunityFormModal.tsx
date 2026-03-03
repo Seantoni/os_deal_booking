@@ -58,6 +58,7 @@ interface OpportunityFormModalProps {
   onSuccess: (opportunity: Opportunity, meta?: OpportunityModalSuccessMeta) => void
   initialBusinessId?: string
   initialTab?: OpportunityTab
+  initialChatThreadId?: string | null
   preloadedBusinesses?: Business[]
   preloadedCategories?: Category[]
   preloadedUsers?: UserData[]
@@ -70,6 +71,7 @@ export default function OpportunityFormModal({
   onSuccess,
   initialBusinessId,
   initialTab = 'details',
+  initialChatThreadId = null,
   preloadedBusinesses,
   preloadedCategories,
   preloadedUsers,
@@ -85,6 +87,8 @@ export default function OpportunityFormModal({
   const [businessModalOpen, setBusinessModalOpen] = useState(false)
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null)
   const [isSubmitPending, startSubmitTransition] = useTransition()
+  const chatBottomAnchorRef = useRef<HTMLDivElement>(null)
+  const modalFormRef = useRef<HTMLFormElement>(null)
 
   const { sections: cachedSections, initialized: cachedInitialized } = useCachedFormConfig('opportunity')
   const activeTab = selectedTab ?? initialTab
@@ -296,6 +300,54 @@ export default function OpportunityFormModal({
   const startDateDisplayValue = dynamicForm.getValue('startDate') || opportunity?.startDate || null
   const closeDateDisplayValue = dynamicForm.getValue('closeDate') || opportunity?.closeDate || null
 
+  useEffect(() => {
+    if (!isOpen || activeTab !== 'chat') return
+
+    const scrollToBottom = () => {
+      chatBottomAnchorRef.current?.scrollIntoView({ block: 'end' })
+    }
+
+    const timeoutIds: number[] = []
+    const retryDelays = [0, 120, 280, 500, 900, 1400, 2200]
+    retryDelays.forEach((delay) => {
+      const id = window.setTimeout(scrollToBottom, delay)
+      timeoutIds.push(id)
+    })
+
+    let rafId: number | null = null
+    let scrollQueued = false
+    const scheduleScroll = () => {
+      if (scrollQueued) return
+      scrollQueued = true
+      rafId = window.requestAnimationFrame(() => {
+        scrollQueued = false
+        scrollToBottom()
+      })
+    }
+
+    const observerTarget = modalFormRef.current
+    const observer = observerTarget
+      ? new MutationObserver(() => {
+          scheduleScroll()
+        })
+      : null
+
+    if (observer && observerTarget) {
+      observer.observe(observerTarget, {
+        childList: true,
+        subtree: true,
+      })
+    }
+
+    return () => {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId)
+      }
+      timeoutIds.forEach((id) => window.clearTimeout(id))
+      observer?.disconnect()
+    }
+  }, [activeTab, isOpen, loadingData])
+
   if (!isOpen) return null
 
   const isEditMode = !!opportunity
@@ -399,7 +451,12 @@ export default function OpportunityFormModal({
 
         <OpportunityTabNav activeTab={activeTab} onChange={setSelectedTab} />
 
-        <form id="opportunity-modal-form" onSubmit={handleSubmit} className="bg-white min-h-[300px] md:min-h-[500px] flex flex-col">
+        <form
+          id="opportunity-modal-form"
+          ref={modalFormRef}
+          onSubmit={handleSubmit}
+          className="bg-white min-h-[300px] md:min-h-[500px] flex flex-col"
+        >
           {error && (
             <div className="mx-3 md:mx-6 mt-3 md:mt-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
               <ErrorOutlineIcon className="text-red-600 flex-shrink-0 mt-0.5" fontSize="small" />
@@ -445,12 +502,16 @@ export default function OpportunityFormModal({
           )}
 
           {!loadingData && activeTab === 'chat' && (
-            <Suspense fallback={<OpportunityChatSkeleton />}>
-              <OpportunityChatTab
-                opportunity={opportunity}
-                canEdit={canEdit}
-              />
-            </Suspense>
+            <>
+              <Suspense fallback={<OpportunityChatSkeleton />}>
+                <OpportunityChatTab
+                  opportunity={opportunity}
+                  canEdit={canEdit}
+                  initialThreadId={initialChatThreadId}
+                />
+              </Suspense>
+              <div ref={chatBottomAnchorRef} className="h-px" aria-hidden="true" />
+            </>
           )}
 
           {!loadingData && activeTab === 'history' && (

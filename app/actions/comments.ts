@@ -3,8 +3,13 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, handleServerActionError, ServerActionResponse } from '@/lib/utils/server-actions'
 import { getUserRole } from '@/lib/auth/roles'
-
-const PENDING_COMMENT_CLOSED_MARKER = '__pending_comment_closed__'
+import {
+  addDismissedByValues,
+  PENDING_COMMENT_CLOSED_MARKER,
+  THREAD_RESOLVED_MARKER,
+  hasPendingCommentClosedMarker,
+  hasThreadResolvedMarker,
+} from '@/lib/comments/thread-resolution'
 
 // Types for pending comments (dashboard widget)
 export interface PendingCommentItem {
@@ -89,6 +94,12 @@ export async function getAllComments(
           dismissedBy: true,
           createdAt: true,
           opportunityId: true,
+          threadId: true,
+          thread: {
+            select: {
+              status: true,
+            },
+          },
           opportunity: {
             select: {
               id: true,
@@ -160,25 +171,31 @@ export async function getAllComments(
     const getUser = (id: string) => userMap.get(id) || { name: null, email: null }
     const getUserName = (id: string) => {
       if (id === PENDING_COMMENT_CLOSED_MARKER) return 'Cerrado'
+      if (id === THREAD_RESOLVED_MARKER) return 'Resuelto'
       const user = getUser(id)
       return user.name || user.email || id
     }
 
     // Build response map for opportunity comments (check if any user responded)
     const oppResponseMap = new Map<string, { userId: string; createdAt: Date }>()
-    
-    // Group comments by opportunityId to find responses
-    const oppCommentsByOpp = new Map<string, typeof oppComments>()
+
+    const getOppConversationKey = (opportunityId: string, threadId: string | null) =>
+      threadId ? `thread:${threadId}` : `legacy:${opportunityId}`
+
+    // Group comments by thread/opportunity to find responses
+    const oppCommentsByConversation = new Map<string, typeof oppComments>()
     oppComments.forEach(c => {
-      const existing = oppCommentsByOpp.get(c.opportunityId) || []
+      const key = getOppConversationKey(c.opportunityId, c.threadId)
+      const existing = oppCommentsByConversation.get(key) || []
       existing.push(c)
-      oppCommentsByOpp.set(c.opportunityId, existing)
+      oppCommentsByConversation.set(key, existing)
     })
 
     // For each comment, check if there's a later comment from a different user
     oppComments.forEach(comment => {
-      const allCommentsForOpp = oppCommentsByOpp.get(comment.opportunityId) || []
-      const responseComment = allCommentsForOpp.find(
+      const key = getOppConversationKey(comment.opportunityId, comment.threadId)
+      const allCommentsForConversation = oppCommentsByConversation.get(key) || []
+      const responseComment = allCommentsForConversation.find(
         c => c.userId !== comment.userId && c.createdAt > comment.createdAt
       )
       if (responseComment) {
@@ -311,7 +328,13 @@ export async function getPendingComments(): Promise<ServerActionResponse<Pending
   try {
     // Fetch all opportunity comments (not deleted, not from current user)
     const oppComments = await prisma.opportunityComment.findMany({
-      where: { isDeleted: false },
+      where: {
+        isDeleted: false,
+        OR: [
+          { threadId: null },
+          { thread: { status: 'OPEN' } },
+        ],
+      },
       select: {
         id: true,
         userId: true,
@@ -319,6 +342,12 @@ export async function getPendingComments(): Promise<ServerActionResponse<Pending
         dismissedBy: true,
         createdAt: true,
         opportunityId: true,
+        threadId: true,
+        thread: {
+          select: {
+            status: true,
+          },
+        },
         opportunity: {
           select: {
             id: true,
@@ -357,12 +386,16 @@ export async function getPendingComments(): Promise<ServerActionResponse<Pending
       orderBy: { createdAt: 'asc' },
     })
 
-    // Group comments by entity to find those without responses
-    const oppCommentsByOpp = new Map<string, typeof oppComments>()
+    // Group comments by conversation to find those without responses
+    const getOppConversationKey = (opportunityId: string, threadId: string | null) =>
+      threadId ? `thread:${threadId}` : `legacy:${opportunityId}`
+
+    const oppCommentsByConversation = new Map<string, typeof oppComments>()
     oppComments.forEach(c => {
-      const existing = oppCommentsByOpp.get(c.opportunityId) || []
+      const key = getOppConversationKey(c.opportunityId, c.threadId)
+      const existing = oppCommentsByConversation.get(key) || []
       existing.push(c)
-      oppCommentsByOpp.set(c.opportunityId, existing)
+      oppCommentsByConversation.set(key, existing)
     })
 
     const mktCommentsByOption = new Map<string, typeof mktComments>()
@@ -375,12 +408,18 @@ export async function getPendingComments(): Promise<ServerActionResponse<Pending
     // Find pending comments (no response from a different user after this comment)
     const pendingOppComments = oppComments.filter(comment => {
       const dismissedBy = (comment.dismissedBy as string[]) || []
-      if (dismissedBy.includes(PENDING_COMMENT_CLOSED_MARKER) || dismissedBy.includes(userId)) {
+      if (
+        hasPendingCommentClosedMarker(dismissedBy) ||
+        hasThreadResolvedMarker(dismissedBy) ||
+        dismissedBy.includes(userId) ||
+        comment.thread?.status === 'RESOLVED'
+      ) {
         return false
       }
 
-      const allCommentsForOpp = oppCommentsByOpp.get(comment.opportunityId) || []
-      const hasResponse = allCommentsForOpp.some(
+      const conversationKey = getOppConversationKey(comment.opportunityId, comment.threadId)
+      const allCommentsForConversation = oppCommentsByConversation.get(conversationKey) || []
+      const hasResponse = allCommentsForConversation.some(
         c => c.userId !== comment.userId && c.createdAt > comment.createdAt
       )
       return !hasResponse
@@ -388,7 +427,7 @@ export async function getPendingComments(): Promise<ServerActionResponse<Pending
 
     const pendingMktComments = mktComments.filter(comment => {
       const dismissedBy = (comment.dismissedBy as string[]) || []
-      if (dismissedBy.includes(PENDING_COMMENT_CLOSED_MARKER) || dismissedBy.includes(userId)) {
+      if (hasPendingCommentClosedMarker(dismissedBy) || dismissedBy.includes(userId)) {
         return false
       }
 
@@ -432,7 +471,7 @@ export async function getPendingComments(): Promise<ServerActionResponse<Pending
         createdAt: comment.createdAt,
         entityId: comment.opportunityId,
         entityName: comment.opportunity.business?.name || 'Oportunidad',
-        linkUrl: `/opportunities?open=${comment.opportunityId}&tab=chat`,
+        linkUrl: `/opportunities?open=${comment.opportunityId}&tab=chat${comment.threadId ? `&thread=${comment.threadId}` : ''}`,
       })
     })
 
@@ -497,8 +536,7 @@ export async function clearPendingComment(
         return { success: false, error: 'Comentario no encontrado' }
       }
 
-      const dismissedBy = (comment.dismissedBy as string[]) || []
-      const nextDismissedBy = Array.from(new Set([...dismissedBy, userId, PENDING_COMMENT_CLOSED_MARKER]))
+      const nextDismissedBy = addDismissedByValues(comment.dismissedBy, [userId, PENDING_COMMENT_CLOSED_MARKER])
       await prisma.opportunityComment.update({
         where: { id: commentId },
         data: { dismissedBy: nextDismissedBy },
@@ -513,8 +551,7 @@ export async function clearPendingComment(
         return { success: false, error: 'Comentario no encontrado' }
       }
 
-      const dismissedBy = (comment.dismissedBy as string[]) || []
-      const nextDismissedBy = Array.from(new Set([...dismissedBy, userId, PENDING_COMMENT_CLOSED_MARKER]))
+      const nextDismissedBy = addDismissedByValues(comment.dismissedBy, [userId, PENDING_COMMENT_CLOSED_MARKER])
       await prisma.marketingOptionComment.update({
         where: { id: commentId },
         data: { dismissedBy: nextDismissedBy },

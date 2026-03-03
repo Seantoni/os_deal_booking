@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { getBookingRequest, getFieldComments, addFieldComment, updateFieldComment, deleteFieldComment, cancelBookingRequest, getUsersForFieldCommentMention } from '@/app/actions/booking'
 import { getDealByBookingRequestId, getDealPublicSlug } from '@/app/actions/deals'
 import type { Deal } from '@/types'
@@ -22,40 +23,45 @@ import { FIELD_TEMPLATES } from '@/components/RequestForm/config/field-templates
 import { FieldWithComments } from './FieldWithComments'
 import toast from 'react-hot-toast'
 
-// Icons
 import Image from 'next/image'
+import ConfirmDialog from '@/components/common/ConfirmDialog'
+import { adminApproveBookingRequest } from '@/app/actions/booking-requests'
+import { formatShortDate, formatRequestNameDate, parseDateInPanamaTime } from '@/lib/date'
+import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
+import type { BookingFormData } from '@/components/RequestForm/types'
+
+// Icons — always visible in main body
 import CloseIcon from '@mui/icons-material/Close'
 import DescriptionIcon from '@mui/icons-material/Description'
 import CommentIcon from '@mui/icons-material/Comment'
-import EditIcon from '@mui/icons-material/Edit'
-import DeleteIcon from '@mui/icons-material/Delete'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import HistoryIcon from '@mui/icons-material/History'
 import SearchIcon from '@mui/icons-material/Search'
 import ClearIcon from '@mui/icons-material/Clear'
+import ZoomInIcon from '@mui/icons-material/ZoomIn'
+import AddCommentIcon from '@mui/icons-material/AddComment'
+import ReplyIcon from '@mui/icons-material/Reply'
+
+// Icons — header bar + info bar (conditional but lightweight, always in viewport)
+import EditIcon from '@mui/icons-material/Edit'
+import DeleteIcon from '@mui/icons-material/Delete'
+import HistoryIcon from '@mui/icons-material/History'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import EventIcon from '@mui/icons-material/Event'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import EditNoteIcon from '@mui/icons-material/EditNote'
 import BlockIcon from '@mui/icons-material/Block'
-import ZoomInIcon from '@mui/icons-material/ZoomIn'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
 import CampaignIcon from '@mui/icons-material/Campaign'
 import ListAltIcon from '@mui/icons-material/ListAlt'
-import AddCommentIcon from '@mui/icons-material/AddComment'
-import ReplyIcon from '@mui/icons-material/Reply'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
-import MentionInput from '@/components/marketing/MentionInput'
-import ImageLightbox from '@/components/common/ImageLightbox'
-import DealFormModal from '@/components/crm/deal/DealFormModal'
-import ConfirmDialog from '@/components/common/ConfirmDialog'
-import MarketingCampaignModal from '@/components/marketing/MarketingCampaignModal'
-import { adminApproveBookingRequest } from '@/app/actions/booking-requests'
-import { formatShortDate, formatRequestNameDate, parseDateInPanamaTime } from '@/lib/date'
-import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
-import type { BookingFormData } from '@/components/RequestForm/types'
+
+// Heavy child modals — lazy-loaded (only rendered on user interaction)
+const MentionInput = dynamic(() => import('@/components/marketing/MentionInput'), { ssr: false })
+const ImageLightbox = dynamic(() => import('@/components/common/ImageLightbox'), { ssr: false })
+const DealFormModal = dynamic(() => import('@/components/crm/deal/DealFormModal'), { ssr: false })
+const MarketingCampaignModal = dynamic(() => import('@/components/marketing/MarketingCampaignModal'), { ssr: false })
 
 // Helper to get field value from requestData using dynamic key access
 function getFieldValue(data: BookingRequestViewData | null, key: string): unknown {
@@ -292,7 +298,12 @@ export default function BookingRequestViewModal({
     )
   }, [])
 
-  const renderFieldCommentControls = (fieldKey: string, label: string) => {
+  const handleToggleComment = useCallback((fieldKey: string | null) => {
+    setActiveCommentField(fieldKey)
+    setCommentInputPrefill(current => (fieldKey && current?.fieldKey === fieldKey ? current : null))
+  }, [])
+
+  const renderFieldCommentControls = useCallback((fieldKey: string, label: string) => {
     const fieldComments = getCommentsForField(comments, fieldKey)
     const hasComments = fieldComments.length > 0
     const isAddingComment = activeCommentField === fieldKey
@@ -324,9 +335,9 @@ export default function BookingRequestViewModal({
         </div>
       </div>
     )
-  }
+  }, [comments, activeCommentField, handleToggleComment])
 
-  const renderInlineComments = (fieldKey: string) => {
+  const renderInlineComments = useCallback((fieldKey: string) => {
     const fieldComments = getCommentsForField(comments, fieldKey)
     const isAddingComment = activeCommentField === fieldKey
     const fieldPrefill = commentInputPrefill?.fieldKey === fieldKey ? commentInputPrefill : null
@@ -406,7 +417,7 @@ export default function BookingRequestViewModal({
         )}
       </>
     )
-  }
+  }, [comments, activeCommentField, commentInputPrefill, highlightedCommentId, savingComment, handleToggleComment, renderCommentText])
 
   // Load request data and comments
   const loadData = useCallback(async () => {
@@ -508,8 +519,8 @@ export default function BookingRequestViewModal({
     }
   }, [requestData?.id])
 
-  // Get comment counts by field
-  const commentCounts = getCommentCountsByField(comments)
+  // Get comment counts by field (memoized — avoids re-iterating on unrelated renders)
+  const commentCounts = useMemo(() => getCommentCountsByField(comments), [comments])
 
   // Additional Info (dynamic templates)
   const additionalInfo = useMemo((): { templateDisplayName: string; fields: { label: string; value: string }[] } | null => {
@@ -843,11 +854,6 @@ export default function BookingRequestViewModal({
     setEditCommentText(comment.text)
   }
 
-  // Toggle comment field - used by FieldWithComments
-  const handleToggleComment = useCallback((fieldKey: string | null) => {
-    setActiveCommentField(fieldKey)
-    setCommentInputPrefill(current => (fieldKey && current?.fieldKey === fieldKey ? current : null))
-  }, [])
 
   // Continue editing draft request
   function handleContinueEditing() {

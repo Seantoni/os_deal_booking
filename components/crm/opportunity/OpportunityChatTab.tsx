@@ -6,9 +6,10 @@ import OpportunityChatThread from './OpportunityChatThread'
 interface OpportunityChatTabProps {
   opportunity?: Opportunity | null
   canEdit: boolean
+  initialThreadId?: string | null
 }
 
-export default function OpportunityChatTab({ opportunity, canEdit }: OpportunityChatTabProps) {
+export default function OpportunityChatTab({ opportunity, canEdit, initialThreadId }: OpportunityChatTabProps) {
   return (
     <div className="p-3 md:p-6 bg-white h-full">
       {!opportunity ? (
@@ -21,6 +22,7 @@ export default function OpportunityChatTab({ opportunity, canEdit }: Opportunity
         <OpportunityChatThread
           opportunityId={opportunity.id}
           canEdit={canEdit}
+          initialThreadId={initialThreadId}
         />
       )}
     </div>

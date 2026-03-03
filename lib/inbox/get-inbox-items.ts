@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { parseFieldComments } from '@/types'
+import { hasThreadResolvedMarker } from '@/lib/comments/thread-resolution'
 
 export interface InboxItem {
   id: string
@@ -28,7 +29,7 @@ interface AuthorProfile {
 export async function getInboxItemsForUser(userId: string): Promise<InboxItem[]> {
   const [userOppLatestResponses, userMktLatestResponses] = await Promise.all([
     prisma.opportunityComment.groupBy({
-      by: ['opportunityId'],
+      by: ['opportunityId', 'threadId'],
       where: { userId, isDeleted: false },
       _max: { createdAt: true },
     }),
@@ -40,9 +41,12 @@ export async function getInboxItemsForUser(userId: string): Promise<InboxItem[]>
   ])
 
   const userOppLatestMap = new Map<string, Date>()
+  const buildOppConversationKey = (opportunityId: string, threadId: string | null): string =>
+    threadId ? `thread:${threadId}` : `legacy:${opportunityId}`
+
   for (const row of userOppLatestResponses) {
     if (row._max.createdAt) {
-      userOppLatestMap.set(row.opportunityId, row._max.createdAt)
+      userOppLatestMap.set(buildOppConversationKey(row.opportunityId, row.threadId), row._max.createdAt)
     }
   }
 
@@ -53,8 +57,8 @@ export async function getInboxItemsForUser(userId: string): Promise<InboxItem[]>
     }
   }
 
-  const hasUserRespondedToOpp = (opportunityId: string, afterDate: Date): boolean => {
-    const latest = userOppLatestMap.get(opportunityId)
+  const hasUserRespondedToOpp = (opportunityId: string, threadId: string | null, afterDate: Date): boolean => {
+    const latest = userOppLatestMap.get(buildOppConversationKey(opportunityId, threadId))
     return latest ? latest > afterDate : false
   }
 
@@ -67,12 +71,22 @@ export async function getInboxItemsForUser(userId: string): Promise<InboxItem[]>
     where: {
       isDeleted: false,
       userId: { not: userId },
-      OR: [
-        { mentions: { array_contains: [userId] } },
+      AND: [
         {
-          opportunity: {
-            OR: [{ responsibleId: userId }, { userId }],
-          },
+          OR: [
+            { threadId: null },
+            { thread: { status: 'OPEN' } },
+          ],
+        },
+        {
+          OR: [
+            { mentions: { array_contains: [userId] } },
+            {
+              opportunity: {
+                OR: [{ responsibleId: userId }, { userId }],
+              },
+            },
+          ],
         },
       ],
     },
@@ -84,6 +98,7 @@ export async function getInboxItemsForUser(userId: string): Promise<InboxItem[]>
       dismissedBy: true,
       createdAt: true,
       opportunityId: true,
+      threadId: true,
       opportunity: {
         select: {
           id: true,
@@ -190,9 +205,10 @@ export async function getInboxItemsForUser(userId: string): Promise<InboxItem[]>
   const inboxItems: InboxItem[] = []
 
   for (const comment of oppComments) {
-    if (hasUserRespondedToOpp(comment.opportunityId, comment.createdAt)) continue
+    if (hasUserRespondedToOpp(comment.opportunityId, comment.threadId, comment.createdAt)) continue
 
     const dismissedBy = (comment.dismissedBy as string[]) || []
+    if (hasThreadResolvedMarker(dismissedBy)) continue
     if (dismissedBy.includes(userId)) continue
 
     const mentions = (comment.mentions as string[]) || []
@@ -208,7 +224,7 @@ export async function getInboxItemsForUser(userId: string): Promise<InboxItem[]>
       entityId: comment.opportunityId,
       entityName: comment.opportunity.business?.name || 'Oportunidad',
       entityType: 'opportunity',
-      linkUrl: `/opportunities?open=${comment.opportunityId}&tab=chat`,
+      linkUrl: `/opportunities?open=${comment.opportunityId}&tab=chat${comment.threadId ? `&thread=${comment.threadId}` : ''}`,
     })
   }
 

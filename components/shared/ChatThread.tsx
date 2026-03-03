@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import MentionInput from '@/components/marketing/MentionInput'
 import ChatMessage from '@/components/marketing/ChatMessage'
@@ -52,6 +52,9 @@ interface ChatThreadProps {
   // Polling
   pollingInterval?: number // In milliseconds, 0 to disable
   enableReplyAction?: boolean
+  readOnlyMessage?: string
+  headerActions?: ReactNode
+  initialScrollPosition?: 'top' | 'bottom'
 }
 
 type MentionableUser = {
@@ -80,6 +83,9 @@ export default function ChatThread({
   className = '',
   pollingInterval = 0,
   enableReplyAction = false,
+  readOnlyMessage = 'Solo el responsable o administradores pueden comentar',
+  headerActions,
+  initialScrollPosition = 'top',
 }: ChatThreadProps) {
   const [comments, setComments] = useState<ChatComment[]>([])
   const [loading, setLoading] = useState(true)
@@ -87,6 +93,7 @@ export default function ChatThread({
   const [replyPrefill, setReplyPrefill] = useState<ReplyPrefill | null>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const inputContainerRef = useRef<HTMLDivElement>(null)
+  const didInitialAutoScrollRef = useRef(false)
 
   // Load comments
   const loadComments = useCallback(async (silent = false) => {
@@ -132,6 +139,21 @@ export default function ChatThread({
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
     }
   }, [])
+
+  useEffect(() => {
+    didInitialAutoScrollRef.current = false
+  }, [entityId])
+
+  // Optional first-load auto-scroll for threads where latest messages should be shown by default.
+  useEffect(() => {
+    if (loading) return
+    if (initialScrollPosition !== 'bottom') return
+    if (didInitialAutoScrollRef.current) return
+
+    scrollToBottom()
+    window.setTimeout(scrollToBottom, 80)
+    didInitialAutoScrollRef.current = true
+  }, [comments, initialScrollPosition, loading, scrollToBottom])
 
   // Manual refresh
   const handleRefresh = async () => {
@@ -246,23 +268,26 @@ export default function ChatThread({
         <h4 className={`font-semibold ${isCompact ? 'text-sm text-gray-500 uppercase tracking-wide' : 'text-base text-gray-700'}`}>
           {title}
         </h4>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            e.preventDefault()
-            handleRefresh()
-          }}
-          disabled={refreshing}
-          className={`text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:cursor-not-allowed ${isCompact ? 'p-1' : 'p-1.5'}`}
-          title="Actualizar"
-          aria-label="Actualizar comentarios"
-        >
-          <RefreshIcon
-            style={{ fontSize: isCompact ? 14 : 16 }}
-            className={refreshing ? 'animate-spin' : ''}
-          />
-        </button>
+        <div className="flex items-center gap-2">
+          {headerActions}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              e.preventDefault()
+              handleRefresh()
+            }}
+            disabled={refreshing}
+            className={`text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:cursor-not-allowed ${isCompact ? 'p-1' : 'p-1.5'}`}
+            title="Actualizar"
+            aria-label="Actualizar comentarios"
+          >
+            <RefreshIcon
+              style={{ fontSize: isCompact ? 14 : 16 }}
+              className={refreshing ? 'animate-spin' : ''}
+            />
+          </button>
+        </div>
       </div>
 
       {/* Messages list */}
@@ -339,7 +364,7 @@ export default function ChatThread({
       ) : (
         <div className={isCompact ? 'mt-2' : 'mt-4 pt-4 border-t border-gray-200'}>
           <p className="text-sm text-gray-400 text-center">
-            Solo el responsable o administradores pueden comentar
+            {readOnlyMessage}
           </p>
         </div>
       )}

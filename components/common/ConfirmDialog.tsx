@@ -147,6 +147,7 @@ export default function ConfirmDialog({
           <div className="flex justify-center gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
             {cancelText && (
               <Button
+                type="button"
                 onClick={onCancel}
                 variant="secondary"
                 disabled={loading}
@@ -156,6 +157,7 @@ export default function ConfirmDialog({
             )}
             {confirmText && (
               <Button
+                type="button"
                 onClick={onConfirm}
                 variant={getButtonVariant()}
                 disabled={loading}
@@ -177,4 +179,3 @@ export default function ConfirmDialog({
     </div>
   )
 }
-

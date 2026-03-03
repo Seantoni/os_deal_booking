@@ -12,6 +12,11 @@ enum BusinessLifecycle {
   UNKNOWN
 }
 
+enum CommentThreadStatus {
+  OPEN
+  RESOLVED
+}
+
 model BookingRequest {
   id                            String               @id @default(cuid())
   name                          String
@@ -673,6 +678,7 @@ model Opportunity {
   deal             Deal?
   business         Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
   comments         OpportunityComment[]
+  commentThreads   OpportunityCommentThread[]
   tasks            Task[]
 
   @@index([bookingRequestId])
@@ -685,9 +691,29 @@ model Opportunity {
   @@map("opportunities")
 }
 
+model OpportunityCommentThread {
+  id             String              @id @default(cuid())
+  opportunityId  String
+  title          String
+  status         CommentThreadStatus @default(OPEN)
+  createdBy      String
+  resolutionNote String?
+  resolvedBy     String?
+  resolvedAt     DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  comments       OpportunityComment[]
+  opportunity    Opportunity         @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@index([opportunityId, status, createdAt])
+  @@index([status])
+  @@map("opportunity_comment_threads")
+}
+
 model OpportunityComment {
   id            String      @id @default(cuid())
   opportunityId String
+  threadId      String?
   userId        String
   content       String
   mentions      Json?
@@ -701,8 +727,10 @@ model OpportunityComment {
   readBy        Json?
   dismissedBy   Json?
   opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  thread        OpportunityCommentThread? @relation(fields: [threadId], references: [id], onDelete: SetNull)
 
   @@index([opportunityId, createdAt])
+  @@index([threadId, createdAt])
   @@index([userId])
   @@map("opportunity_comments")
 }
