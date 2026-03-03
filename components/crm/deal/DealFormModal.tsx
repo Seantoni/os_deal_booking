@@ -43,8 +43,8 @@ export default function DealFormModal({
   hideBackdrop = false,
   containerClassName,
 }: DealFormModalProps) {
-  const { isAdmin, isSales, isEditor, isEditorSenior } = useUserRole()
-  const canManageDeal = isAdmin || isEditorSenior
+  const { role, isAdmin, isSales, isEditor, isEditorSenior } = useUserRole()
+  const canManageDeal = isAdmin || isEditorSenior || role === 'ere'
   const canViewOsAdminLink = canManageDeal || isEditor
   const [error, setError] = useState('')
   const [bookingRequestModalOpen, setBookingRequestModalOpen] = useState(false)
@@ -482,6 +482,8 @@ export default function DealFormModal({
                 editorUsers={editorUsers}
                 ereUsers={ereUsers}
                 isAdmin={canManageDeal}
+                responsibleDisplayName={deal?.responsible?.name || deal?.responsible?.email || undefined}
+                ereResponsibleDisplayName={deal?.ereResponsible?.name || deal?.ereResponsible?.email || undefined}
                 extraContent={
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-3">

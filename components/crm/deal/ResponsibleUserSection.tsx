@@ -15,6 +15,8 @@ interface ResponsibleUserSectionProps {
   editorUsers: UserProfile[]
   ereUsers: UserProfile[]
   isAdmin: boolean
+  responsibleDisplayName?: string
+  ereResponsibleDisplayName?: string
   extraContent?: ReactNode
 }
 
@@ -26,6 +28,8 @@ export default function ResponsibleUserSection({
   editorUsers,
   ereUsers,
   isAdmin,
+  responsibleDisplayName,
+  ereResponsibleDisplayName,
   extraContent,
 }: ResponsibleUserSectionProps) {
   const [open, setOpen] = useState(true)
@@ -85,7 +89,9 @@ export default function ResponsibleUserSection({
               </div>
             ) : (
               <div className="block w-full pl-8 pr-3 py-1.5 text-sm text-gray-600">
-                {responsibleId && editorUsers.length > 0
+                {responsibleDisplayName
+                  ? responsibleDisplayName
+                  : responsibleId && editorUsers.length > 0
                   ? (editorUsers.find(u => u.clerkId === responsibleId)?.name || editorUsers.find(u => u.clerkId === responsibleId)?.email || 'N/A')
                   : 'Sin asignar'}
               </div>
@@ -135,7 +141,9 @@ export default function ResponsibleUserSection({
               </div>
             ) : (
               <div className="block w-full pl-8 pr-3 py-1.5 text-sm text-gray-600">
-                {ereResponsibleId && ereUsers.length > 0
+                {ereResponsibleDisplayName
+                  ? ereResponsibleDisplayName
+                  : ereResponsibleId && ereUsers.length > 0
                   ? (ereUsers.find(u => u.clerkId === ereResponsibleId)?.name || ereUsers.find(u => u.clerkId === ereResponsibleId)?.email || 'N/A')
                   : 'Sin asignar'}
               </div>
