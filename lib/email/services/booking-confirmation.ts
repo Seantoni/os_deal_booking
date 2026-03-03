@@ -20,7 +20,7 @@ export async function sendBookingConfirmationEmail(
     endDate: Date
   },
   businessEmail: string,
-  requesterEmail?: string
+  requesterEmail?: string | string[]
 ) {
   try {
     // Format dates for email
@@ -54,9 +54,14 @@ export async function sendBookingConfirmationEmail(
       endDate: formatDateForEmail(event.endDate),
     })
 
-    // Send email to business and CC to requester
+    // Send email to business and CC to requester(s)
     const recipients = [businessEmail]
-    const cc = requesterEmail ? [requesterEmail] : []
+    const requesterList = Array.isArray(requesterEmail)
+      ? requesterEmail
+      : requesterEmail
+        ? [requesterEmail]
+        : []
+    const cc = [...new Set(requesterList.filter((email) => email && email !== businessEmail))]
 
     await resend.emails.send({
       from: `OfertaSimple <${EMAIL_CONFIG.from}>`,

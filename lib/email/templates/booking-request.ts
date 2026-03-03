@@ -1,5 +1,6 @@
 import type { BookingFormData } from '@/components/RequestForm/types'
 import { getAppBaseUrl } from '@/lib/config/env'
+import { formatRequestNameDate, parseDateInPanamaTime } from '@/lib/date'
 import { 
   renderEmailLayout, 
   renderKeyValue, 
@@ -36,6 +37,47 @@ function getParentCategory(category?: string): string | undefined {
   return category.split(/\s*[›>]\s*/)[0]?.trim() || undefined
 }
 
+function getBookingRecord(bookingData: BookingDataInput): Record<string, unknown> {
+  if (!bookingData || typeof bookingData !== 'object') return {}
+  return bookingData as Record<string, unknown>
+}
+
+function getEventDays(bookingData: BookingDataInput): string[] {
+  const record = getBookingRecord(bookingData)
+  const raw = record.eventDays
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter((date): date is string => typeof date === 'string')
+    .map((date) => date.trim())
+    .filter((date) => date.length > 0)
+}
+
+function formatEventDays(eventDays: string[]): string {
+  return eventDays
+    .map((date) => {
+      const parsedDate = parseDateInPanamaTime(date)
+      return isNaN(parsedDate.getTime()) ? escapeHtml(date) : escapeHtml(formatRequestNameDate(parsedDate))
+    })
+    .join('<br/>')
+}
+
+function getCampaignDurationDisplay(bookingData: BookingDataInput): string {
+  const record = getBookingRecord(bookingData)
+  const rawDuration = record.campaignDuration
+  if (rawDuration === null || rawDuration === undefined) return ''
+  const duration = String(rawDuration).trim()
+  if (!duration) return ''
+
+  const durationNumber = Number.parseInt(duration, 10)
+  const rawUnit = String(record.campaignDurationUnit || 'months').toLowerCase()
+  const unit = rawUnit === 'days' ? 'days' : 'months'
+  const unitLabel =
+    unit === 'days'
+      ? durationNumber === 1 ? 'día' : 'días'
+      : durationNumber === 1 ? 'mes' : 'meses'
+  return `${escapeHtml(duration)} ${unitLabel}`
+}
+
 /**
  * Generate HTML string for booking request email.
  *
@@ -55,8 +97,12 @@ export function renderBookingRequestEmail(props: BookingRequestEmailProps): stri
     requesterEmail,
     tncUrl,
     hideActions = false,
+    bookingData = null,
   } = props
   const parentCategory = getParentCategory(category) || 'General'
+  const eventDays = getEventDays(bookingData)
+  const formattedEventDays = eventDays.length > 0 ? formatEventDays(eventDays) : ''
+  const campaignDurationDisplay = eventDays.length === 0 ? getCampaignDurationDisplay(bookingData) : ''
 
   const termsLink = tncUrl || `${getAppBaseUrl()}/t-c`
 
@@ -100,6 +146,20 @@ export function renderBookingRequestEmail(props: BookingRequestEmailProps): stri
             ${renderKeyValue('Fecha de Fin (Tentativa)', escapeHtml(endDate), true)}
           </td>
         </tr>
+        ${formattedEventDays ? `
+        <tr>
+          <td colspan="2" style="padding-top: 12px;">
+            ${renderKeyValue('Días del Evento', formattedEventDays, true)}
+          </td>
+        </tr>
+        ` : ''}
+        ${!formattedEventDays && campaignDurationDisplay ? `
+        <tr>
+          <td colspan="2" style="padding-top: 12px;">
+            ${renderKeyValue('Duración de Campaña', campaignDurationDisplay, true)}
+          </td>
+        </tr>
+        ` : ''}
       </table>
     </div>
 

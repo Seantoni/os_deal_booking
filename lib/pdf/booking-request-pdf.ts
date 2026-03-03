@@ -9,6 +9,7 @@ import type { BookingFormData } from '@/components/RequestForm/types'
 import { generatePDFFromHTML } from './generate-pdf'
 import { buildCategoryDisplayString } from '@/lib/utils/category-display'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
+import { formatRequestNameDate, parseDateInPanamaTime } from '@/lib/date'
 import { logger } from '@/lib/logger'
 
 // ---------------------------------------------------------------------------
@@ -53,6 +54,21 @@ const fmt = (v: unknown): string => {
   return typeof v === 'string' ? v : String(v)
 }
 
+function getEventDaysFromRecord(record: Record<string, unknown>): string[] {
+  const raw = record.eventDays
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter((date): date is string => typeof date === 'string')
+    .map((date) => date.trim())
+    .filter((date) => date.length > 0)
+}
+
+function formatEventDayLabel(date: string): string {
+  const parsed = parseDateInPanamaTime(date)
+  if (isNaN(parsed.getTime())) return date
+  return formatRequestNameDate(parsed)
+}
+
 function formatDatePanama(date: Date): string {
   return new Date(date).toLocaleDateString('es-PA', {
     timeZone: PANAMA_TIMEZONE,
@@ -92,6 +108,7 @@ const SECTIONS: SectionDef[] = [
       { key: 'internalPeriod', label: 'Periodo Interno' },
       { key: 'campaignDuration', label: 'Duración Campaña' },
       { key: 'campaignDurationUnit', label: 'Unidad Duración' },
+      { key: 'eventDays', label: 'Días del Evento', wide: true },
     ],
   },
   {
@@ -275,6 +292,24 @@ function renderPDFDocument(opts: {
   } = opts
 
   const get = (key: string): unknown => bookingData[key]
+  const eventDays = getEventDaysFromRecord(bookingData)
+  const hasEventDays = eventDays.length > 0
+  const campaignDurationRaw = get('campaignDuration')
+  const campaignDurationValue =
+    campaignDurationRaw !== undefined && campaignDurationRaw !== null
+      ? String(campaignDurationRaw).trim()
+      : ''
+  const campaignDurationUnitRaw = String(get('campaignDurationUnit') || 'months').toLowerCase()
+  const campaignDurationUnit = campaignDurationUnitRaw === 'days' ? 'days' : 'months'
+  const campaignDurationNumber = Number.parseInt(campaignDurationValue, 10)
+  const campaignDurationLabel =
+    campaignDurationValue
+      ? `${campaignDurationValue} ${
+          campaignDurationUnit === 'days'
+            ? campaignDurationNumber === 1 ? 'día' : 'días'
+            : campaignDurationNumber === 1 ? 'mes' : 'meses'
+        }`
+      : ''
   const timestamp = new Date().toLocaleDateString('es-PA', {
     timeZone: PANAMA_TIMEZONE,
     year: 'numeric',
@@ -288,6 +323,9 @@ function renderPDFDocument(opts: {
 
   const renderFields = (fields: FieldDef[]): string => {
     const filled = fields.filter((f) => {
+      if (hasEventDays && (f.key === 'campaignDuration' || f.key === 'campaignDurationUnit')) return false
+      if (!hasEventDays && f.key === 'eventDays') return false
+      if (f.key === 'campaignDurationUnit' && !campaignDurationValue) return false
       const v = get(f.key)
       if (Array.isArray(v)) return v.length > 0
       return v !== undefined && v !== null && String(v).trim() !== ''
@@ -296,7 +334,10 @@ function renderPDFDocument(opts: {
 
     return filled
       .map((f) => {
-        const val = esc(fmt(get(f.key)))
+        let val = esc(fmt(get(f.key)))
+        if (f.key === 'eventDays' && hasEventDays) {
+          val = eventDays.map((date) => esc(formatEventDayLabel(date))).join('<br/>')
+        }
         const width = f.wide ? '100%' : '48%'
         return `
           <div style="width:${width};min-width:200px;box-sizing:border-box;padding:0 0 16px 0;${f.wide ? '' : 'display:inline-block;vertical-align:top;'}">
@@ -541,6 +582,17 @@ function renderPDFDocument(opts: {
         <div class="label">Fecha de Fin (Tentativa)</div>
         <div class="value small">${esc(endDate)}</div>
       </div>
+      ${hasEventDays ? `
+      <div class="item full">
+        <div class="label">Días del Evento</div>
+        <div class="value small">${eventDays.map((date) => esc(formatEventDayLabel(date))).join('<br/>')}</div>
+      </div>
+      ` : campaignDurationLabel ? `
+      <div class="item full">
+        <div class="label">Duración Campaña</div>
+        <div class="value small">${esc(campaignDurationLabel)}</div>
+      </div>
+      ` : ''}
       ${requesterEmail ? `
       <div class="item full">
         <div class="label">Solicitado por</div>

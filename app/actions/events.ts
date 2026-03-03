@@ -987,16 +987,39 @@ export async function bookEvent(eventId: string) {
           }
         }
 
-        // Send booking confirmation email
+        // Send booking confirmation email to business and original requester
         const { sendBookingConfirmationEmail } = await import('@/lib/email/services/booking-confirmation')
-        const { currentUser } = await import('@clerk/nextjs/server')
-        const user = await currentUser()
-        const requesterEmail = user?.emailAddresses?.[0]?.emailAddress
+
+        const resolveEmailForUserId = async (clerkId: string): Promise<string | undefined> => {
+          const userProfile = await prisma.userProfile.findUnique({
+            where: { clerkId },
+            select: { email: true },
+          })
+          if (userProfile?.email) return userProfile.email
+
+          const { clerkClient } = await import('@clerk/nextjs/server')
+          const clerk = await clerkClient()
+          const clerkUser = await clerk.users.getUser(clerkId)
+          return (
+            clerkUser.emailAddresses.find((e) => e.id === clerkUser.primaryEmailAddressId)?.emailAddress ||
+            clerkUser.emailAddresses[0]?.emailAddress ||
+            undefined
+          )
+        }
+
+        let requesterEmails: string[] = []
+        try {
+          const creatorEmail = await resolveEmailForUserId(bookingRequest.userId)
+          const bookingUserEmail = await resolveEmailForUserId(userId)
+          requesterEmails = [...new Set([creatorEmail, bookingUserEmail].filter((email): email is string => Boolean(email)))]
+        } catch (userError) {
+          logger.warn('Could not resolve booking confirmation CC emails:', userError)
+        }
 
         await sendBookingConfirmationEmail(
           updatedEvent,
           bookingRequest.businessEmail,
-          requesterEmail
+          requesterEmails
         )
       }
     }
