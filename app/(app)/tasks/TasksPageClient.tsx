@@ -32,6 +32,7 @@ import {
   UserFilterDropdown,
   DateRangeFilter,
   TaskDescriptionCell,
+  BusinessLifecycleBadge,
   type FilterTab,
   type ColumnConfig
 } from '@/components/shared'
@@ -77,12 +78,12 @@ const STAGE_COLORS: Record<string, string> = {
 // Table columns
 const COLUMNS: ColumnConfig[] = [
   { key: 'status', label: '', align: 'center' },
+  { key: 'business', label: 'Negocio', sortable: true },
+  { key: 'lifecycle', label: 'N/R', align: 'center' },
   { key: 'title', label: 'Tarea', sortable: true },
   { key: 'description', label: 'Descripción' },
-  { key: 'meetingOutcome', label: '¿Acuerdo?' },
   { key: 'responsible', label: 'Responsable', sortable: true },
-  { key: 'date', label: 'Vencimiento', sortable: true },
-  { key: 'business', label: 'Negocio', sortable: true },
+  { key: 'date', label: 'Fecha', sortable: true },
   { key: 'stage', label: 'Etapa', sortable: true },
   { key: 'contactName', label: 'Contacto' },
   { key: 'contactEmail', label: 'Email' },
@@ -91,23 +92,26 @@ const COLUMNS: ColumnConfig[] = [
 ]
 
 const ALL_TASKS_COLUMNS: ColumnConfig[] = [
-  { key: 'title', label: 'Tarea', sortable: true },
-  { key: 'category', label: 'Categoría', sortable: true },
-  { key: 'status', label: 'Estado', sortable: true },
-  { key: 'description', label: 'Descripción' },
+  { key: 'taskTypeIcon', label: '', align: 'center' },
+  { key: 'date', label: 'Fecha', sortable: true },
+  { key: 'business', label: 'Negocio', sortable: true },
+  { key: 'lifecycle', label: 'N/R', sortable: true, align: 'center' },
   { key: 'meetingOutcome', label: '¿Acuerdo?', sortable: true, align: 'center' },
+  { key: 'objection', label: 'Objeción', sortable: true },
+  { key: 'responsible', label: 'Responsable', sortable: true },
+  { key: 'description', label: 'Descripción' },
 ]
 
 const TASKS_COLUMN_WIDTHS_STORAGE_KEY = 'tasks-table-column-widths'
-const ALL_TASKS_COLUMN_WIDTHS_STORAGE_KEY = 'all-tasks-table-column-widths'
+const ALL_TASKS_COLUMN_WIDTHS_STORAGE_KEY = 'all-tasks-table-column-widths-v2'
 const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
   status: 40,
   title: 122,
   description: 170,
-  meetingOutcome: 50,
   responsible: 80,
   date: 120,
   business: 110,
+  lifecycle: 56,
   stage: 88,
   contactName: 105,
   contactEmail: 180,
@@ -116,10 +120,13 @@ const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
 }
 
 const ALL_TASKS_DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
-  title: 220,
-  category: 120,
-  status: 120,
-  description: 100,
+  taskTypeIcon: 44,
+  date: 120,
+  business: 220,
+  lifecycle: 56,
+  responsible: 170,
+  objection: 180,
+  description: 240,
   meetingOutcome: 96,
 }
 
@@ -127,10 +134,10 @@ const MIN_COLUMN_WIDTHS: Record<string, number> = {
   status: 36,
   title: 90,
   description: 120,
-  meetingOutcome: 50,
   responsible: 70,
   date: 95,
   business: 80,
+  lifecycle: 48,
   stage: 72,
   contactName: 80,
   contactEmail: 120,
@@ -139,11 +146,14 @@ const MIN_COLUMN_WIDTHS: Record<string, number> = {
 }
 
 const ALL_TASKS_MIN_COLUMN_WIDTHS: Record<string, number> = {
-  title: 140,
-  category: 90,
-  status: 90,
-  description: 100,
-  meetingOutcome: 80,
+  taskTypeIcon: 1,
+  date: 1,
+  business: 1,
+  lifecycle: 1,
+  responsible: 1,
+  objection: 1,
+  description: 1,
+  meetingOutcome: 1,
 }
 
 type FilterType = 'all' | 'pending' | 'completed' | 'overdue' | 'meetings' | 'todos'
@@ -207,7 +217,7 @@ export default function TasksPageClient() {
   // Sorting state
   const [sortColumn, setSortColumn] = useState<string | null>('date')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
-  const [allTasksSortColumn, setAllTasksSortColumn] = useState<string | null>('title')
+  const [allTasksSortColumn, setAllTasksSortColumn] = useState<string | null>('date')
   const [allTasksSortDirection, setAllTasksSortDirection] = useState<SortDirection>('asc')
   const { columnsWithUserWidths, handleColumnResize, getColumnCellStyle } = useResizableColumns(COLUMNS, {
     storageKey: TASKS_COLUMN_WIDTHS_STORAGE_KEY,
@@ -223,6 +233,33 @@ export default function TasksPageClient() {
     defaultWidths: ALL_TASKS_DEFAULT_COLUMN_WIDTHS,
     minWidths: ALL_TASKS_MIN_COLUMN_WIDTHS,
   })
+
+  const shouldApplyAllTasksColumnWidth = useCallback((columnKey: string) => {
+    if (columnKey === 'description' || columnKey === 'taskTypeIcon') return true
+    const columnConfig = allTasksColumnsWithUserWidths.find((column) => column.key === columnKey)
+    const currentWidth = columnConfig?.widthPx
+    if (!currentWidth) return false
+    return currentWidth !== ALL_TASKS_DEFAULT_COLUMN_WIDTHS[columnKey]
+  }, [allTasksColumnsWithUserWidths])
+
+  const allTasksColumnsForTable = useMemo(() => {
+    return allTasksColumnsWithUserWidths.map((column) => {
+      if (column.key === 'description') {
+        return column
+      }
+
+      if (shouldApplyAllTasksColumnWidth(column.key)) {
+        return column
+      }
+
+      return {
+        ...column,
+        widthPx: undefined,
+        minWidth: undefined,
+        maxWidth: undefined,
+      }
+    })
+  }, [allTasksColumnsWithUserWidths, shouldApplyAllTasksColumnWidth])
 
   // Load tasks
   const loadTasks = useCallback(async (filters?: { responsibleId?: string }) => {
@@ -385,10 +422,21 @@ export default function TasksPageClient() {
   const allTasksSorted = useMemo(() => {
     return sortEntities(allTasksFiltered, allTasksSortColumn, allTasksSortDirection, (task, column) => {
       switch (column) {
-        case 'title':
-          return task.title
+        case 'date':
+          return new Date(task.date).getTime()
+        case 'business':
+          return task.opportunity?.business?.name || ''
+        case 'lifecycle':
+          return task.opportunity?.business?.businessLifecycle || ''
+        case 'objection': {
+          if (task.category !== 'meeting') return ''
+          const meetingData = parseMeetingData(task.notes || null)
+          return meetingData?.mainObjection || ''
+        }
         case 'category':
           return task.category
+        case 'responsible':
+          return task.opportunity?.responsible?.name || task.opportunity?.responsible?.email || ''
         case 'status':
           return task.completed ? 1 : 0
         case 'meetingOutcome': {
@@ -1140,12 +1188,12 @@ export default function TasksPageClient() {
             </div>
           ) : (
             <EntityTable
-              columns={allTasksColumnsWithUserWidths}
+              columns={allTasksColumnsForTable}
               sortColumn={allTasksSortColumn}
               sortDirection={allTasksSortDirection}
               onSort={handleAllTasksSort}
               onColumnResize={handleAllTasksColumnResize}
-              tableClassName="table-fixed [&_th]:px-3 [&_td]:px-3 [&_td]:text-sm"
+              tableClassName="[&_th]:px-3 [&_td]:px-3 [&_td]:text-sm"
             >
               {allTasksSorted.map((task, index) => {
                 const meetingData = task.category === 'meeting' ? parseMeetingData(task.notes || null) : null
@@ -1161,31 +1209,64 @@ export default function TasksPageClient() {
                   <TableRow
                     key={task.id}
                     index={index}
-                    className="hover:bg-slate-50/80"
+                    onClick={() => handleEditTask(task)}
+                    onMouseEnter={() => prefetchFormConfig('opportunity')}
+                    className="hover:bg-slate-50/80 cursor-pointer"
                   >
-                    <TableCell style={getAllTasksColumnCellStyle('title')}>
+                    <TableCell
+                      align="center"
+                      style={getAllTasksColumnCellStyle('taskTypeIcon')}
+                    >
+                      {task.category === 'meeting' ? (
+                        <GroupsIcon className="text-blue-600" style={{ fontSize: 16 }} />
+                      ) : (
+                        <AssignmentIcon className="text-orange-600" style={{ fontSize: 16 }} />
+                      )}
+                    </TableCell>
+
+                    <TableCell style={shouldApplyAllTasksColumnWidth('date') ? getAllTasksColumnCellStyle('date') : undefined}>
+                      <span className="text-sm text-slate-700 whitespace-nowrap">
+                        {formatShortDateNoYear(task.date)}
+                      </span>
+                    </TableCell>
+
+                    <TableCell style={shouldApplyAllTasksColumnWidth('business') ? getAllTasksColumnCellStyle('business') : undefined}>
                       <span className="text-sm font-medium text-slate-900">
-                        {task.title}
+                        {task.opportunity?.business?.name || '-'}
                       </span>
                     </TableCell>
 
-                    <TableCell style={getAllTasksColumnCellStyle('category')}>
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                        task.category === 'meeting'
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'bg-orange-100 text-orange-700'
-                      }`}>
-                        {task.category === 'meeting' ? 'Reunión' : 'To-do'}
+                    <TableCell
+                      align="center"
+                      style={shouldApplyAllTasksColumnWidth('lifecycle') ? getAllTasksColumnCellStyle('lifecycle') : undefined}
+                    >
+                      <BusinessLifecycleBadge lifecycle={task.opportunity?.business?.businessLifecycle} />
+                    </TableCell>
+
+                    <TableCell
+                      align="center"
+                      style={shouldApplyAllTasksColumnWidth('meetingOutcome') ? getAllTasksColumnCellStyle('meetingOutcome') : undefined}
+                    >
+                      <span className="text-sm text-slate-700">
+                        {task.category === 'meeting' ? meetingOutcome : '-'}
                       </span>
                     </TableCell>
 
-                    <TableCell style={getAllTasksColumnCellStyle('status')}>
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
-                        task.completed
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-amber-100 text-amber-700'
-                      }`}>
-                        {task.completed ? 'Completada' : 'Pendiente'}
+                    <TableCell style={shouldApplyAllTasksColumnWidth('objection') ? getAllTasksColumnCellStyle('objection') : undefined}>
+                      <span
+                        className="text-sm text-slate-700 truncate block w-full"
+                        title={meetingData?.mainObjection || ''}
+                      >
+                        {meetingData?.mainObjection || '-'}
+                      </span>
+                    </TableCell>
+
+                    <TableCell style={shouldApplyAllTasksColumnWidth('responsible') ? getAllTasksColumnCellStyle('responsible') : undefined}>
+                      <span
+                        className="text-sm text-slate-700 truncate block w-full"
+                        title={task.opportunity?.responsible?.name || task.opportunity?.responsible?.email || ''}
+                      >
+                        {task.opportunity?.responsible?.name || task.opportunity?.responsible?.email || '-'}
                       </span>
                     </TableCell>
 
@@ -1198,15 +1279,6 @@ export default function TasksPageClient() {
                       }}
                     >
                       <TaskDescriptionCell text={multilineDescription} mode="multiline" />
-                    </TableCell>
-
-                    <TableCell
-                      align="center"
-                      style={getAllTasksColumnCellStyle('meetingOutcome')}
-                    >
-                      <span className="text-sm text-slate-700">
-                        {task.category === 'meeting' ? meetingOutcome : '-'}
-                      </span>
                     </TableCell>
                   </TableRow>
                 )
@@ -1412,12 +1484,6 @@ export default function TasksPageClient() {
               >
                 {sortedTasks.map((task, index) => {
                   const meetingData = task.category === 'meeting' ? parseMeetingData(task.notes || null) : null
-                  const meetingOutcome =
-                    meetingData?.reachedAgreement === 'si'
-                      ? 'Sí'
-                      : meetingData?.reachedAgreement === 'no'
-                        ? 'No'
-                        : ''
                   const taskDescription = getTaskDescription(task, meetingData)
 
                   return (
@@ -1452,6 +1518,18 @@ export default function TasksPageClient() {
                         </button>
                       </TableCell>
 
+                      {/* Business */}
+                      <TableCell style={getColumnCellStyle('business')}>
+                        <span className="text-sm text-slate-900 truncate block w-full" title={task.opportunity?.business?.name || ''}>
+                          {task.opportunity?.business?.name || '-'}
+                        </span>
+                      </TableCell>
+
+                      {/* Lifecycle (N/R) */}
+                      <TableCell align="center" style={getColumnCellStyle('lifecycle')}>
+                        <BusinessLifecycleBadge lifecycle={task.opportunity?.business?.businessLifecycle} />
+                      </TableCell>
+
                       {/* Title */}
                       <TableCell style={getColumnCellStyle('title')}>
                         <div className="flex min-w-0 items-center gap-2">
@@ -1475,13 +1553,6 @@ export default function TasksPageClient() {
                         className="!overflow-visible"
                       >
                         <TaskDescriptionCell text={taskDescription} mode="truncate" />
-                      </TableCell>
-
-                      {/* Meeting Outcome */}
-                      <TableCell style={getColumnCellStyle('meetingOutcome')}>
-                        <span className="text-sm text-slate-700 truncate block w-full">
-                          {task.category === 'meeting' ? meetingOutcome : ''}
-                        </span>
                       </TableCell>
 
                       {/* Responsible */}
@@ -1512,13 +1583,6 @@ export default function TasksPageClient() {
                             </div>
                           )
                         })()}
-                      </TableCell>
-
-                      {/* Business */}
-                      <TableCell style={getColumnCellStyle('business')}>
-                        <span className="text-sm text-slate-900 truncate block w-full" title={task.opportunity?.business?.name || ''}>
-                          {task.opportunity?.business?.name || '-'}
-                        </span>
                       </TableCell>
 
                       {/* Stage */}

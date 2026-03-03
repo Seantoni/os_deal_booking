@@ -19,6 +19,7 @@ export interface TaskWithOpportunity extends Task {
       contactName: string
       contactPhone: string
       contactEmail: string
+      businessLifecycle: 'NEW' | 'RECURRENT' | 'UNKNOWN' | null
     }
     responsible: {
       id: string
@@ -85,6 +86,7 @@ export async function getUserTasks(filters?: { responsibleId?: string }): Promis
                 contactName: true,
                 contactPhone: true,
                 contactEmail: true,
+                businessLifecycle: true,
               },
             },
           },
@@ -188,6 +190,7 @@ export async function getTasksPaginated(options: {
                 contactName: true,
                 contactPhone: true,
                 contactEmail: true,
+                businessLifecycle: true,
               },
             },
           },
@@ -294,6 +297,7 @@ export async function searchTasks(query: string, options: {
                 contactName: true,
                 contactPhone: true,
                 contactEmail: true,
+                businessLifecycle: true,
               },
             },
           },
