@@ -325,6 +325,8 @@ export async function sendDealToExternalApi(
     /** Override the deal start/end dates sent to OfertaSimple (used when booking an event) */
     runAt?: Date | string | null
     endAt?: Date | string | null
+    /** Current state of the contract (sent to external API as contractState) */
+    contractState?: string | null
   }
 ): Promise<SendDealResult> {
   const startTime = Date.now()
@@ -478,6 +480,7 @@ export async function sendDealToExternalApi(
     runAt: finalRunAt ? formatOfertaSimpleBoundary(finalRunAt, 'start') : null,
     endAt: finalEndAt ? formatOfertaSimpleBoundary(finalEndAt, 'end') : null,
     section: section, // Mapped from category
+    contractState: options?.contractState ?? '20',
   })
   
   // Validate payload before sending

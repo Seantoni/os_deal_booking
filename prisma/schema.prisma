@@ -47,6 +47,7 @@ model BookingRequest {
   businessReview                String?
   campaignDuration              String?
   campaignDurationUnit          String?              @default("months") // 'days' or 'months'
+  eventDays                     Json?
   cancellationPolicy            String?
   contactDetails                String?
   provinceDistrictCorregimiento String?

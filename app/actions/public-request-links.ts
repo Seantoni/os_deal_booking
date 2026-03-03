@@ -222,6 +222,18 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
         ? (fields.dealImages as Prisma.InputJsonValue)
         : Prisma.JsonNull
 
+    const eventDaysJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
+      fields.eventDays && Array.isArray(fields.eventDays) && fields.eventDays.length > 0
+        ? (Array.from(
+            new Set(
+              fields.eventDays
+                .filter((date): date is string => typeof date === 'string')
+                .map((date) => date.trim())
+                .filter((date) => date.length > 0)
+            )
+          ) as Prisma.InputJsonValue)
+        : Prisma.JsonNull
+
     // Create booking request with status 'approved' (as requested)
     // Use the userId from the public link creator (createdBy)
     const bookingRequest = await prisma.bookingRequest.create({
@@ -244,6 +256,7 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
         processedAt: new Date(),
         // Configuración: Configuración General y Vigencia
         campaignDuration: fields.campaignDuration,
+        eventDays: eventDaysJson,
         // Operatividad: Operatividad y Pagos
         redemptionMode: fields.redemptionMode,
         isRecurring: fields.isRecurring,

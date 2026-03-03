@@ -240,6 +240,12 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
               endDate: data.endDate ? new Date(data.endDate).toISOString().split('T')[0] : '',
               campaignDuration: data.campaignDuration || '',
               campaignDurationUnit: (data.campaignDurationUnit as 'days' | 'months') || 'months',
+              eventDays: Array.isArray(data.eventDays)
+                ? data.eventDays
+                    .filter((date: unknown): date is string => typeof date === 'string')
+                    .map((date: string) => date.trim())
+                    .filter((date: string) => date.length > 0)
+                : [],
               opportunityId: data.opportunityId || '',
               
               // Operatividad
@@ -444,6 +450,20 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         const campaignDurationUnitParam = searchParams.get('campaignDurationUnit')
         if (campaignDurationUnitParam === 'days' || campaignDurationUnitParam === 'months') {
           newData.campaignDurationUnit = campaignDurationUnitParam
+        }
+        const eventDaysParam = searchParams.get('eventDays')
+        if (eventDaysParam) {
+          try {
+            const parsedEventDays = JSON.parse(eventDaysParam)
+            if (Array.isArray(parsedEventDays)) {
+              newData.eventDays = parsedEventDays
+                .filter((date): date is string => typeof date === 'string')
+                .map((date) => date.trim())
+                .filter((date) => date.length > 0)
+            }
+          } catch {
+            // Ignore malformed eventDays in legacy query-string replication
+          }
         }
         
         // Step 2: Operatividad

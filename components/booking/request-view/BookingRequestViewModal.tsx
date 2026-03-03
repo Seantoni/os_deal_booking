@@ -53,7 +53,7 @@ import DealFormModal from '@/components/crm/deal/DealFormModal'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import MarketingCampaignModal from '@/components/marketing/MarketingCampaignModal'
 import { adminApproveBookingRequest } from '@/app/actions/booking-requests'
-import { formatShortDate } from '@/lib/date'
+import { formatShortDate, formatRequestNameDate, parseDateInPanamaTime } from '@/lib/date'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import type { BookingFormData } from '@/components/RequestForm/types'
 
@@ -83,6 +83,7 @@ const BASE_SECTIONS: SectionDefinition[] = [
       { key: 'startDate', label: 'Fecha de Inicio (Tentativa)', type: 'date' },
       { key: 'endDate', label: 'Fecha de Fin (Tentativa)', type: 'date' },
       { key: 'campaignDuration', label: 'Duración de la Campaña' },
+      { key: 'eventDays', label: 'Días del Evento', type: 'json' },
     ],
   },
   {
@@ -567,25 +568,48 @@ export default function BookingRequestViewModal({
     }
   }, [additionalInfo])
 
+  const hasEventDays = useMemo(() => {
+    if (!Array.isArray(requestData?.eventDays)) return false
+    return requestData.eventDays.some((date) => typeof date === 'string' && date.trim().length > 0)
+  }, [requestData?.eventDays])
+
   // Combine base sections with optional additional info section
   // Insert "Información Adicional" after "Pricing Options" section
   const allSections = useMemo((): SectionDefinition[] => {
+    const baseSections = BASE_SECTIONS.map((section) => {
+      if (section.title !== 'Detalles de la Campaña') return section
+
+      const baseFields = section.fields.filter(
+        (field) => field.key !== 'campaignDuration' && field.key !== 'eventDays'
+      )
+
+      return {
+        ...section,
+        fields: [
+          ...baseFields,
+          hasEventDays
+            ? { key: 'eventDays', label: 'Días del Evento', type: 'json' as const }
+            : { key: 'campaignDuration', label: 'Duración de la Campaña' },
+        ],
+      }
+    })
+
     if (additionalSection?.section) {
       // Find the index of "Pricing Options" section
-      const pricingOptionsIndex = BASE_SECTIONS.findIndex(s => s.title === 'Pricing Options')
+      const pricingOptionsIndex = baseSections.findIndex(s => s.title === 'Pricing Options')
       if (pricingOptionsIndex >= 0) {
         // Insert after Pricing Options
         return [
-          ...BASE_SECTIONS.slice(0, pricingOptionsIndex + 1),
+          ...baseSections.slice(0, pricingOptionsIndex + 1),
           additionalSection.section,
-          ...BASE_SECTIONS.slice(pricingOptionsIndex + 1),
+          ...baseSections.slice(pricingOptionsIndex + 1),
         ]
       }
       // Fallback: if Pricing Options not found, append at end
-      return [...BASE_SECTIONS, additionalSection.section]
+      return [...baseSections, additionalSection.section]
     }
-    return BASE_SECTIONS
-  }, [additionalSection])
+    return baseSections
+  }, [additionalSection, hasEventDays])
 
   const expandSectionForField = useCallback((fieldKey: string) => {
     const section = allSections.find(s => s.fields.some(f => f.key === fieldKey))
@@ -722,6 +746,16 @@ export default function BookingRequestViewModal({
         month: 'long',
         day: 'numeric',
       })
+    }
+    if (fieldKey === 'eventDays' && Array.isArray(value)) {
+      return value
+        .filter((date): date is string => typeof date === 'string' && date.trim().length > 0)
+        .map((date) => {
+          const trimmedDate = date.trim()
+          const parsedDate = parseDateInPanamaTime(trimmedDate)
+          return isNaN(parsedDate.getTime()) ? trimmedDate : formatRequestNameDate(parsedDate)
+        })
+        .join('\n')
     }
     if (type === 'json' && Array.isArray(value)) {
       return value.join(', ')
@@ -863,6 +897,12 @@ export default function BookingRequestViewModal({
         subCategory3: requestData.subCategory3 ? String(requestData.subCategory3) : '',
         campaignDuration: requestData.campaignDuration ? String(requestData.campaignDuration) : '',
         campaignDurationUnit: (requestData.campaignDurationUnit as 'days' | 'months') || 'months',
+        eventDays: Array.isArray(requestData.eventDays)
+          ? requestData.eventDays
+              .filter((date): date is string => typeof date === 'string')
+              .map((date) => date.trim())
+              .filter((date) => date.length > 0)
+          : [],
         linkedBusinessId: requestData.linkedBusiness?.id || undefined,
         redemptionMode: requestData.redemptionMode ? String(requestData.redemptionMode) : undefined,
         isRecurring: requestData.isRecurring ? String(requestData.isRecurring) : undefined,
@@ -1026,6 +1066,12 @@ export default function BookingRequestViewModal({
           subCategory3: requestData.subCategory3 ? String(requestData.subCategory3) : '',
           campaignDuration: requestData.campaignDuration ? String(requestData.campaignDuration) : '',
           campaignDurationUnit: (requestData.campaignDurationUnit as 'days' | 'months') || 'months',
+          eventDays: Array.isArray(requestData.eventDays)
+            ? requestData.eventDays
+                .filter((date): date is string => typeof date === 'string')
+                .map((date) => date.trim())
+                .filter((date) => date.length > 0)
+            : [],
           // Pass businessId for backfill tracking (standardized approach)
           linkedBusinessId: requestData.linkedBusiness?.id || undefined,
 

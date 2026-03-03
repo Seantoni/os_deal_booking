@@ -406,7 +406,7 @@ export default function EstructuraStep({
                 <div>
                   <div className="flex items-center justify-between mb-1.5 gap-3">
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
-                      <span>Descripción (Detalles incluidos)</span>
+                      <span>Descripción</span>
                       {isFieldRequired('pricingOptions.description') ? (
                         <span className="text-red-500">*</span>
                       ) : (

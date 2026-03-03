@@ -51,6 +51,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
   additionalEmails: string[] | null
   startDate: string | null
   endDate: string | null
+  eventDays: string[] | null
   opportunityId: string | null
 
   // Configuración: Configuración General y Vigencia
@@ -130,6 +131,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
     additionalEmails: parseFormDataJsonField(formData, 'additionalEmails') as string[] | null,
     startDate: getFormDataString(formData, 'startDate'),
     endDate: getFormDataString(formData, 'endDate'),
+    eventDays: parseFormDataJsonField(formData, 'eventDays') as string[] | null,
     opportunityId: getFormDataString(formData, 'opportunityId'),
 
     // Configuración: Configuración General y Vigencia
@@ -192,4 +194,3 @@ export function extractBookingRequestFromFormData(formData: FormData): {
     additionalInfo: parseFormDataJsonField(formData, 'additionalInfo') as { templateName: string; templateDisplayName: string; fields: Record<string, string> } | null,
   }
 }
-

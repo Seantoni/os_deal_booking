@@ -80,6 +80,12 @@ export default async function EditBookingRequestPage({ params }: EditBookingRequ
     agencyContact: '',
     tentativeLaunchDate: formatDateForInput(bookingRequest.startDate),
     campaignDuration: br.campaignDuration || '',
+    eventDays: Array.isArray(br.eventDays)
+      ? br.eventDays
+          .filter((date: unknown): date is string => typeof date === 'string')
+          .map((date: string) => date.trim())
+          .filter((date: string) => date.length > 0)
+      : [],
     internalPeriod: '',
     redemptionMode: br.redemptionMode || '',
     isRecurring: br.isRecurring || '',
@@ -206,4 +212,3 @@ export default async function EditBookingRequestPage({ params }: EditBookingRequ
     </PageContent>
   )
 }
-

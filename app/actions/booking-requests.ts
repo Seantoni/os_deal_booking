@@ -111,6 +111,20 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
         ? (fields.additionalInfo as Prisma.InputJsonValue)
         : Prisma.JsonNull
 
+    const eventDaysJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
+      fields.eventDays &&
+      Array.isArray(fields.eventDays) &&
+      fields.eventDays.length > 0
+        ? (Array.from(
+            new Set(
+              fields.eventDays
+                .filter((date): date is string => typeof date === 'string')
+                .map((date) => date.trim())
+                .filter((date) => date.length > 0)
+            )
+          ) as Prisma.InputJsonValue)
+        : Prisma.JsonNull
+
     const data = {
       name: requestName,
       category: fields.category,
@@ -129,6 +143,7 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
       // Configuración: Configuración General y Vigencia
       campaignDuration: fields.campaignDuration,
       campaignDurationUnit: fields.campaignDurationUnit || 'months',
+      eventDays: eventDaysJson,
       // Operatividad: Operatividad y Pagos
       redemptionMode: fields.redemptionMode,
       isRecurring: fields.isRecurring,
@@ -292,10 +307,12 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
     const pricingOptionsStr = formData.get('pricingOptions') as string
     const dealImagesStr = formData.get('dealImages') as string
     const additionalInfoStr = formData.get('additionalInfo') as string
+    const eventDaysStr = formData.get('eventDays') as string
     let redemptionMethods: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
     let pricingOptions: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
     let dealImages: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
     let additionalInfo: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
+    let eventDays: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
     
     try {
       if (redemptionMethodsStr) {
@@ -320,6 +337,22 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
         const parsed = JSON.parse(additionalInfoStr)
         if (parsed && typeof parsed === 'object') {
           additionalInfo = parsed as Prisma.InputJsonValue
+        }
+      }
+      if (eventDaysStr) {
+        const parsed = JSON.parse(eventDaysStr)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const normalizedEventDays = Array.from(
+            new Set(
+              parsed
+                .filter((date): date is string => typeof date === 'string')
+                .map((date) => date.trim())
+                .filter((date) => date.length > 0)
+            )
+          )
+          if (normalizedEventDays.length > 0) {
+            eventDays = normalizedEventDays as Prisma.InputJsonValue
+          }
         }
       }
     } catch (e) {
@@ -363,6 +396,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       // Configuración: Configuración General y Vigencia
       campaignDuration: (formData.get('campaignDuration') as string) || null,
       campaignDurationUnit: (formData.get('campaignDurationUnit') as string) || 'months',
+      eventDays,
       // Operatividad: Operatividad y Pagos
       redemptionMode: (formData.get('redemptionMode') as string) || null,
       isRecurring: (formData.get('isRecurring') as string) || null,
@@ -1226,6 +1260,17 @@ export async function updateBookingRequest(requestId: string, formData: FormData
       }
     }
 
+    const normalizedEventDays = Array.isArray(fields.eventDays)
+      ? Array.from(
+          new Set(
+            fields.eventDays
+              .filter((date): date is string => typeof date === 'string')
+              .map((date) => date.trim())
+              .filter((date) => date.length > 0)
+          )
+        )
+      : null
+
     const bookingRequest = await prisma.bookingRequest.update({
       where: { id: requestId },
       data: {
@@ -1239,6 +1284,12 @@ export async function updateBookingRequest(requestId: string, formData: FormData
         businessEmail: fields.businessEmail || undefined,
         startDate: startDateTime || undefined,
         endDate: endDateTime || undefined,
+        eventDays:
+          normalizedEventDays !== null
+            ? normalizedEventDays.length > 0
+              ? (normalizedEventDays as Prisma.InputJsonValue)
+              : Prisma.JsonNull
+            : undefined,
       },
     })
 

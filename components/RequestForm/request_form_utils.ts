@@ -115,6 +115,14 @@ export const validateStep = (
     // Conditional fields: only validate if the condition is met
     if (fieldKey === 'recurringOfferLink' && formData.isRecurring !== 'Sí') return false
     if (fieldKey === 'exclusivityCondition' && formData.hasExclusivity !== 'Sí') return false
+    if (
+      fieldKey === 'campaignDuration' &&
+      formData.parentCategory === 'SHOWS Y EVENTOS' &&
+      Array.isArray(formData.eventDays) &&
+      formData.eventDays.some((date) => date.trim().length > 0)
+    ) {
+      return false
+    }
     
     return isRequired(fieldKey)
   }
@@ -270,6 +278,13 @@ export const validateStep = (
 
 export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
   const fd = new FormData()
+  const normalizedEventDays = Array.from(
+    new Set(
+      (formData.eventDays || [])
+        .map((date) => date.trim())
+        .filter((date) => date.length > 0)
+    )
+  ).sort()
   
   // Map enhanced form fields to booking request fields
   fd.append('name', formData.businessName)  // Event name from business name
@@ -290,6 +305,7 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
   // Configuración: Configuración General y Vigencia
   fd.append('campaignDuration', formData.campaignDuration || '')
   fd.append('campaignDurationUnit', formData.campaignDurationUnit || 'months')
+  fd.append('eventDays', JSON.stringify(normalizedEventDays))
   
   // Operatividad: Operatividad y Pagos
   fd.append('redemptionMode', formData.redemptionMode || '')

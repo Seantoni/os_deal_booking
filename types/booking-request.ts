@@ -17,6 +17,7 @@ export type BookingRequest = {
   businessEmail: string
   startDate: Date
   endDate: Date
+  eventDays: string[] | null
   status: BookingRequestStatus
   sentAt?: Date | null
   approvedAt?: Date | null

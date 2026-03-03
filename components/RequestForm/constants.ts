@@ -63,6 +63,7 @@ export const INITIAL_FORM_DATA: BookingFormData = {
   tentativeLaunchDate: '',
   campaignDuration: '3',
   campaignDurationUnit: 'months',
+  eventDays: [],
   internalPeriod: '',
   
   // Operatividad: Operatividad y Pagos

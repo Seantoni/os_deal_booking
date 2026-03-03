@@ -181,13 +181,25 @@ export async function GET(request: Request) {
     const existingLogId = url.searchParams.get('logId')
     activeLogId = existingLogId
     
-    // Auth: shared verifier for both Vercel Cron and internal chunk calls.
-    if (!verifyCronSecret(request)) {
-      logger.warn('Unauthorized cron request attempted for market-intelligence-scan')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
+    // Auth: keep cron-secret verification when configured, otherwise
+    // fall back to admin session auth for local/staging manual runs.
     const expectedSecret = process.env.CRON_SECRET
+    if (expectedSecret) {
+      if (!verifyCronSecret(request)) {
+        logger.warn('Unauthorized cron request attempted for market-intelligence-scan')
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+    } else {
+      const { userId } = await auth()
+      if (!userId) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+
+      const role = await getUserRole()
+      if (role !== 'admin') {
+        return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+      }
+    }
     
     // If no site specified, start the scan sequence
     if (!site) {

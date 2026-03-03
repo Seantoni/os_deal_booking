@@ -11,6 +11,7 @@ export type BookingFormData = {
   tentativeLaunchDate: string
   campaignDuration: string
   campaignDurationUnit: 'days' | 'months' // Unit for campaign duration calculation
+  eventDays: string[] // Specific event days for SHOWS Y EVENTOS (YYYY-MM-DD)
   internalPeriod: string
   
   // Operatividad: Operatividad y Pagos

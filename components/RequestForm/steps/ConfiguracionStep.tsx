@@ -46,6 +46,18 @@ export default function ConfiguracionStep({
   const [daysUntilLaunch, setDaysUntilLaunch] = useState<number | null>(null)
   const [calculatingDate, setCalculatingDate] = useState(false)
   const [selectedBusiness, setSelectedBusiness] = useState<BusinessWithStatus | null>(null)
+  const isShowsCategory = formData.parentCategory === 'SHOWS Y EVENTOS'
+  const eventDayRows =
+    isShowsCategory && Array.isArray(formData.eventDays) && formData.eventDays.length > 0
+      ? formData.eventDays
+      : isShowsCategory
+        ? ['']
+        : []
+  const hasActiveEventDays =
+    isShowsCategory &&
+    Array.isArray(formData.eventDays) &&
+    formData.eventDays.some((date) => date.trim().length > 0)
+  const isCampaignDurationDisabled = hasActiveEventDays
   
   // Format date string (YYYY-MM-DD) for display
   // Uses T00:00:00 suffix to create local date without timezone shifting
@@ -172,9 +184,32 @@ export default function ConfiguracionStep({
   const campaignDurationUnit = formData.campaignDurationUnit || 'months'
   const startDateFormatted = formData.startDate ? formatDate(formData.startDate) : 'X'
   const endDateFormatted = formData.endDate ? formatDate(formData.endDate) : 'Y'
+
+  const handleEventDayChange = (index: number, value: string) => {
+    const nextEventDays = Array.isArray(formData.eventDays) ? [...formData.eventDays] : []
+    nextEventDays[index] = value
+    updateFormData('eventDays', nextEventDays)
+  }
+
+  const handleAddEventDay = () => {
+    const nextEventDays = Array.isArray(formData.eventDays) ? [...formData.eventDays] : []
+    if (nextEventDays.length === 0) {
+      updateFormData('eventDays', ['', ''])
+      return
+    }
+    updateFormData('eventDays', [...nextEventDays, ''])
+  }
+
+  const handleRemoveEventDay = (index: number) => {
+    const nextEventDays = (Array.isArray(formData.eventDays) ? formData.eventDays : []).filter(
+      (_, rowIndex) => rowIndex !== index
+    )
+    updateFormData('eventDays', nextEventDays)
+  }
   
   // Calculate redemption validity date (end date + campaign duration in days or months)
   const calculateRedemptionDate = (): string => {
+    if (isCampaignDurationDisabled) return '—'
     if (!formData.endDate) return 'Z'
     const endDate = new Date(formData.endDate + 'T00:00:00')
     const duration = parseInt(campaignDuration) || 3
@@ -300,6 +335,9 @@ export default function ConfiguracionStep({
                 updateFormData('parentCategory', option.parent)
                 updateFormData('subCategory1', option.sub1 || '')
                 updateFormData('subCategory2', option.sub2 || '')
+                if (option.parent !== 'SHOWS Y EVENTOS' && Array.isArray(formData.eventDays) && formData.eventDays.length > 0) {
+                  updateFormData('eventDays', [])
+                }
               }}
               error={errors.category}
             />
@@ -308,7 +346,7 @@ export default function ConfiguracionStep({
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Duración de Campaña {isFieldRequired('campaignDuration') && <span className="text-red-500">*</span>}
+            Duración de Campaña {isFieldRequired('campaignDuration') && !isCampaignDurationDisabled && <span className="text-red-500">*</span>}
           </label>
           <div className="flex gap-2">
             <Input
@@ -318,33 +356,40 @@ export default function ConfiguracionStep({
               type="number"
               min="1"
               className="flex-1"
+              disabled={isCampaignDurationDisabled}
             />
             <div className="inline-flex rounded-lg bg-gray-100 p-0.5">
               <button
                 type="button"
                 onClick={() => updateFormData('campaignDurationUnit', 'days')}
+                disabled={isCampaignDurationDisabled}
                 className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
                   (formData.campaignDurationUnit || 'months') === 'days'
                     ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-500 hover:text-gray-700'
-                }`}
+                } ${isCampaignDurationDisabled ? 'cursor-not-allowed opacity-50' : ''}`}
               >
                 Días
               </button>
               <button
                 type="button"
                 onClick={() => updateFormData('campaignDurationUnit', 'months')}
+                disabled={isCampaignDurationDisabled}
                 className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${
                   (formData.campaignDurationUnit || 'months') === 'months'
                     ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-500 hover:text-gray-700'
-                }`}
+                } ${isCampaignDurationDisabled ? 'cursor-not-allowed opacity-50' : ''}`}
               >
                 Meses
               </button>
             </div>
           </div>
-          <p className="text-xs text-gray-500 mt-1.5">Periodo de canje a publicar en campaña</p>
+          <p className="text-xs text-gray-500 mt-1.5">
+            {isCampaignDurationDisabled
+              ? 'Deshabilitado porque hay uno o más días específicos de evento.'
+              : 'Periodo de canje a publicar en campaña'}
+          </p>
         </div>
 
         <div>
@@ -360,6 +405,51 @@ export default function ConfiguracionStep({
             helperText={calculatingDate ? 'Calculando fecha disponible...' : undefined}
           />
         </div>
+
+        {isShowsCategory && (
+          <div className="md:col-start-2">
+            <div className="relative mb-2 pr-10">
+              <label className="block text-sm font-semibold text-gray-700">
+                Día del evento
+              </label>
+              <button
+                type="button"
+                onClick={handleAddEventDay}
+                className="absolute right-0 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-7 h-7 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                aria-label="Agregar día de evento"
+                title="Agregar día de evento"
+              >
+                +
+              </button>
+            </div>
+            <div className="space-y-2">
+              {eventDayRows.map((eventDay, index) => (
+                <div key={`event-day-${index}`} className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    value={eventDay}
+                    onChange={(e) => handleEventDayChange(index, e.target.value)}
+                    className="flex-1"
+                  />
+                  {Array.isArray(formData.eventDays) && formData.eventDays.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveEventDay(index)}
+                      className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                      aria-label="Eliminar día de evento"
+                      title="Eliminar día de evento"
+                    >
+                      -
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-1.5">
+              Agrega uno o más días específicos cuando la oferta es para funciones/eventos puntuales.
+            </p>
+          </div>
+        )}
 
         <div className="group hidden">
           <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">

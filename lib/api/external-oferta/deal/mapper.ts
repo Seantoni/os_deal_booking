@@ -84,6 +84,7 @@ export function mapBookingFormToApi(
     runAt?: string | null // Start date/time (ISO string)
     endAt?: string | null // End date/time (ISO string)
     section?: string | null // External API section (e.g., "Restaurantes", "Hoteles")
+    contractState?: string | null // Current state of the contract (external API POST deal)
   } = {}
 ): ExternalOfertaDealRequest {
   const firstPricingOption = formData.pricingOptions?.[0]
@@ -216,6 +217,8 @@ export function mapBookingFormToApi(
     
     // External API section (mapped from category)
     section: options.section || null,
+    // Current state of the contract (nullable)
+    contractState: options.contractState ?? null,
   }
 }
 
