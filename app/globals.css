@@ -83,6 +83,15 @@ html {
   min-width: max(100%, 980px);
 }
 
+/* Allow deal metrics tooltips to overflow vertically above/below the table card */
+.deal-metrics-tooltip-table {
+  overflow: visible;
+}
+
+.deal-metrics-tooltip-table .table-scroll-x {
+  overflow-y: visible;
+}
+
 /* Mobile action sheet animations */
 @keyframes fadeIn {
   from { opacity: 0; }

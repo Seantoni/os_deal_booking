@@ -6,8 +6,10 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import BarChartIcon from '@mui/icons-material/BarChart'
 import { getDealMetricsByVendorId } from '@/app/actions/deal-metrics'
 import { EntityTable, TableRow, TableCell } from '@/components/shared/table'
+import TruncatedTextWithTooltip from '@/components/shared/TruncatedTextWithTooltip'
 import type { ColumnConfig } from '@/components/shared/SortableTableHeader'
 import type { SortDirection } from '@/hooks/useEntityPage'
+import { useResizableColumns } from '@/hooks/useResizableColumns'
 
 interface DealMetric {
   id: string
@@ -46,11 +48,39 @@ const DEAL_COLUMNS: ColumnConfig[] = [
   { key: 'actions', label: '', align: 'right', width: 'w-10' },
 ]
 
+const DEAL_METRICS_TABLE_DEFAULT_WIDTHS: Record<string, number> = {
+  externalDealId: 260,
+  status: 110,
+  quantitySold: 80,
+  netRevenue: 110,
+  margin: 90,
+  runAt: 120,
+  endAt: 120,
+  actions: 56,
+}
+
+const DEAL_METRICS_TABLE_MIN_WIDTHS: Record<string, number> = {
+  externalDealId: 160,
+  status: 90,
+  quantitySold: 70,
+  netRevenue: 90,
+  margin: 80,
+  runAt: 100,
+  endAt: 100,
+  actions: 48,
+}
+
 export default function DealMetricsSection({ vendorId, businessName, summaryView = 'chart' }: DealMetricsSectionProps) {
   const [loading, setLoading] = useState(true)
   const [deals, setDeals] = useState<DealMetric[]>([])
   const [sortColumn, setSortColumn] = useState<string | null>('netRevenue')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const { columnsWithUserWidths, handleColumnResize, getColumnCellStyle } = useResizableColumns(DEAL_COLUMNS, {
+    storageKey: 'business-deal-metrics-column-widths',
+    defaultWidths: DEAL_METRICS_TABLE_DEFAULT_WIDTHS,
+    minWidths: DEAL_METRICS_TABLE_MIN_WIDTHS,
+    resizableKeys: ['externalDealId'],
+  })
 
   useEffect(() => {
     async function loadMetrics() {
@@ -173,10 +203,13 @@ export default function DealMetricsSection({ vendorId, businessName, summaryView
       <div>
         <h3 className="text-sm font-medium text-slate-700 mb-3">All Deals ({deals.length})</h3>
         <EntityTable
-          columns={DEAL_COLUMNS}
+          className="deal-metrics-tooltip-table"
+          tableClassName="table-fixed"
+          columns={columnsWithUserWidths}
           sortColumn={sortColumn}
           sortDirection={sortDirection}
           onSort={handleSort}
+          onColumnResize={handleColumnResize}
         >
           {sortedDeals.map((deal, index) => {
             const isActive = deal.endAt && new Date(deal.endAt) > new Date()
@@ -186,36 +219,39 @@ export default function DealMetricsSection({ vendorId, businessName, summaryView
               : deal.externalDealId
             return (
               <TableRow key={deal.id} index={index}>
-                <TableCell>
-                  <span className="font-medium text-slate-900 line-clamp-2" title={dealDisplay}>{dealDisplay}</span>
+                <TableCell style={getColumnCellStyle('externalDealId')}>
+                  <TruncatedTextWithTooltip
+                    text={dealDisplay}
+                    className="font-medium text-slate-900 text-[13px]"
+                  />
                 </TableCell>
-                <TableCell>
+                <TableCell style={getColumnCellStyle('status')}>
                   <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
                     isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
                   }`}>
                     {isActive ? 'Active' : 'Ended'}
                   </span>
                 </TableCell>
-                <TableCell align="right">
+                <TableCell align="right" style={getColumnCellStyle('quantitySold')}>
                   <span className="font-medium">{deal.quantitySold.toLocaleString()}</span>
                 </TableCell>
-                <TableCell align="right">
+                <TableCell align="right" style={getColumnCellStyle('netRevenue')}>
                   <span className="font-medium text-emerald-600">${deal.netRevenue.toLocaleString()}</span>
                 </TableCell>
-                <TableCell align="right">
+                <TableCell align="right" style={getColumnCellStyle('margin')}>
                   <span className="font-medium text-blue-600">${deal.margin.toLocaleString()}</span>
                 </TableCell>
-                <TableCell>
+                <TableCell style={getColumnCellStyle('runAt')}>
                   <span className="text-slate-600 text-xs">
                     {deal.runAt ? new Date(deal.runAt).toLocaleDateString() : '-'}
                   </span>
                 </TableCell>
-                <TableCell>
+                <TableCell style={getColumnCellStyle('endAt')}>
                   <span className="text-slate-600 text-xs">
                     {deal.endAt ? new Date(deal.endAt).toLocaleDateString() : '-'}
                   </span>
                 </TableCell>
-                <TableCell align="right">
+                <TableCell align="right" style={getColumnCellStyle('actions')}>
                   {deal.dealUrl && (
                     <a
                       href={deal.dealUrl}

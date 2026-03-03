@@ -87,14 +87,6 @@ function Section({ title, icon, children }: { title: string; icon?: React.ReactN
   )
 }
 
-function Badge({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${className}`}>
-      {children}
-    </span>
-  )
-}
-
 interface BusinessDetailClientProps {
   business: Business
   initialCommissionPct?: number | null
@@ -386,24 +378,20 @@ export default function BusinessDetailClient({
                   </span>
                 )}
                 <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded ${
-                  loadingData
-                    ? 'bg-slate-100 text-slate-500'
-                    : latestAmLabel
-                      ? 'bg-sky-100 text-sky-700'
-                      : 'bg-gray-100 text-gray-500'
+                  latestAmLabel
+                    ? 'bg-sky-100 text-sky-700'
+                    : 'bg-gray-100 text-gray-500'
                 }`}>
                   <span className="font-semibold">AM:</span>
-                  {loadingData ? 'Cargando...' : (latestAmLabel || 'Sin asignar')}
+                  {latestAmLabel || 'Sin asignar'}
                 </span>
                 <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded ${
-                  loadingData
-                    ? 'bg-slate-100 text-slate-500'
-                    : latestEreLabel
-                      ? 'bg-cyan-100 text-cyan-700'
-                      : 'bg-gray-100 text-gray-500'
+                  latestEreLabel
+                    ? 'bg-cyan-100 text-cyan-700'
+                    : 'bg-gray-100 text-gray-500'
                 }`}>
                   <span className="font-semibold">ERE:</span>
-                  {loadingData ? 'Cargando...' : (latestEreLabel || 'Sin asignar')}
+                  {latestEreLabel || 'Sin asignar'}
                 </span>
                 {business.metrics?.net_rev_360_days !== undefined && (
                   <span className="px-1.5 py-0.5 text-[10px] font-mono font-medium bg-emerald-100 text-emerald-700 rounded">
@@ -605,59 +593,67 @@ export default function BusinessDetailClient({
       )}
 
       {/* Edit Modal */}
-      <BusinessFormModal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        business={business}
-        onSuccess={handleEditSuccess}
-        onDelete={() => {
-          setIsEditModalOpen(false)
-          router.push('/businesses')
-        }}
-        canEdit={canEdit ?? false}
-      />
+      {isEditModalOpen && (
+        <BusinessFormModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          business={business}
+          onSuccess={handleEditSuccess}
+          onDelete={() => {
+            setIsEditModalOpen(false)
+            router.push('/businesses')
+          }}
+          canEdit={canEdit ?? false}
+        />
+      )}
 
       {/* Opportunity Modal */}
-      <OpportunityFormModal
-        isOpen={isOpportunityModalOpen}
-        onClose={() => {
-          setIsOpportunityModalOpen(false)
-          setSelectedOpportunity(null)
-        }}
-        opportunity={selectedOpportunity}
-        onSuccess={handleOpportunitySuccess}
-        initialBusinessId={business.id}
-        preloadedBusinesses={[business]}
-        preloadedCategories={categories}
-        preloadedUsers={users}
-      />
+      {isOpportunityModalOpen && (
+        <OpportunityFormModal
+          isOpen={isOpportunityModalOpen}
+          onClose={() => {
+            setIsOpportunityModalOpen(false)
+            setSelectedOpportunity(null)
+          }}
+          opportunity={selectedOpportunity}
+          onSuccess={handleOpportunitySuccess}
+          initialBusinessId={business.id}
+          preloadedBusinesses={[business]}
+          preloadedCategories={categories}
+          preloadedUsers={users}
+        />
+      )}
 
       {/* Deal Modal */}
-      <DealFormModal
-        isOpen={isDealModalOpen}
-        onClose={() => {
-          setIsDealModalOpen(false)
-          setSelectedDeal(null)
-        }}
-        deal={selectedDeal}
-        onSuccess={async () => {
-          const dealResult = await getDealsByBusiness(business.id)
-          if (dealResult.success && dealResult.data) {
-            setDeals(dealResult.data)
-          }
-        }}
-      />
+      {isDealModalOpen && (
+        <DealFormModal
+          isOpen={isDealModalOpen}
+          onClose={() => {
+            setIsDealModalOpen(false)
+            setSelectedDeal(null)
+          }}
+          deal={selectedDeal}
+          onSuccess={async () => {
+            const dealResult = await getDealsByBusiness(business.id)
+            if (dealResult.success && dealResult.data) {
+              setDeals(dealResult.data)
+            }
+          }}
+        />
+      )}
 
       {/* Request View Modal */}
-      <BookingRequestViewModal
-        isOpen={requestViewModalOpen}
-        onClose={() => {
-          setRequestViewModalOpen(false)
-          setSelectedRequestId(null)
-        }}
-        requestId={selectedRequestId}
-        hideBackdrop={false}
-      />
+      {requestViewModalOpen && selectedRequestId && (
+        <BookingRequestViewModal
+          isOpen={requestViewModalOpen}
+          onClose={() => {
+            setRequestViewModalOpen(false)
+            setSelectedRequestId(null)
+          }}
+          requestId={selectedRequestId}
+          hideBackdrop={false}
+        />
+      )}
     </div>
   )
 }

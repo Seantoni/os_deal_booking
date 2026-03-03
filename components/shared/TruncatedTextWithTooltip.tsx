@@ -24,7 +24,7 @@ export default function TruncatedTextWithTooltip({
       </span>
       <div
         role="tooltip"
-        className={`pointer-events-none invisible absolute left-0 top-full z-50 mt-1 w-max max-w-[32rem] rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-lg group-hover:visible whitespace-pre-wrap break-words ${tooltipClassName}`}
+        className={`pointer-events-none invisible absolute left-0 top-full z-[9999] mt-1 w-max max-w-[32rem] rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-lg group-hover:visible whitespace-pre-wrap break-words ${tooltipClassName}`}
       >
         {normalizedText}
       </div>
