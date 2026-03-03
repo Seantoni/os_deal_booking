@@ -19,6 +19,7 @@ import { renderCronFailureEmail } from '@/lib/email/templates/cron-failure'
 import { renderMentionNotificationEmail } from '@/lib/email/templates/mention-notification'
 import { renderDailyCommentsEmail } from '@/lib/email/templates/daily-comments'
 import { renderSalesMeetingReminderEmail } from '@/lib/email/templates/sales-meeting-reminder'
+import { renderBookingCommentMentionEmail } from '@/lib/email/templates/booking-comment-mention'
 import { getAppBaseUrl } from '@/lib/config/env'
 import { formatSpanishFullDate } from '@/lib/date'
 import { logger } from '@/lib/logger'
@@ -33,6 +34,7 @@ type EmailTemplateType =
   | 'deal-assignment-ready'
   | 'cron-failure'
   | 'mention-notification'
+  | 'booking-comment-mention'
   | 'daily-comments'
   | 'sales-meeting-reminder'
 
@@ -211,6 +213,15 @@ export async function POST(req: Request) {
           entityType: 'opportunity',
           entityId: 'opp-123',
           businessName: 'Restaurante Ejemplo',
+        })
+        break
+      case 'booking-comment-mention':
+        html = renderBookingCommentMentionEmail({
+          mentionedUserName: 'Juan Pérez',
+          authorName: 'Ana Gómez',
+          content: '¿Puedes revisar esta solicitud y responder hoy?',
+          requestName: 'Restaurante Ejemplo',
+          requestUrl: `${appBaseUrl}/deals?request=req-1&comment=comment-1`,
         })
         break
       case 'daily-comments':

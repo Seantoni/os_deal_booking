@@ -15,6 +15,7 @@ import { renderTaskReminderEmail } from '@/lib/email/templates/task-reminder'
 import { renderDealAssignmentReadyEmail } from '@/lib/email/templates/deal-assignment-ready'
 import { renderDailyCommentsEmail } from '@/lib/email/templates/daily-comments'
 import { renderSalesMeetingReminderEmail } from '@/lib/email/templates/sales-meeting-reminder'
+import { renderBookingCommentMentionEmail } from '@/lib/email/templates/booking-comment-mention'
 import { getAppBaseUrl } from '@/lib/config/env'
 import { formatSpanishFullDate } from '@/lib/date'
 import { logger } from '@/lib/logger'
@@ -26,6 +27,7 @@ type EmailTemplateType =
   | 'task-reminder'
   | 'deal-assignment-ready'
   | 'daily-comments'
+  | 'booking-comment-mention'
   | 'sales-meeting-reminder'
 
 export async function POST(req: Request) {
@@ -202,6 +204,16 @@ export async function POST(req: Request) {
           appBaseUrl,
         })
         subject = '[TEST] Resumen Diario de Comentarios - OfertaSimple'
+        break
+      case 'booking-comment-mention':
+        html = renderBookingCommentMentionEmail({
+          mentionedUserName: 'Usuario de Prueba',
+          authorName: 'Ana Gómez',
+          content: 'Tienes un comentario pendiente en esta solicitud.',
+          requestName: 'Restaurante Ejemplo',
+          requestUrl: `${appBaseUrl}/deals?request=req-1&comment=comment-1`,
+        })
+        subject = '[TEST] Tienes un comentario nuevo - OfertaSimple'
         break
       case 'sales-meeting-reminder':
         html = renderSalesMeetingReminderEmail({

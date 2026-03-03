@@ -15,6 +15,7 @@ type EmailTemplateType =
   | 'cancelled'
   | 'task-reminder'
   | 'mention-notification'
+  | 'booking-comment-mention'
   | 'cron-failure'
   | 'daily-comments'
   | 'sales-meeting-reminder'
@@ -24,6 +25,7 @@ interface EmailPreviewTabProps {
 }
 
 export default function EmailPreviewTab({ isAdmin }: EmailPreviewTabProps) {
+  void isAdmin
   const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplateType>('booking-request')
   const [testEmail, setTestEmail] = useState('')
   const [sending, setSending] = useState(false)
@@ -56,7 +58,6 @@ export default function EmailPreviewTab({ isAdmin }: EmailPreviewTabProps) {
   // Generate preview on mount and when template changes
   useEffect(() => {
     generatePreview(selectedTemplate)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTemplate])
 
   const handleTemplateChange = (template: EmailTemplateType) => {
@@ -95,7 +96,7 @@ export default function EmailPreviewTab({ isAdmin }: EmailPreviewTabProps) {
       } else {
         toast.error(result.error || 'Error al enviar email de prueba')
       }
-    } catch (error) {
+    } catch {
       toast.error('Error al enviar email de prueba')
     } finally {
       setSending(false)
@@ -113,6 +114,7 @@ export default function EmailPreviewTab({ isAdmin }: EmailPreviewTabProps) {
     { id: 'sales-meeting-reminder', label: 'Recordatorio Reuniones' },
     { id: 'daily-comments', label: 'Resumen Comentarios' },
     { id: 'mention-notification', label: 'Notificación Mención' },
+    { id: 'booking-comment-mention', label: 'Mención Solicitud' },
     { id: 'cron-failure', label: 'Falla Cron Job' },
   ]
 

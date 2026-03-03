@@ -55,6 +55,9 @@ Who gets each email and when.
 **Opportunity comment mention** — mention helper → `sendOpportunityMentionNotificationEmail`
 > **To:** each mentioned user (author skipped)
 
+**Booking request comment mention** — mention helper (`addFieldComment`) → `sendBookingCommentMentionNotificationEmail`
+> **To:** each mentioned user (author skipped)
+
 ---
 
 ## Cron (Scheduled)

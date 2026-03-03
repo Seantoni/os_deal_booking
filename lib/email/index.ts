@@ -17,6 +17,7 @@ export { renderDealEditorAssignedEmail } from './templates/deal-editor-assigned'
 export { renderDailyCommentsEmail } from './templates/daily-comments'
 export { renderSalesMeetingReminderEmail } from './templates/sales-meeting-reminder'
 export { renderWeeklyTaskReportEmail } from './templates/weekly-task-report'
+export { renderBookingCommentMentionEmail } from './templates/booking-comment-mention'
 export { 
   renderMentionNotificationEmail,
   renderMarketingMentionNotificationEmail,
@@ -33,6 +34,7 @@ export { sendSalesMeetingReminders } from './services/sales-meeting-reminder'
 export { sendWeeklyTaskPerformanceReport } from './services/weekly-task-report'
 export { sendMentionNotificationEmail } from './services/mention-notification'
 export { sendOpportunityMentionNotificationEmail } from './services/opportunity-mention-notification'
+export { sendBookingCommentMentionNotificationEmail } from './services/booking-comment-mention'
 export { sendCronFailureEmail } from './services/cron-failure'
 export { sendApiFailureEmail } from './services/api-failure'
 export { sendDealAssignmentReadyEmail } from './services/deal-assignment-ready'

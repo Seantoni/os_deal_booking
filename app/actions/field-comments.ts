@@ -3,12 +3,13 @@
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
-import { getUserRole, isAdmin as checkIsAdmin } from '@/lib/auth/roles'
+import { isAdmin as checkIsAdmin } from '@/lib/auth/roles'
 import { currentUser } from '@clerk/nextjs/server'
 import { invalidateEntity } from '@/lib/cache'
 import { parseFieldComments, type FieldComment } from '@/types'
 import { randomUUID } from 'crypto'
 import { extractDisplayName, extractUserEmail } from '@/lib/auth/user-display'
+import { logger } from '@/lib/logger'
 
 /**
  * Get all field comments for a booking request
@@ -52,6 +53,13 @@ export async function addFieldComment(
   const { userId } = authResult
 
   try {
+    const normalizedText = text.trim()
+    const normalizedMentions = [...new Set(
+      mentions.filter((mentionId): mentionId is string =>
+        typeof mentionId === 'string' && mentionId.trim().length > 0
+      )
+    )]
+
     // Get current user info for author details
     const user = await currentUser()
     if (!user) {
@@ -61,7 +69,11 @@ export async function addFieldComment(
     // Get existing comments
     const request = await prisma.bookingRequest.findUnique({
       where: { id: requestId },
-      select: { fieldComments: true },
+      select: {
+        fieldComments: true,
+        name: true,
+        merchant: true,
+      },
     })
 
     if (!request) {
@@ -74,11 +86,11 @@ export async function addFieldComment(
     const newComment: FieldComment = {
       id: randomUUID(),
       fieldKey,
-      text: text.trim(),
+      text: normalizedText,
       authorId: userId,
       authorName: extractDisplayName(user),
       authorEmail: extractUserEmail(user),
-      mentions,
+      mentions: normalizedMentions,
       dismissedBy: [],
       createdAt: new Date().toISOString(),
       updatedAt: null,
@@ -98,6 +110,21 @@ export async function addFieldComment(
 
     // Only invalidate booking-requests - comments are stored there, deals don't need refresh
     invalidateEntity('booking-requests')
+
+    // Send mention emails asynchronously to avoid delaying UI response.
+    if (normalizedMentions.length > 0) {
+      sendBookingFieldMentionNotifications({
+        authorId: userId,
+        authorName: newComment.authorName || newComment.authorEmail?.split('@')[0] || 'Alguien',
+        mentionedUserIds: normalizedMentions,
+        content: normalizedText,
+        requestId,
+        requestName: request.merchant || request.name || 'Solicitud',
+        commentId: newComment.id,
+      }).catch((err) => {
+        logger.error('Error sending booking mention notifications:', err)
+      })
+    }
 
     return { success: true, data: newComment }
   } catch (error) {
@@ -273,5 +300,60 @@ export async function getUsersForFieldCommentMention(search?: string): Promise<{
     return { success: true, data: users }
   } catch (error) {
     return handleServerActionError(error, 'getUsersForFieldCommentMention')
+  }
+}
+
+// ============================================================================
+// Email Notification Helper (internal)
+// ============================================================================
+
+interface BookingMentionNotificationData {
+  authorId: string
+  authorName: string
+  mentionedUserIds: string[]
+  content: string
+  requestId: string
+  requestName: string
+  commentId: string
+}
+
+/**
+ * Send email notifications to users mentioned in booking request field comments.
+ * This is called asynchronously after creating a comment.
+ */
+async function sendBookingFieldMentionNotifications(data: BookingMentionNotificationData): Promise<void> {
+  const { sendBookingCommentMentionNotificationEmail } = await import('@/lib/email/services/booking-comment-mention')
+
+  const uniqueMentionedUserIds = [...new Set(data.mentionedUserIds)]
+  const mentionedUsers = await prisma.userProfile.findMany({
+    where: {
+      clerkId: { in: uniqueMentionedUserIds },
+    },
+    select: {
+      clerkId: true,
+      name: true,
+      email: true,
+    },
+  })
+
+  for (const user of mentionedUsers) {
+    if (!user.email) continue
+    if (user.clerkId === data.authorId) continue
+
+    try {
+      await sendBookingCommentMentionNotificationEmail({
+        to: user.email,
+        mentionedUserName: user.name || user.email.split('@')[0],
+        authorName: data.authorName,
+        content: data.content,
+        requestId: data.requestId,
+        requestName: data.requestName,
+        commentId: data.commentId,
+      })
+
+      logger.info(`Booking mention notification sent to ${user.email}`)
+    } catch (err) {
+      logger.error(`Failed to send booking mention notification to ${user.email}:`, err)
+    }
   }
 }
