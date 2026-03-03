@@ -119,3 +119,7 @@ npx prisma generate   # Generate client
 npx prisma db push    # Push schema changes
 npx prisma studio     # Open database UI
 ```
+
+## Feature References
+
+- [Email Flow Reference](./EMAIL_FLOW.md)

@@ -1905,12 +1905,13 @@ export async function adminApproveBookingRequest(requestId: string) {
     }
 
     // Try to send to creator if we can get their email from Clerk
+    let creatorEmail: string | null = null
     if (bookingRequest.userId) {
       try {
         const { clerkClient } = await import('@clerk/nextjs/server')
         const client = await clerkClient()
         const creatorUser = await client.users.getUser(bookingRequest.userId)
-        const creatorEmail = creatorUser?.emailAddresses?.[0]?.emailAddress
+        creatorEmail = creatorUser?.emailAddresses?.[0]?.emailAddress || null
         
         if (creatorEmail && creatorEmail !== bookingRequest.businessEmail) {
           await resend.emails.send({
@@ -1924,6 +1925,28 @@ export async function adminApproveBookingRequest(requestId: string) {
       } catch (emailError) {
         logger.warn('Could not send admin approval email to creator:', emailError)
       }
+    }
+
+    // Send to booking operator (admin who approved), unless already covered
+    try {
+      const normalizedBusinessEmail = bookingRequest.businessEmail.toLowerCase()
+      const normalizedCreatorEmail = creatorEmail?.toLowerCase()
+      const normalizedApproverEmail = approverEmail.toLowerCase()
+
+      if (
+        normalizedApproverEmail !== normalizedBusinessEmail &&
+        normalizedApproverEmail !== normalizedCreatorEmail
+      ) {
+        await resend.emails.send({
+          from: EMAIL_CONFIG.from,
+          to: approverEmail,
+          subject: `✓ Solicitud Aprobada - ${emailData.businessName} - OfertaSimple`,
+          html: renderAdminApprovalEmail({ ...emailData, recipientType: 'creator' }),
+        })
+        logger.info('Admin approval email sent to booking operator:', approverEmail)
+      }
+    } catch (emailError) {
+      logger.warn('Could not send admin approval email to booking operator:', emailError)
     }
 
     invalidateEntities(['booking-requests', 'events', 'opportunities', 'tasks'])
