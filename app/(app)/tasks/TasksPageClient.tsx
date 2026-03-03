@@ -29,6 +29,7 @@ import { addBusinessDaysInPanama } from '@/lib/date/timezone'
 import {
   EntityPageHeader,
   UserFilterDropdown,
+  TruncatedTextWithTooltip,
   type FilterTab,
   type ColumnConfig
 } from '@/components/shared'
@@ -73,6 +74,7 @@ const STAGE_COLORS: Record<string, string> = {
 const COLUMNS: ColumnConfig[] = [
   { key: 'status', label: '', align: 'center' },
   { key: 'title', label: 'Tarea', sortable: true },
+  { key: 'description', label: 'Descripción' },
   { key: 'meetingOutcome', label: '¿Acuerdo?' },
   { key: 'responsible', label: 'Responsable', sortable: true },
   { key: 'date', label: 'Vencimiento', sortable: true },
@@ -88,6 +90,7 @@ const TASKS_COLUMN_WIDTHS_STORAGE_KEY = 'tasks-table-column-widths'
 const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
   status: 40,
   title: 122,
+  description: 170,
   meetingOutcome: 50,
   responsible: 80,
   date: 120,
@@ -102,6 +105,7 @@ const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
 const MIN_COLUMN_WIDTHS: Record<string, number> = {
   status: 36,
   title: 90,
+  description: 120,
   meetingOutcome: 50,
   responsible: 70,
   date: 95,
@@ -854,6 +858,27 @@ export default function TasksPageClient() {
     return `${dueDateLabel} (${daysUntil} día${daysUntil === 1 ? '' : 's'})`
   }
 
+  const getTaskDescription = (task: TaskWithOpportunity, meetingData?: MeetingData | null) => {
+    if (!task.notes) return '-'
+    if (task.category !== 'meeting') return task.notes
+
+    const parsedMeetingData = meetingData ?? parseMeetingData(task.notes)
+    if (!parsedMeetingData) return task.notes
+
+    const details = parsedMeetingData.meetingDetails?.trim()
+    const nextSteps = parsedMeetingData.nextSteps?.trim()
+    const mainObjection = parsedMeetingData.mainObjection?.trim()
+    const objectionSolution = parsedMeetingData.objectionSolution?.trim()
+
+    const parts = [details, nextSteps]
+    if (parsedMeetingData.reachedAgreement === 'no') {
+      if (mainObjection) parts.push(`Objeción: ${mainObjection}`)
+      if (objectionSolution) parts.push(`Solución: ${objectionSolution}`)
+    }
+
+    return parts.filter(Boolean).join(' | ') || '-'
+  }
+
   const filterTabs: FilterTab[] = [
     { id: 'all', label: 'Todas', count: counts.all },
     { id: 'pending', label: 'Pendientes', count: counts.pending },
@@ -1092,6 +1117,7 @@ export default function TasksPageClient() {
                       : meetingData?.reachedAgreement === 'no'
                         ? 'No'
                         : ''
+                  const taskDescription = getTaskDescription(task, meetingData)
 
                   return (
                     <TableRow 
@@ -1139,12 +1165,18 @@ export default function TasksPageClient() {
                           >
                             {task.title}
                           </span>
-                          {task.notes && (
-                            <span className="text-slate-400 text-xs truncate max-w-[68px]" title={task.notes}>
-                              - {task.notes}
-                            </span>
-                          )}
                         </div>
+                      </TableCell>
+
+                      {/* Description */}
+                      <TableCell
+                        style={getColumnCellStyle('description')}
+                        className="!overflow-visible"
+                      >
+                        <TruncatedTextWithTooltip
+                          text={taskDescription}
+                          className="text-sm text-slate-700"
+                        />
                       </TableCell>
 
                       {/* Meeting Outcome */}
