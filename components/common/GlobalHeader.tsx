@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { UserButton } from '@clerk/nextjs'
@@ -9,6 +9,7 @@ import InboxIcon from '@mui/icons-material/Inbox'
 import { getUnreadInboxCount } from '@/app/actions/inbox'
 import InboxDropdown from './InboxDropdown'
 import { useCommandPalette } from '@/hooks/useCommandPalette'
+import LiveUsersBadges from './LiveUsersBadges'
 
 /**
  * GlobalHeader - Persistent header across all pages
@@ -20,20 +21,42 @@ export default function GlobalHeader() {
   const inboxRef = useRef<HTMLDivElement>(null)
   const commandPalette = useCommandPalette()
 
+  const loadUnreadCount = useCallback(async () => {
+    try {
+      const result = await getUnreadInboxCount()
+      if (result.success && result.data !== undefined) {
+        setUnreadCount(result.data)
+      }
+    } catch (err) {
+      console.error('Error loading unread count:', err)
+    }
+  }, [])
+
   // Load unread count
   useEffect(() => {
-    loadUnreadCount()
+    const initialTimer = window.setTimeout(() => {
+      void loadUnreadCount()
+    }, 0)
     // Refresh every 30 seconds
-    const interval = setInterval(loadUnreadCount, 30000)
-    return () => clearInterval(interval)
-  }, [])
+    const interval = window.setInterval(() => {
+      void loadUnreadCount()
+    }, 30000)
+
+    return () => {
+      window.clearTimeout(initialTimer)
+      window.clearInterval(interval)
+    }
+  }, [loadUnreadCount])
 
   // Refresh count when inbox closes
   useEffect(() => {
     if (!inboxOpen) {
-      loadUnreadCount()
+      const refreshTimer = window.setTimeout(() => {
+        void loadUnreadCount()
+      }, 0)
+      return () => window.clearTimeout(refreshTimer)
     }
-  }, [inboxOpen])
+  }, [inboxOpen, loadUnreadCount])
 
   // Close inbox on outside click
   useEffect(() => {
@@ -51,17 +74,6 @@ export default function GlobalHeader() {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [inboxOpen])
-
-  const loadUnreadCount = async () => {
-    try {
-      const result = await getUnreadInboxCount()
-      if (result.success && result.data !== undefined) {
-        setUnreadCount(result.data)
-      }
-    } catch (err) {
-      console.error('Error loading unread count:', err)
-    }
-  }
 
   return (
     <header className="h-14 border-b border-gray-200 bg-white flex-shrink-0 z-50 sticky top-0">
@@ -91,6 +103,8 @@ export default function GlobalHeader() {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-1">
+          <LiveUsersBadges />
+
           {/* Mobile search button */}
           <button
             onClick={commandPalette.open}

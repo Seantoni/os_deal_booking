@@ -153,6 +153,8 @@ model UserProfile {
   role            String         @default("sales")
   team            String?
   maxActiveDeals  Int?
+  lastSeenAt      DateTime?
+  activePath      String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   isActive        Boolean        @default(true)
@@ -162,6 +164,7 @@ model UserProfile {
   @@index([clerkId])
   @@index([email])
   @@index([isActive])
+  @@index([lastSeenAt])
   @@index([role])
 }
 

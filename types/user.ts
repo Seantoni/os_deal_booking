@@ -17,6 +17,8 @@ export type UserProfile = {
   role: string // 'admin' | 'sales' | 'editor' | 'editor_senior' | 'ere'
   team?: string | null
   maxActiveDeals?: number | null
+  lastSeenAt?: Date | null
+  activePath?: string | null
   createdAt: Date
   updatedAt: Date
 }

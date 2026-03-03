@@ -13,4 +13,4 @@ export * from './user-roles'
 export * from './time'
 export * from './limits'
 export * from './cache'
-
+export * from './presence'
