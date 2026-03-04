@@ -16,6 +16,13 @@ export interface PricingOption {
   imageUrl?: string
 }
 
+export interface BankAccountInfo {
+  bankAccountName: string
+  bank: string
+  accountNumber: string
+  accountType: string
+}
+
 export type Deal = {
   id: string
   bookingRequestId: string
@@ -52,6 +59,7 @@ export type Deal = {
     addressAndHours: string | null
     bank: string | null
     accountNumber: string | null
+    additionalBankAccounts?: BankAccountInfo[] | null
     pricingOptions: PricingOption[] | null
   }
   eventDates?: {

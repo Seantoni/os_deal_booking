@@ -86,6 +86,17 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
     )
   }
 
+  const additionalBankAccounts = Array.isArray(request?.additionalBankAccounts)
+    ? request.additionalBankAccounts
+        .map((account) => ({
+          bankAccountName: String(account.bankAccountName || '').trim(),
+          bank: String(account.bank || '').trim(),
+          accountNumber: String(account.accountNumber || '').trim(),
+          accountType: String(account.accountType || '').trim(),
+        }))
+        .filter((account) => Object.values(account).some((value) => value.length > 0))
+    : []
+
   return (
     <>
       {/* Light backdrop */}
@@ -251,7 +262,7 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
               )}
 
               {/* Legal & Banking */}
-              {(request.legalName || request.rucDv || request.bank || request.accountNumber) && (
+              {(request.legalName || request.rucDv || request.bank || request.accountNumber || additionalBankAccounts.length > 0) && (
                 <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                   <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
                     <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Datos Fiscales y Bancarios</h3>
@@ -297,6 +308,28 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
                       <div>
                         <p className="text-xs font-medium text-gray-600">Nombre en Cuenta</p>
                         <p className="text-sm text-gray-900 mt-0.5">{request.bankAccountName}</p>
+                      </div>
+                    )}
+                    {additionalBankAccounts.length > 0 && (
+                      <div className="col-span-2 border-t border-gray-200 pt-3 mt-1">
+                        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                          Cuentas Bancarias Adicionales
+                        </p>
+                        <div className="space-y-2">
+                          {additionalBankAccounts.map((account, index) => (
+                            <div key={`additional-bank-account-${index}`} className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                              <p className="text-xs font-semibold text-gray-700 mb-1">Cuenta {index + 1}</p>
+                              <p className="text-xs text-gray-700">
+                                {[
+                                  account.bankAccountName ? `Titular: ${account.bankAccountName}` : null,
+                                  account.bank ? `Banco: ${account.bank}` : null,
+                                  account.accountNumber ? `Cuenta: ${account.accountNumber}` : null,
+                                  account.accountType ? `Tipo: ${account.accountType}` : null,
+                                ].filter(Boolean).join(' | ')}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -497,4 +530,3 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
     </>
   )
 }
-

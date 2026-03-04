@@ -47,6 +47,18 @@ export default function BookingRequestSection({ deal, onViewRequest }: BookingRe
 
   const pricingOptionsCount = Array.isArray(request.pricingOptions) ? request.pricingOptions.length : 0
   const accountLast4 = request.accountNumber ? request.accountNumber.slice(-4) : ''
+  const additionalBankAccounts = Array.isArray(request.additionalBankAccounts)
+    ? request.additionalBankAccounts
+        .map((account) => ({
+          bankAccountName: String(account.bankAccountName || '').trim(),
+          bank: String(account.bank || '').trim(),
+          accountNumber: String(account.accountNumber || '').trim(),
+          accountType: String(account.accountType || '').trim(),
+        }))
+        .filter((account) => Object.values(account).some((value) => value.length > 0))
+    : []
+  const hasPrimaryBankAccount = Boolean(request.bank || request.accountNumber)
+  const totalBankAccounts = (hasPrimaryBankAccount ? 1 : 0) + additionalBankAccounts.length
   
   return (
     <div className="px-1">
@@ -115,7 +127,7 @@ export default function BookingRequestSection({ deal, onViewRequest }: BookingRe
           </>
         )}
 
-        {(request.bank || request.accountNumber) && (
+        {totalBankAccounts > 0 && (
           <>
             <span className="text-slate-300">•</span>
             <div className="flex items-center gap-2">
@@ -123,6 +135,11 @@ export default function BookingRequestSection({ deal, onViewRequest }: BookingRe
               {request.bank && <span className="text-slate-900 font-semibold">{request.bank}</span>}
               {request.accountNumber && (
                 <span className="text-slate-600">Cuenta **** {accountLast4}</span>
+              )}
+              {additionalBankAccounts.length > 0 && (
+                <span className="text-slate-600">
+                  + {additionalBankAccounts.length} cuenta{additionalBankAccounts.length === 1 ? '' : 's'}
+                </span>
               )}
             </div>
           </>

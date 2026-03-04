@@ -128,6 +128,31 @@ function parseCampaignDuration(duration: string | null | undefined): number {
   return isNaN(num) ? 3 : num
 }
 
+function normalizeAdditionalBankAccounts(value: Prisma.JsonValue | null | undefined): BookingFormData['additionalBankAccounts'] {
+  if (!value) return []
+
+  let parsed: unknown = value
+  if (typeof value === 'string') {
+    try {
+      parsed = JSON.parse(value)
+    } catch {
+      return []
+    }
+  }
+
+  if (!Array.isArray(parsed)) return []
+
+  return parsed
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item))
+    .map((item) => ({
+      bankAccountName: String(item.bankAccountName || '').trim(),
+      bank: String(item.bank || '').trim(),
+      accountNumber: String(item.accountNumber || '').trim(),
+      accountType: String(item.accountType || '').trim(),
+    }))
+    .filter((item) => Object.values(item).some((fieldValue) => fieldValue.length > 0))
+}
+
 interface BookingRequestData {
   id: string
   // Database uses 'merchant' for business name, 'name' as fallback
@@ -148,6 +173,7 @@ interface BookingRequestData {
   businessReview?: string | null
   addressAndHours?: string | null
   paymentInstructions?: string | null
+  additionalBankAccounts?: Prisma.JsonValue
   dealImages?: Prisma.JsonValue
   socialMedia?: string | null
   contactDetails?: string | null
@@ -171,16 +197,16 @@ interface PriceOptionWithTitle {
 }
 
 function normalizePayloadForExternalApi(payload: ExternalOfertaDealRequest): ExternalOfertaDealRequest {
-  // OfertaSimple live validator rejects `priceOptions[*][title]` as unexpected.
-  // Strip it and preserve it into description if needed.
+  // Send title-based price options and omit description.
   return {
     ...payload,
     priceOptions: Array.isArray(payload.priceOptions)
       ? payload.priceOptions.map((opt: PriceOptionWithTitle) => {
-          const { title, ...rest } = opt || {}
+          const { description, ...rest } = opt || {}
+          const fallbackTitle = description ? String(description).split('\n')[0].trim().slice(0, 120) : ''
           return {
             ...rest,
-            description: rest.description ?? (title ? String(title) : null),
+            title: rest.title ? String(rest.title) : (fallbackTitle || 'Opción'),
           }
         }) as ExternalOfertaPriceOption[]
       : payload.priceOptions,
@@ -422,6 +448,7 @@ export async function sendDealToExternalApi(
     businessReview: bookingRequest.businessReview || '',
     addressAndHours: bookingRequest.addressAndHours || '',
     paymentInstructions: bookingRequest.paymentInstructions || '',
+    additionalBankAccounts: normalizeAdditionalBankAccounts(bookingRequest.additionalBankAccounts),
     dealImages: dealImages,
     socialMedia: bookingRequest.socialMedia || '',
     contactDetails: bookingRequest.contactDetails || '',

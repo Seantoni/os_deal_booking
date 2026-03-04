@@ -88,11 +88,12 @@ export default function NavigationButtons({
         {currentStepIndex < totalSteps - 1 ? (
           <Button
             onClick={onNext}
+            disabled={saving}
             size="sm"
             className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 sm:px-8 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold shadow-lg shadow-blue-200 hover:shadow-blue-300 active:scale-[0.98] transition-all duration-200"
             rightIcon={<ArrowForwardIcon style={{ fontSize: 18 }} />}
           >
-            Siguiente
+            {saving ? 'Guardando...' : 'Siguiente'}
           </Button>
         ) : (
           <Button
@@ -111,4 +112,3 @@ export default function NavigationButtons({
     </div>
   )
 }
-

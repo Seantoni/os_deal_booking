@@ -14,6 +14,13 @@ export interface PricingOption {
   quantity?: number
 }
 
+export interface BankAccountInfo {
+  bankAccountName: string
+  bank: string
+  accountNumber: string
+  accountType: string
+}
+
 // Additional info structure (dynamic template fields)
 export interface AdditionalInfo {
   templateName: string
@@ -83,6 +90,7 @@ export interface BookingRequestViewData {
   bank: string | null
   accountNumber: string | null
   accountType: string | null
+  additionalBankAccounts: BankAccountInfo[] | null
   addressAndHours: string | null
   provinceDistrictCorregimiento: string | null
 

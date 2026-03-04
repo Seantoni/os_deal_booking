@@ -67,6 +67,45 @@ function extractUrls(socialMedia: string | null | undefined): string[] {
     .filter(url => url.length > 0 && (url.startsWith('http://') || url.startsWith('https://')))
 }
 
+function buildPaymentDetails(formData: BookingFormData): string | null {
+  const paymentInstructions = formData.paymentInstructions?.trim() || ''
+
+  const additionalAccounts = Array.isArray(formData.additionalBankAccounts)
+    ? formData.additionalBankAccounts
+        .map((account) => ({
+          bankAccountName: String(account.bankAccountName || '').trim(),
+          bank: String(account.bank || '').trim(),
+          accountNumber: String(account.accountNumber || '').trim(),
+          accountType: String(account.accountType || '').trim(),
+        }))
+        .filter((account) => Object.values(account).some((value) => value.length > 0))
+    : []
+
+  const formattedAdditionalAccounts =
+    additionalAccounts.length > 0
+      ? [
+          'Cuentas Bancarias extras',
+          ...additionalAccounts
+            .map((account) => {
+              const details = [
+                account.bank ? `Banco: ${account.bank}` : null,
+                account.bankAccountName ? `Cuenta: ${account.bankAccountName}` : null,
+                account.accountNumber ? `Número: ${account.accountNumber}` : null,
+                account.accountType ? `Tipo: ${account.accountType}` : null,
+              ].filter((detail): detail is string => !!detail)
+              return details.join(' ; ')
+            })
+            .filter((line) => line.length > 0),
+        ].join('\n')
+      : ''
+
+  const combined = [paymentInstructions, formattedAdditionalAccounts]
+    .filter((value) => value.length > 0)
+    .join('\n\n')
+
+  return combined || null
+}
+
 /**
  * Map BookingFormData to ExternalOfertaDealRequest
  * 
@@ -184,7 +223,7 @@ export function mapBookingFormToApi(
     // vendorLogo: TODO - new field needed
 
     // Payment/Redemption
-    paymentDetails: formData.paymentInstructions || null,
+    paymentDetails: buildPaymentDetails(formData),
     // commonRedeemCode: TODO - new field needed
     // creditCardRestrictions: TODO - new field needed
 

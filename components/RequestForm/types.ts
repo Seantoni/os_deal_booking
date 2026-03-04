@@ -1,3 +1,10 @@
+export type BankAccountInfo = {
+  bankAccountName: string
+  bank: string
+  accountNumber: string
+  accountType: string
+}
+
 // Complete form data structure with 9 sections (Configuración and Operatividad merged)
 export type BookingFormData = {
   // Configuración: Configuración General y Vigencia (merged Configuración and Operatividad)
@@ -36,6 +43,7 @@ export type BookingFormData = {
   bank: string
   accountNumber: string
   accountType: string
+  additionalBankAccounts: BankAccountInfo[]
   addressAndHours: string
   provinceDistrictCorregimiento: string
   

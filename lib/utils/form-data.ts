@@ -77,6 +77,12 @@ export function extractBookingRequestFromFormData(formData: FormData): {
   bank: string | null
   accountNumber: string | null
   accountType: string | null
+  additionalBankAccounts: Array<{
+    bankAccountName: string
+    bank: string
+    accountNumber: string
+    accountType: string
+  }> | null
   addressAndHours: string | null
   provinceDistrictCorregimiento: string | null
 
@@ -157,6 +163,12 @@ export function extractBookingRequestFromFormData(formData: FormData): {
     bank: getFormDataString(formData, 'bank'),
     accountNumber: getFormDataString(formData, 'accountNumber'),
     accountType: getFormDataString(formData, 'accountType'),
+    additionalBankAccounts: parseFormDataJsonField(formData, 'additionalBankAccounts') as Array<{
+      bankAccountName: string
+      bank: string
+      accountNumber: string
+      accountType: string
+    }> | null,
     addressAndHours: getFormDataString(formData, 'addressAndHours'),
     provinceDistrictCorregimiento: getFormDataString(formData, 'provinceDistrictCorregimiento'),
 
