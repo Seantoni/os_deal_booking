@@ -171,16 +171,16 @@ interface PriceOptionWithTitle {
 }
 
 function normalizePayloadForExternalApi(payload: ExternalOfertaDealRequest): ExternalOfertaDealRequest {
-  // OfertaSimple live validator rejects `priceOptions[*][title]` as unexpected.
-  // Strip it and preserve it into description if needed.
+  // Send title-based price options and omit description.
   return {
     ...payload,
     priceOptions: Array.isArray(payload.priceOptions)
       ? payload.priceOptions.map((opt: PriceOptionWithTitle) => {
-          const { title, ...rest } = opt || {}
+          const { description, ...rest } = opt || {}
+          const fallbackTitle = description ? String(description).split('\n')[0].trim().slice(0, 120) : ''
           return {
             ...rest,
-            description: rest.description ?? (title ? String(title) : null),
+            title: rest.title ? String(rest.title) : (fallbackTitle || 'Opción'),
           }
         }) as ExternalOfertaPriceOption[]
       : payload.priceOptions,

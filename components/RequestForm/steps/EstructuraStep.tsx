@@ -275,7 +275,7 @@ export default function EstructuraStep({
     if (price > 0 && marginPercent > 0) {
       const osShare = (price * marginPercent) / 100
       const partnerShare = price - osShare
-      return { idx, price, osShare, partnerShare, title: opt.description || opt.title || `Opción ${idx + 1}` }
+      return { idx, price, osShare, partnerShare, title: opt.title || opt.description || `Opción ${idx + 1}` }
     }
     return null
   }).filter(Boolean) as { idx: number; price: number; osShare: number; partnerShare: number; title: string }[]
@@ -404,9 +404,31 @@ export default function EstructuraStep({
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
               <div className="md:col-span-8 space-y-4">
                 <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                    <span>Título</span>
+                    {isFieldRequired('pricingOptions.title') ? (
+                      <span className="text-red-500">*</span>
+                    ) : (
+                      <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
+                    )}
+                  </label>
+                  <Input
+                    type="text"
+                    value={option.title || ''}
+                    onChange={(e) => updatePricingOption(index, 'title', e.target.value)}
+                    placeholder="Ej: Cena de mariscos para 1 persona"
+                    size="sm"
+                    className={errors[`pricingOptions.${index}.title`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
+                  />
+                  {errors[`pricingOptions.${index}.title`] && (
+                    <p className="text-xs text-red-600 font-medium mt-1">{errors[`pricingOptions.${index}.title`]}</p>
+                  )}
+                </div>
+
+                <div>
                   <div className="flex items-center justify-between mb-1.5 gap-3">
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
-                      <span>Descripción</span>
+                      <span>Restricciones o comentarios de la opción</span>
                       {isFieldRequired('pricingOptions.description') ? (
                         <span className="text-red-500">*</span>
                       ) : (
@@ -429,12 +451,9 @@ export default function EstructuraStep({
                     value={option.description}
                     onChange={(e) => updatePricingOption(index, 'description', e.target.value)}
                     rows={2}
-                    placeholder="Ej: Paga $20 por comidas y bebidas"
+                    placeholder="Ej: Válido hasta el 6 de marzo. No aplica feriados."
                     className={errors[`pricingOptions.${index}.description`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
                   />
-                  <p className="text-[10px] text-gray-400 mt-1">
-                    Ejemplo: <span className="font-medium">Paga $20 por comidas y bebidas</span>
-                  </p>
                   {errors[`pricingOptions.${index}.description`] && (
                     <p className="text-xs text-red-600 font-medium mt-1">{errors[`pricingOptions.${index}.description`]}</p>
                   )}
