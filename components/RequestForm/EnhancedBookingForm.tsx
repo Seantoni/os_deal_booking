@@ -6,7 +6,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import SyncIcon from '@mui/icons-material/Sync'
 import StorefrontIcon from '@mui/icons-material/Storefront'
 import { useState, useEffect, useCallback, useActionState, useTransition, useRef } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { saveBookingRequestDraft, sendBookingRequest, getBookingRequest } from '@/app/actions/booking'
 import { 
   previewBusinessBackfill, 
@@ -54,6 +54,7 @@ type DateValidationSettings = Pick<
 export default function EnhancedBookingForm({ requestId: propRequestId, initialFormData }: EnhancedBookingFormProps = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const pathname = usePathname()
   const [currentStepKey, setCurrentStepKey] = useState<string>('configuracion')
   const [formData, setFormData] = useState<BookingFormData>({ ...INITIAL_FORM_DATA, ...initialFormData })
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -105,7 +106,13 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   
   // Get editId from URL (for continuing to edit a draft)
   const editIdFromUrl = searchParams.get('editId')
-  const requestId = propRequestId || editIdFromUrl || undefined
+  const initialRequestId = propRequestId || editIdFromUrl || undefined
+  const [activeRequestId, setActiveRequestId] = useState<string | undefined>(initialRequestId)
+  const [isAutoSavingStep, setIsAutoSavingStep] = useState(false)
+
+  useEffect(() => {
+    setActiveRequestId(initialRequestId)
+  }, [initialRequestId])
 
   // React 19: useTransition for non-blocking UI during form actions
   const [isPending, startTransition] = useTransition()
@@ -114,9 +121,9 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   const [draftState, saveDraftAction, isDraftPending] = useActionState<FormActionState, FormData>(
     async (_prevState, submittedFormData) => {
       try {
-        const result = await saveBookingRequestDraft(submittedFormData, requestId)
+        const result = await saveBookingRequestDraft(submittedFormData, activeRequestId)
         if (result.success) {
-          toast.success(requestId ? 'Borrador actualizado exitosamente' : 'Borrador guardado exitosamente')
+          toast.success(activeRequestId ? 'Borrador actualizado exitosamente' : 'Borrador guardado exitosamente')
           // Always redirect to booking requests page after saving
           router.push('/booking-requests')
           return { success: true, error: null }
@@ -137,7 +144,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   const [submitState, submitAction, isSubmitPending] = useActionState<FormActionState, FormData>(
     async (_prevState, submittedFormData) => {
       try {
-        const result = await sendBookingRequest(submittedFormData, requestId)
+        const result = await sendBookingRequest(submittedFormData, activeRequestId)
         if (result.success) {
           // If vendor was auto-created (or failed), show result dialog before redirecting
           const vr = 'vendorResult' in result ? result.vendorResult : undefined
@@ -170,7 +177,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   )
 
   // Combined saving state for UI feedback
-  const saving = isDraftPending || isSubmitPending || isPending
+  const saving = isDraftPending || isSubmitPending || isPending || isAutoSavingStep
 
   // Fetch request form field configuration from settings
   useEffect(() => {
@@ -758,16 +765,44 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     }, 100)
   }, [])
 
-  const handleNext = () => {
+  const handleNext = async () => {
     const validationErrors = handleValidateStep(currentStepKey)
     const errorKeys = Object.keys(validationErrors)
     
     if (errorKeys.length === 0) {
       const nextIndex = currentStepIndex + 1
       if (nextIndex < availableSteps.length) {
-        const nextStepKey = availableSteps[nextIndex].key
-        setCurrentStepKey(nextStepKey)
-        scrollToTop()
+        setIsAutoSavingStep(true)
+        try {
+          const formDataToSend = buildFormDataForSubmit(formData)
+          const result = await saveBookingRequestDraft(formDataToSend, activeRequestId)
+
+          if (!result.success || !result.data?.id) {
+            toast.error(`No se pudo auto-guardar el borrador: ${result.error || 'Error desconocido'}`)
+            return
+          }
+
+          if (result.data.id !== activeRequestId) {
+            setActiveRequestId(result.data.id)
+
+            // Persist draft ID in URL so refreshes/next actions keep updating the same draft
+            if (!propRequestId && pathname) {
+              const params = new URLSearchParams(searchParams.toString())
+              params.set('editId', result.data.id)
+              const nextUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname
+              router.replace(nextUrl, { scroll: false })
+            }
+          }
+
+          const nextStepKey = availableSteps[nextIndex].key
+          setCurrentStepKey(nextStepKey)
+          scrollToTop()
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
+          toast.error(`No se pudo auto-guardar el borrador: ${errorMsg}`)
+        } finally {
+          setIsAutoSavingStep(false)
+        }
       }
     } else {
       // Show toast with specific field names
@@ -849,7 +884,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
       try {
         const formDataToSend = buildFormDataForSubmit(formData)
         formDataToSend.append('linkedBusinessId', linkedBusinessId)
-        const preview = await previewBusinessBackfill(formDataToSend, requestId)
+        const preview = await previewBusinessBackfill(formDataToSend, activeRequestId)
         
         if (preview.success && preview.data?.hasLinkedBusiness && preview.data.changes.length > 0) {
           // Store preview and show backfill confirmation dialog
@@ -894,7 +929,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
       try {
         const result = await sendBookingRequestWithBackfill(
           formDataToSend,
-          requestId,
+          activeRequestId,
           backfillPreview.changes
         )
         
