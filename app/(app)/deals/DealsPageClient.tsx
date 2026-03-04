@@ -10,6 +10,7 @@ import { getDealsPaginated, searchDeals, deleteDeal, getDealsCounts, getDealPubl
 import { dismissInboxItem } from '@/app/actions/inbox'
 import { updateUserMaxActiveDeals } from '@/app/actions/users'
 import type { Deal } from '@/types'
+import TableSkeleton from '@/components/shared/TableSkeleton'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
@@ -777,10 +778,7 @@ export default function DealsPageClient({
           {/* Content */}
           <div className="flex-1 overflow-auto p-0 md:p-4">
             {isLoading ? (
-              <div className="p-6 mx-4 mt-4 md:mx-0 md:mt-0 text-sm text-gray-500 bg-white rounded-lg border border-gray-200 flex items-center gap-2">
-                <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                {searchLoading ? 'Buscando...' : 'Cargando...'}
-              </div>
+              <TableSkeleton rows={8} columns={[16, 12, 10, 10, 10, 12, 10, 8]} />
             ) : tableDeals.length === 0 ? (
               <div className="px-4 pt-4 md:px-0 md:pt-0">
                 <EmptyTableState
@@ -1083,10 +1081,7 @@ export default function DealsPageClient({
       ) : (
         <div className="flex-1 overflow-auto p-4">
           {assignmentsLoading ? (
-            <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200 flex items-center gap-2">
-              <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-              Cargando asignaciones...
-            </div>
+            <TableSkeleton rows={6} columns={[20, 14, 10, 12, 10, 10, 8]} />
           ) : assignmentsError ? (
             <div className="p-6 text-sm text-red-600 bg-white rounded-lg border border-red-200">
               {assignmentsError}

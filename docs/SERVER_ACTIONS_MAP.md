@@ -26,6 +26,7 @@ Update this file whenever:
 - `cron-logs.ts`
 - `crm.ts`
 - `custom-fields.ts`
+- `daily-agenda.ts`
 - `dashboard.ts`
 - `deal-metrics.ts`
 - `deals.ts`

@@ -16,6 +16,7 @@ import { useSharedData } from '@/hooks/useSharedData'
 import { useFormConfigCache } from '@/hooks/useFormConfigCache'
 import { buildOpportunityFormData } from '@/components/crm/opportunity/opportunityFormPayload'
 import { normalizeAutomationStage, shouldRunMeetingAutomation } from '@/components/crm/opportunity/opportunityAutomationLogic'
+import TableSkeleton from '@/components/shared/TableSkeleton'
 import AssignmentIcon from '@mui/icons-material/Assignment'
 import GroupsIcon from '@mui/icons-material/Groups'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
@@ -1166,18 +1167,7 @@ export default function TasksPageClient() {
       <div className="flex-1 overflow-auto p-0 md:p-4 bg-gray-50">
         {isAllTasksTab ? (
           loading ? (
-            <div className="space-y-2 p-4 md:p-0">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="bg-white rounded-lg p-4 animate-pulse">
-                  <div className="h-4 bg-gray-200 rounded w-1/4 mb-3" />
-                  <div className="space-y-2">
-                    <div className="h-3 bg-gray-200 rounded w-11/12" />
-                    <div className="h-3 bg-gray-200 rounded w-10/12" />
-                    <div className="h-3 bg-gray-200 rounded w-9/12" />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <TableSkeleton rows={6} columns={[8, 10, 14, 20, 14, 10, 12]} />
           ) : allTasksSorted.length === 0 ? (
             <div className="bg-white rounded-lg p-8 text-center border border-gray-200 mx-4 md:mx-0">
               <AssignmentIcon className="text-gray-400 mx-auto mb-3" style={{ fontSize: 48 }} />
@@ -1286,20 +1276,7 @@ export default function TasksPageClient() {
             </EntityTable>
           )
         ) : loading ? (
-          <div className="space-y-2 p-4 md:p-0">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="bg-white rounded-lg p-4 animate-pulse">
-                <div className="flex items-center gap-3">
-                  <div className="w-5 h-5 bg-gray-200 rounded-full" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-gray-200 rounded w-1/3" />
-                    <div className="h-3 bg-gray-200 rounded w-1/2" />
-                  </div>
-                  <div className="h-6 w-20 bg-gray-200 rounded" />
-                </div>
-              </div>
-            ))}
-          </div>
+          <TableSkeleton rows={6} columns={[4, 14, 10, 20, 16, 10, 10, 8]} />
         ) : sortedTasks.length === 0 ? (
           <div className="bg-white rounded-lg p-8 text-center border border-gray-200 mx-4 md:mx-0">
             <AssignmentIcon className="text-gray-400 mx-auto mb-3" style={{ fontSize: 48 }} />

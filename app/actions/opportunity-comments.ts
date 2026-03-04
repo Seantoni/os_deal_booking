@@ -7,6 +7,11 @@ import { getUserRole } from '@/lib/auth/roles'
 import { logger } from '@/lib/logger'
 import { addDismissedByValues, THREAD_RESOLVED_MARKER } from '@/lib/comments/thread-resolution'
 import { generateThreadResolutionOneLiner } from '@/lib/ai/thread-resolution'
+import {
+  generateThreadTaskRecommendations,
+  type ThreadTaskRecommendation,
+} from '@/lib/ai/thread-task-recommendations'
+import { formatDateForPanama, getTodayInPanama } from '@/lib/date/timezone'
 
 const INITIAL_THREAD_TITLE = 'Item 1'
 const LEGACY_THREAD_TITLE = 'Historial previo'
@@ -25,6 +30,14 @@ function buildNextItemTitle(existingTitles: string[]): string {
   }
 
   return `Item ${maxItemNumber + 1}`
+}
+
+function normalizeTaskTitleForMatch(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/^reuni[oó]n:\s*/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 // Types
@@ -66,6 +79,8 @@ export interface OpportunityCommentWithAuthor {
   updatedAt: Date
   author: CommentAuthor | null
 }
+
+export type OpportunityThreadTaskRecommendation = ThreadTaskRecommendation
 
 /**
  * Check if user can access opportunity comments
@@ -574,6 +589,156 @@ export async function resolveOpportunityCommentThread(
     }
   } catch (error) {
     return handleServerActionError(error, 'resolveOpportunityCommentThread')
+  }
+}
+
+/**
+ * Generate AI recommendations for follow-up tasks after a thread is resolved.
+ * Returns non-persistent suggestions for the user to optionally open as tasks.
+ */
+export async function getOpportunityThreadTaskRecommendations(
+  threadId: string
+): Promise<{
+  success: boolean
+  data?: OpportunityThreadTaskRecommendation[]
+  error?: string
+}> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const thread = await prisma.opportunityCommentThread.findUnique({
+      where: { id: threadId },
+      select: {
+        id: true,
+        opportunityId: true,
+        title: true,
+        status: true,
+        resolutionNote: true,
+      },
+    })
+
+    if (!thread) {
+      return { success: false, error: 'Item no encontrado' }
+    }
+
+    const canAccess = await canAccessOpportunityComments(thread.opportunityId, userId)
+    if (!canAccess) {
+      return { success: false, error: 'No tienes acceso a este item' }
+    }
+
+    if (thread.status !== CommentThreadStatus.RESOLVED) {
+      return { success: false, error: 'El item debe estar resuelto para recomendar tareas' }
+    }
+
+    const [rawThreadComments, opportunityContext, openTasks] = await Promise.all([
+      prisma.opportunityComment.findMany({
+        where: {
+          threadId: thread.id,
+          isDeleted: false,
+        },
+        select: {
+          content: true,
+          userId: true,
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+      }),
+      prisma.opportunity.findUnique({
+        where: { id: thread.opportunityId },
+        select: {
+          stage: true,
+          business: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      }),
+      prisma.task.findMany({
+        where: {
+          opportunityId: thread.opportunityId,
+          completed: false,
+        },
+        select: {
+          category: true,
+          title: true,
+          date: true,
+        },
+        orderBy: {
+          date: 'asc',
+        },
+      }),
+    ])
+
+    const authorIds = Array.from(new Set(rawThreadComments.map((comment) => comment.userId)))
+    const authors = authorIds.length
+      ? await prisma.userProfile.findMany({
+          where: { clerkId: { in: authorIds } },
+          select: {
+            clerkId: true,
+            name: true,
+            email: true,
+          },
+        })
+      : []
+
+    const authorMap = new Map(authors.map((author) => [author.clerkId, author]))
+
+    const recommendationResult = await generateThreadTaskRecommendations({
+      threadTitle: thread.title,
+      resolutionNote: thread.resolutionNote,
+      comments: rawThreadComments.map((comment) => {
+        const author = authorMap.get(comment.userId)
+        return {
+          authorName: author?.name || author?.email || 'Usuario',
+          content: comment.content,
+        }
+      }),
+      todayDate: getTodayInPanama(),
+      opportunityStage: opportunityContext?.stage || null,
+      businessName: opportunityContext?.business?.name || null,
+      existingOpenTasks: openTasks.map((task) => ({
+        category: task.category === 'meeting' ? 'meeting' : 'todo',
+        title: task.title,
+        dueDate: formatDateForPanama(new Date(task.date)),
+      })),
+    })
+
+    if (recommendationResult.usedFallback) {
+      logger.warn('AI task recommendation returned fallback empty list', {
+        threadId: thread.id,
+        opportunityId: thread.opportunityId,
+      })
+    }
+
+    const existingOpenTaskTitles = new Set(
+      openTasks
+        .map((task) => normalizeTaskTitleForMatch(task.title))
+        .filter((title) => title.length > 0)
+    )
+
+    const seenRecommendationTitles = new Set<string>()
+    const filteredRecommendations = recommendationResult.recommendations.filter((recommendation) => {
+      const normalizedTitle = normalizeTaskTitleForMatch(recommendation.title)
+      if (!normalizedTitle) return false
+      if (existingOpenTaskTitles.has(normalizedTitle)) return false
+      if (seenRecommendationTitles.has(normalizedTitle)) return false
+
+      seenRecommendationTitles.add(normalizedTitle)
+      return true
+    })
+
+    return {
+      success: true,
+      data: filteredRecommendations,
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getOpportunityThreadTaskRecommendations')
   }
 }
 

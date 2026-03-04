@@ -692,6 +692,122 @@ export async function createOpportunity(formData: FormData) {
 }
 
 /**
+ * Ensure an open opportunity exists for the given business.
+ * Sales-only quick action used by Daily Agenda.
+ * - If an open opportunity already exists for this sales user, returns it.
+ * - Otherwise creates one with deterministic defaults.
+ */
+export async function ensureOpenOpportunityForBusiness(businessId: string): Promise<{
+  success: boolean
+  data?: { opportunityId: string; created: boolean }
+  error?: string
+}> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    if (!businessId || !businessId.trim()) {
+      return { success: false, error: 'Business inválido' }
+    }
+
+    const role = await getUserRole()
+    if (role !== 'sales') {
+      return { success: false, error: 'Acción permitida solo para usuarios de ventas' }
+    }
+
+    const business = await prisma.business.findFirst({
+      where: {
+        id: businessId.trim(),
+        ownerId: userId,
+      },
+      select: {
+        id: true,
+        name: true,
+        categoryId: true,
+        tier: true,
+        contactName: true,
+        contactPhone: true,
+        contactEmail: true,
+      },
+    })
+
+    if (!business) {
+      return { success: false, error: 'Negocio no encontrado o sin acceso' }
+    }
+
+    const existingOpenOpportunity = await prisma.opportunity.findFirst({
+      where: {
+        businessId: business.id,
+        responsibleId: userId,
+        stage: { notIn: ['won', 'lost'] },
+      },
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      select: { id: true },
+    })
+
+    if (existingOpenOpportunity) {
+      return {
+        success: true,
+        data: {
+          opportunityId: existingOpenOpportunity.id,
+          created: false,
+        },
+      }
+    }
+
+    const startDate = parseDateInPanamaTime(getTodayInPanama())
+
+    const createdOpportunity = await prisma.opportunity.create({
+      data: {
+        businessId: business.id,
+        stage: 'iniciacion',
+        startDate,
+        userId,
+        responsibleId: userId,
+        categoryId: business.categoryId || null,
+        tier: business.tier ?? null,
+        contactName: business.contactName?.trim() || null,
+        contactPhone: business.contactPhone?.trim() || null,
+        contactEmail: business.contactEmail?.trim() || null,
+        notes: 'Creada automáticamente desde Agenda diaria',
+      },
+      select: {
+        id: true,
+      },
+    })
+
+    await logActivity({
+      action: 'CREATE',
+      entityType: 'Opportunity',
+      entityId: createdOpportunity.id,
+      entityName: business.name || undefined,
+      details: {
+        metadata: {
+          source: 'daily_agenda_quick_create',
+          businessId: business.id,
+        },
+      },
+    })
+
+    invalidateEntity('opportunities')
+    invalidateDashboard()
+
+    return {
+      success: true,
+      data: {
+        opportunityId: createdOpportunity.id,
+        created: true,
+      },
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'ensureOpenOpportunityForBusiness')
+  }
+}
+
+/**
  * Update an opportunity
  */
 export async function updateOpportunity(opportunityId: string, formData: FormData) {

@@ -15,13 +15,16 @@ import {
   toggleOpportunityCommentReaction,
   getUsersForOpportunityMention,
   resolveOpportunityCommentThread,
+  getOpportunityThreadTaskRecommendations,
   type OpportunityCommentThreadSummary,
+  type OpportunityThreadTaskRecommendation,
 } from '@/app/actions/opportunity-comments'
 
 interface OpportunityChatThreadProps {
   opportunityId: string
   canEdit: boolean
   initialThreadId?: string | null
+  onApplyTaskRecommendation?: (recommendation: OpportunityThreadTaskRecommendation) => void
 }
 
 function formatDateTime(value: Date | null): string {
@@ -35,13 +38,22 @@ function formatDateTime(value: Date | null): string {
   })
 }
 
-export default function OpportunityChatThread({ opportunityId, canEdit, initialThreadId = null }: OpportunityChatThreadProps) {
+export default function OpportunityChatThread({
+  opportunityId,
+  canEdit,
+  initialThreadId = null,
+  onApplyTaskRecommendation,
+}: OpportunityChatThreadProps) {
   const [threads, setThreads] = useState<OpportunityCommentThreadSummary[]>([])
   const [loadingThreads, setLoadingThreads] = useState(true)
   const [expandedResolvedThreadId, setExpandedResolvedThreadId] = useState<string | null>(null)
 
   const [resolveDialogOpen, setResolveDialogOpen] = useState(false)
   const [resolvingThread, setResolvingThread] = useState(false)
+  const [fetchingRecommendations, setFetchingRecommendations] = useState(false)
+  const [recommendationQueue, setRecommendationQueue] = useState<OpportunityThreadTaskRecommendation[]>([])
+  const [activeRecommendationIndex, setActiveRecommendationIndex] = useState(0)
+  const [recommendationDialogOpen, setRecommendationDialogOpen] = useState(false)
 
   const openThread = useMemo(
     () => threads.find((thread) => thread.status === 'OPEN') || null,
@@ -129,12 +141,37 @@ export default function OpportunityChatThread({ opportunityId, canEdit, initialT
       setExpandedResolvedThreadId(result.data.id)
       toast.success('Item resuelto y nuevo item abierto')
       await loadThreads(result.nextOpenThreadId)
+
+      if (canEdit && onApplyTaskRecommendation) {
+        setRecommendationDialogOpen(false)
+        setRecommendationQueue([])
+        setActiveRecommendationIndex(0)
+        setFetchingRecommendations(true)
+
+        try {
+          const recommendationResult = await getOpportunityThreadTaskRecommendations(result.data.id)
+          if (recommendationResult.success) {
+            const recommendations = recommendationResult.data || []
+            if (recommendations.length > 0) {
+              setRecommendationQueue(recommendations)
+              setActiveRecommendationIndex(0)
+              setRecommendationDialogOpen(true)
+            }
+          } else {
+            toast.error(recommendationResult.error || 'No se pudieron generar recomendaciones de tareas')
+          }
+        } catch {
+          toast.error('No se pudieron generar recomendaciones de tareas')
+        } finally {
+          setFetchingRecommendations(false)
+        }
+      }
     } catch {
       toast.error('Error al resolver el item')
     } finally {
       setResolvingThread(false)
     }
-  }, [loadThreads, openThread, resolvingThread])
+  }, [canEdit, loadThreads, onApplyTaskRecommendation, openThread, resolvingThread])
 
   const buildActions = useCallback((threadId: string | null): ChatThreadActions => {
     return {
@@ -235,6 +272,48 @@ export default function OpportunityChatThread({ opportunityId, canEdit, initialT
     () => buildActions(openThread?.id || null),
     [buildActions, openThread?.id]
   )
+
+  const activeRecommendation = recommendationQueue[activeRecommendationIndex] || null
+
+  const closeRecommendationDialog = useCallback(() => {
+    setRecommendationDialogOpen(false)
+    setRecommendationQueue([])
+    setActiveRecommendationIndex(0)
+  }, [])
+
+  const handleAcceptRecommendation = useCallback(() => {
+    if (!activeRecommendation || !onApplyTaskRecommendation) {
+      closeRecommendationDialog()
+      return
+    }
+
+    onApplyTaskRecommendation(activeRecommendation)
+    toast.success('Sugerencia cargada en nueva tarea')
+
+    const nextIndex = activeRecommendationIndex + 1
+    if (nextIndex >= recommendationQueue.length) {
+      closeRecommendationDialog()
+      return
+    }
+
+    setActiveRecommendationIndex(nextIndex)
+  }, [
+    activeRecommendation,
+    activeRecommendationIndex,
+    closeRecommendationDialog,
+    onApplyTaskRecommendation,
+    recommendationQueue.length,
+  ])
+
+  const handleSkipRecommendation = useCallback(() => {
+    const nextIndex = activeRecommendationIndex + 1
+    if (nextIndex >= recommendationQueue.length) {
+      closeRecommendationDialog()
+      return
+    }
+
+    setActiveRecommendationIndex(nextIndex)
+  }, [activeRecommendationIndex, closeRecommendationDialog, recommendationQueue.length])
 
   return (
     <div className="space-y-4">
@@ -354,6 +433,64 @@ export default function OpportunityChatThread({ opportunityId, canEdit, initialT
           if (resolvingThread) return
           setResolveDialogOpen(false)
         }}
+      />
+
+      <ConfirmDialog
+        isOpen={fetchingRecommendations}
+        title="Generando recomendaciones"
+        message={
+          <div className="space-y-3 text-center">
+            <p className="text-sm text-gray-700">
+              AI está analizando la resolución para sugerir tareas de seguimiento.
+            </p>
+            <div className="flex justify-center">
+              <span className="h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+            </div>
+          </div>
+        }
+        confirmText=""
+        cancelText=""
+        confirmVariant="primary"
+        loading={true}
+        onConfirm={() => {}}
+        onCancel={() => {}}
+      />
+
+      <ConfirmDialog
+        isOpen={recommendationDialogOpen && !!activeRecommendation}
+        title="Recomendación de nueva tarea"
+        message={
+          activeRecommendation ? (
+            <div className="space-y-3 text-left">
+              <p className="text-sm text-gray-700">
+                AI recomienda abrir esta tarea de seguimiento.
+              </p>
+              <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+                <p className="font-semibold text-gray-800">{activeRecommendation.title}</p>
+                <p className="mt-1 text-xs text-gray-600">
+                  Tipo: {activeRecommendation.category === 'meeting' ? 'Reunión' : 'Tarea'}
+                  {activeRecommendation.dueDate ? ` • Fecha sugerida: ${activeRecommendation.dueDate}` : ''}
+                </p>
+                {activeRecommendation.notes && (
+                  <p className="mt-2 whitespace-pre-wrap text-xs text-gray-600">{activeRecommendation.notes}</p>
+                )}
+                {activeRecommendation.reason && (
+                  <p className="mt-2 text-xs text-gray-700">Motivo: {activeRecommendation.reason}</p>
+                )}
+              </div>
+              <p className="text-xs text-gray-500">
+                Sugerencia {activeRecommendationIndex + 1} de {recommendationQueue.length}
+              </p>
+            </div>
+          ) : (
+            ''
+          )
+        }
+        confirmText="Sí, abrir tarea"
+        cancelText={activeRecommendationIndex + 1 < recommendationQueue.length ? 'Omitir' : 'Cerrar'}
+        confirmVariant="primary"
+        onConfirm={handleAcceptRecommendation}
+        onCancel={handleSkipRecommendation}
       />
 
       {loadingThreads && (

@@ -1,15 +1,22 @@
 'use client'
 
 import type { Opportunity } from '@/types'
+import type { OpportunityThreadTaskRecommendation } from '@/app/actions/opportunity-comments'
 import OpportunityChatThread from './OpportunityChatThread'
 
 interface OpportunityChatTabProps {
   opportunity?: Opportunity | null
   canEdit: boolean
   initialThreadId?: string | null
+  onApplyTaskRecommendation?: (recommendation: OpportunityThreadTaskRecommendation) => void
 }
 
-export default function OpportunityChatTab({ opportunity, canEdit, initialThreadId }: OpportunityChatTabProps) {
+export default function OpportunityChatTab({
+  opportunity,
+  canEdit,
+  initialThreadId,
+  onApplyTaskRecommendation,
+}: OpportunityChatTabProps) {
   return (
     <div className="p-3 md:p-6 bg-white h-full">
       {!opportunity ? (
@@ -23,6 +30,7 @@ export default function OpportunityChatTab({ opportunity, canEdit, initialThread
           opportunityId={opportunity.id}
           canEdit={canEdit}
           initialThreadId={initialThreadId}
+          onApplyTaskRecommendation={onApplyTaskRecommendation}
         />
       )}
     </div>

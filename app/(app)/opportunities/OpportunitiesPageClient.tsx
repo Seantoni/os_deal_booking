@@ -9,6 +9,7 @@ import { getOpportunityProjectionSummaryMap } from '@/app/actions/revenue-projec
 import { deleteOpportunity } from '@/app/actions/crm'
 import type { Opportunity, Business } from '@/types'
 import type { ProjectionEntitySummary } from '@/lib/projections/summary'
+import TableSkeleton from '@/components/shared/TableSkeleton'
 import ViewKanbanIcon from '@mui/icons-material/ViewKanban'
 import TableChartIcon from '@mui/icons-material/TableChart'
 import FilterListIcon from '@mui/icons-material/FilterList'
@@ -634,10 +635,7 @@ export default function OpportunitiesPageClient({
       {/* Content */}
       <div className="flex-1 overflow-auto p-0 md:p-4">
         {isLoading ? (
-          <div className="p-6 mx-4 mt-4 md:mx-0 md:mt-0 text-sm text-gray-500 bg-white rounded-lg border border-gray-200 flex items-center gap-2">
-            <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-            {searchLoading ? 'Buscando...' : 'Cargando...'}
-          </div>
+          <TableSkeleton rows={8} columns={[18, 12, 10, 10, 12, 16, 8]} />
         ) : filteredOpportunities.length === 0 ? (
           <div className="px-4 pt-4 md:px-0 md:pt-0">
             <EmptyTableState

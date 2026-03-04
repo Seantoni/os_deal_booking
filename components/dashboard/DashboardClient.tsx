@@ -863,7 +863,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                 <div className="p-1 bg-purple-50 rounded">
                   <ChatBubbleOutlineIcon className="text-purple-500" style={{ fontSize: 16 }} />
                 </div>
-                <h3 className="text-sm font-semibold text-gray-900">Sin Respuesta</h3>
+                <h3 className="text-sm font-semibold text-gray-900">Casos abiertos</h3>
               </div>
               {pendingComments.length > 0 && (
                 <span className="text-[13px] font-bold px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full">
@@ -1022,8 +1022,9 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                     <th className="px-4 py-2.5 font-semibold text-gray-500 text-left">Miembro</th>
                     <th className="px-3 py-2.5 font-semibold text-gray-500 text-center">Aprob</th>
                     <th className="px-3 py-2.5 font-semibold text-gray-500 text-center">Reserv</th>
-                    <th className="px-3 py-2.5 font-semibold text-gray-500 text-center">Meet</th>
                     <th className="px-3 py-2.5 font-semibold text-gray-500 text-center">Tasks</th>
+                    <th className="px-3 py-2.5 font-semibold text-gray-500 text-center">Tasa de cierre</th>
+                    <th className="px-3 py-2.5 font-semibold text-gray-500 text-center">Meet</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -1060,13 +1061,16 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                           {member.bookedRequests || 0}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5 text-center text-sm text-gray-600">{member.meetings || 0}</td>
                       <td className="px-3 py-2.5 text-center text-sm text-gray-600">{member.todos || 0}</td>
+                      <td className="px-3 py-2.5 text-center text-sm text-gray-600">
+                        {getPercent(member.meetings || 0, member.approvedRequests || 0)}%
+                      </td>
+                      <td className="px-3 py-2.5 text-center text-sm text-gray-600">{member.meetings || 0}</td>
                     </tr>
                   ))}
                   {rankedTeamPerformance.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-4 py-6 text-center text-gray-400 text-sm">
+                      <td colSpan={6} className="px-4 py-6 text-center text-gray-400 text-sm">
                         Sin actividad en este período
                       </td>
                     </tr>

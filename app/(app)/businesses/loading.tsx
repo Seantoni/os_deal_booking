@@ -1,37 +1,31 @@
 export default function BusinessesLoading() {
   return (
-    <div className="h-full flex flex-col bg-gray-50 animate-pulse ml-0 md:ml-[86px] transition-all duration-300">
-      {/* Header */}
+    <div className="h-full flex flex-col bg-gray-50 ml-0 md:ml-[86px] transition-all duration-300">
       <div className="bg-white border-b border-gray-100 px-4 py-3">
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
-            <div className="h-8 bg-gray-100 rounded-lg w-56"></div>
-            <div className="h-8 bg-blue-50 rounded-lg w-32"></div>
+            <div className="h-8 rounded-lg w-56 skel" />
+            <div className="h-8 rounded-lg w-32 skel" />
           </div>
           <div className="flex items-center gap-2 overflow-x-auto">
             {[1, 2, 3].map((i) => (
-              <div key={i} className={`h-7 ${i === 1 ? 'bg-gray-200' : 'bg-gray-100'} rounded-full w-32 flex-shrink-0`}></div>
+              <div key={i} className={`h-7 rounded-full w-32 flex-shrink-0 ${i === 1 ? 'skel-strong' : 'skel'}`} style={{ animationDelay: `${i * 60}ms` }} />
             ))}
           </div>
         </div>
       </div>
-      
-      {/* Table */}
       <div className="flex-1 overflow-auto p-4">
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
           <div className="bg-gray-50/80 px-4 py-3 flex items-center gap-4">
-            {['w-40', 'w-28', 'w-36', 'w-28', 'w-20', 'w-12'].map((w, i) => (
-              <div key={i} className={`h-3 bg-gray-200 rounded ${w}`}></div>
+            {[40, 28, 36, 28, 20, 12].map((w, i) => (
+              <div key={i} className="h-3 rounded skel" style={{ width: `${w}%`, animationDelay: `${i * 50}ms` }} />
             ))}
           </div>
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <div key={i} className="px-4 py-3 flex items-center gap-4">
-              <div className="h-4 bg-gray-100 rounded w-40"></div>
-              <div className="h-4 bg-gray-100 rounded w-28"></div>
-              <div className="h-4 bg-gray-100 rounded w-36"></div>
-              <div className="h-4 bg-gray-100 rounded w-28"></div>
-              <div className="h-4 bg-gray-100 rounded w-20"></div>
-              <div className="h-4 bg-gray-100 rounded w-12"></div>
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((row) => (
+            <div key={row} className="px-4 py-3 flex items-center gap-4">
+              {[16, 8, 14, 8, 10, 6].map((w, col) => (
+                <div key={col} className={`h-3.5 rounded ${col === 0 ? 'skel-strong' : 'skel'}`} style={{ width: `${w - ((row * 5 + col * 11) % 4)}%`, animationDelay: `${row * 50 + col * 30}ms` }} />
+              ))}
             </div>
           ))}
         </div>

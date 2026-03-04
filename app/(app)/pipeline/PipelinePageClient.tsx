@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { Opportunity, BookingRequest } from '@/types'
+import TableSkeleton from '@/components/shared/TableSkeleton'
 import SearchIcon from '@mui/icons-material/Search'
 import { Input, Button } from '@/components/ui'
 import { logger } from '@/lib/logger'
@@ -183,10 +184,7 @@ export default function PipelinePageClient({
       {/* Content - Unified View */}
       <div className="flex-1 overflow-auto p-4">
         {isLoading ? (
-          <div className="p-6 text-sm text-gray-500 bg-white rounded-lg border border-gray-200 flex items-center gap-2">
-            <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-            {searchLoading ? 'Buscando...' : 'Cargando...'}
-              </div>
+          <TableSkeleton rows={10} columns={[16, 12, 10, 10, 12, 10, 8, 8]} />
         ) : (
           <>
             {/* Search indicator */}

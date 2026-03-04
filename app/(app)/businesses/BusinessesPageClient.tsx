@@ -8,6 +8,7 @@ import { getBusinessesPaginated, searchBusinesses, getBusinessCounts, getBusines
 import { getBusinessProjectionSummaryMap } from '@/app/actions/revenue-projections'
 import type { Business } from '@/types'
 import type { ProjectionEntitySummary } from '@/lib/projections/summary'
+import TableSkeleton from '@/components/shared/TableSkeleton'
 import AddIcon from '@mui/icons-material/Add'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import DownloadIcon from '@mui/icons-material/Download'
@@ -795,10 +796,7 @@ export default function BusinessesPageClient({
             </div>
           </div>
         ) : isLoading ? (
-          <div className="p-6 mx-4 mt-4 md:mx-0 md:mt-0 text-sm text-gray-500 bg-white rounded-lg border border-gray-200 flex items-center gap-2">
-            <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-            {searchLoading ? 'Buscando...' : 'Cargando...'}
-          </div>
+          <TableSkeleton rows={10} columns={[16, 6, 12, 6, 10, 6, 6, 6, 6, 6, 8]} />
         ) : filteredBusinesses.length === 0 ? (
           <div className="px-4 pt-4 md:px-0 md:pt-0">
             <EmptyTableState

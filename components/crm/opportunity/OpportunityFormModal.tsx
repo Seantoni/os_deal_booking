@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useTransition, lazy, Suspense, useRef, us
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { createOpportunity, updateOpportunity } from '@/app/actions/crm'
+import type { OpportunityThreadTaskRecommendation } from '@/app/actions/opportunity-comments'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useDynamicForm } from '@/hooks/useDynamicForm'
 import { useCachedFormConfig } from '@/hooks/useFormConfigCache'
@@ -23,7 +24,7 @@ import OpportunityModalHeader from './OpportunityModalHeader'
 import OpportunityTabNav, { type OpportunityTab } from './OpportunityTabNav'
 import OpportunityDetailsTab from './OpportunityDetailsTab'
 import { buildOpportunityFormData } from './opportunityFormPayload'
-import { useActivityDictation } from './useActivityDictation'
+import { useActivityDictation, type ClassifiedActivityFields } from './useActivityDictation'
 import { useOpportunityStageManager } from './useOpportunityStageManager'
 import { useOpportunityMeetingAutomation } from './useOpportunityMeetingAutomation'
 import { useOpportunityTaskActions } from './useOpportunityTaskActions'
@@ -276,6 +277,46 @@ export default function OpportunityFormModal({
     },
   })
 
+  const handleApplyTaskRecommendation = useCallback((recommendation: OpportunityThreadTaskRecommendation) => {
+    const suggestedNotes = [recommendation.notes, recommendation.reason ? `Motivo sugerido: ${recommendation.reason}` : null]
+      .filter((value): value is string => Boolean(value && value.trim().length > 0))
+      .join('\n\n')
+
+    const prefillData: ClassifiedActivityFields = recommendation.category === 'meeting'
+      ? {
+          category: 'meeting',
+          title: recommendation.title,
+          notes: null,
+          dueDate: recommendation.dueDate,
+          meetingWith: recommendation.title,
+          position: null,
+          isDecisionMaker: null,
+          meetingDetails: suggestedNotes || null,
+          reachedAgreement: null,
+          mainObjection: null,
+          objectionSolution: null,
+          nextSteps: null,
+        }
+      : {
+          category: 'todo',
+          title: recommendation.title,
+          notes: suggestedNotes || null,
+          dueDate: recommendation.dueDate,
+          meetingWith: null,
+          position: null,
+          isDecisionMaker: null,
+          meetingDetails: null,
+          reachedAgreement: null,
+          mainObjection: null,
+          objectionSolution: null,
+          nextSteps: null,
+        }
+
+    setError('')
+    taskActions.openTaskModal()
+    taskActions.setTaskPrefill(prefillData)
+  }, [setError, taskActions])
+
   const categoryOptions = useMemo(() => categories.map((cat) => ({
     id: cat.id,
     categoryKey: cat.categoryKey,
@@ -508,6 +549,7 @@ export default function OpportunityFormModal({
                   opportunity={opportunity}
                   canEdit={canEdit}
                   initialThreadId={initialChatThreadId}
+                  onApplyTaskRecommendation={handleApplyTaskRecommendation}
                 />
               </Suspense>
               <div ref={chatBottomAnchorRef} className="h-px" aria-hidden="true" />

@@ -3,13 +3,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { UserButton } from '@clerk/nextjs'
+import { UserButton, useUser } from '@clerk/nextjs'
 import SearchIcon from '@mui/icons-material/Search'
 import InboxIcon from '@mui/icons-material/Inbox'
+import TodayIcon from '@mui/icons-material/Today'
 import { getUnreadInboxCount } from '@/app/actions/inbox'
 import InboxDropdown from './InboxDropdown'
 import { useCommandPalette } from '@/hooks/useCommandPalette'
 import LiveUsersBadges from './LiveUsersBadges'
+import DailyAgendaModal from './DailyAgendaModal'
+import { useSidebar } from './AppClientProviders'
+import { getTodayInPanama } from '@/lib/date/timezone'
 
 /**
  * GlobalHeader - Persistent header across all pages
@@ -18,8 +22,14 @@ import LiveUsersBadges from './LiveUsersBadges'
 export default function GlobalHeader() {
   const [inboxOpen, setInboxOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [dailyAgendaOpen, setDailyAgendaOpen] = useState(false)
   const inboxRef = useRef<HTMLDivElement>(null)
   const commandPalette = useCommandPalette()
+  const { role, loading: roleLoading } = useSidebar()
+  const { user, isLoaded: userLoaded } = useUser()
+  const userId = user?.id || null
+
+  const isSalesUser = role === 'sales'
 
   const loadUnreadCount = useCallback(async () => {
     try {
@@ -75,9 +85,53 @@ export default function GlobalHeader() {
     }
   }, [inboxOpen])
 
+  const markDailyAgendaAsShownToday = useCallback(() => {
+    if (!userId) return
+    try {
+      const today = getTodayInPanama()
+      localStorage.setItem(`daily-agenda-last-open:${userId}`, today)
+    } catch {
+      // Ignore localStorage errors (private mode/quota).
+    }
+  }, [userId])
+
+  // Auto-open agenda for sales users on first visit of the day (Panama timezone).
+  useEffect(() => {
+    if (!isSalesUser || roleLoading || !userLoaded || !userId) return
+
+    const storageKey = `daily-agenda-last-open:${userId}`
+    const today = getTodayInPanama()
+
+    let lastOpenDate: string | null = null
+    try {
+      lastOpenDate = localStorage.getItem(storageKey)
+    } catch {
+      lastOpenDate = null
+    }
+
+    if (lastOpenDate === today) {
+      return
+    }
+
+    markDailyAgendaAsShownToday()
+    const autoOpenTimer = window.setTimeout(() => {
+      setDailyAgendaOpen(true)
+    }, 0)
+
+    return () => {
+      window.clearTimeout(autoOpenTimer)
+    }
+  }, [isSalesUser, roleLoading, userLoaded, userId, markDailyAgendaAsShownToday])
+
+  const handleOpenDailyAgenda = () => {
+    markDailyAgendaAsShownToday()
+    setDailyAgendaOpen(true)
+  }
+
   return (
-    <header className="h-14 border-b border-gray-200 bg-white flex-shrink-0 z-50 sticky top-0">
-      <div className="h-full px-4 flex items-center justify-between gap-4">
+    <>
+      <header className="h-14 border-b border-gray-200 bg-white flex-shrink-0 z-50 sticky top-0">
+        <div className="h-full px-4 flex items-center justify-between gap-4">
         {/* Left: Logo */}
         <Link 
           href="/dashboard" 
@@ -104,6 +158,27 @@ export default function GlobalHeader() {
         {/* Right: Actions */}
         <div className="flex items-center gap-1">
           <LiveUsersBadges />
+
+          {/* Daily agenda (sales only) */}
+          {isSalesUser && (
+            <>
+              <button
+                onClick={handleOpenDailyAgenda}
+                className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors text-xs font-semibold"
+                aria-label="Abrir agenda diaria"
+              >
+                <TodayIcon style={{ fontSize: 16 }} />
+                Agenda
+              </button>
+              <button
+                onClick={handleOpenDailyAgenda}
+                className="md:hidden p-2 rounded-lg hover:bg-blue-50 transition-colors text-blue-700"
+                aria-label="Abrir agenda diaria"
+              >
+                <TodayIcon style={{ fontSize: 22 }} />
+              </button>
+            </>
+          )}
 
           {/* Mobile search button */}
           <button
@@ -146,6 +221,12 @@ export default function GlobalHeader() {
           </div>
         </div>
       </div>
-    </header>
+      </header>
+
+      <DailyAgendaModal
+        isOpen={dailyAgendaOpen}
+        onClose={() => setDailyAgendaOpen(false)}
+      />
+    </>
   )
 }
