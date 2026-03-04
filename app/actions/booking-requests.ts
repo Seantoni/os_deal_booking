@@ -221,9 +221,14 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
 
     let bookingRequest
     if (requestId) {
-      // Update existing draft
+      // Admins and editor_senior can update any draft; others can only update their own
+      const role = await getUserRole()
+      const whereClause = (role === 'admin' || role === 'editor_senior')
+        ? { id: requestId }
+        : { id: requestId, userId }
+
       bookingRequest = await prisma.bookingRequest.update({
-        where: { id: requestId, userId },
+        where: whereClause,
         data,
       })
     } else {
@@ -488,9 +493,14 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
     
     // Create or update the booking request
     if (requestId) {
-      // Update existing request and set to pending
+      // Admins and editor_senior can send any request; others can only send their own
+      const role = await getUserRole()
+      const whereClause = (role === 'admin' || role === 'editor_senior')
+        ? { id: requestId }
+        : { id: requestId, userId }
+
       bookingRequest = await prisma.bookingRequest.update({
-        where: { id: requestId, userId },
+        where: whereClause,
         data,
       })
     } else {
