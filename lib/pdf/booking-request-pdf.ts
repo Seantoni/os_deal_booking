@@ -48,9 +48,39 @@ const esc = (v: string | undefined | null): string => {
     .replace(/'/g, '&#039;')
 }
 
+const PRISMA_JSON_NULL_SENTINELS = new Set([
+  'Prisma.JsonNull',
+  'Prisma.DbNull',
+  'Prisma.AnyNull',
+])
+
+const isPrismaJsonNullSentinel = (v: unknown): boolean => {
+  if (!v || typeof v !== 'object') return false
+  return PRISMA_JSON_NULL_SENTINELS.has(String(v))
+}
+
+const isRenderableValue = (v: unknown): boolean => {
+  if (v === null || v === undefined) return false
+  if (isPrismaJsonNullSentinel(v)) return false
+  if (Array.isArray(v)) {
+    return v.some((item) => {
+      if (item === null || item === undefined) return false
+      if (isPrismaJsonNullSentinel(item)) return false
+      return String(item).trim() !== ''
+    })
+  }
+  return String(v).trim() !== ''
+}
+
 const fmt = (v: unknown): string => {
-  if (Array.isArray(v)) return v.filter(Boolean).join(', ')
-  if (v === null || v === undefined) return ''
+  if (Array.isArray(v)) {
+    return v
+      .filter((item) => item !== null && item !== undefined && !isPrismaJsonNullSentinel(item))
+      .map((item) => String(item).trim())
+      .filter((item) => item.length > 0)
+      .join(', ')
+  }
+  if (v === null || v === undefined || isPrismaJsonNullSentinel(v)) return ''
   return typeof v === 'string' ? v : String(v)
 }
 
@@ -327,8 +357,7 @@ function renderPDFDocument(opts: {
       if (!hasEventDays && f.key === 'eventDays') return false
       if (f.key === 'campaignDurationUnit' && !campaignDurationValue) return false
       const v = get(f.key)
-      if (Array.isArray(v)) return v.length > 0
-      return v !== undefined && v !== null && String(v).trim() !== ''
+      return isRenderableValue(v)
     })
     if (filled.length === 0) return ''
 

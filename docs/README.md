@@ -123,3 +123,9 @@ npx prisma studio     # Open database UI
 ## Feature References
 
 - [Email Flow Reference](./EMAIL_FLOW.md)
+- [Server Actions Map](./SERVER_ACTIONS_MAP.md)
+- [API Endpoints](./API_ENDPOINTS.md)
+- [Prisma Changelog](./PRISMA_CHANGELOG.md)
+- [Realtime Presence](./REALTIME_PRESENCE.md)
+- [External Oferta Integration](./EXTERNAL_OFERTA_INTEGRATION.md)
+- [Comment Threads and Resolution](./COMMENT_THREADS_AND_RESOLUTION.md)
