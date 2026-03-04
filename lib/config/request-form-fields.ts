@@ -81,6 +81,7 @@ export const REQUEST_FORM_STEPS: RequestFormStep[] = [
       { key: 'bank', label: 'Banco', type: 'text' },
       { key: 'accountNumber', label: 'Número de Cuenta', type: 'text' },
       { key: 'accountType', label: 'Tipo de Cuenta', type: 'select' },
+      { key: 'additionalBankAccounts', label: 'Cuentas Bancarias Adicionales', type: 'array' },
       { key: 'addressAndHours', label: 'Dirección y Horarios', type: 'textarea' },
       { key: 'provinceDistrictCorregimiento', label: 'Provincia, Distrito, Corregimiento', type: 'location' },
     ],

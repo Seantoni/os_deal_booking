@@ -119,6 +119,7 @@ const BASE_SECTIONS: SectionDefinition[] = [
       { key: 'bank', label: 'Banco' },
       { key: 'accountNumber', label: 'Número de Cuenta' },
       { key: 'accountType', label: 'Tipo de Cuenta' },
+      { key: 'additionalBankAccounts', label: 'Cuentas Bancarias Adicionales', type: 'json' },
     ],
   },
   {
@@ -768,8 +769,32 @@ export default function BookingRequestViewModal({
         })
         .join('\n')
     }
+    if (fieldKey === 'additionalBankAccounts' && Array.isArray(value)) {
+      const lines = value
+        .filter((account): account is Record<string, unknown> => !!account && typeof account === 'object' && !Array.isArray(account))
+        .map((account, index) => {
+          const bankAccountName = String(account.bankAccountName || '').trim()
+          const bank = String(account.bank || '').trim()
+          const accountNumber = String(account.accountNumber || '').trim()
+          const accountType = String(account.accountType || '').trim()
+          const details = [
+            bankAccountName ? `Titular: ${bankAccountName}` : null,
+            bank ? `Banco: ${bank}` : null,
+            accountNumber ? `Cuenta: ${accountNumber}` : null,
+            accountType ? `Tipo: ${accountType}` : null,
+          ].filter(Boolean)
+
+          if (details.length === 0) return null
+          return `Cuenta ${index + 1}: ${details.join(' | ')}`
+        })
+        .filter((line): line is string => !!line)
+
+      return lines.length > 0 ? lines.join('\n') : '-'
+    }
     if (type === 'json' && Array.isArray(value)) {
-      return value.join(', ')
+      return value
+        .map((item) => (typeof item === 'string' ? item : JSON.stringify(item)))
+        .join(', ')
     }
     if (type === 'pricing' && Array.isArray(value)) {
       return value.map((opt: { title?: string; price?: number }) => 
@@ -924,6 +949,15 @@ export default function BookingRequestViewModal({
         bank: requestData.bank ? String(requestData.bank) : undefined,
         accountNumber: requestData.accountNumber ? String(requestData.accountNumber) : undefined,
         accountType: requestData.accountType ? String(requestData.accountType) : undefined,
+        additionalBankAccounts: Array.isArray(requestData.additionalBankAccounts)
+          ? requestData.additionalBankAccounts
+              .map((account) => ({
+                bankAccountName: String(account.bankAccountName || ''),
+                bank: String(account.bank || ''),
+                accountNumber: String(account.accountNumber || ''),
+                accountType: String(account.accountType || ''),
+              }))
+          : undefined,
         addressAndHours: requestData.addressAndHours ? String(requestData.addressAndHours) : undefined,
         provinceDistrictCorregimiento: requestData.provinceDistrictCorregimiento ? String(requestData.provinceDistrictCorregimiento) : undefined,
         includesTaxes: requestData.includesTaxes ? String(requestData.includesTaxes) : undefined,
@@ -1097,6 +1131,15 @@ export default function BookingRequestViewModal({
           bank: requestData.bank ? String(requestData.bank) : undefined,
           accountNumber: requestData.accountNumber ? String(requestData.accountNumber) : undefined,
           accountType: requestData.accountType ? String(requestData.accountType) : undefined,
+          additionalBankAccounts: Array.isArray(requestData.additionalBankAccounts)
+            ? requestData.additionalBankAccounts
+                .map((account) => ({
+                  bankAccountName: String(account.bankAccountName || ''),
+                  bank: String(account.bank || ''),
+                  accountNumber: String(account.accountNumber || ''),
+                  accountType: String(account.accountType || ''),
+                }))
+            : undefined,
           addressAndHours: requestData.addressAndHours ? String(requestData.addressAndHours) : undefined,
           provinceDistrictCorregimiento: requestData.provinceDistrictCorregimiento ? String(requestData.provinceDistrictCorregimiento) : undefined,
 

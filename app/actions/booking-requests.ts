@@ -34,6 +34,27 @@ import {
   type BackfillExecuteResult,
 } from '@/lib/business-backfill'
 
+type AdditionalBankAccount = {
+  bankAccountName: string
+  bank: string
+  accountNumber: string
+  accountType: string
+}
+
+function normalizeAdditionalBankAccounts(value: unknown): AdditionalBankAccount[] {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item))
+    .map((item) => ({
+      bankAccountName: String(item.bankAccountName || '').trim(),
+      bank: String(item.bank || '').trim(),
+      accountNumber: String(item.accountNumber || '').trim(),
+      accountType: String(item.accountType || '').trim(),
+    }))
+    .filter((item) => Object.values(item).some((fieldValue) => fieldValue.length > 0))
+}
+
 /**
  * Create or update a booking request as draft
  */
@@ -110,6 +131,11 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
       fields.additionalInfo && typeof fields.additionalInfo === 'object'
         ? (fields.additionalInfo as Prisma.InputJsonValue)
         : Prisma.JsonNull
+    const normalizedAdditionalBankAccounts = normalizeAdditionalBankAccounts(fields.additionalBankAccounts)
+    const additionalBankAccountsJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
+      normalizedAdditionalBankAccounts.length > 0
+        ? (normalizedAdditionalBankAccounts as Prisma.InputJsonValue)
+        : Prisma.JsonNull
 
     const eventDaysJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
       fields.eventDays &&
@@ -161,6 +187,7 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
       bank: fields.bank,
       accountNumber: fields.accountNumber,
       accountType: fields.accountType,
+      additionalBankAccounts: additionalBankAccountsJson,
       addressAndHours: fields.addressAndHours,
       provinceDistrictCorregimiento: fields.provinceDistrictCorregimiento,
       // Negocio: Reglas de Negocio y Restricciones
@@ -308,11 +335,13 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
     const dealImagesStr = formData.get('dealImages') as string
     const additionalInfoStr = formData.get('additionalInfo') as string
     const eventDaysStr = formData.get('eventDays') as string
+    const additionalBankAccountsStr = formData.get('additionalBankAccounts') as string
     let redemptionMethods: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
     let pricingOptions: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
     let dealImages: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
     let additionalInfo: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
     let eventDays: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
+    let additionalBankAccounts: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
     
     try {
       if (redemptionMethodsStr) {
@@ -353,6 +382,13 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
           if (normalizedEventDays.length > 0) {
             eventDays = normalizedEventDays as Prisma.InputJsonValue
           }
+        }
+      }
+      if (additionalBankAccountsStr) {
+        const parsed = JSON.parse(additionalBankAccountsStr)
+        const normalized = normalizeAdditionalBankAccounts(parsed)
+        if (normalized.length > 0) {
+          additionalBankAccounts = normalized as Prisma.InputJsonValue
         }
       }
     } catch (e) {
@@ -414,6 +450,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       bank: (formData.get('bank') as string) || null,
       accountNumber: (formData.get('accountNumber') as string) || null,
       accountType: (formData.get('accountType') as string) || null,
+      additionalBankAccounts,
       addressAndHours: (formData.get('addressAndHours') as string) || null,
       provinceDistrictCorregimiento: (formData.get('provinceDistrictCorregimiento') as string) || null,
       // Negocio: Reglas de Negocio y Restricciones

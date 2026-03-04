@@ -267,6 +267,16 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
               bank: data.bank || '',
               accountNumber: data.accountNumber || '',
               accountType: data.accountType || '',
+              additionalBankAccounts: Array.isArray(data.additionalBankAccounts)
+                ? data.additionalBankAccounts
+                    .filter((account: unknown): account is Record<string, unknown> => !!account && typeof account === 'object' && !Array.isArray(account))
+                    .map((account: Record<string, unknown>) => ({
+                      bankAccountName: String(account.bankAccountName || ''),
+                      bank: String(account.bank || ''),
+                      accountNumber: String(account.accountNumber || ''),
+                      accountType: String(account.accountType || ''),
+                    }))
+                : [],
               addressAndHours: data.addressAndHours || '',
               provinceDistrictCorregimiento: data.provinceDistrictCorregimiento || '',
               
@@ -499,6 +509,25 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         if (accountNumberParam) newData.accountNumber = accountNumberParam
         const accountTypeParam = searchParams.get('accountType')
         if (accountTypeParam) newData.accountType = accountTypeParam
+        const additionalBankAccountsParam = searchParams.get('additionalBankAccounts')
+        if (additionalBankAccountsParam) {
+          try {
+            const parsed = JSON.parse(additionalBankAccountsParam)
+            if (Array.isArray(parsed)) {
+              newData.additionalBankAccounts = parsed
+                .filter((account): account is Record<string, unknown> => !!account && typeof account === 'object' && !Array.isArray(account))
+                .map((account: Record<string, unknown>) => ({
+                  bankAccountName: String(account.bankAccountName || ''),
+                  bank: String(account.bank || ''),
+                  accountNumber: String(account.accountNumber || ''),
+                  accountType: String(account.accountType || ''),
+                }))
+                .filter((account) => Object.values(account).some((value) => value.trim().length > 0))
+            }
+          } catch {
+            // Ignore malformed additionalBankAccounts in legacy query-string replication
+          }
+        }
         const addressAndHoursParam = searchParams.get('addressAndHours')
         if (addressAndHoursParam) newData.addressAndHours = addressAndHoursParam
         const provinceDistrictCorregimientoParam = searchParams.get('provinceDistrictCorregimiento')

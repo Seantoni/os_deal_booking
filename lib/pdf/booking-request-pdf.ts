@@ -93,6 +93,30 @@ function getEventDaysFromRecord(record: Record<string, unknown>): string[] {
     .filter((date) => date.length > 0)
 }
 
+function getAdditionalBankAccountsFromRecord(record: Record<string, unknown>): string[] {
+  const raw = record.additionalBankAccounts
+  if (!Array.isArray(raw)) return []
+
+  return raw
+    .filter((account): account is Record<string, unknown> => !!account && typeof account === 'object' && !Array.isArray(account))
+    .map((account, index) => {
+      const bankAccountName = String(account.bankAccountName || '').trim()
+      const bank = String(account.bank || '').trim()
+      const accountNumber = String(account.accountNumber || '').trim()
+      const accountType = String(account.accountType || '').trim()
+      const details = [
+        bankAccountName ? `Titular: ${bankAccountName}` : null,
+        bank ? `Banco: ${bank}` : null,
+        accountNumber ? `Cuenta: ${accountNumber}` : null,
+        accountType ? `Tipo: ${accountType}` : null,
+      ].filter(Boolean)
+
+      if (details.length === 0) return null
+      return `Cuenta ${index + 1}: ${details.join(' | ')}`
+    })
+    .filter((line): line is string => !!line)
+}
+
 function formatEventDayLabel(date: string): string {
   const parsed = parseDateInPanamaTime(date)
   if (isNaN(parsed.getTime())) return date
@@ -164,6 +188,7 @@ const SECTIONS: SectionDef[] = [
       { key: 'bankAccountName', label: 'Nombre Cuenta' },
       { key: 'accountNumber', label: 'Número Cuenta' },
       { key: 'accountType', label: 'Tipo Cuenta' },
+      { key: 'additionalBankAccounts', label: 'Cuentas Bancarias Adicionales', wide: true },
     ],
   },
   {
@@ -323,6 +348,7 @@ function renderPDFDocument(opts: {
 
   const get = (key: string): unknown => bookingData[key]
   const eventDays = getEventDaysFromRecord(bookingData)
+  const additionalBankAccounts = getAdditionalBankAccountsFromRecord(bookingData)
   const hasEventDays = eventDays.length > 0
   const campaignDurationRaw = get('campaignDuration')
   const campaignDurationValue =
@@ -356,6 +382,7 @@ function renderPDFDocument(opts: {
       if (hasEventDays && (f.key === 'campaignDuration' || f.key === 'campaignDurationUnit')) return false
       if (!hasEventDays && f.key === 'eventDays') return false
       if (f.key === 'campaignDurationUnit' && !campaignDurationValue) return false
+      if (f.key === 'additionalBankAccounts') return additionalBankAccounts.length > 0
       const v = get(f.key)
       return isRenderableValue(v)
     })
@@ -366,6 +393,11 @@ function renderPDFDocument(opts: {
         let val = esc(fmt(get(f.key)))
         if (f.key === 'eventDays' && hasEventDays) {
           val = eventDays.map((date) => esc(formatEventDayLabel(date))).join('<br/>')
+        }
+        if (f.key === 'additionalBankAccounts') {
+          val = additionalBankAccounts.length > 0
+            ? additionalBankAccounts.map((line) => esc(line)).join('<br/>')
+            : '-'
         }
         const width = f.wide ? '100%' : '48%'
         return `

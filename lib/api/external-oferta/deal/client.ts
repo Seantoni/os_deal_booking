@@ -128,6 +128,31 @@ function parseCampaignDuration(duration: string | null | undefined): number {
   return isNaN(num) ? 3 : num
 }
 
+function normalizeAdditionalBankAccounts(value: Prisma.JsonValue | null | undefined): BookingFormData['additionalBankAccounts'] {
+  if (!value) return []
+
+  let parsed: unknown = value
+  if (typeof value === 'string') {
+    try {
+      parsed = JSON.parse(value)
+    } catch {
+      return []
+    }
+  }
+
+  if (!Array.isArray(parsed)) return []
+
+  return parsed
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item))
+    .map((item) => ({
+      bankAccountName: String(item.bankAccountName || '').trim(),
+      bank: String(item.bank || '').trim(),
+      accountNumber: String(item.accountNumber || '').trim(),
+      accountType: String(item.accountType || '').trim(),
+    }))
+    .filter((item) => Object.values(item).some((fieldValue) => fieldValue.length > 0))
+}
+
 interface BookingRequestData {
   id: string
   // Database uses 'merchant' for business name, 'name' as fallback
@@ -148,6 +173,7 @@ interface BookingRequestData {
   businessReview?: string | null
   addressAndHours?: string | null
   paymentInstructions?: string | null
+  additionalBankAccounts?: Prisma.JsonValue
   dealImages?: Prisma.JsonValue
   socialMedia?: string | null
   contactDetails?: string | null
@@ -422,6 +448,7 @@ export async function sendDealToExternalApi(
     businessReview: bookingRequest.businessReview || '',
     addressAndHours: bookingRequest.addressAndHours || '',
     paymentInstructions: bookingRequest.paymentInstructions || '',
+    additionalBankAccounts: normalizeAdditionalBankAccounts(bookingRequest.additionalBankAccounts),
     dealImages: dealImages,
     socialMedia: bookingRequest.socialMedia || '',
     contactDetails: bookingRequest.contactDetails || '',

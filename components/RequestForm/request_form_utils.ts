@@ -31,6 +31,21 @@ export const getFieldLabel = (fieldKey: string): string => {
     const baseLabel = FIELD_LABEL_MAP.get(`pricingOptions.${fieldName}`) || fieldName
     return `Opción ${optionIndex}: ${baseLabel}`
   }
+
+  // Handle additional bank account indexed keys like "additionalBankAccounts.0.bank"
+  const accountMatch = fieldKey.match(/^additionalBankAccounts\.(\d+)\.(\w+)$/)
+  if (accountMatch) {
+    const accountIndex = parseInt(accountMatch[1]) + 1
+    const fieldName = accountMatch[2]
+    const fieldLabels: Record<string, string> = {
+      bankAccountName: 'Nombre en Cuenta Bancaria',
+      bank: 'Banco',
+      accountNumber: 'Número de Cuenta',
+      accountType: 'Tipo de Cuenta',
+    }
+    const baseLabel = fieldLabels[fieldName] || fieldName
+    return `Cuenta Bancaria ${accountIndex}: ${baseLabel}`
+  }
   
   return FIELD_LABEL_MAP.get(fieldKey) || fieldKey
 }
@@ -288,6 +303,14 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
         .filter((date) => date.length > 0)
     )
   ).sort()
+  const normalizedAdditionalBankAccounts = (Array.isArray(formData.additionalBankAccounts) ? formData.additionalBankAccounts : [])
+    .map((account) => ({
+      bankAccountName: account.bankAccountName?.trim() || '',
+      bank: account.bank?.trim() || '',
+      accountNumber: account.accountNumber?.trim() || '',
+      accountType: account.accountType?.trim() || '',
+    }))
+    .filter((account) => Object.values(account).some((value) => value.length > 0))
   
   // Map enhanced form fields to booking request fields
   fd.append('name', formData.businessName)  // Event name from business name
@@ -329,6 +352,7 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
   fd.append('bank', formData.bank || '')
   fd.append('accountNumber', formData.accountNumber || '')
   fd.append('accountType', formData.accountType || '')
+  fd.append('additionalBankAccounts', JSON.stringify(normalizedAdditionalBankAccounts))
   fd.append('addressAndHours', formData.addressAndHours || '')
   fd.append('provinceDistrictCorregimiento', formData.provinceDistrictCorregimiento || '')
   

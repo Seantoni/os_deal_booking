@@ -63,6 +63,12 @@ export type LegalBankingFields = {
   bank: string | null
   accountNumber: string | null
   accountType: string | null
+  additionalBankAccounts: Array<{
+    bankAccountName: string
+    bank: string
+    accountNumber: string
+    accountType: string
+  }> | null
 }
 
 /**
@@ -273,4 +279,3 @@ export const EVENT_MODAL_FIELDS = [
   'endDate',
   'description',
 ] as const
-

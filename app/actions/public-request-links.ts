@@ -16,6 +16,27 @@ import { logger } from '@/lib/logger'
 import { generateRequestName, countBusinessRequests } from '@/lib/utils/request-naming'
 import { extractDisplayName, extractUserEmail } from '@/lib/auth/user-display'
 
+type AdditionalBankAccount = {
+  bankAccountName: string
+  bank: string
+  accountNumber: string
+  accountType: string
+}
+
+function normalizeAdditionalBankAccounts(value: unknown): AdditionalBankAccount[] {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item))
+    .map((item) => ({
+      bankAccountName: String(item.bankAccountName || '').trim(),
+      bank: String(item.bank || '').trim(),
+      accountNumber: String(item.accountNumber || '').trim(),
+      accountType: String(item.accountType || '').trim(),
+    }))
+    .filter((item) => Object.values(item).some((fieldValue) => fieldValue.length > 0))
+}
+
 /**
  * Generate a public request link and send it via email
  * Supports sending to multiple email addresses
@@ -233,6 +254,11 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
             )
           ) as Prisma.InputJsonValue)
         : Prisma.JsonNull
+    const normalizedAdditionalBankAccounts = normalizeAdditionalBankAccounts(fields.additionalBankAccounts)
+    const additionalBankAccountsJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
+      normalizedAdditionalBankAccounts.length > 0
+        ? (normalizedAdditionalBankAccounts as Prisma.InputJsonValue)
+        : Prisma.JsonNull
 
     // Create booking request with status 'approved' (as requested)
     // Use the userId from the public link creator (createdBy)
@@ -274,6 +300,7 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
         bank: fields.bank,
         accountNumber: fields.accountNumber,
         accountType: fields.accountType,
+        additionalBankAccounts: additionalBankAccountsJson,
         addressAndHours: fields.addressAndHours,
         provinceDistrictCorregimiento: fields.provinceDistrictCorregimiento,
         // Negocio: Reglas de Negocio y Restricciones
