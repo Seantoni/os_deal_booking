@@ -138,11 +138,16 @@ const InputComponent = forwardRef<HTMLInputElement, InputProps>(function Input(
     onKeyDown?.(e)
   }
 
-  const selectEmailSuggestion = () => {
+  const selectEmailSuggestion = (index = selectedEmailIndex) => {
     const currentValue = (value as string) || ''
     const atIndex = currentValue.lastIndexOf('@')
     const beforeAt = atIndex !== -1 ? currentValue.substring(0, atIndex) : currentValue
-    const selectedDomain = emailSuggestions[selectedEmailIndex]
+    const selectedDomain = emailSuggestions[index]
+    if (!selectedDomain) {
+      setShowEmailSuggestions(false)
+      setSelectedEmailIndex(-1)
+      return
+    }
     const newEmail = beforeAt + selectedDomain
 
     // Create synthetic event to trigger onChange
@@ -220,8 +225,7 @@ const InputComponent = forwardRef<HTMLInputElement, InputProps>(function Input(
               key={idx}
               type="button"
               onClick={() => {
-                setSelectedEmailIndex(idx)
-                selectEmailSuggestion()
+                selectEmailSuggestion(idx)
               }}
               className={`w-full text-left px-4 py-2 text-sm transition-colors ${
                 isSelected
