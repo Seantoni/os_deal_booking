@@ -103,6 +103,8 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   
   // Ref for the scrollable form container
   const formContainerRef = useRef<HTMLDivElement>(null)
+  const skipNextEditLoadRef = useRef(false)
+  const hasAppliedUrlPrefillRef = useRef(false)
   
   // Get editId from URL (for continuing to edit a draft)
   const editIdFromUrl = searchParams.get('editId')
@@ -222,6 +224,10 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   // Load existing request for editing (when editId is in URL)
   useEffect(() => {
     if (!editIdFromUrl) return
+    if (skipNextEditLoadRef.current) {
+      skipNextEditLoadRef.current = false
+      return
+    }
     
     const loadExistingRequest = async () => {
       setLoadingEdit(true)
@@ -357,6 +363,9 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
 
   // Pre-fill form from query parameters (from CRM opportunity, NewRequestModal, or Replicate)
   useEffect(() => {
+    if (hasAppliedUrlPrefillRef.current) return
+    hasAppliedUrlPrefillRef.current = true
+
     const isReplicate = searchParams.get('replicate') === 'true'
     const replicateKey = searchParams.get('replicateKey')
     const fromOpportunity = searchParams.get('fromOpportunity')
@@ -787,9 +796,9 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
 
             // Persist draft ID in URL so refreshes/next actions keep updating the same draft
             if (!propRequestId && pathname) {
-              const params = new URLSearchParams(searchParams.toString())
-              params.set('editId', result.data.id)
-              const nextUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname
+              // Avoid a redundant edit re-fetch after first autosave; we already have fresh local state.
+              skipNextEditLoadRef.current = true
+              const nextUrl = `${pathname}?editId=${encodeURIComponent(result.data.id)}`
               router.replace(nextUrl, { scroll: false })
             }
           }
