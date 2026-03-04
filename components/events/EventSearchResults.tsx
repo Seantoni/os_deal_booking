@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo, useState } from 'react'
 import { getCategoryColors } from '@/lib/categories'
 import { formatShortDateWithWeekday } from '@/lib/date'
 import type { Event } from '@/types'
@@ -11,21 +12,17 @@ interface EventSearchResultsProps {
   onClearSearch: () => void
 }
 
+const INITIAL_VISIBLE_RESULTS = 60
+const RESULTS_PAGE_SIZE = 60
+
 export default function EventSearchResults({ events, searchQuery, onEventClick, onClearSearch }: EventSearchResultsProps) {
-  // Filter events based on search query
-  const filteredEvents = events.filter(event => {
-    const query = searchQuery.toLowerCase()
-    return (
-      event.name.toLowerCase().includes(query) ||
-      event.description?.toLowerCase().includes(query) ||
-      event.business?.toLowerCase().includes(query) ||
-      event.linkedBusinessName?.toLowerCase().includes(query) ||
-      event.category?.toLowerCase().includes(query) ||
-      event.parentCategory?.toLowerCase().includes(query) ||
-      event.subCategory1?.toLowerCase().includes(query) ||
-      event.subCategory2?.toLowerCase().includes(query)
-    )
-  })
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_RESULTS)
+
+  const visibleEvents = useMemo(
+    () => events.slice(0, visibleCount),
+    [events, visibleCount]
+  )
+  const hasMoreResults = visibleCount < events.length
 
   const getCategoryDisplay = (event: Event) => {
     if (event.parentCategory) {
@@ -52,7 +49,7 @@ export default function EventSearchResults({ events, searchQuery, onEventClick, 
           <div>
             <h2 className="text-xl font-bold text-gray-900">Search Results</h2>
             <p className="text-sm text-gray-600 mt-1">
-              Found {filteredEvents.length} event{filteredEvents.length !== 1 ? 's' : ''} matching "{searchQuery}"
+              Found {events.length} event{events.length !== 1 ? 's' : ''} matching &quot;{searchQuery}&quot;
             </p>
           </div>
           <button
@@ -66,10 +63,13 @@ export default function EventSearchResults({ events, searchQuery, onEventClick, 
 
       {/* Results Cards */}
       <div className="flex-1 overflow-auto p-6">
-        {filteredEvents.length > 0 ? (
+        {events.length > 0 ? (
           <div className="space-y-2">
-            {filteredEvents.map((event) => {
+            {visibleEvents.map((event) => {
               const colors = getCategoryColors(event.parentCategory)
+              const startYear = new Date(event.startDate).getFullYear()
+              const endYear = new Date(event.endDate).getFullYear()
+              const yearLabel = startYear === endYear ? String(startYear) : `${startYear} - ${endYear}`
 
               return (
                 <button
@@ -93,6 +93,9 @@ export default function EventSearchResults({ events, searchQuery, onEventClick, 
                     <div className="mt-1 text-sm font-medium text-gray-900">
                       {formatShortDateWithWeekday(event.startDate)} - {formatShortDateWithWeekday(event.endDate)}
                     </div>
+                    <div className="mt-0.5 text-xs text-gray-600">
+                      Año: {yearLabel}
+                    </div>
                   </div>
 
                   <div className="space-y-1.5 text-xs text-gray-700">
@@ -109,6 +112,17 @@ export default function EventSearchResults({ events, searchQuery, onEventClick, 
                 </button>
               )
             })}
+            {hasMoreResults && (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((prev) => prev + RESULTS_PAGE_SIZE)}
+                  className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Load {Math.min(RESULTS_PAGE_SIZE, events.length - visibleCount)} more
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center py-12">

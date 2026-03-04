@@ -13,11 +13,13 @@ import {
   refreshCalendarData,
   getCalendarPendingRequests,
   getDailyEventCounts,
-  getEvents,
+  searchCalendarEvents,
+  getValidationEvents,
 } from '@/app/actions/events'
 import FilterListIcon from '@mui/icons-material/FilterList'
 import CloseIcon from '@mui/icons-material/Close'
 import type { Event, BookingRequest, UserRole } from '@/types'
+import type { EventValidationRecord } from '@/lib/event-validation'
 
 // Lazy load heavy modal component
 const EventModal = dynamic(() => import('@/components/events/EventModal'), {
@@ -91,9 +93,10 @@ export default function EventsPageClient({
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [showPendingBooking, setShowPendingBooking] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const [searchEvents, setSearchEvents] = useState<Event[]>([])
   const [isSearchLoading, setIsSearchLoading] = useState(false)
-  const hasLoadedSearchEvents = useRef(false)
+  const searchRequestIdRef = useRef(0)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
   const [selectedEndDate, setSelectedEndDate] = useState<Date | undefined>(undefined)
@@ -115,11 +118,9 @@ export default function EventsPageClient({
 
   // New Request Modal state
   const [showNewRequestModal, setShowNewRequestModal] = useState(false)
-
-  const openEventModal = () => {
-    setShouldLoadModal(true)
-    setIsModalOpen(true)
-  }
+  const [validationEvents, setValidationEvents] = useState<EventValidationRecord[]>(initialEvents)
+  const hasLoadedValidationEvents = useRef(false)
+  const isLoadingValidationEvents = useRef(false)
 
   useEffect(() => {
     calendarRangeRef.current = calendarRange
@@ -128,6 +129,9 @@ export default function EventsPageClient({
   // Update local state when server props change
   useEffect(() => {
     setEvents(initialEvents)
+    if (!hasLoadedValidationEvents.current) {
+      setValidationEvents(initialEvents)
+    }
   }, [initialEvents])
 
   // Load initial mini calendar counts for the current month
@@ -159,30 +163,48 @@ export default function EventsPageClient({
   }, [initialPendingCount])
 
   useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim())
+    }, 250)
+
+    return () => {
+      window.clearTimeout(handle)
+    }
+  }, [searchQuery])
+
+  useEffect(() => {
     let cancelled = false
+    const requestId = ++searchRequestIdRef.current
 
     async function loadSearchEvents() {
-      if (!searchQuery.trim() || hasLoadedSearchEvents.current) return
+      if (!debouncedSearchQuery) {
+        setSearchEvents([])
+        setIsSearchLoading(false)
+        return
+      }
 
       setIsSearchLoading(true)
+      setSearchEvents([])
+
       try {
-        const result = await getEvents()
-        if (!cancelled && result.success && result.data) {
-          setSearchEvents(result.data)
-          hasLoadedSearchEvents.current = true
+        const result = await searchCalendarEvents(debouncedSearchQuery, { limit: 200 })
+        const isLatest = requestId === searchRequestIdRef.current
+        if (!cancelled && isLatest && result.success && result.data) {
+          setSearchEvents(result.data as Event[])
         }
       } finally {
-        if (!cancelled) {
+        const isLatest = requestId === searchRequestIdRef.current
+        if (!cancelled && isLatest) {
           setIsSearchLoading(false)
         }
       }
     }
 
-    loadSearchEvents()
+    void loadSearchEvents()
     return () => {
       cancelled = true
     }
-  }, [searchQuery])
+  }, [debouncedSearchQuery])
 
   const refreshEvents = useCallback(async (showLoading = false) => {
     const range = calendarRangeRef.current
@@ -198,6 +220,9 @@ export default function EventsPageClient({
 
       if (result.success && result.events) {
         setEvents(result.events)
+        if (!hasLoadedValidationEvents.current) {
+          setValidationEvents(result.events)
+        }
       }
     } finally {
       if (showLoading) {
@@ -205,6 +230,30 @@ export default function EventsPageClient({
       }
     }
   }, [])
+
+  const loadValidationEvents = useCallback(async (force = false) => {
+    if (isLoadingValidationEvents.current) return
+    if (!force && hasLoadedValidationEvents.current) return
+
+    isLoadingValidationEvents.current = true
+    try {
+      const result = await getValidationEvents()
+      if (result.success && result.data) {
+        setValidationEvents(result.data as EventValidationRecord[])
+        hasLoadedValidationEvents.current = true
+      }
+    } catch (error) {
+      console.error('Failed to load validation events:', error)
+    } finally {
+      isLoadingValidationEvents.current = false
+    }
+  }, [])
+
+  const openEventModal = useCallback(() => {
+    setShouldLoadModal(true)
+    setIsModalOpen(true)
+    void loadValidationEvents(false)
+  }, [loadValidationEvents])
 
   const loadPendingRequests = useCallback(async () => {
     const result = await getCalendarPendingRequests()
@@ -254,7 +303,7 @@ export default function EventsPageClient({
         openEventModal()
       }
     }
-  }, [searchParams, events])
+  }, [searchParams, events, openEventModal])
 
   // When category filter is active, filter calendar to show only booked events in that category
   const calendarSelectedCategories = categoryFilter ? [categoryFilter] : selectedCategories
@@ -320,6 +369,7 @@ export default function EventsPageClient({
       await updateEvent(event.id, formData)
       refreshEvents()
       refreshDayCounts()
+      void loadValidationEvents(true)
     } catch (error) {
       setEvents((prev) => prev.map((e) => (e.id === event.id ? event : e)))
       console.error('Failed to move event:', error)
@@ -361,6 +411,7 @@ export default function EventsPageClient({
       await updateEvent(event.id, formData)
       refreshEvents()
       refreshDayCounts()
+      void loadValidationEvents(true)
     } catch (error) {
       setEvents((prev) => prev.map((e) => (e.id === event.id ? event : e)))
       console.error('Failed to resize event:', error)
@@ -406,6 +457,7 @@ export default function EventsPageClient({
 
     refreshEvents()
     refreshDayCounts()
+    void loadValidationEvents(true)
   }
 
   const handleDayModalClose = () => {
@@ -553,6 +605,7 @@ export default function EventsPageClient({
 
       refreshEvents()
       refreshDayCounts()
+      void loadValidationEvents(true)
     } else {
       console.error('Failed to update booking request:', result.error)
     }
@@ -567,7 +620,7 @@ export default function EventsPageClient({
     return () => {
       window.removeEventListener('openEventModal', handleOpenModal)
     }
-  }, [])
+  }, [openEventModal])
 
   const handlePendingBookingToggle = useCallback(async () => {
     const nextShowPending = !showPendingBooking
@@ -722,6 +775,7 @@ export default function EventsPageClient({
           eventToEdit={eventToEdit}
           bookingRequestId={bookingRequestId}
           allEvents={events}
+          validationEvents={validationEvents}
           userRole={userRole}
           readOnly={userRole === 'sales' && !!eventToEdit}
           onSuccess={handleEventSuccess}

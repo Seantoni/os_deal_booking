@@ -1072,6 +1072,7 @@ export default function CalendarView({ events, searchEvents = [], isSearchLoadin
           </div>
         ) : (
           <EventSearchResults
+            key={searchQuery.trim().toLowerCase()}
             events={searchEvents}
             searchQuery={searchQuery}
             onEventClick={onEventClick}

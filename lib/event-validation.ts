@@ -21,6 +21,9 @@ export type EventForValidation = Pick<
   | 'endDate'
 >
 
+export type EventValidationRecord = EventForValidation &
+  Pick<Event, 'status'>
+
 // Daily limits (can be overridden by settings)
 export const MIN_DAILY_LAUNCHES = 5
 export const MAX_DAILY_LAUNCHES = 13

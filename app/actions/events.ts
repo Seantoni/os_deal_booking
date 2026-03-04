@@ -12,7 +12,7 @@ import { logActivity } from '@/lib/activity-log'
 import { logger } from '@/lib/logger'
 import { buildEventNameFromBookingRequest } from '@/lib/utils/request-name-parsing'
 import { getSalesBookingRequestVisibilityWhere } from '@/lib/auth/booking-request-visibility'
-import type { EventForValidation } from '@/lib/event-validation'
+import type { EventForValidation, EventValidationRecord } from '@/lib/event-validation'
 import type { BookingRequest, Event } from '@/types'
 import type { Prisma } from '@prisma/client'
 
@@ -20,6 +20,10 @@ type RefreshCalendarDataOptions = {
   startDate?: string
   endDate?: string
   includePendingRequests?: boolean
+}
+
+type SearchCalendarEventsOptions = {
+  limit?: number
 }
 
 const calendarEventSelect = {
@@ -94,6 +98,26 @@ const availabilityEventSelect = {
   endDate: true,
 } as const
 
+const VALIDATION_EVENT_STATUSES = ['booked', 'pre-booked', 'approved', 'pending'] as const
+
+const validationEventSelect = {
+  name: true,
+  id: true,
+  category: true,
+  parentCategory: true,
+  subCategory1: true,
+  subCategory2: true,
+  subCategory3: true,
+  subCategory4: true,
+  business: true,
+  businessId: true,
+  startDate: true,
+  endDate: true,
+  status: true,
+} as const
+
+const searchEventSelect = calendarEventSelect
+
 const getCachedAvailabilityEvents = unstable_cache(
   async () =>
     prisma.event.findMany({
@@ -106,6 +130,24 @@ const getCachedAvailabilityEvents = unstable_cache(
       },
     }),
   ['all-booked-events-availability-v1'],
+  {
+    tags: ['events'],
+    revalidate: CACHE_REVALIDATE_SECONDS,
+  }
+)
+
+const getCachedValidationEvents = unstable_cache(
+  async () =>
+    prisma.event.findMany({
+      where: {
+        status: { in: [...VALIDATION_EVENT_STATUSES] },
+      },
+      select: validationEventSelect,
+      orderBy: {
+        startDate: 'asc',
+      },
+    }),
+  ['validation-events-v1'],
   {
     tags: ['events'],
     revalidate: CACHE_REVALIDATE_SECONDS,
@@ -458,6 +500,88 @@ export async function getEvents() {
     return { success: true, data: events }
   } catch (error) {
     return handleServerActionError(error, 'getEvents')
+  }
+}
+
+/**
+ * Search calendar events using lightweight server-side filtering.
+ * Results are ordered by newest start date and limited to keep payloads small.
+ */
+export async function searchCalendarEvents(
+  query: string,
+  options: SearchCalendarEventsOptions = {}
+) {
+  try {
+    const authResult = await requireAuth()
+    if (!('userId' in authResult)) {
+      return { success: true, data: [] as Event[] }
+    }
+
+    const trimmedQuery = query.trim()
+    if (!trimmedQuery) {
+      return { success: true, data: [] as Event[] }
+    }
+
+    const requestedLimit = options.limit ?? 200
+    const limit = Math.min(Math.max(requestedLimit, 1), 500)
+
+    const rows = await prisma.event.findMany({
+      where: {
+        AND: [
+          {
+            OR: [
+              { status: 'booked' },
+              { status: 'pre-booked' },
+              { status: 'approved' },
+              { status: 'pending' },
+            ],
+          },
+          {
+            OR: [
+              { name: { contains: trimmedQuery, mode: 'insensitive' } },
+              { description: { contains: trimmedQuery, mode: 'insensitive' } },
+              { category: { contains: trimmedQuery, mode: 'insensitive' } },
+              { parentCategory: { contains: trimmedQuery, mode: 'insensitive' } },
+              { subCategory1: { contains: trimmedQuery, mode: 'insensitive' } },
+              { subCategory2: { contains: trimmedQuery, mode: 'insensitive' } },
+              { business: { contains: trimmedQuery, mode: 'insensitive' } },
+              { linkedBusiness: { name: { contains: trimmedQuery, mode: 'insensitive' } } },
+            ],
+          },
+        ],
+      },
+      select: searchEventSelect,
+      orderBy: [
+        { startDate: 'desc' },
+        { id: 'desc' },
+      ],
+      take: limit,
+    })
+
+    return {
+      success: true,
+      data: rows.map(toCalendarEvent),
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'searchCalendarEvents')
+  }
+}
+
+/**
+ * Lightweight validation dataset for EventModal rules.
+ * Returns only the fields needed by client-side validation.
+ */
+export async function getValidationEvents() {
+  try {
+    const authResult = await requireAuth()
+    if (!('userId' in authResult)) {
+      return { success: true, data: [] as EventValidationRecord[] }
+    }
+
+    const events = await getCachedValidationEvents()
+    return { success: true, data: events as EventValidationRecord[] }
+  } catch (error) {
+    return handleServerActionError(error, 'getValidationEvents')
   }
 }
 

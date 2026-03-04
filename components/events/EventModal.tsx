@@ -1,6 +1,6 @@
 'use client'
 
-import { createEvent, updateEvent, deleteEvent, bookEvent, rejectEvent, getEvents } from '@/app/actions/events'
+import { createEvent, updateEvent, deleteEvent, bookEvent, rejectEvent } from '@/app/actions/events'
 import { useState, useEffect, useCallback, useTransition, useReducer } from 'react'
 import dynamic from 'next/dynamic'
 import CategorySelect from '@/components/shared/CategorySelect'
@@ -8,6 +8,7 @@ import BusinessSelect from '@/components/shared/BusinessSelect'
 import { getMaxDuration, getDaysDifference, getCategoryOptions, getCategoryColors, SEVEN_DAY_CATEGORIES } from '@/lib/categories'
 import type { CategoryOption } from '@/lib/categories'
 import { checkUniquenesViolation, check30DayMerchantRule, getDailyLimitStatus, getEventsOnDate, calculateNextAvailableDate } from '@/lib/event-validation'
+import type { EventValidationRecord } from '@/lib/event-validation'
 import { formatDateForPanama, PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import type { Event, UserRole, EventModalPrefillData, BookingRequest } from '@/types'
 import { buildEventNameFromBookingRequest } from '@/lib/utils/request-name-parsing'
@@ -121,13 +122,14 @@ interface EventModalProps {
   selectedEndDate?: Date
   eventToEdit?: Event | null
   bookingRequestId?: string // For creating events from booking requests
-  allEvents?: Event[]
+  allEvents?: EventValidationRecord[]
+  validationEvents?: EventValidationRecord[]
   userRole?: UserRole
   readOnly?: boolean // For sales users to view events without editing
   onSuccess?: (event: Event, action: 'create' | 'update' | 'delete' | 'book' | 'reject') => void
 }
 
-export default function EventModal({ isOpen, onClose, selectedDate, selectedEndDate, eventToEdit, bookingRequestId, allEvents = [], userRole = 'sales', readOnly = false, onSuccess }: EventModalProps) {
+export default function EventModal({ isOpen, onClose, selectedDate, selectedEndDate, eventToEdit, bookingRequestId, allEvents = [], validationEvents = [], userRole = 'sales', readOnly = false, onSuccess }: EventModalProps) {
   const confirmDialog = useConfirmDialog()
 
   // React 19: useTransition for non-blocking UI during form actions
@@ -147,7 +149,6 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
   const [userSettings, setUserSettings] = useState(getSettings())
   const [linkedBookingRequest, setLinkedBookingRequest] = useState<LinkedBookingRequest | null>(null)
   const [loadingLinkedBookingRequest, setLoadingLinkedBookingRequest] = useState(false)
-  const [validationEvents, setValidationEvents] = useState<Event[]>(allEvents)
   
   // Helper functions to dispatch common actions
   const setField = useCallback(<K extends keyof FormState>(field: K, value: FormState[K]) => {
@@ -192,37 +193,6 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
   useEffect(() => {
     if (isOpen) {
       setUserSettings(getSettings())
-    }
-  }, [isOpen])
-
-  // Keep validation dataset in sync with currently loaded calendar range when modal is closed.
-  useEffect(() => {
-    if (!isOpen) {
-      setValidationEvents(allEvents)
-    }
-  }, [allEvents, isOpen])
-
-  // Load full validation dataset only when modal opens.
-  useEffect(() => {
-    let cancelled = false
-
-    async function loadValidationEvents() {
-      if (!isOpen) return
-
-      try {
-        const result = await getEvents()
-        if (!cancelled && result.success && result.data) {
-          setValidationEvents(result.data as Event[])
-        }
-      } catch (error) {
-        console.error('Failed to load validation events:', error)
-      }
-    }
-
-    loadValidationEvents()
-
-    return () => {
-      cancelled = true
     }
   }, [isOpen])
 

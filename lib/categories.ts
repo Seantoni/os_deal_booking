@@ -253,7 +253,20 @@ export const SEVEN_DAY_CATEGORIES = [
 
 export function getMaxDuration(mainCategory: string | null): number {
   if (!mainCategory) return 5;
-  // Simple check for now, can be expanded
+  
+  // Prefer configured settings when available.
+  if (typeof window !== 'undefined') {
+    try {
+      const configuredDuration = getSettings().categoryDurations?.[mainCategory];
+      if (typeof configuredDuration === 'number' && Number.isFinite(configuredDuration) && configuredDuration > 0) {
+        return Math.floor(configuredDuration);
+      }
+    } catch {
+      // Fall back to legacy defaults below
+    }
+  }
+  
+  // Legacy fallback: fixed 7-day categories, 5 days for others.
   return (SEVEN_DAY_CATEGORIES as readonly string[]).includes(mainCategory) ? 7 : 5;
 }
 
