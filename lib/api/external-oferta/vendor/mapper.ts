@@ -70,10 +70,12 @@ export function mapBusinessToVendor(
     ? options.salesType 
     : mapSalesTeamToSalesType(business.salesTeam)
   
+  const sanitizedEmail = sanitizeEmail(business.contactEmail)
+
   return {
     // ===== REQUIRED FIELDS =====
-    name: business.name,
-    email: business.contactEmail,
+    name: business.name?.trim(),
+    email: sanitizedEmail,
     // Maps from business.salesTeam: "Inside Sales" → 1, "Outside Sales" → 0
     salesType: mappedSalesType ?? VENDOR_SALES_TYPE.REGULAR, // API requires a value, default to 0 if null
 
@@ -82,9 +84,7 @@ export function mapBusinessToVendor(
     phoneNumber: business.contactPhone || null,
     website: business.website || null,
     managerName: business.contactName || null,
-    // emailContact should always match email - both come from business.contactEmail
-    // Note: backfill.ts also updates both fields together when email changes
-    emailContact: business.contactEmail || null,
+    emailContact: sanitizedEmail || null,
     razonSocial: business.razonSocial || null,
     ruc: business.ruc || null,
     beneficiaryName: business.beneficiaryName || null,
@@ -147,6 +147,15 @@ export function validateVendorRequest(request: ExternalOfertaVendorRequest): {
 function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return emailRegex.test(email)
+}
+
+/**
+ * Sanitize email: trim whitespace and strip trailing dots
+ * (common data-entry mistake, e.g. "user@gmail.com.")
+ */
+function sanitizeEmail(email: string | null | undefined): string {
+  if (!email) return ''
+  return email.trim().replace(/\.+$/, '')
 }
 
 /**
