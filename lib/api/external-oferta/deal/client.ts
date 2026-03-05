@@ -185,29 +185,16 @@ interface BookingRequestData {
   subCategory3?: string | null
 }
 
-interface PriceOptionWithTitle {
-  title?: string
-  description?: string | null
-  price?: number
-  value?: number | null
-  quantity?: number | null
-  limitByUser?: number | null
-  expiresIn?: string | number | null
-  endAt?: string | null
-}
-
 function normalizePayloadForExternalApi(payload: ExternalOfertaDealRequest): ExternalOfertaDealRequest {
-  // Send title-based price options and omit description.
   return {
     ...payload,
     priceOptions: Array.isArray(payload.priceOptions)
-      ? payload.priceOptions.map((opt: PriceOptionWithTitle) => {
-          const { description, ...rest } = opt || {}
-          const fallbackTitle = description ? String(description).split('\n')[0].trim().slice(0, 120) : ''
-          return {
-            ...rest,
-            title: rest.title ? String(rest.title) : (fallbackTitle || 'Opción'),
+      ? payload.priceOptions.map((opt) => {
+          const { title, ...rest } = opt as ExternalOfertaPriceOption & { title?: string }
+          if (!rest.description && title) {
+            rest.description = title
           }
+          return rest
         }) as ExternalOfertaPriceOption[]
       : payload.priceOptions,
   }
@@ -571,10 +558,8 @@ export async function sendDealToExternalApi(
     return { success: false, error: errorMessage, logId }
   }
 
-  const payloadToSend = normalizePayloadForExternalApi(payload)
-
   try {
-    const result = await sendExternalDealPayload(payloadToSend, {
+    const result = await sendExternalDealPayload(payload, {
       endpoint: EXTERNAL_DEAL_API_URL,
       bookingRequestId: bookingRequest.id,
       userId: options?.userId,
@@ -587,7 +572,7 @@ export async function sendDealToExternalApi(
     const logId = await logApiCall({
       endpoint: EXTERNAL_DEAL_API_URL,
       method: 'POST',
-      requestBody: payloadToSend,
+      requestBody: payload,
       bookingRequestId: bookingRequest.id,
       userId: options?.userId,
       triggeredBy: options?.triggeredBy || 'system',

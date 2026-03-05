@@ -119,7 +119,6 @@ export interface ExternalOfertaDealRequest {
 }
 
 export interface ExternalOfertaPriceOption {
-  title: string
   price: number // Selling price (float)
   value?: number | null // Original value before discount (float)
   maximumQuantity?: number | null // Maximum total quantity
@@ -129,6 +128,7 @@ export interface ExternalOfertaPriceOption {
   expiresIn?: number | null // Expiration seconds after voucher creation
   description?: string | null
   oufferMargin?: number | null // Offer margin percentage (note: API typo is intentional)
+  limitPerDay?: number | null // Maximum quantity per day
 }
 
 export interface ExternalOfertaDealResponse {

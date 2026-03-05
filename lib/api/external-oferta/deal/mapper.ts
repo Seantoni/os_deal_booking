@@ -164,13 +164,12 @@ export function mapBookingFormToApi(
       return optionText !== '' && price > 0
     })
     .map((opt, index) => {
-      const description = opt.description?.trim() || null
-      const titleFromDescription = description ? description.split('\n')[0].trim().slice(0, 120) : ''
-      const title = (opt.title || '').trim() || titleFromDescription || `Opción ${index + 1}`
+      const rawDescription = opt.description?.trim() || null
+      const titleText = (opt.title || '').trim()
+      const description = rawDescription || titleText || `Opción ${index + 1}`
       const price = parseFloat(opt.price || '0') || 0
       
       return {
-        title,
         price,
         value: opt.realValue ? parseFloat(opt.realValue) || null : null,
         description,
@@ -179,7 +178,7 @@ export function mapBookingFormToApi(
         giftLimitPerUser: parseOptionalInt(opt.maxGiftsPerUser),
         endAt: opt.endAt || null,
         expiresIn: daysToSeconds(opt.expiresIn),
-        oufferMargin: offerMargin, // Apply same margin to all options (API typo is intentional)
+        oufferMargin: offerMargin,
       }
     })
 
