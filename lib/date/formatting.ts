@@ -407,6 +407,8 @@ export function calculateDaysDifference(startDate: Date | string, endDate: Date 
   const start = typeof startDate === 'string' ? new Date(startDate + 'T00:00:00') : startDate
   const end = typeof endDate === 'string' ? new Date(endDate + 'T00:00:00') : endDate
   
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0
+  
   const diffTime = end.getTime() - start.getTime()
   const diffDays = Math.ceil(diffTime / ONE_DAY_MS) + 1
   return diffDays

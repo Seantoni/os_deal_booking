@@ -64,6 +64,7 @@ export default function ConfiguracionStep({
   const formatDate = (dateString: string): string => {
     if (!dateString) return ''
     const date = new Date(dateString + 'T00:00:00')
+    if (isNaN(date.getTime())) return dateString
     return formatDateForDisplay(date, 'es-PA')
   }
 
@@ -212,6 +213,7 @@ export default function ConfiguracionStep({
     if (isCampaignDurationDisabled) return '—'
     if (!formData.endDate) return 'Z'
     const endDate = new Date(formData.endDate + 'T00:00:00')
+    if (isNaN(endDate.getTime())) return '—'
     const duration = parseInt(campaignDuration) || 3
     const redemptionDate = new Date(endDate)
     

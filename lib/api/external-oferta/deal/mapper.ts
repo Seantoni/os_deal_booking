@@ -498,9 +498,8 @@ export function mapApiToBookingForm(deal: ExternalOfertaDeal): Partial<BookingFo
     // Websites / social media
     socialMedia: deal.websitesEs || '',
 
-    // Dates (extract date portion from datetime strings)
-    startDate: extractDate(deal.runAt),
-    endDate: extractDate(deal.endAt) || extractDate(deal.expiresOn),
+    // Note: startDate/endDate intentionally omitted — they belong to the
+    // previous campaign and should not be carried into a new booking request.
 
     // Pricing
     offerMargin,
