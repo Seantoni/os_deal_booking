@@ -113,6 +113,12 @@ interface DashboardClientProps {
   initialFilters?: DashboardFilters
 }
 
+function hasAgreementRateField(stats: DashboardStats | null | undefined): boolean {
+  if (!stats) return false
+  if (!Array.isArray(stats.teamPerformance)) return false
+  return stats.teamPerformance.every(member => typeof member.meetingsWithAgreementYes === 'number')
+}
+
 const TEAM_PERFORMANCE_WEIGHTS = {
   approvedRequests: 0.5,
   bookedRequests: 0,
@@ -186,6 +192,14 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
   useEffect(() => {
     if (!initialData?.stats) {
       loadData()
+      return
+    }
+
+    // Backward-compatibility guard:
+    // If cached stats were generated before `meetingsWithAgreementYes` existed,
+    // force a fresh fetch to avoid showing 0% agreement rates.
+    if (!hasAgreementRateField(initialData.stats)) {
+      loadData({ clearCache: true, skipAuxiliaryFetch: true })
     }
   }, [])
 
@@ -264,7 +278,17 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
       const statsResult = clearCache ? getDashboardStatsFresh(filters) : getDashboardStats(filters)
 
       if (skipAuxiliaryFetch) {
-        const resolvedStatsResult = await statsResult
+        let resolvedStatsResult = await statsResult
+        if (
+          !clearCache &&
+          resolvedStatsResult.success &&
+          'data' in resolvedStatsResult &&
+          resolvedStatsResult.data &&
+          !hasAgreementRateField(resolvedStatsResult.data)
+        ) {
+          resolvedStatsResult = await getDashboardStatsFresh(filters)
+        }
+
         if (resolvedStatsResult.success && 'data' in resolvedStatsResult && resolvedStatsResult.data) {
           setStats(resolvedStatsResult.data)
         } else {
@@ -286,10 +310,21 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
         getDealAssignmentsOverview(),
       ])
 
-      if (resolvedStatsResult.success && 'data' in resolvedStatsResult && resolvedStatsResult.data) {
-        setStats(resolvedStatsResult.data)
+      let finalStatsResult = resolvedStatsResult
+      if (
+        !clearCache &&
+        finalStatsResult.success &&
+        'data' in finalStatsResult &&
+        finalStatsResult.data &&
+        !hasAgreementRateField(finalStatsResult.data)
+      ) {
+        finalStatsResult = await getDashboardStatsFresh(filters)
+      }
+
+      if (finalStatsResult.success && 'data' in finalStatsResult && finalStatsResult.data) {
+        setStats(finalStatsResult.data)
       } else {
-        const errorMsg = 'error' in resolvedStatsResult ? resolvedStatsResult.error : 'Error desconocido al cargar estadísticas'
+        const errorMsg = 'error' in finalStatsResult ? finalStatsResult.error : 'Error desconocido al cargar estadísticas'
         console.error('Dashboard stats error:', errorMsg)
         setError(errorMsg as string)
         setStats(null)
