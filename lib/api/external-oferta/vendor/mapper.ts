@@ -220,6 +220,9 @@ export function getChangedVendorFields(
   for (const mapping of VENDOR_FIELD_MAPPING) {
     const { fieldKey, apiKey, label } = mapping
 
+    // Skip fields not present in newValues — missing means "not changed"
+    if (!(fieldKey in newValues)) continue
+
     // Get current value from business
     const currentValue = getBusinessFieldValue(currentBusiness, fieldKey)
     // Get new value from form
