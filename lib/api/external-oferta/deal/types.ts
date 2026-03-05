@@ -160,6 +160,7 @@ export interface DealMetric {
   run_at: string
   end_at: string
   url: string
+  preview_url?: string | null
   updated_at: string
 }
 

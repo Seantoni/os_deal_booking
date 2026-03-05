@@ -196,6 +196,7 @@ async function upsertDealMetric(deal: DealMetric): Promise<{
       netRevenue: deal.net_revenue ?? 0,
       margin: deal.margin ?? 0,
       dealUrl: deal.url || null,
+      previewUrl: deal.preview_url || null,
       runAt: deal.run_at ? new Date(deal.run_at) : null,
       endAt: deal.end_at ? new Date(deal.end_at) : null,
       externalUpdatedAt: deal.updated_at ? new Date(deal.updated_at) : null,
@@ -455,6 +456,7 @@ export async function getDealMetricsByVendorId(vendorId: string) {
     netRevenue: Number(deal.netRevenue),
     margin: Number(deal.margin),
     dealUrl: deal.dealUrl,
+    previewUrl: deal.previewUrl,
     runAt: deal.runAt,
     endAt: deal.endAt,
     lastSyncedAt: deal.lastSyncedAt,
@@ -521,6 +523,7 @@ export interface FormattedDealMetric {
   netRevenue: number
   margin: number
   dealUrl: string | null
+  previewUrl: string | null
   runAt: Date | null
   endAt: Date | null
   lastSyncedAt: Date
@@ -552,6 +555,7 @@ type DealWithCount = {
   netRevenue: { toString(): string } | number
   margin: { toString(): string } | number
   dealUrl: string | null
+  previewUrl: string | null
   runAt: Date | null
   endAt: Date | null
   lastSyncedAt: Date
@@ -600,6 +604,7 @@ function formatDealMetric(
     netRevenue: Number(deal.netRevenue),
     margin: Number(deal.margin),
     dealUrl: deal.dealUrl,
+    previewUrl: deal.previewUrl,
     runAt: deal.runAt,
     endAt: deal.endAt,
     lastSyncedAt: deal.lastSyncedAt,
@@ -1017,6 +1022,7 @@ export interface SimplifiedDeal {
   runAt: Date | null
   endAt: Date | null
   dealUrl: string | null
+  previewUrl: string | null
   isActive: boolean
 }
 
@@ -1057,6 +1063,7 @@ export async function getDealsByVendorId(
       runAt: deal.runAt,
       endAt: deal.endAt,
       dealUrl: deal.dealUrl,
+      previewUrl: deal.previewUrl,
       isActive: deal.endAt ? deal.endAt > now : false,
     }))
 

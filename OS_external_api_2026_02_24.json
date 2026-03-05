@@ -156,6 +156,11 @@
                                                         "description": "URL to view deal details",
                                                         "type": "string"
                                                     },
+                                                    "preview_url": {
+                                                        "description": "Special URL for deal preview access",
+                                                        "type": "string",
+                                                        "nullable": true
+                                                    },
                                                     "updated_at": {
                                                         "description": "Last update timestamp",
                                                         "type": "string",

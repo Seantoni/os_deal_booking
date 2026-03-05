@@ -362,9 +362,9 @@ export function DealsTab({
                         
                         {/* Actions */}
                         <TableCell align="right">
-                          {deal.dealUrl && (
+                          {(deal.previewUrl || deal.dealUrl) && (
                             <a
-                              href={deal.dealUrl}
+                              href={(deal.previewUrl || deal.dealUrl)!}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-500 hover:text-blue-700 p-1 inline-flex"

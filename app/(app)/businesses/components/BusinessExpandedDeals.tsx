@@ -94,9 +94,9 @@ export function BusinessExpandedDeals({
             </span>
           </td>
           <td className="px-4 py-2 text-right" colSpan={5}>
-            {deal.dealUrl && (
+            {(deal.previewUrl || deal.dealUrl) && (
               <a
-                href={deal.dealUrl}
+                href={(deal.previewUrl || deal.dealUrl)!}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-1 rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors inline-flex"

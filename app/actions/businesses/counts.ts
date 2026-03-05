@@ -199,6 +199,7 @@ export async function getBusinessActiveDealUrls() {
       select: {
         externalVendorId: true,
         dealUrl: true,
+        previewUrl: true,
       },
       orderBy: { netRevenue: 'desc' }, // Get the highest revenue active deal per vendor
       distinct: ['externalVendorId'],
@@ -209,10 +210,11 @@ export async function getBusinessActiveDealUrls() {
     const activeDealUrls: Record<string, string> = {}
     
     for (const deal of activeDeals) {
-      if (deal.externalVendorId && deal.dealUrl) {
+      const url = deal.previewUrl || deal.dealUrl
+      if (deal.externalVendorId && url) {
         const businessId = vendorToBusinessId.get(deal.externalVendorId)
         if (businessId) {
-          activeDealUrls[businessId] = deal.dealUrl
+          activeDealUrls[businessId] = url
         }
       }
     }

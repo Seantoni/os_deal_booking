@@ -19,6 +19,7 @@ interface DealMetric {
   netRevenue: number
   margin: number
   dealUrl: string | null
+  previewUrl?: string | null
   runAt: Date | null
   endAt: Date | null
   lastSyncedAt: Date
@@ -252,9 +253,9 @@ export default function DealMetricsSection({ vendorId, businessName, summaryView
                   </span>
                 </TableCell>
                 <TableCell align="right" style={getColumnCellStyle('actions')}>
-                  {deal.dealUrl && (
+                  {(deal.previewUrl || deal.dealUrl) && (
                     <a
-                      href={deal.dealUrl}
+                      href={(deal.previewUrl || deal.dealUrl)!}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-500 hover:text-blue-700 p-1 inline-flex"
@@ -302,9 +303,9 @@ function TopDealsCards({ deals }: { deals: DealMetric[] }) {
                 <span className="text-xs font-semibold text-emerald-600 whitespace-nowrap">
                   ${deal.netRevenue.toLocaleString()}
                 </span>
-                {deal.dealUrl && (
+                {(deal.previewUrl || deal.dealUrl) && (
                   <a
-                    href={deal.dealUrl}
+                    href={(deal.previewUrl || deal.dealUrl)!}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-slate-400 hover:text-blue-600 inline-flex"
@@ -334,9 +335,9 @@ function TopDealsCards({ deals }: { deals: DealMetric[] }) {
                 <span className="text-xs font-semibold text-blue-600 whitespace-nowrap">
                   {deal.quantitySold.toLocaleString()}
                 </span>
-                {deal.dealUrl && (
+                {(deal.previewUrl || deal.dealUrl) && (
                   <a
-                    href={deal.dealUrl}
+                    href={(deal.previewUrl || deal.dealUrl)!}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-slate-400 hover:text-blue-600 inline-flex"
