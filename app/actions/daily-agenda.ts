@@ -715,14 +715,30 @@ export async function getSalesDailyAgenda() {
       const stats = teamStatsMap.get(booking.userId)
       if (!stats) continue
 
+      const isApprovedDateInWindow = Boolean(
+        booking.approvedAt &&
+        booking.approvedAt >= rollingStart &&
+        booking.approvedAt <= rollingEnd
+      )
+      const isBookedDateInWindow = Boolean(
+        booking.bookedAt &&
+        booking.bookedAt >= rollingStart &&
+        booking.bookedAt <= rollingEnd
+      )
+      const isProcessedDateInWindow = Boolean(
+        booking.processedAt &&
+        booking.processedAt >= rollingStart &&
+        booking.processedAt <= rollingEnd
+      )
+
       const approvedInWindow = Boolean(
-        booking.approvedAt ||
-        ((booking.status === 'approved' || booking.status === 'booked') && booking.processedAt)
+        isApprovedDateInWindow ||
+        ((booking.status === 'approved' || booking.status === 'booked') && isProcessedDateInWindow)
       )
 
       const bookedInWindow = Boolean(
-        booking.bookedAt ||
-        (booking.status === 'booked' && booking.processedAt)
+        isBookedDateInWindow ||
+        (booking.status === 'booked' && isProcessedDateInWindow)
       )
 
       if (approvedInWindow) {
