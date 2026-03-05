@@ -31,8 +31,6 @@ import { useOpportunityTaskActions } from './useOpportunityTaskActions'
 import { useOpportunityActivitySummary } from './useOpportunityActivitySummary'
 import type { OpportunityModalSuccessMeta } from './opportunityModalTypes'
 
-const CHAT_AUTO_SCROLL_RETRY_DELAYS = [0, 120, 280, 500, 900, 1400, 2200] as const
-
 const BookingRequestViewModal = lazy(() => import('@/components/booking/request-view/BookingRequestViewModal'))
 const TaskModal = lazy(() => import('./TaskModal'))
 const LostReasonModal = lazy(() => import('./LostReasonModal'))
@@ -90,8 +88,6 @@ export default function OpportunityFormModal({
   const [businessModalOpen, setBusinessModalOpen] = useState(false)
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null)
   const [isSubmitPending, startSubmitTransition] = useTransition()
-  const chatBottomAnchorRef = useRef<HTMLDivElement>(null)
-  const hasAutoScrolledChatForCurrentOpenRef = useRef(false)
 
   const { sections: cachedSections, initialized: cachedInitialized } = useCachedFormConfig('opportunity')
   const activeTab = selectedTab ?? initialTab
@@ -343,30 +339,6 @@ export default function OpportunityFormModal({
   const startDateDisplayValue = dynamicForm.getValue('startDate') || opportunity?.startDate || null
   const closeDateDisplayValue = dynamicForm.getValue('closeDate') || opportunity?.closeDate || null
 
-  useEffect(() => {
-    if (!isOpen) {
-      hasAutoScrolledChatForCurrentOpenRef.current = false
-      return
-    }
-
-    if (loadingData || activeTab !== 'chat' || hasAutoScrolledChatForCurrentOpenRef.current) {
-      return
-    }
-
-    hasAutoScrolledChatForCurrentOpenRef.current = true
-    const scrollToChatBottom = () => {
-      chatBottomAnchorRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' })
-    }
-
-    const timeoutIds = CHAT_AUTO_SCROLL_RETRY_DELAYS.map((retryDelay) =>
-      window.setTimeout(scrollToChatBottom, retryDelay)
-    )
-
-    return () => {
-      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId))
-    }
-  }, [activeTab, isOpen, loadingData])
-
   if (!isOpen) return null
 
   const isEditMode = !!opportunity
@@ -529,7 +501,6 @@ export default function OpportunityFormModal({
                   onApplyTaskRecommendation={handleApplyTaskRecommendation}
                 />
               </Suspense>
-              <div ref={chatBottomAnchorRef} className="h-px" aria-hidden="true" />
             </>
           )}
 
