@@ -310,8 +310,16 @@ export default function BusinessDetailClient({
         linkedBusinessId: business.id,
       }
 
+      // Sanitize: replace null/undefined with empty strings to prevent form crashes
+      const sanitizedPayload = Object.fromEntries(
+        Object.entries(mergedPayload).map(([key, value]) => {
+          if (value === null || value === undefined) return [key, '']
+          return [key, value]
+        })
+      )
+
       const replicateKey = `deal-import-${Date.now()}`
-      sessionStorage.setItem(`replicate:${replicateKey}`, JSON.stringify(mergedPayload))
+      sessionStorage.setItem(`replicate:${replicateKey}`, JSON.stringify(sanitizedPayload))
 
       const params = new URLSearchParams()
       params.set('replicateKey', replicateKey)

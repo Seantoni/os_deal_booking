@@ -379,7 +379,7 @@ export const DEAL_FIELD_MAPPINGS: FieldMapping[] = [
 
   // Metadata
   { apiField: 'section', formField: null, label: 'Sección', category: 'metadata' },
-  { apiField: 'osSalesId', formField: 'opportunityId', label: 'OS Sales ID', category: 'metadata' },
+  { apiField: 'osSalesId', formField: null, label: 'OS Sales ID (external, not mapped)', category: 'metadata' },
   { apiField: 'emeraldPearl', formField: null, label: 'Emerald Pearl', category: 'metadata' },
   { apiField: 'contractState', formField: null, label: 'Estado del contrato', category: 'metadata' },
   { apiField: 'dealStrength', formField: null, label: 'Deal strength', category: 'metadata' },
@@ -459,11 +459,11 @@ export function mapApiToBookingForm(deal: ExternalOfertaDeal): Partial<BookingFo
     price: opt.price != null ? String(opt.price) : '',
     realValue: opt.value != null ? String(opt.value) : '',
     quantity: quantityToString(opt.maximumQuantity),
-    limitByUser: opt.limitByUser != null ? String(opt.limitByUser) : undefined,
-    maxGiftsPerUser: opt.giftLimitPerUser != null ? String(opt.giftLimitPerUser) : undefined,
-    endAt: opt.endAt || undefined,
-    expiresIn: secondsToDays(opt.expiresIn) || undefined,
-    imageUrl: undefined,
+    limitByUser: opt.limitByUser != null ? String(opt.limitByUser) : '',
+    maxGiftsPerUser: opt.giftLimitPerUser != null ? String(opt.giftLimitPerUser) : '',
+    endAt: opt.endAt || '',
+    expiresIn: secondsToDays(opt.expiresIn) || '',
+    imageUrl: '',
   }))
 
   const dealImages: BookingFormData['dealImages'] = (deal.images || []).map((url, index) => ({
@@ -509,7 +509,7 @@ export function mapApiToBookingForm(deal: ExternalOfertaDeal): Partial<BookingFo
     // Images
     dealImages,
 
-    // Opportunity reference
-    opportunityId: deal.osSalesId != null ? String(deal.osSalesId) : '',
+    // Note: osSalesId is an external numeric ID, NOT an internal opportunity UUID.
+    // Do not map it to opportunityId — that would cause lookup failures.
   }
 }
