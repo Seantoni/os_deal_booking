@@ -25,6 +25,18 @@ type UserProfileData = {
   role: string
 }
 
+function getMeetingAgreementFromNotes(notes: string | null): 'si' | 'no' | null {
+  if (!notes) return null
+
+  try {
+    const parsed = JSON.parse(notes) as Record<string, unknown>
+    const reachedAgreement = parsed?.reachedAgreement
+    return reachedAgreement === 'si' || reachedAgreement === 'no' ? reachedAgreement : null
+  } catch {
+    return null
+  }
+}
+
 function getStatusChangeFromDetails(details: Prisma.JsonValue | null): { from?: string; to?: string } {
   if (!details || typeof details !== 'object' || Array.isArray(details)) {
     return {}
@@ -307,7 +319,12 @@ async function fetchDashboardStatsInternal(filters: DashboardFilters = {}, userP
         opportunity: { responsibleId: { in: teamUserIds } },
         ...(Object.keys(dateFilter).length > 0 ? { date: dateFilter } : {})
       },
-      select: { completed: true, category: true, opportunity: { select: { responsibleId: true } } }
+      select: {
+        completed: true,
+        category: true,
+        notes: true,
+        opportunity: { select: { responsibleId: true } },
+      }
     })
 
     const teamBookings = await prisma.bookingRequest.findMany({
@@ -383,6 +400,11 @@ async function fetchDashboardStatsInternal(filters: DashboardFilters = {}, userP
         tasksCompleted: userTasks.filter(t => t.completed).length,
         tasksPending: userTasks.filter(t => !t.completed).length,
         meetings: userTasks.filter(t => t.category === 'meeting').length,
+        meetingsWithAgreementYes: userTasks.filter(
+          t =>
+            t.category === 'meeting' &&
+            getMeetingAgreementFromNotes(t.notes) === 'si'
+        ).length,
         todos: userTasks.filter(t => t.category === 'todo').length,
         approvedRequests: approvedRequestIds.size,
         bookedRequests: userBookings.filter(b => b.status === 'booked').length,

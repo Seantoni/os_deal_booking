@@ -95,6 +95,7 @@ interface DashboardStats {
     tasksCompleted: number
     tasksPending: number
     meetings: number
+    meetingsWithAgreementYes: number
     todos: number
     approvedRequests: number
     bookedRequests: number
@@ -1063,7 +1064,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                       </td>
                       <td className="px-3 py-2.5 text-center text-sm text-gray-600">{member.todos || 0}</td>
                       <td className="px-3 py-2.5 text-center text-sm text-gray-600">
-                        {getPercent(member.meetings || 0, member.approvedRequests || 0)}%
+                        {getPercent(member.meetingsWithAgreementYes || 0, member.meetings || 0)}%
                       </td>
                       <td className="px-3 py-2.5 text-center text-sm text-gray-600">{member.meetings || 0}</td>
                     </tr>
