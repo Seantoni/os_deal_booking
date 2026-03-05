@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import BarChartIcon from '@mui/icons-material/BarChart'
+import PostAddIcon from '@mui/icons-material/PostAdd'
 import { getDealMetricsByVendorId } from '@/app/actions/deal-metrics'
 import { EntityTable, TableRow, TableCell } from '@/components/shared/table'
 import TruncatedTextWithTooltip from '@/components/shared/TruncatedTextWithTooltip'
@@ -35,6 +36,7 @@ interface DealMetricsSectionProps {
   vendorId: string | null | undefined
   businessName: string
   summaryView?: 'chart' | 'topDeals' | 'none'
+  onCreateRequestFromDeal?: (externalDealId: string) => void
 }
 
 // Table columns configuration
@@ -71,7 +73,7 @@ const DEAL_METRICS_TABLE_MIN_WIDTHS: Record<string, number> = {
   actions: 48,
 }
 
-export default function DealMetricsSection({ vendorId, businessName, summaryView = 'chart' }: DealMetricsSectionProps) {
+export default function DealMetricsSection({ vendorId, businessName, summaryView = 'chart', onCreateRequestFromDeal }: DealMetricsSectionProps) {
   const [loading, setLoading] = useState(true)
   const [deals, setDeals] = useState<DealMetric[]>([])
   const [sortColumn, setSortColumn] = useState<string | null>('netRevenue')
@@ -253,17 +255,31 @@ export default function DealMetricsSection({ vendorId, businessName, summaryView
                   </span>
                 </TableCell>
                 <TableCell align="right" style={getColumnCellStyle('actions')}>
-                  {(deal.previewUrl || deal.dealUrl) && (
-                    <a
-                      href={(deal.previewUrl || deal.dealUrl)!}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:text-blue-700 p-1 inline-flex"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <OpenInNewIcon style={{ fontSize: 16 }} />
-                    </a>
-                  )}
+                  <div className="flex items-center justify-end gap-0.5">
+                    {onCreateRequestFromDeal && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onCreateRequestFromDeal(deal.externalDealId)
+                        }}
+                        className="text-green-500 hover:text-green-700 p-1 inline-flex"
+                        title="Crear solicitud desde este deal"
+                      >
+                        <PostAddIcon style={{ fontSize: 16 }} />
+                      </button>
+                    )}
+                    {(deal.previewUrl || deal.dealUrl) && (
+                      <a
+                        href={(deal.previewUrl || deal.dealUrl)!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 hover:text-blue-700 p-1 inline-flex"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <OpenInNewIcon style={{ fontSize: 16 }} />
+                      </a>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             )

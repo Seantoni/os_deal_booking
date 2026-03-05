@@ -17,6 +17,7 @@ import SearchIcon from '@mui/icons-material/Search'
 import AddIcon from '@mui/icons-material/Add'
 import DescriptionIcon from '@mui/icons-material/Description'
 import { Button, Input } from '@/components/ui'
+import toast from 'react-hot-toast'
 
 // Lazy load heavy modal components
 const BusinessFormModal = dynamic(() => import('@/components/crm/business/BusinessFormModal'), {
@@ -258,6 +259,71 @@ export default function BusinessDetailClient({
   const handleOpenDeal = (deal: Deal) => {
     setSelectedDeal(deal)
     setIsDealModalOpen(true)
+  }
+
+  const [loadingDealImport, setLoadingDealImport] = useState(false)
+
+  const handleCreateRequestFromDeal = async (externalDealId: string) => {
+    if (canEdit === false || isArchived) return
+
+    setLoadingDealImport(true)
+    try {
+      const response = await fetch(`/api/external-oferta/deals/${externalDealId}`)
+      const result = await response.json()
+
+      if (!result.success || !result.data) {
+        toast.error(result.error || `No se pudo obtener el deal ${externalDealId}`)
+        return
+      }
+
+      const { mapApiToBookingForm } = await import('@/lib/api/external-oferta/deal/mapper')
+      const dealFormData = mapApiToBookingForm(result.data)
+
+      // Merge business data (fiscal, bank, location) with deal content data
+      const mergedPayload = {
+        ...dealFormData,
+        // Business info overrides
+        businessName: business.name,
+        partnerEmail: business.contactEmail,
+        redemptionContactName: business.contactName || '',
+        redemptionContactPhone: business.contactPhone || '',
+        redemptionContactEmail: business.contactEmail || '',
+        approverName: business.contactName || '',
+        approverEmail: business.contactEmail || '',
+        approverBusinessName: business.razonSocial || business.name || '',
+        // Fiscal
+        legalName: business.razonSocial || '',
+        rucDv: business.ruc || '',
+        // Bank
+        bank: business.bank || '',
+        bankAccountName: business.beneficiaryName || '',
+        accountNumber: business.accountNumber || '',
+        accountType: business.accountType || '',
+        paymentType: business.paymentPlan || '',
+        // Location
+        provinceDistrictCorregimiento: business.provinceDistrictCorregimiento || '',
+        addressAndHours: dealFormData.addressAndHours || [business.address, business.neighborhood].filter(Boolean).join(', ') || '',
+        // Social / contact
+        socialMedia: dealFormData.socialMedia || [business.instagram, business.website].filter(Boolean).join(' | ') || '',
+        contactDetails: business.website || '',
+        // Business link for backfill
+        linkedBusinessId: business.id,
+      }
+
+      const replicateKey = `deal-import-${Date.now()}`
+      sessionStorage.setItem(`replicate:${replicateKey}`, JSON.stringify(mergedPayload))
+
+      const params = new URLSearchParams()
+      params.set('replicateKey', replicateKey)
+      params.set('businessId', business.id)
+
+      router.push(`/booking-requests/new?${params.toString()}`)
+    } catch (error) {
+      console.error('Error importing deal:', error)
+      toast.error('Error al importar datos del deal')
+    } finally {
+      setLoadingDealImport(false)
+    }
   }
 
   const handleOpportunitySuccess = async (opportunity: Opportunity, meta?: OpportunityModalSuccessMeta) => {
@@ -536,6 +602,7 @@ export default function BusinessDetailClient({
               vendorId={business.osAdminVendorId}
               businessName={business.name}
               summaryView="topDeals"
+              onCreateRequestFromDeal={canEdit !== false && !isArchived ? handleCreateRequestFromDeal : undefined}
             />
           )}
 
@@ -640,6 +707,16 @@ export default function BusinessDetailClient({
             }
           }}
         />
+      )}
+
+      {/* Loading overlay for deal import */}
+      {loadingDealImport && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 flex items-center gap-3">
+            <div className="animate-spin h-5 w-5 border-2 border-green-500 border-t-transparent rounded-full" />
+            <span className="text-gray-700 font-medium text-sm">Importando datos del deal...</span>
+          </div>
+        </div>
       )}
 
       {/* Request View Modal */}

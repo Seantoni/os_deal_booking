@@ -621,6 +621,7 @@ export async function getDealById(
     const response = await fetch(endpoint, {
       method: 'GET',
       headers: {
+        'Content-Type': 'application/json',
         'Accept': 'application/json',
         'Authorization': `Bearer ${EXTERNAL_API_TOKEN}`,
         'User-Agent': 'OfertaSimpleBooking/1.0',
@@ -641,9 +642,12 @@ export async function getDealById(
     }
 
     if (!response.ok) {
+      const isCloudflareBlock = !isJson && responseText.includes('Just a moment')
       const errorMessage = response.status === 404
         ? `Deal ${dealId} not found`
-        : `HTTP ${response.status}: ${(responseData as Record<string, unknown>)?.message || responseText.substring(0, 200)}`
+        : isCloudflareBlock
+          ? `Deal API blocked by Cloudflare (HTTP ${response.status}). The server IP may need to be whitelisted.`
+          : `HTTP ${response.status}: ${(responseData as Record<string, unknown>)?.message || responseText.substring(0, 200)}`
 
       const logId = await logApiCall({
         endpoint,
