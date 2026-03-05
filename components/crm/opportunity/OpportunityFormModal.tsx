@@ -14,7 +14,6 @@ import type { Category } from '@prisma/client'
 import HandshakeIcon from '@mui/icons-material/Handshake'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
-import { useAutoScroll } from '@/hooks/useAutoScroll'
 import { useOpportunityForm } from './useOpportunityForm'
 import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
 import {
@@ -31,6 +30,8 @@ import { useOpportunityMeetingAutomation } from './useOpportunityMeetingAutomati
 import { useOpportunityTaskActions } from './useOpportunityTaskActions'
 import { useOpportunityActivitySummary } from './useOpportunityActivitySummary'
 import type { OpportunityModalSuccessMeta } from './opportunityModalTypes'
+
+const CHAT_AUTO_SCROLL_RETRY_DELAYS = [0, 120, 280, 500, 900, 1400, 2200] as const
 
 const BookingRequestViewModal = lazy(() => import('@/components/booking/request-view/BookingRequestViewModal'))
 const TaskModal = lazy(() => import('./TaskModal'))
@@ -90,7 +91,7 @@ export default function OpportunityFormModal({
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null)
   const [isSubmitPending, startSubmitTransition] = useTransition()
   const chatBottomAnchorRef = useRef<HTMLDivElement>(null)
-  const modalFormRef = useRef<HTMLFormElement>(null)
+  const hasAutoScrolledChatForCurrentOpenRef = useRef(false)
 
   const { sections: cachedSections, initialized: cachedInitialized } = useCachedFormConfig('opportunity')
   const activeTab = selectedTab ?? initialTab
@@ -341,16 +342,30 @@ export default function OpportunityFormModal({
 
   const startDateDisplayValue = dynamicForm.getValue('startDate') || opportunity?.startDate || null
   const closeDateDisplayValue = dynamicForm.getValue('closeDate') || opportunity?.closeDate || null
-  const chatAutoScrollRetryDelays = useMemo(() => [0, 120, 280, 500, 900, 1400, 2200], [])
 
-  useAutoScroll({
-    mode: 'anchor',
-    anchorRef: chatBottomAnchorRef,
-    observeMutationsRef: modalFormRef,
-    enabled: isOpen && activeTab === 'chat' && !loadingData,
-    retryDelays: chatAutoScrollRetryDelays,
-    block: 'end',
-  })
+  useEffect(() => {
+    if (!isOpen) {
+      hasAutoScrolledChatForCurrentOpenRef.current = false
+      return
+    }
+
+    if (loadingData || activeTab !== 'chat' || hasAutoScrolledChatForCurrentOpenRef.current) {
+      return
+    }
+
+    hasAutoScrolledChatForCurrentOpenRef.current = true
+    const scrollToChatBottom = () => {
+      chatBottomAnchorRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' })
+    }
+
+    const timeoutIds = CHAT_AUTO_SCROLL_RETRY_DELAYS.map((retryDelay) =>
+      window.setTimeout(scrollToChatBottom, retryDelay)
+    )
+
+    return () => {
+      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId))
+    }
+  }, [activeTab, isOpen, loadingData])
 
   if (!isOpen) return null
 
@@ -457,7 +472,6 @@ export default function OpportunityFormModal({
 
         <form
           id="opportunity-modal-form"
-          ref={modalFormRef}
           onSubmit={handleSubmit}
           className="bg-white min-h-[300px] md:min-h-[500px] flex flex-col"
         >
