@@ -24,6 +24,7 @@ export const PAGE_ACCESS: Record<string, UserRole[]> = {
   '/market-intelligence': ['admin'],
   '/leads-negocios': ['admin'],
   '/settings': ['admin'],
+  '/settings/deal-import': ['admin', 'sales'],
   '/activity-log': ['admin'],
   '/sales-users': ['admin'],
   // Additional pages that were missing

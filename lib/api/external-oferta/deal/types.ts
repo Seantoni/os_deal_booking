@@ -136,6 +136,21 @@ export interface ExternalOfertaDealResponse {
   status: string
 }
 
+/**
+ * Full deal object returned by GET /external/api/deals/{id}
+ * Same shape as ExternalOfertaDealRequest (all fields the API stores)
+ */
+export type ExternalOfertaDeal = ExternalOfertaDealRequest & {
+  id?: number
+}
+
+export interface GetDealByIdResult {
+  success: boolean
+  data?: ExternalOfertaDeal
+  error?: string
+  logId?: string
+}
+
 export interface SendDealResult {
   success: boolean
   externalId?: number

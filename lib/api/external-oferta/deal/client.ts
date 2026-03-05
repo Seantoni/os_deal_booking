@@ -8,7 +8,7 @@ import { logApiCall } from '../shared/logger'
 import { formatValidationError } from '../shared/http'
 import { EXTERNAL_DEAL_API_URL, EXTERNAL_API_TOKEN, DEFAULT_SECTION_MAPPINGS } from '../shared/constants'
 import { mapBookingFormToApi } from './mapper'
-import type { ExternalOfertaDealRequest, ExternalOfertaDealResponse, ExternalOfertaPriceOption, SendDealResult } from './types'
+import type { ExternalOfertaDealRequest, ExternalOfertaDealResponse, ExternalOfertaPriceOption, ExternalOfertaDeal, GetDealByIdResult, SendDealResult } from './types'
 import type { BookingFormData } from '@/components/RequestForm/types'
 import type { Prisma } from '@prisma/client'
 import { formatDateForPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
@@ -585,6 +585,119 @@ export async function sendDealToExternalApi(
       durationMs: Date.now() - startTime,
       response: { statusCode: 0, success: false, errorMessage },
     })
+    return { success: false, error: errorMessage, logId }
+  }
+}
+
+/**
+ * Fetch a deal from the external OfertaSimple API by its ID
+ * GET /external/api/deals/{id}
+ */
+export async function getDealById(
+  dealId: number | string,
+  options?: {
+    userId?: string
+    triggeredBy?: 'manual' | 'cron' | 'webhook' | 'system'
+  }
+): Promise<GetDealByIdResult> {
+  const startTime = Date.now()
+  const endpoint = `${EXTERNAL_DEAL_API_URL}/${dealId}`
+
+  if (!EXTERNAL_API_TOKEN) {
+    const error = 'API token not configured'
+    const logId = await logApiCall({
+      endpoint,
+      method: 'GET',
+      requestBody: { dealId },
+      userId: options?.userId,
+      triggeredBy: options?.triggeredBy || 'manual',
+      durationMs: Date.now() - startTime,
+      response: { statusCode: 0, success: false, errorMessage: error },
+    })
+    return { success: false, error, logId }
+  }
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${EXTERNAL_API_TOKEN}`,
+        'User-Agent': 'OfertaSimpleBooking/1.0',
+      },
+      cache: 'no-store',
+    })
+
+    const durationMs = Date.now() - startTime
+    const responseText = await response.text()
+
+    let responseData: unknown
+    let isJson = false
+    try {
+      responseData = JSON.parse(responseText)
+      isJson = true
+    } catch {
+      responseData = { raw: responseText.substring(0, 500) }
+    }
+
+    if (!response.ok) {
+      const errorMessage = response.status === 404
+        ? `Deal ${dealId} not found`
+        : `HTTP ${response.status}: ${(responseData as Record<string, unknown>)?.message || responseText.substring(0, 200)}`
+
+      const logId = await logApiCall({
+        endpoint,
+        method: 'GET',
+        requestBody: { dealId },
+        userId: options?.userId,
+        triggeredBy: options?.triggeredBy || 'manual',
+        durationMs,
+        response: {
+          statusCode: response.status,
+          body: isJson ? (responseData as Record<string, unknown>) : undefined,
+          raw: responseText.substring(0, 4000),
+          success: false,
+          errorMessage,
+        },
+      })
+
+      return { success: false, error: errorMessage, logId }
+    }
+
+    const logId = await logApiCall({
+      endpoint,
+      method: 'GET',
+      requestBody: { dealId },
+      userId: options?.userId,
+      triggeredBy: options?.triggeredBy || 'manual',
+      durationMs,
+      response: {
+        statusCode: response.status,
+        body: isJson ? (responseData as Record<string, unknown>) : undefined,
+        raw: responseText.substring(0, 4000),
+        success: true,
+      },
+    })
+
+    return {
+      success: true,
+      data: responseData as ExternalOfertaDeal,
+      logId,
+    }
+  } catch (error) {
+    const durationMs = Date.now() - startTime
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+    const logId = await logApiCall({
+      endpoint,
+      method: 'GET',
+      requestBody: { dealId },
+      userId: options?.userId,
+      triggeredBy: options?.triggeredBy || 'manual',
+      durationMs,
+      response: { statusCode: 0, success: false, errorMessage },
+    })
+
     return { success: false, error: errorMessage, logId }
   }
 }

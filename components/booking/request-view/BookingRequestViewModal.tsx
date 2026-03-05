@@ -1,296 +1,74 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { getBookingRequest, getFieldComments, addFieldComment, updateFieldComment, deleteFieldComment, cancelBookingRequest, getUsersForFieldCommentMention } from '@/app/actions/booking'
-import { getDealByBookingRequestId, getDealPublicSlug } from '@/app/actions/deals'
-import type { Deal } from '@/types'
-import { 
-  parseFieldComments, 
-  getCommentsForField, 
-  getCommentCountsByField, 
-  type FieldComment,
-  type BookingRequestViewData,
-  type SectionDefinition,
-  type AdditionalInfo,
-} from '@/types'
-import { useUserRole } from '@/hooks/useUserRole'
-import { useModalEscape } from '@/hooks/useModalEscape'
-import { useUser } from '@clerk/nextjs'
-import { FIELD_TEMPLATES } from '@/components/RequestForm/config/field-templates'
-import { FieldWithComments } from './FieldWithComments'
 import toast from 'react-hot-toast'
-
-import Image from 'next/image'
-import ConfirmDialog from '@/components/common/ConfirmDialog'
-import { adminApproveBookingRequest } from '@/app/actions/booking-requests'
-import { formatShortDate, formatRequestNameDate, parseDateInPanamaTime } from '@/lib/date'
-import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
-import type { BookingFormData } from '@/components/RequestForm/types'
-
-// Icons — always visible in main body
-import CloseIcon from '@mui/icons-material/Close'
+import { useUser } from '@clerk/nextjs'
 import DescriptionIcon from '@mui/icons-material/Description'
-import CommentIcon from '@mui/icons-material/Comment'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import SearchIcon from '@mui/icons-material/Search'
-import ClearIcon from '@mui/icons-material/Clear'
-import ZoomInIcon from '@mui/icons-material/ZoomIn'
-import AddCommentIcon from '@mui/icons-material/AddComment'
-import ReplyIcon from '@mui/icons-material/Reply'
-import AttachFileIcon from '@mui/icons-material/AttachFile'
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
-import FileDownloadIcon from '@mui/icons-material/FileDownload'
+import {
+  addFieldComment,
+  cancelBookingRequest,
+  deleteFieldComment,
+  getBookingRequest,
+  getFieldComments,
+  getUsersForFieldCommentMention,
+  updateFieldComment,
+} from '@/app/actions/booking'
+import { adminApproveBookingRequest } from '@/app/actions/booking-requests'
+import { getDealByBookingRequestId, getDealPublicSlug } from '@/app/actions/deals'
+import ConfirmDialog from '@/components/common/ConfirmDialog'
+import { useModalEscape } from '@/hooks/useModalEscape'
+import { useUserRole } from '@/hooks/useUserRole'
+import type { Deal } from '@/types'
+import {
+  getCommentCountsByField,
+  getCommentsForField,
+  parseFieldComments,
+  type AdditionalInfo,
+  type BookingRequestViewData,
+  type FieldComment,
+  type SectionDefinition,
+} from '@/types'
+import { BASE_SECTIONS, SECTION_TITLES } from './bookingRequestView.config'
+import { BookingAttachmentsField } from './BookingAttachmentsField'
+import { BookingRequestHeaderActions } from './BookingRequestHeaderActions'
+import { BookingRequestHistoryBar } from './BookingRequestHistoryBar'
+import { BookingRequestSearchBar } from './BookingRequestSearchBar'
+import { BookingRequestSectionCard } from './BookingRequestSectionCard'
+import { CommentsSidebar } from './CommentsSidebar'
+import { DealImagesGalleryField } from './DealImagesGalleryField'
+import { FieldWithComments } from './FieldWithComments'
+import { PricingOptionsField } from './PricingOptionsField'
+import { useBookingRequestCommentNavigation } from './useBookingRequestCommentNavigation'
+import { useRemoteImageDownload } from './useRemoteImageDownload'
+import {
+  buildAdditionalInfoSection,
+  formatBookingRequestFieldValue,
+  getFieldContainerId,
+  getFieldValue,
+  normalizeBookingAttachments,
+  persistBookingRequestReplicatePayload,
+  remapCommentsToDisplayKeys,
+  sanitizeFilenamePart,
+} from './bookingRequestView.utils'
+import type {
+  BookingAttachmentItem,
+  CommentReplyPrefill,
+} from './types'
 
-// Icons — header bar + info bar (conditional but lightweight, always in viewport)
-import EditIcon from '@mui/icons-material/Edit'
-import DeleteIcon from '@mui/icons-material/Delete'
-import HistoryIcon from '@mui/icons-material/History'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import EventIcon from '@mui/icons-material/Event'
-import PlayArrowIcon from '@mui/icons-material/PlayArrow'
-import ContentCopyIcon from '@mui/icons-material/ContentCopy'
-import EditNoteIcon from '@mui/icons-material/EditNote'
-import BlockIcon from '@mui/icons-material/Block'
-import VisibilityIcon from '@mui/icons-material/Visibility'
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'
-import CampaignIcon from '@mui/icons-material/Campaign'
-import ListAltIcon from '@mui/icons-material/ListAlt'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'
-
-// Heavy child modals — lazy-loaded (only rendered on user interaction)
-const MentionInput = dynamic(() => import('@/components/marketing/MentionInput'), { ssr: false })
 const ImageLightbox = dynamic(() => import('@/components/common/ImageLightbox'), { ssr: false })
 const DealFormModal = dynamic(() => import('@/components/crm/deal/DealFormModal'), { ssr: false })
-const MarketingCampaignModal = dynamic(() => import('@/components/marketing/MarketingCampaignModal'), { ssr: false })
-
-// Helper to get field value from requestData using dynamic key access
-function getFieldValue(data: BookingRequestViewData | null, key: string): unknown {
-  if (!data) return undefined
-  return (data as unknown as Record<string, unknown>)[key]
-}
-
-// Field sections configuration (base)
-const BASE_SECTIONS: SectionDefinition[] = [
-  {
-    title: 'Información General',
-    fields: [
-      { key: 'name', label: 'Nombre del Negocio' },
-      { key: 'businessEmail', label: 'Email del Negocio' },
-      { key: 'parentCategory', label: 'Categoría' },
-      { key: 'subCategory1', label: 'Subcategoría 1' },
-      { key: 'subCategory2', label: 'Subcategoría 2' },
-      { key: 'subCategory3', label: 'Subcategoría 3' },
-      { key: 'merchant', label: 'Merchant/Aliado' },
-    ],
-  },
-  {
-    title: 'Detalles de la Campaña',
-    fields: [
-      { key: 'startDate', label: 'Fecha de Inicio (Tentativa)', type: 'date' },
-      { key: 'endDate', label: 'Fecha de Fin (Tentativa)', type: 'date' },
-      { key: 'campaignDuration', label: 'Duración de la Campaña' },
-      { key: 'eventDays', label: 'Días del Evento', type: 'json' },
-    ],
-  },
-  {
-    title: 'Operaciones y Pagos',
-    fields: [
-      { key: 'redemptionMode', label: 'Modalidad de Canje' },
-      { key: 'isRecurring', label: 'Es Recurrente' },
-      { key: 'recurringOfferLink', label: 'Enlace de Oferta Recurrente' },
-      { key: 'paymentType', label: 'Tipo de Pago' },
-      { key: 'paymentInstructions', label: 'Instrucciones de Pago' },
-    ],
-  },
-  {
-    title: 'Directorio de Contactos',
-    fields: [
-      { key: 'redemptionContactName', label: 'Nombre del Contacto de Canje' },
-      { key: 'redemptionContactEmail', label: 'Email del Contacto de Canje' },
-      { key: 'redemptionContactPhone', label: 'Teléfono del Contacto de Canje' },
-    ],
-  },
-  {
-    title: 'Información Fiscal y Bancaria',
-    fields: [
-      { key: 'legalName', label: 'Razón Social' },
-      { key: 'rucDv', label: 'RUC y DV' },
-      { key: 'bankAccountName', label: 'Nombre en Cuenta Bancaria' },
-      { key: 'bank', label: 'Banco' },
-      { key: 'accountNumber', label: 'Número de Cuenta' },
-      { key: 'accountType', label: 'Tipo de Cuenta' },
-      { key: 'additionalBankAccounts', label: 'Cuentas Bancarias Adicionales', type: 'json' },
-    ],
-  },
-  {
-    title: 'Ubicación',
-    fields: [
-      { key: 'addressAndHours', label: 'Dirección y Horario' },
-      { key: 'provinceDistrictCorregimiento', label: 'Provincia, Distrito, Corregimiento' },
-    ],
-  },
-  {
-    title: 'Reglas de Negocio y Restricciones',
-    fields: [
-      { key: 'includesTaxes', label: 'Incluye Impuestos' },
-      { key: 'validOnHolidays', label: 'Válido en Feriados' },
-      { key: 'hasExclusivity', label: 'Tiene Exclusividad' },
-      { key: 'exclusivityCondition', label: 'Condición de Exclusividad' },
-      { key: 'blackoutDates', label: 'Fechas Blackout' },
-      { key: 'hasOtherBranches', label: 'Tiene Otras Sucursales' },
-    ],
-  },
-  {
-    title: 'Descripción y Canales de Venta',
-    fields: [
-      { key: 'redemptionMethods', label: 'Métodos de Canje', type: 'json' },
-      { key: 'contactDetails', label: 'Detalles de Contacto' },
-      { key: 'socialMedia', label: 'Redes Sociales' },
-    ],
-  },
-  {
-    title: 'Contenido (IA)',
-    fields: [
-      { key: 'nameEs', label: 'Título de la oferta' },
-      { key: 'shortTitle', label: 'Título corto' },
-      { key: 'emailTitle', label: 'Título del email' },
-      { key: 'aboutOffer', label: 'Acerca de esta oferta' },
-      { key: 'whatWeLike', label: 'Lo que nos gusta' },
-      { key: 'goodToKnow', label: 'Lo que conviene saber' },
-      { key: 'howToUseEs', label: 'Cómo usar' },
-    ],
-  },
-  {
-    title: 'Opciones de Precio',
-    fields: [
-      { key: 'offerMargin', label: 'Comisión OfertaSimple (%)' },
-      { key: 'pricingOptions', label: 'Opciones de Precio', type: 'pricing' },
-      { key: 'dealImages', label: 'Galería de Imágenes', type: 'gallery' },
-      { key: 'bookingAttachments', label: 'Adjuntos', type: 'attachments' },
-    ],
-  },
-  {
-    title: 'Políticas Generales',
-    fields: [
-      { key: 'cancellationPolicy', label: 'Política de Cancelación' },
-      { key: 'marketValidation', label: 'Validación de Mercado' },
-      { key: 'additionalComments', label: 'Comentarios Adicionales' },
-    ],
-  },
-  {
-    title: 'Estado de la Solicitud',
-    fields: [
-      { key: 'status', label: 'Estado' },
-      { key: 'sourceType', label: 'Tipo de Origen' },
-      { key: 'processedAt', label: 'Procesado En', type: 'date' },
-      { key: 'processedBy', label: 'Procesado Por' },
-      { key: 'rejectionReason', label: 'Razón del Rechazo' },
-    ],
-  },
-]
+const MarketingCampaignModal = dynamic(() => import('@/components/marketing/MarketingCampaignModal'), {
+  ssr: false,
+})
 
 interface BookingRequestViewModalProps {
   isOpen: boolean
   onClose: () => void
   requestId: string | null
-  hideBackdrop?: boolean // Hide backdrop when used alongside another modal
-}
-
-type MentionableUser = {
-  clerkId: string
-  name: string | null
-  email: string | null
-}
-
-type CommentReplyPrefill = {
-  fieldKey: string
-  value: string
-  mentions: MentionableUser[]
-  nonce: number
-}
-
-function getCommentAuthorDisplayName(comment: FieldComment): string {
-  return comment.authorName || comment.authorEmail?.split('@')[0] || 'usuario'
-}
-
-function getFieldContainerId(fieldKey: string): string {
-  return `booking-field-${fieldKey}`
-}
-
-function getInlineCommentId(commentId: string): string {
-  return `booking-field-comment-${commentId}`
-}
-
-type BookingAttachmentItem = {
-  url: string
-  filename: string
-  mimeType: string
-  size: number
-}
-
-function normalizeBookingAttachments(value: unknown): BookingAttachmentItem[] {
-  if (!Array.isArray(value)) return []
-  return value
-    .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item))
-    .map((item) => ({
-      url: String(item.url || '').trim(),
-      filename: String(item.filename || '').trim(),
-      mimeType: String(item.mimeType || '').trim(),
-      size: Number(item.size || 0),
-    }))
-    .filter((item) => item.url.length > 0)
-}
-
-function formatAttachmentSize(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
-  const units = ['B', 'KB', 'MB', 'GB']
-  let size = bytes
-  let unit = 0
-  while (size >= 1024 && unit < units.length - 1) {
-    size /= 1024
-    unit += 1
-  }
-  return `${size.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`
-}
-
-function isImageAttachment(mimeType: string, filename: string): boolean {
-  const extension = filename.split('.').pop()?.toLowerCase() || ''
-  return mimeType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)
-}
-
-function getAttachmentLabel(mimeType: string, filename: string): string {
-  const extension = filename.split('.').pop()?.toUpperCase() || ''
-  if (isImageAttachment(mimeType, filename)) return extension || 'Imagen'
-  if (mimeType === 'application/pdf' || extension === 'PDF') return 'PDF'
-  if (mimeType.includes('word') || extension === 'DOC' || extension === 'DOCX') return extension || 'DOC'
-  return extension || 'Archivo'
-}
-
-function sanitizeFilenamePart(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
-
-function getImageExtension(url: string, mimeType?: string): string {
-  const normalizedMime = (mimeType || '').toLowerCase()
-  if (normalizedMime === 'image/jpeg') return 'jpg'
-  if (normalizedMime === 'image/png') return 'png'
-  if (normalizedMime === 'image/webp') return 'webp'
-  if (normalizedMime === 'image/gif') return 'gif'
-  if (normalizedMime === 'image/svg+xml') return 'svg'
-
-  const cleanedUrl = url.split('?')[0]?.split('#')[0] || ''
-  const extension = cleanedUrl.split('.').pop()?.toLowerCase() || ''
-  if (/^[a-z0-9]{2,5}$/.test(extension)) {
-    return extension === 'jpeg' ? 'jpg' : extension
-  }
-
-  return 'jpg'
+  hideBackdrop?: boolean
 }
 
 export default function BookingRequestViewModal({
@@ -299,24 +77,22 @@ export default function BookingRequestViewModal({
   requestId,
   hideBackdrop = false,
 }: BookingRequestViewModalProps) {
-  // Close modal on Escape key
   useModalEscape(isOpen, onClose)
-  
+
   const router = useRouter()
   const { isAdmin } = useUserRole()
   const { user } = useUser()
   const userId = user?.id
+
   const [loading, setLoading] = useState(true)
   const [requestData, setRequestData] = useState<BookingRequestViewData | null>(null)
   const [comments, setComments] = useState<FieldComment[]>([])
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
-  
-  // Comment UI state
+
   const [activeCommentField, setActiveCommentField] = useState<string | null>(null)
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
   const [editCommentText, setEditCommentText] = useState('')
   const [commentInputPrefill, setCommentInputPrefill] = useState<CommentReplyPrefill | null>(null)
-  const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null)
   const [showSidebar, setShowSidebar] = useState(false)
   const [savingComment, setSavingComment] = useState(false)
   const [cancelling, setCancelling] = useState(false)
@@ -331,14 +107,13 @@ export default function BookingRequestViewModal({
   const [loadingPublicDealLink, setLoadingPublicDealLink] = useState(false)
   const [internalDeal, setInternalDeal] = useState<Deal | null>(null)
   const [dealModalOpen, setDealModalOpen] = useState(false)
-  
-  // Search state
+  const [showEditConfirm, setShowEditConfirm] = useState(false)
+  const [editProcessing, setEditProcessing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-
-  // Lightbox state
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxImages, setLightboxImages] = useState<string[]>([])
   const [lightboxInitialIndex, setLightboxInitialIndex] = useState(0)
+
   const imageDownloadPrefix = useMemo(() => {
     const requestBusinessName = requestData?.name ? String(requestData.name).split('|')[0]?.trim() : ''
     const baseLabel = requestBusinessName || requestId || 'booking-request'
@@ -346,203 +121,118 @@ export default function BookingRequestViewModal({
     return normalized || 'booking-request'
   }, [requestData?.name, requestId])
 
-  const openLightbox = (images: string[], initialIndex: number = 0) => {
-    setLightboxImages(images)
-    setLightboxInitialIndex(initialIndex)
-    setLightboxOpen(true)
-  }
+  const bookingAttachments = useMemo((): BookingAttachmentItem[] => {
+    const info = requestData?.additionalInfo as AdditionalInfo | null
+    if (!info || typeof info !== 'object') return []
+    return normalizeBookingAttachments(info.bookingAttachments)
+  }, [requestData?.additionalInfo])
 
-  const handleDownloadImage = useCallback(async (url: string, fallbackName: string) => {
-    if (!url) return
+  const additionalSection = useMemo(
+    () => buildAdditionalInfoSection((requestData?.additionalInfo as AdditionalInfo | null) || null),
+    [requestData?.additionalInfo]
+  )
 
-    try {
-      const response = await fetch(`/api/download/image?url=${encodeURIComponent(url)}`, {
-        method: 'GET',
-        cache: 'no-store',
-      })
-      if (!response.ok) {
-        throw new Error(`Image download failed with status ${response.status}`)
-      }
+  const displayComments = useMemo(
+    () => remapCommentsToDisplayKeys(comments, additionalSection?.legacyCommentFieldKeyMap || {}),
+    [comments, additionalSection]
+  )
 
-      const blob = await response.blob()
-      const blobUrl = URL.createObjectURL(blob)
-      const extension = getImageExtension(url, blob.type)
-      const safeName = sanitizeFilenamePart(fallbackName) || 'booking-image'
-      const filename = safeName.toLowerCase().endsWith(`.${extension}`)
-        ? safeName
-        : `${safeName}.${extension}`
+  const commentCounts = useMemo(() => getCommentCountsByField(displayComments), [displayComments])
 
-      const link = document.createElement('a')
-      link.href = blobUrl
-      link.download = filename
-      link.style.display = 'none'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(blobUrl)
-    } catch {
-      window.open(url, '_blank', 'noopener,noreferrer')
-      toast.error('No se pudo descargar desde el servidor. Se abrió la imagen en una pestaña nueva.')
-    }
-  }, [])
+  const hasEventDays = useMemo(() => {
+    if (!Array.isArray(requestData?.eventDays)) return false
+    return requestData.eventDays.some((date) => typeof date === 'string' && date.trim().length > 0)
+  }, [requestData?.eventDays])
 
-  const renderCommentText = useCallback((content: string) => {
-    const mentionRegex = /@[\p{L}\p{N}]+(?:\s+[\p{L}\p{N}]+){0,3}/gu
-    const parts: Array<{ text: string; isMention: boolean }> = []
-    let lastIndex = 0
-    let match: RegExpExecArray | null
+  const allSections = useMemo((): SectionDefinition[] => {
+    const baseSections = BASE_SECTIONS.map((section) => {
+      if (section.title !== SECTION_TITLES.CAMPAIGN_DETAILS) return section
 
-    while ((match = mentionRegex.exec(content)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push({ text: content.slice(lastIndex, match.index), isMention: false })
-      }
-      parts.push({ text: match[0], isMention: true })
-      lastIndex = match.index + match[0].length
-    }
-
-    if (lastIndex < content.length) {
-      parts.push({ text: content.slice(lastIndex), isMention: false })
-    }
-
-    return parts.map((part, index) =>
-      part.isMention ? (
-        <span key={index} className="text-blue-600 font-semibold">
-          {part.text}
-        </span>
-      ) : (
-        <span key={index}>{part.text}</span>
+      const baseFields = section.fields.filter(
+        (field) => field.key !== 'campaignDuration' && field.key !== 'eventDays'
       )
+
+      return {
+        ...section,
+        fields: [
+          ...baseFields,
+          hasEventDays
+            ? { key: 'eventDays', label: 'Días del Evento', type: 'json' as const }
+            : { key: 'campaignDuration', label: 'Duración de la Campaña' },
+        ],
+      }
+    })
+
+    if (!additionalSection?.section) return baseSections
+
+    const pricingOptionsIndex = baseSections.findIndex(
+      (section) => section.title === SECTION_TITLES.PRICING_OPTIONS
     )
-  }, [])
 
-  const handleToggleComment = useCallback((fieldKey: string | null) => {
-    setActiveCommentField(fieldKey)
-    setCommentInputPrefill(current => (fieldKey && current?.fieldKey === fieldKey ? current : null))
-  }, [])
+    if (pricingOptionsIndex < 0) {
+      return [...baseSections, additionalSection.section]
+    }
 
-  const renderFieldCommentControls = useCallback((fieldKey: string, label: string) => {
-    const fieldComments = getCommentsForField(comments, fieldKey)
-    const hasComments = fieldComments.length > 0
-    const isAddingComment = activeCommentField === fieldKey
+    return [
+      ...baseSections.slice(0, pricingOptionsIndex + 1),
+      additionalSection.section,
+      ...baseSections.slice(pricingOptionsIndex + 1),
+    ]
+  }, [additionalSection, hasEventDays])
 
-    return (
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{label}</p>
-        <div className="flex items-center gap-1">
-          {hasComments && (
-            <span className="inline-flex items-center justify-center w-5 h-5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold ring-1 ring-blue-200">
-              {fieldComments.length}
-            </span>
-          )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              handleToggleComment(isAddingComment ? null : fieldKey)
-            }}
-            className={`p-1.5 rounded-md transition-colors ${
-              isAddingComment
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'
-            }`}
-            title="Add comment"
-            aria-label={`Add comment to ${label}`}
-          >
-            <AddCommentIcon style={{ fontSize: 16 }} />
-          </button>
-        </div>
-      </div>
-    )
-  }, [comments, activeCommentField, handleToggleComment])
+  const filteredSections = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return allSections
+    }
 
-  const renderInlineComments = useCallback((fieldKey: string) => {
-    const fieldComments = getCommentsForField(comments, fieldKey)
-    const isAddingComment = activeCommentField === fieldKey
-    const fieldPrefill = commentInputPrefill?.fieldKey === fieldKey ? commentInputPrefill : null
+    const query = searchQuery.toLowerCase()
+    return allSections.filter((section) => {
+      if (section.title.toLowerCase().includes(query)) {
+        return true
+      }
 
-    return (
-      <>
-        {fieldComments.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-blue-100/50 space-y-2">
-            {fieldComments.map((comment) => (
-              <div
-                key={comment.id}
-                id={getInlineCommentId(comment.id)}
-                className={`text-xs text-slate-600 bg-white/50 p-2 rounded border transition-colors ${
-                  highlightedCommentId === comment.id
-                    ? 'border-blue-400 ring-2 ring-blue-100'
-                    : 'border-slate-100'
-                }`}
-              >
-                <div className="flex items-start gap-2">
-                <CommentIcon style={{ fontSize: 12 }} className="text-blue-500 mt-0.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <span className="font-semibold text-slate-800">
-                    {comment.authorName || comment.authorEmail?.split('@')[0] || 'User'}:
-                  </span>
-                  <span className="ml-1 whitespace-pre-wrap">{renderCommentText(comment.text)}</span>
-                  <div className="mt-1.5">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleReplyToComment(comment)
-                      }}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-[11px] font-semibold text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
-                    >
-                      <ReplyIcon style={{ fontSize: 12 }} />
-                      Responder
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-          </div>
-        )}
+      return section.fields.some(
+        (field) =>
+          field.label.toLowerCase().includes(query) || field.key.toLowerCase().includes(query)
+      )
+    })
+  }, [allSections, searchQuery])
 
-        {isAddingComment && (
-          <div className="mt-3 pt-3 border-t border-blue-100 relative z-10">
-            {fieldPrefill && (
-              <p className="mb-2 text-[11px] text-slate-500">
-                Respuesta con mención automática.
-              </p>
-            )}
-            <MentionInput
-              key={fieldPrefill ? `${fieldKey}-${fieldPrefill.nonce}` : fieldKey}
-              onSubmit={async (content, mentions) => {
-                await handleAddComment(fieldKey, content, mentions)
-              }}
-              disabled={savingComment}
-              showAttachments={false}
-              getUsersAction={getUsersForFieldCommentMention}
-              initialValue={fieldPrefill?.value}
-              initialMentions={fieldPrefill?.mentions}
-              autoFocus={true}
-            />
-            <div className="flex justify-end gap-2 mt-2">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleToggleComment(null)
-                }}
-                className="px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-      </>
-    )
-  }, [comments, activeCommentField, commentInputPrefill, highlightedCommentId, savingComment, handleToggleComment, renderCommentText])
+  const fieldLabelMap = useMemo(() => {
+    const map = new Map<string, string>()
+    allSections.forEach((section) => {
+      section.fields.forEach((field) => {
+        if (!map.has(field.key)) {
+          map.set(field.key, field.label)
+        }
+      })
+    })
+    return map
+  }, [allSections])
 
-  // Load request data and comments
+  const {
+    highlightedCommentId,
+    setHighlightedCommentId,
+    scrollToCommentLocation,
+    handleReplyToComment,
+  } = useBookingRequestCommentNavigation({
+    allSections,
+    searchQuery,
+    setSearchQuery,
+    setExpandedSections,
+    setActiveCommentField,
+    setCommentInputPrefill,
+  })
+
+  const downloadImage = useRemoteImageDownload()
+
   const loadData = useCallback(async () => {
     if (!requestId) return
-    
+
     setLoading(true)
     setCommentInputPrefill(null)
     setHighlightedCommentId(null)
+
     try {
       const [requestResult, commentsResult] = await Promise.all([
         getBookingRequest(requestId),
@@ -551,23 +241,21 @@ export default function BookingRequestViewModal({
 
       if (requestResult.success && requestResult.data) {
         setRequestData(requestResult.data as BookingRequestViewData)
-        // Also parse comments from request data if server didn't return them
         const requestComments = parseFieldComments(requestResult.data.fieldComments)
         setComments(commentsResult.success && commentsResult.data ? commentsResult.data : requestComments)
       }
 
-      // Expand first few sections by default (base sections)
-      setExpandedSections(new Set(BASE_SECTIONS.slice(0, 3).map(s => s.title)))
+      setExpandedSections(new Set(BASE_SECTIONS.slice(0, 3).map((section) => section.title)))
     } catch {
       toast.error('Error al cargar los datos de la solicitud')
     } finally {
       setLoading(false)
     }
-  }, [requestId])
+  }, [requestId, setHighlightedCommentId])
 
   useEffect(() => {
     if (isOpen && requestId) {
-      loadData()
+      void loadData()
     }
   }, [isOpen, requestId, loadData])
 
@@ -580,9 +268,11 @@ export default function BookingRequestViewModal({
 
     let cancelled = false
     setLoadingDealLink(true)
-    getDealByBookingRequestId(requestData.id)
-      .then(result => {
+
+    void getDealByBookingRequestId(requestData.id)
+      .then((result) => {
         if (cancelled) return
+
         if (result && typeof result === 'object' && 'success' in result && result.success) {
           const dealData = result.data as Deal | null
           setInternalDealId(dealData?.id || null)
@@ -615,9 +305,11 @@ export default function BookingRequestViewModal({
 
     let cancelled = false
     setLoadingPublicDealLink(true)
-    getDealPublicSlug(requestData.id)
-      .then(result => {
+
+    void getDealPublicSlug(requestData.id)
+      .then((result) => {
         if (cancelled) return
+
         if (result && typeof result === 'object' && 'success' in result && result.success) {
           setPublicDealSlug((result.data as string | null) || null)
         } else {
@@ -636,218 +328,28 @@ export default function BookingRequestViewModal({
     }
   }, [requestData?.id])
 
-  // Get comment counts by field (memoized — avoids re-iterating on unrelated renders)
-  const commentCounts = useMemo(() => getCommentCountsByField(comments), [comments])
-
-  const bookingAttachments = useMemo((): BookingAttachmentItem[] => {
-    const info = requestData?.additionalInfo as AdditionalInfo | null
-    if (!info || typeof info !== 'object') return []
-    return normalizeBookingAttachments(info.bookingAttachments)
-  }, [requestData?.additionalInfo])
-
-  // Additional Info (dynamic templates)
-  const additionalInfo = useMemo((): { templateDisplayName: string; fields: { label: string; value: string }[] } | null => {
-    const info = requestData?.additionalInfo as AdditionalInfo | null
-    if (!info || typeof info !== 'object') return null
-    
-    const templateName = info.templateName || info.templateDisplayName || ''
-    const template = templateName ? FIELD_TEMPLATES[templateName] : null
-    
-    // Create a map of field names to labels from the template
-    const fieldLabelMap = new Map<string, string>()
-    if (template) {
-      template.fields.forEach(field => {
-        fieldLabelMap.set(field.name, field.label)
-      })
-    }
-    
-    // Map fields using labels from template if available, otherwise use field name as fallback
-    const fields = Object.entries(info.fields || {}).map(([fieldName, value]) => ({
-      label: fieldLabelMap.get(fieldName) || fieldName,
-      value: String(value),
-    }))
-    
-    return {
-      templateDisplayName: info.templateDisplayName || templateName || '',
-      fields,
-    }
-  }, [requestData])
-
-  // Build dynamic "Información Adicional" section with unique keys for comments
-  const additionalSection = useMemo(() => {
-    if (!additionalInfo || !additionalInfo.fields?.length) return null
-    const slugify = (label: string) =>
-      label
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '_')
-        .replace(/^_+|_+$/g, '') || 'field'
-
-    const fields = additionalInfo.fields.map((f) => ({
-      key: `additional_${slugify(f.label)}`,
-      label: f.label,
-      fromAdditional: true,
-    }))
-
-    const values: Record<string, string> = {}
-    fields.forEach((f, idx) => {
-      values[f.key] = String(additionalInfo.fields[idx].value ?? '')
-    })
-
-    return {
-      section: {
-        title: 'Información Adicional' + (additionalInfo.templateDisplayName ? ` (${additionalInfo.templateDisplayName})` : ''),
-        fields,
-      },
-      values,
-    }
-  }, [additionalInfo])
-
-  const hasEventDays = useMemo(() => {
-    if (!Array.isArray(requestData?.eventDays)) return false
-    return requestData.eventDays.some((date) => typeof date === 'string' && date.trim().length > 0)
-  }, [requestData?.eventDays])
-
-  // Combine base sections with optional additional info section
-  // Insert "Información Adicional" after "Pricing Options" section
-  const allSections = useMemo((): SectionDefinition[] => {
-    const baseSections = BASE_SECTIONS.map((section) => {
-      if (section.title !== 'Detalles de la Campaña') return section
-
-      const baseFields = section.fields.filter(
-        (field) => field.key !== 'campaignDuration' && field.key !== 'eventDays'
-      )
-
-      return {
-        ...section,
-        fields: [
-          ...baseFields,
-          hasEventDays
-            ? { key: 'eventDays', label: 'Días del Evento', type: 'json' as const }
-            : { key: 'campaignDuration', label: 'Duración de la Campaña' },
-        ],
-      }
-    })
-
-    if (additionalSection?.section) {
-      // Find the index of "Pricing Options" section
-      const pricingOptionsIndex = baseSections.findIndex(s => s.title === 'Pricing Options')
-      if (pricingOptionsIndex >= 0) {
-        // Insert after Pricing Options
-        return [
-          ...baseSections.slice(0, pricingOptionsIndex + 1),
-          additionalSection.section,
-          ...baseSections.slice(pricingOptionsIndex + 1),
-        ]
-      }
-      // Fallback: if Pricing Options not found, append at end
-      return [...baseSections, additionalSection.section]
-    }
-    return baseSections
-  }, [additionalSection, hasEventDays])
-
-  const expandSectionForField = useCallback((fieldKey: string) => {
-    const section = allSections.find(s => s.fields.some(f => f.key === fieldKey))
-    if (!section) return
-    setExpandedSections(prev => {
-      if (prev.has(section.title)) return prev
-      const next = new Set(prev)
-      next.add(section.title)
-      return next
-    })
-  }, [allSections])
-
-  const highlightCommentTemporarily = useCallback((commentId: string) => {
-    setHighlightedCommentId(commentId)
-    window.setTimeout(() => {
-      setHighlightedCommentId(current => (current === commentId ? null : current))
-    }, 2200)
-  }, [])
-
-  const scrollToCommentLocation = useCallback((comment: FieldComment) => {
-    expandSectionForField(comment.fieldKey)
-
-    let attempts = 0
-    const maxAttempts = 6
-    let searchReset = false
-
-    const tryScroll = () => {
-      const commentElement = document.getElementById(getInlineCommentId(comment.id))
-      const fieldElement = document.getElementById(getFieldContainerId(comment.fieldKey))
-      const target = commentElement || fieldElement
-
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        highlightCommentTemporarily(comment.id)
-        return
-      }
-
-      if (attempts < maxAttempts) {
-        attempts += 1
-        window.setTimeout(tryScroll, 90)
-      } else if (!searchReset && searchQuery.trim()) {
-        searchReset = true
-        setSearchQuery('')
-        attempts = 0
-        window.setTimeout(tryScroll, 120)
-      }
-    }
-
-    window.setTimeout(tryScroll, 80)
-  }, [expandSectionForField, highlightCommentTemporarily, searchQuery])
-
-  function handleReplyToComment(comment: FieldComment) {
-    const authorDisplayName = getCommentAuthorDisplayName(comment)
-    const mentionTarget: MentionableUser = {
-      clerkId: comment.authorId,
-      name: comment.authorName,
-      email: comment.authorEmail,
-    }
-
-    setCommentInputPrefill({
-      fieldKey: comment.fieldKey,
-      value: `@${authorDisplayName}  `,
-      mentions: [mentionTarget],
-      nonce: Date.now(),
-    })
-    setActiveCommentField(comment.fieldKey)
-    scrollToCommentLocation(comment)
-  }
-
-  function handleSidebarCommentClick(comment: FieldComment) {
-    scrollToCommentLocation(comment)
-  }
-
-  // Filter sections based on search query
-  const filteredSections = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return allSections
-    }
-    
-    const query = searchQuery.toLowerCase()
-    return allSections.filter(section => {
-      // Check if section title matches
-      if (section.title.toLowerCase().includes(query)) {
-        return true
-      }
-      // Check if any field label or key matches
-      return section.fields.some(field => 
-        field.label.toLowerCase().includes(query) || 
-        field.key.toLowerCase().includes(query)
-      )
-    })
-  }, [searchQuery, allSections])
-
-  // Auto-expand all filtered sections when searching
   useEffect(() => {
     if (searchQuery.trim()) {
-      setExpandedSections(new Set(filteredSections.map(s => s.title)))
+      setExpandedSections(new Set(filteredSections.map((section) => section.title)))
     }
-  }, [searchQuery, filteredSections])
+  }, [filteredSections, searchQuery])
 
-  // Toggle section expansion
-  function toggleSection(title: string) {
-    setExpandedSections(prev => {
-      const next = new Set(prev)
+  const openLightbox = (images: string[], initialIndex: number = 0) => {
+    setLightboxImages(images)
+    setLightboxInitialIndex(initialIndex)
+    setLightboxOpen(true)
+  }
+
+  const handleToggleComment = useCallback((fieldKey: string | null) => {
+    setActiveCommentField(fieldKey)
+    setCommentInputPrefill((current) =>
+      fieldKey && current?.fieldKey === fieldKey ? current : null
+    )
+  }, [])
+
+  const toggleSection = (title: string) => {
+    setExpandedSections((current) => {
+      const next = new Set(current)
       if (next.has(title)) {
         next.delete(title)
       } else {
@@ -857,93 +359,14 @@ export default function BookingRequestViewModal({
     })
   }
 
-  // Format field value for display
-  function formatFieldValue(value: unknown, type?: string, fieldKey?: string): string {
-    if (value === null || value === undefined || value === '') {
-      return '-'
-    }
-    if (fieldKey === 'campaignDuration') {
-      const duration = String(value).trim()
-      const durationNumber = Number.parseInt(duration, 10)
-      const unit = requestData?.campaignDurationUnit === 'days' ? 'days' : 'months'
-      const label =
-        unit === 'days'
-          ? durationNumber === 1 ? 'día' : 'días'
-          : durationNumber === 1 ? 'mes' : 'meses'
-      return `${duration} ${label}`
-    }
-    if (type === 'date' && (value instanceof Date || typeof value === 'string')) {
-      const date = value instanceof Date ? value : new Date(value)
-      return date.toLocaleDateString('es-ES', {
-        timeZone: PANAMA_TIMEZONE,
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })
-    }
-    if (fieldKey === 'eventDays' && Array.isArray(value)) {
-      return value
-        .filter((date): date is string => typeof date === 'string' && date.trim().length > 0)
-        .map((date) => {
-          const trimmedDate = date.trim()
-          const parsedDate = parseDateInPanamaTime(trimmedDate)
-          return isNaN(parsedDate.getTime()) ? trimmedDate : formatRequestNameDate(parsedDate)
-        })
-        .join('\n')
-    }
-    if (fieldKey === 'additionalBankAccounts' && Array.isArray(value)) {
-      const lines = value
-        .filter((account): account is Record<string, unknown> => !!account && typeof account === 'object' && !Array.isArray(account))
-        .map((account, index) => {
-          const bankAccountName = String(account.bankAccountName || '').trim()
-          const bank = String(account.bank || '').trim()
-          const accountNumber = String(account.accountNumber || '').trim()
-          const accountType = String(account.accountType || '').trim()
-          const details = [
-            bankAccountName ? `Titular: ${bankAccountName}` : null,
-            bank ? `Banco: ${bank}` : null,
-            accountNumber ? `Cuenta: ${accountNumber}` : null,
-            accountType ? `Tipo: ${accountType}` : null,
-          ].filter(Boolean)
-
-          if (details.length === 0) return null
-          return `Cuenta ${index + 1}: ${details.join(' | ')}`
-        })
-        .filter((line): line is string => !!line)
-
-      return lines.length > 0 ? lines.join('\n') : '-'
-    }
-    if (type === 'json' && Array.isArray(value)) {
-      return value
-        .map((item) => (typeof item === 'string' ? item : JSON.stringify(item)))
-        .join(', ')
-    }
-    if (type === 'pricing' && Array.isArray(value)) {
-      return value.map((opt: { title?: string; price?: number }) => 
-        `${opt.title || 'Option'}: $${opt.price || 0}`
-      ).join(' | ')
-    }
-    if (typeof value === 'object') {
-      return JSON.stringify(value)
-    }
-    const str = String(value)
-    if (type === 'description') {
-      // Strip any legacy additional info blocks from description
-      const withoutAdditional = str.split('=== INFORMACIÓN ADICIONAL')[0]?.trim()
-      return withoutAdditional || str
-    }
-    return str
-  }
-
-  // Add comment handler
   async function handleAddComment(fieldKey: string, text: string, mentions: string[]) {
     if (!requestId || !fieldKey || !text.trim()) return
-    
+
     setSavingComment(true)
     try {
       const result = await addFieldComment(requestId, fieldKey, text, mentions)
       if (result.success && result.data) {
-        setComments(prev => [...prev, result.data!])
+        setComments((current) => [...current, result.data as FieldComment])
         setActiveCommentField(null)
         setCommentInputPrefill(null)
         toast.success('Comentario agregado')
@@ -955,15 +378,16 @@ export default function BookingRequestViewModal({
     }
   }
 
-  // Edit comment handler
   async function handleEditComment(commentId: string) {
     if (!requestId || !editCommentText.trim()) return
-    
+
     setSavingComment(true)
     try {
       const result = await updateFieldComment(requestId, commentId, editCommentText)
       if (result.success && result.data) {
-        setComments(prev => prev.map(c => c.id === commentId ? result.data! : c))
+        setComments((current) =>
+          current.map((comment) => (comment.id === commentId ? (result.data as FieldComment) : comment))
+        )
         setEditingCommentId(null)
         setEditCommentText('')
         toast.success('Comentario actualizado')
@@ -975,17 +399,15 @@ export default function BookingRequestViewModal({
     }
   }
 
-  // Delete comment handler
   async function handleDeleteComment(commentId: string) {
     if (!requestId) return
-    
     if (!confirm('¿Estás seguro de que deseas eliminar este comentario?')) return
-    
+
     setSavingComment(true)
     try {
       const result = await deleteFieldComment(requestId, commentId)
       if (result.success) {
-        setComments(prev => prev.filter(c => c.id !== commentId))
+        setComments((current) => current.filter((comment) => comment.id !== commentId))
         toast.success('Comentario eliminado')
       } else {
         toast.error(result.error || 'Error al eliminar comentario')
@@ -995,28 +417,11 @@ export default function BookingRequestViewModal({
     }
   }
 
-  // Start editing a comment
-  function startEditComment(comment: FieldComment) {
-    setEditingCommentId(comment.id)
-    setEditCommentText(comment.text)
-  }
-
-
-  // Continue editing draft request
-  function handleContinueEditing() {
-    if (!requestId) return
-    onClose()
-    router.push(`/booking-requests/new?editId=${requestId}`)
-  }
-
-  // Edit request: drafts edit in place, others cancel + replicate
-  const [showEditConfirm, setShowEditConfirm] = useState(false)
-  const [editProcessing, setEditProcessing] = useState(false)
-
   function handleEditClick() {
     if (!requestId || !requestData) return
     if (requestData.status === 'draft') {
-      handleContinueEditing()
+      onClose()
+      router.push(`/booking-requests/new?editId=${requestId}`)
       return
     }
     setShowEditConfirm(true)
@@ -1026,7 +431,6 @@ export default function BookingRequestViewModal({
     if (!requestId || !requestData) return
 
     setEditProcessing(true)
-
     const result = await cancelBookingRequest(requestId)
 
     if (!result.success) {
@@ -1035,136 +439,42 @@ export default function BookingRequestViewModal({
       return
     }
 
-    // Replicate into a new draft using the same sessionStorage approach
     try {
-      const businessName = requestData.name ? String(requestData.name).split(' | ')[0].trim() : ''
-
-      const payload: Partial<BookingFormData> & { linkedBusinessId?: string } = {
-        businessName: businessName || '',
-        partnerEmail: requestData.businessEmail ? String(requestData.businessEmail) : '',
-        additionalEmails: Array.isArray(requestData.additionalEmails) ? (requestData.additionalEmails as string[]) : [],
-        category: requestData.category ? String(requestData.category) : '',
-        parentCategory: requestData.parentCategory ? String(requestData.parentCategory) : '',
-        subCategory1: requestData.subCategory1 ? String(requestData.subCategory1) : '',
-        subCategory2: requestData.subCategory2 ? String(requestData.subCategory2) : '',
-        subCategory3: requestData.subCategory3 ? String(requestData.subCategory3) : '',
-        campaignDuration: requestData.campaignDuration ? String(requestData.campaignDuration) : '',
-        campaignDurationUnit: (requestData.campaignDurationUnit as 'days' | 'months') || 'months',
-        eventDays: Array.isArray(requestData.eventDays)
-          ? requestData.eventDays
-              .filter((date): date is string => typeof date === 'string')
-              .map((date) => date.trim())
-              .filter((date) => date.length > 0)
-          : [],
-        linkedBusinessId: requestData.linkedBusiness?.id || undefined,
-        redemptionMode: requestData.redemptionMode ? String(requestData.redemptionMode) : undefined,
-        isRecurring: requestData.isRecurring ? String(requestData.isRecurring) : undefined,
-        recurringOfferLink: requestData.recurringOfferLink ? String(requestData.recurringOfferLink) : undefined,
-        paymentType: requestData.paymentType ? String(requestData.paymentType) : undefined,
-        paymentInstructions: requestData.paymentInstructions ? String(requestData.paymentInstructions) : undefined,
-        redemptionContactName: requestData.redemptionContactName ? String(requestData.redemptionContactName) : undefined,
-        redemptionContactEmail: requestData.redemptionContactEmail ? String(requestData.redemptionContactEmail) : undefined,
-        redemptionContactPhone: requestData.redemptionContactPhone ? String(requestData.redemptionContactPhone) : undefined,
-        legalName: requestData.legalName ? String(requestData.legalName) : undefined,
-        rucDv: requestData.rucDv ? String(requestData.rucDv) : undefined,
-        bankAccountName: requestData.bankAccountName ? String(requestData.bankAccountName) : undefined,
-        bank: requestData.bank ? String(requestData.bank) : undefined,
-        accountNumber: requestData.accountNumber ? String(requestData.accountNumber) : undefined,
-        accountType: requestData.accountType ? String(requestData.accountType) : undefined,
-        additionalBankAccounts: Array.isArray(requestData.additionalBankAccounts)
-          ? requestData.additionalBankAccounts
-              .map((account) => ({
-                bankAccountName: String(account.bankAccountName || ''),
-                bank: String(account.bank || ''),
-                accountNumber: String(account.accountNumber || ''),
-                accountType: String(account.accountType || ''),
-              }))
-          : undefined,
-        addressAndHours: requestData.addressAndHours ? String(requestData.addressAndHours) : undefined,
-        provinceDistrictCorregimiento: requestData.provinceDistrictCorregimiento ? String(requestData.provinceDistrictCorregimiento) : undefined,
-        includesTaxes: requestData.includesTaxes ? String(requestData.includesTaxes) : undefined,
-        validOnHolidays: requestData.validOnHolidays ? String(requestData.validOnHolidays) : undefined,
-        hasExclusivity: requestData.hasExclusivity ? String(requestData.hasExclusivity) : undefined,
-        blackoutDates: requestData.blackoutDates ? String(requestData.blackoutDates) : undefined,
-        exclusivityCondition: requestData.exclusivityCondition ? String(requestData.exclusivityCondition) : undefined,
-        hasOtherBranches: requestData.hasOtherBranches ? String(requestData.hasOtherBranches) : undefined,
-        redemptionMethods: Array.isArray(requestData.redemptionMethods) ? requestData.redemptionMethods : undefined,
-        contactDetails: requestData.contactDetails ? String(requestData.contactDetails) : undefined,
-        socialMedia: requestData.socialMedia ? String(requestData.socialMedia) : undefined,
-        nameEs: requestData.nameEs ? String(requestData.nameEs) : undefined,
-        shortTitle: requestData.shortTitle ? String(requestData.shortTitle) : undefined,
-        emailTitle: requestData.emailTitle ? String(requestData.emailTitle) : undefined,
-        whatWeLike: requestData.whatWeLike ? String(requestData.whatWeLike) : undefined,
-        aboutCompany: requestData.aboutCompany ? String(requestData.aboutCompany) : undefined,
-        aboutOffer: requestData.aboutOffer ? String(requestData.aboutOffer) : undefined,
-        goodToKnow: requestData.goodToKnow ? String(requestData.goodToKnow) : undefined,
-        howToUseEs: requestData.howToUseEs ? String(requestData.howToUseEs) : undefined,
-        offerMargin: requestData.offerMargin ? String(requestData.offerMargin) : undefined,
-        pricingOptions: Array.isArray(requestData.pricingOptions) 
-          ? requestData.pricingOptions.map(opt => ({
-              title: opt.title,
-              description: opt.description ?? '',
-              price: String(opt.price ?? ''),
-              realValue: String(opt.realValue ?? ''),
-              quantity: String(opt.quantity ?? ''),
-            }))
-          : undefined,
-        dealImages: Array.isArray(requestData.dealImages) ? requestData.dealImages : undefined,
-        cancellationPolicy: requestData.cancellationPolicy ? String(requestData.cancellationPolicy) : undefined,
-        marketValidation: requestData.marketValidation ? String(requestData.marketValidation) : undefined,
-        additionalComments: requestData.additionalComments ? String(requestData.additionalComments) : undefined,
-      }
-
-      const additionalInfo = requestData.additionalInfo && typeof requestData.additionalInfo === 'object'
-        ? requestData.additionalInfo
-        : null
-
-      const replicateKey = `${Date.now()}_${Math.random().toString(16).slice(2)}`
-      sessionStorage.setItem(`replicate:${replicateKey}`, JSON.stringify(payload))
-      if (additionalInfo) {
-        sessionStorage.setItem(`replicate:${replicateKey}:additionalInfo`, JSON.stringify(additionalInfo))
-      }
-
+      const replicateKey = persistBookingRequestReplicatePayload(requestData)
       setShowEditConfirm(false)
       onClose()
       router.push(`/booking-requests/new?replicateKey=${encodeURIComponent(replicateKey)}`)
-    } catch (e) {
-      console.error('Failed to create editable copy', e)
+    } catch (error) {
+      console.error('Failed to create editable copy', error)
       toast.error('La solicitud fue cancelada pero no se pudo crear la copia. Usa el botón Replicar.')
     } finally {
       setEditProcessing(false)
     }
   }
 
-  // Cancel request - show confirmation dialog
   function handleCancelClick() {
     if (!requestId || !requestData) return
 
-    // Check permissions: only creator or admin can cancel
     const isCreator = requestData.userId === userId
     if (!isCreator && !isAdmin) {
       toast.error('No tienes permiso para cancelar esta solicitud')
       return
     }
 
-    // Check if request can be cancelled (only draft or pending)
     if (requestData.status !== 'draft' && requestData.status !== 'pending') {
       toast.error('Solo se pueden cancelar solicitudes en estado borrador o pendiente')
       return
     }
 
-    // Show confirmation dialog
     setShowCancelConfirm(true)
   }
 
-  // Execute cancel after confirmation
   async function handleCancelConfirm() {
     if (!requestId) return
 
     setCancelling(true)
-    
     const result = await cancelBookingRequest(requestId)
-    
+
     if (result.success) {
       toast.success('Solicitud cancelada exitosamente')
       setShowCancelConfirm(false)
@@ -1172,30 +482,26 @@ export default function BookingRequestViewModal({
     } else {
       toast.error(result.error || 'Error al cancelar la solicitud')
     }
-    
+
     setCancelling(false)
   }
 
-  // Admin approve request
   async function handleAdminApprove() {
     if (!requestId || !requestData) return
 
-    // Check permissions: only admin can approve
     if (!isAdmin) {
       toast.error('Solo los administradores pueden aprobar solicitudes')
       return
     }
 
-    // Check if request can be approved (only pending)
     if (requestData.status !== 'pending') {
       toast.error('Solo se pueden aprobar solicitudes en estado pendiente')
       return
     }
 
     setApproving(true)
-    
     const result = await adminApproveBookingRequest(requestId)
-    
+
     if (result.success) {
       toast.success('Solicitud aprobada exitosamente. Se enviaron notificaciones por correo.')
       setShowApproveConfirm(false)
@@ -1203,124 +509,22 @@ export default function BookingRequestViewModal({
     } else {
       toast.error(result.error || 'Error al aprobar la solicitud')
     }
-    
+
     setApproving(false)
   }
 
-  // Replicate request - navigate to form with pre-filled data
   function handleReplicate() {
     if (!requestData) return
 
-    // INP optimization: avoid building huge query strings in the click handler.
-    // Store replicate payload in sessionStorage and pass a small key in the URL.
     setReplicating(true)
 
-    // Let the UI update (paint) before doing heavier work.
-    setTimeout(() => {
+    window.setTimeout(() => {
       try {
-        const businessName = requestData.name ? String(requestData.name).split(' | ')[0].trim() : ''
-
-        const payload: Partial<BookingFormData> & { linkedBusinessId?: string } = {
-          businessName: businessName || '',
-          partnerEmail: requestData.businessEmail ? String(requestData.businessEmail) : '',
-          additionalEmails: Array.isArray(requestData.additionalEmails) ? (requestData.additionalEmails as string[]) : [],
-          category: requestData.category ? String(requestData.category) : '',
-          parentCategory: requestData.parentCategory ? String(requestData.parentCategory) : '',
-          subCategory1: requestData.subCategory1 ? String(requestData.subCategory1) : '',
-          subCategory2: requestData.subCategory2 ? String(requestData.subCategory2) : '',
-          subCategory3: requestData.subCategory3 ? String(requestData.subCategory3) : '',
-          campaignDuration: requestData.campaignDuration ? String(requestData.campaignDuration) : '',
-          campaignDurationUnit: (requestData.campaignDurationUnit as 'days' | 'months') || 'months',
-          eventDays: Array.isArray(requestData.eventDays)
-            ? requestData.eventDays
-                .filter((date): date is string => typeof date === 'string')
-                .map((date) => date.trim())
-                .filter((date) => date.length > 0)
-            : [],
-          // Pass businessId for backfill tracking (standardized approach)
-          linkedBusinessId: requestData.linkedBusiness?.id || undefined,
-
-          redemptionMode: requestData.redemptionMode ? String(requestData.redemptionMode) : undefined,
-          isRecurring: requestData.isRecurring ? String(requestData.isRecurring) : undefined,
-          recurringOfferLink: requestData.recurringOfferLink ? String(requestData.recurringOfferLink) : undefined,
-          paymentType: requestData.paymentType ? String(requestData.paymentType) : undefined,
-          paymentInstructions: requestData.paymentInstructions ? String(requestData.paymentInstructions) : undefined,
-
-          redemptionContactName: requestData.redemptionContactName ? String(requestData.redemptionContactName) : undefined,
-          redemptionContactEmail: requestData.redemptionContactEmail ? String(requestData.redemptionContactEmail) : undefined,
-          redemptionContactPhone: requestData.redemptionContactPhone ? String(requestData.redemptionContactPhone) : undefined,
-
-          legalName: requestData.legalName ? String(requestData.legalName) : undefined,
-          rucDv: requestData.rucDv ? String(requestData.rucDv) : undefined,
-          bankAccountName: requestData.bankAccountName ? String(requestData.bankAccountName) : undefined,
-          bank: requestData.bank ? String(requestData.bank) : undefined,
-          accountNumber: requestData.accountNumber ? String(requestData.accountNumber) : undefined,
-          accountType: requestData.accountType ? String(requestData.accountType) : undefined,
-          additionalBankAccounts: Array.isArray(requestData.additionalBankAccounts)
-            ? requestData.additionalBankAccounts
-                .map((account) => ({
-                  bankAccountName: String(account.bankAccountName || ''),
-                  bank: String(account.bank || ''),
-                  accountNumber: String(account.accountNumber || ''),
-                  accountType: String(account.accountType || ''),
-                }))
-            : undefined,
-          addressAndHours: requestData.addressAndHours ? String(requestData.addressAndHours) : undefined,
-          provinceDistrictCorregimiento: requestData.provinceDistrictCorregimiento ? String(requestData.provinceDistrictCorregimiento) : undefined,
-
-          includesTaxes: requestData.includesTaxes ? String(requestData.includesTaxes) : undefined,
-          validOnHolidays: requestData.validOnHolidays ? String(requestData.validOnHolidays) : undefined,
-          hasExclusivity: requestData.hasExclusivity ? String(requestData.hasExclusivity) : undefined,
-          blackoutDates: requestData.blackoutDates ? String(requestData.blackoutDates) : undefined,
-          exclusivityCondition: requestData.exclusivityCondition ? String(requestData.exclusivityCondition) : undefined,
-          hasOtherBranches: requestData.hasOtherBranches ? String(requestData.hasOtherBranches) : undefined,
-
-          redemptionMethods: Array.isArray(requestData.redemptionMethods) ? requestData.redemptionMethods : undefined,
-          contactDetails: requestData.contactDetails ? String(requestData.contactDetails) : undefined,
-          socialMedia: requestData.socialMedia ? String(requestData.socialMedia) : undefined,
-
-          nameEs: requestData.nameEs ? String(requestData.nameEs) : undefined,
-          shortTitle: requestData.shortTitle ? String(requestData.shortTitle) : undefined,
-          emailTitle: requestData.emailTitle ? String(requestData.emailTitle) : undefined,
-          whatWeLike: requestData.whatWeLike ? String(requestData.whatWeLike) : undefined,
-          aboutCompany: requestData.aboutCompany ? String(requestData.aboutCompany) : undefined,
-          aboutOffer: requestData.aboutOffer ? String(requestData.aboutOffer) : undefined,
-          goodToKnow: requestData.goodToKnow ? String(requestData.goodToKnow) : undefined,
-          howToUseEs: requestData.howToUseEs ? String(requestData.howToUseEs) : undefined,
-
-          offerMargin: requestData.offerMargin ? String(requestData.offerMargin) : undefined,
-          pricingOptions: Array.isArray(requestData.pricingOptions) 
-            ? requestData.pricingOptions.map(opt => ({
-                title: opt.title,
-                description: opt.description ?? '',
-                price: String(opt.price ?? ''),
-                realValue: String(opt.realValue ?? ''),
-                quantity: String(opt.quantity ?? ''),
-              }))
-            : undefined,
-          dealImages: Array.isArray(requestData.dealImages) ? requestData.dealImages : undefined,
-
-          cancellationPolicy: requestData.cancellationPolicy ? String(requestData.cancellationPolicy) : undefined,
-          marketValidation: requestData.marketValidation ? String(requestData.marketValidation) : undefined,
-          additionalComments: requestData.additionalComments ? String(requestData.additionalComments) : undefined,
-        }
-
-        // Keep additionalInfo in query string? It's often large; keep in sessionStorage too via payload? (we don't have a field for it in BookingFormData)
-        // We store it separately and let EnhancedBookingForm legacy parser handle if needed later.
-        const additionalInfo = requestData.additionalInfo && typeof requestData.additionalInfo === 'object'
-          ? requestData.additionalInfo
-          : null
-
-        const replicateKey = `${Date.now()}_${Math.random().toString(16).slice(2)}`
-        sessionStorage.setItem(`replicate:${replicateKey}`, JSON.stringify(payload))
-        if (additionalInfo) {
-          sessionStorage.setItem(`replicate:${replicateKey}:additionalInfo`, JSON.stringify(additionalInfo))
-        }
-
+        const replicateKey = persistBookingRequestReplicatePayload(requestData)
         onClose()
         router.push(`/booking-requests/new?replicateKey=${encodeURIComponent(replicateKey)}`)
-      } catch (e) {
-        console.error('Failed to replicate request', e)
+      } catch (error) {
+        console.error('Failed to replicate request', error)
         toast.error('No se pudo replicar la solicitud')
       } finally {
         setReplicating(false)
@@ -1328,28 +532,42 @@ export default function BookingRequestViewModal({
     }, 0)
   }
 
+  const handleOpenInternalDeal = async () => {
+    if (internalDeal) {
+      setDealModalOpen(true)
+      return
+    }
+
+    if (!requestData?.id) return
+
+    setLoadingDealLink(true)
+    try {
+      const result = await getDealByBookingRequestId(requestData.id)
+      if (result && typeof result === 'object' && 'success' in result && result.success) {
+        const dealData = result.data as Deal | null
+        setInternalDealId(dealData?.id || null)
+        setInternalDeal(dealData || null)
+        if (dealData) setDealModalOpen(true)
+      }
+    } finally {
+      setLoadingDealLink(false)
+    }
+  }
+
   if (!isOpen) return null
 
   return (
     <>
-      {/* Backdrop - hidden when used alongside another modal */}
       {!hideBackdrop && (
-        <div
-          className="fixed inset-0 bg-gray-900/30 z-40 transition-opacity"
-          onClick={onClose}
-        />
+        <div className="fixed inset-0 bg-gray-900/30 z-40 transition-opacity" onClick={onClose} />
       )}
 
-      {/* Modal Container */}
-      {/* Mobile: full screen, Desktop: centered with padding */}
-      {/* z-[80] to appear above ModalShell (z-[70]) when opened from EventModal */}
       <div className="fixed inset-0 z-[80] flex items-center justify-center md:p-3 pointer-events-none">
-        {/* Modal Panel */}
-        {/* Mobile: full height, no rounded. Desktop: 85vh max, rounded */}
-        <div className={`w-full max-w-5xl bg-white shadow-2xl md:rounded-xl flex flex-col h-full md:h-[85vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${
-          isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-        }`}>
-          {/* Header */}
+        <div
+          className={`w-full max-w-5xl bg-white shadow-2xl md:rounded-xl flex flex-col h-full md:h-[85vh] pointer-events-auto transform transition-all duration-300 overflow-hidden ${
+            isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+          }`}
+        >
           <div className="bg-white border-b border-gray-200 px-4 py-2.5 flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-2">
               <div className="p-1.5 bg-blue-100 rounded-lg border border-blue-200">
@@ -1361,266 +579,65 @@ export default function BookingRequestViewModal({
                 </h2>
               </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              {publicDealSlug && (
-                <button
-                  onClick={() => window.open(`https://ofertasimple.com/ofertas/panama/${publicDealSlug}`, '_blank', 'noopener,noreferrer')}
-                  disabled={loading || loadingPublicDealLink}
-                  className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 border border-transparent hover:border-indigo-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Ver Deal Externo"
-                >
-                  <VisibilityIcon style={{ fontSize: 20 }} />
-                </button>
-              )}
-              {internalDealId && (
-                <button
-                  onClick={async () => {
-                    if (internalDeal) {
-                      setDealModalOpen(true)
-                      return
-                    }
-                    if (!requestData?.id) return
-                    setLoadingDealLink(true)
-                    try {
-                      const result = await getDealByBookingRequestId(requestData.id)
-                      if (result && typeof result === 'object' && 'success' in result && result.success) {
-                        const dealData = result.data as Deal | null
-                        setInternalDealId(dealData?.id || null)
-                        setInternalDeal(dealData || null)
-                        if (dealData) setDealModalOpen(true)
-                      }
-                    } finally {
-                      setLoadingDealLink(false)
-                    }
-                  }}
-                  disabled={loading || loadingDealLink}
-                  className="p-2 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 border border-transparent hover:border-emerald-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Ver Deal Interno"
-                >
-                  <ListAltIcon style={{ fontSize: 20 }} />
-                </button>
-              )}
-              {/* Admin Approve Button - Only for pending status, admin only */}
-              {requestData?.status === 'pending' && isAdmin && (
-                <button
-                  onClick={() => setShowApproveConfirm(true)}
-                  disabled={loading || approving}
-                  className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 border border-transparent hover:border-green-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Aprobar solicitud"
-                >
-                  <CheckCircleOutlineIcon style={{ fontSize: 20 }} />
-                </button>
-              )}
-              {/* Edit Button - Only for draft or pending */}
-              {(requestData?.status === 'draft' || requestData?.status === 'pending') && (
-                <button
-                  onClick={handleEditClick}
-                  disabled={loading || editProcessing}
-                  className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 border border-transparent hover:border-blue-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={requestData?.status === 'draft' ? 'Editar borrador' : 'Editar solicitud'}
-                >
-                  <EditNoteIcon style={{ fontSize: 20 }} />
-                </button>
-              )}
-              {/* Cancel Button - Only for draft/pending, creator or admin */}
-              {(requestData?.status === 'draft' || requestData?.status === 'pending') && 
-               (requestData?.userId === userId || isAdmin) && (
-                <button
-                  onClick={handleCancelClick}
-                  disabled={loading || cancelling}
-                  className="p-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 border border-transparent hover:border-orange-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={cancelling ? 'Cancelando...' : 'Cancelar solicitud'}
-                >
-                  <BlockIcon style={{ fontSize: 20 }} />
-                </button>
-              )}
-              {/* Divider */}
-              <div className="w-px h-6 bg-slate-200 mx-1" />
-              {/* Replicate Button */}
-              <button
-                onClick={handleReplicate}
-                disabled={loading || !requestData || replicating}
-                className="p-2 text-slate-500 hover:text-green-600 hover:bg-green-50 border border-transparent hover:border-green-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Replicar"
-              >
-                <ContentCopyIcon style={{ fontSize: 20 }} />
-              </button>
-              {/* View Deal Draft Button */}
-              {!publicDealSlug && (
-                <button
-                  onClick={() => {
-                    if (requestId) {
-                      window.open(`/deals/draft/${requestId}`, '_blank')
-                    }
-                  }}
-                  disabled={loading || !requestData}
-                  className="p-2 text-slate-500 hover:text-purple-600 hover:bg-purple-50 border border-transparent hover:border-purple-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Ver Deal Draft"
-                >
-                  <VisibilityIcon style={{ fontSize: 20 }} />
-                </button>
-              )}
-              {/* Marketing Campaign Button - Only for booked requests */}
-              {requestData?.status === 'booked' && requestData.marketingCampaignId && (
-                <button
-                  onClick={() => setShowMarketingModal(true)}
-                  disabled={loading}
-                  className="p-2 text-slate-500 hover:text-orange-600 hover:bg-orange-50 border border-transparent hover:border-orange-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Ver Campaña de Marketing"
-                >
-                  <CampaignIcon style={{ fontSize: 20 }} />
-                </button>
-              )}
-              {/* Comments Toggle */}
-              <button
-                onClick={() => setShowSidebar(!showSidebar)}
-                className={`p-2 rounded-lg transition-all ${
-                  showSidebar 
-                    ? 'bg-blue-50 text-blue-600 border border-blue-100' 
-                    : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-200'
-                }`}
-                title={showSidebar ? 'Ocultar comentarios' : 'Ver comentarios'}
-              >
-                <CommentIcon style={{ fontSize: 20 }} />
-                {comments.length > 0 && (
-                  <span className="ml-1 text-xs font-bold">{comments.length}</span>
-                )}
-              </button>
-              {/* Close Button */}
-              <button
-                onClick={onClose}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
-                title="Cerrar"
-              >
-                <CloseIcon style={{ fontSize: 20 }} />
-              </button>
-            </div>
+
+            <BookingRequestHeaderActions
+              requestData={requestData}
+              userId={userId}
+              isAdmin={isAdmin}
+              loading={loading}
+              approving={approving}
+              editProcessing={editProcessing}
+              cancelling={cancelling}
+              replicating={replicating}
+              loadingDealLink={loadingDealLink}
+              loadingPublicDealLink={loadingPublicDealLink}
+              publicDealSlug={publicDealSlug}
+              internalDealId={internalDealId}
+              internalDeal={internalDeal}
+              showSidebar={showSidebar}
+              commentCount={displayComments.length}
+              onOpenPublicDeal={() => {
+                if (!publicDealSlug) return
+                window.open(
+                  `https://ofertasimple.com/ofertas/panama/${publicDealSlug}`,
+                  '_blank',
+                  'noopener,noreferrer'
+                )
+              }}
+              onOpenInternalDeal={handleOpenInternalDeal}
+              onApprove={() => setShowApproveConfirm(true)}
+              onEdit={handleEditClick}
+              onCancel={handleCancelClick}
+              onReplicate={handleReplicate}
+              onOpenDraftDeal={() => {
+                if (requestId) {
+                  window.open(`/deals/draft/${requestId}`, '_blank')
+                }
+              }}
+              onOpenMarketing={() => setShowMarketingModal(true)}
+              onToggleSidebar={() => setShowSidebar((current) => !current)}
+              onClose={onClose}
+            />
           </div>
 
-          {/* Request History Reference */}
-          {!loading && requestData && (() => {
-            const status = requestData.status || 'draft'
-            const processedAt = requestData.processedAt ? new Date(requestData.processedAt) : null
-            const campaignStartDateSource = requestData.eventDates?.startDate ?? requestData.startDate
-            const campaignEndDateSource = requestData.eventDates?.endDate ?? requestData.endDate
-            const startDate = campaignStartDateSource ? new Date(campaignStartDateSource) : null
-            const endDate = campaignEndDateSource ? new Date(campaignEndDateSource) : null
-            const createdAt = requestData.createdAt ? new Date(requestData.createdAt) : null
-            const processedByUser = requestData.processedByUser
-            const createdByUser = requestData.createdByUser
-            const processedByName = processedByUser?.name || processedByUser?.email || requestData.processedBy || ''
-            const createdByName = createdByUser?.name || createdByUser?.email || requestData.userId || ''
+          {!loading && requestData && <BookingRequestHistoryBar requestData={requestData} />}
 
-            return (
-              <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/50">
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-xs">
-                  {/* Status badge */}
-                  <div className="flex items-center">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md font-semibold border ${
-                      status === 'approved' ? 'bg-green-50 text-green-700 border-green-200' :
-                      status === 'booked' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                      status === 'rejected' ? 'bg-red-50 text-red-700 border-red-200' :
-                      status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                      'bg-slate-100 text-slate-700 border-slate-200'
-                    }`}>
-                      {status.charAt(0).toUpperCase() + status.slice(1)}
-                    </span>
-                  </div>
+          <BookingRequestSearchBar
+            value={searchQuery}
+            onChange={setSearchQuery}
+            filteredCount={filteredSections.length}
+            totalCount={allSections.length}
+          />
 
-                  {/* Approved/Booked info */}
-                  {(status === 'approved' || status === 'booked') && processedAt && (
-                    <div className="flex items-center gap-2 text-slate-600">
-                      {status === 'booked' ? (
-                        <EventIcon style={{ fontSize: 16 }} className="text-blue-500" />
-                      ) : (
-                        <CheckCircleIcon style={{ fontSize: 16 }} className="text-green-500" />
-                      )}
-                      <span>
-                        <span className="font-semibold text-slate-700">{status === 'booked' ? 'Reservado:' : 'Aprobado:'}</span>{' '}
-                        {processedAt.toLocaleDateString('es-ES', { 
-                          timeZone: PANAMA_TIMEZONE, month: 'short', day: 'numeric', year: 'numeric' 
-                        })}
-                        {processedByName && (
-                          <span className="text-slate-500"> por {processedByName}</span>
-                        )}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Campaign dates */}
-                  {(startDate || endDate) && (
-                    <div className="flex items-center gap-2 text-slate-600">
-                      <PlayArrowIcon style={{ fontSize: 16 }} className="text-indigo-500" />
-                      <span>
-                        <span className="font-semibold text-slate-700">Campaña:</span>{' '}
-                        {startDate && startDate.toLocaleDateString('es-ES', { 
-                          timeZone: PANAMA_TIMEZONE, month: 'short', day: 'numeric' 
-                        })}
-                        {startDate && endDate && ' → '}
-                        {endDate && endDate.toLocaleDateString('es-ES', { 
-                          timeZone: PANAMA_TIMEZONE, month: 'short', day: 'numeric', year: 'numeric' 
-                        })}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Created info */}
-                  {createdAt && (
-                    <div className="flex items-center gap-2 text-slate-500 ml-auto">
-                      <HistoryIcon style={{ fontSize: 16 }} />
-                      <span>
-                        Creado {createdAt.toLocaleDateString('es-ES', { 
-                          timeZone: PANAMA_TIMEZONE, month: 'short', day: 'numeric', year: 'numeric' 
-                        })}
-                        {createdByName && (
-                          <span> por {createdByName}</span>
-                        )}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          })()}
-
-          {/* Search Bar */}
-          <div className="px-6 py-4 border-b border-slate-200 bg-white">
-            <div className="relative">
-              <SearchIcon 
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" 
-                style={{ fontSize: 20 }} 
-              />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar campos (ej: categoría, banco, contacto...)"
-                className="w-full pl-10 pr-10 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm bg-white"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors"
-                >
-                  <ClearIcon style={{ fontSize: 16 }} />
-                </button>
-              )}
-            </div>
-            {searchQuery && (
-              <p className="text-xs text-slate-500 mt-2 font-medium ml-1">
-                Mostrando {filteredSections.length} de {allSections.length} secciones
-              </p>
-            )}
-          </div>
-
-          {/* Content */}
           <div className="flex-1 overflow-hidden flex bg-slate-50">
-            {/* Main Content */}
             <div className={`flex-1 overflow-y-auto p-6 md:p-8 ${showSidebar ? 'pr-6' : ''}`}>
               {loading ? (
                 <div className="space-y-6">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="bg-white rounded-xl border border-slate-200 p-6 animate-pulse shadow-sm">
+                  {[1, 2, 3].map((item) => (
+                    <div
+                      key={item}
+                      className="bg-white rounded-xl border border-slate-200 p-6 animate-pulse shadow-sm"
+                    >
                       <div className="h-5 bg-slate-200 rounded w-1/4 mb-6"></div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-3">
@@ -1641,8 +658,11 @@ export default function BookingRequestViewModal({
                     <SearchIcon className="text-slate-400" style={{ fontSize: 32 }} />
                   </div>
                   <h3 className="text-lg font-medium text-slate-900 mb-1">No se encontraron coincidencias</h3>
-                  <p className="text-slate-500 text-sm mb-4">Ningún campo coincide con &quot;{searchQuery}&quot;</p>
+                  <p className="text-slate-500 text-sm mb-4">
+                    Ningún campo coincide con &quot;{searchQuery}&quot;
+                  </p>
                   <button
+                    type="button"
                     onClick={() => setSearchQuery('')}
                     className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
                   >
@@ -1651,500 +671,203 @@ export default function BookingRequestViewModal({
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {filteredSections.map(section => {
-
+                  {filteredSections.map((section) => {
                     const isExpanded = expandedSections.has(section.title)
-                    const sectionHasComments = section.fields.some(f => commentCounts[f.key] > 0)
-                    
+                    const sectionCommentCount = section.fields.reduce(
+                      (total, field) => total + (commentCounts[field.key] || 0),
+                      0
+                    )
+
                     return (
-                      <div key={section.title} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200">
-                        {/* Section Header */}
-                        <button
-                          onClick={() => toggleSection(section.title)}
-                          className="w-full px-6 py-4 bg-white border-b border-slate-100 flex items-center justify-between hover:bg-slate-50/80 transition-colors group"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-bold text-slate-800 uppercase tracking-wide group-hover:text-blue-700 transition-colors">{section.title}</span>
-                            {sectionHasComments && (
-                              <span className="inline-flex items-center px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs font-semibold ring-1 ring-blue-100">
-                                <CommentIcon style={{ fontSize: 12 }} className="mr-1" />
-                                {section.fields.reduce((acc, f) => acc + (commentCounts[f.key] || 0), 0)}
-                              </span>
-                            )}
-                          </div>
-                          <div className={`text-slate-400 group-hover:text-blue-600 transition-colors transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
-                            <ExpandMoreIcon fontSize="small" />
-                          </div>
-                        </button>
-
-                        {/* Section Content */}
-                        {isExpanded && (
-                          <div className="p-6 bg-white">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                              {section.fields.map(field => {
-                                const rawValue = field.key === 'bookingAttachments'
-                                  ? bookingAttachments
-                                  :
-                                  (additionalSection?.values && additionalSection.values[field.key]) ??
+                      <BookingRequestSectionCard
+                        key={section.title}
+                        title={section.title}
+                        isExpanded={isExpanded}
+                        commentCount={sectionCommentCount}
+                        onToggle={() => toggleSection(section.title)}
+                      >
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                          {section.fields.map((field) => {
+                            const rawValue =
+                              field.key === 'bookingAttachments'
+                                ? bookingAttachments
+                                : (additionalSection?.values && additionalSection.values[field.key]) ??
                                   getFieldValue(requestData, field.key)
-                                const isFieldMatch = searchQuery && (
-                                  field.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                  field.key.toLowerCase().includes(searchQuery.toLowerCase())
-                                )
 
-                                // Special rendering for pricing options with images
-                                if (field.type === 'pricing' && Array.isArray(rawValue) && rawValue.length > 0) {
-                                  const pricingImages = (rawValue as Array<{ imageUrl?: string }>)
-                                    .filter(opt => opt.imageUrl)
-                                    .map(opt => opt.imageUrl!)
-                                  
-                                  return (
-                                    <div key={field.key} id={getFieldContainerId(field.key)} className="md:col-span-2">
-                                      {renderFieldCommentControls(field.key, field.label)}
-                                      <div className="rounded-xl border border-slate-200 bg-white divide-y divide-slate-200">
-                                        {(rawValue as Array<{ title?: string; description?: string; price?: string; realValue?: string; quantity?: string; imageUrl?: string; limitByUser?: string; maxGiftsPerUser?: string; endAt?: string; expiresIn?: string }>).map((opt, idx) => (
-                                          <div key={idx} className="p-4 md:p-5">
-                                            <div className="flex flex-col sm:flex-row gap-4">
-                                              {opt.imageUrl && (
-                                                <div className="relative w-full sm:w-40 h-32 rounded-lg overflow-hidden shrink-0 border border-slate-200 shadow-sm">
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => openLightbox(pricingImages, pricingImages.indexOf(opt.imageUrl!))}
-                                                    className="absolute inset-0 cursor-zoom-in group"
-                                                  >
-                                                    <Image
-                                                      src={opt.imageUrl}
-                                                      alt={opt.title || `Opción ${idx + 1}`}
-                                                      fill
-                                                      className="object-cover"
-                                                      sizes="(max-width: 640px) 100vw, 160px"
-                                                    />
-                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                                                      <ZoomInIcon className="text-white opacity-0 group-hover:opacity-100 drop-shadow-lg" style={{ fontSize: 28 }} />
-                                                    </div>
-                                                  </button>
-                                                  <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                      e.stopPropagation()
-                                                      handleDownloadImage(opt.imageUrl!, `${imageDownloadPrefix}-pricing-${idx + 1}`)
-                                                    }}
-                                                    className="absolute top-2 right-2 z-10 p-1.5 rounded-md bg-black/55 text-white hover:bg-black/70 transition-colors"
-                                                    title="Descargar imagen"
-                                                    aria-label={`Descargar imagen de ${opt.title || `opción ${idx + 1}`}`}
-                                                  >
-                                                    <FileDownloadIcon style={{ fontSize: 16 }} />
-                                                  </button>
-                                                </div>
-                                              )}
-                                              <div className="min-w-0 flex-1">
-                                                <p className="font-semibold text-slate-800 text-sm mb-1 break-words">{opt.title || `Opción ${idx + 1}`}</p>
-                                            {opt.description && (
-                                                  <p className="text-xs text-slate-500 mb-2 whitespace-pre-wrap break-words">{opt.description}</p>
-                                            )}
-                                                <div className="flex items-center gap-3">
-                                                  <span className="text-lg font-bold text-blue-600">${opt.price || '0'}</span>
-                                                  {opt.realValue && parseFloat(opt.realValue) > 0 && (
-                                                    <span className="text-sm text-slate-400 line-through">${opt.realValue}</span>
-                                                  )}
-                                                </div>
-                                                {/* Quantity and limits */}
-                                                <div className="mt-2 space-y-1">
-                                                  {opt.quantity && opt.quantity !== 'Ilimitado' && (
-                                                    <p className="text-xs text-slate-500 break-words">Cantidad: {opt.quantity}</p>
-                                                  )}
-                                                  {opt.limitByUser && (
-                                                    <p className="text-xs text-slate-500 break-words">Max Usuario: {opt.limitByUser}</p>
-                                                  )}
-                                                  {opt.maxGiftsPerUser && (
-                                                    <p className="text-xs text-slate-500 break-words">Max Regalo: {opt.maxGiftsPerUser}</p>
-                                                  )}
-                                                  {opt.endAt && (
-                                                    <p className="text-xs text-slate-500">Fecha fin: {new Date(opt.endAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                                                  )}
-                                                  {opt.expiresIn && (
-                                                    <p className="text-xs text-slate-500 break-words">Vence en: {opt.expiresIn} días</p>
-                                                  )}
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                      {renderInlineComments(field.key)}
-                                    </div>
-                                  )
-                                }
+                            const isFieldMatch =
+                              !!searchQuery &&
+                              (field.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                field.key.toLowerCase().includes(searchQuery.toLowerCase()))
 
-                                // Special rendering for gallery images
-                                if (field.type === 'gallery' && Array.isArray(rawValue) && rawValue.length > 0) {
-                                  const sortedImages = (rawValue as Array<{ url: string; order: number }>)
-                                    .sort((a, b) => a.order - b.order)
-                                  const galleryUrls = sortedImages.map(img => img.url)
-                                  
-                                  return (
-                                    <div key={field.key} id={getFieldContainerId(field.key)} className="md:col-span-2">
-                                      {renderFieldCommentControls(field.key, field.label)}
-                                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                                        {sortedImages.map((img, idx) => (
-                                          <div
-                                            key={img.url}
-                                            className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition-shadow group"
-                                          >
-                                            <button
-                                              type="button"
-                                              onClick={() => openLightbox(galleryUrls, idx)}
-                                              className="absolute inset-0 cursor-zoom-in"
-                                            >
-                                              <Image
-                                                src={img.url}
-                                                alt={`Imagen ${idx + 1}`}
-                                                fill
-                                                className="object-cover"
-                                                sizes="(max-width: 640px) 50vw, 20vw"
-                                              />
-                                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                                                <ZoomInIcon className="text-white opacity-0 group-hover:opacity-100 drop-shadow-lg" style={{ fontSize: 24 }} />
-                                              </div>
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                handleDownloadImage(img.url, `${imageDownloadPrefix}-gallery-${idx + 1}`)
-                                              }}
-                                              className="absolute top-1.5 right-1.5 z-10 p-1 rounded-md bg-black/55 text-white hover:bg-black/70 transition-colors"
-                                              title="Descargar imagen"
-                                              aria-label={`Descargar imagen ${idx + 1}`}
-                                            >
-                                              <FileDownloadIcon style={{ fontSize: 14 }} />
-                                            </button>
-                                            <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-black/60 text-white text-[10px] font-medium rounded">
-                                              {idx + 1}
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                      {renderInlineComments(field.key)}
-                                    </div>
-                                  )
-                                }
+                            const fieldComments = getCommentsForField(displayComments, field.key)
+                            const fieldPrefill =
+                              commentInputPrefill?.fieldKey === field.key ? commentInputPrefill : null
 
-                                // Special rendering for booking attachments (images + docs)
-                                if (field.type === 'attachments' && Array.isArray(rawValue) && rawValue.length > 0) {
-                                  const attachments = rawValue as BookingAttachmentItem[]
-                                  const imageUrls = attachments
-                                    .filter((attachment) => isImageAttachment(attachment.mimeType, attachment.filename))
-                                    .map((attachment) => attachment.url)
+                            if (
+                              (field.type === 'gallery' ||
+                                field.type === 'pricing' ||
+                                field.type === 'attachments') &&
+                              (!rawValue || (Array.isArray(rawValue) && rawValue.length === 0))
+                            ) {
+                              return null
+                            }
 
-                                  return (
-                                    <div key={field.key} id={getFieldContainerId(field.key)} className="md:col-span-2">
-                                      {renderFieldCommentControls(field.key, field.label)}
-                                      <div className="space-y-2.5">
-                                        {attachments.map((attachment, idx) => {
-                                          const isImage = isImageAttachment(attachment.mimeType, attachment.filename)
-                                          const imageIndex = imageUrls.indexOf(attachment.url)
-                                          return (
-                                            <div
-                                              key={`${attachment.url}-${idx}`}
-                                              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5"
-                                            >
-                                              <div className="flex items-center gap-3">
-                                                {isImage ? (
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                      if (imageIndex >= 0) openLightbox(imageUrls, imageIndex)
-                                                    }}
-                                                    className="relative h-11 w-11 rounded-md overflow-hidden border border-slate-200 cursor-zoom-in group shrink-0"
-                                                  >
-                                                    <Image
-                                                      src={attachment.url}
-                                                      alt={attachment.filename || `Adjunto ${idx + 1}`}
-                                                      fill
-                                                      className="object-cover"
-                                                      sizes="44px"
-                                                      unoptimized
-                                                    />
-                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                                                      <ZoomInIcon className="text-white opacity-0 group-hover:opacity-100" style={{ fontSize: 16 }} />
-                                                    </div>
-                                                  </button>
-                                                ) : (
-                                                  <a
-                                                    href={attachment.url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="h-11 w-11 rounded-md border border-slate-200 bg-white flex items-center justify-center shrink-0 hover:bg-slate-50 transition-colors"
-                                                    title="Abrir archivo"
-                                                  >
-                                                    {attachment.mimeType === 'application/pdf' ? (
-                                                      <PictureAsPdfIcon className="text-red-500" />
-                                                    ) : attachment.mimeType.includes('word') ? (
-                                                      <DescriptionIcon className="text-blue-500" />
-                                                    ) : (
-                                                      <AttachFileIcon className="text-slate-500" />
-                                                    )}
-                                                  </a>
-                                                )}
-
-                                                <div className="min-w-0 flex-1">
-                                                  <a
-                                                    href={attachment.url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="block truncate text-sm font-medium text-slate-900 hover:text-blue-600"
-                                                    title={attachment.filename}
-                                                  >
-                                                    {attachment.filename || `Adjunto ${idx + 1}`}
-                                                  </a>
-                                                  <p className="text-xs text-slate-500">
-                                                    {getAttachmentLabel(attachment.mimeType, attachment.filename)} · {formatAttachmentSize(attachment.size)}
-                                                  </p>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          )
-                                        })}
-                                      </div>
-                                      {renderInlineComments(field.key)}
-                                    </div>
-                                  )
-                                }
-
-                                // Skip empty gallery/pricing/attachments fields
-                                if (
-                                  (field.type === 'gallery' || field.type === 'pricing' || field.type === 'attachments') &&
-                                  (!rawValue || (Array.isArray(rawValue) && rawValue.length === 0))
-                                ) {
-                                  return null
-                                }
-
-                                return (
-                                  <FieldWithComments
-                                    key={field.key}
+                            if (field.type === 'pricing' && Array.isArray(rawValue) && rawValue.length > 0) {
+                              return (
+                                <div key={field.key} className="md:col-span-2">
+                                  <PricingOptionsField
                                     fieldKey={field.key}
-                                    containerId={getFieldContainerId(field.key)}
                                     label={field.label}
-                                    value={formatFieldValue(rawValue, field.type, field.key)}
-                                    comments={getCommentsForField(comments, field.key)}
-                                    isHighlighted={!!isFieldMatch}
+                                    options={
+                                      rawValue as Array<{
+                                        title?: string
+                                        description?: string
+                                        price?: string | number
+                                        realValue?: string | number
+                                        quantity?: string | number
+                                        imageUrl?: string
+                                        limitByUser?: string | number
+                                        maxGiftsPerUser?: string | number
+                                        endAt?: string
+                                        expiresIn?: string | number
+                                      }>
+                                    }
+                                    comments={fieldComments}
+                                    containerId={getFieldContainerId(field.key)}
                                     highlightedCommentId={highlightedCommentId}
                                     activeCommentField={activeCommentField}
                                     savingComment={savingComment}
-                                    commentInputPrefill={commentInputPrefill?.fieldKey === field.key ? commentInputPrefill : null}
+                                    commentInputPrefill={fieldPrefill}
                                     onToggleComment={handleToggleComment}
                                     onAddComment={(text, mentions) => handleAddComment(field.key, text, mentions)}
                                     onReplyToComment={handleReplyToComment}
                                     getUsersAction={getUsersForFieldCommentMention}
+                                    openLightbox={openLightbox}
+                                    onDownloadImage={downloadImage}
+                                    imageDownloadPrefix={imageDownloadPrefix}
                                   />
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                                </div>
+                              )
+                            }
+
+                            if (field.type === 'gallery' && Array.isArray(rawValue) && rawValue.length > 0) {
+                              return (
+                                <div key={field.key} className="md:col-span-2">
+                                  <DealImagesGalleryField
+                                    fieldKey={field.key}
+                                    label={field.label}
+                                    images={rawValue as Array<{ url: string; order: number }>}
+                                    comments={fieldComments}
+                                    containerId={getFieldContainerId(field.key)}
+                                    highlightedCommentId={highlightedCommentId}
+                                    activeCommentField={activeCommentField}
+                                    savingComment={savingComment}
+                                    commentInputPrefill={fieldPrefill}
+                                    onToggleComment={handleToggleComment}
+                                    onAddComment={(text, mentions) => handleAddComment(field.key, text, mentions)}
+                                    onReplyToComment={handleReplyToComment}
+                                    getUsersAction={getUsersForFieldCommentMention}
+                                    openLightbox={openLightbox}
+                                    onDownloadImage={downloadImage}
+                                    imageDownloadPrefix={imageDownloadPrefix}
+                                  />
+                                </div>
+                              )
+                            }
+
+                            if (
+                              field.type === 'attachments' &&
+                              Array.isArray(rawValue) &&
+                              rawValue.length > 0
+                            ) {
+                              return (
+                                <div key={field.key} className="md:col-span-2">
+                                  <BookingAttachmentsField
+                                    fieldKey={field.key}
+                                    label={field.label}
+                                    attachments={rawValue as BookingAttachmentItem[]}
+                                    comments={fieldComments}
+                                    containerId={getFieldContainerId(field.key)}
+                                    highlightedCommentId={highlightedCommentId}
+                                    activeCommentField={activeCommentField}
+                                    savingComment={savingComment}
+                                    commentInputPrefill={fieldPrefill}
+                                    onToggleComment={handleToggleComment}
+                                    onAddComment={(text, mentions) => handleAddComment(field.key, text, mentions)}
+                                    onReplyToComment={handleReplyToComment}
+                                    getUsersAction={getUsersForFieldCommentMention}
+                                    openLightbox={openLightbox}
+                                  />
+                                </div>
+                              )
+                            }
+
+                            return (
+                              <FieldWithComments
+                                key={field.key}
+                                fieldKey={field.key}
+                                containerId={getFieldContainerId(field.key)}
+                                label={field.label}
+                                value={formatBookingRequestFieldValue(
+                                  rawValue,
+                                  field.type,
+                                  field.key,
+                                  requestData?.campaignDurationUnit || null
+                                )}
+                                comments={fieldComments}
+                                isHighlighted={isFieldMatch}
+                                highlightedCommentId={highlightedCommentId}
+                                activeCommentField={activeCommentField}
+                                savingComment={savingComment}
+                                commentInputPrefill={fieldPrefill}
+                                onToggleComment={handleToggleComment}
+                                onAddComment={(text, mentions) => handleAddComment(field.key, text, mentions)}
+                                onReplyToComment={handleReplyToComment}
+                                getUsersAction={getUsersForFieldCommentMention}
+                              />
+                            )
+                          })}
+                        </div>
+                      </BookingRequestSectionCard>
                     )
                   })}
                 </div>
               )}
             </div>
 
-            {/* Comments Sidebar */}
             {showSidebar && (
-              <div className="w-80 border-l border-slate-200 bg-white flex flex-col flex-shrink-0 shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)] z-10">
-                <div className="px-5 py-4 border-b border-slate-200 bg-slate-50/50">
-                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">
-                    Comentarios ({comments.length})
-                  </h3>
-                </div>
-                <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50/30">
-                  {comments.length === 0 ? (
-                    <div className="text-center py-10 px-4">
-                      <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <CommentIcon className="text-slate-300" />
-                      </div>
-                      <p className="text-sm font-medium text-slate-900">Aún no hay comentarios</p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Haz clic en el icono de comentario junto a cualquier campo para iniciar una discusión.
-                      </p>
-                    </div>
-                  ) : (
-                    (() => {
-                      const mentioned = comments.filter(c => (c.mentions || []).includes(userId || ''))
-                      const others = comments.filter(c => !(c.mentions || []).includes(userId || ''))
-                      const renderComment = (comment: FieldComment) => {
-                        const isEditing = editingCommentId === comment.id
-                        const canEdit = comment.authorId === userId || isAdmin
-                        const canDelete = isAdmin
-                        const fieldLabel = allSections
-                          .flatMap(s => s.fields as Array<{ key: string; label: string }>)
-                          .find(f => f.key === comment.fieldKey)?.label || comment.fieldKey
-
-                        return (
-                          <div
-                            key={comment.id}
-                            className="group bg-white rounded-xl p-4 border border-slate-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                            onClick={() => handleSidebarCommentClick(comment)}
-                          >
-                            {/* Comment header */}
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                              <div>
-                                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wide mb-1">{fieldLabel}</p>
-                                <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                                  <span className="font-semibold text-slate-900">{comment.authorName || comment.authorEmail?.split('@')[0] || 'Desconocido'}</span>
-                                  <span className="w-0.5 h-0.5 bg-slate-300 rounded-full"></span>
-                                  <span>{formatShortDate(comment.createdAt)}</span>
-                                  {comment.updatedAt && (
-                                    <>
-                                      <span className="w-0.5 h-0.5 bg-slate-300 rounded-full"></span>
-                                      <span className="text-amber-600 font-medium text-[10px] bg-amber-50 px-1 rounded">edited</span>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                              {!isEditing && (canEdit || canDelete) && (
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  {canEdit && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        startEditComment(comment)
-                                      }}
-                                      className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                                      title="Editar comentario"
-                                    >
-                                      <EditIcon style={{ fontSize: 14 }} />
-                                    </button>
-                                  )}
-                                  {canDelete && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        handleDeleteComment(comment.id)
-                                      }}
-                                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                                      title="Eliminar comentario"
-                                    >
-                                      <DeleteIcon style={{ fontSize: 14 }} />
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Comment content */}
-                            {isEditing ? (
-                              <div className="mt-2">
-                                <textarea
-                                  value={editCommentText}
-                                  onChange={e => setEditCommentText(e.target.value)}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
-                                  rows={3}
-                                  autoFocus
-                                />
-                                <div className="flex justify-end gap-2 mt-2">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      setEditingCommentId(null)
-                                      setEditCommentText('')
-                                    }}
-                                    className="px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
-                                  >
-                                    Cancelar
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleEditComment(comment.id)
-                                    }}
-                                    disabled={!editCommentText.trim() || savingComment}
-                                    className="px-2.5 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
-                                  >
-                                    {savingComment ? 'Guardando...' : 'Guardar'}
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="mt-2 text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
-                                {renderCommentText(comment.text)}
-                              </div>
-                            )}
-
-                            {!isEditing && (
-                              <div className="mt-3 pt-2 border-t border-slate-100">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleSidebarCommentClick(comment)
-                                  }}
-                                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-slate-100 text-[11px] font-semibold text-slate-700 hover:bg-slate-200 transition-colors"
-                                >
-                                  <ArrowBackIcon style={{ fontSize: 13 }} />
-                                  <span>Ir al comentario</span>
-                                </button>
-                              </div>
-                            )}
-
-                            {/* Edit history */}
-                            {comment.editHistory.length > 0 && !isEditing && (
-                              <details className="mt-3 pt-2 border-t border-slate-100">
-                                <summary className="text-[10px] font-medium text-slate-400 cursor-pointer hover:text-slate-600 flex items-center gap-1 select-none">
-                                  <HistoryIcon style={{ fontSize: 12 }} />
-                                  Ver historial de ediciones ({comment.editHistory.length})
-                                </summary>
-                                <div className="mt-2 pl-3 border-l-2 border-slate-200 space-y-2">
-                                  {comment.editHistory.map((edit, i) => (
-                                    <div key={i} className="text-xs text-slate-500">
-                                      <p className="text-[10px] font-medium text-slate-400 mb-0.5">
-                                        {new Date(edit.editedAt).toLocaleString()}
-                                      </p>
-                                      <p className="text-slate-600 line-through bg-slate-50 px-1 py-0.5 rounded inline-block">{edit.text}</p>
-                                    </div>
-                                  ))}
-                                </div>
-                              </details>
-                            )}
-                          </div>
-                        )
-                      }
-
-                      return (
-                        <>
-                          {mentioned.length > 0 && (
-                            <div className="space-y-4">
-                              {mentioned.map(renderComment)}
-                            </div>
-                          )}
-                          {mentioned.length > 0 && others.length > 0 && (
-                            <div className="border-t border-slate-200 my-4"></div>
-                          )}
-                          {others.length > 0 && (
-                            <div className="space-y-4">
-                              {others.map(renderComment)}
-                            </div>
-                          )}
-                        </>
-                      )
-                    })()
-                  )}
-                </div>
-              </div>
+                <CommentsSidebar
+                  comments={displayComments}
+                  userId={userId}
+                  isAdmin={isAdmin}
+                  editingCommentId={editingCommentId}
+                  editCommentText={editCommentText}
+                  savingComment={savingComment}
+                  fieldLabelMap={fieldLabelMap}
+                  onCommentClick={scrollToCommentLocation}
+                  onStartEdit={(comment) => {
+                    setEditingCommentId(comment.id)
+                    setEditCommentText(comment.text)
+                  }}
+                  onDeleteComment={handleDeleteComment}
+                  onEditCommentTextChange={setEditCommentText}
+                  onCancelEdit={() => {
+                    setEditingCommentId(null)
+                    setEditCommentText('')
+                  }}
+                  onSaveEdit={handleEditComment}
+                />
             )}
           </div>
         </div>
       </div>
 
-      {/* Image Lightbox */}
       <ImageLightbox
         images={lightboxImages}
         initialIndex={lightboxInitialIndex}
         isOpen={lightboxOpen}
         onClose={() => setLightboxOpen(false)}
-        onDownloadImage={(url, idx) => handleDownloadImage(url, `${imageDownloadPrefix}-image-${idx + 1}`)}
+        onDownloadImage={(url, index) => downloadImage(url, `${imageDownloadPrefix}-image-${index + 1}`)}
       />
 
       {dealModalOpen && internalDeal && (
@@ -2168,15 +891,12 @@ export default function BookingRequestViewModal({
         />
       )}
 
-      {/* Admin Approval Confirmation Modal */}
       <ConfirmDialog
         isOpen={showApproveConfirm}
         title="¿Aprobar esta solicitud?"
         message={
           <div className="space-y-3">
-            <p className="text-gray-600">
-              Estás a punto de aprobar la solicitud:
-            </p>
+            <p className="text-gray-600">Estás a punto de aprobar la solicitud:</p>
             <p className="text-gray-900 font-semibold px-4 py-2 bg-gray-50 rounded-lg">
               {requestData?.name}
             </p>
@@ -2201,15 +921,12 @@ export default function BookingRequestViewModal({
         zIndex={90}
       />
 
-      {/* Cancel Request Confirmation Modal */}
       <ConfirmDialog
         isOpen={showCancelConfirm}
         title="¿Cancelar esta solicitud?"
         message={
           <div className="space-y-3">
-            <p className="text-gray-600">
-              Estás a punto de cancelar la solicitud:
-            </p>
+            <p className="text-gray-600">Estás a punto de cancelar la solicitud:</p>
             <p className="text-gray-900 font-semibold px-4 py-2 bg-gray-50 rounded-lg">
               {requestData?.name}
             </p>
@@ -2231,14 +948,14 @@ export default function BookingRequestViewModal({
         zIndex={90}
       />
 
-      {/* Edit Request Confirmation Modal (cancel + replicate) */}
       <ConfirmDialog
         isOpen={showEditConfirm}
         title="Editar solicitud"
         message={
           <div className="space-y-3">
             <p className="text-gray-600">
-              Para editar esta solicitud se cancelará la actual y se creará una nueva con los mismos datos.
+              Para editar esta solicitud se cancelará la actual y se creará una nueva con los
+              mismos datos.
             </p>
             <p className="text-gray-900 font-semibold px-4 py-2 bg-gray-50 rounded-lg">
               {requestData?.name}
@@ -2263,15 +980,12 @@ export default function BookingRequestViewModal({
         zIndex={90}
       />
 
-      {/* Marketing Campaign Modal */}
       {requestData?.marketingCampaignId && (
         <MarketingCampaignModal
           isOpen={showMarketingModal}
           onClose={() => setShowMarketingModal(false)}
           campaignId={requestData.marketingCampaignId}
-          onSuccess={() => {
-            // Optionally refresh data
-          }}
+          onSuccess={() => undefined}
         />
       )}
     </>

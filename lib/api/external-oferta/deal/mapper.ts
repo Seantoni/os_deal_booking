@@ -5,7 +5,7 @@
  */
 
 import type { BookingFormData } from '@/components/RequestForm/types'
-import type { ExternalOfertaDealRequest, ExternalOfertaPriceOption } from './types'
+import type { ExternalOfertaDealRequest, ExternalOfertaDeal, ExternalOfertaPriceOption } from './types'
 
 /**
  * Convert "Sí"/"No" string to boolean
@@ -280,5 +280,236 @@ export function validateDealRequest(request: ExternalOfertaDealRequest): {
   return {
     valid: errors.length === 0,
     errors,
+  }
+}
+
+// ============================================================
+// Reverse Mapper: ExternalOfertaDeal → Partial<BookingFormData>
+// ============================================================
+
+/**
+ * Convert seconds back to days string
+ */
+function secondsToDays(seconds: number | null | undefined): string {
+  if (seconds === null || seconds === undefined) return ''
+  const days = Math.round(seconds / (24 * 60 * 60))
+  return days > 0 ? String(days) : ''
+}
+
+/**
+ * Convert boolean to "Sí"/"No" string
+ */
+function booleanToString(value: boolean | null | undefined): string {
+  if (value === null || value === undefined) return ''
+  return value ? 'Sí' : 'No'
+}
+
+/**
+ * Convert quantity number to string, null → "Ilimitado"
+ */
+function quantityToString(value: number | null | undefined): string {
+  if (value === null || value === undefined) return 'Ilimitado'
+  return String(value)
+}
+
+/**
+ * Extract ISO date (YYYY-MM-DD) from a datetime string
+ */
+function extractDate(value: string | null | undefined): string {
+  if (!value) return ''
+  return value.split('T')[0] || ''
+}
+
+/**
+ * Field mapping metadata for displaying which external API fields
+ * map to which booking form fields (used by the test page)
+ */
+export interface FieldMapping {
+  apiField: string
+  formField: string | null
+  label: string
+  category: 'required' | 'content' | 'media' | 'pricing' | 'dates' | 'flags' | 'booking' | 'metadata' | 'vendor'
+}
+
+/**
+ * Complete field mapping reference between ExternalOfertaDeal and BookingFormData.
+ * formField is null when there is no direct match in BookingFormData.
+ */
+export const DEAL_FIELD_MAPPINGS: FieldMapping[] = [
+  // Required
+  { apiField: 'nameEs', formField: 'nameEs', label: 'Título de la oferta', category: 'required' },
+  { apiField: 'slug', formField: null, label: 'URL slug', category: 'required' },
+  { apiField: 'emailSubject', formField: null, label: 'Newsletter subject', category: 'required' },
+  { apiField: 'summaryEs', formField: 'aboutOffer', label: 'Acerca de esta oferta', category: 'required' },
+  { apiField: 'expiresOn', formField: 'endDate', label: 'Fecha de expiración', category: 'required' },
+  { apiField: 'categoryId', formField: null, label: 'Category ID', category: 'required' },
+
+  // Vendor
+  { apiField: 'vendorId', formField: null, label: 'Vendor ID (external)', category: 'vendor' },
+  { apiField: 'vendorName', formField: 'businessName', label: 'Nombre del negocio', category: 'vendor' },
+
+  // Content
+  { apiField: 'shortTitle', formField: 'shortTitle', label: 'Título corto', category: 'content' },
+  { apiField: 'tags', formField: null, label: 'Tags', category: 'content' },
+  { apiField: 'segments', formField: null, label: 'Segmentos', category: 'content' },
+  { apiField: 'voucherSubject', formField: null, label: 'Voucher subject', category: 'content' },
+  { apiField: 'emailBusinessName', formField: 'businessName', label: 'Email business name', category: 'content' },
+  { apiField: 'emailTitle', formField: 'emailTitle', label: 'Título del email', category: 'content' },
+  { apiField: 'goodToKnowEs', formField: 'goodToKnow', label: 'Lo que conviene saber', category: 'content' },
+  { apiField: 'websitesEs', formField: 'socialMedia', label: 'Websites / Redes sociales', category: 'content' },
+  { apiField: 'howToUseEs', formField: 'howToUseEs', label: 'Cómo usar', category: 'content' },
+  { apiField: 'noteworthy', formField: 'whatWeLike', label: 'Lo que nos gusta', category: 'content' },
+  { apiField: 'reviewsEs', formField: 'businessReview', label: 'Reseña del negocio', category: 'content' },
+  { apiField: 'vendorAddress', formField: 'addressAndHours', label: 'Dirección y horarios', category: 'content' },
+  { apiField: 'appLocation', formField: null, label: 'App location', category: 'content' },
+  { apiField: 'banner1Line1', formField: null, label: 'Banner line 1', category: 'content' },
+  { apiField: 'paymentDetails', formField: 'paymentInstructions', label: 'Detalles de pago', category: 'content' },
+  { apiField: 'url', formField: null, label: 'URL externa', category: 'content' },
+  { apiField: 'creditCardRestrictions', formField: null, label: 'Restricciones de tarjeta', category: 'content' },
+  { apiField: 'specialCategoryNameEs', formField: null, label: 'Categoría especial', category: 'content' },
+  { apiField: 'commonRedeemCode', formField: null, label: 'Código de redención', category: 'content' },
+
+  // Media
+  { apiField: 'images', formField: 'dealImages', label: 'Imágenes de galería', category: 'media' },
+  { apiField: 'verticalVideos', formField: null, label: 'Videos verticales', category: 'media' },
+  { apiField: 'dealImage', formField: null, label: 'Banner principal', category: 'media' },
+  { apiField: 'dealImageMail', formField: null, label: 'Banner email', category: 'media' },
+  { apiField: 'dealImageBanner', formField: null, label: 'Banner degusta', category: 'media' },
+  { apiField: 'vendorLogo', formField: null, label: 'Logo del vendor', category: 'media' },
+
+  // Metadata
+  { apiField: 'section', formField: null, label: 'Sección', category: 'metadata' },
+  { apiField: 'osSalesId', formField: 'opportunityId', label: 'OS Sales ID', category: 'metadata' },
+  { apiField: 'emeraldPearl', formField: null, label: 'Emerald Pearl', category: 'metadata' },
+  { apiField: 'contractState', formField: null, label: 'Estado del contrato', category: 'metadata' },
+  { apiField: 'dealStrength', formField: null, label: 'Deal strength', category: 'metadata' },
+  { apiField: 'nextDayStrength', formField: null, label: 'Next day strength', category: 'metadata' },
+  { apiField: 'category1Id', formField: null, label: 'Categoría secundaria 1', category: 'metadata' },
+  { apiField: 'category2Id', formField: null, label: 'Categoría secundaria 2', category: 'metadata' },
+  { apiField: 'category3Id', formField: null, label: 'Categoría secundaria 3', category: 'metadata' },
+
+  // Dates
+  { apiField: 'runAt', formField: 'startDate', label: 'Fecha de inicio', category: 'dates' },
+  { apiField: 'endAt', formField: 'endDate', label: 'Fecha de fin', category: 'dates' },
+  { apiField: 'firstPaymentDate', formField: null, label: 'Primer pago', category: 'dates' },
+  { apiField: 'lastPaymentDate', formField: null, label: 'Último pago', category: 'dates' },
+
+  // Pricing
+  { apiField: 'priceOptions', formField: 'pricingOptions', label: 'Opciones de precio', category: 'pricing' },
+
+  // Booking
+  { apiField: 'isBooking', formField: null, label: 'Requiere booking', category: 'booking' },
+  { apiField: 'bookingLat', formField: null, label: 'Latitud', category: 'booking' },
+  { apiField: 'bookingLng', formField: null, label: 'Longitud', category: 'booking' },
+  { apiField: 'bookingAddress', formField: null, label: 'Dirección booking', category: 'booking' },
+  { apiField: 'bookingRegistrationInformation', formField: null, label: 'Información de registro', category: 'booking' },
+  { apiField: 'bookingEmailHtml', formField: null, label: 'Email HTML booking', category: 'booking' },
+
+  // Boolean flags
+  { apiField: 'topSeller', formField: null, label: 'Top Seller', category: 'flags' },
+  { apiField: 'bsetOfOs', formField: null, label: 'Best of OS', category: 'flags' },
+  { apiField: 'stValentine', formField: null, label: 'San Valentín', category: 'flags' },
+  { apiField: 'justMama', formField: null, label: 'Just Mama', category: 'flags' },
+  { apiField: 'christmas', formField: null, label: 'Navidad', category: 'flags' },
+  { apiField: 'celebrate', formField: null, label: 'Celebrar', category: 'flags' },
+  { apiField: 'exploreGamboa', formField: null, label: 'Explore Gamboa', category: 'flags' },
+  { apiField: 'cyberMonday', formField: null, label: 'Cyber Monday', category: 'flags' },
+  { apiField: 'backToSchool', formField: null, label: 'Back to School', category: 'flags' },
+  { apiField: 'newFlag', formField: null, label: 'Flag Nuevo', category: 'flags' },
+  { apiField: 'limitedTime', formField: null, label: 'Tiempo limitado', category: 'flags' },
+  { apiField: 'westinWeek', formField: null, label: 'Westin Week', category: 'flags' },
+  { apiField: 'special', formField: null, label: 'Especial', category: 'flags' },
+  { apiField: 'couponEnabled', formField: null, label: 'Cupón habilitado', category: 'flags' },
+  { apiField: 'secretDeal', formField: null, label: 'Deal secreto', category: 'flags' },
+  { apiField: 'singleImageTile', formField: null, label: 'Single image tile', category: 'flags' },
+  { apiField: 'blockReferal', formField: null, label: 'Bloquear referidos', category: 'flags' },
+  { apiField: 'isActive', formField: null, label: 'Activo', category: 'flags' },
+  { apiField: 'limitedQuantity', formField: null, label: 'Cantidad limitada', category: 'flags' },
+  { apiField: 'isHideRemainingTime', formField: null, label: 'Ocultar tiempo restante', category: 'flags' },
+  { apiField: 'f2x1', formField: null, label: '2x1', category: 'flags' },
+  { apiField: 'hideIfHasSGCards', formField: null, label: 'Ocultar si tiene SG cards', category: 'flags' },
+  { apiField: 'onlyOnWeb', formField: null, label: 'Solo web', category: 'flags' },
+  { apiField: 'appOnly', formField: null, label: 'Solo app', category: 'flags' },
+  { apiField: 'simpleGoOnly', formField: null, label: 'Solo SimpleGo', category: 'flags' },
+  { apiField: 'isSelfRedeemVoucher', formField: null, label: 'Auto-redimible', category: 'flags' },
+  { apiField: 'ofertasimpleGiftcardOffer', formField: null, label: 'Gift card OS', category: 'flags' },
+  { apiField: 'emailReminder', formField: null, label: 'Email reminder', category: 'flags' },
+  { apiField: 'emailReminder15', formField: null, label: 'Reminder 15 días', category: 'flags' },
+  { apiField: 'emailReminder45', formField: null, label: 'Reminder 45 días', category: 'flags' },
+  { apiField: 'buyButtonUrl', formField: null, label: 'Buy button URL', category: 'flags' },
+  { apiField: 'buyButtonTitle', formField: null, label: 'Buy button title', category: 'flags' },
+  { apiField: 'buyNow', formField: null, label: 'Comprar ahora', category: 'flags' },
+  { apiField: 'addToCart', formField: null, label: 'Agregar al carrito', category: 'flags' },
+  { apiField: 'gift', formField: null, label: 'Regalar', category: 'flags' },
+  { apiField: 'notifyMe', formField: null, label: 'Notificarme', category: 'flags' },
+  { apiField: 'showDiscount', formField: null, label: 'Mostrar descuento', category: 'flags' },
+  { apiField: 'qrCodes', formField: null, label: 'QR codes', category: 'flags' },
+  { apiField: 'barcode', formField: null, label: 'Barcode', category: 'flags' },
+  { apiField: 'useStoredRedeemCode', formField: null, label: 'Usar código almacenado', category: 'flags' },
+]
+
+/**
+ * Reverse-map an ExternalOfertaDeal to a partial BookingFormData.
+ * Maps all fields that have a direct correspondence.
+ */
+export function mapApiToBookingForm(deal: ExternalOfertaDeal): Partial<BookingFormData> {
+  const pricingOptions: BookingFormData['pricingOptions'] = (deal.priceOptions || []).map((opt, index) => ({
+    title: opt.description || `Opción ${index + 1}`,
+    description: opt.description || '',
+    price: opt.price != null ? String(opt.price) : '',
+    realValue: opt.value != null ? String(opt.value) : '',
+    quantity: quantityToString(opt.maximumQuantity),
+    limitByUser: opt.limitByUser != null ? String(opt.limitByUser) : undefined,
+    maxGiftsPerUser: opt.giftLimitPerUser != null ? String(opt.giftLimitPerUser) : undefined,
+    endAt: opt.endAt || undefined,
+    expiresIn: secondsToDays(opt.expiresIn) || undefined,
+    imageUrl: undefined,
+  }))
+
+  const dealImages: BookingFormData['dealImages'] = (deal.images || []).map((url, index) => ({
+    url,
+    order: index,
+  }))
+
+  // Derive offerMargin from first price option (all options share the same margin)
+  const firstMargin = deal.priceOptions?.[0]?.oufferMargin
+  const offerMargin = firstMargin != null ? String(firstMargin) : ''
+
+  return {
+    // Core content
+    nameEs: deal.nameEs || '',
+    shortTitle: deal.shortTitle || '',
+    emailTitle: deal.emailTitle || '',
+    aboutOffer: deal.summaryEs || '',
+    goodToKnow: deal.goodToKnowEs || '',
+    howToUseEs: deal.howToUseEs || '',
+    whatWeLike: deal.noteworthy || '',
+    businessReview: deal.reviewsEs || '',
+
+    // Business / vendor
+    businessName: deal.vendorName || deal.emailBusinessName || '',
+
+    // Location / directory
+    addressAndHours: deal.vendorAddress || '',
+
+    // Payment
+    paymentInstructions: deal.paymentDetails || '',
+
+    // Websites / social media
+    socialMedia: deal.websitesEs || '',
+
+    // Dates (extract date portion from datetime strings)
+    startDate: extractDate(deal.runAt),
+    endDate: extractDate(deal.endAt) || extractDate(deal.expiresOn),
+
+    // Pricing
+    offerMargin,
+    pricingOptions,
+
+    // Images
+    dealImages,
+
+    // Opportunity reference
+    opportunityId: deal.osSalesId != null ? String(deal.osSalesId) : '',
   }
 }

@@ -135,13 +135,12 @@ DEFINICIONES DE CAMPO (seguir estrictamente)
    EJEMPLO de output esperado para whatWeLike:
    "Ahorras $14.50 (más de 50% de descuento)\nRodizio de carnes premium ilimitado\nIncluye buffet de ensaladas y postre\nUbicación céntrica con estacionamiento\nVálido de lunes a domingo"
 
-6. goodToKnow / goodToKnowEs (Lo Que Conviene Saber) — Títulos de sección en negrita
-   Los títulos de las 5 secciones DEBEN ir envueltos en <strong> para que se muestren en negrita. El contenido debajo es texto plano.
-   NO uses otras etiquetas HTML aparte de <strong> para los títulos.
+6. goodToKnow / goodToKnowEs (Lo Que Conviene Saber) — TEXTO PLANO con títulos en MAYÚSCULAS
+   NUNCA uses etiquetas HTML. Usa títulos en MAYÚSCULAS seguidos de salto de línea y el contenido.
    Estructura EXACTA con 5 secciones separadas por doble salto de línea:
 
    EJEMPLO de output esperado para goodToKnow:
-   "<strong>INFORMACIÓN GENERAL</strong>\nMúltiples vouchers pueden ser comprados y usados por persona. Impuestos incluidos. 1 voucher = 1 Rodizio todo incluido.\n\n<strong>RESTRICCIONES</strong>\nNo es válido con otras promociones o descuentos. No válido en días feriados.\n\n<strong>RESERVACIONES/CANCELACIONES</strong>\nSe recomienda reservar con 24 horas de anticipación. Cancelaciones deben realizarse con al menos 12 horas de anticipación.\n\n<strong>MÉTODO DE CANJE</strong>\nPresenta el voucher impreso o la versión digital desde tu dispositivo móvil. El código QR será escaneado en el local.\n\n<strong>PERIODO DE VALIDEZ</strong>\nVálido desde el 10 de marzo hasta el 10 de junio de 2026. No es válido en feriados."
+   "INFORMACIÓN GENERAL\nMúltiples vouchers pueden ser comprados y usados por persona. Impuestos incluidos. 1 voucher = 1 Rodizio todo incluido.\n\nRESTRICCIONES\nNo es válido con otras promociones o descuentos. No válido en días feriados.\n\nRESERVACIONES/CANCELACIONES\nSe recomienda reservar con 24 horas de anticipación. Cancelaciones deben realizarse con al menos 12 horas de anticipación.\n\nMÉTODO DE CANJE\nPresenta el voucher impreso o la versión digital desde tu dispositivo móvil. El código QR será escaneado en el local.\n\nPERIODO DE VALIDEZ\nVálido desde el 10 de marzo hasta el 10 de junio de 2026. No es válido en feriados."
 
    Contenido por sección:
    - INFORMACIÓN GENERAL: Límites de cantidad, inclusión de impuestos, qué equivale 1 voucher, garantía si es producto.
@@ -263,7 +262,7 @@ const SECTION_PROMPTS: Record<keyof BookingContentOutput, string> = {
   emailTitle: `Genera el TÍTULO DEL EMAIL (emailTitle). Gancho de marketing corto para newsletter. Opciones: "[XX]% OFF", "DESDE $[PRICE]", "2x1 en [servicio]", o frase corta llamativa. Máximo 30 caracteres. Solo el título, sin comillas ni explicación.`,
   aboutOffer: `Genera la sección "ACERCA DE ESTA OFERTA" (aboutOffer/summaryEs). TEXTO PLANO sin etiquetas HTML. Estructura: 1) Redes sociales (nombres de plataformas), 2) Intro del negocio (2-3 oraciones), 3) Opciones de compra: "Paga $X por [descripción] (Valor $Y).", 4) Detalles con guiones (-) para listas, 5) Cierre con "¡Haz click en comprar!". Tono cálido y vendedor. NO incluyas datos de contacto.`,
   whatWeLike: `Genera la sección "LO QUE NOS GUSTA" (whatWeLike/noteworthy). TEXTO PLANO: una línea por beneficio separadas por salto de línea. NUNCA uses etiquetas HTML, asteriscos ni viñetas con símbolo. Ejemplo: "Ahorras $14 (50% OFF)\nIncluye buffet completo\nUbicación céntrica". 4-8 beneficios. Empezar con el mejor punto de venta. Incluir ahorro en $ o %. Cada línea máximo 100 caracteres, sin punto al final. NO incluyas datos de contacto.`,
-  goodToKnow: `Genera la sección "LO QUE CONVIENE SABER" (goodToKnow/goodToKnowEs). Títulos de sección en negrita con <strong>, contenido en texto plano. Ejemplo: "<strong>INFORMACIÓN GENERAL</strong>\nImpuestos incluidos...\n\n<strong>RESTRICCIONES</strong>\nNo válido en feriados...". DEBE tener exactamente 5 secciones: INFORMACIÓN GENERAL, RESTRICCIONES, RESERVACIONES/CANCELACIONES, MÉTODO DE CANJE, PERIODO DE VALIDEZ. Respetar estrictamente las restricciones proporcionadas. NO incluyas datos de contacto.`,
+  goodToKnow: `Genera la sección "LO QUE CONVIENE SABER" (goodToKnow/goodToKnowEs). TEXTO PLANO sin etiquetas HTML. Títulos en MAYÚSCULAS seguidos de salto de línea. Ejemplo: "INFORMACIÓN GENERAL\nImpuestos incluidos...\n\nRESTRICCIONES\nNo válido en feriados...". DEBE tener exactamente 5 secciones: INFORMACIÓN GENERAL, RESTRICCIONES, RESERVACIONES/CANCELACIONES, MÉTODO DE CANJE, PERIODO DE VALIDEZ. Respetar estrictamente las restricciones proporcionadas. NO incluyas datos de contacto.`,
   howToUseEs: `Genera la sección "CÓMO USAR" (howToUseEs). TEXTO PLANO sin etiquetas HTML. Instrucciones paso a paso para canjear el voucher. Para QR: mencionar escaneo en local. Para listado: mencionar presentar voucher en dirección. Para eventos: mencionar taquilla y código QR. Incluir periodo de validez y si es válido en feriados. NO incluyas datos de contacto específicos.`,
 }
 
@@ -514,7 +513,7 @@ CRÍTICO: TODO el contenido debe ser TEXTO PLANO. NUNCA incluyas etiquetas HTML 
   "emailTitle": "texto plano, máximo 30 caracteres, ej: '50% OFF' o 'DESDE $14'",
   "aboutOffer": "texto plano: intro, opciones de compra 'Paga $X por [desc] (Valor $Y)', detalles con guiones (-), cierre con '¡Haz click en comprar!'",
   "whatWeLike": "texto plano: una línea por beneficio separadas por salto de línea. Ej: 'Ahorras $14 (50% OFF)\nIncluye buffet completo\nUbicación céntrica'",
-  "goodToKnow": "5 secciones con títulos en <strong>NEGRITA</strong>. Ej: '<strong>INFORMACIÓN GENERAL</strong>\nImpuestos incluidos...\n\n<strong>RESTRICCIONES</strong>\nNo válido en feriados...'",
+  "goodToKnow": "texto plano: 5 secciones con títulos en MAYÚSCULAS. Ej: 'INFORMACIÓN GENERAL\nImpuestos incluidos...\n\nRESTRICCIONES\nNo válido en feriados...'",
   "howToUseEs": "texto plano: instrucciones paso a paso para canjear el voucher, método de redención, periodo de validez y si aplica en feriados"
 }
 
