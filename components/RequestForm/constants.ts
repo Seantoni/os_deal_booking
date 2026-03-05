@@ -106,12 +106,15 @@ export const INITIAL_FORM_DATA: BookingFormData = {
   socialMedia: '',
   businessReview: '',
   
-  // AI-Generated Content Fields
+  // AI-Generated Content Fields (see docs/ai-content-field-definitions.md)
+  nameEs: '',
   shortTitle: '',
+  emailTitle: '',
   whatWeLike: '',
   aboutCompany: '',
   aboutOffer: '',
   goodToKnow: '',
+  howToUseEs: '',
   
   // Estructura: Estructura de Oferta
   offerMargin: '',

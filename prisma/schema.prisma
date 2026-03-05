@@ -90,6 +90,9 @@ model BookingRequest {
   goodToKnow                    String?
   whatWeLike                    String?
   shortTitle                    String?
+  nameEs                        String?
+  emailTitle                    String?
+  howToUseEs                    String?
   offerMargin                   String?
   publicRequestLink             PublicRequestLink?   @relation(fields: [publicLinkToken], references: [token])
   deal                          Deal?

@@ -202,11 +202,14 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
       contactDetails: fields.contactDetails,
       socialMedia: fields.socialMedia,
       // Contenido: AI-Generated Content Fields
+      nameEs: fields.nameEs,
       shortTitle: fields.shortTitle,
+      emailTitle: fields.emailTitle,
       whatWeLike: fields.whatWeLike,
       aboutCompany: fields.aboutCompany,
       aboutOffer: fields.aboutOffer,
       goodToKnow: fields.goodToKnow,
+      howToUseEs: fields.howToUseEs,
       // Estructura: Estructura de la Oferta
       offerMargin: fields.offerMargin,
       pricingOptions: pricingOptionsJson,
@@ -471,11 +474,14 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       socialMedia: (formData.get('socialMedia') as string) || null,
       businessReview: (formData.get('businessReview') as string) || null,
       // Contenido: AI-Generated Content Fields (used for OfertaSimple mapping)
+      nameEs: (formData.get('nameEs') as string) || null,
       shortTitle: (formData.get('shortTitle') as string) || null,
+      emailTitle: (formData.get('emailTitle') as string) || null,
       whatWeLike: (formData.get('whatWeLike') as string) || null,
       aboutCompany: (formData.get('aboutCompany') as string) || null,
       aboutOffer: (formData.get('aboutOffer') as string) || null,
       goodToKnow: (formData.get('goodToKnow') as string) || null,
+      howToUseEs: (formData.get('howToUseEs') as string) || null,
       // Estructura: Estructura de la Oferta
       offerMargin: (formData.get('offerMargin') as string) || null,
       pricingOptions,

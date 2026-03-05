@@ -153,10 +153,13 @@ const BASE_SECTIONS: SectionDefinition[] = [
   {
     title: 'Contenido (IA)',
     fields: [
-      { key: 'shortTitle', label: 'Título' },
-      { key: 'whatWeLike', label: 'Lo que nos gusta' },
+      { key: 'nameEs', label: 'Título de la oferta' },
+      { key: 'shortTitle', label: 'Título corto' },
+      { key: 'emailTitle', label: 'Título del email' },
       { key: 'aboutOffer', label: 'Acerca de esta oferta' },
+      { key: 'whatWeLike', label: 'Lo que nos gusta' },
       { key: 'goodToKnow', label: 'Lo que conviene saber' },
+      { key: 'howToUseEs', label: 'Cómo usar' },
     ],
   },
   {
@@ -1088,11 +1091,14 @@ export default function BookingRequestViewModal({
         redemptionMethods: Array.isArray(requestData.redemptionMethods) ? requestData.redemptionMethods : undefined,
         contactDetails: requestData.contactDetails ? String(requestData.contactDetails) : undefined,
         socialMedia: requestData.socialMedia ? String(requestData.socialMedia) : undefined,
+        nameEs: requestData.nameEs ? String(requestData.nameEs) : undefined,
         shortTitle: requestData.shortTitle ? String(requestData.shortTitle) : undefined,
+        emailTitle: requestData.emailTitle ? String(requestData.emailTitle) : undefined,
         whatWeLike: requestData.whatWeLike ? String(requestData.whatWeLike) : undefined,
         aboutCompany: requestData.aboutCompany ? String(requestData.aboutCompany) : undefined,
         aboutOffer: requestData.aboutOffer ? String(requestData.aboutOffer) : undefined,
         goodToKnow: requestData.goodToKnow ? String(requestData.goodToKnow) : undefined,
+        howToUseEs: requestData.howToUseEs ? String(requestData.howToUseEs) : undefined,
         offerMargin: requestData.offerMargin ? String(requestData.offerMargin) : undefined,
         pricingOptions: Array.isArray(requestData.pricingOptions) 
           ? requestData.pricingOptions.map(opt => ({
@@ -1273,11 +1279,14 @@ export default function BookingRequestViewModal({
           contactDetails: requestData.contactDetails ? String(requestData.contactDetails) : undefined,
           socialMedia: requestData.socialMedia ? String(requestData.socialMedia) : undefined,
 
+          nameEs: requestData.nameEs ? String(requestData.nameEs) : undefined,
           shortTitle: requestData.shortTitle ? String(requestData.shortTitle) : undefined,
+          emailTitle: requestData.emailTitle ? String(requestData.emailTitle) : undefined,
           whatWeLike: requestData.whatWeLike ? String(requestData.whatWeLike) : undefined,
           aboutCompany: requestData.aboutCompany ? String(requestData.aboutCompany) : undefined,
           aboutOffer: requestData.aboutOffer ? String(requestData.aboutOffer) : undefined,
           goodToKnow: requestData.goodToKnow ? String(requestData.goodToKnow) : undefined,
+          howToUseEs: requestData.howToUseEs ? String(requestData.howToUseEs) : undefined,
 
           offerMargin: requestData.offerMargin ? String(requestData.offerMargin) : undefined,
           pricingOptions: Array.isArray(requestData.pricingOptions) 

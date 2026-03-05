@@ -14,6 +14,7 @@ import type { Category } from '@prisma/client'
 import HandshakeIcon from '@mui/icons-material/Handshake'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
+import { useAutoScroll } from '@/hooks/useAutoScroll'
 import { useOpportunityForm } from './useOpportunityForm'
 import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
 import {
@@ -340,54 +341,16 @@ export default function OpportunityFormModal({
 
   const startDateDisplayValue = dynamicForm.getValue('startDate') || opportunity?.startDate || null
   const closeDateDisplayValue = dynamicForm.getValue('closeDate') || opportunity?.closeDate || null
+  const chatAutoScrollRetryDelays = useMemo(() => [0, 120, 280, 500, 900, 1400, 2200], [])
 
-  useEffect(() => {
-    if (!isOpen || activeTab !== 'chat') return
-
-    const scrollToBottom = () => {
-      chatBottomAnchorRef.current?.scrollIntoView({ block: 'end' })
-    }
-
-    const timeoutIds: number[] = []
-    const retryDelays = [0, 120, 280, 500, 900, 1400, 2200]
-    retryDelays.forEach((delay) => {
-      const id = window.setTimeout(scrollToBottom, delay)
-      timeoutIds.push(id)
-    })
-
-    let rafId: number | null = null
-    let scrollQueued = false
-    const scheduleScroll = () => {
-      if (scrollQueued) return
-      scrollQueued = true
-      rafId = window.requestAnimationFrame(() => {
-        scrollQueued = false
-        scrollToBottom()
-      })
-    }
-
-    const observerTarget = modalFormRef.current
-    const observer = observerTarget
-      ? new MutationObserver(() => {
-          scheduleScroll()
-        })
-      : null
-
-    if (observer && observerTarget) {
-      observer.observe(observerTarget, {
-        childList: true,
-        subtree: true,
-      })
-    }
-
-    return () => {
-      if (rafId !== null) {
-        window.cancelAnimationFrame(rafId)
-      }
-      timeoutIds.forEach((id) => window.clearTimeout(id))
-      observer?.disconnect()
-    }
-  }, [activeTab, isOpen, loadingData])
+  useAutoScroll({
+    mode: 'anchor',
+    anchorRef: chatBottomAnchorRef,
+    observeMutationsRef: modalFormRef,
+    enabled: isOpen && activeTab === 'chat' && !loadingData,
+    retryDelays: chatAutoScrollRetryDelays,
+    block: 'end',
+  })
 
   if (!isOpen) return null
 

@@ -100,11 +100,14 @@ export function extractBookingRequestFromFormData(formData: FormData): {
   socialMedia: string | null
 
   // Contenido: AI-Generated Content Fields
+  nameEs: string | null
   shortTitle: string | null
+  emailTitle: string | null
   whatWeLike: string | null
   aboutCompany: string | null
   aboutOffer: string | null
   goodToKnow: string | null
+  howToUseEs: string | null
 
   // Estructura: Estructura de la Oferta
   offerMargin: string | null
@@ -192,11 +195,14 @@ export function extractBookingRequestFromFormData(formData: FormData): {
     socialMedia: getFormDataString(formData, 'socialMedia'),
 
     // Contenido: AI-Generated Content Fields
+    nameEs: getFormDataString(formData, 'nameEs'),
     shortTitle: getFormDataString(formData, 'shortTitle'),
+    emailTitle: getFormDataString(formData, 'emailTitle'),
     whatWeLike: getFormDataString(formData, 'whatWeLike'),
     aboutCompany: getFormDataString(formData, 'aboutCompany'),
     aboutOffer: getFormDataString(formData, 'aboutOffer'),
     goodToKnow: getFormDataString(formData, 'goodToKnow'),
+    howToUseEs: getFormDataString(formData, 'howToUseEs'),
 
     // Estructura: Estructura de la Oferta
     offerMargin: getFormDataString(formData, 'offerMargin'),

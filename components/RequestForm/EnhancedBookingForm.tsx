@@ -33,6 +33,7 @@ import ContenidoStep from './steps/ContenidoStep'
 import ValidacionStep from './steps/ValidacionStep'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import FullScreenLoader from '@/components/common/FullScreenLoader'
+import { useAutoScroll } from '@/hooks/useAutoScroll'
 import toast from 'react-hot-toast'
 
 // Action state types for React 19 useActionState
@@ -748,25 +749,13 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
 
   const totalSteps = availableSteps.length
 
-  // Scroll to top of the form when changing steps
-  const scrollToTop = useCallback(() => {
-    // Use setTimeout to ensure scroll happens after React state update and re-render
-    setTimeout(() => {
-      // First, scroll the form container ref if available
-      if (formContainerRef.current) {
-        formContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' })
-      }
-      
-      // Also scroll all parent scroll containers (PageContent, etc.)
-      const scrollContainers = document.querySelectorAll('.overflow-auto')
-      scrollContainers.forEach((container) => {
-        container.scrollTo({ top: 0, behavior: 'smooth' })
-      })
-      
-      // Also try window scroll as final fallback
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }, 50)
-  }, [])
+  const scrollToTop = useAutoScroll({
+    mode: 'top',
+    containerRef: formContainerRef,
+    delay: 50,
+    includeOverflowContainers: true,
+    includeWindow: true,
+  })
 
   // Scroll to the first field with an error
   const scrollToFirstError = useCallback((errorKeys: string[]) => {

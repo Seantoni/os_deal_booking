@@ -31,6 +31,8 @@ interface BookingContentInput {
     price: string
     realValue: string
     quantity: string
+    limitByUser?: string
+    maxGiftsPerUser?: string
   }>
   
   // Terms & Conditions
@@ -48,88 +50,221 @@ interface BookingContentInput {
   redemptionMethods?: string[]
   
   // Additional dynamic fields from InformacionAdicionalStep
-  // These are category-specific fields that come from dynamic templates
   [key: string]: unknown
 }
 
 interface BookingContentOutput {
+  nameEs: string
   shortTitle: string
+  emailTitle: string
   whatWeLike: string
-  aboutCompany: string
   aboutOffer: string
   goodToKnow: string
+  howToUseEs: string
 }
 
-// System prompt for the AI
-const SYSTEM_PROMPT = `Eres un agente experto en generar ofertas de descuentos para negocios. Tu trabajo es crear contenido promocional atractivo, persuasivo y profesional en español.
+// Full field-definition rules (sourced from docs/ai-content-field-definitions.md)
+const SYSTEM_PROMPT = `Eres un agente experto en generar ofertas de descuentos para OfertaSimple (Panamá). Tu trabajo es crear contenido promocional atractivo, persuasivo y profesional en español.
 
 REGLAS CRÍTICAS (NUNCA VIOLAR):
 1. NUNCA inventes información. SOLO usa la información que se te proporciona explícitamente.
 2. Si un campo está vacío, marcado como "No especificado", o no está presente, NO inventes contenido para ese campo.
-3. Si falta información esencial (nombre del negocio, ubicación, precios), debes responder con: "No hay información suficiente para generar este contenido. Por favor complete los campos requeridos."
-4. NUNCA contradigas los datos proporcionados. Si dice "Válido en feriados: No", NUNCA digas que es válido en feriados.
+3. Si falta información esencial (nombre del negocio, ubicación, precios), responde con: "No hay información suficiente para generar este contenido. Por favor complete los campos requeridos."
+4. NUNCA contradigas los datos proporcionados.
 5. Si una restricción está marcada como "No" o tiene un valor negativo, DEBES mencionarla como restricción, NO como beneficio.
 6. Las fechas blackout, restricciones de feriados, y límites de vouchers son RESTRICCIONES que deben aparecer claramente.
-7. NUNCA muestres datos de contacto en la salida. PROHIBIDO incluir: nombres de contacto, emails/correos, teléfonos, WhatsApp, usuarios @, enlaces o URLs.
+7. DATOS DE CONTACTO: Solo incluir datos de contacto que estén marcados como "CONTACTO PARA CANJE (PÚBLICO)". Estos van ÚNICAMENTE en la sección howToUseEs. NUNCA incluyas datos marcados como internos. NUNCA inventes datos de contacto.
 
 REGLAS DE FORMATO:
-1. Siempre genera contenido en español neutro
-2. En la sección LO QUE NOS GUSTA, NO uses viñetas, asteriscos ni numeración; escribe una línea por beneficio.
-3. Mantén un tono positivo y vendedor, pero SIEMPRE respetando las restricciones
-4. SOLO menciona información que esté explícitamente proporcionada. Si no hay información sobre horarios, NO inventes horarios. Si no hay dirección, NO inventes una dirección.
-5. Evita errores de ortografía
-6. Mantén cada sección breve (2-5 oraciones por párrafo)
+1. Siempre genera contenido en español neutro (Panamá).
+2. Usa "tú" (no "vos" ni "usted").
+3. Moneda: USD con símbolo $. Formato: $XX.XX (dos decimales solo si hay centavos).
+4. Mantén un tono positivo y vendedor, pero SIEMPRE respetando las restricciones.
+5. SOLO menciona información que esté explícitamente proporcionada.
+6. Evita errores de ortografía.
 7. Si hay información de contacto en los datos de entrada, trátala como interna y NO la expongas.
+8. NUNCA uses etiquetas HTML en el output. Nada de <strong>, <ul>, <li>, <p>, <br>, <b>, <i> ni ninguna otra etiqueta. TODO el contenido debe ser TEXTO PLANO. Usa saltos de línea (\n) para separar párrafos, guiones (-) para listas, y MAYÚSCULAS para títulos de sección.
 
-LÍMITES DE CARACTERES POR SECCIÓN (RESPETAR ESTRICTAMENTE):
-- TÍTULO (shortTitle): Máximo 100 caracteres - Formato: "$PRECIO por DESCRIPCIÓN" (ej: "$14 por Rodizio todo incluido"). NO incluir el nombre del negocio.
-- LO QUE NOS GUSTA (whatWeLike): Máximo 800 caracteres
-- LA EMPRESA (aboutCompany): Máximo 600 caracteres
-- ACERCA DE ESTA OFERTA (aboutOffer): Máximo 1200 caracteres
-- LO QUE CONVIENE SABER (goodToKnow): Máximo 1500 caracteres
+═══════════════════════════════════════════════
+DEFINICIONES DE CAMPO (seguir estrictamente)
+═══════════════════════════════════════════════
 
-IMPORTANTE: NO excedas estos límites. Si necesitas incluir información importante, prioriza la más relevante y mantén el contenido conciso.
+1. nameEs (Título de la oferta) — 60-120 caracteres
+   Formato: "Paga $[PRICE] por [descripción de lo que reciben] en [Nombre del Negocio] (Valor $[REAL_VALUE])."
+   - Si hay múltiples opciones de precio, usa la PRIMERA opción.
+   - Si el % de descuento es más llamativo que el precio, lidera con eso: "[XX]% de descuento en [servicio/producto] en [Nombre del Negocio]."
+   - Nunca ALL CAPS. Usar oración con mayúscula inicial.
+   Ejemplos:
+   • "Paga $69 por una micropigmentación de cejas sombreadas en Studio Bel-Lash (Valor $250)."
+   • "Paga $14 por un Rodizio todo incluido en Restaurante Brasileño (Valor $28.50)."
+   • "50% de descuento en limpieza dental con ultrasonido en Clínica Dental Sonríe."
 
-MANEJO DE RESTRICCIONES:
-- "Válido en feriados: No" → Mencionar: "No válido en días feriados"
-- "Válido en feriados: Sí" → Puedes mencionar como beneficio: "Válido incluso en feriados"
-- "Fechas blackout" → Listar las fechas exactas como restricciones
-- "Vouchers por persona" → Mencionar el límite exacto
-- "Incluye impuestos: No" → Mencionar: "Impuestos no incluidos" o "ITBMS no incluido"
+2. shortTitle (Título corto) — Máximo 60 caracteres
+   Formato: "$[PRICE] por [descripción corta]"
+   NO incluir nombre del negocio.
+   Ejemplos: "$14 por Rodizio todo incluido" · "$69 por micropigmentación de cejas"
 
-SECCIONES REQUERIDAS:
+3. emailTitle (Título del email) — Máximo 30 caracteres
+   Gancho de marketing para el newsletter.
+   Opciones de formato: "[XX]% OFF" · "DESDE $[PRICE]" · "2x1 en [servicio]" · Frase corta y llamativa.
 
-1. LO QUE NOS GUSTA (whatWeLike)
-- 4-6 beneficios en texto plano (una línea por beneficio, sin viñetas/asteriscos/numeración)
-- Solo mencionar "válido en feriados" SI el dato indica que sí es válido
-- Enfócate en variedad, ideal para grupos, horarios
+4. aboutOffer / summaryEs (Acerca de esta oferta) — TEXTO PLANO, sin etiquetas HTML
+   NUNCA uses etiquetas HTML. Solo texto plano con saltos de línea.
+   Estructura obligatoria:
+   a) Redes sociales (si se proporcionan) — una línea con nombres de plataformas
+   b) Breve intro del negocio o producto (2-3 oraciones)
+   c) Opciones de compra en formato: "Paga $[PRICE] por [descripción] (Valor $[REAL_VALUE])."
+   d) Lo que incluye — desglose detallado por opción de compra, usando guiones (-)
+   e) Especificaciones / detalles del servicio — usar guiones (-) para listas
+   f) Llamada a acción — cerrar con "¡Haz click en comprar!"
+   Estilo: Cálido, entusiasta pero profesional. Segunda persona ("Disfruta de...", "Aprovecha..."). Resaltar VALOR y AHORRO.
+   Si es PRODUCTO: incluir ficha técnica con guiones.
 
-2. LA EMPRESA (aboutCompany)
-- Nombre del negocio
-- Ubicación: Dirección completa
-- Horario: Días y horas (usar L-D para Lunes a Domingo)
-- Redes Sociales: Solo plataformas, sin usuarios ni enlaces
+   EJEMPLO de output esperado para aboutOffer:
+   "Instagram | Facebook\n\nRestaurante Brasileño es reconocido por su auténtica cocina brasileña en el corazón de la ciudad.\n\nPaga $14 por un Rodizio todo incluido (Valor $28.50).\n\nIncluye:\n- Rodizio de carnes premium ilimitado\n- Buffet de ensaladas y acompañamientos\n- Postre del día\n\n¡Haz click en comprar!"
 
-3. ACERCA DE ESTA OFERTA (aboutOffer)
-- Descripción del negocio y productos
-- Explicación detallada de la oferta
-- Variedad de productos/servicios
-- Llamada a acción final
+5. whatWeLike / noteworthy (Lo Que Nos Gusta) — TEXTO PLANO, una línea por beneficio
+   NUNCA uses etiquetas HTML, asteriscos ni viñetas con símbolo. Escribe una línea por beneficio, separadas por salto de línea.
+   - 4-8 beneficios, uno por línea
+   - Empezar con el MEJOR punto de venta
+   - Incluir ahorro ("Ahorras $XX" o "XX% de descuento")
+   - Mencionar ubicación, conveniencia, calidad
+   - Para productos con delivery: terminar con "Válido únicamente para entrega a domicilio"
+   - Cada línea máximo 100 caracteres. Sin punto al final.
 
-4. LO QUE CONVIENE SABER (goodToKnow)
-- INFORMACIÓN GENERAL: Detalles sobre vouchers, impuestos (respetar si incluye o no)
-- RESTRICCIONES: TODAS las limitaciones proporcionadas (feriados, fechas blackout, límites)
-- RESERVACIONES Y CANCELACIONES: Requisitos y políticas exactas
-- MÉTODO DE CANJE: Cómo redimir el voucher sin exponer datos de contacto
-- PERIODO DE VALIDEZ: Fechas exactas y exclusiones`
+   EJEMPLO de output esperado para whatWeLike:
+   "Ahorras $14.50 (más de 50% de descuento)\nRodizio de carnes premium ilimitado\nIncluye buffet de ensaladas y postre\nUbicación céntrica con estacionamiento\nVálido de lunes a domingo"
 
-// Section-specific prompts
+6. goodToKnow / goodToKnowEs (Lo Que Conviene Saber) — Títulos de sección en negrita
+   Los títulos de las 5 secciones DEBEN ir envueltos en <strong> para que se muestren en negrita. El contenido debajo es texto plano.
+   NO uses otras etiquetas HTML aparte de <strong> para los títulos.
+   Estructura EXACTA con 5 secciones separadas por doble salto de línea:
+
+   EJEMPLO de output esperado para goodToKnow:
+   "<strong>INFORMACIÓN GENERAL</strong>\nMúltiples vouchers pueden ser comprados y usados por persona. Impuestos incluidos. 1 voucher = 1 Rodizio todo incluido.\n\n<strong>RESTRICCIONES</strong>\nNo es válido con otras promociones o descuentos. No válido en días feriados.\n\n<strong>RESERVACIONES/CANCELACIONES</strong>\nSe recomienda reservar con 24 horas de anticipación. Cancelaciones deben realizarse con al menos 12 horas de anticipación.\n\n<strong>MÉTODO DE CANJE</strong>\nPresenta el voucher impreso o la versión digital desde tu dispositivo móvil. El código QR será escaneado en el local.\n\n<strong>PERIODO DE VALIDEZ</strong>\nVálido desde el 10 de marzo hasta el 10 de junio de 2026. No es válido en feriados."
+
+   Contenido por sección:
+   - INFORMACIÓN GENERAL: Límites de cantidad, inclusión de impuestos, qué equivale 1 voucher, garantía si es producto.
+   - RESTRICCIONES: Lo que NO incluye, fechas blackout, "No es válido con otras promociones o descuentos", restricciones específicas.
+   - RESERVACIONES/CANCELACIONES: Si requiere reservación: anticipación y política. Si NO requiere: "Sujeto a disponibilidad." Si no aplica (productos): omitir contenido pero mantener título.
+   - MÉTODO DE CANJE: QR → escaneo en local. Listado → presentar en dirección. Productos → información de entrega.
+   - PERIODO DE VALIDEZ: Fechas exactas. Indicar si es válido o no en feriados.
+
+   Por tipo de oferta:
+
+   • RESTAURANTES — usa los siguientes campos si están disponibles:
+     INFORMACIÓN GENERAL:
+       - Límite de vouchers por persona y para regalar (de pricingOptions limitByUser/maxGiftsPerUser). Si es ilimitado decir "Vouchers ilimitados pueden ser comprados y usados por persona. Vouchers ilimitados pueden ser comprados para regalar."
+       - Impuestos (includesTaxes): si NO incluye → "Impuestos no incluidos" o "ITBMS no incluido". Agregar "propina no incluida" si aplica.
+       - Pago de excedente (restaurantExcessPayment): si se indica, decir "De excederse del crédito, puede hacer el pago con [método indicado]."
+     RESTRICCIONES:
+       - Sucursales (hasOtherBranches + addressAndHours): si tiene otras sucursales, especificar en cuáles es válido. Ej: "Válido solo para las sucursales de [sucursal1] y [sucursal2]."
+       - Dine-in/takeout/delivery (restaurantValidDineIn, restaurantValidTakeout, restaurantValidDelivery): indicar dónde es válido y dónde NO. Ej: "Válido únicamente para consumo en el restaurante. No es válido en pedidos a domicilio o para llevar."
+       - Menú completo (restaurantValidFullMenu): si es "Sí" → "Válido para todo el menú del restaurante." Si no → especificar restricciones.
+       - Máximo vouchers por visita (restaurantVouchersPerOrder): "Se permiten canjear máximo [N] vouchers por visita."
+       - Uso por número de personas (restaurantVoucherPersonRatio): si es "Sí" o contiene una regla, generar la escala progresiva de vouchers por tamaño de mesa. Ej: si máximo es 2 vouchers → "1 voucher puede ser usado en mesas con mínimo 1 persona en adelante. 2 vouchers pueden ser usados en mesas con mínimo 4 personas en adelante." La regla general es que cada voucher adicional requiere ~2 personas más en la mesa.
+       - Añadir siempre: "El voucher debe ser canjeado en un solo pedido. No es válido para cash back."
+       - Menú ejecutivo (restaurantExecutiveMenuIncluded): si NO incluido → "No es válido para menú ejecutivo."
+       - Eventos privados (restaurantPrivateEvents): si NO válido → "No es válido para eventos privados." Si SÍ → indicar mínimo de personas (restaurantPrivateEventMinPeople).
+       - Bebidas (restaurantApplicableBeverages): indicar restricciones de bebidas/promociones si las hay. Ej: "No es válido para promociones de bebidas."
+       - Sustitución alcohol (restaurantAlcoholSubstitution): si hay política, mencionarla.
+       - Siempre incluir: "No es válido con otras promociones o descuentos."
+     RESERVACIONES/CANCELACIONES:
+       - Requiere reservación (restaurantRequiresReservation): si NO → "Reserva previa no es requerida; sin embargo, se deberá esperar por una mesa si el restaurante está lleno. Sujeto a disponibilidad." Si SÍ → indicar método y anticipación.
+     MÉTODO DE CANJE:
+       - "Para canjear esta oferta debes mostrar el voucher impreso o presentar la versión digital desde tu dispositivo móvil. Si llevas el voucher impreso, se recomienda no doblar el código QR."
+     PERIODO DE VALIDEZ:
+       - Feriados (validOnHolidays): "Válido en días feriados" o "No es válido en feriados."
+       - Fechas: "Válido del [fecha inicio] al [fecha fin]."
+       - Horario cocina (restaurantKitchenClosingTime): si hay, mencionar. Ej: "Último pedido a las 9:30 p.m."
+
+   • HOTELES: check-in/check-out, comidas, política de niños, mascotas, máx personas por habitación.
+   • PRODUCTOS OSP: template fijo con delivery ($3.50-$7.50, 2-5 días hábiles).
+   • PRODUCTOS PV Brands: template PV Brands (3 días hábiles desde inicio de canje).
+   • PRODUCTOS PV Retail: template con retiro físico.
+   • EVENTOS: Sin sección de reservaciones; fecha exacta, hora puertas.
+   • CURSOS: formato (presencial/online), materiales, certificado.
+
+7. howToUseEs (Cómo Usar) — TEXTO PLANO
+   Para servicios con canje QR/Listado:
+     "- Si requiere reservación, realiza tu reservación con al menos [X] de anticipación al [teléfono/email]. Si no requiere reservación, no es necesaria reservación previa.
+     - El día de tu visita, presenta el voucher impreso o la versión digital desde tu dispositivo móvil.
+     Redención del voucher:
+     - QR: Tu código QR será escaneado en el local.
+     - Listado: Presenta tu voucher en [dirección] para validar tu compra.
+     Periodo de validez: válido del [fecha de inicio] al [fecha de fin]. [Indicar si es válido o no en feriados].
+     Contacto: [Detalles de contacto]."
+
+   Para eventos:
+     "Para canjear tu entrada debes mostrar el voucher impreso o presentar la versión digital desde tu dispositivo móvil en la taquilla del evento el día seleccionado. Si llevas el voucher impreso, se recomienda no doblar el código QR. Válido solamente la fecha escogida al momento de comprar la oferta."
+
+═══════════════════════════════════════════════
+FRASES ESTÁNDAR (usar EXACTAMENTE estas frases, sin parafrasear)
+═══════════════════════════════════════════════
+
+Impuestos:
+- Incluidos → "Impuestos incluidos."
+- No incluidos → "Impuestos no incluidos."
+- Propina no incluida → "Propina no incluida."
+
+Feriados:
+- Válido → "Válido en días feriados."
+- No válido → "No es válido en días feriados."
+
+Vouchers por persona:
+- Ilimitado → "Vouchers ilimitados pueden ser comprados y usados por persona. Vouchers ilimitados pueden ser comprados para regalar."
+- Con límite → "Máximo [N] vouchers pueden ser comprados y usados por persona. Máximo [N] vouchers pueden ser comprados para regalar."
+
+Excedente:
+- Con método → "De excederse del crédito, puede hacer el pago con [método]."
+
+Dine-in/takeout/delivery:
+- Solo dine-in → "Válido únicamente para consumo en el restaurante. No es válido en pedidos a domicilio o para llevar."
+- Solo takeout → "Válido únicamente para llevar."
+- Solo delivery → "Válido únicamente para delivery."
+- Dine-in + takeout → "Válido para consumo en el restaurante y para llevar. No es válido para delivery."
+- Todos → "Válido para consumo en el restaurante, para llevar y delivery."
+
+Menú:
+- Menú completo → "Válido para todo el menú del restaurante."
+- Menú ejecutivo no incluido → "No es válido para menú ejecutivo."
+
+Eventos privados:
+- No válido → "No es válido para eventos privados; máximo [N] personas por mesa"
+- Válido → NO MENCIONAR
+
+Reservaciones:
+- No requiere → "Reserva previa no es requerida; sin embargo, se deberá esperar por un espacio si el local está lleno. Sujeto a disponibilidad."
+- Requiere → "Se requiere reservación previa con al menos [tiempo] de anticipación. Sujeto a disponibilidad. Falta de cancelación, cancelaciones tardías o tardanzas conllevarán la pérdida del voucher"
+
+Método de canje:
+- QR → "Para canjear esta oferta debes mostrar el voucher impreso o presentar la versión digital desde tu dispositivo móvil. Si llevas el voucher impreso, se recomienda no doblar el código QR."
+- Listado → "Para canjear esta oferta debes mostrar el voucher impreso o presentar la versión digital desde tu dispositivo móvil en [dirección]."
+
+Periodo de validez:
+- Formato → "Válido del [día] de [mes] al [día] de [mes] de [año]."
+
+Contacto de canje (para howToUseEs):
+- Con teléfono y email → "Contacto: [teléfono] | [email]."
+- Solo teléfono → "Contacto: [teléfono]."
+- Solo email → "Contacto: [email]."
+- Con app o medio específico → "Contacto: [medio indicado]."
+
+Reglas fijas (incluir siempre en restaurantes):
+- "El voucher debe ser canjeado en un solo pedido."
+- "No es válido para cash back."
+- "No es válido con otras promociones o descuentos."
+
+IMPORTANTE: Usa estas frases tal cual. NO las parafrasees, NO las reordenes, NO cambies conectores ni añadas paréntesis.`
+
 const SECTION_PROMPTS: Record<keyof BookingContentOutput, string> = {
-  shortTitle: `Genera un título corto y atractivo para la oferta usando el formato "$PRECIO por DESCRIPCIÓN". Usa el precio más bajo de las opciones de precio y una descripción breve de lo que incluye. NO incluyas el nombre del negocio. Ejemplo: "$14 por Rodizio todo incluido" o "$25 por Spa Day con masaje". Máximo 100 caracteres. Solo el título, sin comillas ni explicación. IMPORTANTE: Si no hay información de precios, responde con el mensaje de error. NO incluyas ningún dato de contacto.`,
-  whatWeLike: `Genera la sección "LO QUE NOS GUSTA" con 4-6 beneficios destacando los atractivos reales de esta oferta. Formato obligatorio: texto plano con una línea por beneficio, sin viñetas, sin asteriscos y sin numeración. Máximo 800 caracteres. No incluyas el encabezado de la sección. IMPORTANTE: Solo menciona beneficios que estén explícitamente en la información proporcionada. NO inventes información. NO incluyas datos de contacto (emails, teléfonos, WhatsApp, usuarios @ ni enlaces).`,
-  aboutCompany: `Genera la sección "LA EMPRESA" con nombre, ubicación, horario y redes sociales del negocio. Formato estructurado y claro. Máximo 600 caracteres. No incluyas el encabezado de la sección. IMPORTANTE: Si falta la ubicación o el nombre del negocio, responde con el mensaje de error. NO inventes direcciones o horarios. Si mencionas redes sociales, indica solo la plataforma (ej. Instagram/Facebook), sin usuarios ni enlaces. NO incluyas datos de contacto.`,
-  aboutOffer: `Genera la sección "ACERCA DE ESTA OFERTA" con descripción del negocio, explicación detallada de la oferta y llamada a acción. Máximo 1200 caracteres. No incluyas el encabezado de la sección. IMPORTANTE: Solo usa información proporcionada. NO inventes descripciones de productos o servicios. NO incluyas datos de contacto (emails, teléfonos, WhatsApp, usuarios @ ni enlaces).`,
-  goodToKnow: `Genera la sección "LO QUE CONVIENE SABER" con información general, restricciones, reservaciones, método de canje y periodo de validez. Usa sub-secciones claras. Máximo 1500 caracteres. No incluyas el encabezado de la sección. IMPORTANTE: Solo menciona información que esté explícitamente proporcionada. NO inventes políticas o métodos de canje. Describe el método de canje sin nombres de contacto, sin emails, sin teléfonos, sin WhatsApp, sin usuarios @ y sin enlaces.`,
+  nameEs: `Genera el TÍTULO DE LA OFERTA (nameEs). Formato: "Paga $[PRICE] por [descripción] en [Nombre del Negocio] (Valor $[REAL_VALUE])." Usa la PRIMERA opción de precio. Si el descuento % es más llamativo, lidera con eso. 60-120 caracteres. Solo el título, sin comillas ni explicación. NO incluyas datos de contacto.`,
+  shortTitle: `Genera un TÍTULO CORTO (shortTitle). Formato: "$PRECIO por DESCRIPCIÓN". Usa el precio más bajo. NO incluyas el nombre del negocio. Máximo 60 caracteres. Solo el título, sin comillas ni explicación. NO incluyas datos de contacto.`,
+  emailTitle: `Genera el TÍTULO DEL EMAIL (emailTitle). Gancho de marketing corto para newsletter. Opciones: "[XX]% OFF", "DESDE $[PRICE]", "2x1 en [servicio]", o frase corta llamativa. Máximo 30 caracteres. Solo el título, sin comillas ni explicación.`,
+  aboutOffer: `Genera la sección "ACERCA DE ESTA OFERTA" (aboutOffer/summaryEs). TEXTO PLANO sin etiquetas HTML. Estructura: 1) Redes sociales (nombres de plataformas), 2) Intro del negocio (2-3 oraciones), 3) Opciones de compra: "Paga $X por [descripción] (Valor $Y).", 4) Detalles con guiones (-) para listas, 5) Cierre con "¡Haz click en comprar!". Tono cálido y vendedor. NO incluyas datos de contacto.`,
+  whatWeLike: `Genera la sección "LO QUE NOS GUSTA" (whatWeLike/noteworthy). TEXTO PLANO: una línea por beneficio separadas por salto de línea. NUNCA uses etiquetas HTML, asteriscos ni viñetas con símbolo. Ejemplo: "Ahorras $14 (50% OFF)\nIncluye buffet completo\nUbicación céntrica". 4-8 beneficios. Empezar con el mejor punto de venta. Incluir ahorro en $ o %. Cada línea máximo 100 caracteres, sin punto al final. NO incluyas datos de contacto.`,
+  goodToKnow: `Genera la sección "LO QUE CONVIENE SABER" (goodToKnow/goodToKnowEs). Títulos de sección en negrita con <strong>, contenido en texto plano. Ejemplo: "<strong>INFORMACIÓN GENERAL</strong>\nImpuestos incluidos...\n\n<strong>RESTRICCIONES</strong>\nNo válido en feriados...". DEBE tener exactamente 5 secciones: INFORMACIÓN GENERAL, RESTRICCIONES, RESERVACIONES/CANCELACIONES, MÉTODO DE CANJE, PERIODO DE VALIDEZ. Respetar estrictamente las restricciones proporcionadas. NO incluyas datos de contacto.`,
+  howToUseEs: `Genera la sección "CÓMO USAR" (howToUseEs). TEXTO PLANO sin etiquetas HTML. Instrucciones paso a paso para canjear el voucher. Para QR: mencionar escaneo en local. Para listado: mencionar presentar voucher en dirección. Para eventos: mencionar taquilla y código QR. Incluir periodo de validez y si es válido en feriados. NO incluyas datos de contacto específicos.`,
 }
 
 const CONTACT_FIELD_PATTERN = /(email|correo|mail|phone|telefono|teléfono|celular|whatsapp|contact|instagram|facebook|tiktok|linkedin|twitter|url|website|web|sitio)/i
@@ -153,21 +288,17 @@ function extractSocialPlatforms(rawSocialMedia: string): string {
   return found.length > 0 ? Array.from(new Set(found)).join(', ') : 'Disponibles (sin detalle público)'
 }
 
-// Validate required fields before generating content
 function validateRequiredFields(input: BookingContentInput): { valid: boolean; missingFields: string[] } {
   const missingFields: string[] = []
   
-  // Required: Business name
   if (!input.businessName?.trim()) {
     missingFields.push('nombre del negocio')
   }
   
-  // Required: Business location/address
   if (!input.addressAndHours?.trim()) {
     missingFields.push('dirección y horario del negocio')
   }
   
-  // Required: At least one pricing option with a price (for title generation)
   if (!input.pricingOptions || input.pricingOptions.length === 0) {
     missingFields.push('opciones de precio')
   } else {
@@ -183,15 +314,12 @@ function validateRequiredFields(input: BookingContentInput): { valid: boolean; m
   }
 }
 
-// Helper to format business info for the prompt
 function formatBusinessInfo(input: BookingContentInput): string {
   const lines: string[] = []
   
-  // Basic info
   lines.push(`Nombre del negocio: ${input.businessName || 'No especificado'}`)
   lines.push('Datos de contacto: [INTERNOS - NO MOSTRAR EN EL CONTENIDO FINAL]')
   
-  // Categories
   if (input.parentCategory) {
     lines.push(`Categoría: ${input.parentCategory}`)
   }
@@ -202,7 +330,6 @@ function formatBusinessInfo(input: BookingContentInput): string {
     lines.push(`Subcategoría 2: ${input.subCategory2}`)
   }
   
-  // Dates
   if (input.startDate) {
     const startDate = new Date(input.startDate)
     lines.push(`Fecha de inicio: ${startDate.toLocaleDateString('es-ES', { timeZone: PANAMA_TIMEZONE })}`)
@@ -212,7 +339,6 @@ function formatBusinessInfo(input: BookingContentInput): string {
     lines.push(`Fecha de fin: ${endDate.toLocaleDateString('es-ES', { timeZone: PANAMA_TIMEZONE })}`)
   }
   
-  // Business details
   if (input.addressAndHours) {
     lines.push(`Dirección y horario: ${input.addressAndHours}`)
   }
@@ -220,7 +346,6 @@ function formatBusinessInfo(input: BookingContentInput): string {
     lines.push(`Redes sociales (solo plataformas, sin usuarios/enlaces): ${extractSocialPlatforms(input.socialMedia)}`)
   }
   
-  // Pricing options
   if (input.pricingOptions && input.pricingOptions.length > 0) {
     lines.push(`\nOpciones de precio:`)
     input.pricingOptions.forEach((option, index) => {
@@ -230,10 +355,13 @@ function formatBusinessInfo(input: BookingContentInput): string {
       if (option.price) lines.push(`    - Precio: $${option.price}`)
       if (option.realValue) lines.push(`    - Valor real: $${option.realValue}`)
       if (option.quantity) lines.push(`    - Cantidad: ${option.quantity}`)
+      const limitNum = parseInt(option.limitByUser?.trim() || '', 10)
+      lines.push(`    - Máx por persona: ${limitNum > 0 && limitNum <= 10 ? limitNum : 'Ilimitado'}`)
+      const giftNum = parseInt(option.maxGiftsPerUser?.trim() || '', 10)
+      lines.push(`    - Máx para regalar: ${giftNum > 0 && giftNum <= 10 ? giftNum : 'Ilimitado'}`)
     })
   }
   
-  // Terms & Conditions - Be explicit about restrictions vs permissions
   lines.push(`\nTérminos y condiciones (RESPETAR EXACTAMENTE):`)
   if (input.redemptionMode) {
     lines.push(`  - Modalidad de canje: ${input.redemptionMode}`)
@@ -257,30 +385,34 @@ function formatBusinessInfo(input: BookingContentInput): string {
     lines.push(`  - Política de cancelación: ${input.cancellationPolicy}`)
   }
   
-  // Contact
-  if (input.contactDetails || input.redemptionContactName || input.redemptionContactEmail || input.redemptionContactPhone) {
-    lines.push(`\nContacto de canje: [INFORMACIÓN INTERNA - NO PUBLICAR DATOS ESPECÍFICOS]`)
+  // Public-facing redemption contact (for howToUseEs section)
+  const contactParts: string[] = []
+  if (input.contactDetails?.trim()) contactParts.push(input.contactDetails.trim())
+  if (input.redemptionContactPhone?.trim()) contactParts.push(input.redemptionContactPhone.trim())
+  if (input.redemptionContactEmail?.trim()) contactParts.push(input.redemptionContactEmail.trim())
+  if (contactParts.length > 0) {
+    lines.push(`\nCONTACTO PARA CANJE (PÚBLICO — incluir en howToUseEs):`)
+    lines.push(`  ${contactParts.join(' | ')}`)
   }
   if (input.redemptionMethods && input.redemptionMethods.length > 0) {
     lines.push(`  - Métodos de canje: ${input.redemptionMethods.join(', ')}`)
   }
   
-  // Additional dynamic fields from InformacionAdicionalStep
-  // These are category-specific fields (e.g., restaurant menu type, spa services, etc.)
+  // Category-specific dynamic fields from InformacionAdicionalStep
   const knownFields = new Set([
     'businessName', 'partnerEmail', 'parentCategory', 'subCategory1', 'subCategory2',
     'startDate', 'endDate', 'addressAndHours', 'socialMedia', 'contactDetails',
     'pricingOptions', 'redemptionMode', 'includesTaxes', 'validOnHolidays', 'blackoutDates',
     'hasOtherBranches', 'cancellationPolicy',
     'redemptionContactName', 'redemptionContactEmail', 'redemptionContactPhone', 'redemptionMethods',
-    // Output fields (should not be included as input)
-    'whatWeLike', 'aboutCompany', 'aboutOffer', 'goodToKnow',
-    // Other form fields that aren't relevant for content generation
-    'category', 'merchant', 'additionalEmails', 'opportunityId', 'campaignDuration',
+    // Output fields
+    'nameEs', 'shortTitle', 'emailTitle', 'whatWeLike', 'aboutCompany', 'aboutOffer', 'goodToKnow', 'howToUseEs',
+    // Non-content form fields
+    'category', 'merchant', 'additionalEmails', 'opportunityId', 'campaignDuration', 'campaignDurationUnit',
     'isRecurring', 'recurringOfferLink', 'paymentType', 'paymentInstructions',
     'legalName', 'rucDv', 'bankAccountName', 'bank', 'accountNumber', 'accountType',
     'provinceDistrictCorregimiento', 'hasExclusivity', 'exclusivityCondition',
-    'marketValidation', 'additionalComments', 'dealImages',
+    'marketValidation', 'additionalComments', 'dealImages', 'bookingAttachments',
     'approverName', 'approverEmail', 'approverBusinessName', 'additionalInfo',
   ])
   
@@ -294,7 +426,6 @@ function formatBusinessInfo(input: BookingContentInput): string {
   if (additionalFields.length > 0) {
     lines.push(`\nInformación adicional específica de la categoría:`)
     additionalFields.forEach(([key, value]) => {
-      // Convert camelCase to readable format
       const label = key
         .replace(/([A-Z])/g, ' $1')
         .replace(/^./, str => str.toUpperCase())
@@ -306,12 +437,10 @@ function formatBusinessInfo(input: BookingContentInput): string {
   return lines.join('\n')
 }
 
-// Generate a single section
 async function generateSection(
   sectionName: keyof BookingContentOutput,
   input: BookingContentInput
 ): Promise<string> {
-  // Validate required fields first
   const validation = validateRequiredFields(input)
   if (!validation.valid) {
     return `No hay información suficiente para generar este contenido. Por favor complete los siguientes campos requeridos: ${validation.missingFields.join(', ')}.`
@@ -345,18 +474,18 @@ Genera SOLO la sección solicitada.`
   return response.choices[0]?.message?.content || ''
 }
 
-// Generate all sections at once
 async function generateAllSections(input: BookingContentInput): Promise<BookingContentOutput> {
-  // Validate required fields first
   const validation = validateRequiredFields(input)
   if (!validation.valid) {
     const errorMessage = `No hay información suficiente para generar este contenido. Por favor complete los siguientes campos requeridos: ${validation.missingFields.join(', ')}.`
     return {
+      nameEs: errorMessage,
       shortTitle: errorMessage,
+      emailTitle: errorMessage,
       whatWeLike: errorMessage,
-      aboutCompany: errorMessage,
       aboutOffer: errorMessage,
       goodToKnow: errorMessage,
+      howToUseEs: errorMessage,
     }
   }
   
@@ -376,23 +505,25 @@ ${businessInfo}
 
 IMPORTANTE: Si falta información esencial para alguna sección, usa "No hay información suficiente para generar este contenido. Por favor complete los campos requeridos." para esa sección específica.
 
-Responde en formato JSON con las siguientes claves (sin incluir los encabezados de sección en el contenido):
-{
-  "shortTitle": "título corto formato $PRECIO por DESCRIPCIÓN (máximo 100 caracteres, ej: $14 por Rodizio todo incluido)...",
-  "whatWeLike": "contenido de la sección LO QUE NOS GUSTA (máximo 800 caracteres)...",
-  "aboutCompany": "contenido de la sección LA EMPRESA (máximo 600 caracteres)...",
-  "aboutOffer": "contenido de la sección ACERCA DE ESTA OFERTA (máximo 1200 caracteres)...",
-  "goodToKnow": "contenido de la sección LO QUE CONVIENE SABER (máximo 1500 caracteres)..."
-}
+Responde en formato JSON con las siguientes claves.
+CRÍTICO: TODO el contenido debe ser TEXTO PLANO. NUNCA incluyas etiquetas HTML como <strong>, <ul>, <li>, <p>, <br>, <b>, <i>. Usa saltos de línea para separar, guiones (-) para listas, y MAYÚSCULAS para títulos de sección.
 
-NOTA SOBRE shortTitle: Usa el PRECIO MÁS BAJO de las opciones de precio disponibles y crea un título atractivo como "$14 por Rodizio todo incluido" o "$25 por Spa Day completo". NO incluyas el nombre del negocio en el título.
+{
+  "nameEs": "texto plano, 60-120 caracteres, formato 'Paga $X por [descripción] en [Negocio] (Valor $Y).'",
+  "shortTitle": "texto plano, máximo 60 caracteres, formato '$PRECIO por DESCRIPCIÓN', sin nombre del negocio",
+  "emailTitle": "texto plano, máximo 30 caracteres, ej: '50% OFF' o 'DESDE $14'",
+  "aboutOffer": "texto plano: intro, opciones de compra 'Paga $X por [desc] (Valor $Y)', detalles con guiones (-), cierre con '¡Haz click en comprar!'",
+  "whatWeLike": "texto plano: una línea por beneficio separadas por salto de línea. Ej: 'Ahorras $14 (50% OFF)\nIncluye buffet completo\nUbicación céntrica'",
+  "goodToKnow": "5 secciones con títulos en <strong>NEGRITA</strong>. Ej: '<strong>INFORMACIÓN GENERAL</strong>\nImpuestos incluidos...\n\n<strong>RESTRICCIONES</strong>\nNo válido en feriados...'",
+  "howToUseEs": "texto plano: instrucciones paso a paso para canjear el voucher, método de redención, periodo de validez y si aplica en feriados"
+}
 
 IMPORTANTE: 
 - Responde SOLO con el JSON, sin texto adicional ni bloques de código.
-- NO excedas los límites de caracteres indicados para cada sección.
+- NO excedas los límites de caracteres indicados.
 - NO inventes información. Solo usa la información proporcionada.
-- NO incluyas datos de contacto visibles (nombres de contacto, emails, teléfonos, WhatsApp, usuarios @ ni enlaces).
-- Si falta información importante para una sección, usa el mensaje de error para esa sección específica.`
+- NO incluyas datos de contacto visibles (nombres, emails, teléfonos, WhatsApp, usuarios @ ni enlaces).
+- Si falta información importante para una sección, usa el mensaje de error para esa sección.`
       },
     ],
     temperature: 0.7,
@@ -405,11 +536,13 @@ IMPORTANTE:
   try {
     const parsed = JSON.parse(content) as BookingContentOutput
     return {
+      nameEs: parsed.nameEs || '',
       shortTitle: parsed.shortTitle || '',
+      emailTitle: parsed.emailTitle || '',
       whatWeLike: parsed.whatWeLike || '',
-      aboutCompany: parsed.aboutCompany || '',
       aboutOffer: parsed.aboutOffer || '',
       goodToKnow: parsed.goodToKnow || '',
+      howToUseEs: parsed.howToUseEs || '',
     }
   } catch {
     console.error('Failed to parse AI response:', content)
@@ -419,7 +552,6 @@ IMPORTANTE:
 
 export async function POST(request: NextRequest) {
   try {
-    // Apply AI rate limiting (20 req/min)
     const { userId } = await auth()
     const identifier = userId || getClientIp(request)
     const rateLimitResult = await applyRateLimit(
@@ -440,11 +572,9 @@ export async function POST(request: NextRequest) {
     }
     
     if (section) {
-      // Generate a single section
       const content = await generateSection(section, formData)
       return NextResponse.json({ [section]: content })
     } else {
-      // Generate all sections
       const content = await generateAllSections(formData)
       return NextResponse.json(content)
     }

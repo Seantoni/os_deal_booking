@@ -13,96 +13,80 @@ interface ContenidoStepProps {
   isFieldRequired?: (fieldKey: string) => boolean
 }
 
-// AI field configuration
+// AI field configuration — matches docs/ai-content-field-definitions.md
 const AI_FIELDS = {
+  nameEs: {
+    label: 'Título de la oferta',
+    placeholder: 'Ej: Paga $69 por micropigmentación de cejas en Studio Bel-Lash (Valor $250)',
+    rows: 2,
+    maxLength: 120,
+    hint: '60–120 caracteres. Formato: Paga $[PRECIO] por [descripción] en [Negocio] (Valor $[VALOR]).',
+  },
   shortTitle: {
-    label: 'Título',
+    label: 'Título corto',
     placeholder: 'Ej: $14 por Rodizio todo incluido',
     rows: 1,
-    maxLength: 100,
-    isInput: true, // Use Input instead of Textarea
+    maxLength: 60,
+    isInput: true,
+    hint: 'Máx 60 caracteres. Para tarjetas y móvil.',
   },
-  whatWeLike: {
-    label: 'Lo que nos gusta',
-    placeholder: 'Se generará automáticamente con IA...',
-    rows: 5,
-    maxLength: 800,
-  },
-  aboutCompany: {
-    label: 'La empresa',
-    placeholder: 'Se generará automáticamente con IA...',
-    rows: 5,
-    maxLength: 600,
+  emailTitle: {
+    label: 'Título del email',
+    placeholder: 'Ej: 50% OFF',
+    rows: 1,
+    maxLength: 30,
+    isInput: true,
+    hint: 'Máx 30 caracteres. Gancho para newsletter.',
   },
   aboutOffer: {
     label: 'Acerca de esta oferta',
     placeholder: 'Se generará automáticamente con IA...',
+    rows: 8,
+    maxLength: 2000,
+    hint: 'Intro del negocio, opciones de compra, detalles, y llamada a acción.',
+  },
+  whatWeLike: {
+    label: 'Lo que nos gusta',
+    placeholder: 'Se generará automáticamente con IA...',
     rows: 6,
-    maxLength: 1200,
+    maxLength: 800,
+    hint: '4–8 puntos destacados. HTML <ul><li>.',
   },
   goodToKnow: {
     label: 'Lo que conviene saber',
     placeholder: 'Se generará automáticamente con IA...',
-    rows: 8,
-    maxLength: 1500,
+    rows: 10,
+    maxLength: 2500,
+    hint: '5 secciones: Info General, Restricciones, Reservaciones, Método de Canje, Periodo de Validez.',
+  },
+  howToUseEs: {
+    label: 'Cómo usar',
+    placeholder: 'Se generará automáticamente con IA...',
+    rows: 6,
+    maxLength: 1000,
+    hint: 'Instrucciones paso a paso para canjear el voucher.',
   },
 } as const
 
 type AIFieldKey = keyof typeof AI_FIELDS
 
 export default function ContenidoStep({ formData, errors, updateFormData, isFieldRequired = () => false }: ContenidoStepProps) {
-  // AI generation state - single loading state for all fields
   const [isGenerating, setIsGenerating] = useState(false)
 
-  // Generate all AI fields at once
   const handleGenerateAll = async () => {
     if (!formData.businessName?.trim()) return
     
     setIsGenerating(true)
     
     try {
-      // Send all form data to AI - it will use relevant fields for generation
-      // This includes dynamic fields from InformacionAdicionalStep
       const response = await fetch('/api/ai/generate-booking-content', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           formData: {
-            // Basic info
-            businessName: formData.businessName,
-            partnerEmail: formData.partnerEmail,
-            // Categories
-            parentCategory: formData.parentCategory,
-            subCategory1: formData.subCategory1,
-            subCategory2: formData.subCategory2,
-            // Dates
-            startDate: formData.startDate,
-            endDate: formData.endDate,
-            // Description & content
-            addressAndHours: formData.addressAndHours,
-            socialMedia: formData.socialMedia,
-            contactDetails: formData.contactDetails,
-            // Pricing
-            pricingOptions: formData.pricingOptions,
-            // Operations
-            redemptionMode: formData.redemptionMode,
-            includesTaxes: formData.includesTaxes,
-            validOnHolidays: formData.validOnHolidays,
-            blackoutDates: formData.blackoutDates,
-            hasOtherBranches: formData.hasOtherBranches,
-            // Policies
-            cancellationPolicy: formData.cancellationPolicy,
-            // Contact
-            redemptionContactName: formData.redemptionContactName,
-            redemptionContactEmail: formData.redemptionContactEmail,
-            redemptionContactPhone: formData.redemptionContactPhone,
-            redemptionMethods: formData.redemptionMethods,
-            // Additional Info (dynamic fields from InformacionAdicionalStep)
-            // Pass entire formData to capture any category-specific fields
             ...Object.fromEntries(
               Object.entries(formData).filter(([key]) => 
-                // Include any fields that might be from dynamic templates
-                !['whatWeLike', 'aboutCompany', 'aboutOffer', 'goodToKnow'].includes(key)
+                !['nameEs', 'shortTitle', 'emailTitle', 'whatWeLike', 'aboutCompany', 'aboutOffer', 'goodToKnow', 'howToUseEs'].includes(key)
               )
             ),
           },
@@ -111,8 +95,7 @@ export default function ContenidoStep({ formData, errors, updateFormData, isFiel
       if (!response.ok) throw new Error('No se pudo generar el contenido.')
       const data = await response.json()
       
-      // Update all fields
-      Object.keys(AI_FIELDS).forEach(key => {
+      ;(Object.keys(AI_FIELDS) as AIFieldKey[]).forEach(key => {
         if (data?.[key]) {
           updateFormData(key as keyof BookingFormData, data[key])
         }
@@ -123,6 +106,12 @@ export default function ContenidoStep({ formData, errors, updateFormData, isFiel
       setIsGenerating(false)
     }
   }
+
+  const firstPriceOption = formData.pricingOptions?.length > 0
+    ? formData.pricingOptions
+        .filter(opt => opt.price && parseFloat(opt.price) > 0)
+        .sort((a, b) => parseFloat(a.price || '0') - parseFloat(b.price || '0'))[0]
+    : null
 
   return (
     <div className="space-y-8">
@@ -187,16 +176,18 @@ export default function ContenidoStep({ formData, errors, updateFormData, isFiel
           </div>
         )}
 
+        {/* Price context helper */}
+        {firstPriceOption && (
+          <div className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+            Referencia de precio: <span className="font-medium text-blue-600">${firstPriceOption.price}</span>
+            {firstPriceOption.realValue && <> (Valor: <span className="font-medium">${firstPriceOption.realValue}</span>)</>}
+            {' — '}{firstPriceOption.title || firstPriceOption.description || 'Sin título'}
+          </div>
+        )}
+
         {(Object.keys(AI_FIELDS) as AIFieldKey[]).map((fieldKey) => {
           const config = AI_FIELDS[fieldKey]
           const currentValue = formData[fieldKey] || ''
-          
-          // For shortTitle, show the lowest price option info
-          const lowestPriceOption = fieldKey === 'shortTitle' && formData.pricingOptions?.length > 0
-            ? formData.pricingOptions
-                .filter(opt => opt.price && parseFloat(opt.price) > 0)
-                .sort((a, b) => parseFloat(a.price || '0') - parseFloat(b.price || '0'))[0]
-            : null
           
           return (
             <div key={fieldKey}>
@@ -204,10 +195,8 @@ export default function ContenidoStep({ formData, errors, updateFormData, isFiel
                 <span>{config.label}</span>
                 <span className="text-xs text-purple-500 font-normal">(IA)</span>
               </label>
-              {fieldKey === 'shortTitle' && lowestPriceOption && (
-                <p className="text-xs text-gray-500 mb-2">
-                  Basado en: <span className="font-medium text-blue-600">${lowestPriceOption.price}</span> - {lowestPriceOption.title || lowestPriceOption.description || 'Sin título'}
-                </p>
+              {'hint' in config && (
+                <p className="text-[11px] text-gray-400 mb-1.5">{config.hint}</p>
               )}
               {'isInput' in config && config.isInput ? (
                 <Input

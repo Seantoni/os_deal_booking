@@ -216,12 +216,14 @@ const SECTIONS: SectionDef[] = [
   {
     title: 'Contenido y Marketing',
     fields: [
+      { key: 'nameEs', label: 'Título de la Oferta', wide: true },
       { key: 'shortTitle', label: 'Título Corto', wide: true },
+      { key: 'emailTitle', label: 'Título del Email', wide: true },
       { key: 'businessReview', label: 'Reseña Negocio', wide: true },
       { key: 'whatWeLike', label: 'Lo que nos gusta', wide: true },
-      { key: 'aboutCompany', label: 'Sobre la Empresa', wide: true },
-      { key: 'aboutOffer', label: 'Sobre la Oferta', wide: true },
+      { key: 'aboutOffer', label: 'Acerca de esta Oferta', wide: true },
       { key: 'goodToKnow', label: 'Lo que conviene saber', wide: true },
+      { key: 'howToUseEs', label: 'Cómo Usar', wide: true },
       { key: 'contactDetails', label: 'Detalles Contacto', wide: true },
       { key: 'socialMedia', label: 'Redes Sociales', wide: true },
     ],

@@ -152,7 +152,7 @@ export const REQUEST_FORM_STEPS: RequestFormStep[] = [
       { key: 'restaurantDeliveryAreas', label: 'Áreas de Delivery', type: 'textarea', categorySpecific: true, template: 'RESTAURANTE' },
       { key: 'restaurantOrderMethod', label: 'Método de Pedido', type: 'text', categorySpecific: true, template: 'RESTAURANTE' },
       { key: 'restaurantVouchersPerOrder', label: 'Vouchers por Orden', type: 'number', categorySpecific: true, template: 'RESTAURANTE' },
-      { key: 'restaurantVoucherPersonRatio', label: 'Ratio Voucher/Persona', type: 'text', categorySpecific: true, template: 'RESTAURANTE' },
+      { key: 'restaurantVoucherPersonRatio', label: '¿Aplica regla de personas por voucher? (1 voucher = mín 1 persona, 2 vouchers = mín 4 personas, etc.)', type: 'text', categorySpecific: true, template: 'RESTAURANTE' },
       { key: 'restaurantOrderTime', label: 'Hora de Pedido', type: 'text', categorySpecific: true, template: 'RESTAURANTE' },
       { key: 'restaurantKitchenClosingTime', label: 'Hora Cierre Cocina', type: 'text', categorySpecific: true, template: 'RESTAURANTE' },
       { key: 'restaurantValidFullMenu', label: 'Válido Menú Completo', type: 'select', categorySpecific: true, template: 'RESTAURANTE' },

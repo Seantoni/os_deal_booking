@@ -128,8 +128,8 @@ export function mapBookingFormToApi(
 ): ExternalOfertaDealRequest {
   const firstPricingOption = formData.pricingOptions?.[0]
   
-  // Extract offer name from first pricing option (the subtitle shown on deal page)
-  const nameEs = firstPricingOption?.title || firstPricingOption?.description || formData.businessName || ''
+  // Use AI-generated title if available, otherwise fall back to pricing option
+  const nameEs = formData.nameEs?.trim() || firstPricingOption?.title || firstPricingOption?.description || formData.businessName || ''
   
   // summaryEs (required by API): use "Acerca de esta oferta" first, then fall back
   const summaryEs = formData.aboutOffer || firstPricingOption?.description || firstPricingOption?.title || formData.businessName || ''
@@ -207,8 +207,7 @@ export function mapBookingFormToApi(
     
     // Email/Marketing
     emailBusinessName: formData.businessName || null,
-    // emailTitle: TODO - may need new field
-    // voucherSubject: TODO - may need new field
+    emailTitle: formData.emailTitle?.trim() || null,
 
     // Address/Location
     vendorAddress: formData.addressAndHours || null,
@@ -231,8 +230,7 @@ export function mapBookingFormToApi(
     // url: TODO - may need new field
 
     // Instructions/Details
-    howToUseEs: null,
-    // banner1Line1: TODO - may need new field
+    howToUseEs: formData.howToUseEs?.trim() || null,
 
     // Pricing - only include if we have at least one valid option
     priceOptions: priceOptions.length > 0 ? priceOptions : null,

@@ -165,11 +165,14 @@ interface BookingRequestData {
   campaignDuration?: string | null
   offerMargin?: string | null // Comisión OfertaSimple (percentage)
   pricingOptions?: Prisma.JsonValue
-  // Optional fields for future use
+  // AI-generated content fields
+  nameEs?: string | null
   shortTitle?: string | null
+  emailTitle?: string | null
   aboutOffer?: string | null
   whatWeLike?: string | null
   goodToKnow?: string | null
+  howToUseEs?: string | null
   businessReview?: string | null
   addressAndHours?: string | null
   paymentInstructions?: string | null
@@ -428,10 +431,13 @@ export async function sendDealToExternalApi(
     campaignDuration: bookingRequest.campaignDuration || '3',
     offerMargin: bookingRequest.offerMargin || '', // Comisión OfertaSimple (maps to oufferMargin in API)
     pricingOptions: pricingOptions as BookingFormData['pricingOptions'],
+    nameEs: bookingRequest.nameEs || '',
     shortTitle: bookingRequest.shortTitle || '',
+    emailTitle: bookingRequest.emailTitle || '',
     aboutOffer: bookingRequest.aboutOffer || '',
     whatWeLike: bookingRequest.whatWeLike || '',
     goodToKnow: bookingRequest.goodToKnow || '',
+    howToUseEs: bookingRequest.howToUseEs || '',
     businessReview: bookingRequest.businessReview || '',
     addressAndHours: bookingRequest.addressAndHours || '',
     paymentInstructions: bookingRequest.paymentInstructions || '',

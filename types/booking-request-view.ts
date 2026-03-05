@@ -114,11 +114,14 @@ export interface BookingRequestViewData {
   socialMedia: string | null
 
   // Contenido: AI-Generated Content Fields
+  nameEs: string | null
   shortTitle: string | null
+  emailTitle: string | null
   whatWeLike: string | null
   aboutCompany: string | null
   aboutOffer: string | null
   goodToKnow: string | null
+  howToUseEs: string | null
 
   // Step 7: Estructura de la Oferta
   offerMargin: string | null

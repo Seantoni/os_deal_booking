@@ -379,11 +379,14 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
   fd.append('socialMedia', formData.socialMedia || '')
   
   // Contenido: AI-Generated Content Fields
+  fd.append('nameEs', formData.nameEs || '')
   fd.append('shortTitle', formData.shortTitle || '')
+  fd.append('emailTitle', formData.emailTitle || '')
   fd.append('whatWeLike', formData.whatWeLike || '')
   fd.append('aboutCompany', formData.aboutCompany || '')
   fd.append('aboutOffer', formData.aboutOffer || '')
   fd.append('goodToKnow', formData.goodToKnow || '')
+  fd.append('howToUseEs', formData.howToUseEs || '')
   
   // Estructura: Estructura de la Oferta
   fd.append('offerMargin', formData.offerMargin || '')

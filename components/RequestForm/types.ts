@@ -69,11 +69,15 @@ export type BookingFormData = {
   businessReview: string
   
   // AI-Generated Content Fields (for deal page display)
-  shortTitle: string      // Título corto (e.g. "$14 por Rodizio todo incluido")
-  whatWeLike: string      // Lo que nos gusta
-  aboutCompany: string    // La empresa
-  aboutOffer: string      // Acerca de esta oferta
-  goodToKnow: string      // Lo que conviene saber
+  // See docs/ai-content-field-definitions.md for full rules
+  nameEs: string          // Título de la oferta (full headline, 60-120 chars)
+  shortTitle: string      // Título corto (e.g. "$14 por Rodizio todo incluido", max 60 chars)
+  emailTitle: string      // Título del email (marketing hook, max 30 chars)
+  whatWeLike: string      // Lo que nos gusta (noteworthy bullet points)
+  aboutCompany: string    // La empresa (legacy, kept for backward compatibility)
+  aboutOffer: string      // Acerca de esta oferta (summaryEs, rich text)
+  goodToKnow: string      // Lo que conviene saber (5-section LQCS structure)
+  howToUseEs: string      // Cómo usar (redemption instructions)
   
   // Estructura: Estructura de la Oferta
   offerMargin: string     // Comisión OfertaSimple (percentage, applied to all options)
