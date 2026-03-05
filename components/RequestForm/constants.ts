@@ -129,6 +129,7 @@ export const INITIAL_FORM_DATA: BookingFormData = {
   
   // Deal Images Gallery
   dealImages: [],
+  bookingAttachments: [],
   
   // Políticas: Políticas y Revisión
   cancellationPolicy: '',

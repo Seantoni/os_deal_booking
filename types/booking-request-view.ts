@@ -23,9 +23,15 @@ export interface BankAccountInfo {
 
 // Additional info structure (dynamic template fields)
 export interface AdditionalInfo {
-  templateName: string
+  templateName?: string
   templateDisplayName?: string
-  fields: Record<string, string>
+  fields?: Record<string, string>
+  bookingAttachments?: Array<{
+    url: string
+    filename: string
+    mimeType: string
+    size: number
+  }>
 }
 
 // User reference (for processed by / created by)
@@ -150,7 +156,7 @@ export interface BookingRequestViewData {
 }
 
 // Field type enum
-export type FieldType = 'date' | 'json' | 'pricing' | 'description' | 'gallery'
+export type FieldType = 'date' | 'json' | 'pricing' | 'description' | 'gallery' | 'attachments'
 
 // Field definition for sections
 export interface FieldDefinition {

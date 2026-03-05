@@ -25,6 +25,20 @@ export interface UploadResult {
   error?: string
 }
 
+export interface UploadValidatedFileOptions {
+  file: File
+  userId: string
+  folder?: string
+  makePublic?: boolean
+  mode: 'image' | 'attachment'
+}
+
+export interface UploadValidatedFileResult extends UploadResult {
+  filename?: string
+  mimeType?: string
+  size?: number
+}
+
 /**
  * Generate a unique file key with optional folder prefix
  */
@@ -63,6 +77,7 @@ export async function uploadFileToS3(
 
   try {
     const { file, key, contentType, folder, makePublic = false } = options
+    void makePublic
 
     // Generate the full S3 key
     const s3Key = folder ? `${folder.replace(/^\/|\/$/g, '')}/${key}` : key
@@ -134,4 +149,75 @@ export function validateImageFile(file: File): { valid: boolean; error?: string 
   }
 
   return { valid: true }
+}
+
+/**
+ * Validate generic file attachments before upload
+ * Allows common image and document formats for booking attachments.
+ */
+export function validateAttachmentFile(file: File): { valid: boolean; error?: string } {
+  const maxSize = 10 * 1024 * 1024 // 10MB
+  const allowedMimeTypes = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ]
+  const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'doc', 'docx']
+
+  const extension = file.name.split('.').pop()?.toLowerCase() || ''
+  const mimeAllowed = allowedMimeTypes.includes(file.type)
+  const extensionAllowed = allowedExtensions.includes(extension)
+
+  if (!mimeAllowed && !extensionAllowed) {
+    return {
+      valid: false,
+      error: 'Invalid file type. Allowed: JPG, PNG, GIF, WEBP, PDF, DOC, DOCX',
+    }
+  }
+
+  if (file.size > maxSize) {
+    return {
+      valid: false,
+      error: `File size exceeds maximum of ${maxSize / 1024 / 1024}MB`,
+    }
+  }
+
+  return { valid: true }
+}
+
+/**
+ * Validate and upload a file to S3 in one call.
+ * Keeps route handlers thin and consistent across image/document uploads.
+ */
+export async function uploadValidatedFileToS3(
+  options: UploadValidatedFileOptions
+): Promise<UploadValidatedFileResult> {
+  const { file, folder = 'uploads', userId, makePublic = false, mode } = options
+  const validation = mode === 'image' ? validateImageFile(file) : validateAttachmentFile(file)
+  if (!validation.valid) {
+    return { success: false, error: validation.error || 'Invalid file' }
+  }
+
+  const key = generateFileKey(file.name, folder, userId)
+  const result = await uploadFileToS3({
+    file,
+    key,
+    folder,
+    contentType: file.type,
+    makePublic,
+  })
+
+  if (!result.success) return result
+
+  return {
+    ...result,
+    filename: file.name,
+    mimeType: file.type,
+    size: file.size,
+  }
 }

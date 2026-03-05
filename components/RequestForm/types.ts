@@ -5,6 +5,13 @@ export type BankAccountInfo = {
   accountType: string
 }
 
+export type BookingAttachment = {
+  url: string
+  filename: string
+  mimeType: string
+  size: number
+}
+
 // Complete form data structure with 9 sections (Configuración and Operatividad merged)
 export type BookingFormData = {
   // Configuración: Configuración General y Vigencia (merged Configuración and Operatividad)
@@ -88,6 +95,9 @@ export type BookingFormData = {
     url: string
     order: number
   }>
+
+  // Attachments for internal review (documents and optional extra images)
+  bookingAttachments: BookingAttachment[]
   
   // Políticas: Políticas Generales
   cancellationPolicy: string

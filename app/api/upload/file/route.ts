@@ -1,8 +1,8 @@
 /**
- * Image Upload API Route
- * 
- * Handles image uploads to S3
- * POST /api/upload/image
+ * File Upload API Route
+ *
+ * Handles generic booking attachment uploads to S3.
+ * POST /api/upload/file
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -12,7 +12,6 @@ import { logger } from '@/lib/logger'
 
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
     const { userId } = await auth()
     if (!userId) {
       return NextResponse.json(
@@ -21,7 +20,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Parse form data
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const folder = (formData.get('folder') as string) || 'uploads'
@@ -39,7 +37,7 @@ export async function POST(request: NextRequest) {
       folder,
       userId,
       makePublic,
-      mode: 'image',
+      mode: 'attachment',
     })
 
     if (!result.success) {
@@ -52,15 +50,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    logger.info(`Image uploaded successfully by user ${userId}: ${result.key}`)
+    logger.info(`Attachment uploaded successfully by user ${userId}: ${result.key}`)
 
     return NextResponse.json({
       success: true,
       url: result.url,
       key: result.key,
+      filename: result.filename || file.name,
+      mimeType: result.mimeType || file.type,
+      size: result.size || file.size,
     })
   } catch (error) {
-    logger.error('Error in image upload API:', error)
+    logger.error('Error in file upload API:', error)
     return NextResponse.json(
       {
         success: false,

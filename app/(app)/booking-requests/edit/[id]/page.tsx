@@ -13,6 +13,12 @@ interface AdditionalInfo {
   templateName?: string
   templateDisplayName?: string
   fields?: Record<string, string>
+  bookingAttachments?: Array<{
+    url: string
+    filename: string
+    mimeType: string
+    size: number
+  }>
 }
 
 interface EditBookingRequestPageProps {
@@ -125,6 +131,7 @@ export default async function EditBookingRequestPage({ params }: EditBookingRequ
       imageUrl: opt?.imageUrl ?? '',
     })),
     dealImages: Array.isArray(br.dealImages) ? br.dealImages : [],
+    bookingAttachments: Array.isArray(storedAdditionalInfo?.bookingAttachments) ? storedAdditionalInfo.bookingAttachments : [],
     cancellationPolicy: br.cancellationPolicy || '',
     marketValidation: br.marketValidation || '',
     additionalComments: br.additionalComments || '',

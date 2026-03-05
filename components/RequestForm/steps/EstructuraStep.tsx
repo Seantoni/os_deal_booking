@@ -10,7 +10,10 @@ import CollectionsIcon from '@mui/icons-material/Collections'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import ZoomInIcon from '@mui/icons-material/ZoomIn'
-import type { BookingFormData } from '../types'
+import AttachFileIcon from '@mui/icons-material/AttachFile'
+import DescriptionIcon from '@mui/icons-material/Description'
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
+import type { BookingAttachment, BookingFormData } from '../types'
 import { Input, Textarea, Button } from '@/components/ui'
 import toast from 'react-hot-toast'
 import { compressImage, compressImages } from '@/lib/utils/image-compression'
@@ -102,6 +105,8 @@ export default function EstructuraStep({
   // Gallery image handlers
   const [galleryUploading, setGalleryUploading] = useState(false)
   const galleryInputRef = useRef<HTMLInputElement>(null)
+  const [attachmentsUploading, setAttachmentsUploading] = useState(false)
+  const attachmentsInputRef = useRef<HTMLInputElement>(null)
 
   // Lightbox state
   const [lightboxOpen, setLightboxOpen] = useState(false)
@@ -109,6 +114,48 @@ export default function EstructuraStep({
   const [lightboxInitialIndex, setLightboxInitialIndex] = useState(0)
 
   const dealImages = Array.isArray(formData.dealImages) ? formData.dealImages : []
+  const bookingAttachments = Array.isArray(formData.bookingAttachments) ? formData.bookingAttachments : []
+
+  const attachmentMimeTypes = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ]
+  const attachmentExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'doc', 'docx']
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes <= 0) return '0 B'
+    const units = ['B', 'KB', 'MB', 'GB']
+    let size = bytes
+    let unit = 0
+    while (size >= 1024 && unit < units.length - 1) {
+      size /= 1024
+      unit += 1
+    }
+    return `${size.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`
+  }
+
+  const getAttachmentTypeLabel = (mimeType: string, filename: string): string => {
+    const ext = filename.split('.').pop()?.toUpperCase() || ''
+    if (mimeType.startsWith('image/')) return ext || 'Imagen'
+    if (mimeType === 'application/pdf' || ext === 'PDF') return 'PDF'
+    if (ext === 'DOC' || ext === 'DOCX' || mimeType.includes('word')) return ext || 'DOC'
+    return ext || 'Archivo'
+  }
+
+  const getAttachmentKind = (attachment: BookingAttachment): 'image' | 'pdf' | 'doc' | 'file' => {
+    const mimeType = attachment.mimeType || ''
+    const extension = attachment.filename.split('.').pop()?.toLowerCase() || ''
+    if (mimeType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) return 'image'
+    if (mimeType === 'application/pdf' || extension === 'pdf') return 'pdf'
+    if (mimeType.includes('word') || extension === 'doc' || extension === 'docx') return 'doc'
+    return 'file'
+  }
 
   // Open lightbox with images
   const openLightbox = (images: string[], initialIndex: number = 0) => {
@@ -227,6 +274,77 @@ export default function EstructuraStep({
       order: idx
     }))
     updateFormData('dealImages', reorderedImages)
+  }
+
+  const handleAttachmentUpload = async (files: FileList) => {
+    const maxSize = 10 * 1024 * 1024 // 10MB
+
+    const validFiles = Array.from(files).filter((file) => {
+      const extension = file.name.split('.').pop()?.toLowerCase() || ''
+      const isValidType = attachmentMimeTypes.includes(file.type) || attachmentExtensions.includes(extension)
+      if (!isValidType) {
+        toast.error(`${file.name}: Formato no permitido`)
+        return false
+      }
+
+      if (file.size > maxSize) {
+        toast.error(`${file.name}: Excede 10MB`)
+        return false
+      }
+
+      return true
+    })
+
+    if (validFiles.length === 0) return
+
+    setAttachmentsUploading(true)
+    try {
+      const uploadPromises = validFiles.map(async (file): Promise<BookingAttachment> => {
+        const uploadFormData = new FormData()
+        uploadFormData.append('file', file)
+        uploadFormData.append('folder', 'booking-attachments')
+        uploadFormData.append('makePublic', 'true')
+
+        const response = await fetch('/api/upload/file', {
+          method: 'POST',
+          body: uploadFormData,
+        })
+
+        const data = await response.json()
+        if (!response.ok || !data?.url) {
+          throw new Error(data?.error || `Error al cargar ${file.name}`)
+        }
+
+        return {
+          url: data.url,
+          filename: data.filename || file.name,
+          mimeType: data.mimeType || file.type || 'application/octet-stream',
+          size: Number(data.size || file.size || 0),
+        }
+      })
+
+      const uploadedAttachments = await Promise.all(uploadPromises)
+      const merged = [...bookingAttachments, ...uploadedAttachments]
+      const deduped = Array.from(
+        new Map(merged.map((attachment) => [`${attachment.url}|${attachment.filename}`, attachment])).values()
+      )
+
+      updateFormData('bookingAttachments', deduped)
+      toast.success(`${uploadedAttachments.length} archivo(s) cargado(s)`)
+    } catch (error) {
+      console.error('Attachment upload error:', error)
+      toast.error('Error al cargar uno o más archivos')
+    } finally {
+      setAttachmentsUploading(false)
+      if (attachmentsInputRef.current) {
+        attachmentsInputRef.current.value = ''
+      }
+    }
+  }
+
+  const handleRemoveAttachment = (indexToRemove: number) => {
+    const updatedAttachments = bookingAttachments.filter((_, index) => index !== indexToRemove)
+    updateFormData('bookingAttachments', updatedAttachments)
   }
 
   const handleProofreadDescriptionWithAI = useCallback(async (index: number, options?: { silent?: boolean }) => {
@@ -525,7 +643,7 @@ export default function EstructuraStep({
                           </>
                         )}
                       </label>
-                      <p className="text-[10px] text-gray-400 mt-1">JPG, PNG, GIF, WEBP · Máx. 5MB</p>
+                      <p className="text-[10px] text-gray-400 mt-1">JPG, PNG, GIF, WEBP · Máx. 10MB</p>
                     </div>
                   )}
                 </div>
@@ -755,162 +873,304 @@ export default function EstructuraStep({
         )}
       </div>
 
-      {/* Deal Images Gallery Section */}
-      <div className="mt-10 pt-8 border-t border-gray-200">
-        <div className="mb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <CollectionsIcon className="text-purple-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-1.5">
-                Galería de Imágenes
-                {isFieldRequired('dealImages') && <span className="text-red-500">*</span>}
-              </h3>
-              <p className="text-sm text-gray-500">
-                Agrega imágenes generales de la oferta {!isFieldRequired('dealImages') && '(opcional)'}
-              </p>
-            </div>
+      {/* Attachments and Image Assets */}
+      <div className="mt-12 pt-10 border-t border-gray-200">
+        <div className="mb-6 flex items-start gap-3">
+          <div className="p-2.5 bg-slate-100 rounded-xl">
+            <AttachFileIcon className="text-slate-700" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Adjuntos e imágenes</h3>
+            <p className="text-sm text-gray-500">
+              Sección separada para recursos visuales del deal y documentos de respaldo del negocio.
+            </p>
           </div>
         </div>
 
-        {/* Gallery Grid */}
-        {dealImages.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-4">
-            {dealImages
-              .sort((a, b) => a.order - b.order)
-              .map((image, idx, sortedArr) => (
-                <div 
-                  key={image.url} 
-                  className="relative group aspect-square rounded-xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-all"
-                >
-                  {/* Clickable image */}
-                  <button
-                    type="button"
-                    onClick={() => openLightbox(sortedArr.map(img => img.url), idx)}
-                    className="absolute inset-0 cursor-zoom-in"
-                  >
-                    <Image
-                      src={image.url}
-                      alt={`Imagen ${idx + 1}`}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 20vw"
-                    />
-                  </button>
-                  
-                  {/* Overlay with actions */}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors pointer-events-none" />
-                  
-                  {/* Action buttons */}
-                  <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {/* View button */}
-                    <button
-                      type="button"
-                      onClick={() => openLightbox(sortedArr.map(img => img.url), idx)}
-                      className="p-2 bg-white text-gray-700 rounded-full shadow-lg hover:bg-gray-100 transition-colors"
-                      title="Ver imagen"
-                    >
-                      <ZoomInIcon style={{ fontSize: 18 }} />
-                    </button>
-                    {/* Delete button */}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveGalleryImage(image.url)}
-                      className="p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors"
-                      title="Eliminar imagen"
-                    >
-                      <CloseIcon style={{ fontSize: 16 }} />
-                    </button>
-                  </div>
-                  
-                  {/* Order badge */}
-                  <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 text-white text-xs rounded-full">
-                    {idx + 1}
-                  </div>
-                  
-                  {/* Reorder buttons */}
-                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      type="button"
-                      onClick={() => moveGalleryImageLeft(image.url)}
-                      disabled={idx === 0}
-                      className={`p-1.5 rounded-full shadow-lg transition-colors ${
-                        idx === 0 
-                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                          : 'bg-white text-gray-700 hover:bg-gray-100'
-                      }`}
-                      title="Mover a la izquierda"
-                    >
-                      <ArrowBackIcon style={{ fontSize: 14 }} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveGalleryImageRight(image.url)}
-                      disabled={idx === sortedArr.length - 1}
-                      className={`p-1.5 rounded-full shadow-lg transition-colors ${
-                        idx === sortedArr.length - 1 
-                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                          : 'bg-white text-gray-700 hover:bg-gray-100'
-                      }`}
-                      title="Mover a la derecha"
-                    >
-                      <ArrowForwardIcon style={{ fontSize: 14 }} />
-                    </button>
-                  </div>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          {/* Deal image gallery */}
+          <section className="xl:col-span-2 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <CollectionsIcon className="text-purple-600" />
                 </div>
-              ))}
-          </div>
-        )}
-
-        {/* Upload Area */}
-        <div className="relative">
-          <input
-            ref={galleryInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp"
-            multiple
-            onChange={(e) => {
-              const files = e.target.files
-              if (files && files.length > 0) handleGalleryUpload(files)
-            }}
-            className="hidden"
-            id="gallery-upload"
-          />
-          <label
-            htmlFor="gallery-upload"
-            className={`flex flex-col items-center gap-3 px-6 py-8 border-2 border-dashed border-gray-300 rounded-2xl cursor-pointer hover:border-purple-400 hover:bg-purple-50/50 transition-all duration-200 ${
-              galleryUploading ? 'opacity-60 pointer-events-none' : ''
-            }`}
-          >
-            {galleryUploading ? (
-              <>
-                <div className="w-8 h-8 border-3 border-purple-500 border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm text-gray-500">Cargando imágenes...</span>
-              </>
-            ) : (
-              <>
-                <div className="p-3 bg-purple-100 rounded-full">
-                  <CloudUploadIcon className="text-purple-500" style={{ fontSize: 28 }} />
-                </div>
-                <div className="text-center">
-                  <span className="text-sm font-medium text-gray-700">
-                    Arrastra imágenes aquí o haz clic para seleccionar
-                  </span>
-                  <p className="text-xs text-gray-400 mt-1">
-                    JPG, PNG, GIF, WEBP · Máx. 5MB cada una · Puedes seleccionar múltiples
+                <div>
+                  <h4 className="text-base font-semibold text-gray-900 flex items-center gap-1.5">
+                    Galería del deal
+                    {isFieldRequired('dealImages') && <span className="text-red-500">*</span>}
+                  </h4>
+                  <p className="text-xs text-gray-500">
+                    Imágenes principales que se usarán para publicar la oferta.
                   </p>
                 </div>
-              </>
-            )}
-          </label>
-        </div>
+              </div>
+              {dealImages.length > 0 && (
+                <span className="inline-flex items-center rounded-full bg-purple-50 px-2.5 py-1 text-xs font-medium text-purple-700 border border-purple-200">
+                  {dealImages.length} imagen{dealImages.length !== 1 ? 'es' : ''}
+                </span>
+              )}
+            </div>
 
-        {dealImages.length > 0 && (
-          <p className="text-xs text-gray-400 mt-2 text-center">
-            {dealImages.length} imagen{dealImages.length !== 1 ? 'es' : ''} en la galería
-          </p>
-        )}
+            {dealImages.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-4">
+                {dealImages
+                  .sort((a, b) => a.order - b.order)
+                  .map((image, idx, sortedArr) => (
+                    <div 
+                      key={image.url} 
+                      className="relative group aspect-square rounded-xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-all"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => openLightbox(sortedArr.map(img => img.url), idx)}
+                        className="absolute inset-0 cursor-zoom-in"
+                      >
+                        <Image
+                          src={image.url}
+                          alt={`Imagen ${idx + 1}`}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 640px) 50vw, (max-width: 1280px) 33vw, 25vw"
+                        />
+                      </button>
+                      
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors pointer-events-none" />
+                      
+                      <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={() => openLightbox(sortedArr.map(img => img.url), idx)}
+                          className="p-2 bg-white text-gray-700 rounded-full shadow-lg hover:bg-gray-100 transition-colors"
+                          title="Ver imagen"
+                        >
+                          <ZoomInIcon style={{ fontSize: 18 }} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveGalleryImage(image.url)}
+                          className="p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors"
+                          title="Eliminar imagen"
+                        >
+                          <CloseIcon style={{ fontSize: 16 }} />
+                        </button>
+                      </div>
+                      
+                      <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 text-white text-xs rounded-full">
+                        {idx + 1}
+                      </div>
+                      
+                      <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={() => moveGalleryImageLeft(image.url)}
+                          disabled={idx === 0}
+                          className={`p-1.5 rounded-full shadow-lg transition-colors ${
+                            idx === 0 
+                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                              : 'bg-white text-gray-700 hover:bg-gray-100'
+                          }`}
+                          title="Mover a la izquierda"
+                        >
+                          <ArrowBackIcon style={{ fontSize: 14 }} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveGalleryImageRight(image.url)}
+                          disabled={idx === sortedArr.length - 1}
+                          className={`p-1.5 rounded-full shadow-lg transition-colors ${
+                            idx === sortedArr.length - 1 
+                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                              : 'bg-white text-gray-700 hover:bg-gray-100'
+                          }`}
+                          title="Mover a la derecha"
+                        >
+                          <ArrowForwardIcon style={{ fontSize: 14 }} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              <div className="mb-4 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center">
+                <p className="text-sm text-gray-500">Todavía no has agregado imágenes al deal.</p>
+              </div>
+            )}
+
+            <div className="relative">
+              <input
+                ref={galleryInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                multiple
+                onChange={(e) => {
+                  const files = e.target.files
+                  if (files && files.length > 0) handleGalleryUpload(files)
+                }}
+                className="hidden"
+                id="gallery-upload"
+              />
+              <label
+                htmlFor="gallery-upload"
+                className={`flex flex-col items-center gap-3 px-6 py-7 border-2 border-dashed border-gray-300 rounded-2xl cursor-pointer hover:border-purple-400 hover:bg-purple-50/50 transition-all duration-200 ${
+                  galleryUploading ? 'opacity-60 pointer-events-none' : ''
+                }`}
+              >
+                {galleryUploading ? (
+                  <>
+                    <div className="w-8 h-8 border-3 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-sm text-gray-500">Cargando imágenes...</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="p-3 bg-purple-100 rounded-full">
+                      <CloudUploadIcon className="text-purple-500" style={{ fontSize: 28 }} />
+                    </div>
+                    <div className="text-center">
+                      <span className="text-sm font-medium text-gray-700">
+                        Arrastra imágenes aquí o haz clic para seleccionar
+                      </span>
+                      <p className="text-xs text-gray-400 mt-1">
+                        JPG, PNG, GIF, WEBP · Máx. 10MB cada una · Puedes seleccionar múltiples
+                      </p>
+                    </div>
+                  </>
+                )}
+              </label>
+            </div>
+          </section>
+
+          {/* Generic attachments */}
+          <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <DescriptionIcon className="text-blue-600" />
+                </div>
+                <div>
+                  <h4 className="text-base font-semibold text-gray-900">Adjuntos</h4>
+                  <p className="text-xs text-gray-500">PDF, DOC, DOCX o imágenes de referencia.</p>
+                </div>
+              </div>
+              {bookingAttachments.length > 0 && (
+                <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 border border-blue-200">
+                  {bookingAttachments.length}
+                </span>
+              )}
+            </div>
+
+            {bookingAttachments.length > 0 ? (
+              <div className="space-y-2.5 mb-4 max-h-[360px] overflow-y-auto pr-1">
+                {bookingAttachments.map((attachment, index) => {
+                  const kind = getAttachmentKind(attachment)
+                  return (
+                    <div
+                      key={`${attachment.url}-${index}`}
+                      className="group rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5"
+                    >
+                      <div className="flex items-center gap-3">
+                        <a
+                          href={attachment.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0"
+                          title="Abrir archivo"
+                        >
+                          {kind === 'image' ? (
+                            <Image
+                              src={attachment.url}
+                              alt={attachment.filename || 'Adjunto'}
+                              width={44}
+                              height={44}
+                              className="h-11 w-11 rounded-md object-cover border border-gray-200"
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="h-11 w-11 rounded-md border border-gray-200 bg-white flex items-center justify-center">
+                              {kind === 'pdf' ? (
+                                <PictureAsPdfIcon className="text-red-500" />
+                              ) : kind === 'doc' ? (
+                                <DescriptionIcon className="text-blue-500" />
+                              ) : (
+                                <AttachFileIcon className="text-gray-500" />
+                              )}
+                            </div>
+                          )}
+                        </a>
+
+                        <div className="min-w-0 flex-1">
+                          <a
+                            href={attachment.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block truncate text-sm font-medium text-gray-900 hover:text-blue-600"
+                            title={attachment.filename}
+                          >
+                            {attachment.filename || `Archivo ${index + 1}`}
+                          </a>
+                          <p className="text-xs text-gray-500">
+                            {getAttachmentTypeLabel(attachment.mimeType || '', attachment.filename || '')} · {formatFileSize(attachment.size || 0)}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAttachment(index)}
+                          className="p-1.5 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                          title="Eliminar adjunto"
+                        >
+                          <CloseIcon style={{ fontSize: 16 }} />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="mb-4 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center">
+                <p className="text-sm text-gray-500">No hay adjuntos todavía.</p>
+              </div>
+            )}
+
+            <div className="relative">
+              <input
+                ref={attachmentsInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.doc,.docx,.pdf"
+                multiple
+                onChange={(e) => {
+                  const files = e.target.files
+                  if (files && files.length > 0) handleAttachmentUpload(files)
+                }}
+                className="hidden"
+                id="attachments-upload"
+              />
+              <label
+                htmlFor="attachments-upload"
+                className={`flex flex-col items-center gap-3 px-4 py-6 border-2 border-dashed border-gray-300 rounded-2xl cursor-pointer hover:border-blue-400 hover:bg-blue-50/40 transition-all duration-200 ${
+                  attachmentsUploading ? 'opacity-60 pointer-events-none' : ''
+                }`}
+              >
+                {attachmentsUploading ? (
+                  <>
+                    <div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-sm text-gray-500">Cargando adjuntos...</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="p-2.5 bg-blue-100 rounded-full">
+                      <CloudUploadIcon className="text-blue-600" style={{ fontSize: 24 }} />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-gray-700">Subir adjuntos</p>
+                      <p className="text-xs text-gray-400 mt-1">PDF, DOC, DOCX e imágenes · Máx. 10MB por archivo</p>
+                    </div>
+                  </>
+                )}
+              </label>
+            </div>
+          </section>
+        </div>
       </div>
 
       {/* Image Lightbox */}

@@ -238,6 +238,13 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
           
           // Map request data to form data
           setFormData(prev => {
+            const additionalInfo = data.additionalInfo && typeof data.additionalInfo === 'object'
+              ? data.additionalInfo as {
+                  templateName?: string
+                  fields?: Record<string, string>
+                  bookingAttachments?: BookingFormData['bookingAttachments']
+                }
+              : null
             const updatedData = {
               ...prev,
               // Configuración
@@ -316,6 +323,17 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
               // Estructura (Pricing)
               pricingOptions: Array.isArray(data.pricingOptions) ? data.pricingOptions : [],
               dealImages: Array.isArray(data.dealImages) ? data.dealImages : [],
+              bookingAttachments: Array.isArray(additionalInfo?.bookingAttachments)
+                ? (additionalInfo.bookingAttachments as unknown[])
+                    .filter((attachment) => !!attachment && typeof attachment === 'object' && !Array.isArray(attachment))
+                    .map((attachment) => ({
+                      url: String((attachment as Record<string, unknown>).url || ''),
+                      filename: String((attachment as Record<string, unknown>).filename || ''),
+                      mimeType: String((attachment as Record<string, unknown>).mimeType || ''),
+                      size: Number((attachment as Record<string, unknown>).size || 0),
+                    }))
+                    .filter((attachment) => attachment.url.trim().length > 0)
+                : [],
               
               // Políticas
               cancellationPolicy: data.cancellationPolicy || '',
@@ -324,16 +342,13 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
             }
             
             // Información Adicional - Unpack template-specific fields from additionalInfo JSON
-            if (data.additionalInfo && typeof data.additionalInfo === 'object') {
-              const additionalInfo = data.additionalInfo as { templateName?: string; fields?: Record<string, string> }
-              if (additionalInfo.fields && typeof additionalInfo.fields === 'object') {
-                Object.entries(additionalInfo.fields).forEach(([fieldKey, value]) => {
+            if (additionalInfo?.fields && typeof additionalInfo.fields === 'object') {
+              Object.entries(additionalInfo.fields).forEach(([fieldKey, value]) => {
                   if (value !== undefined && value !== null && value !== '') {
                     // Dynamic field assignment for template-specific fields
                     (updatedData as Record<string, unknown>)[fieldKey] = value
                   }
                 })
-              }
             }
             
             return updatedData
@@ -411,7 +426,12 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         // Structure: { templateName, templateDisplayName, fields: { fieldName: value, ... } }
         const additionalInfoRaw = sessionStorage.getItem(`replicate:${replicateKey}:additionalInfo`)
         const additionalInfo = additionalInfoRaw 
-          ? JSON.parse(additionalInfoRaw) as { templateName?: string; templateDisplayName?: string; fields?: Record<string, string> } 
+          ? JSON.parse(additionalInfoRaw) as {
+              templateName?: string
+              templateDisplayName?: string
+              fields?: Record<string, string>
+              bookingAttachments?: BookingFormData['bookingAttachments']
+            } 
           : null
         
         // One-time use - clean up storage BEFORE updating state to prevent double processing
@@ -428,6 +448,9 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         setFormData(prev => ({
           ...prev,
           ...formPayload as Partial<BookingFormData>,
+          ...(Array.isArray(additionalInfo?.bookingAttachments)
+            ? { bookingAttachments: additionalInfo.bookingAttachments }
+            : {}),
           // Spread additionalInfo.fields (the template-specific fields like eventStartTime, restaurantValidDineIn, etc.)
           ...(additionalInfo?.fields && typeof additionalInfo.fields === 'object'
             ? Object.fromEntries(
@@ -611,7 +634,21 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         const additionalInfoParam = searchParams.get('additionalInfo')
         if (additionalInfoParam) {
           try {
-            const additionalInfo = JSON.parse(additionalInfoParam) as { fields?: Record<string, string> }
+            const additionalInfo = JSON.parse(additionalInfoParam) as {
+              fields?: Record<string, string>
+              bookingAttachments?: BookingFormData['bookingAttachments']
+            }
+            if (Array.isArray(additionalInfo.bookingAttachments)) {
+              newData.bookingAttachments = (additionalInfo.bookingAttachments as unknown[])
+                .filter((attachment) => !!attachment && typeof attachment === 'object' && !Array.isArray(attachment))
+                .map((attachment) => ({
+                  url: String((attachment as Record<string, unknown>).url || ''),
+                  filename: String((attachment as Record<string, unknown>).filename || ''),
+                  mimeType: String((attachment as Record<string, unknown>).mimeType || ''),
+                  size: Number((attachment as Record<string, unknown>).size || 0),
+                }))
+                .filter((attachment) => attachment.url.trim().length > 0)
+            }
             if (additionalInfo && additionalInfo.fields && typeof additionalInfo.fields === 'object') {
               // Unpack all template-specific fields back into formData
               Object.entries(additionalInfo.fields).forEach(([fieldKey, value]) => {

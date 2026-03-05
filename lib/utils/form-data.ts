@@ -118,9 +118,15 @@ export function extractBookingRequestFromFormData(formData: FormData): {
 
   // Información Adicional (Dynamic template-based)
   additionalInfo: {
-    templateName: string
-    templateDisplayName: string
-    fields: Record<string, string>
+    templateName?: string
+    templateDisplayName?: string
+    fields?: Record<string, string>
+    bookingAttachments?: Array<{
+      url: string
+      filename: string
+      mimeType: string
+      size: number
+    }>
   } | null
 } {
   return {
@@ -203,6 +209,16 @@ export function extractBookingRequestFromFormData(formData: FormData): {
     additionalComments: getFormDataString(formData, 'additionalComments'),
 
     // Información Adicional (Dynamic template-based)
-    additionalInfo: parseFormDataJsonField(formData, 'additionalInfo') as { templateName: string; templateDisplayName: string; fields: Record<string, string> } | null,
+    additionalInfo: parseFormDataJsonField(formData, 'additionalInfo') as {
+      templateName?: string
+      templateDisplayName?: string
+      fields?: Record<string, string>
+      bookingAttachments?: Array<{
+        url: string
+        filename: string
+        mimeType: string
+        size: number
+      }>
+    } | null,
   }
 }

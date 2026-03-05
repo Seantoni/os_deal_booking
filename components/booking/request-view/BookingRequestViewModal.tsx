@@ -13,7 +13,6 @@ import {
   type FieldComment,
   type BookingRequestViewData,
   type SectionDefinition,
-  type FieldDefinition,
   type AdditionalInfo,
 } from '@/types'
 import { useUserRole } from '@/hooks/useUserRole'
@@ -40,6 +39,9 @@ import ClearIcon from '@mui/icons-material/Clear'
 import ZoomInIcon from '@mui/icons-material/ZoomIn'
 import AddCommentIcon from '@mui/icons-material/AddComment'
 import ReplyIcon from '@mui/icons-material/Reply'
+import AttachFileIcon from '@mui/icons-material/AttachFile'
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
+import FileDownloadIcon from '@mui/icons-material/FileDownload'
 
 // Icons — header bar + info bar (conditional but lightweight, always in viewport)
 import EditIcon from '@mui/icons-material/Edit'
@@ -163,6 +165,7 @@ const BASE_SECTIONS: SectionDefinition[] = [
       { key: 'offerMargin', label: 'Comisión OfertaSimple (%)' },
       { key: 'pricingOptions', label: 'Opciones de Precio', type: 'pricing' },
       { key: 'dealImages', label: 'Galería de Imágenes', type: 'gallery' },
+      { key: 'bookingAttachments', label: 'Adjuntos', type: 'attachments' },
     ],
   },
   {
@@ -217,6 +220,76 @@ function getInlineCommentId(commentId: string): string {
   return `booking-field-comment-${commentId}`
 }
 
+type BookingAttachmentItem = {
+  url: string
+  filename: string
+  mimeType: string
+  size: number
+}
+
+function normalizeBookingAttachments(value: unknown): BookingAttachmentItem[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object' && !Array.isArray(item))
+    .map((item) => ({
+      url: String(item.url || '').trim(),
+      filename: String(item.filename || '').trim(),
+      mimeType: String(item.mimeType || '').trim(),
+      size: Number(item.size || 0),
+    }))
+    .filter((item) => item.url.length > 0)
+}
+
+function formatAttachmentSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  let size = bytes
+  let unit = 0
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024
+    unit += 1
+  }
+  return `${size.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`
+}
+
+function isImageAttachment(mimeType: string, filename: string): boolean {
+  const extension = filename.split('.').pop()?.toLowerCase() || ''
+  return mimeType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)
+}
+
+function getAttachmentLabel(mimeType: string, filename: string): string {
+  const extension = filename.split('.').pop()?.toUpperCase() || ''
+  if (isImageAttachment(mimeType, filename)) return extension || 'Imagen'
+  if (mimeType === 'application/pdf' || extension === 'PDF') return 'PDF'
+  if (mimeType.includes('word') || extension === 'DOC' || extension === 'DOCX') return extension || 'DOC'
+  return extension || 'Archivo'
+}
+
+function sanitizeFilenamePart(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function getImageExtension(url: string, mimeType?: string): string {
+  const normalizedMime = (mimeType || '').toLowerCase()
+  if (normalizedMime === 'image/jpeg') return 'jpg'
+  if (normalizedMime === 'image/png') return 'png'
+  if (normalizedMime === 'image/webp') return 'webp'
+  if (normalizedMime === 'image/gif') return 'gif'
+  if (normalizedMime === 'image/svg+xml') return 'svg'
+
+  const cleanedUrl = url.split('?')[0]?.split('#')[0] || ''
+  const extension = cleanedUrl.split('.').pop()?.toLowerCase() || ''
+  if (/^[a-z0-9]{2,5}$/.test(extension)) {
+    return extension === 'jpeg' ? 'jpg' : extension
+  }
+
+  return 'jpg'
+}
+
 export default function BookingRequestViewModal({
   isOpen,
   onClose,
@@ -263,12 +336,52 @@ export default function BookingRequestViewModal({
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxImages, setLightboxImages] = useState<string[]>([])
   const [lightboxInitialIndex, setLightboxInitialIndex] = useState(0)
+  const imageDownloadPrefix = useMemo(() => {
+    const requestBusinessName = requestData?.name ? String(requestData.name).split('|')[0]?.trim() : ''
+    const baseLabel = requestBusinessName || requestId || 'booking-request'
+    const normalized = sanitizeFilenamePart(baseLabel)
+    return normalized || 'booking-request'
+  }, [requestData?.name, requestId])
 
   const openLightbox = (images: string[], initialIndex: number = 0) => {
     setLightboxImages(images)
     setLightboxInitialIndex(initialIndex)
     setLightboxOpen(true)
   }
+
+  const handleDownloadImage = useCallback(async (url: string, fallbackName: string) => {
+    if (!url) return
+
+    try {
+      const response = await fetch(`/api/download/image?url=${encodeURIComponent(url)}`, {
+        method: 'GET',
+        cache: 'no-store',
+      })
+      if (!response.ok) {
+        throw new Error(`Image download failed with status ${response.status}`)
+      }
+
+      const blob = await response.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const extension = getImageExtension(url, blob.type)
+      const safeName = sanitizeFilenamePart(fallbackName) || 'booking-image'
+      const filename = safeName.toLowerCase().endsWith(`.${extension}`)
+        ? safeName
+        : `${safeName}.${extension}`
+
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = filename
+      link.style.display = 'none'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(blobUrl)
+    } catch {
+      window.open(url, '_blank', 'noopener,noreferrer')
+      toast.error('No se pudo descargar desde el servidor. Se abrió la imagen en una pestaña nueva.')
+    }
+  }, [])
 
   const renderCommentText = useCallback((content: string) => {
     const mentionRegex = /@[\p{L}\p{N}]+(?:\s+[\p{L}\p{N}]+){0,3}/gu
@@ -442,7 +555,7 @@ export default function BookingRequestViewModal({
 
       // Expand first few sections by default (base sections)
       setExpandedSections(new Set(BASE_SECTIONS.slice(0, 3).map(s => s.title)))
-    } catch (error) {
+    } catch {
       toast.error('Error al cargar los datos de la solicitud')
     } finally {
       setLoading(false)
@@ -522,6 +635,12 @@ export default function BookingRequestViewModal({
 
   // Get comment counts by field (memoized — avoids re-iterating on unrelated renders)
   const commentCounts = useMemo(() => getCommentCountsByField(comments), [comments])
+
+  const bookingAttachments = useMemo((): BookingAttachmentItem[] => {
+    const info = requestData?.additionalInfo as AdditionalInfo | null
+    if (!info || typeof info !== 'object') return []
+    return normalizeBookingAttachments(info.bookingAttachments)
+  }, [requestData?.additionalInfo])
 
   // Additional Info (dynamic templates)
   const additionalInfo = useMemo((): { templateDisplayName: string; fields: { label: string; value: string }[] } | null => {
@@ -1554,7 +1673,9 @@ export default function BookingRequestViewModal({
                           <div className="p-6 bg-white">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                               {section.fields.map(field => {
-                                const rawValue =
+                                const rawValue = field.key === 'bookingAttachments'
+                                  ? bookingAttachments
+                                  :
                                   (additionalSection?.values && additionalSection.values[field.key]) ??
                                   getFieldValue(requestData, field.key)
                                 const isFieldMatch = searchQuery && (
@@ -1576,22 +1697,36 @@ export default function BookingRequestViewModal({
                                           <div key={idx} className="p-4 md:p-5">
                                             <div className="flex flex-col sm:flex-row gap-4">
                                               {opt.imageUrl && (
-                                                <button
-                                                  type="button"
-                                                  onClick={() => openLightbox(pricingImages, pricingImages.indexOf(opt.imageUrl!))}
-                                                  className="relative w-full sm:w-40 h-32 rounded-lg overflow-hidden cursor-zoom-in group shrink-0"
-                                                >
-                                                  <Image
-                                                    src={opt.imageUrl}
-                                                    alt={opt.title || `Opción ${idx + 1}`}
-                                                    fill
-                                                    className="object-cover"
-                                                    sizes="(max-width: 640px) 100vw, 160px"
-                                                  />
-                                                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                                                    <ZoomInIcon className="text-white opacity-0 group-hover:opacity-100 drop-shadow-lg" style={{ fontSize: 28 }} />
-                                                  </div>
-                                                </button>
+                                                <div className="relative w-full sm:w-40 h-32 rounded-lg overflow-hidden shrink-0 border border-slate-200 shadow-sm">
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => openLightbox(pricingImages, pricingImages.indexOf(opt.imageUrl!))}
+                                                    className="absolute inset-0 cursor-zoom-in group"
+                                                  >
+                                                    <Image
+                                                      src={opt.imageUrl}
+                                                      alt={opt.title || `Opción ${idx + 1}`}
+                                                      fill
+                                                      className="object-cover"
+                                                      sizes="(max-width: 640px) 100vw, 160px"
+                                                    />
+                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                      <ZoomInIcon className="text-white opacity-0 group-hover:opacity-100 drop-shadow-lg" style={{ fontSize: 28 }} />
+                                                    </div>
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation()
+                                                      handleDownloadImage(opt.imageUrl!, `${imageDownloadPrefix}-pricing-${idx + 1}`)
+                                                    }}
+                                                    className="absolute top-2 right-2 z-10 p-1.5 rounded-md bg-black/55 text-white hover:bg-black/70 transition-colors"
+                                                    title="Descargar imagen"
+                                                    aria-label={`Descargar imagen de ${opt.title || `opción ${idx + 1}`}`}
+                                                  >
+                                                    <FileDownloadIcon style={{ fontSize: 16 }} />
+                                                  </button>
+                                                </div>
                                               )}
                                               <div className="min-w-0 flex-1">
                                                 <p className="font-semibold text-slate-800 text-sm mb-1 break-words">{opt.title || `Opción ${idx + 1}`}</p>
@@ -1643,26 +1778,42 @@ export default function BookingRequestViewModal({
                                       {renderFieldCommentControls(field.key, field.label)}
                                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                                         {sortedImages.map((img, idx) => (
-                                          <button
+                                          <div
                                             key={img.url}
-                                            type="button"
-                                            onClick={() => openLightbox(galleryUrls, idx)}
-                                            className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition-shadow cursor-zoom-in group"
+                                            className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition-shadow group"
                                           >
-                                            <Image
-                                              src={img.url}
-                                              alt={`Imagen ${idx + 1}`}
-                                              fill
-                                              className="object-cover"
-                                              sizes="(max-width: 640px) 50vw, 20vw"
-                                            />
-                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                                              <ZoomInIcon className="text-white opacity-0 group-hover:opacity-100 drop-shadow-lg" style={{ fontSize: 24 }} />
-                                            </div>
+                                            <button
+                                              type="button"
+                                              onClick={() => openLightbox(galleryUrls, idx)}
+                                              className="absolute inset-0 cursor-zoom-in"
+                                            >
+                                              <Image
+                                                src={img.url}
+                                                alt={`Imagen ${idx + 1}`}
+                                                fill
+                                                className="object-cover"
+                                                sizes="(max-width: 640px) 50vw, 20vw"
+                                              />
+                                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                <ZoomInIcon className="text-white opacity-0 group-hover:opacity-100 drop-shadow-lg" style={{ fontSize: 24 }} />
+                                              </div>
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleDownloadImage(img.url, `${imageDownloadPrefix}-gallery-${idx + 1}`)
+                                              }}
+                                              className="absolute top-1.5 right-1.5 z-10 p-1 rounded-md bg-black/55 text-white hover:bg-black/70 transition-colors"
+                                              title="Descargar imagen"
+                                              aria-label={`Descargar imagen ${idx + 1}`}
+                                            >
+                                              <FileDownloadIcon style={{ fontSize: 14 }} />
+                                            </button>
                                             <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 bg-black/60 text-white text-[10px] font-medium rounded">
                                               {idx + 1}
                                             </div>
-                                          </button>
+                                          </div>
                                         ))}
                                       </div>
                                       {renderInlineComments(field.key)}
@@ -1670,8 +1821,93 @@ export default function BookingRequestViewModal({
                                   )
                                 }
 
-                                // Skip empty gallery/pricing fields
-                                if ((field.type === 'gallery' || field.type === 'pricing') && (!rawValue || (Array.isArray(rawValue) && rawValue.length === 0))) {
+                                // Special rendering for booking attachments (images + docs)
+                                if (field.type === 'attachments' && Array.isArray(rawValue) && rawValue.length > 0) {
+                                  const attachments = rawValue as BookingAttachmentItem[]
+                                  const imageUrls = attachments
+                                    .filter((attachment) => isImageAttachment(attachment.mimeType, attachment.filename))
+                                    .map((attachment) => attachment.url)
+
+                                  return (
+                                    <div key={field.key} id={getFieldContainerId(field.key)} className="md:col-span-2">
+                                      {renderFieldCommentControls(field.key, field.label)}
+                                      <div className="space-y-2.5">
+                                        {attachments.map((attachment, idx) => {
+                                          const isImage = isImageAttachment(attachment.mimeType, attachment.filename)
+                                          const imageIndex = imageUrls.indexOf(attachment.url)
+                                          return (
+                                            <div
+                                              key={`${attachment.url}-${idx}`}
+                                              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5"
+                                            >
+                                              <div className="flex items-center gap-3">
+                                                {isImage ? (
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                      if (imageIndex >= 0) openLightbox(imageUrls, imageIndex)
+                                                    }}
+                                                    className="relative h-11 w-11 rounded-md overflow-hidden border border-slate-200 cursor-zoom-in group shrink-0"
+                                                  >
+                                                    <Image
+                                                      src={attachment.url}
+                                                      alt={attachment.filename || `Adjunto ${idx + 1}`}
+                                                      fill
+                                                      className="object-cover"
+                                                      sizes="44px"
+                                                      unoptimized
+                                                    />
+                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                      <ZoomInIcon className="text-white opacity-0 group-hover:opacity-100" style={{ fontSize: 16 }} />
+                                                    </div>
+                                                  </button>
+                                                ) : (
+                                                  <a
+                                                    href={attachment.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="h-11 w-11 rounded-md border border-slate-200 bg-white flex items-center justify-center shrink-0 hover:bg-slate-50 transition-colors"
+                                                    title="Abrir archivo"
+                                                  >
+                                                    {attachment.mimeType === 'application/pdf' ? (
+                                                      <PictureAsPdfIcon className="text-red-500" />
+                                                    ) : attachment.mimeType.includes('word') ? (
+                                                      <DescriptionIcon className="text-blue-500" />
+                                                    ) : (
+                                                      <AttachFileIcon className="text-slate-500" />
+                                                    )}
+                                                  </a>
+                                                )}
+
+                                                <div className="min-w-0 flex-1">
+                                                  <a
+                                                    href={attachment.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="block truncate text-sm font-medium text-slate-900 hover:text-blue-600"
+                                                    title={attachment.filename}
+                                                  >
+                                                    {attachment.filename || `Adjunto ${idx + 1}`}
+                                                  </a>
+                                                  <p className="text-xs text-slate-500">
+                                                    {getAttachmentLabel(attachment.mimeType, attachment.filename)} · {formatAttachmentSize(attachment.size)}
+                                                  </p>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          )
+                                        })}
+                                      </div>
+                                      {renderInlineComments(field.key)}
+                                    </div>
+                                  )
+                                }
+
+                                // Skip empty gallery/pricing/attachments fields
+                                if (
+                                  (field.type === 'gallery' || field.type === 'pricing' || field.type === 'attachments') &&
+                                  (!rawValue || (Array.isArray(rawValue) && rawValue.length === 0))
+                                ) {
                                   return null
                                 }
 
@@ -1899,6 +2135,7 @@ export default function BookingRequestViewModal({
         initialIndex={lightboxInitialIndex}
         isOpen={lightboxOpen}
         onClose={() => setLightboxOpen(false)}
+        onDownloadImage={(url, idx) => handleDownloadImage(url, `${imageDownloadPrefix}-image-${idx + 1}`)}
       />
 
       {dealModalOpen && internalDeal && (

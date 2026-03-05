@@ -399,7 +399,7 @@ export default function CronJobsTab() {
       <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-200">
         <strong>Horarios de Cron Jobs (hora Panamá):</strong>
         <ul className="mt-1 ml-4 list-disc">
-          <li>Sync de Métricas: 12:00 AM (medianoche)</li>
+          <li>Sync de Métricas: 2:00 AM</li>
           <li>Escaneo de Mercado: 8:00 AM</li>
           <li>Sync de Eventos: 1:00 PM</li>
           <li>Sync de Restaurantes (Degusta): 11:00 AM</li>

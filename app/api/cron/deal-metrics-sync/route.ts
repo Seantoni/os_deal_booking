@@ -2,7 +2,7 @@
  * Deal Metrics Sync Cron Job
  * 
  * Daily sync of deal metrics from external Oferta API.
- * Scheduled to run at midnight Panama time (05:00 UTC).
+ * Scheduled to run at 2:00 AM Panama time (07:00 UTC).
  * 
  * This endpoint is protected by the CRON_SECRET environment variable.
  * Vercel Cron Jobs will automatically include this secret in the Authorization header.

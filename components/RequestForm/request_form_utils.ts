@@ -311,6 +311,15 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
       accountType: account.accountType?.trim() || '',
     }))
     .filter((account) => Object.values(account).some((value) => value.length > 0))
+  const normalizedBookingAttachments = (Array.isArray(formData.bookingAttachments) ? formData.bookingAttachments : [])
+    .filter((attachment) => !!attachment && typeof attachment === 'object')
+    .map((attachment) => ({
+      url: String(attachment.url || '').trim(),
+      filename: String(attachment.filename || '').trim(),
+      mimeType: String(attachment.mimeType || '').trim(),
+      size: Number(attachment.size || 0),
+    }))
+    .filter((attachment) => attachment.url.length > 0)
   
   // Map enhanced form fields to booking request fields
   fd.append('name', formData.businessName)  // Event name from business name
@@ -393,11 +402,18 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
     formData.subCategory2,
     formData.category
   )
-  
+
+  const additionalInfoPayload: {
+    templateName?: string
+    templateDisplayName?: string
+    fields?: Record<string, string>
+    bookingAttachments?: BookingFormData['bookingAttachments']
+  } = {}
+
   if (templateName && FIELD_TEMPLATES[templateName]) {
     const template = FIELD_TEMPLATES[templateName]
     const fields: Record<string, string> = {}
-    
+
     // Collect all field values from the template
     template.fields.forEach(fieldConfig => {
       const value = formData[fieldConfig.name as keyof BookingFormData]
@@ -405,16 +421,23 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
         fields[fieldConfig.name] = String(value)
       }
     })
-    
-    // Only include if there are fields with values
+
     if (Object.keys(fields).length > 0) {
-      const additionalInfo = {
-        templateName,
-        templateDisplayName: template.displayName,
-        fields
-      }
-      fd.append('additionalInfo', JSON.stringify(additionalInfo))
+      additionalInfoPayload.templateName = templateName
+      additionalInfoPayload.templateDisplayName = template.displayName
+      additionalInfoPayload.fields = fields
     }
+  }
+
+  if (normalizedBookingAttachments.length > 0) {
+    additionalInfoPayload.bookingAttachments = normalizedBookingAttachments
+  }
+
+  if (
+    (additionalInfoPayload.fields && Object.keys(additionalInfoPayload.fields).length > 0) ||
+    (additionalInfoPayload.bookingAttachments && additionalInfoPayload.bookingAttachments.length > 0)
+  ) {
+    fd.append('additionalInfo', JSON.stringify(additionalInfoPayload))
   }
   
   // Note: description field has been removed - all data is now stored in individual fields

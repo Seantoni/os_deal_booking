@@ -7,12 +7,14 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import ZoomInIcon from '@mui/icons-material/ZoomIn'
 import ZoomOutIcon from '@mui/icons-material/ZoomOut'
+import FileDownloadIcon from '@mui/icons-material/FileDownload'
 
 interface ImageLightboxProps {
   images: string[]
   initialIndex?: number
   isOpen: boolean
   onClose: () => void
+  onDownloadImage?: (url: string, index: number) => void
 }
 
 export default function ImageLightbox({
@@ -20,6 +22,7 @@ export default function ImageLightbox({
   initialIndex = 0,
   isOpen,
   onClose,
+  onDownloadImage,
 }: ImageLightboxProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex)
   const [zoom, setZoom] = useState(1)
@@ -27,10 +30,29 @@ export default function ImageLightbox({
   // Reset index and zoom when opening
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCurrentIndex(initialIndex)
       setZoom(1)
     }
   }, [isOpen, initialIndex])
+
+  const goToPrevious = useCallback(() => {
+    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1))
+    setZoom(1)
+  }, [images.length])
+
+  const goToNext = useCallback(() => {
+    setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0))
+    setZoom(1)
+  }, [images.length])
+
+  const handleZoomIn = useCallback(() => {
+    setZoom((prev) => Math.min(prev + 0.5, 3))
+  }, [])
+
+  const handleZoomOut = useCallback(() => {
+    setZoom((prev) => Math.max(prev - 0.5, 0.5))
+  }, [])
 
   // Keyboard navigation
   useEffect(() => {
@@ -59,25 +81,7 @@ export default function ImageLightbox({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, currentIndex, images.length])
-
-  const goToPrevious = useCallback(() => {
-    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1))
-    setZoom(1)
-  }, [images.length])
-
-  const goToNext = useCallback(() => {
-    setCurrentIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0))
-    setZoom(1)
-  }, [images.length])
-
-  const handleZoomIn = () => {
-    setZoom((prev) => Math.min(prev + 0.5, 3))
-  }
-
-  const handleZoomOut = () => {
-    setZoom((prev) => Math.max(prev - 0.5, 0.5))
-  }
+  }, [goToNext, goToPrevious, handleZoomIn, handleZoomOut, isOpen, onClose])
 
   if (!isOpen || images.length === 0) return null
 
@@ -124,6 +128,18 @@ export default function ImageLightbox({
           >
             <ZoomInIcon />
           </button>
+          {onDownloadImage && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onDownloadImage(currentImage, safeIndex)
+              }}
+              className="p-2 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-lg transition-colors"
+              title="Descargar imagen"
+            >
+              <FileDownloadIcon />
+            </button>
+          )}
           <button
             onClick={onClose}
             className="p-2 text-white/80 hover:text-white bg-black/40 hover:bg-black/60 rounded-lg transition-colors ml-2"
@@ -214,4 +230,3 @@ export default function ImageLightbox({
     </div>
   )
 }
-
