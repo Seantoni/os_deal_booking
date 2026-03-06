@@ -769,9 +769,15 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
                   <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
                     linkedBookingRequest.sourceType === 'public_link' 
                       ? 'bg-purple-100 text-purple-700' 
+                      : linkedBookingRequest.sourceType === 'vendor_reactivation'
+                        ? 'bg-amber-100 text-amber-700'
                       : 'bg-gray-100 text-gray-600'
                   }`}>
-                    {linkedBookingRequest.sourceType === 'public_link' ? 'Público' : 'Interno'}
+                    {linkedBookingRequest.sourceType === 'public_link'
+                      ? 'Público'
+                      : linkedBookingRequest.sourceType === 'vendor_reactivation'
+                        ? 'Reactivación'
+                        : 'Interno'}
                     </span>
                   <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
                     linkedBookingRequest.status === 'approved' ? 'bg-green-100 text-green-700' :

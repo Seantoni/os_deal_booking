@@ -17,6 +17,7 @@ import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
 import ReceiptIcon from '@mui/icons-material/Receipt'
 import PublicIcon from '@mui/icons-material/Public'
 import LockIcon from '@mui/icons-material/Lock'
+import ReplayIcon from '@mui/icons-material/Replay'
 
 interface BookingRequestModalProps {
   isOpen: boolean
@@ -75,6 +76,14 @@ export default function BookingRequestModal({ isOpen, onClose, requestId }: Book
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-300">
           <PublicIcon style={{ fontSize: 12 }} />
           Enlace Público
+        </span>
+      )
+    }
+    if (sourceType === 'vendor_reactivation') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+          <ReplayIcon style={{ fontSize: 12 }} />
+          Reactivación
         </span>
       )
     }

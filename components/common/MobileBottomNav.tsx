@@ -22,6 +22,7 @@ import MoreHorizIcon from '@mui/icons-material/MoreHoriz'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import HistoryIcon from '@mui/icons-material/History'
 import GroupsIcon from '@mui/icons-material/Groups'
+import ReplayCircleFilledIcon from '@mui/icons-material/ReplayCircleFilled'
 
 type NavItem = {
   name: string
@@ -97,6 +98,7 @@ const adminSecondarySections: NavSection[] = [
     items: [
       { name: 'Actividad', href: '/activity-log', Icon: HistoryIcon },
       { name: 'Ventas', href: '/sales-users', Icon: GroupsIcon },
+      { name: 'Reactivaciones', href: '/reactivaciones', Icon: ReplayCircleFilledIcon },
     ],
   },
   {

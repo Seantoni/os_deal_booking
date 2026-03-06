@@ -5,6 +5,11 @@
  */
 
 export {
+  getBusinessApprovedRequestAgingByIds,
+  type BusinessApprovedRequestAgingRecord,
+} from './approved-request-aging'
+
+export {
   findLinkedBusiness,
   findLinkedBusinessFull,
   type LinkedBusinessInfo,

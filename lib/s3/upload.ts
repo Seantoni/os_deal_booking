@@ -6,6 +6,7 @@
  */
 
 import { PutObjectCommand } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { s3Client, S3_BUCKET, isS3Configured } from './client'
 import { ENV } from '@/lib/config/env'
 import { logger } from '@/lib/logger'
@@ -219,5 +220,63 @@ export async function uploadValidatedFileToS3(
     filename: file.name,
     mimeType: file.type,
     size: file.size,
+  }
+}
+
+export interface PresignedUploadOptions {
+  filename: string
+  contentType: string
+  folder: string
+  userId: string
+}
+
+export interface PresignedUploadResult {
+  success: boolean
+  presignedUrl?: string
+  url?: string
+  key?: string
+  error?: string
+}
+
+/**
+ * Generate a presigned PUT URL so the client can upload directly to S3,
+ * bypassing the Vercel 4.5 MB serverless body-size limit.
+ */
+export async function createPresignedUploadUrl(
+  options: PresignedUploadOptions
+): Promise<PresignedUploadResult> {
+  if (!isS3Configured() || !s3Client) {
+    return {
+      success: false,
+      error: 'S3 is not configured.',
+    }
+  }
+
+  try {
+    const { filename, contentType, folder, userId } = options
+    const key = generateFileKey(filename, folder, userId)
+
+    const command = new PutObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: key,
+      ContentType: contentType,
+    })
+
+    const presignedUrl = await getSignedUrl(s3Client, command, {
+      expiresIn: 300,
+    })
+
+    const region = ENV.AWS_REGION || 'us-east-1'
+    const url = `https://${S3_BUCKET}.s3.${region}.amazonaws.com/${key}`
+
+    logger.info(`Presigned upload URL created for key: ${key}`)
+
+    return { success: true, presignedUrl, url, key }
+  } catch (error) {
+    logger.error('Error creating presigned upload URL:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error creating presigned URL',
+    }
   }
 }

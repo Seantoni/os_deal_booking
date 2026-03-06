@@ -8,6 +8,7 @@ export { s3Client, S3_BUCKET, isS3Configured } from './client'
 export {
   uploadFileToS3,
   uploadValidatedFileToS3,
+  createPresignedUploadUrl,
   generateFileKey,
   validateImageFile,
   validateAttachmentFile,
@@ -15,4 +16,6 @@ export {
   type UploadValidatedFileOptions,
   type UploadValidatedFileResult,
   type UploadResult,
+  type PresignedUploadOptions,
+  type PresignedUploadResult,
 } from './upload'

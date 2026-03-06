@@ -300,26 +300,37 @@ export default function EstructuraStep({
     setAttachmentsUploading(true)
     try {
       const uploadPromises = validFiles.map(async (file): Promise<BookingAttachment> => {
-        const uploadFormData = new FormData()
-        uploadFormData.append('file', file)
-        uploadFormData.append('folder', 'booking-attachments')
-        uploadFormData.append('makePublic', 'true')
-
-        const response = await fetch('/api/upload/file', {
+        const presignRes = await fetch('/api/upload/presign', {
           method: 'POST',
-          body: uploadFormData,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: file.name,
+            contentType: file.type || 'application/octet-stream',
+            size: file.size,
+            folder: 'booking-attachments',
+          }),
         })
 
-        const data = await response.json()
-        if (!response.ok || !data?.url) {
-          throw new Error(data?.error || `Error al cargar ${file.name}`)
+        const presignData = await presignRes.json()
+        if (!presignRes.ok || !presignData?.presignedUrl) {
+          throw new Error(presignData?.error || `Error al preparar carga de ${file.name}`)
+        }
+
+        const uploadRes = await fetch(presignData.presignedUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type || 'application/octet-stream' },
+          body: file,
+        })
+
+        if (!uploadRes.ok) {
+          throw new Error(`Error al cargar ${file.name} a S3`)
         }
 
         return {
-          url: data.url,
-          filename: data.filename || file.name,
-          mimeType: data.mimeType || file.type || 'application/octet-stream',
-          size: Number(data.size || file.size || 0),
+          url: presignData.url,
+          filename: file.name,
+          mimeType: file.type || 'application/octet-stream',
+          size: file.size,
         }
       })
 

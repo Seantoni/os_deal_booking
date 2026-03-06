@@ -150,9 +150,11 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
             )
           ) as Prisma.InputJsonValue)
         : Prisma.JsonNull
+    const linkedBusinessId = (formData.get('linkedBusinessId') as string | null) || null
 
     const data = {
       name: requestName,
+      businessId: linkedBusinessId,
       category: fields.category,
       parentCategory: fields.parentCategory,
       subCategory1: fields.subCategory1,
@@ -419,11 +421,13 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
           select: { sentAt: true },
         })
       : null
+    const linkedBusinessId = (formData.get('linkedBusinessId') as string | null) || null
 
     const sentAtValue = existingRequestForMilestones?.sentAt ?? new Date()
 
     const data = {
       name: requestName,
+      businessId: linkedBusinessId,
       category: category || null,
       parentCategory: parentCategory || null,
       subCategory1: subCategory1 || null,
@@ -538,8 +542,6 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       null, // subCategory4
       data.category
     )
-
-    const linkedBusinessId = formData.get('linkedBusinessId') as string | null
 
     // Create a pending event in the calendar
     if (bookingRequest.eventId) {
@@ -1106,10 +1108,11 @@ export async function getRequestsByBusiness(businessId: string) {
 
     const opportunityIds = opportunities.map(o => o.id)
 
-    // Get all booking requests linked via opportunity OR matching by merchant name
+    // Get all booking requests linked directly, via opportunity, or matching by merchant name
     const requests = await prisma.bookingRequest.findMany({
       where: {
         OR: [
+          { businessId },
           // Requests linked through opportunities
           ...(opportunityIds.length > 0 ? [{ opportunityId: { in: opportunityIds } }] : []),
           // Requests matching by merchant name (case-insensitive)
@@ -1185,6 +1188,7 @@ export async function getBookingRequest(requestId: string) {
       const canAccess = await canSalesAccessBookingRequest(userId, {
         id: bookingRequest.id,
         userId: bookingRequest.userId,
+        businessId: bookingRequest.businessId,
         opportunityId: bookingRequest.opportunityId,
         eventId: bookingRequest.eventId,
       })

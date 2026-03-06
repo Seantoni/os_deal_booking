@@ -39,6 +39,7 @@ model BookingRequest {
   rejectedAt                    DateTime?
   cancelledAt                   DateTime?
   eventId                       String?
+  businessId                    String?
   processedAt                   DateTime?
   processedBy                   String?
   rejectionReason               String?
@@ -80,6 +81,8 @@ model BookingRequest {
   dealId                        String?              @unique
   publicLinkToken               String?              @unique
   sourceType                    String               @default("internal")
+  originExternalDealId          String?
+  originExternalDealName        String?
   fieldComments                 Json?
   additionalEmails              Json?
   additionalInfo                Json?
@@ -96,9 +99,11 @@ model BookingRequest {
   offerMargin                   String?
   publicRequestLink             PublicRequestLink?   @relation(fields: [publicLinkToken], references: [token])
   deal                          Deal?
+  business                      Business?            @relation("BusinessBookingRequests", fields: [businessId], references: [id])
   externalApiRequests           ExternalApiRequest[]
   marketingCampaign             MarketingCampaign?
 
+  @@index([businessId])
   @@index([businessEmail])
   @@index([dealId])
   @@index([eventId])
@@ -290,8 +295,10 @@ model Business {
   owner                         UserProfile?       @relation("BusinessOwner", fields: [ownerId], references: [clerkId])
   category                      Category?          @relation(fields: [categoryId], references: [id])
   lead                          Lead?
+  bookingRequests               BookingRequest[]   @relation("BusinessBookingRequests")
   opportunities                 Opportunity[]
   dealMetrics                   DealMetrics[]
+  vendorReactivationState       VendorReactivationState?
   campaigns                     BusinessCampaign[]
   eventLeads                    EventLead[]
   restaurantLeads               RestaurantLead[]
@@ -491,6 +498,9 @@ model DealMetrics {
   runAt             DateTime?
   endAt             DateTime?
   externalUpdatedAt DateTime? // updated_at from external API
+  vendorReactivateEligible   Boolean               @default(false)
+  vendorReactivateEligibleAt DateTime?
+  vendorReactivateEligibleBy String?
   lastSyncedAt      DateTime              @default(now())
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
@@ -502,6 +512,7 @@ model DealMetrics {
   @@index([businessId])
   @@index([lastSyncedAt])
   @@index([category1Name])
+  @@index([vendorReactivateEligible])
   @@map("deal_metrics")
 }
 
@@ -517,6 +528,18 @@ model DealMetricsSnapshot {
   @@index([dealMetricsId])
   @@index([snapshotAt])
   @@map("deal_metrics_snapshots")
+}
+
+model VendorReactivationState {
+  id                    String   @id @default(cuid())
+  businessId            String   @unique
+  lastTriggerEmailSentAt DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  business              Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([lastTriggerEmailSentAt])
+  @@map("vendor_reactivation_states")
 }
 
 model FormFieldConfig {

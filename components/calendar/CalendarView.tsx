@@ -9,6 +9,7 @@ import { PANAMA_TIMEZONE, getDateComponentsInPanama } from '@/lib/date/timezone'
 import EventSearchResults from '@/components/events/EventSearchResults'
 import PublicIcon from '@mui/icons-material/Public'
 import LockIcon from '@mui/icons-material/Lock'
+import ReplayCircleFilledIcon from '@mui/icons-material/ReplayCircleFilled'
 import type { Event, BookingRequest, UserRole } from '@/types'
 import './CalendarView.css'
 
@@ -839,8 +840,9 @@ export default function CalendarView({ events, searchEvents = [], isSearchLoadin
             const isPreBooked = event.status === 'pre-booked'
             const sourceType = event.bookingRequestId ? (sourceTypeMap.get(event.bookingRequestId) || 'internal') : 'internal'
             const isPublicLink = sourceType === 'public_link'
-            // Show source badge for both pending and approved events from public links
-            const showSourceBadge = isPublicLink && (isPending || event.status === 'approved')
+            const isVendorReactivation = sourceType === 'vendor_reactivation'
+            const sourceBadgeLabel = isPublicLink ? 'PUBLIC LINK' : isVendorReactivation ? 'REACTIVACION' : 'INTERNAL'
+            const showSourceBadge = (isPublicLink || isVendorReactivation) && (isPending || event.status === 'approved')
             
             return (
               <div
@@ -856,7 +858,7 @@ export default function CalendarView({ events, searchEvents = [], isSearchLoadin
                 className={`text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0 h-[15px] ${colors.indicator} text-white rounded cursor-move transition-all flex items-center gap-0.5 event-card shadow-sm hover:shadow-md leading-tight font-semibold truncate ${
                   isNotBooked ? 'ring-2 ring-yellow-400 pending opacity-70' : ''
                 }`}
-                title={`${event.name}${event.category ? ` - ${event.category}` : ''}${isPending ? ' [PENDING]' : event.status === 'approved' ? ' [APPROVED - Ready to Book]' : isPreBooked ? ' [PRE-BOOKED]' : ''}${showSourceBadge ? ` [${isPublicLink ? 'PUBLIC LINK' : 'INTERNAL'}]` : ''}`}
+                title={`${event.name}${event.category ? ` - ${event.category}` : ''}${isPending ? ' [PENDING]' : event.status === 'approved' ? ' [APPROVED - Ready to Book]' : isPreBooked ? ' [PRE-BOOKED]' : ''}${showSourceBadge ? ` [${sourceBadgeLabel}]` : ''}`}
               >
                 {isPending && (
                   <svg className="w-3 h-3 flex-shrink-0 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
@@ -866,9 +868,19 @@ export default function CalendarView({ events, searchEvents = [], isSearchLoadin
                 <span className="truncate flex-1 leading-tight">{event.name}</span>
                 {showSourceBadge && (
                   <span className={`px-1 py-0.5 rounded text-[9px] font-bold flex-shrink-0 border flex items-center ${
-                    isPublicLink ? 'bg-purple-600/90 text-white border-purple-400' : 'bg-gray-600/90 text-white border-gray-400'
+                    isPublicLink
+                      ? 'bg-purple-600/90 text-white border-purple-400'
+                      : isVendorReactivation
+                        ? 'bg-amber-500/90 text-white border-amber-300'
+                        : 'bg-gray-600/90 text-white border-gray-400'
                   }`}>
-                    {isPublicLink ? <PublicIcon className="w-3 h-3" /> : <LockIcon className="w-3 h-3" />}
+                    {isPublicLink ? (
+                      <PublicIcon className="w-3 h-3" />
+                    ) : isVendorReactivation ? (
+                      <ReplayCircleFilledIcon className="w-3 h-3" />
+                    ) : (
+                      <LockIcon className="w-3 h-3" />
+                    )}
                   </span>
                 )}
               </div>
@@ -1141,7 +1153,9 @@ export default function CalendarView({ events, searchEvents = [], isSearchLoadin
               const isPreBooked = event.status === 'pre-booked'
               const sourceType = event.bookingRequestId ? (sourceTypeMap.get(event.bookingRequestId) || 'internal') : 'internal'
               const isPublicLink = sourceType === 'public_link'
-              const showSourceBadge = isPublicLink && (isPending || event.status === 'approved')
+              const isVendorReactivation = sourceType === 'vendor_reactivation'
+              const sourceBadgeLabel = isPublicLink ? 'PUBLIC LINK' : isVendorReactivation ? 'REACTIVACION' : 'INTERNAL'
+              const showSourceBadge = (isPublicLink || isVendorReactivation) && (isPending || event.status === 'approved')
               
               // Calculate spanning segments (one per row)
               const segments: Array<{ row: number; colStart: number; colSpan: number; isFirst: boolean; isLast: boolean }> = []
@@ -1222,7 +1236,7 @@ export default function CalendarView({ events, searchEvents = [], isSearchLoadin
                       className={`relative h-full px-1 sm:px-1.5 py-0 ${colors.indicator} text-white text-[9px] sm:text-[10px] rounded ${readOnly ? 'cursor-pointer' : 'cursor-move'} transition-all truncate flex items-center gap-0.5 font-semibold shadow-sm hover:shadow-md event-spanning ${
                         isNotBooked ? 'ring-2 ring-yellow-400 pending opacity-70' : ''
                       }`}
-                      title={`${event.name}${event.category ? ` - ${event.category}` : ''}${isPending ? ' [PENDING]' : event.status === 'approved' ? ' [APPROVED]' : isPreBooked ? ' [PRE-BOOKED]' : ''}`}
+                      title={`${event.name}${event.category ? ` - ${event.category}` : ''}${isPending ? ' [PENDING]' : event.status === 'approved' ? ' [APPROVED]' : isPreBooked ? ' [PRE-BOOKED]' : ''}${showSourceBadge ? ` [${sourceBadgeLabel}]` : ''}`}
                     >
                       {segment.isFirst && (
                         <>
@@ -1234,9 +1248,19 @@ export default function CalendarView({ events, searchEvents = [], isSearchLoadin
                           <span className="truncate flex-1 leading-tight">{event.name}</span>
                           {showSourceBadge && (
                             <span className={`px-1 py-0.5 rounded text-[9px] font-bold flex-shrink-0 border flex items-center ${
-                              isPublicLink ? 'bg-purple-600/90 text-white border-purple-400' : 'bg-gray-600/90 text-white border-gray-400'
+                              isPublicLink
+                                ? 'bg-purple-600/90 text-white border-purple-400'
+                                : isVendorReactivation
+                                  ? 'bg-amber-500/90 text-white border-amber-300'
+                                  : 'bg-gray-600/90 text-white border-gray-400'
                             }`}>
-                              {isPublicLink ? <PublicIcon className="w-3 h-3" /> : <LockIcon className="w-3 h-3" />}
+                              {isPublicLink ? (
+                                <PublicIcon className="w-3 h-3" />
+                              ) : isVendorReactivation ? (
+                                <ReplayCircleFilledIcon className="w-3 h-3" />
+                              ) : (
+                                <LockIcon className="w-3 h-3" />
+                              )}
                             </span>
                           )}
                         </>

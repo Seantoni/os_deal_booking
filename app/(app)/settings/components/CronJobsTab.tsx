@@ -12,6 +12,7 @@ import toast from 'react-hot-toast'
 
 const JOB_LABELS: Record<string, string> = {
   'deal-metrics-sync': 'Sync de Métricas',
+  'vendor-reactivation-scan': 'Reactivaciones de Vendor',
   'task-reminders': 'Recordatorios de Tareas',
   'daily-comment-summaries': 'Resumen de Comentarios',
   'sales-meeting-reminders': 'Recordatorio de Reuniones',
@@ -117,6 +118,7 @@ export default function CronJobsTab() {
     try {
       const endpoints: Record<CronJobName, string> = {
         'deal-metrics-sync': '/api/cron/deal-metrics-sync',
+        'vendor-reactivation-scan': '/api/cron/vendor-reactivation-scan',
         'task-reminders': '/api/cron/task-reminders',
         'daily-comment-summaries': '/api/cron/daily-comment-summaries',
         'sales-meeting-reminders': '/api/cron/sales-meeting-reminders',
@@ -219,6 +221,7 @@ export default function CronJobsTab() {
           >
             <option value="">Todos los jobs</option>
             <option value="deal-metrics-sync">Sync de Métricas</option>
+            <option value="vendor-reactivation-scan">Reactivaciones de Vendor</option>
             <option value="task-reminders">Recordatorios de Tareas</option>
             <option value="daily-comment-summaries">Resumen de Comentarios</option>
             <option value="sales-meeting-reminders">Recordatorio de Reuniones</option>

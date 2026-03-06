@@ -26,10 +26,10 @@ export async function GET(
     }
 
     const { id } = await params
-    const dealId = parseInt(id, 10)
-    if (isNaN(dealId) || dealId <= 0) {
+    const dealId = id?.trim()
+    if (!dealId) {
       return NextResponse.json(
-        { success: false, error: 'Invalid deal ID: must be a positive integer' },
+        { success: false, error: 'Invalid deal ID' },
         { status: 400 }
       )
     }

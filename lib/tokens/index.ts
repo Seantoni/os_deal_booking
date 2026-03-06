@@ -103,6 +103,83 @@ export function verifyApprovalToken(token: string): {
 }
 
 // ============================================================================
+// Vendor Reactivation Tokens
+// Used for public vendor reactivation links
+// ============================================================================
+
+export function generateVendorReactivationToken(
+  businessId: string,
+  externalDealId: string
+): string {
+  const payload = JSON.stringify({
+    businessId,
+    externalDealId,
+    timestamp: Date.now(),
+  })
+
+  const hmac = crypto.createHmac('sha256', SECRET_KEY)
+  hmac.update(payload)
+  const signature = hmac.digest('hex')
+
+  return Buffer.from(`${payload}:${signature}`).toString('base64url')
+}
+
+export function verifyVendorReactivationToken(token: string): {
+  valid: boolean
+  businessId?: string
+  externalDealId?: string
+  error?: string
+} {
+  try {
+    const decoded = Buffer.from(token, 'base64url').toString('utf-8')
+    const lastColonIndex = decoded.lastIndexOf(':')
+    if (lastColonIndex === -1) {
+      return { valid: false, error: 'Invalid token format' }
+    }
+
+    const payload = decoded.substring(0, lastColonIndex)
+    const signature = decoded.substring(lastColonIndex + 1)
+
+    if (!payload || !signature) {
+      return { valid: false, error: 'Invalid token format' }
+    }
+
+    const hmac = crypto.createHmac('sha256', SECRET_KEY)
+    hmac.update(payload)
+    const expectedSignature = hmac.digest('hex')
+
+    const sigBuf = Buffer.from(signature, 'utf-8')
+    const expectedBuf = Buffer.from(expectedSignature, 'utf-8')
+    if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
+      return { valid: false, error: 'Invalid signature' }
+    }
+
+    const data = JSON.parse(payload) as {
+      businessId?: string
+      externalDealId?: string
+      timestamp?: number
+    }
+
+    if (!data.businessId || !data.externalDealId || !data.timestamp) {
+      return { valid: false, error: 'Invalid token payload' }
+    }
+
+    const tokenAge = Date.now() - data.timestamp
+    if (tokenAge > TOKEN_MAX_AGE_MS) {
+      return { valid: false, error: 'Token expired' }
+    }
+
+    return {
+      valid: true,
+      businessId: data.businessId,
+      externalDealId: data.externalDealId,
+    }
+  } catch {
+    return { valid: false, error: 'Token verification failed' }
+  }
+}
+
+// ============================================================================
 // Public Link Tokens
 // Used for shareable public booking request URLs
 // ============================================================================
@@ -116,4 +193,3 @@ export function generatePublicLinkToken(): string {
   const randomBytes = crypto.randomBytes(32)
   return randomBytes.toString('base64url')
 }
-

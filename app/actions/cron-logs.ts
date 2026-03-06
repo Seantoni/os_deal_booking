@@ -8,6 +8,7 @@ export type CronJobStatus = 'running' | 'success' | 'failed'
 
 export type CronJobName = 
   | 'deal-metrics-sync'
+  | 'vendor-reactivation-scan'
   | 'task-reminders'
   | 'sales-meeting-reminders'
   | 'market-intelligence-scan'

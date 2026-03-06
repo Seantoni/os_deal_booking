@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
-import { deleteBookingRequest, resendBookingRequest, bulkDeleteBookingRequests, bulkUpdateBookingRequestStatus, cancelBookingRequest, getBookingRequest, getBookingRequestsPaginated, getBookingRequestCounts } from '@/app/actions/booking'
+import { deleteBookingRequest, resendBookingRequest, bulkDeleteBookingRequests, bulkUpdateBookingRequestStatus, cancelBookingRequest, getBookingRequest, getBookingRequestsPaginated } from '@/app/actions/booking'
 import { getBookingRequestProjectionMap } from '@/app/actions/revenue-projections'
 import type { BookingRequest } from '@/types'
 import type { BookingRequestStatus } from '@/lib/constants'
@@ -45,6 +45,8 @@ const BookingRequestViewModal = dynamic(() => import('@/components/booking/reque
 interface BookingRequestsClientProps {
   bookingRequests: BookingRequest[]
 }
+
+type PageTab = 'internal' | 'reactivations'
 
 type ProjectionValue = {
   projectedRevenue: number | null
@@ -124,9 +126,12 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
   const [bulkActionLoading, setBulkActionLoading] = useState(false)
   const [visibleCount, setVisibleCount] = useState(50)
   const [creatorFilter, setCreatorFilter] = useState<string | null>(null)
-  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
   const [projectionMap, setProjectionMap] = useState<Record<string, ProjectionValue>>({})
   const [projectionLoading, setProjectionLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState<PageTab>(() => {
+    const tabParam = searchParams.get('tab')
+    return tabParam === 'reactivations' ? 'reactivations' : 'internal'
+  })
   
   const isAdmin = userRole === 'admin'
   
@@ -165,12 +170,6 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
       })
       if (result.success && result.data) {
         setBookingRequests(result.data as BookingRequest[])
-      }
-      
-      // Also refresh counts
-      const countsResult = await getBookingRequestCounts({ creatorId: options?.creatorId })
-      if (countsResult.success && countsResult.data) {
-        setStatusCounts(countsResult.data)
       }
     } catch (error) {
       logger.error('Failed to load booking requests:', error)
@@ -430,6 +429,18 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     }
   }
 
+  const getSourceTypeLabel = (sourceType: string): string => {
+    if (sourceType === 'public_link') return 'Enlace Público'
+    if (sourceType === 'vendor_reactivation') return 'Reactivación'
+    return 'Interno'
+  }
+
+  const getSourceTypeBadgeClasses = (sourceType: string): string => {
+    if (sourceType === 'public_link') return 'bg-purple-50 text-purple-700'
+    if (sourceType === 'vendor_reactivation') return 'bg-amber-50 text-amber-700'
+    return 'bg-gray-50 text-gray-700'
+  }
+
   // Calculate days since a date
   const daysSince = (date: Date | null): number | null => {
     if (!date) return null
@@ -462,20 +473,22 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
 
   // Calculate status counts (use server counts when available, fallback to client-side)
   const displayCounts = useMemo(() => {
-    if (Object.keys(statusCounts).length > 0) {
-      return statusCounts
-    }
-    // Fallback to client-side counts
+    const tabScopedRequests = bookingRequests.filter((request) =>
+      activeTab === 'reactivations'
+        ? request.sourceType === 'vendor_reactivation'
+        : request.sourceType !== 'vendor_reactivation'
+    )
+
     return {
-      all: bookingRequests.length,
-      draft: bookingRequests.filter(r => r.status === 'draft').length,
-      pending: bookingRequests.filter(r => r.status === 'pending').length,
-      approved: bookingRequests.filter(r => r.status === 'approved').length,
-      booked: bookingRequests.filter(r => r.status === 'booked').length,
-      rejected: bookingRequests.filter(r => r.status === 'rejected').length,
-      cancelled: bookingRequests.filter(r => r.status === 'cancelled').length,
+      all: tabScopedRequests.length,
+      draft: tabScopedRequests.filter(r => r.status === 'draft').length,
+      pending: tabScopedRequests.filter(r => r.status === 'pending').length,
+      approved: tabScopedRequests.filter(r => r.status === 'approved').length,
+      booked: tabScopedRequests.filter(r => r.status === 'booked').length,
+      rejected: tabScopedRequests.filter(r => r.status === 'rejected').length,
+      cancelled: tabScopedRequests.filter(r => r.status === 'cancelled').length,
     }
-  }, [bookingRequests, statusCounts])
+  }, [bookingRequests, activeTab])
 
   // Handle column sort
   const handleSort = (column: string) => {
@@ -553,6 +566,12 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
   // Filter requests by status and search query
   const filteredRequests = useMemo(() => {
     const filtered = bookingRequests.filter(request => {
+      if (activeTab === 'reactivations') {
+        if (request.sourceType !== 'vendor_reactivation') return false
+      } else if (request.sourceType === 'vendor_reactivation') {
+        return false
+      }
+
       // Status filter
       if (statusFilter !== 'all' && request.status !== statusFilter) {
         return false
@@ -573,7 +592,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     })
 
     return sortRequests(filtered)
-  }, [bookingRequests, statusFilter, searchQuery, sortRequests])
+  }, [bookingRequests, activeTab, statusFilter, searchQuery, sortRequests])
 
   // Paginated requests for display
   const visibleRequests = useMemo(() => {
@@ -718,7 +737,22 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
   // Clear selection when filters change
   useEffect(() => {
     setSelectedIds(new Set())
-  }, [statusFilter, searchQuery])
+  }, [activeTab, statusFilter, searchQuery])
+
+  const handleTabChange = useCallback((tab: PageTab) => {
+    setActiveTab(tab)
+    setVisibleCount(50)
+
+    const params = new URLSearchParams(searchParams.toString())
+    if (tab === 'internal') {
+      params.delete('tab')
+    } else {
+      params.set('tab', tab)
+    }
+
+    const nextUrl = params.toString() ? `/booking-requests?${params.toString()}` : '/booking-requests'
+    router.replace(nextUrl, { scroll: false })
+  }, [router, searchParams])
 
   // Clear selection when user is not admin
   useEffect(() => {
@@ -729,6 +763,31 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
+      <div className="border-b border-gray-200 bg-white px-4 py-3">
+        <div className="inline-flex items-center gap-1 rounded-xl bg-gray-100 p-1">
+          <button
+            onClick={() => handleTabChange('internal')}
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+              activeTab === 'internal'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Interno
+          </button>
+          <button
+            onClick={() => handleTabChange('reactivations')}
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+              activeTab === 'reactivations'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Reactivaciones
+          </button>
+        </div>
+      </div>
+
       {/* Header with Search and Filters */}
       <div className="bg-white border-b border-gray-200 px-3 py-2 md:px-4 md:py-3">
         <div className="flex flex-col gap-2 md:gap-4">
@@ -964,12 +1023,8 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                           {getStatusBadge(request.status, request.status === 'pending' ? daysSinceSent : null)}
                         </TableCell>
                         <TableCell style={getColumnCellStyle('source')}>
-                          <span className={`px-2 py-0.5 rounded text-[13px] font-medium ${
-                            request.sourceType === 'public_link' 
-                              ? 'bg-purple-50 text-purple-700' 
-                              : 'bg-gray-50 text-gray-700'
-                          }`}>
-                            {request.sourceType === 'public_link' ? 'Enlace Público' : 'Interno'}
+                          <span className={`px-2 py-0.5 rounded text-[13px] font-medium ${getSourceTypeBadgeClasses(request.sourceType)}`}>
+                            {getSourceTypeLabel(request.sourceType)}
                           </span>
                         </TableCell>
                         <TableCell style={getColumnCellStyle('dealId')}>

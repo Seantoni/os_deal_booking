@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 type BookingRequestAccessRecord = {
   id: string
   userId: string
+  businessId: string | null
   opportunityId: string | null
   eventId: string | null
 }
@@ -11,11 +12,16 @@ type BookingRequestAccessRecord = {
 /**
  * Sales visibility for booking requests:
  * 1) requests created by the sales user
- * 2) requests linked to opportunities whose business is owned by the sales user
- * 3) requests linked to events whose business is owned by the sales user
+ * 2) requests linked directly to businesses owned by the sales user
+ * 3) requests linked to opportunities whose business is owned by the sales user
+ * 4) requests linked to events whose business is owned by the sales user
  */
 export async function getSalesBookingRequestVisibilityWhere(userId: string): Promise<Prisma.BookingRequestWhereInput> {
-  const [ownedOpportunityRows, ownedEventRows] = await Promise.all([
+  const [ownedBusinessRows, ownedOpportunityRows, ownedEventRows] = await Promise.all([
+    prisma.business.findMany({
+      where: { ownerId: userId },
+      select: { id: true },
+    }),
     prisma.opportunity.findMany({
       where: { business: { ownerId: userId } },
       select: { id: true },
@@ -29,6 +35,7 @@ export async function getSalesBookingRequestVisibilityWhere(userId: string): Pro
     }),
   ])
 
+  const ownedBusinessIds = ownedBusinessRows.map((row) => row.id)
   const ownedOpportunityIds = ownedOpportunityRows.map((row) => row.id)
   const ownedEventRequestIds = Array.from(
     new Set(
@@ -39,6 +46,10 @@ export async function getSalesBookingRequestVisibilityWhere(userId: string): Pro
   )
 
   const filters: Prisma.BookingRequestWhereInput[] = [{ userId }]
+
+  if (ownedBusinessIds.length > 0) {
+    filters.push({ businessId: { in: ownedBusinessIds } })
+  }
 
   if (ownedOpportunityIds.length > 0) {
     filters.push({ opportunityId: { in: ownedOpportunityIds } })
@@ -57,6 +68,20 @@ export async function canSalesAccessBookingRequest(
 ): Promise<boolean> {
   if (bookingRequest.userId === userId) {
     return true
+  }
+
+  if (bookingRequest.businessId) {
+    const ownedBusiness = await prisma.business.findFirst({
+      where: {
+        id: bookingRequest.businessId,
+        ownerId: userId,
+      },
+      select: { id: true },
+    })
+
+    if (ownedBusiness) {
+      return true
+    }
   }
 
   if (bookingRequest.opportunityId) {

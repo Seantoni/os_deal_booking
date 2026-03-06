@@ -119,6 +119,8 @@ export const BASE_SECTIONS: SectionDefinition[] = [
     fields: [
       { key: 'status', label: 'Estado' },
       { key: 'sourceType', label: 'Tipo de Origen' },
+      { key: 'originExternalDealId', label: 'Deal Histórico' },
+      { key: 'originExternalDealName', label: 'Nombre del Deal Histórico' },
       { key: 'processedAt', label: 'Procesado En', type: 'date' },
       { key: 'processedBy', label: 'Procesado Por' },
       { key: 'rejectionReason', label: 'Razón del Rechazo' },

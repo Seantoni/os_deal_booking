@@ -20,6 +20,7 @@ import CampaignIcon from '@mui/icons-material/Campaign'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import GroupsIcon from '@mui/icons-material/Groups'
+import ReplayCircleFilledIcon from '@mui/icons-material/ReplayCircleFilled'
 
 // Sidebar item type
 type SidebarItem = {
@@ -56,6 +57,7 @@ const adminSidebarConfig = {
   adminItems: [
     { name: 'Asignaciones', href: '/assignments', Icon: AssignmentReturnIcon },
     { name: 'Leads Neg.', href: '/leads-negocios', Icon: TrendingUpIcon },
+    { name: 'Reactiv.', href: '/reactivaciones', Icon: ReplayCircleFilledIcon },
   ],
   bottomItems: [
     { name: 'Actividad', href: '/activity-log', Icon: HistoryIcon },

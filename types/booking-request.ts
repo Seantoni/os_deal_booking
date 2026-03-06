@@ -25,13 +25,16 @@ export type BookingRequest = {
   rejectedAt?: Date | null
   cancelledAt?: Date | null
   eventId: string | null
+  businessId: string | null
   opportunityId: string | null
   dealId: string | null
   userId: string
   processedAt: Date | null
   processedBy: string | null
   rejectionReason: string | null
-  sourceType: string // 'internal' | 'public_link'
+  sourceType: string // 'internal' | 'public_link' | 'vendor_reactivation'
+  originExternalDealId?: string | null
+  originExternalDealName?: string | null
   publicLinkToken: string | null
   createdAt: Date
   updatedAt: Date

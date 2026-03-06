@@ -7,6 +7,7 @@ import { buildCategoryDisplayString } from '@/types'
 import PublicIcon from '@mui/icons-material/Public'
 import LockIcon from '@mui/icons-material/Lock'
 import LightbulbIcon from '@mui/icons-material/Lightbulb'
+import ReplayIcon from '@mui/icons-material/Replay'
 import type { BookingRequest } from '@/types'
 
 interface PendingRequestsSidebarProps {
@@ -157,14 +158,24 @@ return (
                   <div className={`mb-2 flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold ${
                     request.sourceType === 'public_link' 
                       ? 'bg-purple-100 text-purple-800 border border-purple-300' 
+                      : request.sourceType === 'vendor_reactivation'
+                        ? 'bg-amber-100 text-amber-800 border border-amber-300'
                       : 'bg-gray-100 text-gray-800 border border-gray-300'
                   }`}>
                     {request.sourceType === 'public_link' ? (
                       <PublicIcon className="w-3 h-3" />
+                    ) : request.sourceType === 'vendor_reactivation' ? (
+                      <ReplayIcon className="w-3 h-3" />
                     ) : (
                       <LockIcon className="w-3 h-3" />
                     )}
-                    <span>{request.sourceType === 'public_link' ? 'PUBLIC LINK' : 'INTERNAL'}</span>
+                    <span>
+                      {request.sourceType === 'public_link'
+                        ? 'PUBLIC LINK'
+                        : request.sourceType === 'vendor_reactivation'
+                          ? 'REACTIVACION'
+                          : 'INTERNAL'}
+                    </span>
                   </div>
 
                   {/* Request Details */}
@@ -219,4 +230,3 @@ return (
     </div>
   )
 }
-

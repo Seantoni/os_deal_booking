@@ -154,9 +154,15 @@ export default function BookingRequestMobileCard({
           <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
             request.sourceType === 'public_link'
               ? 'bg-purple-50 text-purple-600'
+              : request.sourceType === 'vendor_reactivation'
+                ? 'bg-amber-50 text-amber-700'
               : 'bg-gray-50 text-gray-500'
           }`}>
-            {request.sourceType === 'public_link' ? 'Enlace' : 'Interno'}
+            {request.sourceType === 'public_link'
+              ? 'Enlace'
+              : request.sourceType === 'vendor_reactivation'
+                ? 'Reactivación'
+                : 'Interno'}
           </span>
 
           {/* Deal ID */}
