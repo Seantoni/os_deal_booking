@@ -228,17 +228,9 @@ export const validateStep = (
           if (isRequired('pricingOptions.realValue') && isEmpty(option.realValue)) {
             newErrors[`pricingOptions.${index}.realValue`] = 'Valor real requerido'
           }
-          if (isRequired('pricingOptions.quantity') && isEmpty(option.quantity)) {
-            newErrors[`pricingOptions.${index}.quantity`] = 'Cantidad requerida'
-          }
+          // Empty quantity/limitByUser/maxGiftsPerUser = unlimited (always valid)
           if (option.quantity && !/^\d+$/.test(option.quantity.trim())) {
             newErrors[`pricingOptions.${index}.quantity`] = 'Cantidad debe ser un número entero'
-          }
-          if (isRequired('pricingOptions.limitByUser') && isEmpty(option.limitByUser)) {
-            newErrors[`pricingOptions.${index}.limitByUser`] = 'Max Usuario requerido'
-          }
-          if (isRequired('pricingOptions.maxGiftsPerUser') && isEmpty(option.maxGiftsPerUser)) {
-            newErrors[`pricingOptions.${index}.maxGiftsPerUser`] = 'Max Regalo requerido'
           }
           if (isRequired('pricingOptions.endAt') && isEmpty(option.endAt)) {
             newErrors[`pricingOptions.${index}.endAt`] = 'Fecha fin requerida'
