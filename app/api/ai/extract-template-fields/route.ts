@@ -12,6 +12,7 @@ interface FieldDefinition {
 
 interface ExtractRequest {
   textContent: {
+    assistantInput?: string
     aboutOffer?: string
     goodToKnow?: string
     whatWeLike?: string
@@ -27,6 +28,7 @@ interface ExtractRequest {
 function buildPrompt(textContent: ExtractRequest['textContent'], fields: FieldDefinition[]): string {
   const textParts: string[] = []
 
+  if (textContent.assistantInput) textParts.push(`INFORMACIÓN PROPORCIONADA POR EL USUARIO:\n${textContent.assistantInput}`)
   if (textContent.aboutOffer) textParts.push(`ACERCA DE LA OFERTA:\n${textContent.aboutOffer}`)
   if (textContent.goodToKnow) textParts.push(`LO QUE CONVIENE SABER:\n${textContent.goodToKnow}`)
   if (textContent.whatWeLike) textParts.push(`LO QUE NOS GUSTA:\n${textContent.whatWeLike}`)

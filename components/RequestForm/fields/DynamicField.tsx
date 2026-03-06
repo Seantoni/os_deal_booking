@@ -1,5 +1,6 @@
 import type { FieldConfig } from '../config/field-types'
 import type { BookingFormData } from '../types'
+import { isTemplateFieldVisible } from '../template-field-visibility'
 import TextField from './TextField'
 import TextareaField from './TextareaField'
 import SelectField from './SelectField'
@@ -26,27 +27,8 @@ interface DynamicFieldProps {
  * - Value binding
  */
 export default function DynamicField({ config, formData, errors, updateFormData }: DynamicFieldProps) {
-  // Check subcategory visibility filter
-  if (config.showForSubCategories && config.showForSubCategories.length > 0) {
-    const currentSubCategory = formData.subCategory1
-    if (!currentSubCategory || !config.showForSubCategories.includes(currentSubCategory)) {
-      return null
-    }
-  }
-
-  // Check conditional visibility (showWhen)
-  if (config.showWhen) {
-    const dependentValue = formData[config.showWhen.field as keyof BookingFormData]
-    const requiredValue = config.showWhen.value
-    
-    // Check if the condition is met
-    const isVisible = Array.isArray(requiredValue)
-      ? requiredValue.includes(dependentValue as string)
-      : dependentValue === requiredValue
-    
-    if (!isVisible) {
-      return null
-    }
+  if (!isTemplateFieldVisible(config, formData)) {
+    return null
   }
 
   const value = formData[config.name as keyof BookingFormData] as string || ''

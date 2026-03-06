@@ -1,19 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
-
-export interface TaskDictationGuideItem {
-  label: string
-  suggestion: string
-}
-
-export type TaskDictationGuideMode = 'recording' | 'processing'
-
-export interface TaskDictationGuideDialogState {
-  isOpen: boolean
-  mode: TaskDictationGuideMode
-  items: TaskDictationGuideItem[]
-}
+import { useCallback, useState, type Dispatch, type SetStateAction } from 'react'
+import { useSpeechDictationAssistant, type DictationGuideItem } from '@/components/shared/useSpeechDictationAssistant'
 
 interface ExtractedTaskFields {
   title: string | null
@@ -21,18 +9,8 @@ interface ExtractedTaskFields {
   dueDate: string | null
 }
 
-const EMPTY_GUIDE_ITEMS: TaskDictationGuideItem[] = []
-
-function appendDictatedText(existing: string, dictatedChunk: string): string {
-  const chunk = dictatedChunk.trim()
-  if (!chunk) return existing
-  if (!existing.trim()) return chunk
-  const needsSeparator = /[\s\n]$/.test(existing)
-  return needsSeparator ? `${existing}${chunk}` : `${existing} ${chunk}`
-}
-
-function buildTaskGuideItems(task: { title: string; notes: string }): TaskDictationGuideItem[] {
-  const items: TaskDictationGuideItem[] = []
+function buildTaskGuideItems(task: { title: string; notes: string }): DictationGuideItem[] {
+  const items: DictationGuideItem[] = []
 
   if (!task.title.trim()) {
     items.push({ label: 'Tarea', suggestion: 'Describa qué hay que hacer de forma clara.' })
@@ -70,72 +48,9 @@ export function useTaskAiAssistant({ task, setTask, todayDate }: UseTaskAiAssist
   const [proofreadError, setProofreadError] = useState<string | null>(null)
   const [isExtracting, setIsExtracting] = useState(false)
   const [extractError, setExtractError] = useState<string | null>(null)
-  const [dictationGuideDialog, setDictationGuideDialog] = useState<TaskDictationGuideDialogState>({
-    isOpen: false,
-    mode: 'recording',
-    items: EMPTY_GUIDE_ITEMS,
-  })
-  const [speechSupported, setSpeechSupported] = useState(false)
-  const [isDictating, setIsDictating] = useState(false)
-  const [dictationError, setDictationError] = useState<string | null>(null)
-  const [showFirstDictationAnimation, setShowFirstDictationAnimation] = useState(false)
 
-  const speechRecognitionRef = useRef<SpeechRecognitionInstance | null>(null)
-  const dictatedTextRef = useRef('')
-  const autoProcessRef = useRef(false)
-  const guideVisibleRef = useRef(false)
-  const hasDictatedOnceRef = useRef(false)
-  const firstAnimTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  function clearAnimTimer() {
-    if (firstAnimTimerRef.current) {
-      clearTimeout(firstAnimTimerRef.current)
-      firstAnimTimerRef.current = null
-    }
-  }
-
-  function closeGuideDialog() {
-    guideVisibleRef.current = false
-    setDictationGuideDialog(prev => ({ ...prev, isOpen: false, mode: 'recording' }))
-  }
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    setSpeechSupported(Boolean(window.SpeechRecognition || window.webkitSpeechRecognition))
-    return () => {
-      clearAnimTimer()
-      autoProcessRef.current = false
-      guideVisibleRef.current = false
-      hasDictatedOnceRef.current = false
-      if (speechRecognitionRef.current) {
-        speechRecognitionRef.current.abort()
-        speechRecognitionRef.current = null
-      }
-    }
-  }, [])
-
-  const resetAssistantState = useCallback(() => {
-    setProofreadError(null)
-    setExtractError(null)
-    setDictationGuideDialog({ isOpen: false, mode: 'recording', items: EMPTY_GUIDE_ITEMS })
-    setDictationError(null)
-    setIsProofreading(false)
-    setIsExtracting(false)
-    setIsDictating(false)
-    setShowFirstDictationAnimation(false)
-    autoProcessRef.current = false
-    guideVisibleRef.current = false
-    hasDictatedOnceRef.current = false
-    dictatedTextRef.current = ''
-    clearAnimTimer()
-    if (speechRecognitionRef.current) {
-      speechRecognitionRef.current.abort()
-      speechRecognitionRef.current = null
-    }
-  }, [])
-
-  async function proofreadAndExtract(textToProcess?: string): Promise<void> {
-    const sourceText = (textToProcess ?? dictatedTextRef.current).trim()
+  const proofreadAndExtract = useCallback(async (textToProcess?: string): Promise<void> => {
+    const sourceText = (textToProcess ?? task.notes).trim()
     if (!sourceText) return
 
     setProofreadError(null)
@@ -187,165 +102,51 @@ export function useTaskAiAssistant({ task, setTask, todayDate }: UseTaskAiAssist
         setTask.setDate(fields.dueDate)
       }
       setTask.setNotes(fields.notes ?? correctedText)
-      dictatedTextRef.current = fields.notes ?? correctedText
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Error al procesar la tarea.'
       setExtractError(msg)
       setTask.setNotes(correctedText)
-      dictatedTextRef.current = correctedText
     } finally {
       setIsExtracting(false)
     }
-  }
+  }, [setTask, task.notes, todayDate])
+
+  const dictation = useSpeechDictationAssistant({
+    currentText: task.notes,
+    setText: setTask.setNotes,
+    buildGuideItems: () => buildTaskGuideItems(task),
+    processText: async (text) => {
+      await proofreadAndExtract(text)
+    },
+    onBeforeStart: () => {
+      setProofreadError(null)
+      setExtractError(null)
+    },
+  })
+
+  const clearDictationError = dictation.clearDictationError
+  const dictationError = dictation.dictationError
+  const resetDictationState = dictation.resetDictationState
+
+  const resetAssistantState = useCallback(() => {
+    setProofreadError(null)
+    setExtractError(null)
+    setIsProofreading(false)
+    setIsExtracting(false)
+    resetDictationState()
+  }, [resetDictationState])
 
   function handleNotesInputChange(value: string) {
     setTask.setNotes(value)
-    dictatedTextRef.current = value
     if (proofreadError) setProofreadError(null)
     if (extractError) setExtractError(null)
-    if (dictationError) setDictationError(null)
-  }
-
-  function stopDictation(options?: { shouldAutoProcess?: boolean }) {
-    autoProcessRef.current = options?.shouldAutoProcess ?? true
-    if (speechRecognitionRef.current) {
-      speechRecognitionRef.current.stop()
+    if (dictationError) {
+      clearDictationError()
     }
-  }
-
-  function startDictation() {
-    if (typeof window === 'undefined') return
-
-    const guideItems = buildTaskGuideItems(task)
-    guideVisibleRef.current = true
-
-    const RecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!RecognitionCtor) {
-      guideVisibleRef.current = false
-      setSpeechSupported(false)
-      setDictationError('Este navegador no soporta dictado por voz.')
-      closeGuideDialog()
-      return
-    }
-
-    setDictationError(null)
-    setProofreadError(null)
-    setExtractError(null)
-
-    const recognition = new RecognitionCtor()
-    recognition.lang = 'es-PA'
-    recognition.continuous = true
-    recognition.interimResults = true
-    recognition.maxAlternatives = 1
-
-    recognition.onstart = () => {
-      autoProcessRef.current = true
-      setIsDictating(true)
-      if (!hasDictatedOnceRef.current) {
-        hasDictatedOnceRef.current = true
-        setShowFirstDictationAnimation(true)
-        clearAnimTimer()
-        firstAnimTimerRef.current = setTimeout(() => {
-          setShowFirstDictationAnimation(false)
-          firstAnimTimerRef.current = null
-        }, 2500)
-      }
-      if (guideVisibleRef.current) {
-        setDictationGuideDialog({ isOpen: true, mode: 'recording', items: guideItems })
-      }
-    }
-
-    recognition.onresult = (event) => {
-      let finalChunk = ''
-      for (let i = event.resultIndex; i < event.results.length; i += 1) {
-        const result = event.results[i]
-        if (result?.isFinal) {
-          finalChunk += result[0]?.transcript || ''
-        }
-      }
-      if (!finalChunk.trim()) return
-      setTask.setNotes((prev) => {
-        const nextValue = appendDictatedText(prev, finalChunk)
-        dictatedTextRef.current = nextValue
-        return nextValue
-      })
-    }
-
-    recognition.onerror = (event) => {
-      const errorCode = event.error || 'unknown'
-      if (errorCode === 'not-allowed' || errorCode === 'service-not-allowed' || errorCode === 'audio-capture') {
-        autoProcessRef.current = false
-      }
-      if (errorCode === 'not-allowed' || errorCode === 'service-not-allowed') {
-        setDictationError('Permiso de micrófono denegado. Habilítelo en su navegador.')
-      } else if (errorCode === 'no-speech') {
-        setDictationError('No se detectó voz. Intente nuevamente.')
-      } else if (errorCode === 'audio-capture') {
-        setDictationError('No se pudo acceder al micrófono del dispositivo.')
-      } else {
-        setDictationError('Se interrumpió el dictado. Intente de nuevo.')
-      }
-      closeGuideDialog()
-    }
-
-    recognition.onend = () => {
-      const shouldAutoProcess = autoProcessRef.current
-      const shouldShowGuide = guideVisibleRef.current
-
-      setIsDictating(false)
-      if (speechRecognitionRef.current === recognition) {
-        speechRecognitionRef.current = null
-      }
-      autoProcessRef.current = false
-
-      if (shouldAutoProcess && shouldShowGuide) {
-        setDictationGuideDialog(prev => ({ ...prev, isOpen: true, mode: 'processing' }))
-      }
-
-      void (async () => {
-        if (!shouldAutoProcess) {
-          closeGuideDialog()
-          return
-        }
-
-        const text = dictatedTextRef.current.trim()
-        if (text) {
-          await proofreadAndExtract(text)
-        }
-        closeGuideDialog()
-      })()
-    }
-
-    speechRecognitionRef.current = recognition
-
-    try {
-      recognition.start()
-    } catch {
-      guideVisibleRef.current = false
-      setIsDictating(false)
-      setDictationError('No se pudo iniciar el dictado. Intente nuevamente.')
-      closeGuideDialog()
-    }
-  }
-
-  function toggleDictation() {
-    if (isDictating) {
-      stopDictation()
-    } else {
-      startDictation()
-    }
-  }
-
-  function handleGuideHide() {
-    closeGuideDialog()
-  }
-
-  function handleGuideStopDictation() {
-    stopDictation({ shouldAutoProcess: true })
   }
 
   const assistantActionState: 'idle' | 'dictating' | 'correcting' | 'completing' =
-    isDictating
+    dictation.isDictating
       ? 'dictating'
       : isExtracting
         ? 'completing'
@@ -357,16 +158,16 @@ export function useTaskAiAssistant({ task, setTask, todayDate }: UseTaskAiAssist
     assistantActionState,
     proofreadError,
     extractError,
-    dictationGuideDialog,
-    speechSupported,
-    isDictating,
+    dictationGuideDialog: dictation.dictationGuideDialog,
+    speechSupported: dictation.speechSupported,
+    isDictating: dictation.isDictating,
     dictationError,
-    showFirstDictationAnimation,
+    showFirstDictationAnimation: dictation.showFirstDictationAnimation,
     handleNotesInputChange,
     proofreadAndExtract,
-    toggleDictation,
-    handleGuideHide,
-    handleGuideStopDictation,
+    toggleDictation: dictation.toggleDictation,
+    handleGuideHide: dictation.handleGuideHide,
+    handleGuideStopDictation: dictation.handleGuideStopDictation,
     resetAssistantState,
   }
 }

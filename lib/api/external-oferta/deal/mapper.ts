@@ -168,14 +168,16 @@ export function mapBookingFormToApi(
       const titleText = (opt.title || '').trim()
       const description = rawDescription || titleText || `Opción ${index + 1}`
       const price = parseFloat(opt.price || '0') || 0
+
+      const UNLIMITED_VALUE = 2000
       
       return {
         price,
         value: opt.realValue ? parseFloat(opt.realValue) || null : null,
         description,
-        maximumQuantity: parseQuantity(opt.quantity),
-        limitByUser: parseOptionalInt(opt.limitByUser),
-        giftLimitPerUser: parseOptionalInt(opt.maxGiftsPerUser),
+        maximumQuantity: parseQuantity(opt.quantity) ?? UNLIMITED_VALUE,
+        limitByUser: parseOptionalInt(opt.limitByUser) ?? UNLIMITED_VALUE,
+        giftLimitPerUser: parseOptionalInt(opt.maxGiftsPerUser) ?? UNLIMITED_VALUE,
         endAt: opt.endAt || null,
         expiresIn: daysToSeconds(opt.expiresIn),
         oufferMargin: offerMargin,
@@ -453,14 +455,20 @@ export const DEAL_FIELD_MAPPINGS: FieldMapping[] = [
  * Maps all fields that have a direct correspondence.
  */
 export function mapApiToBookingForm(deal: ExternalOfertaDeal): Partial<BookingFormData> {
+  const UNLIMITED_VALUE = 2000
+  const unlimitedOrValue = (v: number | null | undefined): string => {
+    if (v == null || v >= UNLIMITED_VALUE) return ''
+    return String(v)
+  }
+
   const pricingOptions: BookingFormData['pricingOptions'] = (deal.priceOptions || []).map((opt, index) => ({
     title: opt.description || `Opción ${index + 1}`,
     description: opt.description || '',
     price: opt.price != null ? String(opt.price) : '',
     realValue: opt.value != null ? String(opt.value) : '',
-    quantity: quantityToString(opt.maximumQuantity),
-    limitByUser: opt.limitByUser != null ? String(opt.limitByUser) : '',
-    maxGiftsPerUser: opt.giftLimitPerUser != null ? String(opt.giftLimitPerUser) : '',
+    quantity: opt.maximumQuantity != null && opt.maximumQuantity >= UNLIMITED_VALUE ? '' : quantityToString(opt.maximumQuantity),
+    limitByUser: unlimitedOrValue(opt.limitByUser),
+    maxGiftsPerUser: unlimitedOrValue(opt.giftLimitPerUser),
     endAt: opt.endAt || '',
     expiresIn: secondsToDays(opt.expiresIn) || '',
     imageUrl: '',
