@@ -6,6 +6,13 @@ import EnhancedBookingForm from '@/components/RequestForm'
 import PageContent from '@/components/common/PageContent'
 import type { PricingOption } from '@/types/deal'
 
+type StoredPricingOption = PricingOption & {
+  limitByUser?: string | number | null
+  maxGiftsPerUser?: string | number | null
+  endAt?: string | null
+  expiresIn?: string | number | null
+}
+
 /**
  * Additional info structure for template-based fields
  */
@@ -68,6 +75,7 @@ export default async function EditBookingRequestPage({ params }: EditBookingRequ
   // Parse additional emails from database (stored as JSON array)
   const rawEmails = br.additionalEmails
   const additionalEmails: string[] = Array.isArray(rawEmails) ? rawEmails : []
+  const additionalBankAccounts = Array.isArray(br.additionalBankAccounts) ? br.additionalBankAccounts : []
 
   // Parse additionalInfo from database (stored as JSON object)
   const storedAdditionalInfo: AdditionalInfo | null = 
@@ -86,6 +94,7 @@ export default async function EditBookingRequestPage({ params }: EditBookingRequ
     agencyContact: '',
     tentativeLaunchDate: formatDateForInput(bookingRequest.startDate),
     campaignDuration: br.campaignDuration || '',
+    campaignDurationUnit: br.campaignDurationUnit || 'months',
     eventDays: Array.isArray(br.eventDays)
       ? br.eventDays
           .filter((date: unknown): date is string => typeof date === 'string')
@@ -110,6 +119,7 @@ export default async function EditBookingRequestPage({ params }: EditBookingRequ
     bank: br.bank || '',
     accountNumber: br.accountNumber || '',
     accountType: br.accountType || '',
+    additionalBankAccounts,
     addressAndHours: br.addressAndHours || '',
     provinceDistrictCorregimiento: br.provinceDistrictCorregimiento || '',
     includesTaxes: br.includesTaxes || '',
@@ -122,13 +132,17 @@ export default async function EditBookingRequestPage({ params }: EditBookingRequ
     contactDetails: br.contactDetails || '',
     socialMedia: br.socialMedia || '',
     businessReview: br.businessReview || '',
-    pricingOptions: (br.pricingOptions || []).map((opt: PricingOption) => ({
+    pricingOptions: (br.pricingOptions || []).map((opt: StoredPricingOption) => ({
       title: opt?.title ?? '',
       description: opt?.description ?? '',
       price: opt?.price ?? '',
       realValue: opt?.realValue ?? '',
-      quantity: opt?.quantity ?? 'Ilimitado',
+      quantity: opt?.quantity ?? '',
       imageUrl: opt?.imageUrl ?? '',
+      limitByUser: opt?.limitByUser ?? '',
+      maxGiftsPerUser: opt?.maxGiftsPerUser ?? '',
+      endAt: opt?.endAt ?? '',
+      expiresIn: opt?.expiresIn ?? '',
     })),
     dealImages: Array.isArray(br.dealImages) ? br.dealImages : [],
     bookingAttachments: Array.isArray(storedAdditionalInfo?.bookingAttachments) ? storedAdditionalInfo.bookingAttachments : [],

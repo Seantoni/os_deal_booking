@@ -12,6 +12,11 @@ export interface PricingOption {
   price: number
   realValue?: number
   quantity?: number
+  imageUrl?: string
+  limitByUser?: string | number | null
+  maxGiftsPerUser?: string | number | null
+  endAt?: string | null
+  expiresIn?: string | number | null
 }
 
 export interface BankAccountInfo {

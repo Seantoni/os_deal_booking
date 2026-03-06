@@ -387,6 +387,11 @@ export function buildBookingRequestReplicatePayload(requestData: BookingRequestV
           price: String(opt.price ?? ''),
           realValue: String(opt.realValue ?? ''),
           quantity: String(opt.quantity ?? ''),
+          imageUrl: opt.imageUrl ?? '',
+          limitByUser: opt.limitByUser != null ? String(opt.limitByUser) : '',
+          maxGiftsPerUser: opt.maxGiftsPerUser != null ? String(opt.maxGiftsPerUser) : '',
+          endAt: opt.endAt ?? '',
+          expiresIn: opt.expiresIn != null ? String(opt.expiresIn) : '',
         }))
       : undefined,
     dealImages: Array.isArray(requestData.dealImages) ? requestData.dealImages : undefined,

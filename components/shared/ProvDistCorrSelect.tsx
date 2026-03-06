@@ -22,6 +22,15 @@ interface ProvDistCorrSelectProps {
   size?: 'sm' | 'md'
 }
 
+const normalizeLocationValue = (rawValue: string | null | undefined): string => {
+  if (!rawValue) return ''
+  return rawValue
+    .split(',')
+    .map((part) => part.trim())
+    .join(',')
+    .toLowerCase()
+}
+
 function ProvDistCorrSelect({
   value,
   onChange,
@@ -125,7 +134,13 @@ function ProvDistCorrSelect({
   // Get the currently selected option
   const currentSelection = useMemo(() => {
     if (value) {
-      return options.find(opt => opt.value === value) || null
+      const normalizedValue = normalizeLocationValue(value)
+      return (
+        options.find((opt) => normalizeLocationValue(opt.value) === normalizedValue) || {
+          value,
+          label: value,
+        }
+      )
     }
     return null
   }, [value, options])
