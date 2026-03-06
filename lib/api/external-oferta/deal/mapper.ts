@@ -164,9 +164,9 @@ export function mapBookingFormToApi(
       return optionText !== '' && price > 0
     })
     .map((opt, index) => {
-      const rawDescription = opt.description?.trim() || null
       const titleText = (opt.title || '').trim()
-      const description = rawDescription || titleText || `Opción ${index + 1}`
+      const rawDescription = opt.description?.trim() || null
+      const description = titleText || rawDescription || `Opción ${index + 1}`
       const price = parseFloat(opt.price || '0') || 0
 
       const UNLIMITED_VALUE = 2000
