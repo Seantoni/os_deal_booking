@@ -7,12 +7,12 @@ import { logger } from '@/lib/logger'
  * Uses crypto.timingSafeEqual to prevent timing-based side-channel attacks
  * that could allow an attacker to recover the secret one character at a time.
  */
-export function verifyCronSecret(request: Request): boolean {
+function verifyCronSecretFromEnvKey(request: Request, envKey: string): boolean {
   const authHeader = request.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
+  const cronSecret = process.env[envKey]
 
   if (!cronSecret) {
-    logger.warn('[cron] CRON_SECRET is not configured — denying request')
+    logger.warn(`[cron] ${envKey} is not configured — denying request`)
     return false
   }
 
@@ -30,4 +30,20 @@ export function verifyCronSecret(request: Request): boolean {
     Buffer.from(authHeader, 'utf-8'),
     Buffer.from(expected, 'utf-8'),
   )
+}
+
+export function verifyCronSecret(request: Request, envKey: string = 'CRON_SECRET'): boolean {
+  return verifyCronSecretFromEnvKey(request, envKey)
+}
+
+export function verifyCronSecretWithFallback(
+  request: Request,
+  primaryEnvKey: string,
+  fallbackEnvKey: string = 'CRON_SECRET'
+): boolean {
+  if (process.env[primaryEnvKey]) {
+    return verifyCronSecretFromEnvKey(request, primaryEnvKey)
+  }
+
+  return verifyCronSecretFromEnvKey(request, fallbackEnvKey)
 }

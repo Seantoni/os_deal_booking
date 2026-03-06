@@ -10,7 +10,7 @@ import {
   getVendorReactivationTargets,
   markVendorReactivationEmailSent,
 } from '@/lib/vendor-reactivation/service'
-import { verifyCronSecret } from '@/lib/cron/verify-secret'
+import { verifyCronSecretWithFallback } from '@/lib/cron/verify-secret'
 import { logger } from '@/lib/logger'
 
 export const runtime = 'nodejs'
@@ -20,7 +20,7 @@ export const maxDuration = 300
 export async function GET(request: Request) {
   const startTime = Date.now()
 
-  if (!verifyCronSecret(request)) {
+  if (!verifyCronSecretWithFallback(request, 'CRON_SECRET_REACTIVATION')) {
     logger.warn('Unauthorized cron request attempted for vendor-reactivation-scan')
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

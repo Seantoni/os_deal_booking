@@ -17,6 +17,10 @@
       "schedule": "0 7 * * *"
     },
     {
+      "path": "/api/cron/vendor-reactivation-scan",
+      "schedule": "0 15 * * *"
+    },
+    {
       "path": "/api/cron/market-intelligence-scan",
       "schedule": "10 13 * * *"
     },
