@@ -210,6 +210,7 @@ export default function SettingsPageClient() {
             },
             body: JSON.stringify({
               hierarchy: settings.customCategories || INITIAL_CATEGORY_HIERARCHY,
+              categoryDurations: settings.categoryDurations,
             }),
           })
 

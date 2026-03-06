@@ -321,6 +321,7 @@ export default function EventsPageClient({
     // Only admins can create events directly
     if (userRole !== 'admin') return
     setSelectedDate(date)
+    setSelectedEndDate(undefined)
     openEventModal()
   }
 

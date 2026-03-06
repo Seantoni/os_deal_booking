@@ -54,10 +54,9 @@ export default function EstructuraStep({
       return
     }
 
-    // Validate file size (max 10MB before compression)
-    const maxSize = 10 * 1024 * 1024
+    const maxSize = 25 * 1024 * 1024
     if (file.size > maxSize) {
-      toast.error('La imagen no puede superar los 10MB')
+      toast.error('La imagen no puede superar los 25MB')
       return
     }
 
@@ -199,7 +198,7 @@ export default function EstructuraStep({
 
   const handleGalleryUpload = async (files: FileList) => {
     const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-    const maxSize = 10 * 1024 * 1024 // 10MB before compression
+    const maxSize = 25 * 1024 * 1024 // 25MB before compression
 
     const validFiles = Array.from(files).filter(file => {
       if (!validTypes.includes(file.type)) {
@@ -207,7 +206,7 @@ export default function EstructuraStep({
         return false
       }
       if (file.size > maxSize) {
-        toast.error(`${file.name}: Excede 10MB`)
+        toast.error(`${file.name}: Excede 25MB`)
         return false
       }
       return true
@@ -280,7 +279,7 @@ export default function EstructuraStep({
   }
 
   const handleAttachmentUpload = async (files: FileList) => {
-    const maxSize = 10 * 1024 * 1024 // 10MB
+    const maxSize = 25 * 1024 * 1024 // 25MB
 
     const validFiles = Array.from(files).filter((file) => {
       const extension = file.name.split('.').pop()?.toLowerCase() || ''
@@ -291,7 +290,7 @@ export default function EstructuraStep({
       }
 
       if (file.size > maxSize) {
-        toast.error(`${file.name}: Excede 10MB`)
+        toast.error(`${file.name}: Excede 25MB`)
         return false
       }
 
@@ -303,13 +302,17 @@ export default function EstructuraStep({
     setAttachmentsUploading(true)
     try {
       const uploadPromises = validFiles.map(async (file): Promise<BookingAttachment> => {
+        const fileToUpload = file.type.startsWith('image/')
+          ? await compressImage(file, { maxSizeMB: 0.5, maxWidthOrHeight: 1920, initialQuality: 0.8 })
+          : file
+
         const presignRes = await fetch('/api/upload/presign', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            filename: file.name,
-            contentType: file.type || 'application/octet-stream',
-            size: file.size,
+            filename: fileToUpload.name,
+            contentType: fileToUpload.type || 'application/octet-stream',
+            size: fileToUpload.size,
             folder: 'booking-attachments',
           }),
         })
@@ -321,8 +324,8 @@ export default function EstructuraStep({
 
         const uploadRes = await fetch(presignData.presignedUrl, {
           method: 'PUT',
-          headers: { 'Content-Type': file.type || 'application/octet-stream' },
-          body: file,
+          headers: { 'Content-Type': fileToUpload.type || 'application/octet-stream' },
+          body: fileToUpload,
         })
 
         if (!uploadRes.ok) {
@@ -332,8 +335,8 @@ export default function EstructuraStep({
         return {
           url: presignData.url,
           filename: file.name,
-          mimeType: file.type || 'application/octet-stream',
-          size: file.size,
+          mimeType: fileToUpload.type || 'application/octet-stream',
+          size: fileToUpload.size,
         }
       })
 
@@ -639,7 +642,7 @@ export default function EstructuraStep({
                           </>
                         )}
                       </label>
-                      <p className="text-[10px] text-gray-400 mt-1">JPG, PNG, GIF, WEBP · Máx. 10MB</p>
+                      <p className="text-[10px] text-gray-400 mt-1">JPG, PNG, GIF, WEBP · Máx. 25MB</p>
                     </div>
                   )}
                 </div>
@@ -1069,7 +1072,7 @@ export default function EstructuraStep({
                         Arrastra imágenes aquí o haz clic para seleccionar
                       </span>
                       <p className="text-xs text-gray-400 mt-1">
-                        JPG, PNG, GIF, WEBP · Máx. 10MB cada una · Puedes seleccionar múltiples
+                        JPG, PNG, GIF, WEBP · Máx. 25MB cada una · Puedes seleccionar múltiples
                       </p>
                     </div>
                   </>
@@ -1201,7 +1204,7 @@ export default function EstructuraStep({
                     </div>
                     <div className="text-center">
                       <p className="text-sm font-medium text-gray-700">Subir adjuntos</p>
-                      <p className="text-xs text-gray-400 mt-1">PDF, DOC, DOCX e imágenes · Máx. 10MB por archivo</p>
+                      <p className="text-xs text-gray-400 mt-1">PDF, DOC, DOCX e imágenes · Máx. 25MB por archivo</p>
                     </div>
                   </>
                 )}

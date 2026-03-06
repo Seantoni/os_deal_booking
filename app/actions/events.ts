@@ -1300,9 +1300,11 @@ export async function calculateNextAvailableDateAction(
     const eventsResult = await getAllBookedEvents()
     const events = eventsResult.success ? eventsResult.data || [] : []
 
-    // Get settings (use DEFAULT_SETTINGS on server)
-    const { DEFAULT_SETTINGS } = await import('@/lib/settings')
+    // Get settings from DB so date calculation uses the same rules as the UI.
+    const { getSettingsFromDB } = await import('@/app/actions/settings')
     const { calculateNextAvailableDate } = await import('@/lib/event-validation')
+    const settingsResult = await getSettingsFromDB()
+    const settings = settingsResult.success && settingsResult.data ? settingsResult.data : null
     
     // Use the universal function
     const result = calculateNextAvailableDate(
@@ -1314,10 +1316,11 @@ export async function calculateNextAvailableDateAction(
       undefined, // startFromDate - defaults to today
       undefined, // excludeEventId
       {
-        minDailyLaunches: DEFAULT_SETTINGS.minDailyLaunches,
-        maxDailyLaunches: DEFAULT_SETTINGS.maxDailyLaunches,
-        merchantRepeatDays: DEFAULT_SETTINGS.merchantRepeatDays,
-        businessExceptions: DEFAULT_SETTINGS.businessExceptions
+        minDailyLaunches: settings?.minDailyLaunches,
+        maxDailyLaunches: settings?.maxDailyLaunches,
+        merchantRepeatDays: settings?.merchantRepeatDays,
+        businessExceptions: settings?.businessExceptions,
+        categoryDurations: settings?.categoryDurations,
       }
     )
     

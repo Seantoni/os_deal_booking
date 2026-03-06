@@ -132,7 +132,7 @@ export async function uploadFileToS3(
  * Validate file before upload
  */
 export function validateImageFile(file: File): { valid: boolean; error?: string } {
-  const maxSize = 10 * 1024 * 1024 // 10MB
+  const maxSize = 25 * 1024 * 1024 // 25MB (compressed client-side before upload)
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
 
   if (!allowedTypes.includes(file.type)) {
@@ -157,7 +157,7 @@ export function validateImageFile(file: File): { valid: boolean; error?: string 
  * Allows common image and document formats for booking attachments.
  */
 export function validateAttachmentFile(file: File): { valid: boolean; error?: string } {
-  const maxSize = 10 * 1024 * 1024 // 10MB
+  const maxSize = 25 * 1024 * 1024 // 25MB (images compressed client-side, docs via presigned URL)
   const allowedMimeTypes = [
     'image/jpeg',
     'image/jpg',

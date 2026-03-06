@@ -11,6 +11,7 @@ function isLeafArray(node: CategoryNode): node is string[] {
 }
 
 type CategorySettingsOverride = Pick<BookingSettings, 'customCategories' | 'hiddenCategoryPaths'>;
+type CategoryDurationSettingsOverride = Pick<BookingSettings, 'categoryDurations'>;
 
 function resolveCategorySettings(
   settingsOverride?: Partial<CategorySettingsOverride> | null
@@ -251,11 +252,20 @@ export const SEVEN_DAY_CATEGORIES = [
   "SHOWS Y EVENTOS"
 ] as const;
 
-export function getMaxDuration(mainCategory: string | null): number {
+export function getMaxDuration(
+  mainCategory: string | null,
+  settingsOverride?: Partial<CategoryDurationSettingsOverride> | null
+): number {
   if (!mainCategory) return 5;
   
   // Prefer configured settings when available.
-  if (typeof window !== 'undefined') {
+  const configuredDurations = settingsOverride?.categoryDurations
+  if (configuredDurations) {
+    const configuredDuration = configuredDurations[mainCategory]
+    if (typeof configuredDuration === 'number' && Number.isFinite(configuredDuration) && configuredDuration > 0) {
+      return Math.floor(configuredDuration)
+    }
+  } else if (typeof window !== 'undefined') {
     try {
       const configuredDuration = getSettings().categoryDurations?.[mainCategory];
       if (typeof configuredDuration === 'number' && Number.isFinite(configuredDuration) && configuredDuration > 0) {

@@ -49,7 +49,7 @@ interface EnhancedBookingFormProps {
 
 type DateValidationSettings = Pick<
   BookingSettings,
-  'minDailyLaunches' | 'maxDailyLaunches' | 'merchantRepeatDays' | 'businessExceptions'
+  'minDailyLaunches' | 'maxDailyLaunches' | 'merchantRepeatDays' | 'businessExceptions' | 'categoryDurations'
 >
 
 export default function EnhancedBookingForm({ requestId: propRequestId, initialFormData }: EnhancedBookingFormProps = {}) {
@@ -71,6 +71,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     maxDailyLaunches: DEFAULT_SETTINGS.maxDailyLaunches,
     merchantRepeatDays: DEFAULT_SETTINGS.merchantRepeatDays,
     businessExceptions: DEFAULT_SETTINGS.businessExceptions,
+    categoryDurations: DEFAULT_SETTINGS.categoryDurations,
   })
   const [loadingEdit, setLoadingEdit] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
@@ -207,6 +208,8 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
               businessExceptions: Array.isArray(result.data.businessExceptions)
                 ? result.data.businessExceptions
                 : DEFAULT_SETTINGS.businessExceptions,
+              categoryDurations:
+                result.data.categoryDurations ?? DEFAULT_SETTINGS.categoryDurations,
             })
           }
         }

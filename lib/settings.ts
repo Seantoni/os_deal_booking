@@ -1,5 +1,5 @@
-import { type CategoryHierarchy, INITIAL_CATEGORY_HIERARCHY, getInitialFlatCategories } from './initial-categories'
-import type { CategoryDurations, BusinessException, BookingSettings, RequestFormFieldsConfig, CategoryNode } from '@/types'
+import { type CategoryHierarchy, INITIAL_CATEGORY_HIERARCHY } from './initial-categories'
+import type { CategoryDurations, BusinessException, BookingSettings, CategoryNode } from '@/types'
 import { getDefaultRequestFormFieldsConfig } from './config/request-form-fields'
 
 // Re-export centralized types
@@ -17,42 +17,77 @@ function isLeafArray(node: CategoryNode): node is string[] {
   return Array.isArray(node)
 }
 
-// Helper to check if category exists in a CategoryNode (recursive)
-function categoryExistsInNode(node: CategoryNode, category: string): boolean {
+function collectLeafCategoriesFromNode(node: CategoryNode, results: string[]): void {
   if (isLeafArray(node)) {
-    return node.includes(category)
+    results.push(...node)
+    return
   }
-  // Check if category is a key in the object
-  if (category in node) return true
-  // Check children recursively
-  for (const key of Object.keys(node)) {
-    if (categoryExistsInNode(node[key], category)) return true
+
+  for (const [key, childNode] of Object.entries(node)) {
+    if (isLeafArray(childNode) && childNode.length === 0) {
+      results.push(key)
+      continue
+    }
+
+    collectLeafCategoriesFromNode(childNode, results)
   }
-  return false
 }
 
-// Initialize default durations for all categories
-const getDefaultCategoryDurations = (): CategoryDurations => {
+function isValidDuration(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+function getFallbackDurationForMainCategory(mainCategory: string): number {
+  return (SEVEN_DAY_CATEGORIES as readonly string[]).includes(mainCategory) ? 7 : 5
+}
+
+// Initialize default durations for main categories.
+export const getDefaultCategoryDurations = (
+  hierarchy: CategoryHierarchy = INITIAL_CATEGORY_HIERARCHY
+): CategoryDurations => {
   const durations: CategoryDurations = {}
-  const flatCategories = getInitialFlatCategories();
-  
-  flatCategories.forEach(category => {
-    let isSevenDay = false;
-    for (const main of SEVEN_DAY_CATEGORIES) {
-       const subs = INITIAL_CATEGORY_HIERARCHY[main];
-       if (subs) {
-          // Check if 'category' exists in the hierarchy under this main category
-          if (categoryExistsInNode(subs, category)) {
-             isSevenDay = true;
-             break;
-          }
-       }
-       if (isSevenDay) break;
-    }
-    
-    durations[category] = isSevenDay ? 7 : 5
-  })
+
+  for (const mainCategory of Object.keys(hierarchy)) {
+    durations[mainCategory] = getFallbackDurationForMainCategory(mainCategory)
+  }
+
   return durations
+}
+
+// Normalize legacy leaf-based settings into the current parent-category model.
+export function normalizeCategoryDurations(
+  categoryDurations: unknown,
+  hierarchy: CategoryHierarchy = INITIAL_CATEGORY_HIERARCHY
+): CategoryDurations {
+  const normalized = getDefaultCategoryDurations(hierarchy)
+
+  if (!categoryDurations || typeof categoryDurations !== 'object' || Array.isArray(categoryDurations)) {
+    return normalized
+  }
+
+  const rawDurations = categoryDurations as Record<string, unknown>
+
+  for (const [mainCategory, node] of Object.entries(hierarchy)) {
+    const directValue = rawDurations[mainCategory]
+    if (isValidDuration(directValue)) {
+      normalized[mainCategory] = Math.floor(directValue)
+      continue
+    }
+
+    const descendantLeaves: string[] = []
+    collectLeafCategoriesFromNode(node, descendantLeaves)
+
+    const legacyValues = descendantLeaves
+      .map((leaf) => rawDurations[leaf])
+      .filter(isValidDuration)
+      .map((value) => Math.floor(value))
+
+    if (legacyValues.length > 0) {
+      normalized[mainCategory] = Math.max(...legacyValues)
+    }
+  }
+
+  return normalized
 }
 
 // Default external API section mappings
@@ -108,20 +143,18 @@ export function getSettings(): BookingSettings {
   if (stored) {
     try {
       const parsed = JSON.parse(stored)
+      const customCategories = parsed.customCategories || DEFAULT_SETTINGS.customCategories
       // Merge with defaults to ensure all fields are present
       return {
         ...DEFAULT_SETTINGS,
         ...parsed,
-        categoryDurations: {
-          ...DEFAULT_SETTINGS.categoryDurations,
-          ...parsed.categoryDurations,
-        },
+        categoryDurations: normalizeCategoryDurations(parsed.categoryDurations, customCategories),
         vendorReactivationCooldownDays:
           typeof parsed.vendorReactivationCooldownDays === 'number'
             ? parsed.vendorReactivationCooldownDays
             : DEFAULT_SETTINGS.vendorReactivationCooldownDays,
         businessExceptions: parsed.businessExceptions || [],
-        customCategories: parsed.customCategories || DEFAULT_SETTINGS.customCategories,
+        customCategories,
         additionalInfoMappings: parsed.additionalInfoMappings || {},
         hiddenCategoryPaths: parsed.hiddenCategoryPaths || {},
         requestFormFields: {

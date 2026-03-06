@@ -2,7 +2,7 @@ import { getDaysDifference, getMaxDuration } from './categories'
 import { getBusinessException, type BusinessException } from './settings'
 import { getDateComponentsInPanama, getTodayInPanama, parseDateInPanamaTime } from './date/timezone'
 import { buildCategoryKey, getEventCategoryKey, categoryKeysMatch } from './category-utils'
-import type { Event } from '@/types'
+import type { Event, CategoryDurations } from '@/types'
 import { logger } from './logger'
 
 export type EventForValidation = Pick<
@@ -198,6 +198,7 @@ export function calculateNextAvailableDate(
     maxDailyLaunches?: number
     merchantRepeatDays?: number
     businessExceptions?: BusinessException[]
+    categoryDurations?: CategoryDurations
   },
   maxAttempts: number = MAX_DATE_SEARCH_DAYS
 ): {
@@ -210,7 +211,7 @@ export function calculateNextAvailableDate(
     // Determine duration
     let eventDuration = duration
     if (!eventDuration) {
-      eventDuration = parentCategory ? getMaxDuration(parentCategory) : 5
+      eventDuration = parentCategory ? getMaxDuration(parentCategory, settings) : 5
       
       // Check for business exception duration
       if (merchant && settings?.businessExceptions) {

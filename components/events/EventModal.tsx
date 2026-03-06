@@ -407,7 +407,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       const duration = getDaysDifference(start, end)
       
       // Check for business exception on duration
-      let maxDuration = getMaxDuration(parentCategory)
+      let maxDuration = getMaxDuration(parentCategory, userSettings)
       if (business) {
         const exceptionDuration = getBusinessException(business, 'duration', userSettings.businessExceptions)
         if (exceptionDuration !== null) {

@@ -75,6 +75,7 @@ export default function CategoryAvailabilityList({
           maxDailyLaunches: settings.maxDailyLaunches,
           merchantRepeatDays: settings.merchantRepeatDays,
           businessExceptions: settings.businessExceptions,
+          categoryDurations: settings.categoryDurations,
         }
       )
 

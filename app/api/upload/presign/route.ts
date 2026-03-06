@@ -13,7 +13,7 @@ import { auth } from '@clerk/nextjs/server'
 import { createPresignedUploadUrl } from '@/lib/s3/upload'
 import { logger } from '@/lib/logger'
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB
+const MAX_FILE_SIZE = 25 * 1024 * 1024 // 25 MB
 
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',

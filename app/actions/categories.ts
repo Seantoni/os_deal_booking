@@ -4,8 +4,9 @@ import { prisma } from '@/lib/prisma'
 import { unstable_cache } from 'next/cache'
 import { requireAdmin, handleServerActionError, ServerActionResponse } from '@/lib/utils/server-actions'
 import type { Category as PrismaCategory } from '.prisma/client'
-import type { CategoryHierarchy, CategoryNode } from '@/types'
+import type { CategoryDurations, CategoryHierarchy, CategoryNode } from '@/types'
 import { SEVEN_DAY_CATEGORIES } from '@/lib/categories'
+import { normalizeCategoryDurations } from '@/lib/settings'
 import { CACHE_REVALIDATE_CATEGORIES_SECONDS } from '@/lib/constants'
 import { logger } from '@/lib/logger'
 
@@ -162,7 +163,8 @@ export async function getMaxDurationForCategory(
  * @param hierarchy - The category hierarchy from settings
  */
 export async function syncCategoriesToDatabase(
-  hierarchy: CategoryHierarchy
+  hierarchy: CategoryHierarchy,
+  categoryDurations?: CategoryDurations | null
 ): Promise<ServerActionResponse<{ created: number; updated: number; deactivated: number }>> {
   const adminResult = await requireAdmin()
   if (!('userId' in adminResult)) {
@@ -170,6 +172,8 @@ export async function syncCategoriesToDatabase(
   }
 
   try {
+    const normalizedCategoryDurations = normalizeCategoryDurations(categoryDurations, hierarchy)
+
     // Get all existing categories
     const existingCategories = await prisma.category.findMany()
     const existingKeys = new Set(existingCategories.map(c => c.categoryKey))
@@ -249,8 +253,10 @@ export async function syncCategoriesToDatabase(
 
     // Iterate through the category hierarchy
     for (const [parentCategory, node] of Object.entries(hierarchy)) {
-      // Determine max duration (7 days for specific categories, 5 for others)
-      const maxDuration = (SEVEN_DAY_CATEGORIES as readonly string[]).includes(parentCategory) ? 7 : 5
+      // Determine max duration from standardized parent-category settings.
+      const maxDuration =
+        normalizedCategoryDurations[parentCategory] ??
+        ((SEVEN_DAY_CATEGORIES as readonly string[]).includes(parentCategory) ? 7 : 5)
 
       // Check if the main category has no children
       const nodeIsEmpty = isLeafArray(node) 

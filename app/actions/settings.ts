@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { requireAdmin, handleServerActionError, ServerActionResponse } from '@/lib/utils/server-actions'
 import type { BookingSettings, RequestFormFieldsConfig } from '@/types'
-import { DEFAULT_SETTINGS } from '@/lib/settings'
+import { DEFAULT_SETTINGS, normalizeCategoryDurations } from '@/lib/settings'
 import { logger } from '@/lib/logger'
 import { getDefaultRequestFormFieldsConfig } from '@/lib/config/request-form-fields'
 import type { Prisma, Setting } from '@prisma/client'
@@ -48,7 +48,10 @@ export async function getSettingsFromDB(): Promise<ServerActionResponse<BookingS
       maxDailyLaunches: settingsData.maxDailyLaunches,
       merchantRepeatDays: settingsData.merchantRepeatDays,
       vendorReactivationCooldownDays: settingsData.vendorReactivationCooldownDays,
-      categoryDurations: settingsData.categoryDurations as BookingSettings['categoryDurations'],
+      categoryDurations: normalizeCategoryDurations(
+        settingsData.categoryDurations,
+        (settingsData.customCategories as BookingSettings['customCategories']) || DEFAULT_SETTINGS.customCategories
+      ),
       businessExceptions: settingsData.businessExceptions as BookingSettings['businessExceptions'],
       customCategories: settingsData.customCategories as BookingSettings['customCategories'],
       additionalInfoMappings: settingsData.additionalInfoMappings || {},
@@ -77,6 +80,11 @@ export async function saveSettingsToDB(
   }
 
   try {
+    const normalizedCategoryDurations = normalizeCategoryDurations(
+      settings.categoryDurations,
+      settings.customCategories || DEFAULT_SETTINGS.customCategories
+    )
+
     // Verify prisma.setting exists
     if (!prisma.setting) {
       logger.error('prisma.setting is undefined. Prisma client may need regeneration.')
@@ -89,7 +97,7 @@ export async function saveSettingsToDB(
       maxDailyLaunches: settings.maxDailyLaunches,
       merchantRepeatDays: settings.merchantRepeatDays,
       vendorReactivationCooldownDays: settings.vendorReactivationCooldownDays,
-      categoryDurations: settings.categoryDurations as Prisma.InputJsonValue,
+      categoryDurations: normalizedCategoryDurations as Prisma.InputJsonValue,
       businessExceptions: settings.businessExceptions as Prisma.InputJsonValue,
       customCategories: settings.customCategories as Prisma.InputJsonValue,
       additionalInfoMappings: (settings.additionalInfoMappings || {}) as Prisma.InputJsonValue,

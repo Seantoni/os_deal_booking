@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { getAllCategories } from '@/lib/categories'
 import type { BookingSettings, BusinessException } from '@/lib/settings'
+import { DEFAULT_SETTINGS } from '@/lib/settings'
 import SearchIcon from '@mui/icons-material/Search'
 import ClearIcon from '@mui/icons-material/Clear'
 import AddIcon from '@mui/icons-material/Add'
@@ -24,11 +24,11 @@ export default function GeneralTab({ settings, setSettings }: GeneralTabProps) {
   })
 
   const filteredCategories = useMemo(() => {
-    const allCategories = getAllCategories()
+    const allCategories = Object.keys(settings.customCategories || {})
     if (!searchCategory) return allCategories
     const query = searchCategory.toLowerCase()
     return allCategories.filter(cat => cat.toLowerCase().includes(query))
-  }, [searchCategory])
+  }, [searchCategory, settings.customCategories])
 
   const addException = () => {
     if (!newException.businessName || newException.exceptionValue === undefined) {
@@ -113,7 +113,7 @@ export default function GeneralTab({ settings, setSettings }: GeneralTabProps) {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-base font-semibold text-gray-900">Category Durations</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Set max days per category</p>
+            <p className="text-xs text-gray-500 mt-0.5">Set max days per main category</p>
           </div>
           <div className="text-xs text-gray-500">
             {filteredCategories.length} {filteredCategories.length === 1 ? 'category' : 'categories'}
@@ -124,7 +124,7 @@ export default function GeneralTab({ settings, setSettings }: GeneralTabProps) {
           <SearchIcon className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
           <input
             type="text"
-            placeholder="Search categories..."
+            placeholder="Search main categories..."
             value={searchCategory}
             onChange={(e) => setSearchCategory(e.target.value)}
             className="w-full pl-8 pr-8 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -152,12 +152,12 @@ export default function GeneralTab({ settings, setSettings }: GeneralTabProps) {
                   <input
                     type="number"
                     min="1"
-                    value={settings.categoryDurations[category] || 7}
+                    value={settings.categoryDurations[category] ?? DEFAULT_SETTINGS.categoryDurations[category] ?? 5}
                     onChange={(e) => setSettings({
                       ...settings,
                       categoryDurations: {
                         ...settings.categoryDurations,
-                        [category]: parseInt(e.target.value) || 7
+                        [category]: parseInt(e.target.value) || (DEFAULT_SETTINGS.categoryDurations[category] ?? 5)
                       }
                     })}
                     className="flex-1 px-2 py-1 text-xs text-center font-semibold border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -266,7 +266,7 @@ export default function GeneralTab({ settings, setSettings }: GeneralTabProps) {
                   </span>
                 </div>
                 {exception.notes && (
-                  <div className="text-[10px] text-gray-500 truncate pl-3.5">"{exception.notes}"</div>
+                  <div className="text-[10px] text-gray-500 truncate pl-3.5">&quot;{exception.notes}&quot;</div>
                 )}
               </div>
               <button
@@ -288,4 +288,3 @@ export default function GeneralTab({ settings, setSettings }: GeneralTabProps) {
     </div>
   )
 }
-

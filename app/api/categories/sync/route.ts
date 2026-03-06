@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { syncCategoriesToDatabase } from '@/app/actions/categories'
-import type { CategoryHierarchy } from '@/types'
+import type { CategoryDurations, CategoryHierarchy } from '@/types'
 import { logger } from '@/lib/logger'
 import { requireAdmin } from '@/lib/auth/roles'
 
@@ -18,6 +18,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     const hierarchy: CategoryHierarchy = body.hierarchy
+    const categoryDurations: CategoryDurations | null = body.categoryDurations ?? null
 
     if (!hierarchy) {
       return NextResponse.json(
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const result = await syncCategoriesToDatabase(hierarchy)
+    const result = await syncCategoriesToDatabase(hierarchy, categoryDurations)
 
     if (result.success) {
       return NextResponse.json(result)
@@ -44,4 +45,3 @@ export async function POST(request: Request) {
     )
   }
 }
-

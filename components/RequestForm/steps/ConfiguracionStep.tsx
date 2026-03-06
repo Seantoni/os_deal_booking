@@ -14,7 +14,7 @@ import { Input } from '@/components/ui'
 
 type DateValidationSettings = Pick<
   BookingSettings,
-  'minDailyLaunches' | 'maxDailyLaunches' | 'merchantRepeatDays' | 'businessExceptions'
+  'minDailyLaunches' | 'maxDailyLaunches' | 'merchantRepeatDays' | 'businessExceptions' | 'categoryDurations'
 >
 
 interface ConfiguracionStepProps {
@@ -114,6 +114,7 @@ export default function ConfiguracionStep({
               maxDailyLaunches: settings?.maxDailyLaunches,
               merchantRepeatDays: settings?.merchantRepeatDays,
               businessExceptions: settings?.businessExceptions || [],
+              categoryDurations: settings?.categoryDurations,
             }
           )
           
@@ -127,7 +128,7 @@ export default function ConfiguracionStep({
             
             // Auto-calculate end date based on new category
             if (formData.parentCategory) {
-              const duration = getMaxDuration(formData.parentCategory)
+              const duration = getMaxDuration(formData.parentCategory, dateValidationSettings)
               const startDate = new Date(result.date)
               const endDate = new Date(startDate)
               endDate.setDate(endDate.getDate() + duration - 1)
@@ -170,7 +171,7 @@ export default function ConfiguracionStep({
     
     // Auto-calculate end date based on category duration
     if (date && formData.parentCategory) {
-      const duration = getMaxDuration(formData.parentCategory)
+      const duration = getMaxDuration(formData.parentCategory, dateValidationSettings)
       const startDate = new Date(date)
       const endDate = new Date(startDate)
       endDate.setDate(endDate.getDate() + duration - 1) // -1 because start date is day 1
