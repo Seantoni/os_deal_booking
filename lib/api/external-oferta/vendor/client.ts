@@ -240,7 +240,7 @@ export async function sendVendorToExternalApi(
  * 
  * This function:
  * 1. Sends changed fields via PATCH to /external/api/vendors/{id}
- * 2. Only sends fields that have changed (not the full payload)
+ * 2. Includes required baseline fields such as email
  * 
  * @param vendorId - External vendor ID (osAdminVendorId)
  * @param changedFields - Only the fields that changed
@@ -291,6 +291,30 @@ export async function updateVendorInExternalApi(
     return { 
       success: false, 
       error: 'No fields to update',
+      externalVendorId: parseInt(vendorId, 10) || undefined,
+    }
+  }
+
+  const email = typeof changedFields.email === 'string' ? changedFields.email.trim() : ''
+  if (!email) {
+    const error = 'Vendor PATCH requires email'
+    const logId = await logApiCall({
+      endpoint,
+      method: 'PATCH',
+      requestBody: changedFields,
+      userId: options?.userId,
+      triggeredBy: options?.triggeredBy || 'manual',
+      durationMs: Date.now() - startTime,
+      response: {
+        statusCode: 0,
+        success: false,
+        errorMessage: error,
+      },
+    })
+    return {
+      success: false,
+      error,
+      logId,
       externalVendorId: parseInt(vendorId, 10) || undefined,
     }
   }

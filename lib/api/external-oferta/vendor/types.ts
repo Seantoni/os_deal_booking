@@ -128,7 +128,7 @@ export interface SendVendorResult {
 
 /**
  * Request payload for updating a vendor (PATCH)
- * All fields are optional - only send changed fields
+ * Most fields are optional, but the external API still requires email on PATCH.
  */
 export type ExternalOfertaVendorUpdateRequest = Partial<Omit<ExternalOfertaVendorRequest, 'salesType'>> & {
   /** Sales type is optional on update */

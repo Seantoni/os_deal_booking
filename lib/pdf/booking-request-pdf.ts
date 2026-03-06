@@ -608,7 +608,7 @@ function renderPDFDocument(opts: {
     <!-- Title -->
     <div style="margin-top:28px;">
       <h1 style="margin:0 0 4px 0;font-size:26px;font-weight:700;letter-spacing:-0.02em;color:${COLORS.text};">
-        ${esc(requestName)}
+        ${esc(requestName.replace(/\s*\|\s*#\d+\s*$/, ''))}
       </h1>
       ${merchant ? `<div style="font-size:16px;color:${COLORS.secondary};font-weight:500;">${esc(merchant)}</div>` : ''}
     </div>

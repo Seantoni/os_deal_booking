@@ -2,9 +2,13 @@ import type { SectionDefinition } from '@/types'
 
 export const SECTION_TITLES = {
   GENERAL_INFO: 'Información General',
-  CAMPAIGN_DETAILS: 'Detalles de la Campaña',
-  PRICING_OPTIONS: 'Opciones de Precio',
+  CAMPAIGN_DETAILS: 'Duración de la Campaña',
+  REDEMPTION_METHOD: 'Método de Canje',
+  PRICING_OPTIONS: 'Opciones de Compra',
+  CLIENT_CONTACT: 'Detalles de Contacto (cliente)',
   ADDITIONAL_INFO: 'Información Adicional',
+  COMPLEMENTARY_INFO: 'Información Complementaria',
+  INTERNAL_REVIEW: 'Comentarios y Validación Interna',
 } as const
 
 export const BASE_SECTIONS: SectionDefinition[] = [
@@ -18,6 +22,8 @@ export const BASE_SECTIONS: SectionDefinition[] = [
       { key: 'subCategory2', label: 'Subcategoría 2' },
       { key: 'subCategory3', label: 'Subcategoría 3' },
       { key: 'merchant', label: 'Merchant/Aliado' },
+      { key: 'isRecurring', label: 'Es Recurrente' },
+      { key: 'recurringOfferLink', label: 'Enlace de Oferta Recurrente' },
     ],
   },
   {
@@ -30,13 +36,42 @@ export const BASE_SECTIONS: SectionDefinition[] = [
     ],
   },
   {
-    title: 'Operaciones y Pagos',
+    title: 'Información Fiscal y Bancaria',
     fields: [
-      { key: 'redemptionMode', label: 'Modalidad de Canje' },
-      { key: 'isRecurring', label: 'Es Recurrente' },
-      { key: 'recurringOfferLink', label: 'Enlace de Oferta Recurrente' },
+      { key: 'legalName', label: 'Razón Social' },
+      { key: 'rucDv', label: 'RUC y DV' },
+      { key: 'bankAccountName', label: 'Nombre en Cuenta Bancaria' },
+      { key: 'bank', label: 'Banco' },
+      { key: 'accountNumber', label: 'Número de Cuenta' },
+      { key: 'accountType', label: 'Tipo de Cuenta' },
+      { key: 'additionalBankAccounts', label: 'Cuentas Bancarias Adicionales', type: 'json' },
       { key: 'paymentType', label: 'Tipo de Pago' },
       { key: 'paymentInstructions', label: 'Instrucciones de Pago' },
+      { key: 'addressAndHours', label: 'Dirección y Horario' },
+      { key: 'provinceDistrictCorregimiento', label: 'Provincia, Distrito, Corregimiento' },
+    ],
+  },
+  {
+    title: SECTION_TITLES.REDEMPTION_METHOD,
+    fields: [
+      { key: 'redemptionMode', label: 'Modalidad de Canje' },
+      { key: 'redemptionMethods', label: 'Métodos de Canje', type: 'json' },
+    ],
+  },
+  {
+    title: SECTION_TITLES.PRICING_OPTIONS,
+    fields: [
+      { key: 'offerMargin', label: 'Comisión OfertaSimple (%)' },
+      { key: 'pricingOptions', label: 'Opciones de Compra', type: 'pricing' },
+      { key: 'dealImages', label: 'Galería de Imágenes', type: 'gallery' },
+      { key: 'bookingAttachments', label: 'Adjuntos', type: 'attachments' },
+    ],
+  },
+  {
+    title: SECTION_TITLES.CLIENT_CONTACT,
+    fields: [
+      { key: 'contactDetails', label: 'Detalles de Contacto (cliente)' },
+      { key: 'socialMedia', label: 'Redes Sociales' },
     ],
   },
   {
@@ -48,25 +83,6 @@ export const BASE_SECTIONS: SectionDefinition[] = [
     ],
   },
   {
-    title: 'Información Fiscal y Bancaria',
-    fields: [
-      { key: 'legalName', label: 'Razón Social' },
-      { key: 'rucDv', label: 'RUC y DV' },
-      { key: 'bankAccountName', label: 'Nombre en Cuenta Bancaria' },
-      { key: 'bank', label: 'Banco' },
-      { key: 'accountNumber', label: 'Número de Cuenta' },
-      { key: 'accountType', label: 'Tipo de Cuenta' },
-      { key: 'additionalBankAccounts', label: 'Cuentas Bancarias Adicionales', type: 'json' },
-    ],
-  },
-  {
-    title: 'Ubicación',
-    fields: [
-      { key: 'addressAndHours', label: 'Dirección y Horario' },
-      { key: 'provinceDistrictCorregimiento', label: 'Provincia, Distrito, Corregimiento' },
-    ],
-  },
-  {
     title: 'Reglas de Negocio y Restricciones',
     fields: [
       { key: 'includesTaxes', label: 'Incluye Impuestos' },
@@ -75,14 +91,6 @@ export const BASE_SECTIONS: SectionDefinition[] = [
       { key: 'exclusivityCondition', label: 'Condición de Exclusividad' },
       { key: 'blackoutDates', label: 'Fechas Blackout' },
       { key: 'hasOtherBranches', label: 'Tiene Otras Sucursales' },
-    ],
-  },
-  {
-    title: 'Descripción y Canales de Venta',
-    fields: [
-      { key: 'redemptionMethods', label: 'Métodos de Canje', type: 'json' },
-      { key: 'contactDetails', label: 'Detalles de Contacto' },
-      { key: 'socialMedia', label: 'Redes Sociales' },
     ],
   },
   {
@@ -98,18 +106,14 @@ export const BASE_SECTIONS: SectionDefinition[] = [
     ],
   },
   {
-    title: SECTION_TITLES.PRICING_OPTIONS,
+    title: SECTION_TITLES.ADDITIONAL_INFO,
     fields: [
-      { key: 'offerMargin', label: 'Comisión OfertaSimple (%)' },
-      { key: 'pricingOptions', label: 'Opciones de Precio', type: 'pricing' },
-      { key: 'dealImages', label: 'Galería de Imágenes', type: 'gallery' },
-      { key: 'bookingAttachments', label: 'Adjuntos', type: 'attachments' },
+      { key: 'cancellationPolicy', label: 'Política de Cancelación' },
     ],
   },
   {
-    title: 'Políticas Generales',
+    title: SECTION_TITLES.INTERNAL_REVIEW,
     fields: [
-      { key: 'cancellationPolicy', label: 'Política de Cancelación' },
       { key: 'marketValidation', label: 'Validación de Mercado' },
       { key: 'additionalComments', label: 'Comentarios Adicionales' },
     ],

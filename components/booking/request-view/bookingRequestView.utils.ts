@@ -278,7 +278,7 @@ export function buildAdditionalInfoSection(additionalInfo: AdditionalInfo | null
   return {
     section: {
       title:
-        SECTION_TITLES.ADDITIONAL_INFO +
+        SECTION_TITLES.COMPLEMENTARY_INFO +
         (additionalInfo.templateDisplayName ? ` (${additionalInfo.templateDisplayName})` : ''),
       fields: sectionFields,
     },

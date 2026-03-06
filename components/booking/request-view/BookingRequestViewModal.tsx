@@ -165,18 +165,18 @@ export default function BookingRequestViewModal({
 
     if (!additionalSection?.section) return baseSections
 
-    const pricingOptionsIndex = baseSections.findIndex(
-      (section) => section.title === SECTION_TITLES.PRICING_OPTIONS
+    const additionalInfoIndex = baseSections.findIndex(
+      (section) => section.title === SECTION_TITLES.ADDITIONAL_INFO
     )
 
-    if (pricingOptionsIndex < 0) {
+    if (additionalInfoIndex < 0) {
       return [...baseSections, additionalSection.section]
     }
 
     return [
-      ...baseSections.slice(0, pricingOptionsIndex + 1),
+      ...baseSections.slice(0, additionalInfoIndex),
       additionalSection.section,
-      ...baseSections.slice(pricingOptionsIndex + 1),
+      ...baseSections.slice(additionalInfoIndex),
     ]
   }, [additionalSection, hasEventDays])
 

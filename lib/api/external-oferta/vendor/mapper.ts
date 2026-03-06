@@ -256,6 +256,30 @@ export function getChangedVendorFields(
 }
 
 /**
+ * Vendor PATCH requires email even when the email field itself did not change.
+ * Rehydrate required baseline fields from the current business when possible.
+ */
+export function withRequiredVendorUpdateFields(
+  currentBusiness: Pick<Business, 'contactEmail'>,
+  payload: ExternalOfertaVendorUpdateRequest
+): ExternalOfertaVendorUpdateRequest {
+  const nextPayload: ExternalOfertaVendorUpdateRequest = { ...payload }
+  const emailSource = Object.prototype.hasOwnProperty.call(payload, 'email')
+    ? payload.email
+    : currentBusiness.contactEmail
+  const resolvedEmail = sanitizeEmail(emailSource)
+
+  if (!resolvedEmail) {
+    return nextPayload
+  }
+
+  nextPayload.email = resolvedEmail
+  nextPayload.emailContact = resolvedEmail
+
+  return nextPayload
+}
+
+/**
  * Get a field value from business object by field key
  */
 function getBusinessFieldValue(business: Business, fieldKey: string): string | null {

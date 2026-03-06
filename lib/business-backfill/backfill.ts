@@ -9,6 +9,7 @@ import { prisma } from '@/lib/prisma'
 import { findLinkedBusinessFull } from '@/lib/business'
 import { REQUEST_TO_BUSINESS_FIELD_MAP, getVendorApiField } from './mapping'
 import { updateVendorInExternalApi } from '@/lib/api/external-oferta/vendor/client'
+import { withRequiredVendorUpdateFields } from '@/lib/api/external-oferta/vendor'
 import type { ExternalOfertaVendorUpdateRequest, UpdateVendorResult } from '@/lib/api/external-oferta/vendor/types'
 import type { Business } from '@/types'
 
@@ -278,9 +279,14 @@ export async function executeBackfillFromRequest(
 
       // Only call API if there are fields to sync
       if (Object.keys(vendorPayload).length > 0) {
+        const preparedPayload = withRequiredVendorUpdateFields(
+          business as Pick<Business, 'contactEmail'>,
+          vendorPayload
+        )
+
         vendorSyncResult = await updateVendorInExternalApi(
           business.osAdminVendorId,
-          vendorPayload,
+          preparedPayload,
           {
             userId: options?.userId,
             triggeredBy: 'system',
