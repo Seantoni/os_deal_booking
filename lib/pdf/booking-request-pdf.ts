@@ -84,6 +84,50 @@ const fmt = (v: unknown): string => {
   return typeof v === 'string' ? v : String(v)
 }
 
+const LONG_TEXT_KEYS = new Set([
+  'aboutOffer', 'goodToKnow', 'howToUseEs', 'whatWeLike',
+  'businessReview', 'paymentInstructions', 'cancellationPolicy',
+  'additionalComments', 'addressAndHours',
+])
+
+/**
+ * Format long text content into structured HTML with proper bullets and sections.
+ * Detects lines starting with - or • as bullet items, ALL-CAPS lines as section
+ * headings, and preserves paragraph breaks.
+ */
+function formatRichText(raw: string): string {
+  if (!raw) return ''
+  const lines = raw.split('\n').map(l => l.trimEnd())
+
+  let html = ''
+  let inList = false
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed) {
+      if (inList) { html += '</ul>'; inList = false }
+      continue
+    }
+
+    const isBullet = /^[-–•]\s+/.test(trimmed)
+    const isHeading = /^[A-ZÁÉÍÓÚÑ\s/()]{4,}$/.test(trimmed) && !isBullet
+
+    if (isHeading) {
+      if (inList) { html += '</ul>'; inList = false }
+      html += `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#6e6e73;margin:10px 0 4px 0;">${esc(trimmed)}</div>`
+    } else if (isBullet) {
+      const text = trimmed.replace(/^[-–•]\s+/, '')
+      if (!inList) { html += '<ul style="margin:4px 0 4px 16px;padding:0;list-style:disc;">'; inList = true }
+      html += `<li style="margin-bottom:3px;padding-left:2px;">${esc(text)}</li>`
+    } else {
+      if (inList) { html += '</ul>'; inList = false }
+      html += `<div style="margin-bottom:4px;">${esc(trimmed)}</div>`
+    }
+  }
+  if (inList) html += '</ul>'
+  return html
+}
+
 function getEventDaysFromRecord(record: Record<string, unknown>): string[] {
   const raw = record.eventDays
   if (!Array.isArray(raw)) return []
@@ -150,22 +194,6 @@ interface SectionDef {
 
 const SECTIONS: SectionDef[] = [
   {
-    title: 'Configuración y Ventas',
-    fields: [
-      { key: 'advisorEmail', label: 'Email Asesor' },
-      { key: 'assignedAdvisor', label: 'Asesor Asignado' },
-      { key: 'partnerEmail', label: 'Email Socio' },
-      { key: 'additionalEmails', label: 'Emails Adicionales', wide: true },
-      { key: 'salesType', label: 'Tipo de Venta' },
-      { key: 'agencyContact', label: 'Contacto Agencia' },
-      { key: 'tentativeLaunchDate', label: 'Fecha Tentativa' },
-      { key: 'internalPeriod', label: 'Periodo Interno' },
-      { key: 'campaignDuration', label: 'Duración Campaña' },
-      { key: 'campaignDurationUnit', label: 'Unidad Duración' },
-      { key: 'eventDays', label: 'Días del Evento', wide: true },
-    ],
-  },
-  {
     title: 'Datos del Negocio y Responsables',
     fields: [
       { key: 'businessName', label: 'Nombre del Negocio' },
@@ -214,88 +242,16 @@ const SECTIONS: SectionDef[] = [
     ],
   },
   {
-    title: 'Contenido y Marketing',
+    title: 'Contenido de la Oferta',
     fields: [
       { key: 'nameEs', label: 'Título de la Oferta', wide: true },
-      { key: 'shortTitle', label: 'Título Corto', wide: true },
-      { key: 'emailTitle', label: 'Título del Email', wide: true },
-      { key: 'businessReview', label: 'Reseña Negocio', wide: true },
-      { key: 'whatWeLike', label: 'Lo que nos gusta', wide: true },
       { key: 'aboutOffer', label: 'Acerca de esta Oferta', wide: true },
       { key: 'goodToKnow', label: 'Lo que conviene saber', wide: true },
+      { key: 'whatWeLike', label: 'Lo que nos gusta', wide: true },
       { key: 'howToUseEs', label: 'Cómo Usar', wide: true },
-      { key: 'contactDetails', label: 'Detalles Contacto', wide: true },
+      { key: 'businessReview', label: 'Reseña del Negocio', wide: true },
+      { key: 'contactDetails', label: 'Detalles de Contacto', wide: true },
       { key: 'socialMedia', label: 'Redes Sociales', wide: true },
-    ],
-  },
-  {
-    title: 'Detalles Específicos del Servicio',
-    fields: [
-      // Restaurant (legacy + template)
-      { key: 'validForDineIn', label: 'Válido en Local' },
-      { key: 'validForTakeout', label: 'Válido para Llevar' },
-      { key: 'validForDelivery', label: 'Válido a Domicilio' },
-      { key: 'deliveryAreas', label: 'Áreas de Entrega' },
-      { key: 'orderMethod', label: 'Método de Pedido' },
-      { key: 'validForFullMenu', label: 'Válido Menú Completo' },
-      { key: 'applicableBeverages', label: 'Bebidas Aplicables' },
-      { key: 'requiresReservation', label: 'Requiere Reserva' },
-      { key: 'lunchHours', label: 'Horario Almuerzo' },
-      { key: 'dinnerHours', label: 'Horario Cena' },
-      { key: 'restaurantValidDineIn', label: 'Válido en Local' },
-      { key: 'restaurantValidTakeout', label: 'Válido para Llevar' },
-      { key: 'restaurantValidDelivery', label: 'Válido a Domicilio' },
-      { key: 'restaurantDeliveryCost', label: 'Costo Domicilio' },
-      { key: 'restaurantDeliveryAreas', label: 'Áreas Domicilio' },
-      { key: 'restaurantValidFullMenu', label: 'Válido Menú Completo' },
-      { key: 'restaurantApplicableBeverages', label: 'Bebidas Aplicables' },
-      { key: 'restaurantRequiresReservation', label: 'Requiere Reserva' },
-      // Hotel
-      { key: 'hotelCheckIn', label: 'Check-In' },
-      { key: 'hotelCheckOut', label: 'Check-Out' },
-      { key: 'hotelRoomType', label: 'Tipo Habitación' },
-      { key: 'hotelIncludesITBMS', label: 'Incluye ITBMS' },
-      { key: 'hotelIncludesHotelTax', label: 'Incluye Imp. Hotelero' },
-      { key: 'hotelMaxPeoplePerRoom', label: 'Max Personas/Hab' },
-      { key: 'hotelChildPolicy', label: 'Política Niños' },
-      { key: 'hotelAcceptsPets', label: 'Acepta Mascotas' },
-      { key: 'hotelIncludesParking', label: 'Incluye Estacionamiento' },
-      // Products
-      { key: 'productBrand', label: 'Marca' },
-      { key: 'productModel', label: 'Modelo' },
-      { key: 'productWarranty', label: 'Garantía' },
-      { key: 'productPickupLocation', label: 'Lugar Retiro' },
-      // Events
-      { key: 'eventStartTime', label: 'Inicio Evento' },
-      { key: 'eventDoorsOpenTime', label: 'Apertura Puertas' },
-      { key: 'eventTicketPickupLocation', label: 'Retiro Boletos' },
-      { key: 'eventMinimumAge', label: 'Edad Mínima' },
-      // Courses
-      { key: 'courseFormat', label: 'Formato Curso' },
-      { key: 'courseDuration', label: 'Duración Curso' },
-      { key: 'courseIncludesCertificate', label: 'Incluye Certificado' },
-      // Pets
-      { key: 'petServiceIncludes', label: 'Incluye' },
-      { key: 'petRestrictions', label: 'Restricciones' },
-      { key: 'petServiceDuration', label: 'Duración' },
-      // Tours
-      { key: 'tourDeparture', label: 'Salida' },
-      { key: 'tourReturn', label: 'Regreso' },
-      { key: 'tourIncludesMeals', label: 'Incluye Comidas' },
-      { key: 'tourIncludesGuide', label: 'Incluye Guía' },
-      // Health / Beauty
-      { key: 'massageDuration', label: 'Duración Masaje' },
-      { key: 'facialDescription', label: 'Descripción Facial' },
-      { key: 'dentalMinAge', label: 'Edad Mínima Dental' },
-      { key: 'gymMembershipIncluded', label: 'Membresía Incluida' },
-      { key: 'labFastingRequired', label: 'Requiere Ayuno' },
-      // Auto
-      { key: 'autoServiceDuration', label: 'Duración Servicio' },
-      { key: 'autoValidHolidays', label: 'Válido Feriados' },
-      { key: 'rentalDeposit', label: 'Depósito Alquiler' },
-      // Home
-      { key: 'acHomeCoverageAreas', label: 'Áreas Cobertura' },
-      { key: 'cateringDeliveryAreas', label: 'Áreas Catering' },
     ],
   },
   {
@@ -392,16 +348,33 @@ function renderPDFDocument(opts: {
 
     return filled
       .map((f) => {
-        let val = esc(fmt(get(f.key)))
+        const rawValue = fmt(get(f.key))
+        const isLong = LONG_TEXT_KEYS.has(f.key) && rawValue.length > 120
+        let val: string
         if (f.key === 'eventDays' && hasEventDays) {
           val = eventDays.map((date) => esc(formatEventDayLabel(date))).join('<br/>')
-        }
-        if (f.key === 'additionalBankAccounts') {
+        } else if (f.key === 'additionalBankAccounts') {
           val = additionalBankAccounts.length > 0
             ? additionalBankAccounts.map((line) => esc(line)).join('<br/>')
             : '-'
+        } else if (isLong) {
+          val = formatRichText(rawValue)
+        } else {
+          val = esc(rawValue)
         }
         const width = f.wide ? '100%' : '48%'
+
+        if (isLong) {
+          return `
+            <div style="width:100%;box-sizing:border-box;padding:0 0 16px 0;">
+              <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:${COLORS.muted};margin-bottom:6px;">${f.label}</div>
+              <div style="font-size:12px;color:${COLORS.text};line-height:1.6;word-break:break-word;background:${COLORS.bgLight};border:1px solid ${COLORS.border};border-radius:8px;padding:12px 16px;">
+                ${val}
+              </div>
+            </div>
+          `
+        }
+
         return `
           <div style="width:${width};min-width:200px;box-sizing:border-box;padding:0 0 16px 0;${f.wide ? '' : 'display:inline-block;vertical-align:top;'}">
             <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:${COLORS.muted};margin-bottom:3px;">${f.label}</div>
@@ -433,6 +406,13 @@ function renderPDFDocument(opts: {
     price?: string | number
     realValue?: string | number
     quantity?: string | number
+    limitByUser?: string | number
+    maxGiftsPerUser?: string | number
+  }
+
+  const unlimitedLabel = (v: string | number | undefined | null): string => {
+    if (v === null || v === undefined || String(v).trim() === '') return 'Sin Límite'
+    return esc(String(v))
   }
 
   const renderPricing = (): string => {
@@ -440,6 +420,8 @@ function renderPDFDocument(opts: {
     if (!raw || !Array.isArray(raw) || raw.length === 0) return ''
     const options = raw as PricingOpt[]
     const margin = get('offerMargin')
+
+    const thStyle = `text-align:right;padding:10px 8px;font-weight:600;color:${COLORS.secondary};border-bottom:1px solid ${COLORS.border};font-size:11px;`
 
     return `
       <div style="margin-bottom:8px;page-break-inside:avoid;">
@@ -455,11 +437,13 @@ function renderPDFDocument(opts: {
         <table style="width:100%;border-collapse:collapse;font-size:12px;">
           <thead>
             <tr style="background:${COLORS.bgLight};">
-              <th style="text-align:left;padding:10px 12px;font-weight:600;color:${COLORS.secondary};border-bottom:1px solid ${COLORS.border};">#</th>
-              <th style="text-align:left;padding:10px 12px;font-weight:600;color:${COLORS.secondary};border-bottom:1px solid ${COLORS.border};">Opción</th>
-              <th style="text-align:right;padding:10px 12px;font-weight:600;color:${COLORS.secondary};border-bottom:1px solid ${COLORS.border};">Precio</th>
-              <th style="text-align:right;padding:10px 12px;font-weight:600;color:${COLORS.secondary};border-bottom:1px solid ${COLORS.border};">Valor Real</th>
-              <th style="text-align:right;padding:10px 12px;font-weight:600;color:${COLORS.secondary};border-bottom:1px solid ${COLORS.border};">Cantidad</th>
+              <th style="text-align:left;padding:10px 8px;font-weight:600;color:${COLORS.secondary};border-bottom:1px solid ${COLORS.border};font-size:11px;">#</th>
+              <th style="text-align:left;padding:10px 8px;font-weight:600;color:${COLORS.secondary};border-bottom:1px solid ${COLORS.border};font-size:11px;">Opción</th>
+              <th style="${thStyle}">Precio</th>
+              <th style="${thStyle}">Valor Real</th>
+              <th style="${thStyle}">Cantidad</th>
+              <th style="${thStyle}">Max Usuario</th>
+              <th style="${thStyle}">Max Regalo</th>
             </tr>
           </thead>
           <tbody>
@@ -467,14 +451,16 @@ function renderPDFDocument(opts: {
               .map(
                 (o, i) => `
               <tr style="${i % 2 === 1 ? `background:${COLORS.bgLight};` : ''}">
-                <td style="padding:10px 12px;color:${COLORS.muted};border-bottom:1px solid ${COLORS.border};">${i + 1}</td>
-                <td style="padding:10px 12px;border-bottom:1px solid ${COLORS.border};">
+                <td style="padding:10px 8px;color:${COLORS.muted};border-bottom:1px solid ${COLORS.border};">${i + 1}</td>
+                <td style="padding:10px 8px;border-bottom:1px solid ${COLORS.border};">
                   <div style="font-weight:600;color:${COLORS.text};">${esc(o.title)}</div>
                   ${o.description ? `<div style="color:${COLORS.secondary};margin-top:2px;font-size:11px;">${esc(o.description)}</div>` : ''}
                 </td>
-                <td style="padding:10px 12px;text-align:right;border-bottom:1px solid ${COLORS.border};font-weight:600;color:${COLORS.text};">${o.price ? `$${esc(String(o.price))}` : '—'}</td>
-                <td style="padding:10px 12px;text-align:right;border-bottom:1px solid ${COLORS.border};color:${COLORS.secondary};">${o.realValue ? `$${esc(String(o.realValue))}` : '—'}</td>
-                <td style="padding:10px 12px;text-align:right;border-bottom:1px solid ${COLORS.border};color:${COLORS.text};">${o.quantity ?? '—'}</td>
+                <td style="padding:10px 8px;text-align:right;border-bottom:1px solid ${COLORS.border};font-weight:600;color:${COLORS.text};">${o.price ? `$${esc(String(o.price))}` : '—'}</td>
+                <td style="padding:10px 8px;text-align:right;border-bottom:1px solid ${COLORS.border};color:${COLORS.secondary};">${o.realValue ? `$${esc(String(o.realValue))}` : '—'}</td>
+                <td style="padding:10px 8px;text-align:right;border-bottom:1px solid ${COLORS.border};color:${COLORS.text};">${unlimitedLabel(o.quantity)}</td>
+                <td style="padding:10px 8px;text-align:right;border-bottom:1px solid ${COLORS.border};color:${COLORS.text};">${unlimitedLabel(o.limitByUser)}</td>
+                <td style="padding:10px 8px;text-align:right;border-bottom:1px solid ${COLORS.border};color:${COLORS.text};">${unlimitedLabel(o.maxGiftsPerUser)}</td>
               </tr>
             `,
               )
@@ -634,10 +620,6 @@ function renderPDFDocument(opts: {
         <div class="value small">${esc(businessEmail)}</div>
       </div>
       <div class="item">
-        <div class="label">Categoría</div>
-        <div class="value small">${esc(category || 'General')}</div>
-      </div>
-      <div class="item">
         <div class="label">Fecha de Inicio (Tentativa)</div>
         <div class="value small">${esc(startDate)}</div>
       </div>
@@ -670,8 +652,7 @@ function renderPDFDocument(opts: {
     <!-- Pricing -->
     ${renderPricing()}
 
-    <!-- Additional info (legacy templates) -->
-    ${renderAdditionalInfo()}
+    <!-- Additional info (legacy templates) — intentionally omitted from PDF -->
 
     <!-- Footer -->
     <div class="footer">
