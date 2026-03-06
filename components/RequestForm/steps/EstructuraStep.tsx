@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useCallback, useMemo } from 'react'
 import Image from 'next/image'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -10,6 +10,7 @@ import CollectionsIcon from '@mui/icons-material/Collections'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import ZoomInIcon from '@mui/icons-material/ZoomIn'
+import AllInclusiveIcon from '@mui/icons-material/AllInclusive'
 import AttachFileIcon from '@mui/icons-material/AttachFile'
 import DescriptionIcon from '@mui/icons-material/Description'
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
@@ -18,6 +19,9 @@ import { Input, Textarea, Button } from '@/components/ui'
 import toast from 'react-hot-toast'
 import { compressImage, compressImages } from '@/lib/utils/image-compression'
 import ImageLightbox from '@/components/common/ImageLightbox'
+
+/** Set to true to show "Generar título con AI" and auto-fill option titles. */
+const SHOW_AI_OPTION_TITLE = false
 
 interface EstructuraStepProps {
   formData: BookingFormData
@@ -41,7 +45,6 @@ export default function EstructuraStep({
   const [aiLoadingIndex, setAiLoadingIndex] = useState<number | null>(null)
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null)
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([])
-  const autoFilledPriceByIndexRef = useRef<Record<number, string>>({})
 
   const handleImageUpload = async (index: number, file: File) => {
     // Validate file type
@@ -358,7 +361,7 @@ export default function EstructuraStep({
     updateFormData('bookingAttachments', updatedAttachments)
   }
 
-  const handleProofreadDescriptionWithAI = useCallback(async (index: number, options?: { silent?: boolean }) => {
+  const handleGenerateTitleWithAI = useCallback(async (index: number, options?: { silent?: boolean }) => {
     const option = formData.pricingOptions[index]
     
     setAiLoadingIndex(index)
@@ -369,22 +372,23 @@ export default function EstructuraStep({
         body: JSON.stringify({
           description: option.description,
           price: option.price || '',
+          realValue: option.realValue || '',
         }),
       })
       
-      if (!response.ok) throw new Error('No se pudo corregir la descripción.')
+      if (!response.ok) throw new Error('No se pudo generar el título.')
       
       const data = await response.json()
-      if (data?.description) {
-        updatePricingOption(index, 'description', data.description)
+      if (data?.title) {
+        updatePricingOption(index, 'title', data.title)
         if (!options?.silent) {
-          toast.success('Descripción corregida')
+          toast.success('Título generado')
         }
       }
     } catch (error) {
-      console.error('AI proofread description error', error)
+      console.error('AI generate title error', error)
       if (!options?.silent) {
-        toast.error('No se pudo corregir la descripción')
+        toast.error('No se pudo generar el título')
       }
     } finally {
       setAiLoadingIndex(null)
@@ -408,27 +412,6 @@ export default function EstructuraStep({
     }
     return null
   }).filter(Boolean) as { idx: number; price: number; osShare: number; partnerShare: number; title: string }[]
-
-  // Auto-fill description when price is provided and description is empty.
-  useEffect(() => {
-    if (pricingOptions.length === 0) return
-
-    const runAutoFill = async () => {
-      for (let index = 0; index < pricingOptions.length; index += 1) {
-        const option = pricingOptions[index]
-        const price = (option?.price || '').trim()
-        const description = (option?.description || '').trim()
-        const lastAutoFilledPrice = autoFilledPriceByIndexRef.current[index]
-
-        if (!price || description || lastAutoFilledPrice === price) continue
-
-        autoFilledPriceByIndexRef.current[index] = price
-        await handleProofreadDescriptionWithAI(index, { silent: true })
-      }
-    }
-
-    void runAutoFill()
-  }, [pricingOptions, handleProofreadDescriptionWithAI])
 
   return (
     <div className="space-y-8">
@@ -564,17 +547,19 @@ export default function EstructuraStep({
                         <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
                       )}
                     </label>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      disabled={aiLoadingIndex === index}
-                      onClick={() => handleProofreadDescriptionWithAI(index)}
-                      className="whitespace-nowrap bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 hover:text-white focus-visible:ring-purple-500 shadow-sm hover:shadow-md flex items-center gap-1.5 py-1 px-2 text-[10px]"
-                    >
-                      <AutoFixHighIcon style={{ fontSize: 14 }} />
-                      {aiLoadingIndex === index ? 'Corrigiendo...' : 'Corregir con AI'}
-                    </Button>
+                    {SHOW_AI_OPTION_TITLE && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        disabled={aiLoadingIndex === index}
+                        onClick={() => handleGenerateTitleWithAI(index)}
+                        className="whitespace-nowrap bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 hover:text-white focus-visible:ring-purple-500 shadow-sm hover:shadow-md flex items-center gap-1.5 py-1 px-2 text-[10px]"
+                      >
+                        <AutoFixHighIcon style={{ fontSize: 14 }} />
+                        {aiLoadingIndex === index ? 'Generando...' : 'Generar título con AI'}
+                      </Button>
+                    )}
                   </div>
                   <Textarea
                     value={option.description}
@@ -751,17 +736,31 @@ export default function EstructuraStep({
                       <span className="text-[10px] text-gray-400 font-normal">(Opcional)</span>
                     )}
                   </label>
-                  <Input
-                    type="number"
-                    inputMode="numeric"
-                    value={option.quantity}
-                    onChange={(e) => updatePricingOption(index, 'quantity', e.target.value.replace(/[^\d]/g, ''))}
-                    placeholder="Ej: 100"
-                    min="1"
-                    step="1"
-                    size="sm"
-                    className={errors[`pricingOptions.${index}.quantity`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      value={option.quantity}
+                      onChange={(e) => updatePricingOption(index, 'quantity', e.target.value.replace(/[^\d]/g, ''))}
+                      placeholder="∞"
+                      min="1"
+                      step="1"
+                      size="sm"
+                      className={errors[`pricingOptions.${index}.quantity`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => updatePricingOption(index, 'quantity', '')}
+                      className={`shrink-0 p-1.5 rounded-lg border transition-all duration-150 ${
+                        !option.quantity
+                          ? 'bg-blue-50 border-blue-300 text-blue-600'
+                          : 'bg-white border-gray-200 text-gray-400 hover:text-blue-500 hover:border-blue-300 hover:bg-blue-50'
+                      }`}
+                      title="Ilimitado"
+                    >
+                      <AllInclusiveIcon style={{ fontSize: 16 }} />
+                    </button>
+                  </div>
                   {errors[`pricingOptions.${index}.quantity`] && (
                     <p className="text-xs text-red-600 font-medium mt-1">{errors[`pricingOptions.${index}.quantity`]}</p>
                   )}
@@ -777,15 +776,29 @@ export default function EstructuraStep({
                         <span className="text-[10px] text-gray-400 font-normal ml-1">(Opcional)</span>
                       )}
                     </label>
-                    <Input
-                      type="number"
-                      value={option.limitByUser || ''}
-                      onChange={(e) => updatePricingOption(index, 'limitByUser', e.target.value)}
-                      placeholder="∞"
-                      min="1"
-                      size="sm"
-                      className={errors[`pricingOptions.${index}.limitByUser`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        type="number"
+                        value={option.limitByUser || ''}
+                        onChange={(e) => updatePricingOption(index, 'limitByUser', e.target.value)}
+                        placeholder="∞"
+                        min="1"
+                        size="sm"
+                        className={errors[`pricingOptions.${index}.limitByUser`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => updatePricingOption(index, 'limitByUser', '')}
+                        className={`shrink-0 p-1.5 rounded-lg border transition-all duration-150 ${
+                          !option.limitByUser
+                            ? 'bg-blue-50 border-blue-300 text-blue-600'
+                            : 'bg-white border-gray-200 text-gray-400 hover:text-blue-500 hover:border-blue-300 hover:bg-blue-50'
+                        }`}
+                        title="Ilimitado"
+                      >
+                        <AllInclusiveIcon style={{ fontSize: 16 }} />
+                      </button>
+                    </div>
                     {errors[`pricingOptions.${index}.limitByUser`] && (
                       <p className="text-xs text-red-600 font-medium mt-1">{errors[`pricingOptions.${index}.limitByUser`]}</p>
                     )}
@@ -800,15 +813,29 @@ export default function EstructuraStep({
                         <span className="text-[10px] text-gray-400 font-normal ml-1">(Opcional)</span>
                       )}
                     </label>
-                    <Input
-                      type="number"
-                      value={option.maxGiftsPerUser || ''}
-                      onChange={(e) => updatePricingOption(index, 'maxGiftsPerUser', e.target.value)}
-                      placeholder="∞"
-                      min="1"
-                      size="sm"
-                      className={errors[`pricingOptions.${index}.maxGiftsPerUser`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        type="number"
+                        value={option.maxGiftsPerUser || ''}
+                        onChange={(e) => updatePricingOption(index, 'maxGiftsPerUser', e.target.value)}
+                        placeholder="∞"
+                        min="1"
+                        size="sm"
+                        className={errors[`pricingOptions.${index}.maxGiftsPerUser`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => updatePricingOption(index, 'maxGiftsPerUser', '')}
+                        className={`shrink-0 p-1.5 rounded-lg border transition-all duration-150 ${
+                          !option.maxGiftsPerUser
+                            ? 'bg-blue-50 border-blue-300 text-blue-600'
+                            : 'bg-white border-gray-200 text-gray-400 hover:text-blue-500 hover:border-blue-300 hover:bg-blue-50'
+                        }`}
+                        title="Ilimitado"
+                      >
+                        <AllInclusiveIcon style={{ fontSize: 16 }} />
+                      </button>
+                    </div>
                     {errors[`pricingOptions.${index}.maxGiftsPerUser`] && (
                       <p className="text-xs text-red-600 font-medium mt-1">{errors[`pricingOptions.${index}.maxGiftsPerUser`]}</p>
                     )}

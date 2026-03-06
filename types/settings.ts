@@ -36,6 +36,7 @@ export type BookingSettings = {
   maxDailyLaunches: number
   categoryDurations: CategoryDurations
   merchantRepeatDays: number
+  vendorReactivationCooldownDays: number
   businessExceptions: BusinessException[]
   customCategories: CategoryHierarchy
   /**
@@ -62,4 +63,3 @@ export type BookingSettings = {
    */
   externalApiSectionMappings?: Record<string, string>
 }
-

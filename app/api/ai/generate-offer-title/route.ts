@@ -20,27 +20,29 @@ export async function POST(req: Request) {
     )
     if (rateLimitResult) return rateLimitResult
 
-    const { description, price } = await req.json()
+    const { description, price, realValue } = await req.json()
     const safeDescription = typeof description === 'string' ? description.trim() : ''
+    const normalizedPrice = typeof price === 'string' ? price.trim() : ''
+    const normalizedRealValue = typeof realValue === 'string' ? realValue.trim() : ''
 
     const openai = getOpenAIClient()
-    
-    const normalizedPrice = typeof price === 'string' ? price.trim() : ''
 
-    const prompt = `Corrige y pule la siguiente descripción de opción de oferta en español, manteniendo el significado exacto.
+    const prompt = `Genera el titulo de una opción de oferta en español usando exactamente esta estructura:
+"Paga $X por [descripción]${normalizedRealValue ? ' (Valor $Y)' : ''}"
 
 Reglas:
-- Corrige ortografía, acentos y puntuación.
+- Corrige ortografía, acentos y puntuación solo dentro de la descripción.
 - Mantén tono comercial claro y natural.
 - No inventes información.
-- El resultado DEBE iniciar con el formato: "Paga $x por ...".
-- Usa exactamente este precio en "x": ${normalizedPrice || 'X'}.
-- Si el texto original ya trae horarios o condiciones, intégralos después sin inventar datos.
-- Devuelve solo el texto final, sin comillas ni explicaciones.
+- Usa exactamente este precio para X: ${normalizedPrice || 'X'}.
+- ${normalizedRealValue ? `Usa exactamente este valor real para Y: ${normalizedRealValue}.` : 'No agregues el segmento "(Valor $Y)" si no hay valor real.'}
+- Conserva la descripción basada en el texto original, pero conviértela en una frase breve y limpia después de "por".
+- No agregues horarios, condiciones, emojis ni texto extra fuera de la estructura.
+- Devuelve solo el titulo final, sin comillas ni explicaciones.
 
 Si la descripción original está vacía:
 - No inventes detalles.
-- Devuelve una frase base útil siguiendo el formato, por ejemplo: "Paga $x por esta oferta".
+- Devuelve una frase base útil siguiendo el formato, por ejemplo: "Paga $${normalizedPrice || 'X'} por esta oferta${normalizedRealValue ? ` (Valor $${normalizedRealValue})` : ''}".
 
 Descripción original:
 ${safeDescription || '(vacía)'}`
@@ -55,14 +57,14 @@ ${safeDescription || '(vacía)'}`
       max_tokens: 180,
     })
 
-    const proofreadDescription = completion.choices[0]?.message?.content?.trim()
-    if (!proofreadDescription) {
-      return NextResponse.json({ error: 'No se pudo corregir la descripción.' }, { status: 500 })
+    const generatedTitle = completion.choices[0]?.message?.content?.trim()
+    if (!generatedTitle) {
+      return NextResponse.json({ error: 'No se pudo generar el título.' }, { status: 500 })
     }
 
-    return NextResponse.json({ description: proofreadDescription })
+    return NextResponse.json({ title: generatedTitle })
   } catch (error) {
-    logger.error('AI proofread-offer-description error:', error)
+    logger.error('AI generate-offer-title error:', error)
     return NextResponse.json({ error: 'Error al procesar la solicitud.' }, { status: 500 })
   }
 }

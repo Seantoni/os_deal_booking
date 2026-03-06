@@ -803,6 +803,7 @@ model Setting {
   minDailyLaunches           Int      @default(5)
   maxDailyLaunches           Int      @default(13)
   merchantRepeatDays         Int      @default(30)
+  vendorReactivationCooldownDays Int  @default(30)
   categoryDurations          Json
   businessExceptions         Json
   customCategories           Json

@@ -16,6 +16,7 @@ import { renderDealAssignmentReadyEmail } from '@/lib/email/templates/deal-assig
 import { renderDailyCommentsEmail } from '@/lib/email/templates/daily-comments'
 import { renderSalesMeetingReminderEmail } from '@/lib/email/templates/sales-meeting-reminder'
 import { renderBookingCommentMentionEmail } from '@/lib/email/templates/booking-comment-mention'
+import { renderVendorReactivationEmail } from '@/lib/email/templates/vendor-reactivation'
 import { getAppBaseUrl } from '@/lib/config/env'
 import { formatSpanishFullDate } from '@/lib/date'
 import { logger } from '@/lib/logger'
@@ -29,6 +30,7 @@ type EmailTemplateType =
   | 'daily-comments'
   | 'booking-comment-mention'
   | 'sales-meeting-reminder'
+  | 'vendor-reactivation'
 
 export async function POST(req: Request) {
   try {
@@ -223,6 +225,34 @@ export async function POST(req: Request) {
           crmUrl: `${appBaseUrl}/opportunities`,
         })
         subject = '[TEST] Recordatorio de Reuniones - OfertaSimple'
+        break
+      case 'vendor-reactivation':
+        html = renderVendorReactivationEmail({
+          businessName: 'Restaurante Ejemplo',
+          deals: [
+            {
+              externalDealId: 'D44381',
+              dealName: 'Brunch para dos',
+              quantitySold: 182,
+              netRevenue: 6840,
+              margin: 28,
+              viewUrl: `${appBaseUrl}/api/external-oferta/deals/D44381`,
+              replicateUrl: `${appBaseUrl}/api/vendor-reactivation/replicate?token=test-token-1`,
+              launchedAt: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000),
+            },
+            {
+              externalDealId: 'D55120',
+              dealName: 'Cena degustación',
+              quantitySold: 94,
+              netRevenue: 5125,
+              margin: 25,
+              viewUrl: `${appBaseUrl}/api/external-oferta/deals/D55120`,
+              replicateUrl: `${appBaseUrl}/api/vendor-reactivation/replicate?token=test-token-2`,
+              launchedAt: new Date(Date.now() - 400 * 24 * 60 * 60 * 1000),
+            },
+          ],
+        })
+        subject = '[TEST] Reactivación de Vendor - OfertaSimple'
         break
 
       default:

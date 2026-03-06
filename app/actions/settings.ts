@@ -8,6 +8,7 @@ import type { Prisma, Setting } from '@prisma/client'
 
 // Extended Setting type that includes all JSON fields
 type SettingsWithJsonFields = Setting & {
+  vendorReactivationCooldownDays: number
   additionalInfoMappings?: Record<string, string> | null
   hiddenCategoryPaths?: Record<string, boolean> | null
   requestFormFields?: RequestFormFieldsConfig | null
@@ -46,6 +47,7 @@ export async function getSettingsFromDB(): Promise<ServerActionResponse<BookingS
       minDailyLaunches: settingsData.minDailyLaunches,
       maxDailyLaunches: settingsData.maxDailyLaunches,
       merchantRepeatDays: settingsData.merchantRepeatDays,
+      vendorReactivationCooldownDays: settingsData.vendorReactivationCooldownDays,
       categoryDurations: settingsData.categoryDurations as BookingSettings['categoryDurations'],
       businessExceptions: settingsData.businessExceptions as BookingSettings['businessExceptions'],
       customCategories: settingsData.customCategories as BookingSettings['customCategories'],
@@ -86,6 +88,7 @@ export async function saveSettingsToDB(
       minDailyLaunches: settings.minDailyLaunches,
       maxDailyLaunches: settings.maxDailyLaunches,
       merchantRepeatDays: settings.merchantRepeatDays,
+      vendorReactivationCooldownDays: settings.vendorReactivationCooldownDays,
       categoryDurations: settings.categoryDurations as Prisma.InputJsonValue,
       businessExceptions: settings.businessExceptions as Prisma.InputJsonValue,
       customCategories: settings.customCategories as Prisma.InputJsonValue,
@@ -134,6 +137,7 @@ export async function resetSettingsToDefaults(): Promise<ServerActionResponse<vo
       minDailyLaunches: DEFAULT_SETTINGS.minDailyLaunches,
       maxDailyLaunches: DEFAULT_SETTINGS.maxDailyLaunches,
       merchantRepeatDays: DEFAULT_SETTINGS.merchantRepeatDays,
+      vendorReactivationCooldownDays: DEFAULT_SETTINGS.vendorReactivationCooldownDays,
       categoryDurations: DEFAULT_SETTINGS.categoryDurations as Prisma.InputJsonValue,
       businessExceptions: DEFAULT_SETTINGS.businessExceptions as Prisma.InputJsonValue,
       customCategories: DEFAULT_SETTINGS.customCategories as Prisma.InputJsonValue,
@@ -159,4 +163,3 @@ export async function resetSettingsToDefaults(): Promise<ServerActionResponse<vo
     return handleServerActionError(error, 'resetSettingsToDefaults')
   }
 }
-

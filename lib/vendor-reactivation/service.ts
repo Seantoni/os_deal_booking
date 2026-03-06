@@ -14,6 +14,7 @@ import {
 import { countBusinessRequests, generateRequestName } from '@/lib/utils/request-naming'
 import { invalidateDashboard, invalidateEntities } from '@/lib/cache'
 import { logger } from '@/lib/logger'
+import { DEFAULT_SETTINGS } from '@/lib/settings'
 
 type CreateVendorReactivationBookingRequestParams = {
   businessId: string
@@ -111,31 +112,39 @@ export interface VendorReactivationTarget {
 export async function getVendorReactivationTargets(
   options: { limit?: number } = {}
 ): Promise<VendorReactivationTarget[]> {
-  const eligibleDeals = await prisma.dealMetrics.findMany({
-    where: { vendorReactivateEligible: true },
-    orderBy: [{ netRevenue: 'desc' }, { quantitySold: 'desc' }],
-    select: {
-      externalDealId: true,
-      dealName: true,
-      previewUrl: true,
-      dealUrl: true,
-      runAt: true,
-      endAt: true,
-      quantitySold: true,
-      netRevenue: true,
-      margin: true,
-      externalVendorId: true,
-      businessId: true,
-      business: {
-        select: {
-          id: true,
-          name: true,
-          contactEmail: true,
-          ownerId: true,
+  const [eligibleDeals, settings] = await Promise.all([
+    prisma.dealMetrics.findMany({
+      where: { vendorReactivateEligible: true },
+      orderBy: [{ netRevenue: 'desc' }, { quantitySold: 'desc' }],
+      select: {
+        externalDealId: true,
+        dealName: true,
+        previewUrl: true,
+        dealUrl: true,
+        runAt: true,
+        endAt: true,
+        quantitySold: true,
+        netRevenue: true,
+        margin: true,
+        externalVendorId: true,
+        businessId: true,
+        business: {
+          select: {
+            id: true,
+            name: true,
+            contactEmail: true,
+            ownerId: true,
+          },
         },
       },
-    },
-  })
+    }),
+    prisma.setting.findUnique({
+      where: { id: 'default' },
+    }),
+  ])
+  const cooldownDays =
+    (settings as { vendorReactivationCooldownDays?: number } | null)?.vendorReactivationCooldownDays ??
+    DEFAULT_SETTINGS.vendorReactivationCooldownDays
 
   if (eligibleDeals.length === 0) {
     return []
@@ -237,7 +246,7 @@ export async function getVendorReactivationTargets(
           : null,
       }
     })
-    .filter((target) => target.daysSinceReferenceDate === null || target.daysSinceReferenceDate >= 30)
+    .filter((target) => target.daysSinceReferenceDate === null || target.daysSinceReferenceDate >= cooldownDays)
     .sort((a, b) => (b.daysSinceReferenceDate ?? 9999) - (a.daysSinceReferenceDate ?? 9999))
 
   if (!options.limit) {

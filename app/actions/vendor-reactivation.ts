@@ -5,6 +5,8 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { handleServerActionError } from '@/lib/utils/server-actions'
 import { requireAdmin } from '@/lib/auth/roles'
+import { sendVendorReactivationEmail } from '@/lib/email/services/vendor-reactivation'
+import { markVendorReactivationEmailSent } from '@/lib/vendor-reactivation/service'
 
 type EligibilityFilter = 'all' | 'eligible' | 'ineligible'
 type StatusFilter = 'all' | 'active' | 'ended'
@@ -316,5 +318,100 @@ export async function setVendorReactivationEligibility(externalDealId: string, e
     return { success: true, data: updated }
   } catch (error) {
     return handleServerActionError(error, 'setVendorReactivationEligibility')
+  }
+}
+
+export async function sendVendorReactivationEmailNow(businessId: string) {
+  const { userId } = await auth()
+  if (!userId) {
+    return { success: false, error: 'Unauthorized' }
+  }
+
+  try {
+    await requireAdmin()
+
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      select: {
+        id: true,
+        name: true,
+        contactEmail: true,
+        osAdminVendorId: true,
+      },
+    })
+
+    if (!business) {
+      return { success: false, error: 'Negocio no encontrado' }
+    }
+
+    if (!business.contactEmail) {
+      return { success: false, error: 'El negocio no tiene email de contacto' }
+    }
+
+    const pooledDeals = await prisma.dealMetrics.findMany({
+      where: {
+        vendorReactivateEligible: true,
+        OR: [
+          { businessId: business.id },
+          ...(business.osAdminVendorId ? [{ externalVendorId: business.osAdminVendorId }] : []),
+        ],
+      },
+      orderBy: [{ netRevenue: 'desc' }, { quantitySold: 'desc' }],
+      select: {
+        externalDealId: true,
+        dealName: true,
+        previewUrl: true,
+        dealUrl: true,
+        runAt: true,
+        endAt: true,
+        quantitySold: true,
+        netRevenue: true,
+        margin: true,
+      },
+    })
+
+    const uniqueDeals = Array.from(
+      new Map(
+        pooledDeals.map((deal) => [
+          deal.externalDealId,
+          {
+            externalDealId: deal.externalDealId,
+            dealName: deal.dealName,
+            previewUrl: deal.previewUrl,
+            dealUrl: deal.dealUrl,
+            runAt: deal.runAt,
+            endAt: deal.endAt,
+            quantitySold: deal.quantitySold,
+            netRevenue: Number(deal.netRevenue),
+            margin: Number(deal.margin),
+          },
+        ])
+      ).values()
+    )
+
+    if (uniqueDeals.length === 0) {
+      return { success: false, error: 'No hay deals en pool' }
+    }
+
+    await sendVendorReactivationEmail({
+      businessId: business.id,
+      businessName: business.name,
+      recipientEmail: business.contactEmail,
+      eligibleDeals: uniqueDeals,
+    })
+
+    await markVendorReactivationEmailSent(business.id)
+
+    return {
+      success: true,
+      data: {
+        businessId: business.id,
+        businessName: business.name,
+        recipientEmail: business.contactEmail,
+        dealsCount: uniqueDeals.length,
+      },
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'sendVendorReactivationEmailNow')
   }
 }

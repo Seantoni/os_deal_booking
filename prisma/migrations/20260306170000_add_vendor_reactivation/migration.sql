@@ -1,4 +1,4 @@
-ALTER TABLE "booking_requests"
+ALTER TABLE "BookingRequest"
 ADD COLUMN "businessId" TEXT,
 ADD COLUMN "originExternalDealId" TEXT,
 ADD COLUMN "originExternalDealName" TEXT;
@@ -20,11 +20,11 @@ CREATE TABLE "vendor_reactivation_states" (
 
 CREATE UNIQUE INDEX "vendor_reactivation_states_businessId_key" ON "vendor_reactivation_states"("businessId");
 CREATE INDEX "vendor_reactivation_states_lastTriggerEmailSentAt_idx" ON "vendor_reactivation_states"("lastTriggerEmailSentAt");
-CREATE INDEX "booking_requests_businessId_idx" ON "booking_requests"("businessId");
+CREATE INDEX "BookingRequest_businessId_idx" ON "BookingRequest"("businessId");
 CREATE INDEX "deal_metrics_vendorReactivateEligible_idx" ON "deal_metrics"("vendorReactivateEligible");
 
-ALTER TABLE "booking_requests"
-ADD CONSTRAINT "booking_requests_businessId_fkey"
+ALTER TABLE "BookingRequest"
+ADD CONSTRAINT "BookingRequest_businessId_fkey"
 FOREIGN KEY ("businessId") REFERENCES "businesses"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 ALTER TABLE "vendor_reactivation_states"

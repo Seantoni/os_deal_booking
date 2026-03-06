@@ -84,6 +84,7 @@ export const DEFAULT_SETTINGS: BookingSettings = {
   maxDailyLaunches: 13,
   categoryDurations: getDefaultCategoryDurations(),
   merchantRepeatDays: 30,
+  vendorReactivationCooldownDays: 30,
   businessExceptions: [],
   customCategories: INITIAL_CATEGORY_HIERARCHY,
   hiddenCategoryPaths: {},
@@ -115,6 +116,10 @@ export function getSettings(): BookingSettings {
           ...DEFAULT_SETTINGS.categoryDurations,
           ...parsed.categoryDurations,
         },
+        vendorReactivationCooldownDays:
+          typeof parsed.vendorReactivationCooldownDays === 'number'
+            ? parsed.vendorReactivationCooldownDays
+            : DEFAULT_SETTINGS.vendorReactivationCooldownDays,
         businessExceptions: parsed.businessExceptions || [],
         customCategories: parsed.customCategories || DEFAULT_SETTINGS.customCategories,
         additionalInfoMappings: parsed.additionalInfoMappings || {},

@@ -30,6 +30,7 @@ import CommentsLogTab from './components/CommentsLogTab'
 import CronJobsTab from './components/CronJobsTab'
 import CampaignsTab from './components/CampaignsTab'
 import ArchivedRecordsTab from './components/ArchivedRecordsTab'
+import VendorReactivationTab from './components/VendorReactivationTab'
 import HistoryIcon from '@mui/icons-material/History'
 import ChatBubbleIcon from '@mui/icons-material/ChatBubble'
 import ScheduleIcon from '@mui/icons-material/Schedule'
@@ -37,9 +38,10 @@ import CampaignIcon from '@mui/icons-material/Campaign'
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'
 import TuneIcon from '@mui/icons-material/Tune'
 import MonitorHeartIcon from '@mui/icons-material/MonitorHeart'
+import ReplayCircleFilledIcon from '@mui/icons-material/ReplayCircleFilled'
 import './styles.css'
 
-type TabId = 'general' | 'categories' | 'form-builder' | 'system' | 'access' | 'email-preview' | 'public-pages' | 'api-logs' | 'comments-log' | 'cron-jobs' | 'campaigns' | 'archived-records'
+type TabId = 'general' | 'categories' | 'form-builder' | 'vendor-reactivation' | 'system' | 'access' | 'email-preview' | 'public-pages' | 'api-logs' | 'comments-log' | 'cron-jobs' | 'campaigns' | 'archived-records'
 
 interface NavItem {
   id: TabId
@@ -60,6 +62,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'general', label: 'General', icon: <SettingsIcon style={{ fontSize: 18 }} /> },
       { id: 'categories', label: 'Categories', icon: <CategoryIcon style={{ fontSize: 18 }} /> },
       { id: 'form-builder', label: 'Form Builder', icon: <ViewModuleIcon style={{ fontSize: 18 }} /> },
+      { id: 'vendor-reactivation', label: 'Reactivaciones', icon: <ReplayCircleFilledIcon style={{ fontSize: 18 }} /> },
     ]
   },
   {
@@ -273,7 +276,12 @@ export default function SettingsPageClient() {
   }
 
   // Tabs that require save functionality
-  const showSaveBar = (activeTab === 'general' || activeTab === 'categories' || (activeTab === 'form-builder' && formBuilderSubTab === 'request-form'))
+  const showSaveBar = (
+    activeTab === 'general' ||
+    activeTab === 'categories' ||
+    activeTab === 'vendor-reactivation' ||
+    (activeTab === 'form-builder' && formBuilderSubTab === 'request-form')
+  )
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   // Get visible nav items for mobile dropdown
@@ -377,6 +385,7 @@ export default function SettingsPageClient() {
                 {activeTab === 'general' && 'General system preferences'}
                 {activeTab === 'categories' && 'Manage business categories'}
                 {activeTab === 'form-builder' && 'Configure form fields and entities'}
+                {activeTab === 'vendor-reactivation' && 'Configure vendor reactivation rules and cooldowns'}
                 {activeTab === 'system' && 'System health and API integrations'}
                 {activeTab === 'access' && 'Manage user access permissions'}
                 {activeTab === 'public-pages' && 'Configure public-facing pages'}
@@ -485,6 +494,10 @@ export default function SettingsPageClient() {
                   )}
                 </div>
               </div>
+            )}
+
+            {activeTab === 'vendor-reactivation' && (
+              <VendorReactivationTab settings={settings} setSettings={setSettings} />
             )}
 
             {activeTab === 'system' && (

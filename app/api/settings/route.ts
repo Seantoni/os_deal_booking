@@ -37,6 +37,7 @@ export async function GET() {
               minDailyLaunches: data?.minDailyLaunches,
               maxDailyLaunches: data?.maxDailyLaunches,
               merchantRepeatDays: data?.merchantRepeatDays,
+              vendorReactivationCooldownDays: data?.vendorReactivationCooldownDays,
               businessExceptions: data?.businessExceptions || [],
             },
           },

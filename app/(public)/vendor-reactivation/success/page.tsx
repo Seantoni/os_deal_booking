@@ -30,22 +30,40 @@ export default async function VendorReactivationSuccessPage({
           </div>
         </div>
 
-        <p className="text-[#86868b] mb-8 leading-relaxed">
-          {isDuplicate
-            ? 'Ya existe una solicitud abierta para este deal histórico. El equipo comercial la revisará y le dará seguimiento.'
-            : 'Su solicitud fue recibida correctamente. El equipo comercial la revisará y continuará el proceso.'}
-        </p>
-
-        {params.id && (
-          <div className="bg-[#f5f5f7] rounded-lg p-2 mb-6 inline-block">
-            <p className="text-xs text-[#86868b] font-mono">
-              ID: {params.id}
+        {isDuplicate ? (
+          <p className="text-[#86868b] mb-8 leading-relaxed">
+            Ya existe una solicitud abierta para este deal. Nuestro equipo está trabajando en ella y le notificaremos cuando esté lista.
+          </p>
+        ) : (
+          <>
+            <p className="text-[#86868b] mb-6 leading-relaxed">
+              ¡Excelente decisión! Su solicitud fue recibida correctamente.
             </p>
-          </div>
+            <div className="text-left max-w-sm mx-auto mb-8 space-y-3">
+              <div className="flex items-start gap-3">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-[#34c759] text-white text-xs font-bold flex items-center justify-center mt-0.5">1</span>
+                <p className="text-sm text-[#86868b] leading-relaxed">
+                  <strong className="text-[#1d1d1f]">Recibimos su solicitud</strong> — ya está en nuestro sistema.
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-[#f5f5f7] text-[#86868b] text-xs font-bold flex items-center justify-center mt-0.5">2</span>
+                <p className="text-sm text-[#86868b] leading-relaxed">
+                  <strong className="text-[#1d1d1f]">Nuestro equipo la revisará</strong> — validamos los detalles y preparamos la oferta.
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-[#f5f5f7] text-[#86868b] text-xs font-bold flex items-center justify-center mt-0.5">3</span>
+                <p className="text-sm text-[#86868b] leading-relaxed">
+                  <strong className="text-[#1d1d1f]">Le notificaremos por correo</strong> — recibirá noticias pronto con los próximos pasos.
+                </p>
+              </div>
+            </div>
+          </>
         )}
 
         <p className="text-sm text-[#1d1d1f] font-medium">
-          Gracias por su respuesta.
+          Gracias por confiar en OfertaSimple.
         </p>
       </div>
     </PublicPageLayout>

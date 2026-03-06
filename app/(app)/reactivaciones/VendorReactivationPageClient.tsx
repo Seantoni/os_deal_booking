@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import ReplayCircleFilledIcon from '@mui/icons-material/ReplayCircleFilled'
+import SendIcon from '@mui/icons-material/Send'
 import StorefrontIcon from '@mui/icons-material/Storefront'
 import ToggleOnIcon from '@mui/icons-material/ToggleOn'
 import ToggleOffIcon from '@mui/icons-material/ToggleOff'
@@ -17,6 +18,7 @@ import {
   getVendorReactivationCounts,
   getVendorReactivationDealsPaginated,
   searchVendorReactivationDeals,
+  sendVendorReactivationEmailNow,
   setVendorReactivationEligibility,
   type VendorReactivationDealRow,
 } from '@/app/actions/vendor-reactivation'
@@ -76,6 +78,7 @@ export default function VendorReactivationPageClient({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [projectionSummaryMap, setProjectionSummaryMap] = useState<Record<string, ProjectionEntitySummary>>({})
   const [togglePendingId, setTogglePendingId] = useState<string | null>(null)
+  const [sendPendingBusinessId, setSendPendingBusinessId] = useState<string | null>(null)
   const [isToggling, startToggleTransition] = useTransition()
 
   const {
@@ -181,6 +184,29 @@ export default function VendorReactivationPageClient({
       }
 
       setTogglePendingId(null)
+    })
+  }
+
+  const handleSendNow = (deal: VendorReactivationDealRow) => {
+    if (!deal.businessId || sendPendingBusinessId === deal.businessId) return
+
+    setSendPendingBusinessId(deal.businessId)
+
+    startToggleTransition(async () => {
+      const result = await sendVendorReactivationEmailNow(deal.businessId!)
+
+      if (!result.success) {
+        toast.error(result.error || 'No se pudo enviar la reactivación')
+      } else {
+        const dealsCount = result.data?.dealsCount || 0
+        toast.success(
+          dealsCount > 0
+            ? `Email enviado ahora con ${dealsCount} ${dealsCount === 1 ? 'deal' : 'deals'}`
+            : 'Email enviado ahora'
+        )
+      }
+
+      setSendPendingBusinessId(null)
     })
   }
 
@@ -353,17 +379,31 @@ export default function VendorReactivationPageClient({
                           </button>
                         </TableCell>
                         <TableCell align="right">
-                          {(deal.previewUrl || deal.dealUrl) && (
-                            <a
-                              href={deal.previewUrl || deal.dealUrl || '#'}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title="Ver deal"
-                              className="inline-flex items-center justify-center rounded-lg p-1.5 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
-                            >
-                              <OpenInNewIcon fontSize="small" />
-                            </a>
-                          )}
+                          <div className="flex items-center justify-end gap-1">
+                            {deal.businessId && (
+                              <button
+                                type="button"
+                                onClick={() => handleSendNow(deal)}
+                                disabled={sendPendingBusinessId === deal.businessId || isToggling}
+                                title="Enviar ahora"
+                                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors disabled:opacity-60"
+                              >
+                                <SendIcon style={{ fontSize: 14 }} />
+                                <span>{sendPendingBusinessId === deal.businessId ? 'Enviando...' : 'Enviar ahora'}</span>
+                              </button>
+                            )}
+                            {deal.previewUrl && (
+                              <a
+                                href={deal.previewUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Ver deal"
+                                className="inline-flex items-center justify-center rounded-lg p-1.5 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
+                              >
+                                <OpenInNewIcon fontSize="small" />
+                              </a>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     )
