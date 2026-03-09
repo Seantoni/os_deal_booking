@@ -326,6 +326,9 @@ export async function getPendingComments(): Promise<ServerActionResponse<Pending
   const { userId } = authResult
 
   try {
+    const userRole = await getUserRole()
+    const isAdmin = userRole === 'admin'
+
     // Fetch all opportunity comments (not deleted, not from current user)
     const oppComments = await prisma.opportunityComment.findMany({
       where: {
@@ -334,6 +337,13 @@ export async function getPendingComments(): Promise<ServerActionResponse<Pending
           { threadId: null },
           { thread: { status: 'OPEN' } },
         ],
+        ...(!isAdmin
+          ? {
+              opportunity: {
+                OR: [{ responsibleId: userId }, { userId }],
+              },
+            }
+          : {}),
       },
       select: {
         id: true,
@@ -362,7 +372,17 @@ export async function getPendingComments(): Promise<ServerActionResponse<Pending
 
     // Fetch all marketing comments (not deleted)
     const mktComments = await prisma.marketingOptionComment.findMany({
-      where: { isDeleted: false },
+      where: {
+        isDeleted: false,
+        ...(!isAdmin
+          ? {
+              OR: [
+                { option: { responsibleId: userId } },
+                { option: { campaign: { bookingRequest: { userId } } } },
+              ],
+            }
+          : {}),
+      },
       select: {
         id: true,
         userId: true,
@@ -372,11 +392,16 @@ export async function getPendingComments(): Promise<ServerActionResponse<Pending
         optionId: true,
         option: {
           select: {
+            responsibleId: true,
             campaign: {
               select: {
                 id: true,
                 bookingRequest: {
-                  select: { merchant: true, name: true },
+                  select: {
+                    merchant: true,
+                    name: true,
+                    userId: true,
+                  },
                 },
               },
             },
