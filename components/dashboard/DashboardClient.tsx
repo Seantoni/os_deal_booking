@@ -920,7 +920,7 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                 </div>
               ) : (
                 <div className="divide-y divide-gray-50">
-                  {pendingComments.slice(0, 5).map((item) => (
+                  {pendingComments.map((item) => (
                     <div key={`${item.type}-${item.id}`} className="relative group">
                       <button
                         onClick={() => handlePendingCommentClick(item)}
@@ -959,14 +959,6 @@ export default function DashboardClient({ initialData, initialFilters }: Dashboa
                 </div>
               )}
             </div>
-            {pendingComments.length > 5 && (
-              <button
-                onClick={() => router.push('/settings')}
-                className="w-full px-4 py-2 text-[13px] text-purple-600 hover:bg-purple-50 font-medium border-t border-gray-100"
-              >
-                Ver más en Settings →
-              </button>
-            )}
           </div>
         </div>
 
