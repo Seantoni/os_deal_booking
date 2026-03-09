@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { auth } from '@clerk/nextjs/server'
 import {
   cleanupOldCronJobLogs,
   completeCronJobLog,
@@ -6,11 +7,12 @@ import {
 } from '@/app/actions/cron-logs'
 import { sendCronFailureEmail } from '@/lib/email/services/cron-failure'
 import { sendVendorReactivationEmail } from '@/lib/email/services/vendor-reactivation'
+import { getUserRole } from '@/lib/auth/roles'
 import {
   getVendorReactivationTargets,
   markVendorReactivationEmailSent,
 } from '@/lib/vendor-reactivation/service'
-import { verifyCronSecretWithFallback } from '@/lib/cron/verify-secret'
+import { verifyCronSecret } from '@/lib/cron/verify-secret'
 import { logger } from '@/lib/logger'
 
 export const runtime = 'nodejs'
@@ -20,9 +22,25 @@ export const maxDuration = 300
 export async function GET(request: Request) {
   const startTime = Date.now()
 
-  if (!verifyCronSecretWithFallback(request, 'CRON_SECRET_REACTIVATION')) {
-    logger.warn('Unauthorized cron request attempted for vendor-reactivation-scan')
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const standardCronAuthorized = process.env.CRON_SECRET
+    ? verifyCronSecret(request)
+    : false
+  const reactivationCronAuthorized = process.env.CRON_SECRET_REACTIVATION
+    ? verifyCronSecret(request, 'CRON_SECRET_REACTIVATION')
+    : false
+
+  if (!standardCronAuthorized && !reactivationCronAuthorized) {
+    const { userId } = await auth()
+    if (!userId) {
+      logger.warn('Unauthorized cron request attempted for vendor-reactivation-scan')
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const role = await getUserRole()
+    if (role !== 'admin') {
+      logger.warn('Forbidden cron request attempted for vendor-reactivation-scan by non-admin user')
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
   }
 
   const logResult = await startCronJobLog('vendor-reactivation-scan', 'cron')

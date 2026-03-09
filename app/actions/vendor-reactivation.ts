@@ -100,12 +100,7 @@ function buildDealMetricsWhereClause(options: Record<string, string | number | b
     }
   } else if (statusFilter === 'ended') {
     const endedConditions: Prisma.DealMetricsWhereInput = {
-      OR: [
-        { runAt: { gt: now } },
-        { runAt: null },
-        { endAt: { lt: today } },
-        { endAt: null },
-      ],
+      endAt: { lt: today },
     }
     if (whereClause.OR) {
       const searchOr = whereClause.OR
