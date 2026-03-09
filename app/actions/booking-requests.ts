@@ -25,6 +25,7 @@ import { logActivity, logActivities } from '@/lib/activity-log'
 import { generateRequestName, countBusinessRequests } from '@/lib/utils/request-naming'
 import { findLinkedBusiness, findLinkedBusinessFull } from '@/lib/business'
 import { approveBookingRequestWithFollowUp } from '@/lib/booking-requests/approval'
+import { normalizeAdditionalRedemptionContacts } from '@/lib/booking-requests/additional-redemption-contacts'
 import { canSalesAccessBookingRequest, getSalesBookingRequestVisibilityWhere } from '@/lib/auth/booking-request-visibility'
 import { 
   previewBackfillFromRequest, 
@@ -136,6 +137,11 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
       normalizedAdditionalBankAccounts.length > 0
         ? (normalizedAdditionalBankAccounts as Prisma.InputJsonValue)
         : Prisma.JsonNull
+    const normalizedAdditionalRedemptionContacts = normalizeAdditionalRedemptionContacts(fields.additionalRedemptionContacts)
+    const additionalRedemptionContactsJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
+      normalizedAdditionalRedemptionContacts.length > 0
+        ? (normalizedAdditionalRedemptionContacts as Prisma.InputJsonValue)
+        : Prisma.JsonNull
 
     const eventDaysJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
       fields.eventDays &&
@@ -182,6 +188,7 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
       redemptionContactName: fields.redemptionContactName,
       redemptionContactEmail: fields.redemptionContactEmail,
       redemptionContactPhone: fields.redemptionContactPhone,
+      additionalRedemptionContacts: additionalRedemptionContactsJson,
       // Fiscales: Datos Fiscales, Bancarios y de Ubicación
       legalName: fields.legalName,
       rucDv: fields.rucDv,
@@ -346,12 +353,14 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
     const additionalInfoStr = formData.get('additionalInfo') as string
     const eventDaysStr = formData.get('eventDays') as string
     const additionalBankAccountsStr = formData.get('additionalBankAccounts') as string
+    const additionalRedemptionContactsStr = formData.get('additionalRedemptionContacts') as string
     let redemptionMethods: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
     let pricingOptions: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
     let dealImages: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
     let additionalInfo: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
     let eventDays: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
     let additionalBankAccounts: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
+    let additionalRedemptionContacts: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
     
     try {
       if (redemptionMethodsStr) {
@@ -399,6 +408,13 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
         const normalized = normalizeAdditionalBankAccounts(parsed)
         if (normalized.length > 0) {
           additionalBankAccounts = normalized as Prisma.InputJsonValue
+        }
+      }
+      if (additionalRedemptionContactsStr) {
+        const parsed = JSON.parse(additionalRedemptionContactsStr)
+        const normalized = normalizeAdditionalRedemptionContacts(parsed)
+        if (normalized.length > 0) {
+          additionalRedemptionContacts = normalized as Prisma.InputJsonValue
         }
       }
     } catch (e) {
@@ -455,6 +471,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       redemptionContactName: (formData.get('redemptionContactName') as string) || null,
       redemptionContactEmail: (formData.get('redemptionContactEmail') as string) || null,
       redemptionContactPhone: (formData.get('redemptionContactPhone') as string) || null,
+      additionalRedemptionContacts,
       // Fiscales: Datos Fiscales, Bancarios y de Ubicación
       legalName: (formData.get('legalName') as string) || null,
       rucDv: (formData.get('rucDv') as string) || null,

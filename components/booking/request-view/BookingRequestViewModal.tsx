@@ -33,10 +33,12 @@ import {
 } from '@/types'
 import { BASE_SECTIONS, SECTION_TITLES } from './bookingRequestView.config'
 import { BookingAttachmentsField } from './BookingAttachmentsField'
+import { AdditionalRedemptionContactsField } from './AdditionalRedemptionContactsField'
 import { BookingRequestHeaderActions } from './BookingRequestHeaderActions'
 import { BookingRequestHistoryBar } from './BookingRequestHistoryBar'
 import { BookingRequestSearchBar } from './BookingRequestSearchBar'
 import { BookingRequestSectionCard } from './BookingRequestSectionCard'
+import { ContactDetailField } from './ContactDetailField'
 import { CommentsSidebar } from './CommentsSidebar'
 import { DealImagesGalleryField } from './DealImagesGalleryField'
 import { FieldWithComments } from './FieldWithComments'
@@ -697,22 +699,81 @@ export default function BookingRequestViewModal({
                                 : (additionalSection?.values && additionalSection.values[field.key]) ??
                                   getFieldValue(requestData, field.key)
 
+                            if (
+                              field.key === 'redemptionContactEmail' ||
+                              field.key === 'redemptionContactPhone'
+                            ) {
+                              return null
+                            }
+
                             const isFieldMatch =
                               !!searchQuery &&
                               (field.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
                                 field.key.toLowerCase().includes(searchQuery.toLowerCase()))
 
-                            const fieldComments = getCommentsForField(displayComments, field.key)
+                            const fieldComments =
+                              field.key === 'redemptionContactName'
+                                ? [
+                                    ...getCommentsForField(displayComments, 'redemptionContactName'),
+                                    ...getCommentsForField(displayComments, 'redemptionContactEmail'),
+                                    ...getCommentsForField(displayComments, 'redemptionContactPhone'),
+                                  ]
+                                : getCommentsForField(displayComments, field.key)
                             const fieldPrefill =
-                              commentInputPrefill?.fieldKey === field.key ? commentInputPrefill : null
+                              field.key === 'redemptionContactName'
+                                ? (
+                                    commentInputPrefill &&
+                                    [
+                                      'redemptionContactName',
+                                      'redemptionContactEmail',
+                                      'redemptionContactPhone',
+                                    ].includes(commentInputPrefill.fieldKey)
+                                  )
+                                  ? {
+                                      ...commentInputPrefill,
+                                      fieldKey: 'redemptionContactName',
+                                    }
+                                  : null
+                                : commentInputPrefill?.fieldKey === field.key
+                                  ? commentInputPrefill
+                                  : null
 
                             if (
                               (field.type === 'gallery' ||
                                 field.type === 'pricing' ||
-                                field.type === 'attachments') &&
+                                field.type === 'attachments' ||
+                                field.type === 'contact' ||
+                                field.type === 'contacts') &&
                               (!rawValue || (Array.isArray(rawValue) && rawValue.length === 0))
                             ) {
                               return null
+                            }
+
+                            if (field.type === 'contact' && typeof rawValue !== 'undefined') {
+                              return (
+                                <div key={field.key} className="md:col-span-2">
+                                  <ContactDetailField
+                                    fieldKey={field.key}
+                                    containerId={getFieldContainerId(field.key)}
+                                    label={field.label}
+                                    contact={{
+                                      name: String(getFieldValue(requestData, 'redemptionContactName') || ''),
+                                      email: String(getFieldValue(requestData, 'redemptionContactEmail') || ''),
+                                      phone: String(getFieldValue(requestData, 'redemptionContactPhone') || ''),
+                                    }}
+                                    badgeLabel="Principal"
+                                    comments={fieldComments}
+                                    highlightedCommentId={highlightedCommentId}
+                                    activeCommentField={activeCommentField}
+                                    savingComment={savingComment}
+                                    commentInputPrefill={fieldPrefill}
+                                    onToggleComment={handleToggleComment}
+                                    onAddComment={(text, mentions) => handleAddComment(field.key, text, mentions)}
+                                    onReplyToComment={handleReplyToComment}
+                                    getUsersAction={getUsersForFieldCommentMention}
+                                  />
+                                </div>
+                              )
                             }
 
                             if (field.type === 'pricing' && Array.isArray(rawValue) && rawValue.length > 0) {
@@ -773,6 +834,32 @@ export default function BookingRequestViewModal({
                                     openLightbox={openLightbox}
                                     onDownloadImage={downloadImage}
                                     imageDownloadPrefix={imageDownloadPrefix}
+                                  />
+                                </div>
+                              )
+                            }
+
+                            if (
+                              field.type === 'contacts' &&
+                              Array.isArray(rawValue) &&
+                              rawValue.length > 0
+                            ) {
+                              return (
+                                <div key={field.key} className="md:col-span-2">
+                                  <AdditionalRedemptionContactsField
+                                    fieldKey={field.key}
+                                    label={field.label}
+                                    contacts={rawValue}
+                                    comments={fieldComments}
+                                    containerId={getFieldContainerId(field.key)}
+                                    highlightedCommentId={highlightedCommentId}
+                                    activeCommentField={activeCommentField}
+                                    savingComment={savingComment}
+                                    commentInputPrefill={fieldPrefill}
+                                    onToggleComment={handleToggleComment}
+                                    onAddComment={(text, mentions) => handleAddComment(field.key, text, mentions)}
+                                    onReplyToComment={handleReplyToComment}
+                                    getUsersAction={getUsersForFieldCommentMention}
                                   />
                                 </div>
                               )

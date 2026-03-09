@@ -13,6 +13,7 @@ import {
   sendBookingRequestWithBackfill,
 } from '@/app/actions/booking-requests'
 import type { BackfillChange } from '@/lib/business-backfill'
+import { normalizeAdditionalRedemptionContacts } from '@/lib/booking-requests/additional-redemption-contacts'
 import type { BookingFormData } from './types'
 import { STEPS, INITIAL_FORM_DATA, getStepIndexByKey, getStepIdByKey } from './constants'
 import { validateStep, buildFormDataForSubmit, getErrorFieldLabels } from './request_form_utils'
@@ -283,6 +284,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
               redemptionContactName: data.redemptionContactName || '',
               redemptionContactEmail: data.redemptionContactEmail || '',
               redemptionContactPhone: data.redemptionContactPhone || '',
+              additionalRedemptionContacts: normalizeAdditionalRedemptionContacts(data.additionalRedemptionContacts),
               
               // Fiscales
               legalName: data.legalName || '',
@@ -733,14 +735,19 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
 
   const updateFormData = (field: keyof BookingFormData, value: BookingFormData[keyof BookingFormData]) => {
     setFormData(prev => ({ ...prev, [field]: value }))
-    // Clear error for this field
-    if (errors[field]) {
-      setErrors(prev => {
-        const newErrors = { ...prev }
-        delete newErrors[field]
-        return newErrors
+    setErrors(prev => {
+      const nextErrors = { ...prev }
+      let changed = false
+
+      Object.keys(nextErrors).forEach((key) => {
+        if (key === field || key.startsWith(`${field}.`)) {
+          delete nextErrors[key]
+          changed = true
+        }
       })
-    }
+
+      return changed ? nextErrors : prev
+    })
   }
 
   const handleValidateStep = (stepKey: string): Record<string, string> => {

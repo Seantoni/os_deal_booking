@@ -69,6 +69,11 @@ export function extractBookingRequestFromFormData(formData: FormData): {
   redemptionContactName: string | null
   redemptionContactEmail: string | null
   redemptionContactPhone: string | null
+  additionalRedemptionContacts: Array<{
+    name: string
+    email: string
+    phone: string
+  }> | null
 
   // Fiscales: Datos Fiscales, Bancarios y de Ubicación
   legalName: string | null
@@ -164,6 +169,11 @@ export function extractBookingRequestFromFormData(formData: FormData): {
     redemptionContactName: getFormDataString(formData, 'redemptionContactName'),
     redemptionContactEmail: getFormDataString(formData, 'redemptionContactEmail'),
     redemptionContactPhone: getFormDataString(formData, 'redemptionContactPhone'),
+    additionalRedemptionContacts: parseFormDataJsonField(formData, 'additionalRedemptionContacts') as Array<{
+      name: string
+      email: string
+      phone: string
+    }> | null,
 
     // Fiscales: Datos Fiscales, Bancarios y de Ubicación
     legalName: getFormDataString(formData, 'legalName'),

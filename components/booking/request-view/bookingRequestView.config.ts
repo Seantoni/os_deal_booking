@@ -77,9 +77,10 @@ export const BASE_SECTIONS: SectionDefinition[] = [
   {
     title: 'Directorio de Contactos',
     fields: [
-      { key: 'redemptionContactName', label: 'Nombre del Contacto de Canje' },
-      { key: 'redemptionContactEmail', label: 'Email del Contacto de Canje' },
-      { key: 'redemptionContactPhone', label: 'Teléfono del Contacto de Canje' },
+      { key: 'redemptionContactName', label: 'Nombre del Contacto de Canje', type: 'contact' },
+      { key: 'redemptionContactEmail', label: 'Email del Contacto de Canje', type: 'contact' },
+      { key: 'redemptionContactPhone', label: 'Teléfono del Contacto de Canje', type: 'contact' },
+      { key: 'additionalRedemptionContacts', label: 'Contactos Adicionales de Canje', type: 'contacts' },
     ],
   },
   {

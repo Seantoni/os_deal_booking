@@ -1,5 +1,6 @@
 import type { BookingFormData } from './types'
 import type { RequestFormFieldsConfig } from '@/types'
+import { normalizeAdditionalRedemptionContacts } from '@/lib/booking-requests/additional-redemption-contacts'
 import { isValidEmail } from '@/lib/utils/validation'
 import { FIELD_TEMPLATES, getTemplateName } from './config'
 import { REQUEST_FORM_STEPS } from '@/lib/config/request-form-fields'
@@ -45,6 +46,19 @@ export const getFieldLabel = (fieldKey: string): string => {
     }
     const baseLabel = fieldLabels[fieldName] || fieldName
     return `Cuenta Bancaria ${accountIndex}: ${baseLabel}`
+  }
+
+  const additionalContactMatch = fieldKey.match(/^additionalRedemptionContacts\.(\d+)\.(\w+)$/)
+  if (additionalContactMatch) {
+    const contactIndex = parseInt(additionalContactMatch[1]) + 1
+    const fieldName = additionalContactMatch[2]
+    const fieldLabels: Record<string, string> = {
+      name: 'Nombre',
+      email: 'Email',
+      phone: 'Teléfono',
+    }
+    const baseLabel = fieldLabels[fieldName] || fieldName
+    return `Contacto Adicional ${contactIndex}: ${baseLabel}`
   }
   
   return FIELD_LABEL_MAP.get(fieldKey) || fieldKey
@@ -197,6 +211,11 @@ export const validateStep = (
       if (formData.redemptionContactEmail && !isValidEmail(formData.redemptionContactEmail)) {
         newErrors.redemptionContactEmail = 'Email inválido'
       }
+      normalizeAdditionalRedemptionContacts(formData.additionalRedemptionContacts).forEach((contact, index) => {
+        if (contact.email && !isValidEmail(contact.email)) {
+          newErrors[`additionalRedemptionContacts.${index}.email`] = 'Email inválido'
+        }
+      })
       break
     case 4:
       // Fiscales: Datos Fiscales y Ubicación
@@ -345,6 +364,9 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
   fd.append('redemptionContactName', formData.redemptionContactName || '')
   fd.append('redemptionContactEmail', formData.redemptionContactEmail || '')
   fd.append('redemptionContactPhone', formData.redemptionContactPhone || '')
+  fd.append('additionalRedemptionContacts', JSON.stringify(
+    normalizeAdditionalRedemptionContacts(formData.additionalRedemptionContacts)
+  ))
   
   // Fiscales: Datos Fiscales, Bancarios y de Ubicación
   fd.append('legalName', formData.legalName || '')

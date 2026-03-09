@@ -3,6 +3,7 @@
  * Represents a request to book an event that needs approval
  */
 import type { BookingRequestStatus } from '@/lib/constants'
+import type { AdditionalRedemptionContact } from '@/lib/booking-requests/additional-redemption-contacts'
 
 export type BookingRequest = {
   id: string
@@ -18,6 +19,7 @@ export type BookingRequest = {
   startDate: Date
   endDate: Date
   eventDays: string[] | null
+  additionalRedemptionContacts?: AdditionalRedemptionContact[] | null
   status: BookingRequestStatus
   sentAt?: Date | null
   approvedAt?: Date | null

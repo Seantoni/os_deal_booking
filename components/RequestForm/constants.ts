@@ -77,6 +77,7 @@ export const INITIAL_FORM_DATA: BookingFormData = {
   redemptionContactName: '',
   redemptionContactEmail: '',
   redemptionContactPhone: '',
+  additionalRedemptionContacts: [],
   approverBusinessName: '',
   approverName: '',
   approverEmail: '',

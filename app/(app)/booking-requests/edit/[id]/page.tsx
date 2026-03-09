@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server'
 import { redirect, notFound } from 'next/navigation'
 import { requirePageAccess } from '@/lib/auth/page-access'
 import { getBookingRequest } from '@/app/actions/booking'
+import { normalizeAdditionalRedemptionContacts } from '@/lib/booking-requests/additional-redemption-contacts'
 import EnhancedBookingForm from '@/components/RequestForm'
 import PageContent from '@/components/common/PageContent'
 import type { PricingOption } from '@/types/deal'
@@ -76,6 +77,7 @@ export default async function EditBookingRequestPage({ params }: EditBookingRequ
   const rawEmails = br.additionalEmails
   const additionalEmails: string[] = Array.isArray(rawEmails) ? rawEmails : []
   const additionalBankAccounts = Array.isArray(br.additionalBankAccounts) ? br.additionalBankAccounts : []
+  const additionalRedemptionContacts = normalizeAdditionalRedemptionContacts(br.additionalRedemptionContacts)
 
   // Parse additionalInfo from database (stored as JSON object)
   const storedAdditionalInfo: AdditionalInfo | null = 
@@ -110,6 +112,7 @@ export default async function EditBookingRequestPage({ params }: EditBookingRequ
     redemptionContactName: br.redemptionContactName || '',
     redemptionContactEmail: br.redemptionContactEmail || '',
     redemptionContactPhone: br.redemptionContactPhone || '',
+    additionalRedemptionContacts,
     approverBusinessName: '',
     approverName: '',
     approverEmail: '',

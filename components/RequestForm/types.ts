@@ -1,3 +1,5 @@
+import type { AdditionalRedemptionContact } from '@/lib/booking-requests/additional-redemption-contacts'
+
 export type BankAccountInfo = {
   bankAccountName: string
   bank: string
@@ -39,6 +41,7 @@ export type BookingFormData = {
   redemptionContactName: string
   redemptionContactEmail: string
   redemptionContactPhone: string
+  additionalRedemptionContacts: AdditionalRedemptionContact[]
   approverBusinessName: string
   approverName: string
   approverEmail: string

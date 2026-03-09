@@ -15,6 +15,7 @@ import { getAppBaseUrl } from '@/lib/config/env'
 import { logger } from '@/lib/logger'
 import { generateRequestName, countBusinessRequests } from '@/lib/utils/request-naming'
 import { extractDisplayName, extractUserEmail } from '@/lib/auth/user-display'
+import { normalizeAdditionalRedemptionContacts } from '@/lib/booking-requests/additional-redemption-contacts'
 
 type AdditionalBankAccount = {
   bankAccountName: string
@@ -259,6 +260,11 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
       normalizedAdditionalBankAccounts.length > 0
         ? (normalizedAdditionalBankAccounts as Prisma.InputJsonValue)
         : Prisma.JsonNull
+    const normalizedAdditionalRedemptionContacts = normalizeAdditionalRedemptionContacts(fields.additionalRedemptionContacts)
+    const additionalRedemptionContactsJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
+      normalizedAdditionalRedemptionContacts.length > 0
+        ? (normalizedAdditionalRedemptionContacts as Prisma.InputJsonValue)
+        : Prisma.JsonNull
 
     // Create booking request with status 'approved' (as requested)
     // Use the userId from the public link creator (createdBy)
@@ -293,6 +299,7 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
         redemptionContactName: fields.redemptionContactName,
         redemptionContactEmail: fields.redemptionContactEmail,
         redemptionContactPhone: fields.redemptionContactPhone,
+        additionalRedemptionContacts: additionalRedemptionContactsJson,
         // Fiscales: Datos Fiscales, Bancarios y de Ubicación
         legalName: fields.legalName,
         rucDv: fields.rucDv,

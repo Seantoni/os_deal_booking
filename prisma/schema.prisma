@@ -72,6 +72,7 @@ model BookingRequest {
   redemptionContactEmail        String?
   redemptionContactName         String?
   redemptionContactPhone        String?
+  additionalRedemptionContacts  Json?
   redemptionMethods             Json?
   redemptionMode                String?
   rucDv                         String?

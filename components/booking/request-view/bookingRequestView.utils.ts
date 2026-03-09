@@ -9,6 +9,7 @@ import {
   formatRequestNameDate,
   parseDateInPanamaTime,
 } from '@/lib/date'
+import { normalizeAdditionalRedemptionContacts } from '@/lib/booking-requests/additional-redemption-contacts'
 import type {
   AdditionalInfo,
   BookingRequestViewData,
@@ -213,6 +214,23 @@ export function formatBookingRequestFieldValue(
     return lines.length > 0 ? lines.join('\n') : '-'
   }
 
+  if (fieldKey === 'additionalRedemptionContacts' && Array.isArray(value)) {
+    const lines = normalizeAdditionalRedemptionContacts(value)
+      .map((contact, index) => {
+        const details = [
+          contact.name ? `Nombre: ${contact.name}` : null,
+          contact.email ? `Email: ${contact.email}` : null,
+          contact.phone ? `Teléfono: ${contact.phone}` : null,
+        ].filter(Boolean)
+
+        if (details.length === 0) return null
+        return `Contacto ${index + 1}: ${details.join(' | ')}`
+      })
+      .filter((line): line is string => !!line)
+
+    return lines.length > 0 ? lines.join('\n') : '-'
+  }
+
   if (type === 'json' && Array.isArray(value)) {
     return value
       .map((item) => (typeof item === 'string' ? item : JSON.stringify(item)))
@@ -344,6 +362,9 @@ export function buildBookingRequestReplicatePayload(requestData: BookingRequestV
     redemptionContactName: requestData.redemptionContactName ? String(requestData.redemptionContactName) : undefined,
     redemptionContactEmail: requestData.redemptionContactEmail ? String(requestData.redemptionContactEmail) : undefined,
     redemptionContactPhone: requestData.redemptionContactPhone ? String(requestData.redemptionContactPhone) : undefined,
+    additionalRedemptionContacts: Array.isArray(requestData.additionalRedemptionContacts)
+      ? normalizeAdditionalRedemptionContacts(requestData.additionalRedemptionContacts)
+      : undefined,
     legalName: requestData.legalName ? String(requestData.legalName) : undefined,
     rucDv: requestData.rucDv ? String(requestData.rucDv) : undefined,
     bankAccountName: requestData.bankAccountName ? String(requestData.bankAccountName) : undefined,

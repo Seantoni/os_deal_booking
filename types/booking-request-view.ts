@@ -3,6 +3,7 @@
  * Includes all fields from the Prisma schema plus relations
  */
 import type { BookingRequestStatus } from '@/lib/constants'
+import type { AdditionalRedemptionContact } from '@/lib/booking-requests/additional-redemption-contacts'
 import type { FieldComment } from './field-comment'
 
 // Pricing option structure
@@ -93,6 +94,7 @@ export interface BookingRequestViewData {
   redemptionContactName: string | null
   redemptionContactEmail: string | null
   redemptionContactPhone: string | null
+  additionalRedemptionContacts: AdditionalRedemptionContact[] | null
 
   // Step 4: Datos Fiscales, Bancarios y de Ubicación
   legalName: string | null
@@ -164,7 +166,7 @@ export interface BookingRequestViewData {
 }
 
 // Field type enum
-export type FieldType = 'date' | 'json' | 'pricing' | 'description' | 'gallery' | 'attachments'
+export type FieldType = 'date' | 'json' | 'pricing' | 'description' | 'gallery' | 'attachments' | 'contacts' | 'contact'
 
 // Field definition for sections
 export interface FieldDefinition {
