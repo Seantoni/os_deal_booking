@@ -498,22 +498,25 @@ export default function EstructuraStep({
 
       <div className="space-y-6">
         {pricingOptions.map((option, index) => (
-          <div key={index} className="bg-gray-50/50 border border-gray-200 rounded-2xl p-6 relative hover:shadow-md transition-all duration-300 group">
-            {pricingOptions.length > 1 && (
-              <button
-                onClick={() => removePricingOption(index)}
-                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all duration-200 opacity-0 group-hover:opacity-100"
-                title="Eliminar opción"
-              >
-                <DeleteIcon fontSize="small" />
-              </button>
-            )}
-            
-            <div className="mb-4 flex items-center gap-3">
-              <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">
-                {index + 1}
-              </span>
-              <h3 className="font-semibold text-gray-700">Opción de Compra {index + 1}</h3>
+          <div key={index} className="bg-gray-50/50 border border-gray-200 rounded-2xl p-6 hover:shadow-md transition-all duration-300">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm">
+                  {index + 1}
+                </span>
+                <h3 className="font-semibold text-gray-700">Opción de Compra {index + 1}</h3>
+              </div>
+              {pricingOptions.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removePricingOption(index)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-600 transition-colors duration-200 hover:border-red-300 hover:bg-red-50"
+                  title="Eliminar opción"
+                >
+                  <DeleteIcon fontSize="small" />
+                  <span>Eliminar</span>
+                </button>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
