@@ -1,7 +1,7 @@
 /**
  * Deals Tab Component
  * 
- * Shows paginated deal metrics with active deals first.
+ * Shows paginated deal metrics sorted by latest launch first.
  * Uses the same table structure as DealMetricsSection.
  */
 
@@ -10,7 +10,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { getDealMetricsPaginated, searchDealMetrics, getDealMetricsCounts, getDealCategoryOptions, type FormattedDealMetric } from '@/app/actions/deal-metrics'
 import { usePaginatedSearch } from '@/hooks/usePaginatedSearch'
-import { sortEntities } from '@/hooks/useEntityPage'
 import { 
   EntityPageHeader, 
   EmptyTableState, 
@@ -85,6 +84,8 @@ export function DealsTab({
     initialTotal,
     initialCounts,
     pageSize: 50,
+    defaultSortBy: 'runAt',
+    defaultSortDirection: 'desc',
     entityName: 'deals',
   })
 
@@ -189,15 +190,9 @@ export function DealsTab({
       }
     }
 
-    // Always sort: active deals first, then by selected column (or netRevenue desc by default)
+    // Always sort by the selected column. Default sort is start date descending.
     return [...filtered].sort((a, b) => {
-      // Primary sort: Active deals first
-      const aActive = isDealActive(a) ? 1 : 0
-      const bActive = isDealActive(b) ? 1 : 0
-      if (aActive !== bActive) return bActive - aActive
-      
-      // Secondary sort: by selected column or netRevenue desc
-      if (sortColumn && sortColumn !== 'status') {
+      if (sortColumn) {
         const aVal = getSortValue(a, sortColumn)
         const bVal = getSortValue(b, sortColumn)
         if (aVal !== null && bVal !== null) {
@@ -206,9 +201,14 @@ export function DealsTab({
         }
         return 0
       }
-      
-      // Default: by netRevenue descending
-      return b.netRevenue - a.netRevenue
+
+      const aRunAt = getSortValue(a, 'runAt')
+      const bRunAt = getSortValue(b, 'runAt')
+      if (typeof aRunAt === 'number' && typeof bRunAt === 'number') {
+        return bRunAt - aRunAt
+      }
+
+      return 0
     })
   }, [displayDeals, statusFilter, isSearching, sortColumn, sortDirection, getSortValue])
 

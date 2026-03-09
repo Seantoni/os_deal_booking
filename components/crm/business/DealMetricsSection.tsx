@@ -76,7 +76,7 @@ const DEAL_METRICS_TABLE_MIN_WIDTHS: Record<string, number> = {
 export default function DealMetricsSection({ vendorId, businessName, summaryView = 'chart', onCreateRequestFromDeal }: DealMetricsSectionProps) {
   const [loading, setLoading] = useState(true)
   const [deals, setDeals] = useState<DealMetric[]>([])
-  const [sortColumn, setSortColumn] = useState<string | null>('netRevenue')
+  const [sortColumn, setSortColumn] = useState<string | null>('runAt')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const { columnsWithUserWidths, handleColumnResize, getColumnCellStyle } = useResizableColumns(DEAL_COLUMNS, {
     storageKey: 'business-deal-metrics-column-widths',
