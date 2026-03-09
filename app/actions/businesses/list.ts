@@ -145,6 +145,7 @@ export async function getBusinessesPaginated(options: {
   focusFilter?: string // 'all' | 'with-focus'
   activeDealFilter?: boolean // Filter to businesses with active deals
   ownerId?: string // Filter by owner (admin quick filter)
+  parentCategory?: string // Filter by category.parentCategory
   myBusinessesOnly?: boolean // Filter to show only businesses assigned to current user (for sales users)
   advancedFilters?: string // JSON-serialized FilterRule[] for advanced field filtering
 } = {}) {
@@ -159,7 +160,19 @@ export async function getBusinessesPaginated(options: {
 
   try {
     const role = await getUserRole()
-    const { page = 0, pageSize = 50, sortBy = 'createdAt', sortDirection = 'desc', opportunityFilter, focusFilter, activeDealFilter, ownerId: ownerFilter, myBusinessesOnly, advancedFilters } = options
+    const {
+      page = 0,
+      pageSize = 50,
+      sortBy = 'createdAt',
+      sortDirection = 'desc',
+      opportunityFilter,
+      focusFilter,
+      activeDealFilter,
+      ownerId: ownerFilter,
+      parentCategory,
+      myBusinessesOnly,
+      advancedFilters,
+    } = options
 
     // Build where clause based on role
     // Sales users can VIEW all businesses (no ownerId filter by default)
@@ -242,6 +255,14 @@ export async function getBusinessesPaginated(options: {
     // Apply owner filter (admin quick filter)
     if (ownerFilter) {
       whereClause.ownerId = ownerFilter
+    }
+
+    if (parentCategory) {
+      whereClause.category = {
+        is: {
+          parentCategory,
+        },
+      }
     }
     
     // Apply advanced filters (field-based filtering from AdvancedFilterBuilder)
@@ -450,6 +471,7 @@ export async function fetchEditableBusinessIds(): Promise<{
 export async function searchBusinesses(query: string, options: {
   limit?: number
   ownerId?: string // Filter by owner (admin quick filter)
+  parentCategory?: string // Filter by category.parentCategory
   activeDealFilter?: boolean // Filter to businesses with active deals
   myBusinessesOnly?: boolean // Filter to show only businesses owned by current user (for sales users)
 } = {}) {
@@ -461,7 +483,7 @@ export async function searchBusinesses(query: string, options: {
 
   try {
     const role = await getUserRole()
-    const { limit = 100, ownerId: ownerFilter, activeDealFilter, myBusinessesOnly } = options
+    const { limit = 100, ownerId: ownerFilter, parentCategory, activeDealFilter, myBusinessesOnly } = options
 
     if (!query || query.trim().length < 2) {
       return { success: true, data: [], editableBusinessIds: null as string[] | null }
@@ -492,6 +514,14 @@ export async function searchBusinesses(query: string, options: {
     // Apply owner filter (admin quick filter)
     if (ownerFilter) {
       roleFilter.ownerId = ownerFilter
+    }
+
+    if (parentCategory) {
+      roleFilter.category = {
+        is: {
+          parentCategory,
+        },
+      }
     }
 
     // Apply active deal filter if provided

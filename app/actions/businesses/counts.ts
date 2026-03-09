@@ -14,7 +14,12 @@ import {
  * Get business counts by opportunity status (for filter tabs)
  * Returns: all, with-open (has open opportunities), without-open (no open opportunities), with-active-deal
  */
-export async function getBusinessCounts(filters?: { ownerId?: string; myBusinessesOnly?: boolean; advancedFilters?: string }) {
+export async function getBusinessCounts(filters?: {
+  ownerId?: string
+  parentCategory?: string
+  myBusinessesOnly?: boolean
+  advancedFilters?: string
+}) {
   // Import here to avoid circular dependencies
   const { buildPrismaWhere, parseAdvancedFilters } = await import('@/lib/filters/buildPrismaWhere')
   
@@ -49,6 +54,14 @@ export async function getBusinessCounts(filters?: { ownerId?: string; myBusiness
     // Apply owner filter (admin quick filter)
     if (filters?.ownerId) {
       baseWhere.ownerId = filters.ownerId
+    }
+
+    if (filters?.parentCategory) {
+      baseWhere.category = {
+        is: {
+          parentCategory: filters.parentCategory,
+        },
+      }
     }
     
     // Apply advanced filters

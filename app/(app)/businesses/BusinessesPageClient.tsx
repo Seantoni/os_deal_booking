@@ -3,8 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { deleteBusiness } from '@/app/actions/crm'
-import { getBusinessesPaginated, searchBusinesses, getBusinessCounts, getBusinessTableCounts, fetchEditableBusinessIds } from '@/app/actions/businesses'
+import { getBusinessesPaginated, searchBusinesses, getBusinessCounts, fetchEditableBusinessIds } from '@/app/actions/businesses'
 import { getBusinessProjectionSummaryMap } from '@/app/actions/revenue-projections'
 import type { Business } from '@/types'
 import type { ProjectionEntitySummary } from '@/lib/projections/summary'
@@ -15,6 +14,7 @@ import DownloadIcon from '@mui/icons-material/Download'
 import UploadIcon from '@mui/icons-material/Upload'
 import StorefrontIcon from '@mui/icons-material/Storefront'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import CategoryIcon from '@mui/icons-material/Category'
 import type { ParsedCsvRow } from '@/lib/utils/csv-export'
 import CsvUploadModal, { type CsvUploadPreview, type CsvUploadResult } from '@/components/common/CsvUploadModal'
 import { exportBusinessesToCsv } from './csv-export'
@@ -268,6 +268,11 @@ export default function BusinessesPageClient({
   const setOwnerFilter = useCallback((userId: string | null) => {
     updateFilter('ownerId', userId || undefined)
   }, [updateFilter])
+
+  const parentCategoryFilter = (filters.parentCategory as string) || null
+  const setParentCategoryFilter = useCallback((value: string | null) => {
+    updateFilter('parentCategory', value || undefined)
+  }, [updateFilter])
   
   const activeDealFilter = (filters.activeDealFilter as boolean) || false
   const setActiveDealFilter = useCallback((enabled: boolean) => {
@@ -512,32 +517,6 @@ export default function BusinessesPageClient({
     prefetchFormConfig('business')
   }, [prefetchFormConfig])
 
-  // Business CRUD handlers
-  async function handleDeleteBusiness(businessId: string) {
-    const confirmed = await confirmDialog.confirm({
-      title: 'Archivar negocio',
-      message: '¿Seguro que deseas archivar este negocio? Se ocultará de los listados activos.',
-      confirmText: 'Archivar',
-      cancelText: 'Cancelar',
-      confirmVariant: 'danger',
-    })
-
-    if (!confirmed) return
-
-    setBusinesses(prev => prev.filter(b => b.id !== businessId))
-    if (searchResults) {
-      setSearchResults(prev => prev?.filter(b => b.id !== businessId) || null)
-    }
-    
-    const result = await deleteBusiness(businessId)
-    if (!result.success) {
-      toast.error(result.error || 'No se pudo archivar el negocio')
-      loadPage(currentPage)
-    } else {
-      toast.success('Negocio archivado')
-    }
-  }
-
   // Create request (navigates to booking request form)
   function handleCreateRequest(business: Business) {
     const params = new URLSearchParams()
@@ -590,6 +569,7 @@ export default function BusinessesPageClient({
         const result = await searchBusinesses(searchQuery.trim(), {
           limit: 50000,
           ownerId: ownerFilter || undefined,
+          parentCategory: parentCategoryFilter || undefined,
           activeDealFilter: activeDealFilter || undefined,
           myBusinessesOnly: isSalesUser ? myBusinessesOnly : undefined,
         })
@@ -624,6 +604,7 @@ export default function BusinessesPageClient({
             focusFilter: focusFilter === 'all' ? undefined : focusFilter,
             activeDealFilter: activeDealFilter || undefined,
             ownerId: ownerFilter || undefined,
+            parentCategory: parentCategoryFilter || undefined,
             myBusinessesOnly: isSalesUser ? (myBusinessesOnly ? undefined : false) : undefined,
             advancedFilters: filterRules.length > 0 ? JSON.stringify(filterRules) : undefined,
           })
@@ -668,16 +649,58 @@ export default function BusinessesPageClient({
     }))
   }, [users])
 
-  // User filter dropdown (admin only)
-  const userFilter = isAdmin ? (
-    <UserFilterDropdown
-      users={userFilterOptions}
-      value={ownerFilter}
-      onChange={setOwnerFilter}
-      label="Owner"
-      placeholder="Todos"
-    />
-  ) : undefined
+  const parentCategoryOptions = useMemo(() => {
+    const values = new Set<string>()
+
+    categories.forEach((category) => {
+      const value = category.parentCategory?.trim()
+      if (value) values.add(value)
+    })
+
+    displayBusinesses.forEach((business) => {
+      const value = business.category?.parentCategory?.trim()
+      if (value) values.add(value)
+    })
+
+    return Array.from(values).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }))
+  }, [categories, displayBusinesses])
+
+  const quickFilters = (
+    <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
+        <CategoryIcon className="text-gray-400" style={{ fontSize: 16 }} />
+        <select
+          value={parentCategoryFilter || ''}
+          onChange={(e) => setParentCategoryFilter(e.target.value || null)}
+          className="text-[11px] font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 border-0 cursor-pointer transition-colors focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none pr-6"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+            backgroundPosition: 'right 0.25rem center',
+            backgroundRepeat: 'no-repeat',
+            backgroundSize: '1rem 1rem',
+          }}
+          title={`Categoría padre: ${parentCategoryFilter || 'Todas'}`}
+        >
+          <option value="">Todas las categorías</option>
+          {parentCategoryOptions.map((category) => (
+            <option key={category} value={category}>
+              {category}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {isAdmin && (
+        <UserFilterDropdown
+          users={userFilterOptions}
+          value={ownerFilter}
+          onChange={setOwnerFilter}
+          label="Owner"
+          placeholder="Todos"
+        />
+      )}
+    </div>
+  )
 
   // "My Businesses Only" toggle button (for sales users)
   const myBusinessesToggle = isSalesUser ? (
@@ -825,7 +848,7 @@ export default function BusinessesPageClient({
               }
             }}
             isAdmin={isAdmin}
-            userFilter={userFilter}
+            userFilter={quickFilters}
             beforeFilters={
               <div className="flex items-center gap-2">
                 {myBusinessesToggle}
@@ -866,7 +889,7 @@ export default function BusinessesPageClient({
               icon={<FilterListIcon className="w-full h-full" />}
               title="No se encontraron negocios"
               description={
-                searchQuery || opportunityFilter !== 'all' || focusFilter !== 'all' || activeDealFilter || filterRules.length > 0
+                searchQuery || opportunityFilter !== 'all' || focusFilter !== 'all' || activeDealFilter || parentCategoryFilter || filterRules.length > 0
                   ? 'Intente ajustar su búsqueda o filtros' 
                   : 'Comience creando un nuevo negocio'
               }
