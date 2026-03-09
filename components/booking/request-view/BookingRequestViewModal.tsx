@@ -69,6 +69,7 @@ interface BookingRequestViewModalProps {
   onClose: () => void
   requestId: string | null
   hideBackdrop?: boolean
+  showReplicateAction?: boolean
 }
 
 export default function BookingRequestViewModal({
@@ -76,6 +77,7 @@ export default function BookingRequestViewModal({
   onClose,
   requestId,
   hideBackdrop = false,
+  showReplicateAction = false,
 }: BookingRequestViewModalProps) {
   useModalEscape(isOpen, onClose)
 
@@ -446,7 +448,7 @@ export default function BookingRequestViewModal({
       router.push(`/booking-requests/new?replicateKey=${encodeURIComponent(replicateKey)}`)
     } catch (error) {
       console.error('Failed to create editable copy', error)
-      toast.error('La solicitud fue cancelada pero no se pudo crear la copia. Usa el botón Replicar.')
+      toast.error('La solicitud fue cancelada pero no se pudo crear la copia automáticamente.')
     } finally {
       setEditProcessing(false)
     }
@@ -595,6 +597,7 @@ export default function BookingRequestViewModal({
               internalDealId={internalDealId}
               internalDeal={internalDeal}
               showSidebar={showSidebar}
+              showReplicateAction={showReplicateAction}
               commentCount={displayComments.length}
               onOpenPublicDeal={() => {
                 if (!publicDealSlug) return

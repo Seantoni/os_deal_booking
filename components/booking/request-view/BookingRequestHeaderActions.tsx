@@ -26,6 +26,7 @@ interface BookingRequestHeaderActionsProps {
   internalDealId: string | null
   internalDeal: Deal | null
   showSidebar: boolean
+  showReplicateAction?: boolean
   commentCount: number
   onOpenPublicDeal: () => void
   onOpenInternalDeal: () => void
@@ -54,6 +55,7 @@ export function BookingRequestHeaderActions({
   internalDealId,
   internalDeal,
   showSidebar,
+  showReplicateAction = false,
   commentCount,
   onOpenPublicDeal,
   onOpenInternalDeal,
@@ -133,17 +135,21 @@ export function BookingRequestHeaderActions({
         </button>
       )}
 
-      <div className="w-px h-6 bg-slate-200 mx-1" />
+      {showReplicateAction && (
+        <>
+          <div className="w-px h-6 bg-slate-200 mx-1" />
 
-      <button
-        type="button"
-        onClick={onReplicate}
-        disabled={loading || !requestData || replicating}
-        className="p-2 text-slate-500 hover:text-green-600 hover:bg-green-50 border border-transparent hover:border-green-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        title="Replicar"
-      >
-        <ContentCopyIcon style={{ fontSize: 20 }} />
-      </button>
+          <button
+            type="button"
+            onClick={onReplicate}
+            disabled={loading || !requestData || replicating}
+            className="p-2 text-slate-500 hover:text-green-600 hover:bg-green-50 border border-transparent hover:border-green-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Replicar"
+          >
+            <ContentCopyIcon style={{ fontSize: 20 }} />
+          </button>
+        </>
+      )}
 
       {!publicDealSlug && (
         <button

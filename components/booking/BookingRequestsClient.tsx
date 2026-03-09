@@ -1210,6 +1210,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
         isOpen={!!viewRequestId}
         onClose={() => setViewRequestId(null)}
         requestId={viewRequestId}
+        showReplicateAction={false}
       />
 
       {/* Confirm Dialog */}
