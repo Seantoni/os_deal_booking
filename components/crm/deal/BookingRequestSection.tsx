@@ -8,9 +8,11 @@ import { Button } from '@/components/ui'
 interface BookingRequestSectionProps {
   deal: Deal
   onViewRequest: () => void
+  dealPublicUrl?: string | null
+  loadingPublicUrl?: boolean
 }
 
-export default function BookingRequestSection({ deal, onViewRequest }: BookingRequestSectionProps) {
+export default function BookingRequestSection({ deal, onViewRequest, dealPublicUrl, loadingPublicUrl }: BookingRequestSectionProps) {
   const request = deal.bookingRequest
 
   const startDate = deal.eventDates?.startDate ? new Date(deal.eventDates.startDate) : null
@@ -63,7 +65,15 @@ export default function BookingRequestSection({ deal, onViewRequest }: BookingRe
   return (
     <div className="px-1">
       <div className="mt-1.5 flex flex-wrap items-start gap-x-4 gap-y-2 text-[11px] text-slate-600">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-1">
+          {deal.businessVendorId ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Vendor ID</span>
+              <span className="text-slate-900 font-semibold">{deal.businessVendorId}</span>
+            </div>
+          ) : null}
+
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Lanzamiento</span>
             {startDate && endDate ? (
               <>
@@ -101,6 +111,7 @@ export default function BookingRequestSection({ deal, onViewRequest }: BookingRe
               <span className="text-slate-400">Sin fechas de publicación</span>
             )}
           </div>
+        </div>
 
         {request.redemptionContactName || request.redemptionContactEmail || request.redemptionContactPhone ? (
           <>
@@ -151,6 +162,23 @@ export default function BookingRequestSection({ deal, onViewRequest }: BookingRe
           <div className="text-slate-700 mt-0.5 whitespace-pre-line">
             {request.addressAndHours}
           </div>
+        </div>
+      )}
+      {(dealPublicUrl || loadingPublicUrl) && (
+        <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-600">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Link de la oferta</span>
+          {dealPublicUrl ? (
+            <a
+              href={dealPublicUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-blue-600 underline decoration-blue-300 underline-offset-2 hover:text-blue-800 break-all"
+            >
+              {dealPublicUrl}
+            </a>
+          ) : (
+            <span className="text-slate-400">Cargando...</span>
+          )}
         </div>
       )}
     </div>

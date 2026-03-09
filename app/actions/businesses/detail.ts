@@ -28,14 +28,16 @@ export async function getBusinessFormData(businessId?: string | null) {
 
     let businessName = ''
     let businessCategoryId: string | null = null
+    let businessVendorId: string | null = null
 
     if (businessId) {
       const business = await prisma.business.findUnique({
         where: { id: businessId },
-        select: { name: true, categoryId: true },
+        select: { name: true, categoryId: true, osAdminVendorId: true },
       })
       businessName = business?.name?.toLowerCase() || ''
       businessCategoryId = business?.categoryId || null
+      businessVendorId = business?.osAdminVendorId || null
     }
 
     const categoryWhere: Prisma.CategoryWhereInput = businessCategoryId
@@ -169,6 +171,11 @@ export async function getBusinessFormData(businessId?: string | null) {
                 bank: true,
                 accountNumber: true,
                 pricingOptions: true,
+                business: {
+                  select: {
+                    osAdminVendorId: true,
+                  },
+                },
               },
             },
           },
@@ -176,14 +183,19 @@ export async function getBusinessFormData(businessId?: string | null) {
           take: 50,
         })
 
-        deals = Array.from(new Map(dealResults.map(d => [d.id, d])).values()).map(d => ({
-          ...d,
-          status: d.status as DealStatus,
-          bookingRequest: {
-            ...d.bookingRequest,
-            pricingOptions: d.bookingRequest.pricingOptions as PricingOption[] | null,
-          },
-        }))
+        deals = Array.from(new Map(dealResults.map(d => [d.id, d])).values()).map((d) => {
+          const { business, ...bookingRequest } = d.bookingRequest
+
+          return {
+            ...d,
+            status: d.status as DealStatus,
+            businessVendorId: business?.osAdminVendorId || businessVendorId,
+            bookingRequest: {
+              ...bookingRequest,
+              pricingOptions: bookingRequest.pricingOptions as PricingOption[] | null,
+            },
+          }
+        })
       }
     }
 

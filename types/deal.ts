@@ -30,6 +30,7 @@ export type Deal = {
   ereResponsibleId: string | null
   status: DealStatus
   deliveryDate: Date | null
+  businessVendorId?: string | null
   createdAt: Date
   updatedAt: Date
   bookingRequest: {

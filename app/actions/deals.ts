@@ -104,6 +104,11 @@ export async function getDeals() {
                 bank: true,
                 accountNumber: true,
                 pricingOptions: true,
+                business: {
+                  select: {
+                    osAdminVendorId: true,
+                  },
+                },
               },
             },
           },
@@ -198,6 +203,7 @@ export async function getDeals() {
 
         // Map deals with responsible user info and opportunity responsible info
         const dealsWithUsers = filteredDeals.map(deal => {
+          const { business, ...bookingRequest } = deal.bookingRequest
           const opportunity = deal.bookingRequest.opportunityId 
             ? opportunityMap.get(deal.bookingRequest.opportunityId)
             : null
@@ -208,6 +214,8 @@ export async function getDeals() {
 
           return {
             ...deal,
+            businessVendorId: business?.osAdminVendorId || null,
+            bookingRequest,
             responsible: deal.responsibleId 
               ? users.find(u => u.clerkId === deal.responsibleId) || null
               : null,
@@ -300,6 +308,11 @@ export async function getDealsPaginated(options: {
             opportunityId: true,
             merchant: true,
             sourceType: true,
+            business: {
+              select: {
+                osAdminVendorId: true,
+              },
+            },
           },
         },
       },
@@ -325,16 +338,27 @@ export async function getDealsPaginated(options: {
         })
       : []
 
-    const dealsWithUsers = deals.map((deal: { responsibleId: string | null; ereResponsibleId: string | null; bookingRequestId: string }) => ({
-      ...deal,
-      responsible: deal.responsibleId 
-        ? users.find((u: { clerkId: string }) => u.clerkId === deal.responsibleId) || null
-        : null,
-      ereResponsible: deal.ereResponsibleId
-        ? users.find((u: { clerkId: string }) => u.clerkId === deal.ereResponsibleId) || null
-        : null,
-      eventDates: eventDatesByRequestId.get(deal.bookingRequestId) || null,
-    }))
+    const dealsWithUsers = deals.map((deal: {
+      responsibleId: string | null
+      ereResponsibleId: string | null
+      bookingRequestId: string
+      bookingRequest: { business?: { osAdminVendorId: string | null } | null }
+    }) => {
+      const { business, ...bookingRequest } = deal.bookingRequest
+
+      return {
+        ...deal,
+        businessVendorId: business?.osAdminVendorId || null,
+        bookingRequest,
+        responsible: deal.responsibleId 
+          ? users.find((u: { clerkId: string }) => u.clerkId === deal.responsibleId) || null
+          : null,
+        ereResponsible: deal.ereResponsibleId
+          ? users.find((u: { clerkId: string }) => u.clerkId === deal.ereResponsibleId) || null
+          : null,
+        eventDates: eventDatesByRequestId.get(deal.bookingRequestId) || null,
+      }
+    })
 
     return { 
       success: true, 
@@ -694,6 +718,11 @@ export async function getDealByBookingRequestId(bookingRequestId: string) {
             bank: true,
             accountNumber: true,
             pricingOptions: true,
+            business: {
+              select: {
+                osAdminVendorId: true,
+              },
+            },
           },
         },
       },
@@ -714,7 +743,17 @@ export async function getDealByBookingRequestId(bookingRequestId: string) {
 
     const eventDates = event ? { startDate: event.startDate, endDate: event.endDate } : null
 
-    return { success: true, data: { ...deal, eventDates } }
+    const { business, ...bookingRequest } = deal.bookingRequest
+
+    return {
+      success: true,
+      data: {
+        ...deal,
+        businessVendorId: business?.osAdminVendorId || null,
+        bookingRequest,
+        eventDates,
+      },
+    }
   } catch (error) {
     return handleServerActionError(error, 'getDealByBookingRequestId')
   }
@@ -735,7 +774,7 @@ export async function getDealsByBusiness(businessId: string) {
   try {
     const business = await prisma.business.findUnique({
       where: { id: businessId },
-      select: { name: true },
+      select: { name: true, osAdminVendorId: true },
     })
 
     if (!business) {
@@ -797,6 +836,11 @@ export async function getDealsByBusiness(businessId: string) {
             bank: true,
             accountNumber: true,
             pricingOptions: true,
+            business: {
+              select: {
+                osAdminVendorId: true,
+              },
+            },
           },
         },
       },
@@ -819,15 +863,25 @@ export async function getDealsByBusiness(businessId: string) {
         })
       : []
 
-    const dealsWithUsers = uniqueDeals.map((deal: { responsibleId: string | null; ereResponsibleId: string | null }) => ({
-      ...deal,
-      responsible: deal.responsibleId
-        ? users.find((u: { clerkId: string }) => u.clerkId === deal.responsibleId) || null
-        : null,
-      ereResponsible: deal.ereResponsibleId
-        ? users.find((u: { clerkId: string }) => u.clerkId === deal.ereResponsibleId) || null
-        : null,
-    }))
+    const dealsWithUsers = uniqueDeals.map((deal: {
+      responsibleId: string | null
+      ereResponsibleId: string | null
+      bookingRequest: { business?: { osAdminVendorId: string | null } | null }
+    }) => {
+      const { business: linkedBusiness, ...bookingRequest } = deal.bookingRequest
+
+      return {
+        ...deal,
+        businessVendorId: linkedBusiness?.osAdminVendorId || business.osAdminVendorId || null,
+        bookingRequest,
+        responsible: deal.responsibleId
+          ? users.find((u: { clerkId: string }) => u.clerkId === deal.responsibleId) || null
+          : null,
+        ereResponsible: deal.ereResponsibleId
+          ? users.find((u: { clerkId: string }) => u.clerkId === deal.ereResponsibleId) || null
+          : null,
+      }
+    })
 
     return { success: true, data: dealsWithUsers }
   } catch (error) {

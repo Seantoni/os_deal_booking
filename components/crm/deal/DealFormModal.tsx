@@ -10,6 +10,8 @@ import CloseIcon from '@mui/icons-material/Close'
 import DescriptionIcon from '@mui/icons-material/Description'
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline'
+import StorefrontIcon from '@mui/icons-material/Storefront'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import { Button } from '@/components/ui'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
@@ -18,7 +20,6 @@ import { BookingRequestViewModal } from '@/components/booking/request-view'
 import { useDealForm } from './useDealForm'
 import DealStatusPipeline from './DealStatusPipeline'
 import ResponsibleUserSection from './ResponsibleUserSection'
-import ReferenceInfoBar from '@/components/shared/ReferenceInfoBar'
 import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
 import BookingRequestSection from './BookingRequestSection'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
@@ -424,16 +425,6 @@ export default function DealFormModal({
             <DealFormSkeleton />
           ) : (
             <div className="p-3 space-y-3">
-              {/* Opportunity Responsible Reference */}
-              {deal?.opportunityResponsible && (
-                <ReferenceInfoBar>
-                  <ReferenceInfoBar.UserDisplayItem
-                    label="Representante de Ventas"
-                    user={deal.opportunityResponsible}
-                  />
-                </ReferenceInfoBar>
-              )}
-
               {/* Deal Status Pipeline */}
               <DealStatusPipeline
                 status={status}
@@ -443,35 +434,43 @@ export default function DealFormModal({
               />
               <div className="h-px bg-gray-200/70" />
 
-              {/* Booking Request Summary */}
               {deal && (
-                <BookingRequestSection
-                  deal={deal}
-                  onViewRequest={() => setBookingRequestModalOpen(true)}
-                />
-              )}
-
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-medium text-gray-600 w-32 flex-shrink-0">
-                  Link de la oferta
-                </span>
-                <div className="flex-1 min-w-0">
-                  {dealPublicUrl ? (
-                    <a
-                      href={dealPublicUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:text-blue-700 hover:underline break-all"
-                    >
-                      {dealPublicUrl}
-                    </a>
-                  ) : (
-                    <span className="text-xs text-gray-400">
-                      {loadingPublicDealSlug ? 'Cargando...' : '-'}
+                <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white">
+                  <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/80 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(255,255,255,0.98))] px-3 py-2">
+                    <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      Referencia
                     </span>
-                  )}
+
+                    {deal.opportunityResponsible && (
+                      <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] text-slate-700">
+                        <PersonOutlineIcon style={{ fontSize: 13 }} className="text-slate-400" />
+                        <span className="font-semibold text-slate-500">Ventas</span>
+                        <span className="text-slate-900">
+                          {deal.opportunityResponsible.name || deal.opportunityResponsible.email || 'N/A'}
+                        </span>
+                      </div>
+                    )}
+
+                    {deal.businessVendorId && (
+                      <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] text-emerald-800">
+                        <StorefrontIcon style={{ fontSize: 13 }} className="text-emerald-600" />
+                        <span className="font-semibold">Vendor ID</span>
+                        <span className="font-bold tracking-[0.02em]">{deal.businessVendorId}</span>
+                      </div>
+                    )}
+
+                  </div>
+
+                  <div className="px-3 py-2.5">
+                    <BookingRequestSection
+                      deal={deal}
+                      onViewRequest={() => setBookingRequestModalOpen(true)}
+                      dealPublicUrl={dealPublicUrl}
+                      loadingPublicUrl={loadingPublicDealSlug}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Responsible User Section */}
               <ResponsibleUserSection
