@@ -103,7 +103,7 @@ export default function ConfirmDialog({
   }
 
   return (
-    <div className="fixed inset-0 overflow-y-auto" style={{ zIndex }}>
+    <div className="fixed inset-0" style={{ zIndex }}>
       {/* Backdrop - needs explicit z-index to layer correctly */}
       <div
         className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm transition-opacity"
@@ -112,8 +112,8 @@ export default function ConfirmDialog({
       />
 
       {/* Dialog - needs higher z-index than backdrop */}
-      <div className="fixed inset-0 flex min-h-full items-center justify-center p-4" style={{ zIndex: zIndex + 1 }}>
-        <div className="relative w-full max-w-md transform overflow-hidden rounded-xl bg-white shadow-2xl transition-all">
+      <div className="fixed inset-0 flex min-h-full items-center justify-center p-2 sm:p-4" style={{ zIndex: zIndex + 1 }}>
+        <div className="relative flex w-full max-w-md max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] transform flex-col overflow-hidden rounded-xl bg-white shadow-2xl transition-all">
           {/* Close button */}
           <div className="absolute top-3 right-3">
             <Button
@@ -121,13 +121,14 @@ export default function ConfirmDialog({
               variant="ghost"
               className="p-1.5"
               disabled={loading}
+              aria-label="Cerrar"
             >
               <CloseIcon className="h-5 w-5" />
             </Button>
           </div>
 
           {/* Header */}
-          <div className="flex flex-col items-center pt-6 pb-2 px-6">
+          <div className="flex flex-col items-center px-5 pt-6 pb-2 text-center sm:px-6 flex-shrink-0">
             <div className={`flex h-12 w-12 items-center justify-center rounded-full ${variantStyles.iconBg} mb-3`}>
               {icon || variantStyles.defaultIcon}
             </div>
@@ -135,7 +136,7 @@ export default function ConfirmDialog({
           </div>
 
           {/* Body */}
-          <div className="px-6 py-4 text-center">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 text-center sm:px-6">
             {typeof message === 'string' ? (
               <p className="text-sm text-gray-600">{message}</p>
             ) : (
@@ -144,7 +145,7 @@ export default function ConfirmDialog({
           </div>
 
           {/* Footer */}
-          <div className="flex justify-center gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
+          <div className="flex flex-col-reverse justify-center gap-2 border-t border-gray-200 bg-gray-50 px-5 py-4 sm:flex-row sm:gap-3 sm:px-6 flex-shrink-0">
             {cancelText && (
               <Button
                 type="button"
