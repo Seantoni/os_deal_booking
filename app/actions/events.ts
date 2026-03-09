@@ -6,7 +6,7 @@ import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions
 import { invalidateDashboard, invalidateEntity, invalidateEntities } from '@/lib/cache'
 import { getUserRole } from '@/lib/auth/roles'
 import { parseDateInPanamaTime, parseEndDateInPanamaTime } from '@/lib/date/timezone'
-import { buildCategoryKey } from '@/lib/category-utils'
+import { buildCategoryKey, canonicalizeMainCategory } from '@/lib/category-utils'
 import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
 import { logActivity } from '@/lib/activity-log'
 import { logger } from '@/lib/logger'
@@ -333,8 +333,10 @@ export async function createEvent(formData: FormData) {
   const endDateTime = parseEndDateInPanamaTime(endDate)
 
   // Build standardized category key for consistent matching
+  const normalizedParentCategory = canonicalizeMainCategory(parentCategory)
+
   const standardizedCategory = buildCategoryKey(
-    parentCategory || null,
+    normalizedParentCategory || null,
     subCategory1 || null,
     subCategory2 || null,
     null, // subCategory3
@@ -350,7 +352,7 @@ export async function createEvent(formData: FormData) {
       name,
       description: description || null,
       category: standardizedCategory, // Store standardized key in category field
-      parentCategory: parentCategory || null,
+      parentCategory: normalizedParentCategory || null,
       subCategory1: subCategory1 || null,
       subCategory2: subCategory2 || null,
       business: business || null,
@@ -804,8 +806,10 @@ export async function updateEvent(eventId: string, formData: FormData) {
   const endDateTime = parseEndDateInPanamaTime(endDate)
 
   // Build standardized category key for consistent matching
+  const normalizedParentCategory = canonicalizeMainCategory(parentCategory)
+
   const standardizedCategory = buildCategoryKey(
-    parentCategory || null,
+    normalizedParentCategory || null,
     subCategory1 || null,
     subCategory2 || null,
     null, // subCategory3
@@ -831,7 +835,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
       name,
       description: description || null,
       category: standardizedCategory, // Store standardized key in category field
-      parentCategory: parentCategory || null,
+      parentCategory: normalizedParentCategory || null,
       subCategory1: subCategory1 || null,
       subCategory2: subCategory2 || null,
       business: business || null,
@@ -869,7 +873,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
       name,
       description: description || null,
       category: standardizedCategory,
-      parentCategory: parentCategory || null,
+      parentCategory: normalizedParentCategory || null,
       subCategory1: subCategory1 || null,
       subCategory2: subCategory2 || null,
       business: business || null,

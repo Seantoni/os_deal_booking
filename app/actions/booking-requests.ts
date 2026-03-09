@@ -20,7 +20,7 @@ import { buildCategoryDisplayString } from '@/lib/utils/category-display'
 import { logger } from '@/lib/logger'
 import { getAppBaseUrl } from '@/lib/config/env'
 import { parseDateInPanamaTime, parseEndDateInPanamaTime, PANAMA_TIMEZONE, formatDateForDisplay } from '@/lib/date'
-import { buildCategoryKey } from '@/lib/category-utils'
+import { buildCategoryKey, canonicalizeMainCategory } from '@/lib/category-utils'
 import { logActivity, logActivities } from '@/lib/activity-log'
 import { generateRequestName, countBusinessRequests } from '@/lib/utils/request-naming'
 import { findLinkedBusiness, findLinkedBusinessFull } from '@/lib/business'
@@ -157,12 +157,13 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
           ) as Prisma.InputJsonValue)
         : Prisma.JsonNull
     const linkedBusinessId = (formData.get('linkedBusinessId') as string | null) || null
+    const normalizedParentCategory = canonicalizeMainCategory(fields.parentCategory)
 
     const data = {
       name: requestName,
       businessId: linkedBusinessId,
       category: fields.category,
-      parentCategory: fields.parentCategory,
+      parentCategory: normalizedParentCategory,
       subCategory1: fields.subCategory1,
       subCategory2: fields.subCategory2,
       subCategory3: fields.subCategory3,
@@ -440,12 +441,13 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
     const linkedBusinessId = (formData.get('linkedBusinessId') as string | null) || null
 
     const sentAtValue = existingRequestForMilestones?.sentAt ?? new Date()
+    const normalizedParentCategory = canonicalizeMainCategory(parentCategory)
 
     const data = {
       name: requestName,
       businessId: linkedBusinessId,
       category: category || null,
-      parentCategory: parentCategory || null,
+      parentCategory: normalizedParentCategory || null,
       subCategory1: subCategory1 || null,
       subCategory2: subCategory2 || null,
       subCategory3: subCategory3 || null,
@@ -550,9 +552,8 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
     }
 
     // Build standardized category key for consistent matching
-    const { buildCategoryKey } = await import('@/lib/category-utils')
     const standardizedCategory = buildCategoryKey(
-      data.parentCategory,
+      normalizedParentCategory,
       data.subCategory1,
       data.subCategory2,
       null, // subCategory3
@@ -569,7 +570,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
           name: data.name!,
           description: null, // BookingRequest no longer has description
           category: standardizedCategory, // Store standardized key in category field
-          parentCategory: data.parentCategory,
+          parentCategory: normalizedParentCategory,
           subCategory1: data.subCategory1,
           subCategory2: data.subCategory2,
           business: data.merchant,
@@ -588,7 +589,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
           name: data.name!,
           description: null, // BookingRequest no longer has description
           category: standardizedCategory, // Store standardized key in category field
-          parentCategory: data.parentCategory,
+          parentCategory: normalizedParentCategory,
           subCategory1: data.subCategory1,
           subCategory2: data.subCategory2,
           business: data.merchant,
@@ -1344,13 +1345,14 @@ export async function updateBookingRequest(requestId: string, formData: FormData
           )
         )
       : null
+    const normalizedParentCategory = canonicalizeMainCategory(fields.parentCategory)
 
     const bookingRequest = await prisma.bookingRequest.update({
       where: { id: requestId },
       data: {
         name: fields.name || undefined,
         category: fields.category || undefined,
-        parentCategory: fields.parentCategory || undefined,
+        parentCategory: normalizedParentCategory || undefined,
         subCategory1: fields.subCategory1 || undefined,
         subCategory2: fields.subCategory2 || undefined,
         subCategory3: fields.subCategory3 || undefined,
@@ -1371,7 +1373,7 @@ export async function updateBookingRequest(requestId: string, formData: FormData
     if (bookingRequest.eventId) {
       // Build standardized category key for consistent matching
       const standardizedCategory = buildCategoryKey(
-        fields.parentCategory,
+        normalizedParentCategory,
         fields.subCategory1,
         fields.subCategory2,
         fields.subCategory3,
@@ -1384,7 +1386,7 @@ export async function updateBookingRequest(requestId: string, formData: FormData
         data: {
           name: fields.name || undefined,
           category: standardizedCategory, // Store standardized key in category field
-          parentCategory: fields.parentCategory || undefined,
+          parentCategory: normalizedParentCategory || undefined,
           subCategory1: fields.subCategory1 || undefined,
           subCategory2: fields.subCategory2 || undefined,
           subCategory3: fields.subCategory3 || undefined,

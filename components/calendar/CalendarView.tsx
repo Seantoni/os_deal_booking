@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { getDaysDifference, getCategoryColors } from '@/lib/categories'
-import { getEventCategoryKey } from '@/lib/category-utils'
+import { getEventCategoryKey, normalizeCategoryKeyForMatch } from '@/lib/category-utils'
 import { getDailyLimitStatus } from '@/lib/event-validation'
 import { getSettings } from '@/lib/settings'
 import { PANAMA_TIMEZONE, getDateComponentsInPanama } from '@/lib/date/timezone'
@@ -64,39 +64,10 @@ function compareEventsByNameAsc(a: Event, b: Event): number {
   return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' })
 }
 
-function normalizeCategoryKey(value: string | null | undefined): string | null {
-  if (!value) return null
-
-  // Normalize accents and Unicode variants so legacy/imported categories still match sidebar keys.
-  const normalizedUnicode = value
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-
-  const normalized = value
-    // Support both ">" and "›" hierarchy separators.
-    .replace(/\s*[>›]\s*/g, ':')
-    // Normalize spacing around separators.
-    .replace(/\s*:\s*/g, ':')
-    // Collapse internal spacing differences.
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toUpperCase()
-
-  const normalizedFromUnicode = normalizedUnicode
-    .replace(/\s*[>›]\s*/g, ':')
-    .replace(/\s*:\s*/g, ':')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toUpperCase()
-
-  // Prefer accent-stripped representation for stable matching across data sources.
-  return normalizedFromUnicode || normalized || null
-}
-
 function buildEventCategoryCandidates(event: Event): string[] {
   const candidates = new Set<string>()
   const addCandidate = (value: string | null | undefined) => {
-    const normalized = normalizeCategoryKey(value)
+    const normalized = normalizeCategoryKeyForMatch(value)
     if (normalized) candidates.add(normalized)
   }
 
@@ -168,7 +139,7 @@ export default function CalendarView({ events, searchEvents = [], isSearchLoadin
 
     const normalizedSelectedCategories = new Set(
       activeSelectedCategories
-        .map((category) => normalizeCategoryKey(category))
+        .map((category) => normalizeCategoryKeyForMatch(category))
         .filter((category): category is string => Boolean(category))
     )
 

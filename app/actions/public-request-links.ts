@@ -10,7 +10,7 @@ import { invalidateDashboard, invalidateEntities } from '@/lib/cache'
 import { extractBookingRequestFromFormData } from '@/lib/utils/form-data'
 import { validateRequiredFields, isValidEmail, validateDateRange } from '@/lib/utils/validation'
 import { parseDateInPanamaTime, parseEndDateInPanamaTime } from '@/lib/date/timezone'
-import { buildCategoryKey } from '@/lib/category-utils'
+import { buildCategoryKey, canonicalizeMainCategory } from '@/lib/category-utils'
 import { getAppBaseUrl } from '@/lib/config/env'
 import { logger } from '@/lib/logger'
 import { generateRequestName, countBusinessRequests } from '@/lib/utils/request-naming'
@@ -215,8 +215,9 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
     }
 
     // Build standardized category key
+    const normalizedParentCategory = canonicalizeMainCategory(fields.parentCategory)
     const standardizedCategory = buildCategoryKey(
-      fields.parentCategory || null,
+      normalizedParentCategory || null,
       fields.subCategory1 || null,
       fields.subCategory2 || null,
       fields.subCategory3 || null,
@@ -272,7 +273,7 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
       data: {
         name: requestName,
         category: standardizedCategory,
-        parentCategory: fields.parentCategory,
+        parentCategory: normalizedParentCategory,
         subCategory1: fields.subCategory1,
         subCategory2: fields.subCategory2,
         merchant: fields.merchant,
@@ -343,7 +344,7 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
         name: bookingRequest.name,
         description: null, // Events can have their own description if needed
         category: standardizedCategory,
-        parentCategory: bookingRequest.parentCategory,
+        parentCategory: normalizedParentCategory,
         subCategory1: bookingRequest.subCategory1,
         subCategory2: bookingRequest.subCategory2,
         business: bookingRequest.merchant,

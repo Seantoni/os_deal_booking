@@ -13,6 +13,47 @@ type EventCategoryLike = Pick<
   'category' | 'parentCategory' | 'subCategory1' | 'subCategory2' | 'subCategory3' | 'subCategory4'
 >
 
+const MAIN_CATEGORY_ALIASES: Record<string, string> = {
+  HOTEL: 'HOTELES',
+}
+
+function stripAccents(value: string): string {
+  return value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+}
+
+function normalizeCategoryPart(value: string): string {
+  return value.replace(/\s+/g, ' ').trim()
+}
+
+export function canonicalizeMainCategory(mainCategory?: string | null): string | null {
+  if (!mainCategory) return null
+
+  const normalized = normalizeCategoryPart(mainCategory)
+  if (!normalized) return null
+
+  const aliasKey = stripAccents(normalized).toUpperCase()
+  return MAIN_CATEGORY_ALIASES[aliasKey] || normalized
+}
+
+export function normalizeCategoryKeyForMatch(value: string | null | undefined): string | null {
+  if (!value) return null
+
+  const normalized = stripAccents(value)
+    .replace(/\s*[>›]\s*/g, ':')
+    .replace(/\s*:\s*/g, ':')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase()
+
+  if (!normalized) return null
+
+  const parts = normalized.split(':').filter(Boolean)
+  if (parts.length === 0) return null
+
+  parts[0] = MAIN_CATEGORY_ALIASES[parts[0]] || parts[0]
+  return parts.join(':')
+}
+
 /**
  * Build a standardized category key from hierarchical category fields
  * Format: "PARENT:SUB1:SUB2:SUB3:SUB4" (omitting empty parts)
@@ -36,11 +77,14 @@ export function buildCategoryKey(
 ): string | null {
   // Priority 1: If we have hierarchical fields, build from them (most reliable)
   if (parentCategory) {
-    const parts = [parentCategory.trim()]
-    if (subCategory1) parts.push(subCategory1.trim())
-    if (subCategory2) parts.push(subCategory2.trim())
-    if (subCategory3) parts.push(subCategory3.trim())
-    if (subCategory4) parts.push(subCategory4.trim())
+    const normalizedParentCategory = canonicalizeMainCategory(parentCategory)
+    if (!normalizedParentCategory) return null
+
+    const parts = [normalizedParentCategory]
+    if (subCategory1) parts.push(normalizeCategoryPart(subCategory1))
+    if (subCategory2) parts.push(normalizeCategoryPart(subCategory2))
+    if (subCategory3) parts.push(normalizeCategoryPart(subCategory3))
+    if (subCategory4) parts.push(normalizeCategoryPart(subCategory4))
     return parts.join(':')
   }
   
@@ -48,9 +92,16 @@ export function buildCategoryKey(
   if (legacyCategory) {
     // Normalize legacy format (handle " > " or ":" separators)
     // Also handle formats like "RESTAURANTES:Comida Rápida:Hamburguesas / Pizza"
-    const normalized = legacyCategory.replace(/\s*>\s*/g, ':').trim()
-    // Remove any extra whitespace around colons
-    return normalized.replace(/:\s+/g, ':').replace(/\s+:/g, ':')
+    const normalized = legacyCategory
+      .replace(/\s*[>›]\s*/g, ':')
+      .replace(/\s*:\s*/g, ':')
+      .trim()
+
+    const parts = normalized.split(':').map(normalizeCategoryPart).filter(Boolean)
+    if (parts.length === 0) return null
+
+    parts[0] = canonicalizeMainCategory(parts[0]) || parts[0]
+    return parts.join(':')
   }
   
   return null
@@ -91,11 +142,10 @@ export function getBookingRequestCategoryKey(request: BookingRequest): string | 
 export function categoryKeysMatch(key1: string | null, key2: string | null): boolean {
   if (!key1 || !key2) return false
   
-  // Normalize both keys (trim, handle case sensitivity)
-  const normalized1 = key1.trim().toUpperCase()
-  const normalized2 = key2.trim().toUpperCase()
+  const normalized1 = normalizeCategoryKeyForMatch(key1)
+  const normalized2 = normalizeCategoryKeyForMatch(key2)
   
-  return normalized1 === normalized2
+  return normalized1 !== null && normalized1 === normalized2
 }
 
 /**
