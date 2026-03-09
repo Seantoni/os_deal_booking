@@ -579,10 +579,72 @@ export default function BusinessesPageClient({
     router.push(`/booking-requests/new?${params.toString()}`)
   }
 
-  // CSV handlers
-  function handleDownloadCsv() {
-    const count = exportBusinessesToCsv(filteredBusinesses)
-    toast.success(`Exported ${count} businesses`)
+  // CSV export: fetch ALL records matching current filters (not just the current page)
+  const [csvExportLoading, setCsvExportLoading] = useState(false)
+  async function handleDownloadCsv() {
+    setCsvExportLoading(true)
+    try {
+      let allBusinesses: Business[]
+      if (isSearching && searchQuery.trim().length >= 2) {
+        // Search mode: fetch all search results (high limit)
+        const result = await searchBusinesses(searchQuery.trim(), {
+          limit: 50000,
+          ownerId: ownerFilter || undefined,
+          activeDealFilter: activeDealFilter || undefined,
+          myBusinessesOnly: isSalesUser ? myBusinessesOnly : undefined,
+        })
+        if (!result.success || !result.data) {
+          toast.error((!result.success && 'error' in result ? result.error : null) || 'Error al preparar exportación')
+          return
+        }
+        allBusinesses = result.data as Business[]
+        // Apply same client-side filters as table (opportunity, focus, advanced)
+        if (opportunityFilter === 'with-open') {
+          allBusinesses = allBusinesses.filter(b => businessHasOpenOpportunity.get(b.id))
+        } else if (opportunityFilter === 'without-open') {
+          allBusinesses = allBusinesses.filter(b => !businessHasOpenOpportunity.get(b.id))
+        }
+        if (focusFilter === 'with-focus') {
+          allBusinesses = allBusinesses.filter(b => businessActiveFocus.has(b.id))
+        }
+        allBusinesses = applyFiltersToData(allBusinesses)
+      } else {
+        // Paginated mode: fetch all pages with current filters
+        const pageSize = 500
+        const collected: Business[] = []
+        let page = 0
+        let hasMore = true
+        while (hasMore) {
+          const result = await getBusinessesPaginated({
+            page,
+            pageSize,
+            sortBy: sortColumn || 'createdAt',
+            sortDirection,
+            opportunityFilter: opportunityFilter === 'all' ? undefined : opportunityFilter,
+            focusFilter: focusFilter === 'all' ? undefined : focusFilter,
+            activeDealFilter: activeDealFilter || undefined,
+            ownerId: ownerFilter || undefined,
+            myBusinessesOnly: isSalesUser ? (myBusinessesOnly ? undefined : false) : undefined,
+            advancedFilters: filterRules.length > 0 ? JSON.stringify(filterRules) : undefined,
+          })
+          if (!result.success || !result.data) {
+            toast.error((!result.success && 'error' in result ? result.error : null) || 'Error al preparar exportación')
+            return
+          }
+          const pageData = result.data as Business[]
+          collected.push(...pageData)
+          hasMore = pageData.length === pageSize
+          page += 1
+        }
+        allBusinesses = collected
+      }
+      const count = exportBusinessesToCsv(allBusinesses)
+      toast.success(`Exportados ${count} negocios`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error al exportar CSV')
+    } finally {
+      setCsvExportLoading(false)
+    }
   }
 
   async function handleUploadPreview(rows: ParsedCsvRow[]): Promise<CsvUploadPreview> {
@@ -661,9 +723,10 @@ export default function BusinessesPageClient({
             variant="secondary"
             size="sm"
             leftIcon={<DownloadIcon style={{ fontSize: 16 }} />}
-            title="Descargar CSV"
+            title="Descargar CSV (todos los registros)"
+            disabled={csvExportLoading}
           >
-            CSV
+            {csvExportLoading ? '…' : 'CSV'}
           </Button>
         </div>
       )}
