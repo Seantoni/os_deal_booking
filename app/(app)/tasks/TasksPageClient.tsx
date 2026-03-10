@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useOptimistic, useTransition } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import { getUserTasks, toggleTaskComplete, getTaskCounts, type TaskWithOpportunity } from '@/app/actions/tasks'
+import { getUserTasks, toggleTaskComplete, getTaskCounts, toggleTaskStar, type TaskWithOpportunity } from '@/app/actions/tasks'
 import { createTask, updateTask, deleteTask } from '@/app/actions/opportunities'
 import { getOpportunity, updateOpportunity } from '@/app/actions/crm'
 import type { Opportunity, OpportunityStage } from '@/types'
@@ -25,6 +25,8 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PhoneIcon from '@mui/icons-material/Phone'
 import EmailIcon from '@mui/icons-material/Email'
 import PersonIcon from '@mui/icons-material/Person'
+import StarIcon from '@mui/icons-material/Star'
+import StarBorderIcon from '@mui/icons-material/StarBorder'
 import { getTodayInPanama, formatDateForPanama, formatShortDateNoYear, daysUntil } from '@/lib/date'
 import { addBusinessDaysInPanama } from '@/lib/date/timezone'
 import {
@@ -38,7 +40,7 @@ import {
   type ColumnConfig
 } from '@/components/shared'
 import { EntityTable, TableRow, TableCell } from '@/components/shared/table'
-import { sortEntities, type SortDirection } from '@/hooks/useEntityPage'
+import { type SortDirection } from '@/hooks/useEntityPage'
 import { useResizableColumns } from '@/hooks/useResizableColumns'
 import { isDateInRange, type DateRangeFilterValue } from '@/lib/utils/dateRangeFilter'
 import TableViewIcon from '@mui/icons-material/TableView'
@@ -79,6 +81,7 @@ const STAGE_COLORS: Record<string, string> = {
 // Table columns
 const COLUMNS: ColumnConfig[] = [
   { key: 'status', label: '', align: 'center' },
+  { key: 'star', label: '', align: 'center' },
   { key: 'business', label: 'Negocio', sortable: true },
   { key: 'lifecycle', label: 'N/R', align: 'center' },
   { key: 'title', label: 'Tarea', sortable: true },
@@ -93,6 +96,7 @@ const COLUMNS: ColumnConfig[] = [
 ]
 
 const ALL_TASKS_COLUMNS: ColumnConfig[] = [
+  { key: 'star', label: '', align: 'center' },
   { key: 'taskTypeIcon', label: '', align: 'center' },
   { key: 'date', label: 'Fecha', sortable: true },
   { key: 'business', label: 'Negocio', sortable: true },
@@ -103,10 +107,11 @@ const ALL_TASKS_COLUMNS: ColumnConfig[] = [
   { key: 'description', label: 'Descripción' },
 ]
 
-const TASKS_COLUMN_WIDTHS_STORAGE_KEY = 'tasks-table-column-widths'
-const ALL_TASKS_COLUMN_WIDTHS_STORAGE_KEY = 'all-tasks-table-column-widths-v2'
+const TASKS_COLUMN_WIDTHS_STORAGE_KEY = 'tasks-table-column-widths-v2'
+const ALL_TASKS_COLUMN_WIDTHS_STORAGE_KEY = 'all-tasks-table-column-widths-v3'
 const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
   status: 40,
+  star: 40,
   title: 122,
   description: 170,
   responsible: 80,
@@ -121,6 +126,7 @@ const DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
 }
 
 const ALL_TASKS_DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
+  star: 40,
   taskTypeIcon: 44,
   date: 120,
   business: 220,
@@ -133,6 +139,7 @@ const ALL_TASKS_DEFAULT_COLUMN_WIDTHS: Record<string, number> = {
 
 const MIN_COLUMN_WIDTHS: Record<string, number> = {
   status: 36,
+  star: 36,
   title: 90,
   description: 120,
   responsible: 70,
@@ -147,6 +154,7 @@ const MIN_COLUMN_WIDTHS: Record<string, number> = {
 }
 
 const ALL_TASKS_MIN_COLUMN_WIDTHS: Record<string, number> = {
+  star: 1,
   taskTypeIcon: 1,
   date: 1,
   business: 1,
@@ -161,6 +169,20 @@ type FilterType = 'all' | 'pending' | 'completed' | 'overdue' | 'meetings' | 'to
 type TasksPageTab = 'manage' | 'all_tasks'
 type AllTasksStatusFilter = 'all' | 'pending' | 'completed'
 type AllTasksCategoryFilter = 'all' | 'meetings' | 'tasks'
+type StarFilter = 'all' | 'starred'
+
+function compareSortValues(
+  aValue: string | number | Date | null,
+  bValue: string | number | Date | null,
+  direction: SortDirection,
+): number {
+  if (aValue === null && bValue === null) return 0
+  if (aValue === null) return direction === 'asc' ? 1 : -1
+  if (bValue === null) return direction === 'asc' ? -1 : 1
+  if (aValue < bValue) return direction === 'asc' ? -1 : 1
+  if (aValue > bValue) return direction === 'asc' ? 1 : -1
+  return 0
+}
 
 interface MeetingPipelineAutomationResult {
   didMutateOpportunity: boolean
@@ -183,6 +205,8 @@ export default function TasksPageClient() {
   const [activeTab, setActiveTab] = useState<TasksPageTab>('manage')
   const [allTasksStatusFilter, setAllTasksStatusFilter] = useState<AllTasksStatusFilter>('all')
   const [allTasksCategoryFilter, setAllTasksCategoryFilter] = useState<AllTasksCategoryFilter>('all')
+  const [manageStarFilter, setManageStarFilter] = useState<StarFilter>('all')
+  const [allTasksStarFilter, setAllTasksStarFilter] = useState<StarFilter>('all')
   const [allTasksDateFilter, setAllTasksDateFilter] = useState<DateRangeFilterValue>({ preset: 'all' })
   const [responsibleFilter, setResponsibleFilter] = useState<string | null>(null)
   const [serverCounts, setServerCounts] = useState<Record<string, number>>({})
@@ -213,7 +237,7 @@ export default function TasksPageClient() {
   )
   
   // React 19: useTransition for non-blocking toggle
-  const [isToggling, startToggleTransition] = useTransition()
+  const [, startToggleTransition] = useTransition()
 
   // Sorting state
   const [sortColumn, setSortColumn] = useState<string | null>('date')
@@ -236,7 +260,7 @@ export default function TasksPageClient() {
   })
 
   const shouldApplyAllTasksColumnWidth = useCallback((columnKey: string) => {
-    if (columnKey === 'description' || columnKey === 'taskTypeIcon') return true
+    if (columnKey === 'description' || columnKey === 'taskTypeIcon' || columnKey === 'star') return true
     const columnConfig = allTasksColumnsWithUserWidths.find((column) => column.key === columnKey)
     const currentWidth = columnConfig?.widthPx
     if (!currentWidth) return false
@@ -314,8 +338,45 @@ export default function TasksPageClient() {
     }
   }
 
+  const sortTasksWithPriority = useCallback((
+    items: TaskWithOpportunity[],
+    activeSortColumn: string | null,
+    activeSortDirection: SortDirection,
+    getSortValue: (task: TaskWithOpportunity, column: string) => string | number | Date | null,
+  ) => {
+    return [...items].sort((a, b) => {
+      if (a.completed !== b.completed) return a.completed ? 1 : -1
+      if (a.isStarred !== b.isStarred) return a.isStarred ? -1 : 1
+
+      const primaryCompare = activeSortColumn
+        ? compareSortValues(
+            getSortValue(a, activeSortColumn),
+            getSortValue(b, activeSortColumn),
+            activeSortDirection,
+          )
+        : 0
+      if (primaryCompare !== 0) return primaryCompare
+
+      const dueDateCompare = compareSortValues(
+        new Date(a.date).getTime(),
+        new Date(b.date).getTime(),
+        'asc',
+      )
+      if (dueDateCompare !== 0) return dueDateCompare
+
+      const createdAtCompare = compareSortValues(
+        new Date(a.createdAt).getTime(),
+        new Date(b.createdAt).getTime(),
+        'asc',
+      )
+      if (createdAtCompare !== 0) return createdAtCompare
+
+      return a.id.localeCompare(b.id)
+    })
+  }, [])
+
   // Filter tasks - uses optimisticTasks for instant UI feedback
-  const filteredTasks = useMemo(() => {
+  const filteredTasksBase = useMemo(() => {
     let filtered = optimisticTasks
 
     // Apply status filter (using Panama timezone)
@@ -352,9 +413,23 @@ export default function TasksPageClient() {
     return filtered
   }, [optimisticTasks, activeFilter, searchQuery])
 
+  const manageStarCounts = useMemo(() => {
+    return {
+      all: filteredTasksBase.length,
+      starred: filteredTasksBase.filter((task) => task.isStarred).length,
+    }
+  }, [filteredTasksBase])
+
+  const filteredTasks = useMemo(() => {
+    if (manageStarFilter === 'starred') {
+      return filteredTasksBase.filter((task) => task.isStarred)
+    }
+    return filteredTasksBase
+  }, [filteredTasksBase, manageStarFilter])
+
   // Sort tasks
   const sortedTasks = useMemo(() => {
-    return sortEntities(filteredTasks, sortColumn, sortDirection, (task, column) => {
+    return sortTasksWithPriority(filteredTasks, sortColumn, sortDirection, (task, column) => {
       switch (column) {
         case 'title': return task.title
         case 'date': return new Date(task.date).getTime()
@@ -365,7 +440,7 @@ export default function TasksPageClient() {
         default: return null
       }
     })
-  }, [filteredTasks, sortColumn, sortDirection])
+  }, [filteredTasks, sortColumn, sortDirection, sortTasksWithPriority])
 
   const allTasksBase = useMemo(() => {
     let filtered = optimisticTasks
@@ -410,7 +485,7 @@ export default function TasksPageClient() {
     return allTasksBase
   }, [allTasksBase, allTasksCategoryFilter])
 
-  const allTasksFiltered = useMemo(() => {
+  const allTasksFilteredBase = useMemo(() => {
     if (allTasksStatusFilter === 'pending') {
       return allTasksByCategory.filter((task) => !task.completed)
     }
@@ -420,8 +495,22 @@ export default function TasksPageClient() {
     return allTasksByCategory
   }, [allTasksByCategory, allTasksStatusFilter])
 
+  const allTasksStarCounts = useMemo(() => {
+    return {
+      all: allTasksFilteredBase.length,
+      starred: allTasksFilteredBase.filter((task) => task.isStarred).length,
+    }
+  }, [allTasksFilteredBase])
+
+  const allTasksFiltered = useMemo(() => {
+    if (allTasksStarFilter === 'starred') {
+      return allTasksFilteredBase.filter((task) => task.isStarred)
+    }
+    return allTasksFilteredBase
+  }, [allTasksFilteredBase, allTasksStarFilter])
+
   const allTasksSorted = useMemo(() => {
-    return sortEntities(allTasksFiltered, allTasksSortColumn, allTasksSortDirection, (task, column) => {
+    return sortTasksWithPriority(allTasksFiltered, allTasksSortColumn, allTasksSortDirection, (task, column) => {
       switch (column) {
         case 'date':
           return new Date(task.date).getTime()
@@ -449,23 +538,30 @@ export default function TasksPageClient() {
           return null
       }
     })
-  }, [allTasksFiltered, allTasksSortColumn, allTasksSortDirection])
+  }, [allTasksFiltered, allTasksSortColumn, allTasksSortDirection, sortTasksWithPriority])
 
   // Count for filters - uses server counts when available, falls back to optimistic counts
   const counts = useMemo(() => {
-    if (Object.keys(serverCounts).length > 0) {
-      return serverCounts
-    }
-    // Fallback to client-side counts (using Panama timezone)
     const todayStr = getTodayInPanama()
-    return {
+    const clientCounts = {
       all: optimisticTasks.length,
       pending: optimisticTasks.filter(t => !t.completed).length,
       completed: optimisticTasks.filter(t => t.completed).length,
       overdue: optimisticTasks.filter(t => !t.completed && formatDateForPanama(new Date(t.date)) < todayStr).length,
       meetings: optimisticTasks.filter(t => t.category === 'meeting').length,
       todos: optimisticTasks.filter(t => t.category === 'todo').length,
+      starred: optimisticTasks.filter(t => t.isStarred).length,
     }
+
+    if (Object.keys(serverCounts).length > 0) {
+      return {
+        ...clientCounts,
+        ...serverCounts,
+        starred: clientCounts.starred,
+      }
+    }
+
+    return clientCounts
   }, [optimisticTasks, serverCounts])
 
   const openCreateRequestFromOpportunity = useCallback((opportunity: Opportunity) => {
@@ -829,6 +925,42 @@ export default function TasksPageClient() {
     })
   }
 
+  const handleToggleStar = useCallback(async (task: TaskWithOpportunity) => {
+    const nextStarred = !task.isStarred
+
+    setTasks((prev) => prev.map((currentTask) => (
+      currentTask.id === task.id
+        ? { ...currentTask, isStarred: nextStarred }
+        : currentTask
+    )))
+
+    try {
+      const result = await toggleTaskStar(task.id)
+      if (!result.success || !result.data) {
+        setTasks((prev) => prev.map((currentTask) => (
+          currentTask.id === task.id
+            ? { ...currentTask, isStarred: task.isStarred }
+            : currentTask
+        )))
+        toast.error(result.error || 'Failed to update starred state')
+        return
+      }
+
+      setTasks((prev) => prev.map((currentTask) => (
+        currentTask.id === task.id
+          ? { ...currentTask, isStarred: result.data!.isStarred }
+          : currentTask
+      )))
+    } catch (error) {
+      setTasks((prev) => prev.map((currentTask) => (
+        currentTask.id === task.id
+          ? { ...currentTask, isStarred: task.isStarred }
+          : currentTask
+      )))
+      toast.error('Failed to update starred state')
+    }
+  }, [])
+
   // Handle edit task
   const handleEditTask = (task: TaskWithOpportunity) => {
     setSelectedTask(task)
@@ -1076,6 +1208,11 @@ export default function TasksPageClient() {
     { id: 'todos', label: 'To-dos', count: counts.todos },
   ]
 
+  const manageStarTabs: FilterTab[] = [
+    { id: 'all', label: 'Todas', count: manageStarCounts.all },
+    { id: 'starred', label: 'Starred', count: manageStarCounts.starred },
+  ]
+
   const allTasksFilterTabs: FilterTab[] = [
     { id: 'all', label: 'Todas', count: allTasksStatusCounts.all },
     { id: 'pending', label: 'Pendientes', count: allTasksStatusCounts.pending },
@@ -1086,6 +1223,11 @@ export default function TasksPageClient() {
     { id: 'all', label: 'Todas', count: allTasksCategoryCounts.all },
     { id: 'meetings', label: 'Reuniones', count: allTasksCategoryCounts.meetings },
     { id: 'tasks', label: 'Tareas', count: allTasksCategoryCounts.tasks },
+  ]
+
+  const allTasksStarTabs: FilterTab[] = [
+    { id: 'all', label: 'Todas', count: allTasksStarCounts.all },
+    { id: 'starred', label: 'Starred', count: allTasksStarCounts.starred },
   ]
 
   const isAllTasksTab = isAdmin && activeTab === 'all_tasks'
@@ -1140,6 +1282,12 @@ export default function TasksPageClient() {
         isAdmin={isAdmin}
         beforeFilters={isAllTasksTab ? (
           <div className="flex items-center gap-2">
+            <FilterTabs
+              items={allTasksStarTabs}
+              activeId={allTasksStarFilter}
+              onChange={(id) => setAllTasksStarFilter(id as StarFilter)}
+            />
+            <div className="h-5 w-px bg-gray-200 mx-0.5 flex-shrink-0"></div>
             <DateRangeFilter
               value={allTasksDateFilter}
               onChange={setAllTasksDateFilter}
@@ -1151,7 +1299,13 @@ export default function TasksPageClient() {
               onChange={(id) => setAllTasksCategoryFilter(id as AllTasksCategoryFilter)}
             />
           </div>
-        ) : undefined}
+        ) : (
+          <FilterTabs
+            items={manageStarTabs}
+            activeId={manageStarFilter}
+            onChange={(id) => setManageStarFilter(id as StarFilter)}
+          />
+        )}
         userFilter={isAdmin ? (
           <UserFilterDropdown
             users={userFilterOptions}
@@ -1202,10 +1356,30 @@ export default function TasksPageClient() {
                     onClick={() => handleEditTask(task)}
                     onMouseEnter={() => prefetchFormConfig('opportunity')}
                     className="hover:bg-slate-50/80 cursor-pointer"
-                  >
-                    <TableCell
-                      align="center"
-                      style={getAllTasksColumnCellStyle('taskTypeIcon')}
+	                  >
+	                    <TableCell
+	                      align="center"
+	                      style={getAllTasksColumnCellStyle('star')}
+	                      onClick={(e) => e.stopPropagation()}
+	                    >
+	                      <button
+	                        type="button"
+	                        onClick={() => handleToggleStar(task)}
+	                        className={`inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
+	                          task.isStarred
+	                            ? 'text-amber-500 hover:bg-amber-50 hover:text-amber-600'
+	                            : 'text-gray-300 hover:bg-gray-100 hover:text-gray-500'
+	                        }`}
+	                        title={task.isStarred ? 'Quitar de Starred' : 'Agregar a Starred'}
+	                        aria-label={task.isStarred ? 'Quitar de Starred' : 'Agregar a Starred'}
+	                      >
+	                        {task.isStarred ? <StarIcon style={{ fontSize: 16 }} /> : <StarBorderIcon style={{ fontSize: 16 }} />}
+	                      </button>
+	                    </TableCell>
+	
+	                    <TableCell
+	                      align="center"
+	                      style={getAllTasksColumnCellStyle('taskTypeIcon')}
                     >
                       {task.category === 'meeting' ? (
                         <GroupsIcon className="text-blue-600" style={{ fontSize: 16 }} />
@@ -1340,11 +1514,11 @@ export default function TasksPageClient() {
                         </button>
 
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className={`font-semibold text-[14px] truncate ${task.completed ? 'line-through text-gray-500' : 'text-slate-900'}`}>
-                                  {task.title}
+	                          <div className="flex items-start justify-between gap-3">
+	                            <div className="min-w-0">
+	                              <div className="flex items-center gap-2">
+	                                <span className={`font-semibold text-[14px] truncate ${task.completed ? 'line-through text-gray-500' : 'text-slate-900'}`}>
+	                                  {task.title}
                                 </span>
                                 <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
                                   task.category === 'meeting'
@@ -1366,25 +1540,43 @@ export default function TasksPageClient() {
                               )}
                             </div>
 
-                            <div className="flex flex-col items-end gap-0.5">
-                              <span className={`text-[12px] font-medium whitespace-nowrap ${
-                                overdue
-                                  ? 'text-red-600'
-                                  : today
-                                  ? 'text-orange-600'
-                                  : 'text-slate-700'
-                              }`}>
-                                {formatShortDateNoYear(task.date)}
-                              </span>
-                              {(overdue || today) && (
-                                <span className={`text-[10px] uppercase tracking-wide ${
-                                  overdue ? 'text-red-500' : 'text-orange-500'
-                                }`}>
-                                  {overdue ? 'Vencida' : 'Hoy'}
-                                </span>
-                              )}
-                            </div>
-                          </div>
+	                            <div className="flex items-start gap-1.5">
+	                              <button
+	                                type="button"
+	                                onClick={(e) => {
+	                                  e.stopPropagation()
+	                                  handleToggleStar(task)
+	                                }}
+	                                className={`mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full transition-colors ${
+	                                  task.isStarred
+	                                    ? 'text-amber-500 hover:bg-amber-50 hover:text-amber-600'
+	                                    : 'text-gray-300 hover:bg-gray-100 hover:text-gray-500'
+	                                }`}
+	                                title={task.isStarred ? 'Quitar de Starred' : 'Agregar a Starred'}
+	                                aria-label={task.isStarred ? 'Quitar de Starred' : 'Agregar a Starred'}
+	                              >
+	                                {task.isStarred ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
+	                              </button>
+	                              <div className="flex flex-col items-end gap-0.5">
+	                                <span className={`text-[12px] font-medium whitespace-nowrap ${
+	                                  overdue
+	                                    ? 'text-red-600'
+	                                    : today
+	                                    ? 'text-orange-600'
+	                                    : 'text-slate-700'
+	                                }`}>
+	                                  {formatShortDateNoYear(task.date)}
+	                                </span>
+	                                {(overdue || today) && (
+	                                  <span className={`text-[10px] uppercase tracking-wide ${
+	                                    overdue ? 'text-red-500' : 'text-orange-500'
+	                                  }`}>
+	                                    {overdue ? 'Vencida' : 'Hoy'}
+	                                  </span>
+	                                )}
+	                              </div>
+	                            </div>
+	                          </div>
 
                           <div className="mt-2 flex items-center gap-2 text-xs text-slate-700">
                             <span className="truncate" title={businessName}>
@@ -1472,9 +1664,9 @@ export default function TasksPageClient() {
                       className={task.completed ? 'opacity-60' : ''}
                     >
                       {/* Status */}
-                      <TableCell
-                        align="center"
-                        className="px-0"
+	                      <TableCell
+	                        align="center"
+	                        className="px-0"
                         style={getColumnCellStyle('status')}
                         onClick={(e) => e.stopPropagation()}
                       >
@@ -1492,10 +1684,35 @@ export default function TasksPageClient() {
                           ) : (
                             <RadioButtonUncheckedIcon fontSize="small" />
                           )}
-                        </button>
-                      </TableCell>
-
-                      {/* Business */}
+	                        </button>
+	                      </TableCell>
+	
+	                      <TableCell
+	                        align="center"
+	                        className="px-0"
+	                        style={getColumnCellStyle('star')}
+	                        onClick={(e) => e.stopPropagation()}
+	                      >
+	                        <button
+	                          type="button"
+	                          onClick={() => handleToggleStar(task)}
+	                          className={`mx-auto flex h-5 w-5 items-center justify-center transition-colors ${
+	                            task.isStarred
+	                              ? 'text-amber-500 hover:text-amber-600'
+	                              : 'text-gray-300 hover:text-gray-500'
+	                          }`}
+	                          title={task.isStarred ? 'Quitar de Starred' : 'Agregar a Starred'}
+	                          aria-label={task.isStarred ? 'Quitar de Starred' : 'Agregar a Starred'}
+	                        >
+	                          {task.isStarred ? (
+	                            <StarIcon fontSize="small" />
+	                          ) : (
+	                            <StarBorderIcon fontSize="small" />
+	                          )}
+	                        </button>
+	                      </TableCell>
+	
+	                      {/* Business */}
                       <TableCell style={getColumnCellStyle('business')}>
                         <span className="text-sm text-slate-900 truncate block w-full" title={task.opportunity?.business?.name || ''}>
                           {task.opportunity?.business?.name || '-'}

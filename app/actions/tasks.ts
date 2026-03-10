@@ -3,12 +3,13 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
 import { invalidateEntity, invalidateDashboard } from '@/lib/cache'
-import { getUserRole, isAdmin } from '@/lib/auth/roles'
+import { getUserRole } from '@/lib/auth/roles'
 import { getTodayInPanama, formatDateForPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
 import { logActivity } from '@/lib/activity-log'
 import type { Task } from '@/types'
 
 export interface TaskWithOpportunity extends Task {
+  isStarred: boolean
   opportunity: {
     id: string
     stage: string
@@ -91,6 +92,10 @@ export async function getUserTasks(filters?: { responsibleId?: string }): Promis
             },
           },
         },
+        stars: {
+          where: { userClerkId: userId },
+          select: { taskId: true },
+        },
       },
       orderBy: [
         { completed: 'asc' }, // Incomplete tasks first
@@ -109,14 +114,18 @@ export async function getUserTasks(filters?: { responsibleId?: string }): Promis
     const userMap = new Map(users.map(u => [u.clerkId, u]))
 
     // Map tasks with responsible user info
-    const typedTasks = tasks.map((task) => ({
-      ...task,
-      category: task.category as 'meeting' | 'todo',
-      opportunity: {
-        ...task.opportunity,
-        responsible: task.opportunity.responsibleId ? userMap.get(task.opportunity.responsibleId) || null : null,
-      },
-    }))
+    const typedTasks = tasks.map((task) => {
+      const { stars, ...taskData } = task
+      return {
+        ...taskData,
+        category: task.category as 'meeting' | 'todo',
+        isStarred: stars.length > 0,
+        opportunity: {
+          ...task.opportunity,
+          responsible: task.opportunity.responsibleId ? userMap.get(task.opportunity.responsibleId) || null : null,
+        },
+      }
+    })
 
     return { success: true, data: typedTasks as TaskWithOpportunity[] }
   } catch (error) {
@@ -143,7 +152,7 @@ export async function getTasksPaginated(options: {
 
   try {
     const role = await getUserRole()
-    const { page = 0, pageSize = 50, sortBy = 'date', sortDirection = 'asc', filter = 'all', responsibleId } = options
+    const { page = 0, pageSize = 50, sortDirection = 'asc', filter = 'all', responsibleId } = options
 
     // Build where clause based on role
     const whereClause: Record<string, unknown> = {}
@@ -195,6 +204,10 @@ export async function getTasksPaginated(options: {
             },
           },
         },
+        stars: {
+          where: { userClerkId: userId },
+          select: { taskId: true },
+        },
       },
       orderBy: [
         { completed: 'asc' },
@@ -215,14 +228,18 @@ export async function getTasksPaginated(options: {
     const userMap = new Map(users.map(u => [u.clerkId, u]))
 
     // Map tasks with responsible user info
-    const typedTasks = tasks.map((task) => ({
-      ...task,
-      category: task.category as 'meeting' | 'todo',
-      opportunity: {
-        ...task.opportunity,
-        responsible: task.opportunity.responsibleId ? userMap.get(task.opportunity.responsibleId) || null : null,
-      },
-    }))
+    const typedTasks = tasks.map((task) => {
+      const { stars, ...taskData } = task
+      return {
+        ...taskData,
+        category: task.category as 'meeting' | 'todo',
+        isStarred: stars.length > 0,
+        opportunity: {
+          ...task.opportunity,
+          responsible: task.opportunity.responsibleId ? userMap.get(task.opportunity.responsibleId) || null : null,
+        },
+      }
+    })
 
     return { 
       success: true, 
@@ -302,6 +319,10 @@ export async function searchTasks(query: string, options: {
             },
           },
         },
+        stars: {
+          where: { userClerkId: userId },
+          select: { taskId: true },
+        },
       },
       orderBy: [
         { completed: 'asc' },
@@ -321,14 +342,18 @@ export async function searchTasks(query: string, options: {
     const userMap = new Map(users.map(u => [u.clerkId, u]))
 
     // Map tasks with responsible user info
-    const typedTasks = tasks.map((task) => ({
-      ...task,
-      category: task.category as 'meeting' | 'todo',
-      opportunity: {
-        ...task.opportunity,
-        responsible: task.opportunity.responsibleId ? userMap.get(task.opportunity.responsibleId) || null : null,
-      },
-    }))
+    const typedTasks = tasks.map((task) => {
+      const { stars, ...taskData } = task
+      return {
+        ...taskData,
+        category: task.category as 'meeting' | 'todo',
+        isStarred: stars.length > 0,
+        opportunity: {
+          ...task.opportunity,
+          responsible: task.opportunity.responsibleId ? userMap.get(task.opportunity.responsibleId) || null : null,
+        },
+      }
+    })
 
     return { success: true, data: typedTasks as TaskWithOpportunity[] }
   } catch (error) {
@@ -402,6 +427,82 @@ export async function toggleTaskComplete(taskId: string): Promise<{
 }
 
 /**
+ * Toggle the current user's starred state for a task.
+ */
+export async function toggleTaskStar(taskId: string): Promise<{
+  success: boolean
+  data?: { taskId: string; isStarred: boolean }
+  error?: string
+}> {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+  const { userId } = authResult
+
+  try {
+    const role = await getUserRole()
+    if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
+      return { success: false, error: 'Unauthorized' }
+    }
+
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      select: {
+        id: true,
+        opportunity: {
+          select: {
+            responsibleId: true,
+          },
+        },
+      },
+    })
+
+    if (!task) {
+      return { success: false, error: 'Task not found' }
+    }
+
+    if (role === 'sales' && task.opportunity.responsibleId !== userId) {
+      return { success: false, error: 'Unauthorized' }
+    }
+
+    const existingStar = await prisma.taskStar.findUnique({
+      where: {
+        taskId_userClerkId: {
+          taskId,
+          userClerkId: userId,
+        },
+      },
+    })
+
+    if (existingStar) {
+      await prisma.taskStar.delete({
+        where: {
+          taskId_userClerkId: {
+            taskId,
+            userClerkId: userId,
+          },
+        },
+      })
+      invalidateEntity('tasks')
+      return { success: true, data: { taskId, isStarred: false } }
+    }
+
+    await prisma.taskStar.create({
+      data: {
+        taskId,
+        userClerkId: userId,
+      },
+    })
+
+    invalidateEntity('tasks')
+    return { success: true, data: { taskId, isStarred: true } }
+  } catch (error) {
+    return handleServerActionError(error, 'toggleTaskStar')
+  }
+}
+
+/**
  * Update opportunity's nextActivityDate and lastActivityDate based on tasks
  */
 async function updateOpportunityActivityDates(opportunityId: string) {
@@ -445,7 +546,7 @@ export async function getTaskCounts(filters?: { responsibleId?: string }) {
     if (role === 'sales') {
       baseWhere.opportunity = { responsibleId: userId }
     } else if (role === 'editor' || role === 'ere' || role === 'editor_senior') {
-      return { success: true, data: { all: 0, pending: 0, completed: 0, overdue: 0, meetings: 0, todos: 0 } }
+      return { success: true, data: { all: 0, pending: 0, completed: 0, overdue: 0, meetings: 0, todos: 0, starred: 0 } }
     }
     
     // Apply responsible filter (admin quick filter)
@@ -458,18 +559,24 @@ export async function getTaskCounts(filters?: { responsibleId?: string }) {
     const todayPanamaCounts = parseDateInPanamaTime(todayStrCounts)
 
     // Get counts in parallel
-    const [all, pending, completed, overdue, meetings, todos] = await Promise.all([
+    const [all, pending, completed, overdue, meetings, todos, starred] = await Promise.all([
       prisma.task.count({ where: baseWhere }),
       prisma.task.count({ where: { ...baseWhere, completed: false } }),
       prisma.task.count({ where: { ...baseWhere, completed: true } }),
       prisma.task.count({ where: { ...baseWhere, completed: false, date: { lt: todayPanamaCounts } } }),
       prisma.task.count({ where: { ...baseWhere, category: 'meeting' } }),
       prisma.task.count({ where: { ...baseWhere, category: 'todo' } }),
+      prisma.taskStar.count({
+        where: {
+          userClerkId: userId,
+          task: baseWhere,
+        },
+      }),
     ])
 
     return { 
       success: true, 
-      data: { all, pending, completed, overdue, meetings, todos }
+      data: { all, pending, completed, overdue, meetings, todos, starred }
     }
   } catch (error) {
     return handleServerActionError(error, 'getTaskCounts')
