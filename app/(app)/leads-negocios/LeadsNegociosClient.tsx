@@ -15,6 +15,8 @@ import {
   RestaurantLeadWithStats,
 } from '@/app/actions/restaurant-leads'
 import { useBusinessMatching } from '@/hooks/useBusinessMatching'
+import { computeDegustaTier } from '@/hooks/useDegustaTier'
+import { findInstagramHandle } from '@/app/actions/find-instagram'
 import {
   getBankPromos,
   getBankPromoStats,
@@ -805,18 +807,41 @@ export default function LeadsNegociosClient() {
     loadEvents() // Refresh to show any updates
   }
 
-  const handleCreateBusinessFromRestaurant = (restaurant: RestaurantLeadWithStats) => {
-    setNewBusinessPrefill({
+  const handleCreateBusinessFromRestaurant = async (restaurant: RestaurantLeadWithStats) => {
+    const tier = computeDegustaTier({
+      foodRating: restaurant.foodRating,
+      votes: restaurant.votes,
+      pricePerPerson: restaurant.pricePerPerson,
+    })
+
+    const basePrefill: Record<string, string | null> = {
       name: restaurant.name,
       website: restaurant.sourceUrl,
       neighborhood: restaurant.neighborhood || null,
       address: restaurant.address || null,
+      categoryId: 'RESTAURANTES',
+      tier,
       description: [
         restaurant.cuisine,
         restaurant.pricePerPerson ? `$${restaurant.pricePerPerson}/persona` : null,
         restaurant.foodRating ? `Comida: ${restaurant.foodRating}` : null,
       ].filter(Boolean).join(' · ') || null,
-    })
+    }
+
+    const toastId = toast.loading('Buscando Instagram con AI...')
+    const { handle, error } = await findInstagramHandle(restaurant.name, restaurant.neighborhood)
+    toast.dismiss(toastId)
+
+    if (handle) {
+      basePrefill.instagram = `https://www.instagram.com/${handle}`
+      toast.success(`Instagram encontrado: @${handle}`, { duration: 3000 })
+    } else if (error) {
+      toast.error(`Error buscando Instagram: ${error}`, { duration: 4000 })
+    } else {
+      toast('Instagram no encontrado', { icon: '🔍', duration: 3000 })
+    }
+
+    setNewBusinessPrefill(basePrefill)
     setNewBusinessModalOpen(true)
   }
 

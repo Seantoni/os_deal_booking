@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback, useActionState, useTransitio
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { createBusiness, updateBusiness, createOpportunity, deleteBusiness } from '@/app/actions/crm'
+import { findInstagramHandle } from '@/app/actions/find-instagram'
 import { previewVendorSync, syncVendorToExternal } from '@/app/actions/businesses'
 import { formatValueForDisplay } from '@/lib/api/external-oferta/vendor/mapper'
 import type { VendorFieldChange } from '@/lib/api/external-oferta/vendor/types'
@@ -26,6 +27,8 @@ import LockIcon from '@mui/icons-material/Lock'
 import LockOpenIcon from '@mui/icons-material/LockOpen'
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import SearchIcon from '@mui/icons-material/Search'
+import RefreshIcon from '@mui/icons-material/Refresh'
 import { getActiveFocus, getFocusInfo, FOCUS_PERIOD_LABELS, type FocusPeriod } from '@/lib/utils/focus-period'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
@@ -36,6 +39,7 @@ import ReferenceInfoBar from '@/components/shared/ReferenceInfoBar'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
 import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
 import { Button, Alert, Input } from '@/components/ui'
+import toast from 'react-hot-toast'
 import FormModalSkeleton from '@/components/common/FormModalSkeleton'
 
 // Lazy load nested modals - only loaded when opened
@@ -450,6 +454,7 @@ export default function BusinessFormModal({
   const { user } = useUser()
   const { isAdmin } = useUserRole()
   const [error, setError] = useState('')
+  const [igSearching, setIgSearching] = useState(false)
   const [opportunityModalOpen, setOpportunityModalOpen] = useState(false)
   const [focusModalOpen, setFocusModalOpen] = useState(false)
   const { autoCreate: autoCreateOpportunity, isCreating: isCreatingOpportunity } = useAutoCreateOpportunity()
@@ -847,6 +852,33 @@ export default function BusinessFormModal({
     }))
   }, [])
 
+  const handleInstagramSearch = useCallback(async () => {
+    const name = dynamicForm.getValue('name')
+    if (!name) {
+      toast.error('Ingrese el nombre del negocio primero')
+      return
+    }
+    setIgSearching(true)
+    const toastId = toast.loading('Buscando Instagram con AI...')
+    try {
+      const { handle, error } = await findInstagramHandle(name)
+      toast.dismiss(toastId)
+      if (handle) {
+        dynamicForm.setValue('instagram', `https://www.instagram.com/${handle}`)
+        toast.success(`Instagram encontrado: @${handle}`, { duration: 3000 })
+      } else if (error) {
+        toast.error(`Error buscando Instagram: ${error}`, { duration: 4000 })
+      } else {
+        toast('Instagram no encontrado', { icon: '🔍', duration: 3000 })
+      }
+    } catch {
+      toast.dismiss(toastId)
+      toast.error('Error inesperado buscando Instagram')
+    } finally {
+      setIgSearching(false)
+    }
+  }, [dynamicForm])
+
   function handleEditOpportunity(opportunity: Opportunity) {
     // Open opportunity modal inside this business modal
     setSelectedOpportunity(opportunity)
@@ -1198,49 +1230,67 @@ export default function BusinessFormModal({
     return overrides
   }, [lockedFieldKeys, initialValues, isEditMode, isAdmin, unlockedFields])
 
-  // Field addons (lock icons for fields with canEditAfterCreation in edit mode for admin)
+  // Field addons (lock icons + IG search button)
   const fieldAddons: Record<string, React.ReactElement> = useMemo(() => {
     const addons: Record<string, React.ReactElement> = {}
-    
-    if (!isEditMode || !isAdmin) return addons
-    
-    for (const fieldKey of lockedFieldKeys) {
-      // Use INITIAL value to determine if lock icon should show
-      const initialValue = initialValues[fieldKey]
-      const hadInitialValue = initialValue && initialValue.trim() !== ''
-      
-      if (hadInitialValue) {
-        const isUnlocked = unlockedFields[fieldKey] || false
-        addons[fieldKey] = (
-          <div className="flex flex-col items-start gap-1">
-            <button
-              type="button"
-              onClick={() => toggleFieldUnlock(fieldKey)}
-              className={`p-2 rounded-md transition-colors ${
-                isUnlocked
-                  ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-              }`}
-              title={isUnlocked ? 'Bloqueado habilitado - click para bloquear' : 'Click para desbloquear edición'}
-            >
-              {isUnlocked ? (
-                <LockOpenIcon fontSize="small" />
-              ) : (
-                <LockIcon fontSize="small" />
+
+    // Lock icons for fields with canEditAfterCreation (admin edit mode only)
+    if (isEditMode && isAdmin) {
+      for (const fieldKey of lockedFieldKeys) {
+        const initialValue = initialValues[fieldKey]
+        const hadInitialValue = initialValue && initialValue.trim() !== ''
+
+        if (hadInitialValue) {
+          const isUnlocked = unlockedFields[fieldKey] || false
+          addons[fieldKey] = (
+            <div className="flex flex-col items-start gap-1">
+              <button
+                type="button"
+                onClick={() => toggleFieldUnlock(fieldKey)}
+                className={`p-2 rounded-md transition-colors ${
+                  isUnlocked
+                    ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                }`}
+                title={isUnlocked ? 'Bloqueado habilitado - click para bloquear' : 'Click para desbloquear edición'}
+              >
+                {isUnlocked ? (
+                  <LockOpenIcon fontSize="small" />
+                ) : (
+                  <LockIcon fontSize="small" />
+                )}
+              </button>
+              {isUnlocked && (
+                <p className="text-[10px] text-red-600 font-medium max-w-[120px] leading-tight">
+                  Solo modificar si es necesario
+                </p>
               )}
-            </button>
-            {isUnlocked && (
-              <p className="text-[10px] text-red-600 font-medium max-w-[120px] leading-tight">
-                Solo modificar si es necesario
-              </p>
-            )}
-          </div>
-        )
+            </div>
+          )
+        }
       }
+    }
+
+    // Instagram AI search button (always available when editable)
+    if (canEdit) {
+      addons['instagram'] = (
+        <button
+          type="button"
+          onClick={handleInstagramSearch}
+          disabled={igSearching}
+          className="p-2 rounded-md transition-colors bg-purple-50 text-purple-500 hover:bg-purple-100 hover:text-purple-700 disabled:opacity-50"
+          title="Buscar Instagram con AI"
+        >
+          {igSearching
+            ? <RefreshIcon fontSize="small" className="animate-spin" />
+            : <SearchIcon fontSize="small" />
+          }
+        </button>
+      )
     }
     
     return addons
-  }, [isEditMode, isAdmin, lockedFieldKeys, initialValues, unlockedFields, toggleFieldUnlock])
+  }, [isEditMode, isAdmin, lockedFieldKeys, initialValues, unlockedFields, toggleFieldUnlock, canEdit, igSearching, handleInstagramSearch])
 
   // Early return if modal is not open - saves rendering work
   if (!isOpen) return null
