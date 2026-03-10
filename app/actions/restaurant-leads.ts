@@ -55,6 +55,7 @@ interface GetRestaurantLeadsParams {
   sortOrder?: 'asc' | 'desc'
   newOnly?: boolean
   hasDiscount?: boolean
+  unmatchedOnly?: boolean
 }
 
 export async function getRestaurantLeads({
@@ -66,6 +67,7 @@ export async function getRestaurantLeads({
   sortOrder = 'desc',
   newOnly = false,
   hasDiscount = false,
+  unmatchedOnly = false,
 }: GetRestaurantLeadsParams = {}): Promise<{
   restaurants: RestaurantLeadWithStats[]
   total: number
@@ -97,6 +99,10 @@ export async function getRestaurantLeads({
   
   if (hasDiscount) {
     where.discount = { not: null }
+  }
+
+  if (unmatchedOnly) {
+    where.matchedBusinessId = null
   }
   
   // Build order by

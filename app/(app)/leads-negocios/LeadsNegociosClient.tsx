@@ -414,6 +414,7 @@ export default function LeadsNegociosClient() {
   const [restaurantSortOrder, setRestaurantSortOrder] = useState<'asc' | 'desc'>('desc')
   const [showRestaurantNewOnly, setShowRestaurantNewOnly] = useState(false)
   const [showDiscountOnly, setShowDiscountOnly] = useState(true)
+  const [showUnmatchedOnly, setShowUnmatchedOnly] = useState(false)
   const [showRestaurantExportMenu, setShowRestaurantExportMenu] = useState(false)
   const [restaurantExporting, setRestaurantExporting] = useState(false)
 
@@ -512,6 +513,7 @@ export default function LeadsNegociosClient() {
         sortOrder: restaurantSortOrder,
         newOnly: showRestaurantNewOnly,
         hasDiscount: showDiscountOnly,
+        unmatchedOnly: showUnmatchedOnly,
       })
       
       setRestaurants(result.restaurants)
@@ -523,7 +525,7 @@ export default function LeadsNegociosClient() {
     } finally {
       setRestaurantLoading(false)
     }
-  }, [restaurantPage, pageSize, restaurantCommittedSearch, restaurantSortBy, restaurantSortOrder, showRestaurantNewOnly, showDiscountOnly])
+  }, [restaurantPage, pageSize, restaurantCommittedSearch, restaurantSortBy, restaurantSortOrder, showRestaurantNewOnly, showDiscountOnly, showUnmatchedOnly])
   
   const loadRestaurantStats = useCallback(async () => {
     try {
@@ -1589,6 +1591,17 @@ export default function LeadsNegociosClient() {
                   />
                   Nuevos hoy
                 </label>
+
+                {/* Unmatched Only Toggle */}
+                <label className="flex items-center gap-1.5 text-[13px] text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showUnmatchedOnly}
+                    onChange={(e) => { setShowUnmatchedOnly(e.target.checked); setRestaurantPage(1) }}
+                    className="rounded border-gray-300 text-blue-500 focus:ring-blue-500"
+                  />
+                  Sin negocio
+                </label>
                 
                 {/* Restaurant Export Button with Dropdown */}
                 <div className="relative">
@@ -1692,7 +1705,7 @@ export default function LeadsNegociosClient() {
                 icon={<RestaurantIcon className="w-full h-full" />}
                 title="No se encontraron restaurantes"
                 description={
-                  restaurantCommittedSearch || showRestaurantNewOnly
+                  restaurantCommittedSearch || showRestaurantNewOnly || showUnmatchedOnly
                     ? 'Intente ajustar su búsqueda o filtros' 
                     : 'Haga clic en "Escanear" para obtener restaurantes de Degusta'
                 }
