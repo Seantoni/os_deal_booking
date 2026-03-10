@@ -2,12 +2,20 @@
 
 import { prisma } from '@/lib/prisma'
 import { getUserProfile } from '@/lib/auth/roles'
+import { getOpenAIClient } from '@/lib/openai'
 import { formatDateForPanama, getLastNDaysRangeInPanama, getTodayInPanama, parseDateInPanamaTime, parseEndDateInPanamaTime } from '@/lib/date/timezone'
 import { ONE_DAY_MS } from '@/lib/constants/time'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
-import { roundToTwo, normalizeDisplayName } from './_shared'
+import {
+  roundToTwo,
+  normalizeDisplayName,
+  getCachedAiResult,
+  setCachedAiResult,
+  type ObjectionCategory,
+} from './_shared'
 
 const TRACTION_WINDOW_DAYS = 14
+const AI_OBJECTION_THRESHOLD = 3
 
 export interface AdminDailyAgendaBookingActivity {
   sent: number
@@ -16,12 +24,10 @@ export interface AdminDailyAgendaBookingActivity {
   rejected: number
 }
 
-export interface AdminDailyAgendaObjectionItem {
-  id: string
-  businessName: string
-  ownerName: string | null
-  reason: string | null
-  type: 'rejection' | 'lost'
+export interface AdminDailyAgendaObjectionRecap {
+  totalMeetingsWithObjection: number
+  categories: ObjectionCategory[]
+  aiGenerated: boolean
 }
 
 export interface AdminDailyAgendaTier1AtRiskItem {
@@ -55,7 +61,7 @@ export interface AdminDailyAgendaData {
   }
   bookingActivity: AdminDailyAgendaBookingActivity
   meetingsCompleted: number
-  objections: AdminDailyAgendaObjectionItem[]
+  objectionRecap: AdminDailyAgendaObjectionRecap
   tier1AtRisk: AdminDailyAgendaTier1AtRiskItem[]
   salesPerformance: AdminDailyAgendaUserRow[]
   weeklyComparison: {
@@ -98,6 +104,95 @@ function formatYesterdayLabel(dateStr: string): string {
   return `${dayNames[d.getDay()]} ${day} ${monthNames[d.getMonth()]}`
 }
 
+function normalizeKey(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function buildFallbackCategories(rawObjections: string[]): ObjectionCategory[] {
+  const counter = new Map<string, { label: string; count: number }>()
+  for (const raw of rawObjections) {
+    const trimmed = raw.trim()
+    if (!trimmed) continue
+    const key = normalizeKey(trimmed)
+    if (!key) continue
+    const existing = counter.get(key)
+    if (existing) {
+      existing.count += 1
+    } else {
+      counter.set(key, { label: trimmed, count: 1 })
+    }
+  }
+  return [...counter.values()]
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+    .slice(0, 8)
+    .map((item) => ({ category: item.label, count: item.count, examples: [item.label] }))
+}
+
+async function categorizeObjectionsWithAi(
+  rawObjections: string[],
+  dateKey: string,
+): Promise<ObjectionCategory[]> {
+  const cacheKey = `admin-objection-categories:${dateKey}`
+
+  const cached = getCachedAiResult<ObjectionCategory[]>(cacheKey)
+  if (cached) return cached
+
+  try {
+    const openai = getOpenAIClient()
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4.1-mini',
+      temperature: 0.1,
+      max_tokens: 600,
+      messages: [
+        {
+          role: 'system',
+          content: 'Eres analista comercial. Consolida objeciones de reuniones de ventas en categorías claras. Responde SOLO JSON válido.',
+        },
+        {
+          role: 'user',
+          content: `Agrupa las siguientes objeciones de reuniones comerciales en categorías consolidadas.\n\nDevuelve SOLO un JSON array con esta estructura:\n[\n  { "category": string, "count": number, "examples": string[] }\n]\n\nReglas:\n- Categorías en español, concisas (ej: "Precio alto", "Competencia", "Timing / No es prioridad").\n- count = cuántas objeciones caen en esa categoría.\n- examples = hasta 2 ejemplos textuales originales de esa categoría.\n- Máximo 6 categorías.\n\nObjeciones:\n${rawObjections.map((o, i) => `${i + 1}. ${o}`).join('\n')}`,
+        },
+      ],
+    })
+
+    const raw = completion.choices[0]?.message?.content?.trim() || ''
+    const start = raw.indexOf('[')
+    const end = raw.lastIndexOf(']')
+    if (start < 0 || end <= start) throw new Error('No JSON array in response')
+
+    const parsed = JSON.parse(raw.slice(start, end + 1)) as unknown[]
+    const categories: ObjectionCategory[] = parsed
+      .slice(0, 8)
+      .map((item) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) return null
+        const r = item as Record<string, unknown>
+        const category = typeof r.category === 'string' ? r.category.trim() : null
+        const count = typeof r.count === 'number' && Number.isFinite(r.count) ? Math.max(1, Math.round(r.count)) : 1
+        const examples = Array.isArray(r.examples)
+          ? r.examples.filter((e): e is string => typeof e === 'string' && e.trim().length > 0).slice(0, 2)
+          : []
+        if (!category) return null
+        return { category, count, examples }
+      })
+      .filter((item): item is ObjectionCategory => item !== null)
+
+    if (categories.length === 0) throw new Error('Empty categories from AI')
+
+    setCachedAiResult(cacheKey, categories)
+    return categories
+  } catch {
+    const fallback = buildFallbackCategories(rawObjections)
+    setCachedAiResult(cacheKey, fallback)
+    return fallback
+  }
+}
+
 export async function getAdminDailyAgenda() {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) return authResult
@@ -127,8 +222,7 @@ export async function getAdminDailyAgenda() {
       requestsBooked,
       requestsRejected,
       meetingsCompleted,
-      rejectedRequests,
-      lostOpportunities,
+      completedMeetings,
       tier1Businesses,
       salesUsers,
     ] = await Promise.all([
@@ -154,29 +248,25 @@ export async function getAdminDailyAgenda() {
         where: { completed: true, category: 'meeting', date: { gte: yStart, lte: yEnd } },
       }),
 
-      prisma.bookingRequest.findMany({
-        where: { rejectedAt: { gte: yStart, lte: yEnd } },
+      // Completed meetings yesterday (to extract objections from notes)
+      prisma.task.findMany({
+        where: {
+          completed: true,
+          category: 'meeting',
+          date: { gte: yStart, lte: yEnd },
+        },
         select: {
           id: true,
-          name: true,
-          rejectionReason: true,
-          userId: true,
-          business: { select: { name: true } },
+          title: true,
+          notes: true,
+          opportunity: {
+            select: {
+              responsibleId: true,
+              business: { select: { name: true } },
+            },
+          },
         },
-        orderBy: { rejectedAt: 'desc' },
-        take: 20,
-      }),
-
-      prisma.opportunity.findMany({
-        where: { stage: 'lost', updatedAt: { gte: yStart, lte: yEnd } },
-        select: {
-          id: true,
-          lostReason: true,
-          responsibleId: true,
-          business: { select: { name: true } },
-        },
-        orderBy: { updatedAt: 'desc' },
-        take: 20,
+        orderBy: { date: 'desc' },
       }),
 
       prisma.business.findMany({
@@ -221,22 +311,35 @@ export async function getAdminDailyAgenda() {
       userNameMap.set(user.clerkId, normalizeDisplayName(user.name, user.email, user.clerkId))
     }
 
-    const objections: AdminDailyAgendaObjectionItem[] = [
-      ...rejectedRequests.map((req) => ({
-        id: `req:${req.id}`,
-        businessName: req.business?.name || req.name,
-        ownerName: userNameMap.get(req.userId) || null,
-        reason: req.rejectionReason || null,
-        type: 'rejection' as const,
-      })),
-      ...lostOpportunities.map((opp) => ({
-        id: `opp:${opp.id}`,
-        businessName: opp.business.name,
-        ownerName: opp.responsibleId ? userNameMap.get(opp.responsibleId) || null : null,
-        reason: opp.lostReason || null,
-        type: 'lost' as const,
-      })),
-    ]
+    // Extract raw objection strings from completed meetings where reachedAgreement === 'no'
+    const rawObjections: string[] = []
+    for (const task of completedMeetings) {
+      if (!task.notes) continue
+      try {
+        const data = JSON.parse(task.notes)
+        if (data.reachedAgreement !== 'no' || !data.mainObjection) continue
+        const text = typeof data.mainObjection === 'string' ? data.mainObjection.trim() : ''
+        if (text) rawObjections.push(text)
+      } catch {
+        // Skip tasks with non-JSON notes
+      }
+    }
+
+    // Categorize objections: AI for 3+, deterministic fallback for fewer
+    let objectionCategories: ObjectionCategory[]
+    let aiGenerated = false
+    if (rawObjections.length >= AI_OBJECTION_THRESHOLD) {
+      objectionCategories = await categorizeObjectionsWithAi(rawObjections, yesterdayDate)
+      aiGenerated = true
+    } else {
+      objectionCategories = buildFallbackCategories(rawObjections)
+    }
+
+    const objectionRecap: AdminDailyAgendaObjectionRecap = {
+      totalMeetingsWithObjection: rawObjections.length,
+      categories: objectionCategories,
+      aiGenerated,
+    }
 
     const tier1AtRisk: AdminDailyAgendaTier1AtRiskItem[] = []
     for (const biz of tier1Businesses) {
@@ -444,7 +547,7 @@ export async function getAdminDailyAgenda() {
           rejected: requestsRejected,
         },
         meetingsCompleted,
-        objections,
+        objectionRecap,
         tier1AtRisk,
         salesPerformance,
         weeklyComparison: {

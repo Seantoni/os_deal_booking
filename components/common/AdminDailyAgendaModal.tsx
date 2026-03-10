@@ -81,7 +81,7 @@ export default function AdminDailyAgendaModal({ isOpen, onClose }: AdminDailyAge
     if (a.bookingActivity.sent > 0) parts.push(`${a.bookingActivity.sent} solicitudes enviadas`)
     if (a.bookingActivity.booked > 0) parts.push(`${a.bookingActivity.booked} reservadas`)
     if (a.meetingsCompleted > 0) parts.push(`${a.meetingsCompleted} reuniones completadas`)
-    if (a.objections.length > 0) parts.push(`${a.objections.length} objeciones`)
+    if (a.objectionRecap.totalMeetingsWithObjection > 0) parts.push(`${a.objectionRecap.totalMeetingsWithObjection} reuniones con objeción`)
     if (a.tier1AtRisk.length > 0) parts.push(`${a.tier1AtRisk.length} Tier 1 en riesgo`)
     const detail = parts.length > 0 ? parts.join(', ') + '.' : 'sin actividad registrada.'
     return `Hola ${a.user.displayName}, ayer (${a.yesterday.displayLabel}): ${detail}`
@@ -238,46 +238,46 @@ export default function AdminDailyAgendaModal({ isOpen, onClose }: AdminDailyAge
               />
             </div>
 
-            {/* Main content: objections + Tier 1 at risk */}
+            {/* Main content: objections recap + Tier 1 at risk */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
-              {/* Objections (rejected + lost) */}
+              {/* Objection categories (AI-categorized) */}
               <section className="lg:col-span-3 rounded-lg border border-gray-200 bg-white overflow-hidden">
                 <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <ReportProblemIcon className="text-red-400" style={{ fontSize: 14 }} />
-                    <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Objeciones de ayer</h3>
+                    <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Objeciones en reuniones</h3>
+                    {agenda.objectionRecap.aiGenerated && (
+                      <span className="text-[9px] font-medium text-purple-500 bg-purple-50 border border-purple-100 rounded px-1 py-0.5">IA</span>
+                    )}
                   </div>
-                  <span className="text-[10px] text-gray-400 tabular-nums">{agenda.objections.length}</span>
+                  <span className="text-[10px] text-gray-400 tabular-nums">
+                    {agenda.objectionRecap.totalMeetingsWithObjection} reunión{agenda.objectionRecap.totalMeetingsWithObjection !== 1 ? 'es' : ''}
+                  </span>
                 </div>
-                <div className="max-h-[220px] overflow-y-auto divide-y divide-gray-100/80">
-                  {agenda.objections.length === 0 ? (
-                    <p className="px-3 py-4 text-[13px] text-gray-400 text-center">Sin objeciones ayer.</p>
+                <div className="max-h-[220px] overflow-y-auto">
+                  {agenda.objectionRecap.totalMeetingsWithObjection === 0 ? (
+                    <p className="px-3 py-4 text-[13px] text-gray-400 text-center">Todas las reuniones llegaron a acuerdo.</p>
                   ) : (
-                    agenda.objections.map((item) => (
-                      <div key={item.id} className="px-3 py-2 hover:bg-gray-50/40 transition-colors">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-[13px] font-semibold text-gray-900 truncate">{item.businessName}</p>
-                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${
-                            item.type === 'rejection'
-                              ? 'bg-red-50 text-red-600 border border-red-100'
-                              : 'bg-orange-50 text-orange-600 border border-orange-100'
-                          }`}>
-                            {item.type === 'rejection' ? 'Rechazada' : 'Perdida'}
-                          </span>
+                    <div className="p-2 space-y-1.5">
+                      {agenda.objectionRecap.categories.map((cat) => (
+                        <div
+                          key={cat.category}
+                          className="rounded-md border border-gray-100 bg-gray-50/40 px-3 py-2"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[13px] font-semibold text-gray-900">{cat.category}</p>
+                            <span className="text-[11px] font-mono font-bold text-red-500 tabular-nums shrink-0">
+                              {cat.count}
+                            </span>
+                          </div>
+                          {cat.examples.length > 0 && (
+                            <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-2">
+                              {cat.examples.join(' · ')}
+                            </p>
+                          )}
                         </div>
-                        {item.ownerName && (
-                          <p className="text-[11px] text-gray-400 mt-0.5">{item.ownerName}</p>
-                        )}
-                        {item.reason && (
-                          <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-2">
-                            <span className="font-medium text-gray-600">Razón:</span> {item.reason}
-                          </p>
-                        )}
-                        {!item.reason && (
-                          <p className="text-[11px] text-gray-400 italic mt-0.5">Sin razón registrada</p>
-                        )}
-                      </div>
-                    ))
+                      ))}
+                    </div>
                   )}
                 </div>
               </section>
