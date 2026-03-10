@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { getUserRole } from '@/lib/auth/roles'
-import { runFullRestaurantScan, runRestaurantSiteScan, RestaurantSourceSite, RestaurantScanProgress } from '@/lib/scraping'
+import { runFullRestaurantScan, runRestaurantSiteScan, RestaurantSourceSite, RestaurantScanProgress, type DegustaMode } from '@/lib/scraping'
 
 export const maxDuration = 300 // 5 minutes max for scanning
 
@@ -40,10 +40,14 @@ export async function POST(request: Request) {
     
     // Parse request body
     let site: RestaurantSourceSite | null = null
+    let degustaMode: DegustaMode = 'discounts'
     try {
       const body = await request.json()
       if (body.site && ['degusta'].includes(body.site)) {
         site = body.site as RestaurantSourceSite
+      }
+      if (body.mode === 'all' || body.mode === 'discounts') {
+        degustaMode = body.mode
       }
     } catch {
       // No body or invalid JSON - scan all sites
@@ -63,12 +67,12 @@ export async function POST(request: Request) {
           }
           
           try {
-            console.log(`Starting SSE restaurant scan${site ? ` for ${site}` : ' for all sites'}...`)
+            console.log(`Starting SSE restaurant scan${site ? ` for ${site}` : ' for all sites'} (mode: ${degustaMode})...`)
             
             // Run scan with progress callback
             const result = site 
-              ? await runRestaurantSiteScan(site, progressCallback) 
-              : await runFullRestaurantScan(progressCallback)
+              ? await runRestaurantSiteScan(site, progressCallback, degustaMode) 
+              : await runFullRestaurantScan(progressCallback, undefined, degustaMode)
             
             // Send final result
             sendEvent('complete', {
@@ -99,9 +103,11 @@ export async function POST(request: Request) {
     }
     
     // Regular JSON response (no streaming)
-    console.log(`Starting regular restaurant scan${site ? ` for ${site}` : ' for all sites'}...`)
+    console.log(`Starting regular restaurant scan${site ? ` for ${site}` : ' for all sites'} (mode: ${degustaMode})...`)
     
-    const result = site ? await runRestaurantSiteScan(site) : await runFullRestaurantScan()
+    const result = site
+      ? await runRestaurantSiteScan(site, undefined, degustaMode)
+      : await runFullRestaurantScan(undefined, undefined, degustaMode)
     
     return NextResponse.json({
       success: result.success,

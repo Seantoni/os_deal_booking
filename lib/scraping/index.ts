@@ -10,7 +10,7 @@ import { scrapeOferta24 } from './oferta24'
 import { scrapeTicketplus } from './ticketplus'
 import { scrapePanatickets } from './panatickets'
 import { scrapeEnLaTaquilla } from './enlataquilla'
-import { scrapeDegusta } from './degusta'
+import { scrapeDegusta, type DegustaMode } from './degusta'
 import { scrapeBGeneral } from './bgeneral'
 import { findMatchingBusiness } from '@/lib/matching/restaurant-business'
 import { 
@@ -39,7 +39,7 @@ export { getRantanOfertasDealUrls } from './rantanofertas'
 export { scrapeTicketplus } from './ticketplus'
 export { scrapePanatickets } from './panatickets'
 export { scrapeEnLaTaquilla } from './enlataquilla'
-export { scrapeDegusta } from './degusta'
+export { scrapeDegusta, type DegustaMode } from './degusta'
 export { scrapeBGeneral } from './bgeneral'
 
 const MAX_DEALS_PER_SITE = 150 // 100 per site = 300 total max
@@ -980,11 +980,16 @@ async function saveRestaurantLead(scrapedRestaurant: ScrapedRestaurant): Promise
 /**
  * Scan a specific restaurant site
  */
-async function scanRestaurantSite(site: RestaurantSourceSite, onProgress?: RestaurantProgressCallback, maxRestaurants?: number): Promise<RestaurantScrapeResult> {
-  const limit = maxRestaurants ?? MAX_RESTAURANTS_PER_SITE
+async function scanRestaurantSite(
+  site: RestaurantSourceSite,
+  onProgress?: RestaurantProgressCallback,
+  maxRestaurants?: number,
+  degustaMode?: DegustaMode,
+): Promise<RestaurantScrapeResult> {
+  const limit = maxRestaurants ?? (degustaMode === 'all' ? 2000 : MAX_RESTAURANTS_PER_SITE)
   switch (site) {
     case 'degusta':
-      return await scrapeDegusta(limit, onProgress)
+      return await scrapeDegusta(limit, onProgress, degustaMode ?? 'discounts')
     default:
       return {
         success: false,
@@ -998,7 +1003,11 @@ async function scanRestaurantSite(site: RestaurantSourceSite, onProgress?: Resta
 /**
  * Run a full scan of all restaurant sites
  */
-export async function runFullRestaurantScan(onProgress?: RestaurantProgressCallback, maxRestaurantsPerSite?: number): Promise<RestaurantScanResult> {
+export async function runFullRestaurantScan(
+  onProgress?: RestaurantProgressCallback,
+  maxRestaurantsPerSite?: number,
+  degustaMode?: DegustaMode,
+): Promise<RestaurantScanResult> {
   const startTime = Date.now()
   const errors: string[] = []
   let totalRestaurantsFound = 0
@@ -1012,7 +1021,7 @@ export async function runFullRestaurantScan(onProgress?: RestaurantProgressCallb
     console.log(`\n=== Scanning Restaurant Site: ${site} ===`)
     
     try {
-      const result = await scanRestaurantSite(site, onProgress, maxRestaurantsPerSite)
+      const result = await scanRestaurantSite(site, onProgress, maxRestaurantsPerSite, degustaMode)
       
       if (!result.success) {
         errors.push(...result.errors)
@@ -1079,7 +1088,11 @@ export async function runFullRestaurantScan(onProgress?: RestaurantProgressCallb
 /**
  * Scan a single restaurant site
  */
-export async function runRestaurantSiteScan(site: RestaurantSourceSite, onProgress?: RestaurantProgressCallback): Promise<RestaurantScanResult> {
+export async function runRestaurantSiteScan(
+  site: RestaurantSourceSite,
+  onProgress?: RestaurantProgressCallback,
+  degustaMode?: DegustaMode,
+): Promise<RestaurantScanResult> {
   const startTime = Date.now()
   const errors: string[] = []
   let newRestaurants = 0
@@ -1088,7 +1101,7 @@ export async function runRestaurantSiteScan(site: RestaurantSourceSite, onProgre
   console.log(`\n=== Scanning Restaurant Site: ${site} ===`)
   
   try {
-    const result = await scanRestaurantSite(site, onProgress)
+    const result = await scanRestaurantSite(site, onProgress, undefined, degustaMode)
     
     if (!result.success) {
       return {

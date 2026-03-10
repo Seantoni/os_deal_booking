@@ -819,7 +819,7 @@ export default function LeadsNegociosClient() {
     setRestaurantPage(1)
   }
   
-  const handleRestaurantScan = async () => {
+  const handleRestaurantScan = async (mode: 'discounts' | 'all' = 'discounts') => {
     setRestaurantScanning(true)
     setRestaurantScanProgress(null)
     
@@ -831,6 +831,7 @@ export default function LeadsNegociosClient() {
           'Content-Type': 'application/json',
           'Accept': 'text/event-stream',
         },
+        body: JSON.stringify({ mode }),
       })
       
       if (!response.ok) {
@@ -1585,15 +1586,24 @@ export default function LeadsNegociosClient() {
                   {restaurantMatch.matching ? 'Buscando...' : 'Buscar Matches'}
                 </Button>
                 
-                {/* Scan Button */}
+                {/* Scan Buttons */}
                 <Button
-                  onClick={handleRestaurantScan}
+                  onClick={() => handleRestaurantScan('discounts')}
                   disabled={restaurantScanning || restaurantMatch.matching}
                   variant="primary"
                   size="sm"
                   leftIcon={restaurantScanning ? <RefreshIcon className="animate-spin" style={{ fontSize: 14 }} /> : <PlayArrowIcon style={{ fontSize: 14 }} />}
                 >
-                  {restaurantScanning ? 'Escaneando...' : 'Escanear'}
+                  {restaurantScanning ? 'Escaneando...' : 'Escanear Descuentos'}
+                </Button>
+                <Button
+                  onClick={() => handleRestaurantScan('all')}
+                  disabled={restaurantScanning || restaurantMatch.matching}
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={restaurantScanning ? <RefreshIcon className="animate-spin" style={{ fontSize: 14 }} /> : <RestaurantIcon style={{ fontSize: 14 }} />}
+                >
+                  Escanear Todos
                 </Button>
               </div>
             </div>

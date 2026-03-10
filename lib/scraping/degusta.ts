@@ -1,21 +1,36 @@
 /**
  * Degusta Panamá Scraper
  *
- * Fetches restaurants with discounts via the Degusta internal search API.
+ * Fetches restaurants via the Degusta internal search API.
+ * Supports two modes:
+ *   - 'discounts': only restaurants with active discounts (default)
+ *   - 'all': every restaurant on the site (~1800+), using concurrent requests
+ *
  * No browser needed — uses plain HTTP + cheerio for HTML parsing.
  */
 
 import * as cheerio from 'cheerio'
 import { ScrapedRestaurant, RestaurantScrapeResult, RestaurantProgressCallback } from './types'
 
+export type DegustaMode = 'discounts' | 'all'
+
 const BASE_URL = 'https://www.degustapanama.com'
 const SEARCH_API = `${BASE_URL}/panama/services/search`
 const PAGE_SIZE = 10
-const REQUEST_DELAY_MS = 800
 
-const FILTERS_B64 = Buffer.from(
-  JSON.stringify({ filters: { discounts: true }, score_range: {}, sort: 'food' })
-).toString('base64')
+const SEQUENTIAL_DELAY_MS = 800
+const CONCURRENT_BATCH_SIZE = 5
+const CONCURRENT_BATCH_DELAY_MS = 250
+const API_OFFSET_CAP = 1000
+
+type DegustaSort = 'food' | 'service' | 'ambient' | 'relevance' | 'price' | 'popularity' | 'discount' | 'discover'
+
+function buildFiltersB64(mode: DegustaMode, sort: DegustaSort = 'food'): string {
+  const payload = mode === 'all'
+    ? { filters: {}, score_range: {}, sort }
+    : { filters: { discounts: true }, score_range: {}, sort }
+  return Buffer.from(JSON.stringify(payload)).toString('base64')
+}
 
 interface DegustaGmapEntry {
   id: number
@@ -157,121 +172,252 @@ function parseRestaurantsFromHtml(html: string, gmapById: Map<number, DegustaGma
   return results
 }
 
+const API_HEADERS = {
+  'Accept': 'application/json, text/plain, */*',
+  'X-Requested-With': 'XMLHttpRequest',
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+}
+
+async function fetchPage(filtersB64: string, offset: number): Promise<DegustaSearchResponse> {
+  const url = `${SEARCH_API}?q=&filters=${filtersB64}&offset=${offset}`
+  const response = await fetch(url, { headers: API_HEADERS })
+  if (!response.ok) throw new Error(`API returned ${response.status} for offset ${offset}`)
+  return response.json()
+}
+
+function processPage(data: DegustaSearchResponse): ScrapedRestaurant[] {
+  if (!data.html || data.html.trim().length === 0) return []
+  const gmapById = new Map<number, DegustaGmapEntry>()
+  for (const entry of data.gmap ?? []) gmapById.set(entry.id, entry)
+  return parseRestaurantsFromHtml(data.html, gmapById)
+}
+
 /**
- * Main scraper function for Degusta Panamá.
- * Hits the search API directly — no headless browser required.
+ * Sequential fetcher — used for 'discounts' mode (smaller dataset, ~100-200 results).
  */
-export async function scrapeDegusta(
-  maxRestaurants: number = 100,
-  onProgress?: RestaurantProgressCallback
-): Promise<RestaurantScrapeResult> {
+async function fetchSequential(
+  filtersB64: string,
+  maxRestaurants: number,
+  reportProgress: ReportProgressFn,
+): Promise<{ restaurants: ScrapedRestaurant[]; errors: string[] }> {
+  const restaurants: ScrapedRestaurant[] = []
+  const errors: string[] = []
+  const seenUrls = new Set<string>()
+  const maxPages = Math.ceil(maxRestaurants / PAGE_SIZE) + 2
+
+  let offset = 0
+  let totalCount = 0
+
+  for (let pageNum = 0; pageNum < maxPages && restaurants.length < maxRestaurants; pageNum++) {
+    reportProgress('loading_page', `Fetching page ${pageNum + 1} (offset ${offset})...`)
+
+    let data: DegustaSearchResponse
+    try {
+      data = await fetchPage(filtersB64, offset)
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : `Unknown error at offset ${offset}`
+      errors.push(errMsg)
+      reportProgress('error', errMsg)
+      break
+    }
+
+    if (pageNum === 0) {
+      totalCount = data.count
+      reportProgress('loading_page', `Found ${totalCount} restaurants with discounts`)
+    }
+
+    const pageRestaurants = processPage(data)
+    if (pageRestaurants.length === 0) break
+
+    let newOnThisPage = 0
+    for (const r of pageRestaurants) {
+      if (restaurants.length >= maxRestaurants) break
+      if (seenUrls.has(r.sourceUrl)) continue
+      seenUrls.add(r.sourceUrl)
+      restaurants.push(r)
+      newOnThisPage++
+
+      reportProgress('extracting', `Extracted ${restaurants.length}/${Math.min(maxRestaurants, totalCount)}: ${r.name}`, {
+        current: restaurants.length,
+        total: Math.min(maxRestaurants, totalCount),
+        restaurantName: r.name,
+      })
+    }
+
+    if (newOnThisPage === 0) break
+
+    offset += PAGE_SIZE
+    if (offset >= totalCount) break
+
+    await new Promise(resolve => setTimeout(resolve, SEQUENTIAL_DELAY_MS))
+  }
+
+  return { restaurants, errors }
+}
+
+/**
+ * Fetch one sort-order pass concurrently up to the API's offset cap (1000).
+ * Returns only the newly discovered restaurants (not already in seenUrls).
+ */
+async function fetchSortPass(
+  mode: DegustaMode,
+  sort: DegustaSort,
+  seenUrls: Set<string>,
+  maxRestaurants: number,
+  reportProgress: ReportProgressFn,
+  passLabel: string,
+): Promise<{ restaurants: ScrapedRestaurant[]; totalCount: number; errors: string[] }> {
+  const filtersB64 = buildFiltersB64(mode, sort)
   const restaurants: ScrapedRestaurant[] = []
   const errors: string[] = []
 
-  const reportProgress = (phase: Parameters<RestaurantProgressCallback>[0]['phase'], message: string, extra?: Partial<Parameters<RestaurantProgressCallback>[0]>) => {
-    if (onProgress) {
-      onProgress({ site: 'degusta', phase, message, ...extra })
+  let firstData: DegustaSearchResponse
+  try {
+    firstData = await fetchPage(filtersB64, 0)
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : `Failed to fetch first page (${sort})`
+    return { restaurants, totalCount: 0, errors: [errMsg] }
+  }
+
+  const totalCount = firstData.count
+  const maxOffset = Math.min(API_OFFSET_CAP, totalCount)
+
+  for (const r of processPage(firstData)) {
+    if (seenUrls.has(r.sourceUrl)) continue
+    seenUrls.add(r.sourceUrl)
+    restaurants.push(r)
+  }
+
+  const offsets: number[] = []
+  for (let o = PAGE_SIZE; o < maxOffset; o += PAGE_SIZE) {
+    offsets.push(o)
+  }
+
+  for (let i = 0; i < offsets.length; i += CONCURRENT_BATCH_SIZE) {
+    const batch = offsets.slice(i, i + CONCURRENT_BATCH_SIZE)
+    const batchNum = Math.floor(i / CONCURRENT_BATCH_SIZE) + 1
+    const totalBatches = Math.ceil(offsets.length / CONCURRENT_BATCH_SIZE)
+
+    reportProgress('loading_page', `${passLabel} batch ${batchNum}/${totalBatches} (sort: ${sort})`)
+
+    const results = await Promise.allSettled(batch.map(offset => fetchPage(filtersB64, offset)))
+
+    let emptyPages = 0
+    for (let j = 0; j < results.length; j++) {
+      const result = results[j]
+      if (result.status === 'rejected') {
+        errors.push(`Offset ${batch[j]} failed: ${result.reason}`)
+        continue
+      }
+
+      const parsed = processPage(result.value)
+      if (parsed.length === 0) { emptyPages++; continue }
+
+      for (const r of parsed) {
+        if (seenUrls.has(r.sourceUrl)) continue
+        seenUrls.add(r.sourceUrl)
+        restaurants.push(r)
+      }
     }
+
+    if (emptyPages === batch.length) break
+
+    if (i + CONCURRENT_BATCH_SIZE < offsets.length) {
+      await new Promise(resolve => setTimeout(resolve, CONCURRENT_BATCH_DELAY_MS))
+    }
+  }
+
+  return { restaurants, totalCount, errors }
+}
+
+/**
+ * Concurrent fetcher — used for 'all' mode (~1800+ results).
+ *
+ * The Degusta API caps results at offset 1000 (~1000 restaurants per sort order).
+ * To get the full catalog we run multiple passes with different sort orders,
+ * merging unique results. Two passes (food + popularity) typically cover all ~1800.
+ */
+async function fetchConcurrent(
+  _filtersB64: string,
+  maxRestaurants: number,
+  reportProgress: ReportProgressFn,
+): Promise<{ restaurants: ScrapedRestaurant[]; errors: string[] }> {
+  const allRestaurants: ScrapedRestaurant[] = []
+  const allErrors: string[] = []
+  const seenUrls = new Set<string>()
+
+  const sortPasses: DegustaSort[] = ['food', 'popularity']
+
+  for (let p = 0; p < sortPasses.length; p++) {
+    const sort = sortPasses[p]
+    const passLabel = `Pass ${p + 1}/${sortPasses.length}`
+
+    reportProgress('loading_page', `${passLabel} — scanning with sort "${sort}"...`)
+
+    const { restaurants, totalCount, errors } = await fetchSortPass(
+      'all', sort, seenUrls, maxRestaurants, reportProgress, passLabel,
+    )
+
+    allRestaurants.push(...restaurants)
+    allErrors.push(...errors)
+
+    const target = Math.min(maxRestaurants, totalCount)
+    reportProgress('extracting', `${passLabel} done — ${restaurants.length} new (${allRestaurants.length} total unique / ${target} on site)`, {
+      current: allRestaurants.length,
+      total: target,
+    })
+
+    if (allRestaurants.length >= target) break
+  }
+
+  return { restaurants: allRestaurants, errors: allErrors }
+}
+
+type ReportProgressFn = (
+  phase: Parameters<RestaurantProgressCallback>[0]['phase'],
+  message: string,
+  extra?: Partial<Parameters<RestaurantProgressCallback>[0]>,
+) => void
+
+/**
+ * Main scraper function for Degusta Panamá.
+ *
+ * @param mode - 'discounts' (only restaurants with discounts) or 'all' (entire site, concurrent)
+ * @param maxRestaurants - cap on results. Defaults to 200 for discounts, 2000 for all.
+ */
+export async function scrapeDegusta(
+  maxRestaurants?: number,
+  onProgress?: RestaurantProgressCallback,
+  mode: DegustaMode = 'discounts',
+): Promise<RestaurantScrapeResult> {
+  const limit = maxRestaurants ?? (mode === 'all' ? 2000 : 200)
+  const filtersB64 = buildFiltersB64(mode)
+  const errors: string[] = []
+
+  const reportProgress: ReportProgressFn = (phase, message, extra) => {
+    if (onProgress) onProgress({ site: 'degusta', phase, message, ...extra })
     console.log(`[Degusta] ${message}`)
   }
 
   try {
-    reportProgress('connecting', 'Fetching restaurants from Degusta API...')
+    const modeLabel = mode === 'all' ? 'all restaurants' : 'restaurants with discounts'
+    reportProgress('connecting', `Fetching ${modeLabel} from Degusta API...`)
 
-    let offset = 0
-    let totalCount = 0
-    let pageNum = 0
-    const maxPages = Math.ceil(maxRestaurants / PAGE_SIZE) + 2
-    const seenUrls = new Set<string>()
+    const fetcher = mode === 'all' ? fetchConcurrent : fetchSequential
+    const result = await fetcher(filtersB64, limit, reportProgress)
 
-    while (restaurants.length < maxRestaurants && pageNum < maxPages) {
-      const url = `${SEARCH_API}?q=&filters=${FILTERS_B64}&offset=${offset}`
+    errors.push(...result.errors)
 
-      reportProgress('loading_page', `Fetching page ${pageNum + 1} (offset ${offset})...`)
-
-      const response = await fetch(url, {
-        headers: {
-          'Accept': 'application/json, text/plain, */*',
-          'X-Requested-With': 'XMLHttpRequest',
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-        },
-      })
-
-      if (!response.ok) {
-        const errMsg = `API returned ${response.status} for offset ${offset}`
-        errors.push(errMsg)
-        reportProgress('error', errMsg)
-        break
-      }
-
-      const data: DegustaSearchResponse = await response.json()
-
-      if (pageNum === 0) {
-        totalCount = data.count
-        reportProgress('loading_page', `Found ${totalCount} restaurants with discounts`)
-      }
-
-      if (!data.html || data.html.trim().length === 0) {
-        break
-      }
-
-      // Build gmap lookup for name fallback
-      const gmapById = new Map<number, DegustaGmapEntry>()
-      for (const entry of data.gmap ?? []) {
-        gmapById.set(entry.id, entry)
-      }
-
-      const pageRestaurants = parseRestaurantsFromHtml(data.html, gmapById)
-
-      // Break if page returned nothing (parsing failure or end of data)
-      if (pageRestaurants.length === 0) {
-        console.log(`[Degusta] Page ${pageNum + 1} returned 0 parsed restaurants, stopping.`)
-        break
-      }
-
-      let newOnThisPage = 0
-      for (const r of pageRestaurants) {
-        if (restaurants.length >= maxRestaurants) break
-        if (seenUrls.has(r.sourceUrl)) continue
-        seenUrls.add(r.sourceUrl)
-        restaurants.push(r)
-        newOnThisPage++
-
-        reportProgress('extracting', `Extracted ${restaurants.length}/${Math.min(maxRestaurants, totalCount)}: ${r.name}`, {
-          current: restaurants.length,
-          total: Math.min(maxRestaurants, totalCount),
-          restaurantName: r.name,
-        })
-      }
-
-      // Break if we got only duplicates (stuck on same page)
-      if (newOnThisPage === 0) {
-        console.log(`[Degusta] Page ${pageNum + 1} returned only duplicates, stopping.`)
-        break
-      }
-
-      // Advance offset ourselves — don't trust next_page_offset
-      offset += PAGE_SIZE
-      pageNum++
-
-      if (offset >= totalCount) {
-        break
-      }
-
-      // Polite delay between requests
-      await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY_MS))
-    }
-
-    if (restaurants.length === 0) {
+    if (result.restaurants.length === 0) {
       errors.push('No restaurants found from API')
       reportProgress('error', 'No restaurants found from API')
     } else {
-      reportProgress('complete', `Scan complete! Found ${restaurants.length} restaurants`)
+      reportProgress('complete', `Scan complete! Found ${result.restaurants.length} restaurants`)
     }
 
     return {
-      success: restaurants.length > 0,
-      restaurants,
+      success: result.restaurants.length > 0,
+      restaurants: result.restaurants,
       errors,
       scannedAt: new Date(),
     }
@@ -282,7 +428,7 @@ export async function scrapeDegusta(
 
     return {
       success: false,
-      restaurants,
+      restaurants: [],
       errors,
       scannedAt: new Date(),
     }
