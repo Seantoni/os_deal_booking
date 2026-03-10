@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { getBusinessApprovedRequestAgingMap } from '@/app/actions/businesses'
-import type { BusinessApprovedRequestAgingRecord } from '@/lib/business'
+import { getBusinessSentRequestAgingMap } from '@/app/actions/businesses'
+import type { BusinessSentRequestAgingRecord } from '@/lib/business'
 
-type AgingMap = Record<string, BusinessApprovedRequestAgingRecord>
+type AgingMap = Record<string, BusinessSentRequestAgingRecord>
 
 export function useBusinessApprovedRequestAging(businessIds: string[]) {
   const normalizedBusinessIds = useMemo(
@@ -30,19 +30,19 @@ export function useBusinessApprovedRequestAging(businessIds: string[]) {
       setError(null)
 
       try {
-        const result = await getBusinessApprovedRequestAgingMap(normalizedBusinessIds)
+        const result = await getBusinessSentRequestAgingMap(normalizedBusinessIds)
         if (cancelled) return
 
         if (result.success && result.data) {
           setData(result.data as AgingMap)
         } else {
           setData({})
-          setError(('error' in result && result.error) || 'Failed to load business approval aging')
+          setError(('error' in result && result.error) || 'Failed to load business request send aging')
         }
       } catch (loadError) {
         if (cancelled) return
         setData({})
-        setError(loadError instanceof Error ? loadError.message : 'Failed to load business approval aging')
+        setError(loadError instanceof Error ? loadError.message : 'Failed to load business request send aging')
       } finally {
         if (!cancelled) {
           setLoading(false)

@@ -34,7 +34,7 @@ const COLUMNS: ColumnConfig[] = [
   { key: 'quantitySold', label: 'Vendidos', sortable: true, align: 'right' },
   { key: 'netRevenue', label: 'Ingreso', sortable: true, align: 'right' },
   { key: 'margin', label: 'Comisión', sortable: true, align: 'right' },
-  { key: 'daysSinceApproved', label: 'Días sin aprob.', align: 'right' },
+  { key: 'daysSinceSent', label: 'Días desde envío', align: 'right' },
   { key: 'projectedRevenue', label: 'Proyección', align: 'right' },
   { key: 'runAt', label: 'Inicio', sortable: true },
   { key: 'endAt', label: 'Fin', sortable: true },
@@ -122,7 +122,7 @@ export default function VendorReactivationPageClient({
     () => [...new Set(displayDeals.map((deal) => deal.businessId).filter(Boolean))] as string[],
     [displayDeals]
   )
-  const { data: approvedAgingMap } = useBusinessApprovedRequestAging(businessIds)
+  const { data: sentAgingMap } = useBusinessApprovedRequestAging(businessIds)
 
   useEffect(() => {
     let cancelled = false
@@ -283,7 +283,7 @@ export default function VendorReactivationPageClient({
                 <tbody className="divide-y divide-gray-100">
                   {displayDeals.map((deal, index) => {
                     const projection = deal.businessId ? projectionSummaryMap[deal.businessId] : null
-                    const approvedAging = deal.businessId ? approvedAgingMap[deal.businessId] : null
+                    const sentAging = deal.businessId ? sentAgingMap[deal.businessId] : null
                     const active = isDealActive(deal)
 
                     return (
@@ -325,13 +325,13 @@ export default function VendorReactivationPageClient({
                           </span>
                         </TableCell>
                         <TableCell align="right">
-                          {approvedAging?.daysSinceLastApproved !== null && approvedAging?.daysSinceLastApproved !== undefined ? (
+                          {sentAging?.daysSinceLastSent !== null && sentAging?.daysSinceLastSent !== undefined ? (
                             <div className="flex flex-col items-end leading-tight">
                               <span className="font-medium text-gray-900">
-                                {approvedAging.daysSinceLastApproved}
+                                {sentAging.daysSinceLastSent}
                               </span>
                               <span className="text-[10px] text-gray-500">
-                                {approvedAging.lastApprovedAt ? formatShortDate(approvedAging.lastApprovedAt) : '—'}
+                                {sentAging.lastSentAt ? formatShortDate(sentAging.lastSentAt) : '—'}
                               </span>
                             </div>
                           ) : (

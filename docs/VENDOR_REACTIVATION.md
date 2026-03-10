@@ -187,9 +187,9 @@ The system links a historical deal to a business using this order:
 
 This logic exists both in the admin page list and the automatic targeting logic.
 
-## Last Approved Date Logic
+## Last Sent Request Logic
 
-There is no dedicated stored `lastApprovedAt` field on the business.
+There is no dedicated stored `lastSentAt` field on the business.
 
 Instead, it is computed on demand in:
 [lib/business/approved-request-aging.ts](/Users/josep/Documents/Dev%202025/os_deals_booking.nosync/lib/business/approved-request-aging.ts)
@@ -204,9 +204,9 @@ This helper scans approved booking requests and links them to businesses using:
 
 It returns, per business:
 
-- `lastApprovedAt`
-- `daysSinceLastApproved`
-- `hasApprovedRequest`
+- `lastSentAt`
+- `daysSinceLastSent`
+- `hasSentRequest`
 
 The React hook wrapper is:
 [hooks/useBusinessApprovedRequestAging.ts](/Users/josep/Documents/Dev%202025/os_deals_booking.nosync/hooks/useBusinessApprovedRequestAging.ts)
@@ -218,12 +218,12 @@ The eligibility logic for automatic sends is in:
 
 The system computes:
 
-- `lastApprovedAt`
+- `lastSentRequestAt`
 - `lastTriggerEmailSentAt`
 
 Then it builds:
 
-- `referenceDate = max(lastApprovedAt, lastTriggerEmailSentAt)`
+- `referenceDate = max(lastSentRequestAt, lastTriggerEmailSentAt)`
 
 Then it checks:
 
@@ -239,9 +239,9 @@ Examples:
 
 - business in pool, no approved request, no prior trigger email:
   eligible
-- business in pool, approved request 90 days ago, no trigger email:
+- business in pool, request sent 90 days ago, no trigger email:
   eligible if cooldown is less than or equal to 90
-- business in pool, approved request 90 days ago, trigger email 5 days ago:
+- business in pool, request sent 90 days ago, trigger email 5 days ago:
   not eligible
 
 ## Automatic Daily Cron

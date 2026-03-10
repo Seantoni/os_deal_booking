@@ -1,21 +1,21 @@
 'use server'
 
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
-import { getBusinessApprovedRequestAgingByIds } from '@/lib/business'
+import { getBusinessSentRequestAgingByIds } from '@/lib/business'
 
-export async function getBusinessApprovedRequestAgingMap(businessIds: string[]) {
+export async function getBusinessSentRequestAgingMap(businessIds: string[]) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
     return authResult
   }
 
   try {
-    const agingMap = await getBusinessApprovedRequestAgingByIds(businessIds)
+    const agingMap = await getBusinessSentRequestAgingByIds(businessIds)
     return {
       success: true,
       data: Object.fromEntries(agingMap.entries()),
     }
   } catch (error) {
-    return handleServerActionError(error, 'getBusinessApprovedRequestAgingMap')
+    return handleServerActionError(error, 'getBusinessSentRequestAgingMap')
   }
 }

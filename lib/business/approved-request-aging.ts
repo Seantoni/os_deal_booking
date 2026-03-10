@@ -6,11 +6,11 @@ import {
   parseDateInPanamaTime,
 } from '@/lib/date/timezone'
 
-export interface BusinessApprovedRequestAgingRecord {
+export interface BusinessSentRequestAgingRecord {
   businessId: string
-  lastApprovedAt: Date | null
-  daysSinceLastApproved: number | null
-  hasApprovedRequest: boolean
+  lastSentAt: Date | null
+  daysSinceLastSent: number | null
+  hasSentRequest: boolean
 }
 
 function normalizeLookupValue(value: string | null | undefined): string | null {
@@ -18,45 +18,45 @@ function normalizeLookupValue(value: string | null | undefined): string | null {
   return normalized ? normalized : null
 }
 
-function createEmptyRecord(businessId: string): BusinessApprovedRequestAgingRecord {
+function createEmptyRecord(businessId: string): BusinessSentRequestAgingRecord {
   return {
     businessId,
-    lastApprovedAt: null,
-    daysSinceLastApproved: null,
-    hasApprovedRequest: false,
+    lastSentAt: null,
+    daysSinceLastSent: null,
+    hasSentRequest: false,
   }
 }
 
-function updateLatestApprovedAt(
-  resultMap: Map<string, BusinessApprovedRequestAgingRecord>,
+function updateLatestSentAt(
+  resultMap: Map<string, BusinessSentRequestAgingRecord>,
   businessId: string,
-  approvedAt: Date
+  sentAt: Date
 ) {
   const existing = resultMap.get(businessId) || createEmptyRecord(businessId)
 
-  if (!existing.lastApprovedAt || approvedAt > existing.lastApprovedAt) {
-    existing.lastApprovedAt = approvedAt
-    existing.hasApprovedRequest = true
+  if (!existing.lastSentAt || sentAt > existing.lastSentAt) {
+    existing.lastSentAt = sentAt
+    existing.hasSentRequest = true
     resultMap.set(businessId, existing)
   }
 }
 
-function buildDaysSinceLastApproved(approvedAt: Date): number {
+function buildDaysSinceLastSent(sentAt: Date): number {
   const todayPanama = parseDateInPanamaTime(getTodayInPanama())
-  const approvedDayPanama = parseDateInPanamaTime(formatDateForPanama(approvedAt))
-  return Math.max(0, Math.floor((todayPanama.getTime() - approvedDayPanama.getTime()) / ONE_DAY_MS))
+  const sentDayPanama = parseDateInPanamaTime(formatDateForPanama(sentAt))
+  return Math.max(0, Math.floor((todayPanama.getTime() - sentDayPanama.getTime()) / ONE_DAY_MS))
 }
 
-export async function getBusinessApprovedRequestAgingByIds(
+export async function getBusinessSentRequestAgingByIds(
   businessIds: string[]
-): Promise<Map<string, BusinessApprovedRequestAgingRecord>> {
+): Promise<Map<string, BusinessSentRequestAgingRecord>> {
   const normalizedBusinessIds = [...new Set(
     businessIds
       .map((businessId) => businessId?.trim())
       .filter((businessId): businessId is string => Boolean(businessId))
   )]
 
-  const resultMap = new Map<string, BusinessApprovedRequestAgingRecord>()
+  const resultMap = new Map<string, BusinessSentRequestAgingRecord>()
   for (const businessId of normalizedBusinessIds) {
     resultMap.set(businessId, createEmptyRecord(businessId))
   }
@@ -141,9 +141,9 @@ export async function getBusinessApprovedRequestAgingByIds(
     businessEmail: { equals: businessEmail, mode: 'insensitive' as const },
   }))
 
-  const approvedRequests = await prisma.bookingRequest.findMany({
+  const sentRequests = await prisma.bookingRequest.findMany({
     where: {
-      approvedAt: { not: null },
+      sentAt: { not: null },
       OR: [
         ...directBusinessIdConditions,
         ...opportunityConditions,
@@ -154,15 +154,15 @@ export async function getBusinessApprovedRequestAgingByIds(
     select: {
       id: true,
       businessId: true,
-      approvedAt: true,
+      sentAt: true,
       opportunityId: true,
       merchant: true,
       businessEmail: true,
     },
   })
 
-  for (const request of approvedRequests) {
-    if (!request.approvedAt) continue
+  for (const request of sentRequests) {
+    if (!request.sentAt) continue
 
     const matchingBusinessIds = new Set<string>()
 
@@ -201,19 +201,19 @@ export async function getBusinessApprovedRequestAgingByIds(
     }
 
     for (const businessId of matchingBusinessIds) {
-      updateLatestApprovedAt(resultMap, businessId, request.approvedAt)
+      updateLatestSentAt(resultMap, businessId, request.sentAt)
     }
   }
 
   for (const [businessId, record] of resultMap.entries()) {
-    if (!record.lastApprovedAt) {
+    if (!record.lastSentAt) {
       resultMap.set(businessId, record)
       continue
     }
 
     resultMap.set(businessId, {
       ...record,
-      daysSinceLastApproved: buildDaysSinceLastApproved(record.lastApprovedAt),
+      daysSinceLastSent: buildDaysSinceLastSent(record.lastSentAt),
     })
   }
 

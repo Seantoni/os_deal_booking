@@ -4,7 +4,7 @@ import { ONE_DAY_MS } from '@/lib/constants/time'
 import { getDealById } from '@/lib/api/external-oferta'
 import { mapApiToBookingForm } from '@/lib/api/external-oferta/deal/mapper'
 import { buildCategoryKey } from '@/lib/category-utils'
-import { getBusinessApprovedRequestAgingByIds } from '@/lib/business'
+import { getBusinessSentRequestAgingByIds } from '@/lib/business'
 import {
   formatDateForPanama,
   getTodayInPanama,
@@ -103,7 +103,7 @@ export interface VendorReactivationTarget {
   businessName: string
   contactEmail: string
   ownerId: string | null
-  lastApprovedAt: Date | null
+  lastSentRequestAt: Date | null
   lastTriggerEmailSentAt: Date | null
   daysSinceReferenceDate: number | null
   eligibleDeals: VendorReactivationEligibleDeal[]
@@ -188,7 +188,7 @@ export async function getVendorReactivationTargets(
       businessName: businessInfo.name,
       contactEmail: businessInfo.contactEmail,
       ownerId: businessInfo.ownerId || null,
-      lastApprovedAt: null,
+      lastSentRequestAt: null,
       lastTriggerEmailSentAt: null,
       daysSinceReferenceDate: null,
       eligibleDeals: [],
@@ -209,8 +209,8 @@ export async function getVendorReactivationTargets(
   }
 
   const businessIds = [...groupedTargets.keys()]
-  const [approvedAgingMap, states] = await Promise.all([
-    getBusinessApprovedRequestAgingByIds(businessIds),
+  const [sentAgingMap, states] = await Promise.all([
+    getBusinessSentRequestAgingByIds(businessIds),
     prisma.vendorReactivationState.findMany({
       where: { businessId: { in: businessIds } },
       select: { businessId: true, lastTriggerEmailSentAt: true },
@@ -221,10 +221,10 @@ export async function getVendorReactivationTargets(
 
   const targets = [...groupedTargets.values()]
     .map((target) => {
-      const approvedAging = approvedAgingMap.get(target.businessId)
-      const lastApprovedAt = approvedAging?.lastApprovedAt || null
+      const sentAging = sentAgingMap.get(target.businessId)
+      const lastSentRequestAt = sentAging?.lastSentAt || null
       const lastTriggerEmailSentAt = stateByBusinessId.get(target.businessId) || null
-      const referenceDateCandidates = [lastApprovedAt, lastTriggerEmailSentAt].filter(
+      const referenceDateCandidates = [lastSentRequestAt, lastTriggerEmailSentAt].filter(
         (value): value is Date => Boolean(value)
       )
       const latestReferenceDate = referenceDateCandidates.length > 0
@@ -233,7 +233,7 @@ export async function getVendorReactivationTargets(
 
       return {
         ...target,
-        lastApprovedAt,
+        lastSentRequestAt,
         lastTriggerEmailSentAt,
         daysSinceReferenceDate: latestReferenceDate
           ? Math.max(

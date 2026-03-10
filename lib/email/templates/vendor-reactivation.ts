@@ -31,17 +31,10 @@ function formatElapsedSpanish(days: number): string {
   return `${years} ${years === 1 ? 'año' : 'años'} y ${remainingMonths} ${remainingMonths === 1 ? 'mes' : 'meses'}`
 }
 
-function vendorRevenue(deal: VendorReactivationTemplateDeal): number {
-  if (deal.margin <= 0 || deal.margin >= 100) return 0
-  return deal.netRevenue * (100 - deal.margin) / deal.margin
-}
-
 function renderDealCard(deal: VendorReactivationTemplateDeal): string {
   const dealLabel = deal.dealName
     ? escapeHtml(deal.dealName)
     : escapeHtml(deal.externalDealId)
-
-  const revenue = vendorRevenue(deal)
 
   const days = daysSince(deal.launchedAt ?? null)
   const elapsedPill = days !== null && days > 0
@@ -55,20 +48,17 @@ function renderDealCard(deal: VendorReactivationTemplateDeal): string {
 
           <!-- Time Pill + Deal Name -->
           ${elapsedPill ? `<div style="text-align: center; margin-bottom: 6px;">${elapsedPill}</div>` : ''}
-          <div style="text-align: center; margin-bottom: 20px; font-size: 16px; font-weight: 700; color: ${EMAIL_STYLES.colors.text}; letter-spacing: -0.01em; line-height: 1.4;">
+          <div style="text-align: center; margin-bottom: 12px; font-size: 16px; font-weight: 700; color: ${EMAIL_STYLES.colors.text}; letter-spacing: -0.01em; line-height: 1.4;">
             ${dealLabel}
           </div>
 
-          <!-- Revenue Hero -->
-          <div style="text-align: center; padding: 16px 0 20px 0;">
-            <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: ${EMAIL_STYLES.colors.secondary}; margin-bottom: 6px;">
-              Su ingreso generado
+          <!-- Quantity Hero -->
+          <div style="text-align: center; padding: 0 0 20px 0;">
+            <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: ${EMAIL_STYLES.colors.secondary}; margin-bottom: 2px;">
+              Cupones vendidos
             </div>
-            <div style="font-size: 36px; font-weight: 800; color: ${EMAIL_STYLES.colors.success}; letter-spacing: -0.04em; line-height: 1;">
-              $${Math.round(revenue).toLocaleString()}
-            </div>
-            <div style="font-size: 14px; color: ${EMAIL_STYLES.colors.secondary}; margin-top: 10px;">
-              <strong style="color: ${EMAIL_STYLES.colors.text}; font-weight: 800;">${deal.quantitySold.toLocaleString()}</strong> cupones vendidos
+            <div style="font-size: 36px; font-weight: 800; color: ${EMAIL_STYLES.colors.brand}; letter-spacing: -0.04em; line-height: 1;">
+              ${deal.quantitySold.toLocaleString()}
             </div>
           </div>
 
@@ -97,7 +87,6 @@ function renderDealCard(deal: VendorReactivationTemplateDeal): string {
 }
 
 export function renderVendorReactivationEmail(props: VendorReactivationEmailTemplateProps): string {
-  const totalVendorRevenue = props.deals.reduce((sum, d) => sum + vendorRevenue(d), 0)
   const totalSold = props.deals.reduce((sum, d) => sum + d.quantitySold, 0)
   const dealCards = props.deals.map(renderDealCard).join('')
 
@@ -107,16 +96,16 @@ export function renderVendorReactivationEmail(props: VendorReactivationEmailTemp
       Hola, <strong style="color: ${EMAIL_STYLES.colors.text};">${escapeHtml(props.businessName)}</strong>
     </p>
 
-    <!-- Hero Revenue Block -->
+    <!-- Hero Quantity Block -->
     <div style="text-align: center; padding: 24px 0 28px 0; margin-bottom: 28px; border-top: 1px solid ${EMAIL_STYLES.colors.border}; border-bottom: 1px solid ${EMAIL_STYLES.colors.border};">
       <div style="font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: ${EMAIL_STYLES.colors.secondary}; margin-bottom: 8px;">
-        Sus clientes han generado
+        Sus deals han vendido
       </div>
       <div style="font-size: 44px; font-weight: 800; color: ${EMAIL_STYLES.colors.brand}; letter-spacing: -0.04em; line-height: 1;">
-        $${Math.round(totalVendorRevenue).toLocaleString()}
+        ${totalSold.toLocaleString()}
       </div>
       <div style="font-size: 14px; color: ${EMAIL_STYLES.colors.secondary}; margin-top: 8px;">
-        en <strong style="color: ${EMAIL_STYLES.colors.text};">${totalSold.toLocaleString()}</strong> cupones &middot; ${props.deals.length} ${props.deals.length === 1 ? 'deal' : 'deals'}
+        cupones &middot; ${props.deals.length} ${props.deals.length === 1 ? 'deal' : 'deals'}
       </div>
     </div>
 
@@ -138,7 +127,7 @@ export function renderVendorReactivationEmail(props: VendorReactivationEmailTemp
 
   return renderEmailLayout({
     title: 'Sus deals están listos - OfertaSimple',
-    previewText: `${props.businessName}, $${Math.round(totalVendorRevenue).toLocaleString()} generados — relance sus mejores deals`,
+    previewText: `${props.businessName}, ${totalSold.toLocaleString()} cupones vendidos — relance sus mejores deals`,
     children: content,
   })
 }

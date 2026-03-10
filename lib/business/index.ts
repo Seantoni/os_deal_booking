@@ -5,8 +5,8 @@
  */
 
 export {
-  getBusinessApprovedRequestAgingByIds,
-  type BusinessApprovedRequestAgingRecord,
+  getBusinessSentRequestAgingByIds,
+  type BusinessSentRequestAgingRecord,
 } from './approved-request-aging'
 
 export {

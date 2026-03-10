@@ -33,7 +33,7 @@ export default function VendorReactivationTab({
               </label>
               <p className="text-xs text-gray-600 mt-1 max-w-xl">
                 Se usa para decidir si un negocio entra otra vez en reactivación. El cálculo toma la fecha
-                más reciente entre la última solicitud aprobada y el último email de reactivación enviado.
+                más reciente entre la última solicitud enviada y el último email de reactivación enviado.
               </p>
             </div>
 
