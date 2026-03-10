@@ -35,6 +35,7 @@ import EventIcon from '@mui/icons-material/Event'
 import StarIcon from '@mui/icons-material/Star'
 import LinkIcon from '@mui/icons-material/Link'
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance'
+import AddBusinessIcon from '@mui/icons-material/AddBusiness'
 import { Button } from '@/components/ui'
 import { EntityTable, StatusPill, TableRow, TableCell } from '@/components/shared/table'
 import { EmptyTableState, type ColumnConfig } from '@/components/shared'
@@ -458,6 +459,10 @@ export default function LeadsNegociosClient() {
   const [businessModalOpen, setBusinessModalOpen] = useState(false)
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null)
   const [loadingBusiness, setLoadingBusiness] = useState(false)
+
+  // Create business from restaurant lead
+  const [newBusinessModalOpen, setNewBusinessModalOpen] = useState(false)
+  const [newBusinessPrefill, setNewBusinessPrefill] = useState<Record<string, string | null> | null>(null)
   
   const loadEvents = useCallback(async () => {
     setLoading(true)
@@ -798,6 +803,27 @@ export default function LeadsNegociosClient() {
     setBusinessModalOpen(false)
     setSelectedBusiness(null)
     loadEvents() // Refresh to show any updates
+  }
+
+  const handleCreateBusinessFromRestaurant = (restaurant: RestaurantLeadWithStats) => {
+    setNewBusinessPrefill({
+      name: restaurant.name,
+      website: restaurant.sourceUrl,
+      neighborhood: restaurant.neighborhood || null,
+      address: restaurant.address || null,
+      description: [
+        restaurant.cuisine,
+        restaurant.pricePerPerson ? `$${restaurant.pricePerPerson}/persona` : null,
+        restaurant.foodRating ? `Comida: ${restaurant.foodRating}` : null,
+      ].filter(Boolean).join(' · ') || null,
+    })
+    setNewBusinessModalOpen(true)
+  }
+
+  const handleNewBusinessSuccess = () => {
+    setNewBusinessModalOpen(false)
+    setNewBusinessPrefill(null)
+    loadRestaurants()
   }
   
   // Restaurant handlers
@@ -1738,6 +1764,15 @@ export default function LeadsNegociosClient() {
                       </TableCell>
                       <TableCell align="center">
                         <div className="flex items-center gap-0.5">
+                          {!restaurant.matchedBusinessId && (
+                            <button
+                              onClick={() => handleCreateBusinessFromRestaurant(restaurant)}
+                              className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-blue-50 text-blue-400 hover:text-blue-600 transition-colors"
+                              title="Crear Negocio"
+                            >
+                              <AddBusinessIcon style={{ fontSize: '1rem' }} />
+                            </button>
+                          )}
                           {restaurant.matchedBusinessId && (
                             <a
                               href={`/businesses/${restaurant.matchedBusinessId}`}
@@ -1989,13 +2024,23 @@ export default function LeadsNegociosClient() {
         </>
       )}
       
-      {/* Business Modal */}
+      {/* Business Modal (view/edit existing) */}
       {businessModalOpen && selectedBusiness && (
         <BusinessFormModal
           isOpen={businessModalOpen}
           onClose={handleBusinessModalClose}
           business={selectedBusiness}
           onSuccess={handleBusinessSuccess}
+        />
+      )}
+
+      {/* Business Modal (create from restaurant lead) */}
+      {newBusinessModalOpen && (
+        <BusinessFormModal
+          isOpen={newBusinessModalOpen}
+          onClose={() => { setNewBusinessModalOpen(false); setNewBusinessPrefill(null) }}
+          onSuccess={handleNewBusinessSuccess}
+          prefillValues={newBusinessPrefill ?? undefined}
         />
       )}
     </div>

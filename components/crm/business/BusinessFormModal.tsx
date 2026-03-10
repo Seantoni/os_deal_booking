@@ -136,6 +136,8 @@ interface BusinessFormModalProps {
   // Read-only mode for viewing without edit permission
   // Sales users can VIEW all businesses but only EDIT assigned ones
   canEdit?: boolean
+  // Prefill values when creating a new business (ignored when editing)
+  prefillValues?: Record<string, string | null>
 }
 
 export default function BusinessFormModal({ 
@@ -147,6 +149,7 @@ export default function BusinessFormModal({
   preloadedCategories,
   preloadedUsers,
   canEdit = true, // Default to true for backwards compatibility
+  prefillValues,
 }: BusinessFormModalProps) {
   // CreateResult type - existingBusiness uses Record for flexibility with Prisma's return type
   type CreateResult = {
@@ -595,9 +598,9 @@ export default function BusinessFormModal({
     }
   }, [business, ownerId, salesTeam, setSalesTeam, users])
 
-  // Build initial values from business entity
+  // Build initial values from business entity (or prefill for new businesses)
   const initialValues = useMemo((): Record<string, string | null> => {
-    if (!business) return {}
+    if (!business) return prefillValues ?? {}
     return {
       name: business.name || null,
       contactName: business.contactName || null,
@@ -628,7 +631,7 @@ export default function BusinessFormModal({
       neighborhood: business.neighborhood || null,
       osAdminVendorId: business.osAdminVendorId || null,
     }
-  }, [business])
+  }, [business, prefillValues])
 
   // Get current focus info (either from local state or business prop)
   const currentFocusPeriod = localFocusPeriod !== null ? localFocusPeriod : (business?.focusPeriod as FocusPeriod | null)
