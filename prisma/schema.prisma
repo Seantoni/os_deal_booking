@@ -72,7 +72,6 @@ model BookingRequest {
   redemptionContactEmail        String?
   redemptionContactName         String?
   redemptionContactPhone        String?
-  additionalRedemptionContacts  Json?
   redemptionMethods             Json?
   redemptionMode                String?
   rucDv                         String?
@@ -170,7 +169,6 @@ model UserProfile {
   isActive        Boolean        @default(true)
   ownedBusinesses Business[]     @relation("BusinessOwner")
   entityAccess    EntityAccess[] // Items this user has been granted access to
-  taskStars       TaskStar[]
 
   @@index([clerkId])
   @@index([email])
@@ -831,24 +829,11 @@ model Task {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
-  stars         TaskStar[]
 
   @@index([category])
   @@index([date])
   @@index([opportunityId])
   @@map("tasks")
-}
-
-model TaskStar {
-  taskId       String
-  userClerkId  String
-  createdAt    DateTime    @default(now())
-  task         Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  user         UserProfile @relation(fields: [userClerkId], references: [clerkId], onDelete: Cascade, onUpdate: Cascade)
-
-  @@id([taskId, userClerkId])
-  @@index([userClerkId])
-  @@map("task_stars")
 }
 
 // ============================================

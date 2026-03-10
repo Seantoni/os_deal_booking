@@ -17,6 +17,7 @@ import {
 import { useBusinessMatching } from '@/hooks/useBusinessMatching'
 import { computeDegustaTier } from '@/hooks/useDegustaTier'
 import { findInstagramHandle } from '@/app/actions/find-instagram'
+import { scrapeRestaurantPhone } from '@/app/actions/scrape-restaurant-phone'
 import {
   getBankPromos,
   getBankPromoStats,
@@ -830,15 +831,24 @@ export default function LeadsNegociosClient() {
       ].filter(Boolean).join(' · ') || null,
     }
 
-    const toastId = toast.loading('Buscando Instagram con AI...')
-    const { handle, error } = await findInstagramHandle(restaurant.name, restaurant.neighborhood)
+    const toastId = toast.loading('Buscando datos del restaurante...')
+
+    // Run phone scrape and Instagram search in parallel
+    const [phoneResult, igResult] = await Promise.all([
+      scrapeRestaurantPhone(restaurant.sourceUrl),
+      findInstagramHandle(restaurant.name, restaurant.neighborhood),
+    ])
     toast.dismiss(toastId)
 
-    if (handle) {
-      basePrefill.instagram = `https://www.instagram.com/${handle}`
-      toast.success(`Instagram encontrado: @${handle}`, { duration: 3000 })
-    } else if (error) {
-      toast.error(`Error buscando Instagram: ${error}`, { duration: 4000 })
+    if (phoneResult.phone) {
+      basePrefill.contactPhone = phoneResult.phone
+    }
+
+    if (igResult.handle) {
+      basePrefill.instagram = `https://www.instagram.com/${igResult.handle}`
+      toast.success(`Instagram encontrado: @${igResult.handle}`, { duration: 3000 })
+    } else if (igResult.error) {
+      toast.error(`Error buscando Instagram: ${igResult.error}`, { duration: 4000 })
     } else {
       toast('Instagram no encontrado', { icon: '🔍', duration: 3000 })
     }
