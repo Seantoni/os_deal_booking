@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useOptimistic, useTransition } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import { getUserTasks, toggleTaskComplete, getTaskCounts, toggleTaskStar, type TaskWithOpportunity } from '@/app/actions/tasks'
+import { getUserTasks, toggleTaskComplete, toggleTaskStar, type TaskWithOpportunity } from '@/app/actions/tasks'
 import { createTask, updateTask, deleteTask } from '@/app/actions/opportunities'
 import { getOpportunity, updateOpportunity } from '@/app/actions/crm'
 import type { Opportunity, OpportunityStage } from '@/types'
@@ -209,7 +209,6 @@ export default function TasksPageClient() {
   const [allTasksStarFilter, setAllTasksStarFilter] = useState<StarFilter>('all')
   const [allTasksDateFilter, setAllTasksDateFilter] = useState<DateRangeFilterValue>({ preset: 'all' })
   const [responsibleFilter, setResponsibleFilter] = useState<string | null>(null)
-  const [serverCounts, setServerCounts] = useState<Record<string, number>>({})
   
   // User filter dropdown options
   const userFilterOptions = useMemo(() => {
@@ -295,12 +294,6 @@ export default function TasksPageClient() {
         setTasks(result.data)
       } else {
         toast.error(result.error || 'Failed to load tasks')
-      }
-      
-      // Also load counts
-      const countsResult = await getTaskCounts(filters)
-      if (countsResult.success && countsResult.data) {
-        setServerCounts(countsResult.data)
       }
     } catch (error) {
       toast.error('Failed to load tasks')
@@ -540,10 +533,10 @@ export default function TasksPageClient() {
     })
   }, [allTasksFiltered, allTasksSortColumn, allTasksSortDirection, sortTasksWithPriority])
 
-  // Count for filters - uses server counts when available, falls back to optimistic counts
+  // Count for filters — computed from already-fetched tasks (no extra DB queries)
   const counts = useMemo(() => {
     const todayStr = getTodayInPanama()
-    const clientCounts = {
+    return {
       all: optimisticTasks.length,
       pending: optimisticTasks.filter(t => !t.completed).length,
       completed: optimisticTasks.filter(t => t.completed).length,
@@ -552,17 +545,7 @@ export default function TasksPageClient() {
       todos: optimisticTasks.filter(t => t.category === 'todo').length,
       starred: optimisticTasks.filter(t => t.isStarred).length,
     }
-
-    if (Object.keys(serverCounts).length > 0) {
-      return {
-        ...clientCounts,
-        ...serverCounts,
-        starred: clientCounts.starred,
-      }
-    }
-
-    return clientCounts
-  }, [optimisticTasks, serverCounts])
+  }, [optimisticTasks])
 
   const openCreateRequestFromOpportunity = useCallback((opportunity: Opportunity) => {
     const business = opportunity.business

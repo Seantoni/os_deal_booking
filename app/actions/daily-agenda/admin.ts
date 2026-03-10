@@ -225,6 +225,10 @@ export async function getAdminDailyAgenda() {
       completedMeetings,
       tier1Businesses,
       salesUsers,
+      weeklyRequestsSent,
+      weeklyRequestsApproved,
+      weeklyRequestsBooked,
+      weeklyMeetings,
     ] = await Promise.all([
       prisma.bookingRequest.count({ where: { sentAt: { gte: yStart, lte: yEnd } } }),
       prisma.bookingRequest.count({
@@ -248,7 +252,6 @@ export async function getAdminDailyAgenda() {
         where: { completed: true, category: 'meeting', date: { gte: yStart, lte: yEnd } },
       }),
 
-      // Completed meetings yesterday (to extract objections from notes)
       prisma.task.findMany({
         where: {
           completed: true,
@@ -303,6 +306,28 @@ export async function getAdminDailyAgenda() {
         where: { role: 'sales', isActive: true },
         select: { clerkId: true, name: true, email: true, team: true },
         orderBy: [{ name: 'asc' }, { email: 'asc' }],
+      }),
+
+      // Weekly rolling counts (previously a separate sequential batch)
+      prisma.bookingRequest.count({ where: { sentAt: { gte: rollingStart, lte: rollingEnd } } }),
+      prisma.bookingRequest.count({
+        where: {
+          OR: [
+            { approvedAt: { gte: rollingStart, lte: rollingEnd } },
+            { status: { in: ['approved', 'booked'] }, processedAt: { gte: rollingStart, lte: rollingEnd } },
+          ],
+        },
+      }),
+      prisma.bookingRequest.count({
+        where: {
+          OR: [
+            { bookedAt: { gte: rollingStart, lte: rollingEnd } },
+            { status: 'booked', processedAt: { gte: rollingStart, lte: rollingEnd } },
+          ],
+        },
+      }),
+      prisma.task.count({
+        where: { completed: true, category: 'meeting', date: { gte: rollingStart, lte: rollingEnd } },
       }),
     ])
 
@@ -503,34 +528,6 @@ export async function getAdminDailyAgenda() {
         if (b.score !== a.score) return b.score - a.score
         return a.name.localeCompare(b.name, 'es')
       })
-
-    const [
-      weeklyRequestsSent,
-      weeklyRequestsApproved,
-      weeklyRequestsBooked,
-      weeklyMeetings,
-    ] = await Promise.all([
-      prisma.bookingRequest.count({ where: { sentAt: { gte: rollingStart, lte: rollingEnd } } }),
-      prisma.bookingRequest.count({
-        where: {
-          OR: [
-            { approvedAt: { gte: rollingStart, lte: rollingEnd } },
-            { status: { in: ['approved', 'booked'] }, processedAt: { gte: rollingStart, lte: rollingEnd } },
-          ],
-        },
-      }),
-      prisma.bookingRequest.count({
-        where: {
-          OR: [
-            { bookedAt: { gte: rollingStart, lte: rollingEnd } },
-            { status: 'booked', processedAt: { gte: rollingStart, lte: rollingEnd } },
-          ],
-        },
-      }),
-      prisma.task.count({
-        where: { completed: true, category: 'meeting', date: { gte: rollingStart, lte: rollingEnd } },
-      }),
-    ])
 
     return {
       success: true,
