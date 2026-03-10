@@ -72,6 +72,7 @@ model BookingRequest {
   redemptionContactEmail        String?
   redemptionContactName         String?
   redemptionContactPhone        String?
+  additionalRedemptionContacts  Json?
   redemptionMethods             Json?
   redemptionMode                String?
   rucDv                         String?
@@ -829,11 +830,24 @@ model Task {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  stars         TaskStar[]
 
   @@index([category])
   @@index([date])
   @@index([opportunityId])
   @@map("tasks")
+}
+
+model TaskStar {
+  id           String   @id @default(cuid())
+  taskId       String
+  userClerkId  String
+  createdAt    DateTime @default(now())
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userClerkId])
+  @@index([userClerkId])
+  @@map("task_stars")
 }
 
 // ============================================
