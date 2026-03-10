@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import ModalShell from '@/components/shared/ModalShell'
 import { Button } from '@/components/ui/Button'
 import { getSalesDailyAgenda, type SalesDailyAgendaData } from '@/app/actions/daily-agenda'
-import { ensureOpenOpportunityForBusiness } from '@/app/actions/opportunities'
+import { useAutoCreateOpportunity } from '@/hooks/useAutoCreateOpportunity'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { getTodayInPanama } from '@/lib/date/timezone'
 import TodayIcon from '@mui/icons-material/Today'
@@ -59,7 +59,7 @@ export default function DailyAgendaModal({ isOpen, onClose }: DailyAgendaModalPr
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [agenda, setAgenda] = useState<SalesDailyAgendaData | null>(null)
-  const [creatingOpportunityForBusinessId, setCreatingOpportunityForBusinessId] = useState<string | null>(null)
+  const { autoCreate, creatingForBusinessId: creatingOpportunityForBusinessId } = useAutoCreateOpportunity()
   const [opportunityDialog, setOpportunityDialog] = useState<AgendaOpportunityDialogState>({ isOpen: false })
 
   const loadAgenda = useCallback(async (force = false) => {
@@ -129,52 +129,40 @@ export default function DailyAgendaModal({ isOpen, onClose }: DailyAgendaModalPr
   const handleCreateOpportunityFromAgenda = async (businessId: string) => {
     if (!businessId || creatingOpportunityForBusinessId) return
 
-    setCreatingOpportunityForBusinessId(businessId)
-    try {
-      const result = await ensureOpenOpportunityForBusiness(businessId)
-      if (!result.success || !result.data) {
-        setOpportunityDialog({
-          isOpen: true,
-          mode: 'error',
-          title: 'No se pudo abrir la oportunidad',
-          message: result.error || 'Ocurrió un error al crear la oportunidad.',
-        })
-        return
-      }
+    const result = await autoCreate(businessId, 'daily_agenda')
 
-      const wasCreated = result.data.created
-      setAgenda((prev) => {
-        if (!prev) return prev
-        return {
-          ...prev,
-          priorities: {
-            ...prev.priorities,
-            tier1WithoutOpenOpportunity: prev.priorities.tier1WithoutOpenOpportunity.filter(
-              (item) => item.businessId !== businessId
-            ),
-          },
-        }
-      })
-
-      setOpportunityDialog({
-        isOpen: true,
-        mode: 'success',
-        title: wasCreated ? 'Oportunidad creada' : 'Oportunidad ya existente',
-        message: wasCreated
-          ? 'La oportunidad se creó en segundo plano. Puedes abrirla ahora.'
-          : 'Ya existía una oportunidad abierta para este negocio. Puedes abrirla ahora.',
-        opportunityId: result.data.opportunityId,
-      })
-    } catch (err) {
+    if (!result.success || !result.opportunity) {
       setOpportunityDialog({
         isOpen: true,
         mode: 'error',
         title: 'No se pudo abrir la oportunidad',
-        message: err instanceof Error ? err.message : 'Ocurrió un error al crear la oportunidad.',
+        message: result.error || 'Ocurrió un error al crear la oportunidad.',
       })
-    } finally {
-      setCreatingOpportunityForBusinessId(null)
+      return
     }
+
+    setAgenda((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        priorities: {
+          ...prev.priorities,
+          tier1WithoutOpenOpportunity: prev.priorities.tier1WithoutOpenOpportunity.filter(
+            (item) => item.businessId !== businessId
+          ),
+        },
+      }
+    })
+
+    setOpportunityDialog({
+      isOpen: true,
+      mode: 'success',
+      title: result.created ? 'Oportunidad creada' : 'Oportunidad ya existente',
+      message: result.created
+        ? 'La oportunidad se creó en segundo plano. Puedes abrirla ahora.'
+        : 'Ya existía una oportunidad abierta para este negocio. Puedes abrirla ahora.',
+      opportunityId: result.opportunity.id,
+    })
   }
 
   return (

@@ -12,6 +12,7 @@ import InboxDropdown from './InboxDropdown'
 import { useCommandPalette } from '@/hooks/useCommandPalette'
 import LiveUsersBadges from './LiveUsersBadges'
 import DailyAgendaModal from './DailyAgendaModal'
+import AdminDailyAgendaModal from './AdminDailyAgendaModal'
 import { useSidebar } from './AppClientProviders'
 import { getTodayInPanama } from '@/lib/date/timezone'
 
@@ -30,6 +31,7 @@ export default function GlobalHeader() {
   const userId = user?.id || null
 
   const isSalesUser = role === 'sales'
+  const isAdminUser = role === 'admin'
 
   const loadUnreadCount = useCallback(async () => {
     try {
@@ -89,17 +91,19 @@ export default function GlobalHeader() {
     if (!userId) return
     try {
       const today = getTodayInPanama()
-      localStorage.setItem(`daily-agenda-last-open:${userId}`, today)
+      const prefix = isAdminUser ? 'admin-daily-agenda-last-open' : 'daily-agenda-last-open'
+      localStorage.setItem(`${prefix}:${userId}`, today)
     } catch {
       // Ignore localStorage errors (private mode/quota).
     }
-  }, [userId])
+  }, [userId, isAdminUser])
 
-  // Auto-open agenda for sales users on first visit of the day (Panama timezone).
+  // Auto-open agenda for sales/admin users on first visit of the day (Panama timezone).
   useEffect(() => {
-    if (!isSalesUser || roleLoading || !userLoaded || !userId) return
+    if ((!isSalesUser && !isAdminUser) || roleLoading || !userLoaded || !userId) return
 
-    const storageKey = `daily-agenda-last-open:${userId}`
+    const prefix = isAdminUser ? 'admin-daily-agenda-last-open' : 'daily-agenda-last-open'
+    const storageKey = `${prefix}:${userId}`
     const today = getTodayInPanama()
 
     let lastOpenDate: string | null = null
@@ -121,7 +125,7 @@ export default function GlobalHeader() {
     return () => {
       window.clearTimeout(autoOpenTimer)
     }
-  }, [isSalesUser, roleLoading, userLoaded, userId, markDailyAgendaAsShownToday])
+  }, [isSalesUser, isAdminUser, roleLoading, userLoaded, userId, markDailyAgendaAsShownToday])
 
   const handleOpenDailyAgenda = () => {
     markDailyAgendaAsShownToday()
@@ -159,12 +163,16 @@ export default function GlobalHeader() {
         <div className="flex items-center gap-1">
           <LiveUsersBadges />
 
-          {/* Daily agenda (sales only) */}
-          {isSalesUser && (
+          {/* Daily agenda (sales + admin) */}
+          {(isSalesUser || isAdminUser) && (
             <>
               <button
                 onClick={handleOpenDailyAgenda}
-                className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors text-xs font-semibold"
+                className={`hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-colors text-xs font-semibold ${
+                  isAdminUser
+                    ? 'border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                    : 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                }`}
                 aria-label="Abrir agenda diaria"
               >
                 <TodayIcon style={{ fontSize: 16 }} />
@@ -172,7 +180,11 @@ export default function GlobalHeader() {
               </button>
               <button
                 onClick={handleOpenDailyAgenda}
-                className="md:hidden p-2 rounded-lg hover:bg-blue-50 transition-colors text-blue-700"
+                className={`md:hidden p-2 rounded-lg transition-colors ${
+                  isAdminUser
+                    ? 'hover:bg-purple-50 text-purple-700'
+                    : 'hover:bg-blue-50 text-blue-700'
+                }`}
                 aria-label="Abrir agenda diaria"
               >
                 <TodayIcon style={{ fontSize: 22 }} />
@@ -223,10 +235,17 @@ export default function GlobalHeader() {
       </div>
       </header>
 
-      <DailyAgendaModal
-        isOpen={dailyAgendaOpen}
-        onClose={() => setDailyAgendaOpen(false)}
-      />
+      {isAdminUser ? (
+        <AdminDailyAgendaModal
+          isOpen={dailyAgendaOpen}
+          onClose={() => setDailyAgendaOpen(false)}
+        />
+      ) : (
+        <DailyAgendaModal
+          isOpen={dailyAgendaOpen}
+          onClose={() => setDailyAgendaOpen(false)}
+        />
+      )}
     </>
   )
 }

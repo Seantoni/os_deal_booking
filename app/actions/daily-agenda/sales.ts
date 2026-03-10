@@ -7,6 +7,7 @@ import { getBusinessTableCounts } from '@/app/actions/businesses'
 import { SALES_VISIBLE_REASSIGNMENT_CONDITION } from '@/app/actions/businesses/_shared/constants'
 import { getLastNDaysRangeInPanama, getTodayInPanama, parseDateInPanamaTime, parseEndDateInPanamaTime } from '@/lib/date/timezone'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
+import { roundToTwo, normalizeDisplayName } from './_shared'
 
 const PROJECTION_WEIGHT = 0.7
 const TIER_WEIGHT = 0.3
@@ -130,10 +131,6 @@ type TeamAccumulator = {
   wonOpportunities: number
 }
 
-function roundToTwo(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100
-}
-
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(value, max))
 }
@@ -252,12 +249,6 @@ function buildTeamScore(stats: TeamAccumulator): number {
     stats.bookedRequests * 4 +
     stats.wonOpportunities * 5
   )
-}
-
-function normalizeDisplayName(name: string | null, email: string | null, userId: string): string {
-  if (name && name.trim()) return name.trim()
-  if (email && email.trim()) return email.trim()
-  return `Usuario ${userId.slice(0, 8)}`
 }
 
 export async function getSalesDailyAgenda() {

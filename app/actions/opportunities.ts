@@ -693,13 +693,18 @@ export async function createOpportunity(formData: FormData) {
 
 /**
  * Ensure an open opportunity exists for the given business.
- * Sales-only quick action used by Daily Agenda.
- * - If an open opportunity already exists for this sales user, returns it.
+ * Used by Daily Agenda and Business modal "auto-create" flow.
+ * - If an open opportunity already exists for this user, returns it.
  * - Otherwise creates one with deterministic defaults.
+ *
+ * Allowed roles: sales (owner check) and admin (any business).
  */
-export async function ensureOpenOpportunityForBusiness(businessId: string): Promise<{
+export async function ensureOpenOpportunityForBusiness(
+  businessId: string,
+  options?: { source?: string }
+): Promise<{
   success: boolean
-  data?: { opportunityId: string; created: boolean }
+  data?: { opportunityId: string; created: boolean; opportunity: Record<string, unknown> }
   error?: string
 }> {
   const authResult = await requireAuth()
@@ -714,15 +719,17 @@ export async function ensureOpenOpportunityForBusiness(businessId: string): Prom
     }
 
     const role = await getUserRole()
-    if (role !== 'sales') {
-      return { success: false, error: 'Acción permitida solo para usuarios de ventas' }
+    if (role !== 'sales' && role !== 'admin') {
+      return { success: false, error: 'Acción no permitida para este rol' }
+    }
+
+    const businessWhere: Record<string, unknown> = { id: businessId.trim() }
+    if (role === 'sales') {
+      businessWhere.ownerId = userId
     }
 
     const business = await prisma.business.findFirst({
-      where: {
-        id: businessId.trim(),
-        ownerId: userId,
-      },
+      where: businessWhere,
       select: {
         id: true,
         name: true,
@@ -738,6 +745,23 @@ export async function ensureOpenOpportunityForBusiness(businessId: string): Prom
       return { success: false, error: 'Negocio no encontrado o sin acceso' }
     }
 
+    const opportunityInclude = {
+      business: {
+        include: {
+          category: {
+            select: {
+              id: true,
+              categoryKey: true,
+              parentCategory: true,
+              subCategory1: true,
+              subCategory2: true,
+            },
+          },
+        },
+      },
+      tasks: { orderBy: { date: 'asc' as const } },
+    }
+
     const existingOpenOpportunity = await prisma.opportunity.findFirst({
       where: {
         businessId: business.id,
@@ -745,7 +769,7 @@ export async function ensureOpenOpportunityForBusiness(businessId: string): Prom
         stage: { notIn: ['won', 'lost'] },
       },
       orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
-      select: { id: true },
+      include: opportunityInclude,
     })
 
     if (existingOpenOpportunity) {
@@ -754,11 +778,13 @@ export async function ensureOpenOpportunityForBusiness(businessId: string): Prom
         data: {
           opportunityId: existingOpenOpportunity.id,
           created: false,
+          opportunity: existingOpenOpportunity as unknown as Record<string, unknown>,
         },
       }
     }
 
     const startDate = parseDateInPanamaTime(getTodayInPanama())
+    const source = options?.source || 'quick_create'
 
     const createdOpportunity = await prisma.opportunity.create({
       data: {
@@ -772,11 +798,9 @@ export async function ensureOpenOpportunityForBusiness(businessId: string): Prom
         contactName: business.contactName?.trim() || null,
         contactPhone: business.contactPhone?.trim() || null,
         contactEmail: business.contactEmail?.trim() || null,
-        notes: 'Creada automáticamente desde Agenda diaria',
+        notes: source === 'daily_agenda' ? 'Creada automáticamente desde Agenda diaria' : null,
       },
-      select: {
-        id: true,
-      },
+      include: opportunityInclude,
     })
 
     await logActivity({
@@ -786,7 +810,7 @@ export async function ensureOpenOpportunityForBusiness(businessId: string): Prom
       entityName: business.name || undefined,
       details: {
         metadata: {
-          source: 'daily_agenda_quick_create',
+          source,
           businessId: business.id,
         },
       },
@@ -800,6 +824,7 @@ export async function ensureOpenOpportunityForBusiness(businessId: string): Prom
       data: {
         opportunityId: createdOpportunity.id,
         created: true,
+        opportunity: createdOpportunity as unknown as Record<string, unknown>,
       },
     }
   } catch (error) {

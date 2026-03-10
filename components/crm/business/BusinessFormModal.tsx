@@ -30,6 +30,7 @@ import { getActiveFocus, getFocusInfo, FOCUS_PERIOD_LABELS, type FocusPeriod } f
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useBusinessForm } from './useBusinessForm'
+import { useAutoCreateOpportunity } from '@/hooks/useAutoCreateOpportunity'
 import type { OpportunityModalSuccessMeta } from '../opportunity/opportunityModalTypes'
 import ReferenceInfoBar from '@/components/shared/ReferenceInfoBar'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
@@ -448,6 +449,7 @@ export default function BusinessFormModal({
   const [error, setError] = useState('')
   const [opportunityModalOpen, setOpportunityModalOpen] = useState(false)
   const [focusModalOpen, setFocusModalOpen] = useState(false)
+  const { autoCreate: autoCreateOpportunity, isCreating: isCreatingOpportunity } = useAutoCreateOpportunity()
 
   // React 19: useTransition for non-blocking UI during form actions
   const [isPending, startTransition] = useTransition()
@@ -848,13 +850,19 @@ export default function BusinessFormModal({
     setOpportunityModalOpen(true)
   }
 
-  function handleCreateNewOpportunity() {
-    // Only allow if user has edit permission
-    if (!canEdit) return
+  async function handleCreateNewOpportunity() {
+    if (!canEdit || !business) return
 
-    // Open opportunity modal to create a new opportunity for this business
-    setSelectedOpportunity(null)
-    setOpportunityModalOpen(true)
+    setError('')
+    const result = await autoCreateOpportunity(business.id, 'business_modal')
+
+    if (!result.success || !result.opportunity) {
+      setError(result.error || 'Error al crear la oportunidad')
+      return
+    }
+
+    // Refresh the opportunities list so the new one appears in the section
+    await loadFormData()
   }
 
   function handleViewRequest(request: BookingRequest) {
@@ -1576,6 +1584,7 @@ export default function BusinessFormModal({
                       onCreateNew={handleCreateNewOpportunity}
                       businessName={business.name}
                       canEdit={canEdit}
+                      creatingOpportunity={isCreatingOpportunity}
                     />
                   </Suspense>
                 )}

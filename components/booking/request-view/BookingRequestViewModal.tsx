@@ -698,6 +698,14 @@ export default function BookingRequestViewModal({
                                 ? bookingAttachments
                                 : (additionalSection?.values && additionalSection.values[field.key]) ??
                                   getFieldValue(requestData, field.key)
+                            const contactCardValue =
+                              field.type === 'contact'
+                                ? [
+                                    getFieldValue(requestData, 'redemptionContactName'),
+                                    getFieldValue(requestData, 'redemptionContactEmail'),
+                                    getFieldValue(requestData, 'redemptionContactPhone'),
+                                  ].find((value) => Boolean(String(value || '').trim()))
+                                : null
 
                             if (
                               field.key === 'redemptionContactEmail' ||
@@ -744,7 +752,11 @@ export default function BookingRequestViewModal({
                                 field.type === 'attachments' ||
                                 field.type === 'contact' ||
                                 field.type === 'contacts') &&
-                              (!rawValue || (Array.isArray(rawValue) && rawValue.length === 0))
+                              (
+                                field.type === 'contact'
+                                  ? !contactCardValue
+                                  : !rawValue || (Array.isArray(rawValue) && rawValue.length === 0)
+                              )
                             ) {
                               return null
                             }
