@@ -320,13 +320,17 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
               socialMedia: data.socialMedia || '',
               
               // Contenido (AI-Generated)
+              nameEs: data.nameEs || '',
               shortTitle: data.shortTitle || '',
+              emailTitle: data.emailTitle || '',
               whatWeLike: data.whatWeLike || '',
               aboutCompany: data.aboutCompany || '',
               aboutOffer: data.aboutOffer || '',
               goodToKnow: data.goodToKnow || '',
+              howToUseEs: data.howToUseEs || '',
               
-              // Estructura (Pricing)
+              // Estructura (Pricing + Commission)
+              offerMargin: data.offerMargin || '',
               pricingOptions: Array.isArray(data.pricingOptions) ? data.pricingOptions : [],
               dealImages: Array.isArray(data.dealImages) ? data.dealImages : [],
               bookingAttachments: Array.isArray(additionalInfo?.bookingAttachments)
