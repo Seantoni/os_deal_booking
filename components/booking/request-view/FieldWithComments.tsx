@@ -9,6 +9,7 @@ interface FieldWithCommentsProps {
   fieldKey: string
   label: string
   value: string
+  href?: string | null
   comments: FieldComment[]
   isHighlighted?: boolean
   highlightedCommentId?: string | null
@@ -26,6 +27,7 @@ function FieldWithCommentsComponent({
   fieldKey,
   label,
   value,
+  href = null,
   comments,
   isHighlighted = false,
   highlightedCommentId = null,
@@ -56,7 +58,18 @@ function FieldWithCommentsComponent({
       commentButtonVisibility="hover"
     >
       <div className="text-sm text-slate-900 break-words font-medium leading-relaxed whitespace-pre-wrap">
-        {value || '-'}
+        {href && value && value !== '-' ? (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-700 hover:underline"
+          >
+            {value}
+          </a>
+        ) : (
+          value || '-'
+        )}
       </div>
     </FieldCommentShell>
   )

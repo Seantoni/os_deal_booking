@@ -855,6 +855,7 @@ export default function BusinessFormModal({
   const handleInstagramSearch = useCallback(async () => {
     const name = dynamicForm.getValue('name')
     const neighborhood = dynamicForm.getValue('neighborhood')
+    const website = dynamicForm.getValue('website')
     if (!name) {
       toast.error('Ingrese el nombre del negocio primero')
       return
@@ -862,7 +863,7 @@ export default function BusinessFormModal({
     setIgSearching(true)
     const toastId = toast.loading('Buscando Instagram con AI...')
     try {
-      const { handle, error } = await findInstagramHandle(name, neighborhood)
+      const { handle, error } = await findInstagramHandle(name, neighborhood, website)
       toast.dismiss(toastId)
       if (handle) {
         dynamicForm.setValue('instagram', `https://www.instagram.com/${handle}`)

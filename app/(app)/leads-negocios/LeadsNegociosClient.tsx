@@ -836,7 +836,7 @@ export default function LeadsNegociosClient() {
     // Run phone scrape and Instagram search in parallel
     const [phoneResult, igResult] = await Promise.all([
       scrapeRestaurantPhone(restaurant.sourceUrl),
-      findInstagramHandle(restaurant.name, restaurant.neighborhood),
+      findInstagramHandle(restaurant.name, restaurant.neighborhood, restaurant.sourceUrl),
     ])
     toast.dismiss(toastId)
 

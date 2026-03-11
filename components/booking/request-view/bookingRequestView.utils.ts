@@ -257,6 +257,35 @@ export function formatBookingRequestFieldValue(
   return str
 }
 
+export function getBookingRequestFieldHref(
+  value: unknown,
+  fieldKey: string | undefined
+): string | null {
+  if (fieldKey !== 'recurringOfferLink' || typeof value !== 'string') {
+    return null
+  }
+
+  const trimmedValue = value.trim()
+  if (!trimmedValue) {
+    return null
+  }
+
+  const normalizedValue = /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(trimmedValue)
+    ? trimmedValue
+    : `https://${trimmedValue}`
+
+  try {
+    const url = new URL(normalizedValue)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return null
+    }
+
+    return url.toString()
+  } catch {
+    return null
+  }
+}
+
 export function buildAdditionalInfoSection(additionalInfo: AdditionalInfo | null): AdditionalSectionData | null {
   if (!additionalInfo || !isRecord(additionalInfo)) return null
 

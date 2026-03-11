@@ -48,6 +48,7 @@ import { useRemoteImageDownload } from './useRemoteImageDownload'
 import {
   buildAdditionalInfoSection,
   formatBookingRequestFieldValue,
+  getBookingRequestFieldHref,
   getFieldContainerId,
   getFieldValue,
   normalizeBookingAttachments,
@@ -698,6 +699,13 @@ export default function BookingRequestViewModal({
                                 ? bookingAttachments
                                 : (additionalSection?.values && additionalSection.values[field.key]) ??
                                   getFieldValue(requestData, field.key)
+                            const formattedValue = formatBookingRequestFieldValue(
+                              rawValue,
+                              field.type,
+                              field.key,
+                              requestData?.campaignDurationUnit || null
+                            )
+                            const fieldHref = getBookingRequestFieldHref(rawValue, field.key)
                             const contactCardValue =
                               field.type === 'contact'
                                 ? [
@@ -910,12 +918,8 @@ export default function BookingRequestViewModal({
                                 fieldKey={field.key}
                                 containerId={getFieldContainerId(field.key)}
                                 label={field.label}
-                                value={formatBookingRequestFieldValue(
-                                  rawValue,
-                                  field.type,
-                                  field.key,
-                                  requestData?.campaignDurationUnit || null
-                                )}
+                                value={formattedValue}
+                                href={fieldHref}
                                 comments={fieldComments}
                                 isHighlighted={isFieldMatch}
                                 highlightedCommentId={highlightedCommentId}
