@@ -13,9 +13,25 @@ export async function findInstagramHandle(
   try {
     const openai = getOpenAIClient()
 
-    const locationHint = neighborhood ? `, ${neighborhood}` : ''
+    const normalizedName = restaurantName.trim()
+    const normalizedNeighborhood = neighborhood?.trim() || ''
+    const searchVariants = [
+      `"${normalizedName}" Instagram Panamá`,
+      `"${normalizedName}" Instagram PTY`,
+      `"${normalizedName}" Panamá`,
+      `"${normalizedName}" PTY`,
+    ]
+
+    if (normalizedNeighborhood) {
+      searchVariants.unshift(`"${normalizedName}" Instagram ${normalizedNeighborhood} Panamá`)
+    }
+
     const prompt = [
-      `Find the official Instagram account for the restaurant "${restaurantName}"${locationHint}, Panama City, Panama.`,
+      `Find the official Instagram account for the business "${normalizedName}" in Panama City, Panama.`,
+      normalizedNeighborhood
+        ? `Prioritize results that match this neighborhood or area: "${normalizedNeighborhood}".`
+        : `Prioritize results that clearly match Panama City, Panama.`,
+      `Try search variants based on the business name, especially these: ${searchVariants.join(' | ')}.`,
       `Return ONLY the Instagram handle (without the @ symbol) if you find it.`,
       `If you cannot find a verified Instagram account for this specific restaurant, return exactly: NOT_FOUND`,
       `Do not guess or make up handles. Only return handles you find from reliable sources.`,

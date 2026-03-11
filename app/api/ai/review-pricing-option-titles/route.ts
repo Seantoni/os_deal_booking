@@ -11,6 +11,14 @@ type PricingOptionInput = {
   realValue?: string
 }
 
+type PricingOptionReviewInput = {
+  index: number
+  title: string
+  description: string
+  price: string
+  realValue: string
+}
+
 type TitleReviewItem = {
   index: number
   title: string
@@ -76,7 +84,7 @@ export async function POST(req: Request) {
     const body = await req.json()
     const pricingOptions = Array.isArray(body?.pricingOptions) ? body.pricingOptions : []
 
-    const optionsToReview = pricingOptions
+    const optionsToReview: PricingOptionReviewInput[] = pricingOptions
       .map((option: PricingOptionInput, index: number) => ({
         index,
         title: typeof option?.title === 'string' ? option.title.trim() : '',
@@ -84,7 +92,7 @@ export async function POST(req: Request) {
         price: typeof option?.price === 'string' ? option.price.trim() : '',
         realValue: typeof option?.realValue === 'string' ? option.realValue.trim() : '',
       }))
-      .filter((option) => option.title.length > 0)
+      .filter((option: PricingOptionReviewInput) => option.title.length > 0)
 
     if (optionsToReview.length === 0) {
       return NextResponse.json<TitleReviewResponse>({
