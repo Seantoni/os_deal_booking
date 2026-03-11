@@ -78,6 +78,11 @@ export interface AdminDailyAgendaData {
   }
 }
 
+interface ObjectionCategorizationResult {
+  categories: ObjectionCategory[]
+  usedAi: boolean
+}
+
 function buildAdminUserScore(row: {
   meetingsCompleted: number
   todosCompleted: number
@@ -137,11 +142,16 @@ function buildFallbackCategories(rawObjections: string[]): ObjectionCategory[] {
 async function categorizeObjectionsWithAi(
   rawObjections: string[],
   dateKey: string,
-): Promise<ObjectionCategory[]> {
+): Promise<ObjectionCategorizationResult> {
   const cacheKey = `admin-objection-categories:${dateKey}`
 
-  const cached = getCachedAiResult<ObjectionCategory[]>(cacheKey)
-  if (cached) return cached
+  const cached = getCachedAiResult<ObjectionCategorizationResult | ObjectionCategory[]>(cacheKey)
+  if (cached) {
+    if (Array.isArray(cached)) {
+      return { categories: cached, usedAi: false }
+    }
+    return cached
+  }
 
   try {
     const openai = getOpenAIClient()
@@ -184,12 +194,14 @@ async function categorizeObjectionsWithAi(
 
     if (categories.length === 0) throw new Error('Empty categories from AI')
 
-    setCachedAiResult(cacheKey, categories)
-    return categories
+    const result = { categories, usedAi: true }
+    setCachedAiResult(cacheKey, result)
+    return result
   } catch {
     const fallback = buildFallbackCategories(rawObjections)
-    setCachedAiResult(cacheKey, fallback)
-    return fallback
+    const result = { categories: fallback, usedAi: false }
+    setCachedAiResult(cacheKey, result)
+    return result
   }
 }
 
@@ -354,8 +366,9 @@ export async function getAdminDailyAgenda() {
     let objectionCategories: ObjectionCategory[]
     let aiGenerated = false
     if (rawObjections.length >= AI_OBJECTION_THRESHOLD) {
-      objectionCategories = await categorizeObjectionsWithAi(rawObjections, yesterdayDate)
-      aiGenerated = true
+      const categorization = await categorizeObjectionsWithAi(rawObjections, yesterdayDate)
+      objectionCategories = categorization.categories
+      aiGenerated = categorization.usedAi
     } else {
       objectionCategories = buildFallbackCategories(rawObjections)
     }

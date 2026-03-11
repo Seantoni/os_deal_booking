@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server'
 import { getOpenAIClient } from '@/lib/openai'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import { aiLimiter, applyRateLimit, getClientIp } from '@/lib/rate-limit'
+import { normalizeAdditionalRedemptionContacts } from '@/lib/booking-requests/additional-redemption-contacts'
 
 // Types for the content sections
 interface BookingContentInput {
@@ -47,6 +48,7 @@ interface BookingContentInput {
   redemptionContactName?: string
   redemptionContactEmail?: string
   redemptionContactPhone?: string
+  additionalRedemptionContacts?: unknown
   redemptionMethods?: string[]
   
   // Additional dynamic fields from InformacionAdicionalStep
@@ -73,7 +75,7 @@ REGLAS CRÍTICAS (NUNCA VIOLAR):
 4. NUNCA contradigas los datos proporcionados.
 5. Si una restricción está marcada como "No" o tiene un valor negativo, DEBES mencionarla como restricción, NO como beneficio.
 6. Las fechas blackout, restricciones de feriados, y límites de vouchers son RESTRICCIONES que deben aparecer claramente.
-7. DATOS DE CONTACTO: Solo incluir datos de contacto que estén marcados como "CONTACTO PARA CANJE (PÚBLICO)". Estos van ÚNICAMENTE en la sección howToUseEs. NUNCA incluyas datos marcados como internos. NUNCA inventes datos de contacto.
+7. DATOS DE CONTACTO: Solo incluir datos de contacto provenientes de redemptionContactName, redemptionContactEmail, redemptionContactPhone y additionalRedemptionContacts. Estos van ÚNICAMENTE en la sección howToUseEs. NUNCA uses contactDetails, partnerEmail ni datos marcados como internos. NUNCA inventes datos de contacto.
 
 REGLAS DE FORMATO:
 1. Siempre genera contenido en español neutro (Panamá).
@@ -82,7 +84,7 @@ REGLAS DE FORMATO:
 4. Mantén un tono positivo y vendedor, pero SIEMPRE respetando las restricciones.
 5. SOLO menciona información que esté explícitamente proporcionada.
 6. Evita errores de ortografía.
-7. Si hay información de contacto en los datos de entrada, trátala como interna y NO la expongas.
+7. Si hay información de contacto en los datos de entrada, trátala como interna y NO la expongas, excepto los contactos de canje públicos definidos para howToUseEs.
 8. NUNCA uses etiquetas HTML en el output. Nada de <strong>, <ul>, <li>, <p>, <br>, <b>, <i> ni ninguna otra etiqueta. TODO el contenido debe ser TEXTO PLANO. Usa saltos de línea (\n) para separar párrafos, guiones (-) para listas, y MAYÚSCULAS para títulos de sección.
 
 ═══════════════════════════════════════════════
@@ -147,7 +149,7 @@ DEFINICIONES DE CAMPO (seguir estrictamente)
    - RESTRICCIONES: Lo que NO incluye, fechas blackout, "No es válido con otras promociones o descuentos", restricciones específicas.
    - RESERVACIONES/CANCELACIONES: Si requiere reservación: anticipación y política. Si NO requiere: "Sujeto a disponibilidad." Si no aplica (productos): omitir contenido pero mantener título.
    - MÉTODO DE CANJE: QR → escaneo en local. Listado → presentar en dirección. Productos → información de entrega.
-   - PERIODO DE VALIDEZ: Fechas exactas. Indicar si es válido o no en feriados.
+   - PERIODO DE VALIDEZ: SOLO usar validOnHolidays, startDate, endDate y blackoutDates. NO usar horarios, deadlines, vacaciones escolares, ventanas de retiro ni otros campos de categoría. Escribir únicamente validez en feriados, rango de fechas y, si existe, la excepción de blackout.
 
    Por tipo de oferta:
 
@@ -175,7 +177,7 @@ DEFINICIONES DE CAMPO (seguir estrictamente)
      PERIODO DE VALIDEZ:
        - Feriados (validOnHolidays): "Válido en días feriados" o "No es válido en feriados."
        - Fechas: "Válido del [fecha inicio] al [fecha fin]."
-       - Horario cocina (restaurantKitchenClosingTime): si hay, mencionar. Ej: "Último pedido a las 9:30 p.m."
+       - BlackoutDates: si existe, añadir una oración adicional de excepción. Ej: "No válido: [blackoutDates]."
 
    • HOTELES: check-in/check-out, comidas, política de niños, mascotas, máx personas por habitación.
    • PRODUCTOS OSP: template fijo con delivery ($3.50-$7.50, 2-5 días hábiles).
@@ -244,10 +246,11 @@ Periodo de validez:
 - Formato → "Válido del [día] de [mes] al [día] de [mes] de [año]."
 
 Contacto de canje (para howToUseEs):
-- Con teléfono y email → "Contacto: [teléfono] | [email]."
-- Solo teléfono → "Contacto: [teléfono]."
-- Solo email → "Contacto: [email]."
-- Con app o medio específico → "Contacto: [medio indicado]."
+- Un contacto con nombre disponible → "Contacto: [nombre] | [teléfono] | [email]."
+- Un contacto con solo teléfono y email → "Contacto: [teléfono] | [email]."
+- Un contacto con solo teléfono → "Contacto: [teléfono]."
+- Un contacto con solo email → "Contacto: [email]."
+- Múltiples contactos → "Contactos: [nombre/medio] | [teléfono] | [email]; [nombre/medio] | [teléfono] | [email]."
 
 Reglas fijas (incluir siempre en restaurantes):
 - "El voucher debe ser canjeado en un solo pedido."
@@ -262,8 +265,8 @@ const SECTION_PROMPTS: Record<keyof BookingContentOutput, string> = {
   emailTitle: `Genera el TÍTULO DEL EMAIL (emailTitle). Gancho de marketing corto para newsletter. Opciones: "[XX]% OFF", "DESDE $[PRICE]", "2x1 en [servicio]", o frase corta llamativa. Máximo 30 caracteres. Solo el título, sin comillas ni explicación.`,
   aboutOffer: `Genera la sección "ACERCA DE ESTA OFERTA" (aboutOffer/summaryEs). TEXTO PLANO sin etiquetas HTML. Estructura: 1) Redes sociales (nombres de plataformas), 2) Intro del negocio (2-3 oraciones), 3) Opciones de compra: "Paga $X por [descripción] (Valor $Y).", 4) Detalles con guiones (-) para listas, 5) Cierre con "¡Haz click en comprar!". Tono cálido y vendedor. NO incluyas datos de contacto.`,
   whatWeLike: `Genera la sección "LO QUE NOS GUSTA" (whatWeLike/noteworthy). TEXTO PLANO: una línea por beneficio separadas por salto de línea. NUNCA uses etiquetas HTML, asteriscos ni viñetas con símbolo. Ejemplo: "Ahorras $14 (50% OFF)\nIncluye buffet completo\nUbicación céntrica". 4-8 beneficios. Empezar con el mejor punto de venta. Incluir ahorro en $ o %. Cada línea máximo 100 caracteres, sin punto al final. NO incluyas datos de contacto.`,
-  goodToKnow: `Genera la sección "LO QUE CONVIENE SABER" (goodToKnow/goodToKnowEs). TEXTO PLANO sin etiquetas HTML. Títulos en MAYÚSCULAS seguidos de salto de línea. Ejemplo: "INFORMACIÓN GENERAL\nImpuestos incluidos...\n\nRESTRICCIONES\nNo válido en feriados...". DEBE tener exactamente 5 secciones: INFORMACIÓN GENERAL, RESTRICCIONES, RESERVACIONES/CANCELACIONES, MÉTODO DE CANJE, PERIODO DE VALIDEZ. Respetar estrictamente las restricciones proporcionadas. NO incluyas datos de contacto.`,
-  howToUseEs: `Genera la sección "CÓMO USAR" (howToUseEs). TEXTO PLANO sin etiquetas HTML. Instrucciones paso a paso para canjear el voucher. Para QR: mencionar escaneo en local. Para listado: mencionar presentar voucher en dirección. Para eventos: mencionar taquilla y código QR. Incluir periodo de validez y si es válido en feriados. NO incluyas datos de contacto específicos.`,
+  goodToKnow: `Genera la sección "LO QUE CONVIENE SABER" (goodToKnow/goodToKnowEs). TEXTO PLANO sin etiquetas HTML. Títulos en MAYÚSCULAS seguidos de salto de línea. Ejemplo: "INFORMACIÓN GENERAL\nImpuestos incluidos...\n\nRESTRICCIONES\nNo válido en feriados...". DEBE tener exactamente 5 secciones: INFORMACIÓN GENERAL, RESTRICCIONES, RESERVACIONES/CANCELACIONES, MÉTODO DE CANJE, PERIODO DE VALIDEZ. Respetar estrictamente las restricciones proporcionadas. Para PERIODO DE VALIDEZ usa SOLO validOnHolidays, startDate, endDate y blackoutDates. NO uses otros campos de categoría en esa subsección. NO incluyas datos de contacto.`,
+  howToUseEs: `Genera la sección "CÓMO USAR" (howToUseEs). TEXTO PLANO sin etiquetas HTML. Instrucciones paso a paso para canjear el voucher. Para QR: mencionar escaneo en local. Para listado: mencionar presentar voucher en dirección. Para eventos: mencionar taquilla y código QR. Incluir periodo de validez y si es válido en feriados. Si hay contactos de canje públicos, usa SOLO redemptionContactName, redemptionContactEmail, redemptionContactPhone y additionalRedemptionContacts. NUNCA uses contactDetails ni otros contactos.`,
 }
 
 const CONTACT_FIELD_PATTERN = /(email|correo|mail|phone|telefono|teléfono|celular|whatsapp|contact|instagram|facebook|tiktok|linkedin|twitter|url|website|web|sitio)/i
@@ -337,6 +340,23 @@ function formatBusinessInfo(input: BookingContentInput): string {
     const endDate = new Date(input.endDate)
     lines.push(`Fecha de fin: ${endDate.toLocaleDateString('es-ES', { timeZone: PANAMA_TIMEZONE })}`)
   }
+  if (input.startDate || input.endDate || input.validOnHolidays || input.blackoutDates) {
+    lines.push(`\nDATOS PARA PERIODO DE VALIDEZ (usar SOLO estos en la subsección PERIODO DE VALIDEZ de goodToKnow):`)
+    if (input.validOnHolidays) {
+      lines.push(`  - Válido en feriados: ${input.validOnHolidays}`)
+    }
+    if (input.startDate) {
+      const startDate = new Date(input.startDate)
+      lines.push(`  - Fecha de inicio de validez: ${startDate.toLocaleDateString('es-ES', { timeZone: PANAMA_TIMEZONE, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`)
+    }
+    if (input.endDate) {
+      const endDate = new Date(input.endDate)
+      lines.push(`  - Fecha de fin de validez: ${endDate.toLocaleDateString('es-ES', { timeZone: PANAMA_TIMEZONE, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`)
+    }
+    if (input.blackoutDates) {
+      lines.push(`  - Fechas blackout: ${input.blackoutDates}`)
+    }
+  }
   
   if (input.addressAndHours) {
     lines.push(`Dirección y horario: ${input.addressAndHours}`)
@@ -384,14 +404,23 @@ function formatBusinessInfo(input: BookingContentInput): string {
     lines.push(`  - Política de cancelación: ${input.cancellationPolicy}`)
   }
   
-  // Public-facing redemption contact (for howToUseEs section)
-  const contactParts: string[] = []
-  if (input.contactDetails?.trim()) contactParts.push(input.contactDetails.trim())
-  if (input.redemptionContactPhone?.trim()) contactParts.push(input.redemptionContactPhone.trim())
-  if (input.redemptionContactEmail?.trim()) contactParts.push(input.redemptionContactEmail.trim())
-  if (contactParts.length > 0) {
+  // Only expose public redemption contacts in howToUseEs.
+  const publicContacts = [
+    {
+      name: input.redemptionContactName?.trim() || '',
+      email: input.redemptionContactEmail?.trim() || '',
+      phone: input.redemptionContactPhone?.trim() || '',
+    },
+    ...normalizeAdditionalRedemptionContacts(input.additionalRedemptionContacts),
+  ].filter((contact) => contact.name || contact.email || contact.phone)
+
+  if (publicContacts.length > 0) {
     lines.push(`\nCONTACTO PARA CANJE (PÚBLICO — incluir en howToUseEs):`)
-    lines.push(`  ${contactParts.join(' | ')}`)
+    publicContacts.forEach((contact, index) => {
+      const label = index === 0 ? 'Contacto principal' : `Contacto adicional ${index}`
+      const parts = [contact.name, contact.phone, contact.email].filter(Boolean)
+      lines.push(`  - ${label}: ${parts.join(' | ')}`)
+    })
   }
   if (input.redemptionMethods && input.redemptionMethods.length > 0) {
     lines.push(`  - Métodos de canje: ${input.redemptionMethods.join(', ')}`)
@@ -403,7 +432,7 @@ function formatBusinessInfo(input: BookingContentInput): string {
     'startDate', 'endDate', 'addressAndHours', 'socialMedia', 'contactDetails',
     'pricingOptions', 'redemptionMode', 'includesTaxes', 'validOnHolidays', 'blackoutDates',
     'hasOtherBranches', 'cancellationPolicy',
-    'redemptionContactName', 'redemptionContactEmail', 'redemptionContactPhone', 'redemptionMethods',
+    'redemptionContactName', 'redemptionContactEmail', 'redemptionContactPhone', 'additionalRedemptionContacts', 'redemptionMethods',
     // Output fields
     'nameEs', 'shortTitle', 'emailTitle', 'whatWeLike', 'aboutCompany', 'aboutOffer', 'goodToKnow', 'howToUseEs',
     // Non-content form fields
@@ -415,7 +444,7 @@ function formatBusinessInfo(input: BookingContentInput): string {
     'approverName', 'approverEmail', 'approverBusinessName', 'additionalInfo',
   ])
   
-  const additionalFields = Object.entries(input).filter(([key, value]) => 
+  const additionalFields = Object.entries(input).filter(([key, value]) =>
     !knownFields.has(key) &&
     !CONTACT_FIELD_PATTERN.test(key) &&
     value != null &&
@@ -461,7 +490,9 @@ INFORMACIÓN DEL NEGOCIO:
 ${businessInfo}
 
 IMPORTANTE: Si falta información esencial para esta sección, responde con: "No hay información suficiente para generar este contenido. Por favor complete los campos requeridos."
-- NO incluyas datos de contacto visibles (nombres de contacto, emails, teléfonos, WhatsApp, usuarios @ ni enlaces).
+${sectionName === 'howToUseEs'
+  ? '- Solo en howToUseEs puedes incluir los contactos de canje públicos construidos desde redemptionContactName, redemptionContactEmail, redemptionContactPhone y additionalRedemptionContacts.'
+  : '- NO incluyas datos de contacto visibles (nombres de contacto, emails, teléfonos, WhatsApp, usuarios @ ni enlaces).'}
 
 Genera SOLO la sección solicitada.`
       },
@@ -514,14 +545,16 @@ CRÍTICO: TODO el contenido debe ser TEXTO PLANO. NUNCA incluyas etiquetas HTML 
   "aboutOffer": "texto plano: intro, opciones de compra 'Paga $X por [desc] (Valor $Y)', detalles con guiones (-), cierre con '¡Haz click en comprar!'",
   "whatWeLike": "texto plano: una línea por beneficio separadas por salto de línea. Ej: 'Ahorras $14 (50% OFF)\nIncluye buffet completo\nUbicación céntrica'",
   "goodToKnow": "texto plano: 5 secciones con títulos en MAYÚSCULAS. Ej: 'INFORMACIÓN GENERAL\nImpuestos incluidos...\n\nRESTRICCIONES\nNo válido en feriados...'",
-  "howToUseEs": "texto plano: instrucciones paso a paso para canjear el voucher, método de redención, periodo de validez y si aplica en feriados"
+  "howToUseEs": "texto plano: instrucciones paso a paso para canjear el voucher, método de redención, periodo de validez y si aplica en feriados. Solo aquí se pueden incluir contactos de canje públicos"
 }
 
 IMPORTANTE: 
 - Responde SOLO con el JSON, sin texto adicional ni bloques de código.
 - NO excedas los límites de caracteres indicados.
 - NO inventes información. Solo usa la información proporcionada.
-- NO incluyas datos de contacto visibles (nombres, emails, teléfonos, WhatsApp, usuarios @ ni enlaces).
+- NO incluyas datos de contacto visibles en nameEs, shortTitle, emailTitle, aboutOffer, whatWeLike ni goodToKnow.
+- Si incluyes contactos en howToUseEs, usa SOLO redemptionContactName, redemptionContactEmail, redemptionContactPhone y additionalRedemptionContacts.
+- NUNCA uses contactDetails como contacto para howToUseEs.
 - Si falta información importante para una sección, usa el mensaje de error para esa sección.`
       },
     ],
