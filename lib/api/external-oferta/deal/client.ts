@@ -56,7 +56,7 @@ function calculateExpiresOn(endDate: Date, campaignDurationMonths: number): stri
   const endYmd = formatDateForPanama(endDate) // YYYY-MM-DD in Panama
   const expiresDate = parseDateInPanamaTime(endYmd) // midnight Panama in UTC
   expiresDate.setUTCMonth(expiresDate.getUTCMonth() + campaignDurationMonths)
-  return formatOfertaSimpleBoundary(expiresDate, 'end')
+  return `${formatDateForPanama(expiresDate)} 23:59:59`
 }
 
 function formatOfertaSimpleBoundary(date: Date, boundary: 'start' | 'end'): string {
