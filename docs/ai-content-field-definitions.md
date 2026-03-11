@@ -11,13 +11,16 @@ These rules govern how the `generate-booking-content` API endpoint produces cont
 
 The main headline shown on the deal page. Always in Spanish.
 
+**Target length:** ideally 60–200 characters, but it may be shorter if forcing 60+ would make the title unnatural or imprecise.
+
 **Format:** `Paga $[PRICE] por [description of what they get] en [Business Name] (Valor $[REAL_VALUE]).`
 
 - If multiple pricing options exist, always use the option with the LOWEST price.
 - Use that same option for `PRICE`, description, business name, and `REAL_VALUE`. Do not mix data from different options.
 - If discount % is more compelling than the price, lead with that: `[XX]% de descuento en [service/product] en [Business Name].`
+- If other clearly related options are available, you may add a brief factual mention at the end, such as `Opciones de masaje y maderoterapia disponibles.`
 - Do not use `hasta` or value ranges unless that wording is explicitly present in the selected option.
-- Keep it between 60–120 characters.
+- Aim for 60+ characters, but do not pad the title just to reach a minimum.
 - Never use ALL CAPS. Use proper sentence case.
 
 **Examples:**
