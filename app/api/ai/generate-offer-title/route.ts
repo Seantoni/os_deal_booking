@@ -20,29 +20,26 @@ export async function POST(req: Request) {
     )
     if (rateLimitResult) return rateLimitResult
 
-    const { description, price, realValue } = await req.json()
+    const { description } = await req.json()
     const safeDescription = typeof description === 'string' ? description.trim() : ''
-    const normalizedPrice = typeof price === 'string' ? price.trim() : ''
-    const normalizedRealValue = typeof realValue === 'string' ? realValue.trim() : ''
 
     const openai = getOpenAIClient()
 
-    const prompt = `Genera el titulo de una opción de oferta en español usando exactamente esta estructura:
-"Paga $X por [descripción]${normalizedRealValue ? ' (Valor $Y)' : ''}"
+    const prompt = `Genera el titulo de una opcion de oferta en espanol.
 
 Reglas:
-- Corrige ortografía, acentos y puntuación solo dentro de la descripción.
-- Mantén tono comercial claro y natural.
-- No inventes información.
-- Usa exactamente este precio para X: ${normalizedPrice || 'X'}.
-- ${normalizedRealValue ? `Usa exactamente este valor real para Y: ${normalizedRealValue}.` : 'No agregues el segmento "(Valor $Y)" si no hay valor real.'}
-- Conserva la descripción basada en el texto original, pero conviértela en una frase breve y limpia después de "por".
-- No agregues horarios, condiciones, emojis ni texto extra fuera de la estructura.
+- Devuelve solo el nombre del producto o servicio.
+- Si aplica, conserva detalles utiles como duracion, tamano, color, capacidad, cantidad o presentacion.
+- Corrige ortografia, acentos y puntuacion solo dentro del nombre.
+- Manten el texto claro y natural.
+- No inventes informacion.
+- No agregues precio, moneda, simbolos como "$", ni texto como "Paga", "Compra", "Llevate" o "Valor".
+- No agregues horarios, condiciones, emojis, parentesis ni texto extra.
 - Devuelve solo el titulo final, sin comillas ni explicaciones.
 
 Si la descripción original está vacía:
 - No inventes detalles.
-- Devuelve una frase base útil siguiendo el formato, por ejemplo: "Paga $${normalizedPrice || 'X'} por esta oferta${normalizedRealValue ? ` (Valor $${normalizedRealValue})` : ''}".
+- Devuelve una frase base util y neutra, por ejemplo: "Producto o servicio".
 
 Descripción original:
 ${safeDescription || '(vacía)'}`

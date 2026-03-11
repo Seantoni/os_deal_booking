@@ -43,6 +43,20 @@ type FormActionState = {
   error: string | null
 }
 
+type PricingOptionTitleReviewItem = {
+  index: number
+  title: string
+  isValid: boolean
+  issue: string | null
+  suggestedTitle: string | null
+}
+
+type PricingOptionTitleReviewResult = {
+  isApproved: boolean
+  summary: string
+  items: PricingOptionTitleReviewItem[]
+}
+
 interface EnhancedBookingFormProps {
   requestId?: string
   initialFormData?: Partial<BookingFormData>
@@ -76,6 +90,9 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   })
   const [loadingEdit, setLoadingEdit] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [showTitleReviewDialog, setShowTitleReviewDialog] = useState(false)
+  const [titleReviewResult, setTitleReviewResult] = useState<PricingOptionTitleReviewResult | null>(null)
+  const [isReviewingTitles, setIsReviewingTitles] = useState(false)
   
   // Business backfill state
   const [backfillPreview, setBackfillPreview] = useState<{
@@ -182,7 +199,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   )
 
   // Combined saving state for UI feedback
-  const saving = isDraftPending || isSubmitPending || isPending || isAutoSavingStep
+  const saving = isDraftPending || isSubmitPending || isPending || isAutoSavingStep || isReviewingTitles
 
   // Fetch request form field configuration from settings
   useEffect(() => {
@@ -814,44 +831,139 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     }, 100)
   }, [])
 
+  const goToNextStep = useCallback(async () => {
+    const nextIndex = currentStepIndex + 1
+    if (nextIndex >= availableSteps.length) return
+
+    setIsAutoSavingStep(true)
+    try {
+      const formDataToSend = buildFormDataForSubmit(formData)
+      const result = await saveBookingRequestDraft(formDataToSend, activeRequestId)
+
+      if (!result.success || !result.data?.id) {
+        toast.error(`No se pudo auto-guardar el borrador: ${result.error || 'Error desconocido'}`)
+        return
+      }
+
+      if (result.data.id !== activeRequestId) {
+        setActiveRequestId(result.data.id)
+
+        if (!propRequestId && pathname) {
+          skipNextEditLoadRef.current = true
+          const nextUrl = `${pathname}?editId=${encodeURIComponent(result.data.id)}`
+          router.replace(nextUrl, { scroll: false })
+        }
+      }
+
+      const nextStepKey = availableSteps[nextIndex].key
+      setCurrentStepKey(nextStepKey)
+      scrollToTop()
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
+      toast.error(`No se pudo auto-guardar el borrador: ${errorMsg}`)
+    } finally {
+      setIsAutoSavingStep(false)
+    }
+  }, [
+    activeRequestId,
+    availableSteps,
+    currentStepIndex,
+    formData,
+    pathname,
+    propRequestId,
+    router,
+    scrollToTop,
+  ])
+
+  const closeTitleReviewDialog = useCallback(() => {
+    const invalidKeys = (titleReviewResult?.items || [])
+      .filter((item) => !item.isValid)
+      .map((item) => `pricingOptions.${item.index}.title`)
+
+    setShowTitleReviewDialog(false)
+
+    if (invalidKeys.length > 0) {
+      setTimeout(() => scrollToFirstError(invalidKeys), 100)
+    }
+  }, [scrollToFirstError, titleReviewResult])
+
+  const handleTitleReviewConfirm = useCallback(async () => {
+    if (!titleReviewResult) {
+      setShowTitleReviewDialog(false)
+      return
+    }
+
+    if (!titleReviewResult.isApproved) {
+      closeTitleReviewDialog()
+      return
+    }
+
+    setShowTitleReviewDialog(false)
+    await goToNextStep()
+  }, [closeTitleReviewDialog, goToNextStep, titleReviewResult])
+
   const handleNext = async () => {
     const validationErrors = handleValidateStep(currentStepKey)
     const errorKeys = Object.keys(validationErrors)
     
     if (errorKeys.length === 0) {
-      const nextIndex = currentStepIndex + 1
-      if (nextIndex < availableSteps.length) {
-        setIsAutoSavingStep(true)
-        try {
-          const formDataToSend = buildFormDataForSubmit(formData)
-          const result = await saveBookingRequestDraft(formDataToSend, activeRequestId)
+      if (currentStepKey === 'estructura') {
+        const pricingOptionsWithTitles = (Array.isArray(formData.pricingOptions) ? formData.pricingOptions : [])
+          .filter((option) => option.title?.trim())
 
-          if (!result.success || !result.data?.id) {
-            toast.error(`No se pudo auto-guardar el borrador: ${result.error || 'Error desconocido'}`)
-            return
-          }
+        if (pricingOptionsWithTitles.length > 0) {
+          setIsReviewingTitles(true)
+          try {
+            const response = await fetch('/api/ai/review-pricing-option-titles', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                pricingOptions: formData.pricingOptions,
+              }),
+            })
 
-          if (result.data.id !== activeRequestId) {
-            setActiveRequestId(result.data.id)
-
-            // Persist draft ID in URL so refreshes/next actions keep updating the same draft
-            if (!propRequestId && pathname) {
-              // Avoid a redundant edit re-fetch after first autosave; we already have fresh local state.
-              skipNextEditLoadRef.current = true
-              const nextUrl = `${pathname}?editId=${encodeURIComponent(result.data.id)}`
-              router.replace(nextUrl, { scroll: false })
+            const data = await response.json()
+            if (!response.ok) {
+              toast.error(data?.error || 'No se pudo revisar los titulos con IA')
+              return
             }
-          }
 
-          const nextStepKey = availableSteps[nextIndex].key
-          setCurrentStepKey(nextStepKey)
-          scrollToTop()
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
-          toast.error(`No se pudo auto-guardar el borrador: ${errorMsg}`)
-        } finally {
-          setIsAutoSavingStep(false)
+            const reviewResult: PricingOptionTitleReviewResult = {
+              isApproved: Boolean(data?.isApproved),
+              summary: typeof data?.summary === 'string' ? data.summary : '',
+              items: Array.isArray(data?.items) ? data.items : [],
+            }
+
+            const reviewErrors = reviewResult.items.reduce<Record<string, string>>((acc, item) => {
+              if (!item.isValid) {
+                acc[`pricingOptions.${item.index}.title`] = item.issue || 'Ajusta este titulo antes de continuar'
+              }
+              return acc
+            }, {})
+
+            if (Object.keys(reviewErrors).length > 0) {
+              setErrors(reviewErrors)
+              setTitleReviewResult(reviewResult)
+              setShowTitleReviewDialog(true)
+              return
+            }
+
+            await goToNextStep()
+            return
+          } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
+            toast.error(`No se pudo revisar los titulos con IA: ${errorMsg}`)
+            return
+          } finally {
+            setIsReviewingTitles(false)
+          }
         }
+      }
+
+      if (currentStepIndex < availableSteps.length) {
+        await goToNextStep()
       }
     } else {
       // Show toast with specific field names
@@ -1243,6 +1355,56 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         onCancel={() => setShowConfirmDialog(false)}
         loading={isSubmitPending}
         loadingText="Enviando..."
+      />
+
+      <ConfirmDialog
+        isOpen={showTitleReviewDialog}
+        title={titleReviewResult?.isApproved ? 'Revision de titulos completada' : 'Ajusta los titulos antes de continuar'}
+        message={
+          <div className="text-left space-y-3">
+            <p className="text-sm text-gray-700">
+              {titleReviewResult?.summary || 'La revision de IA no devolvio detalles.'}
+            </p>
+
+            {titleReviewResult?.items?.length ? (
+              <div className="space-y-2">
+                {titleReviewResult.items.map((item) => (
+                  <div
+                    key={`${item.index}-${item.title}`}
+                    className={`rounded-lg border p-3 ${
+                      item.isValid ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'
+                    }`}
+                  >
+                    <p className="text-xs font-semibold text-gray-800">
+                      Opcion {item.index + 1}
+                    </p>
+                    <p className="text-sm text-gray-700 mt-1">
+                      <span className="font-medium">Titulo:</span> {item.title}
+                    </p>
+                    {!item.isValid && item.issue && (
+                      <p className="text-sm text-amber-800 mt-1">
+                        <span className="font-medium">Problema:</span> {item.issue}
+                      </p>
+                    )}
+                    {!item.isValid && item.suggestedTitle && (
+                      <p className="text-sm text-gray-700 mt-1">
+                        <span className="font-medium">Sugerencia:</span> {item.suggestedTitle}
+                      </p>
+                    )}
+                    {item.isValid && (
+                      <p className="text-sm text-green-700 mt-1">Cumple con el formato esperado.</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        }
+        confirmText={titleReviewResult?.isApproved ? 'Continuar' : 'Entendido'}
+        cancelText={titleReviewResult?.isApproved ? 'Quedarme aqui' : ''}
+        confirmVariant={titleReviewResult?.isApproved ? 'success' : 'danger'}
+        onConfirm={handleTitleReviewConfirm}
+        onCancel={closeTitleReviewDialog}
       />
 
       {/* Backfill Confirmation Dialog */}

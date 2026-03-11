@@ -22,6 +22,7 @@ import ImageLightbox from '@/components/common/ImageLightbox'
 
 /** Set to true to show "Generar título con AI" and auto-fill option titles. */
 const SHOW_AI_OPTION_TITLE = false
+const INVALID_TITLE_PATTERN = /\$|%|\busd\b|\bdolares?\b|\b(paga|pagar|compra|comprar|llevate|lleva|valor|oferta|promo(?:cion)?)\b/i
 
 interface EstructuraStepProps {
   formData: BookingFormData
@@ -45,6 +46,15 @@ export default function EstructuraStep({
   const [aiLoadingIndex, setAiLoadingIndex] = useState<number | null>(null)
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null)
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([])
+
+  const getTitleFormatIssue = useCallback((title?: string) => {
+    const normalizedTitle = title?.trim() || ''
+    if (!normalizedTitle) return null
+    if (INVALID_TITLE_PATTERN.test(normalizedTitle)) {
+      return 'Quita precios y frases como "Paga" o "Compra".'
+    }
+    return null
+  }, [])
 
   const handleImageUpload = async (index: number, file: File) => {
     // Validate file type
@@ -497,7 +507,12 @@ export default function EstructuraStep({
       </div>
 
       <div className="space-y-6">
-        {pricingOptions.map((option, index) => (
+        {pricingOptions.map((option, index) => {
+          const titleFormatIssue = getTitleFormatIssue(option.title)
+          const titleError = errors[`pricingOptions.${index}.title`]
+          const hasTitleIssue = Boolean(titleError || titleFormatIssue)
+
+          return (
           <div key={index} className="bg-gray-50/50 border border-gray-200 rounded-2xl p-6 hover:shadow-md transition-all duration-300">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -523,7 +538,7 @@ export default function EstructuraStep({
               <div className="md:col-span-8 space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
-                    <span>Título</span>
+                    <span>Título del producto o servicio</span>
                     {isFieldRequired('pricingOptions.title') ? (
                       <span className="text-red-500">*</span>
                     ) : (
@@ -534,12 +549,12 @@ export default function EstructuraStep({
                     type="text"
                     value={option.title || ''}
                     onChange={(e) => updatePricingOption(index, 'title', e.target.value)}
-                    placeholder="Ej: Cena de mariscos para 1 persona"
+                    placeholder="Ej: Masaje de espalda por 30 min"
                     size="sm"
-                    className={errors[`pricingOptions.${index}.title`] ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
+                    className={hasTitleIssue ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
                   />
-                  {errors[`pricingOptions.${index}.title`] && (
-                    <p className="text-xs text-red-600 font-medium mt-1">{errors[`pricingOptions.${index}.title`]}</p>
+                  {(titleError || titleFormatIssue) && (
+                    <p className="text-xs text-red-600 font-medium mt-1">{titleError || titleFormatIssue}</p>
                   )}
                 </div>
 
@@ -896,7 +911,8 @@ export default function EstructuraStep({
               </div>
             </div>
           </div>
-        ))}
+          )
+        })}
         
         <div className="flex justify-center pt-4">
           <button
