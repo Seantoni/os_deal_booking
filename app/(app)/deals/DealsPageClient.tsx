@@ -58,6 +58,7 @@ const STATUS_ORDER = ['pendiente_por_asignar', 'asignado', 'elaboracion', 'borra
 // Table columns configuration
 const COLUMNS: ColumnConfig[] = [
   { key: 'name', label: 'Nombre del Negocio', sortable: true },
+  { key: 'requestOrigin', label: 'Solicitud' },
   { key: 'dateRange', label: 'Rango de Fechas', sortable: true },
   { key: 'deliveryDate', label: 'Entrega', sortable: true },
   { key: 'dealResponsible', label: 'Editor', sortable: true },
@@ -941,6 +942,15 @@ export default function DealsPageClient({
                         <TableCell>
                           <span className="text-[13px] font-medium text-gray-900">
                             {deal.bookingRequest.name}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                            deal.bookingRequest.isReplicatedRequest
+                              ? 'bg-sky-50 text-sky-700'
+                              : 'bg-gray-100 text-gray-700'
+                          }`}>
+                            {deal.bookingRequest.isReplicatedRequest ? 'Replicada' : 'Nueva'}
                           </span>
                         </TableCell>
                         <TableCell className="text-[13px] text-gray-600">

@@ -151,6 +151,7 @@ export async function getBusinessFormData(businessId?: string | null) {
                 startDate: true,
                 endDate: true,
                 status: true,
+                isReplicatedRequest: true,
                 parentCategory: true,
                 subCategory1: true,
                 subCategory2: true,

@@ -41,6 +41,7 @@ export type Deal = {
     startDate: Date
     endDate: Date
     status: string
+    isReplicatedRequest: boolean
     parentCategory: string | null
     subCategory1: string | null
     subCategory2: string | null
