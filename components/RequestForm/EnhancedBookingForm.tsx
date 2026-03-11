@@ -90,8 +90,6 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   })
   const [loadingEdit, setLoadingEdit] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
-  const [showTitleReviewDialog, setShowTitleReviewDialog] = useState(false)
-  const [titleReviewResult, setTitleReviewResult] = useState<PricingOptionTitleReviewResult | null>(null)
   const [isReviewingTitles, setIsReviewingTitles] = useState(false)
   
   // Business backfill state
@@ -899,33 +897,6 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     scrollToTop,
   ])
 
-  const closeTitleReviewDialog = useCallback(() => {
-    const invalidKeys = (titleReviewResult?.items || [])
-      .filter((item) => !item.isValid)
-      .map((item) => `pricingOptions.${item.index}.title`)
-
-    setShowTitleReviewDialog(false)
-
-    if (invalidKeys.length > 0) {
-      setTimeout(() => scrollToFirstError(invalidKeys), 100)
-    }
-  }, [scrollToFirstError, titleReviewResult])
-
-  const handleTitleReviewConfirm = useCallback(async () => {
-    if (!titleReviewResult) {
-      setShowTitleReviewDialog(false)
-      return
-    }
-
-    if (!titleReviewResult.isApproved) {
-      closeTitleReviewDialog()
-      return
-    }
-
-    setShowTitleReviewDialog(false)
-    await goToNextStep()
-  }, [closeTitleReviewDialog, goToNextStep, titleReviewResult])
-
   const handleNext = async () => {
     const validationErrors = handleValidateStep(currentStepKey)
     const errorKeys = Object.keys(validationErrors)
@@ -950,7 +921,8 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
 
             const data = await response.json()
             if (!response.ok) {
-              toast.error(data?.error || 'No se pudo revisar los titulos con IA')
+              toast(data?.error || 'No se pudo revisar los titulos con IA. Puedes continuar.', { icon: '⚠️' })
+              await goToNextStep()
               return
             }
 
@@ -969,16 +941,17 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
 
             if (Object.keys(reviewErrors).length > 0) {
               setErrors(reviewErrors)
-              setTitleReviewResult(reviewResult)
-              setShowTitleReviewDialog(true)
-              return
+              toast(reviewResult.summary || 'La IA detecto ajustes sugeridos en los titulos. Puedes continuar.', {
+                icon: '⚠️',
+              })
             }
 
             await goToNextStep()
             return
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
-            toast.error(`No se pudo revisar los titulos con IA: ${errorMsg}`)
+            toast(`No se pudo revisar los titulos con IA: ${errorMsg}. Puedes continuar.`, { icon: '⚠️' })
+            await goToNextStep()
             return
           } finally {
             setIsReviewingTitles(false)
@@ -1380,56 +1353,6 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         onCancel={() => setShowConfirmDialog(false)}
         loading={isSubmitPending}
         loadingText="Enviando..."
-      />
-
-      <ConfirmDialog
-        isOpen={showTitleReviewDialog}
-        title={titleReviewResult?.isApproved ? 'Revision de titulos completada' : 'Ajusta los titulos antes de continuar'}
-        message={
-          <div className="text-left space-y-3">
-            <p className="text-sm text-gray-700">
-              {titleReviewResult?.summary || 'La revision de IA no devolvio detalles.'}
-            </p>
-
-            {titleReviewResult?.items?.length ? (
-              <div className="space-y-2">
-                {titleReviewResult.items.map((item) => (
-                  <div
-                    key={`${item.index}-${item.title}`}
-                    className={`rounded-lg border p-3 ${
-                      item.isValid ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'
-                    }`}
-                  >
-                    <p className="text-xs font-semibold text-gray-800">
-                      Opcion {item.index + 1}
-                    </p>
-                    <p className="text-sm text-gray-700 mt-1">
-                      <span className="font-medium">Titulo:</span> {item.title}
-                    </p>
-                    {!item.isValid && item.issue && (
-                      <p className="text-sm text-amber-800 mt-1">
-                        <span className="font-medium">Problema:</span> {item.issue}
-                      </p>
-                    )}
-                    {!item.isValid && item.suggestedTitle && (
-                      <p className="text-sm text-gray-700 mt-1">
-                        <span className="font-medium">Sugerencia:</span> {item.suggestedTitle}
-                      </p>
-                    )}
-                    {item.isValid && (
-                      <p className="text-sm text-green-700 mt-1">Cumple con el formato esperado.</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        }
-        confirmText={titleReviewResult?.isApproved ? 'Continuar' : 'Entendido'}
-        cancelText={titleReviewResult?.isApproved ? 'Quedarme aqui' : ''}
-        confirmVariant={titleReviewResult?.isApproved ? 'success' : 'danger'}
-        onConfirm={handleTitleReviewConfirm}
-        onCancel={closeTitleReviewDialog}
       />
 
       {/* Backfill Confirmation Dialog */}
