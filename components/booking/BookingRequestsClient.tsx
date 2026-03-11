@@ -1033,9 +1033,12 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                           {getStatusBadge(request.status, request.status === 'pending' ? daysSinceSent : null)}
                         </TableCell>
                         <TableCell style={getColumnCellStyle('source')}>
-                          <span className={`px-2 py-0.5 rounded text-[13px] font-medium ${getSourceTypeBadgeClasses(request.sourceType)}`}>
-                            {getSourceTypeLabel(request.sourceType)}
-                          </span>
+                          <div className="flex flex-wrap items-center gap-1">
+                            <span className={`px-2 py-0.5 rounded text-[13px] font-medium ${getSourceTypeBadgeClasses(request.sourceType)}`}>
+                              {getSourceTypeLabel(request.sourceType)}
+                            </span>
+                            {getReplicatedTag(request)}
+                          </div>
                         </TableCell>
                         <TableCell style={getColumnCellStyle('dealId')}>
                           {request.dealId ? (
@@ -1048,8 +1051,7 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                         </TableCell>
                         <TableCell style={getColumnCellStyle('name')}>
                           <div className="flex min-w-0 items-center gap-2">
-                            <span className="font-medium text-gray-900 truncate block text-[13px]">{request.name}</span>
-                            {getReplicatedTag(request)}
+                            <span className="block min-w-0 flex-1 truncate text-[13px] font-medium text-gray-900">{request.name}</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-gray-600" style={getColumnCellStyle('email')}>

@@ -132,10 +132,17 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   const initialRequestId = propRequestId || editIdFromUrl || undefined
   const [activeRequestId, setActiveRequestId] = useState<string | undefined>(initialRequestId)
   const [isAutoSavingStep, setIsAutoSavingStep] = useState(false)
+  const [hasReplicatedContext, setHasReplicatedContext] = useState(isReplicatedRequest)
 
   useEffect(() => {
     setActiveRequestId(initialRequestId)
   }, [initialRequestId])
+
+  useEffect(() => {
+    if (isReplicatedRequest) {
+      setHasReplicatedContext(true)
+    }
+  }, [isReplicatedRequest])
 
   // React 19: useTransition for non-blocking UI during form actions
   const [isPending, startTransition] = useTransition()
@@ -382,6 +389,10 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
             
             return updatedData
           })
+
+          if (data.isReplicatedRequest) {
+            setHasReplicatedContext(true)
+          }
           
           // Set linkedBusinessId for backfill tracking when editing existing request
           if (data.linkedBusiness?.id) {
@@ -445,6 +456,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
       
       try {
         const payload = JSON.parse(raw) as Partial<BookingFormData> & { linkedBusinessId?: string }
+        setHasReplicatedContext(true)
         
         // Extract linkedBusinessId for backfill tracking
         if (payload.linkedBusinessId) {
@@ -499,6 +511,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
 
     // Handle replication (legacy) - pre-fill ALL fields from query parameters
     if (isReplicate) {
+      setHasReplicatedContext(true)
       
       setFormData(prev => {
         const newData = { ...prev }
@@ -835,13 +848,20 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     }, 100)
   }, [])
 
+  const buildSubmissionFormData = useCallback(() => (
+    buildFormDataForSubmit({
+      ...formData,
+      isReplicatedRequest: formData.isReplicatedRequest || hasReplicatedContext,
+    })
+  ), [formData, hasReplicatedContext])
+
   const goToNextStep = useCallback(async () => {
     const nextIndex = currentStepIndex + 1
     if (nextIndex >= availableSteps.length) return
 
     setIsAutoSavingStep(true)
     try {
-      const formDataToSend = buildFormDataForSubmit(formData)
+      const formDataToSend = buildSubmissionFormData()
       const result = await saveBookingRequestDraft(formDataToSend, activeRequestId)
 
       if (!result.success || !result.data?.id) {
@@ -871,8 +891,8 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   }, [
     activeRequestId,
     availableSteps,
+    buildSubmissionFormData,
     currentStepIndex,
-    formData,
     pathname,
     propRequestId,
     router,
@@ -1011,7 +1031,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   // React 19: Handler that triggers the save draft action
   const handleSaveDraft = () => {
     startTransition(() => {
-      const formDataToSend = buildFormDataForSubmit(formData)
+      const formDataToSend = buildSubmissionFormData()
       saveDraftAction(formDataToSend)
     })
   }
@@ -1047,7 +1067,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     if (linkedBusinessId) {
       setLoadingBackfillPreview(true)
       try {
-        const formDataToSend = buildFormDataForSubmit(formData)
+        const formDataToSend = buildSubmissionFormData()
         formDataToSend.append('linkedBusinessId', linkedBusinessId)
         const preview = await previewBusinessBackfill(formDataToSend, activeRequestId)
         
@@ -1085,7 +1105,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     }
     
     startTransition(async () => {
-      const formDataToSend = buildFormDataForSubmit(formData)
+      const formDataToSend = buildSubmissionFormData()
       // If we have a direct businessId link, add it for backfill execution
       if (linkedBusinessId) {
         formDataToSend.append('linkedBusinessId', linkedBusinessId)
@@ -1147,7 +1167,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   const handleConfirmedSubmitRegular = () => {
     setShowConfirmDialog(false)
     startTransition(() => {
-      const formDataToSend = buildFormDataForSubmit(formData)
+      const formDataToSend = buildSubmissionFormData()
       submitAction(formDataToSend)
     })
   }
@@ -1285,7 +1305,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
                   errors={errors}
                   updateFormData={updateFormData}
                   isFieldRequired={isFieldRequired}
-                  isReplicatedRequest={isReplicatedRequest}
+                  isReplicatedRequest={hasReplicatedContext}
                 />
               )}
 

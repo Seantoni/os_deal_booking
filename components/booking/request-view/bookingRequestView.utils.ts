@@ -337,6 +337,7 @@ export function buildBookingRequestReplicatePayload(requestData: BookingRequestV
   const businessName = requestData.name ? String(requestData.name).split(' | ')[0].trim() : ''
 
   const payload: Partial<BookingFormData> & { linkedBusinessId?: string } = {
+    isReplicatedRequest: true,
     businessName: businessName || '',
     partnerEmail: requestData.businessEmail ? String(requestData.businessEmail) : '',
     additionalEmails: Array.isArray(requestData.additionalEmails) ? requestData.additionalEmails : [],

@@ -282,6 +282,7 @@ export default function BusinessDetailClient({
       // Merge business data (fiscal, bank, location) with deal content data
       const mergedPayload = {
         ...dealFormData,
+        isReplicatedRequest: true,
         // Business info overrides
         businessName: business.name,
         partnerEmail: business.contactEmail,
