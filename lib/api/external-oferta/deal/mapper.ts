@@ -244,7 +244,8 @@ export function mapBookingFormToApi(
     isActive: true,
     showDiscount: true,
     limitedQuantity: false,
-    qrCodes: false,
+    // Default new deals to QR redemption unless explicitly changed upstream.
+    qrCodes: true,
 
     // Internal tracking
     osSalesId: formData.opportunityId ? parseInt(formData.opportunityId, 10) || null : null,

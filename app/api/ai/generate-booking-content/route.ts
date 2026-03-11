@@ -93,8 +93,10 @@ DEFINICIONES DE CAMPO (seguir estrictamente)
 
 1. nameEs (Título de la oferta) — 60-120 caracteres
    Formato: "Paga $[PRICE] por [descripción de lo que reciben] en [Nombre del Negocio] (Valor $[REAL_VALUE])."
-   - Si hay múltiples opciones de precio, usa la PRIMERA opción.
+   - Si hay múltiples opciones de precio, usa SIEMPRE la opción con el precio más bajo.
+   - Usa la MISMA opción para PRICE, descripción, Nombre del Negocio y REAL_VALUE. No mezcles datos de opciones distintas.
    - Si el % de descuento es más llamativo que el precio, lidera con eso: "[XX]% de descuento en [servicio/producto] en [Nombre del Negocio]."
+   - No uses "hasta" ni rangos de precio/valor, salvo que ese texto venga explícitamente en la opción seleccionada.
    - Nunca ALL CAPS. Usar oración con mayúscula inicial.
    Ejemplos:
    • "Paga $69 por una micropigmentación de cejas sombreadas en Studio Bel-Lash (Valor $250)."
@@ -103,6 +105,8 @@ DEFINICIONES DE CAMPO (seguir estrictamente)
 
 2. shortTitle (Título corto) — Máximo 60 caracteres
    Formato: "$[PRICE] por [descripción corta]"
+   - Si hay múltiples opciones de precio, usa SIEMPRE la opción con el precio más bajo.
+   - Usa la MISMA opción para PRICE y descripción. No mezcles datos de opciones distintas.
    NO incluir nombre del negocio.
    Ejemplos: "$14 por Rodizio todo incluido" · "$69 por micropigmentación de cejas"
 
@@ -260,8 +264,8 @@ Reglas fijas (incluir siempre en restaurantes):
 IMPORTANTE: Usa estas frases tal cual. NO las parafrasees, NO las reordenes, NO cambies conectores ni añadas paréntesis.`
 
 const SECTION_PROMPTS: Record<keyof BookingContentOutput, string> = {
-  nameEs: `Genera el TÍTULO DE LA OFERTA (nameEs). Formato: "Paga $[PRICE] por [descripción] en [Nombre del Negocio] (Valor $[REAL_VALUE])." Usa la PRIMERA opción de precio. Si el descuento % es más llamativo, lidera con eso. 60-120 caracteres. Solo el título, sin comillas ni explicación. NO incluyas datos de contacto.`,
-  shortTitle: `Genera un TÍTULO CORTO (shortTitle). Formato: "$PRECIO por DESCRIPCIÓN". Usa el precio más bajo. NO incluyas el nombre del negocio. Máximo 60 caracteres. Solo el título, sin comillas ni explicación. NO incluyas datos de contacto.`,
+  nameEs: `Genera el TÍTULO DE LA OFERTA (nameEs). Formato: "Paga $[PRICE] por [descripción] en [Nombre del Negocio] (Valor $[REAL_VALUE])." Si hay múltiples opciones, usa SIEMPRE la opción con el precio más bajo. Usa esa MISMA opción para PRICE, descripción, Nombre del Negocio y REAL_VALUE; no mezcles datos de opciones distintas. Si el descuento % es más llamativo, lidera con eso usando la misma opción base. No uses "hasta" ni rangos, salvo que el texto venga explícitamente en la opción seleccionada. 60-120 caracteres. Solo el título, sin comillas ni explicación. NO incluyas datos de contacto.`,
+  shortTitle: `Genera un TÍTULO CORTO (shortTitle). Formato: "$PRECIO por DESCRIPCIÓN". Si hay múltiples opciones, usa SIEMPRE la opción con el precio más bajo. Usa esa MISMA opción para PRECIO y DESCRIPCIÓN; no mezcles datos de opciones distintas. NO incluyas el nombre del negocio. Máximo 60 caracteres. Solo el título, sin comillas ni explicación. NO incluyas datos de contacto.`,
   emailTitle: `Genera el TÍTULO DEL EMAIL (emailTitle). Gancho de marketing corto para newsletter. Opciones: "[XX]% OFF", "DESDE $[PRICE]", "2x1 en [servicio]", o frase corta llamativa. Máximo 30 caracteres. Solo el título, sin comillas ni explicación.`,
   aboutOffer: `Genera la sección "ACERCA DE ESTA OFERTA" (aboutOffer/summaryEs). TEXTO PLANO sin etiquetas HTML. Estructura: 1) Redes sociales (nombres de plataformas), 2) Intro del negocio (2-3 oraciones), 3) Opciones de compra: "Paga $X por [descripción] (Valor $Y).", 4) Detalles con guiones (-) para listas, 5) Cierre con "¡Haz click en comprar!". Tono cálido y vendedor. NO incluyas datos de contacto.`,
   whatWeLike: `Genera la sección "LO QUE NOS GUSTA" (whatWeLike/noteworthy). TEXTO PLANO: una línea por beneficio separadas por salto de línea. NUNCA uses etiquetas HTML, asteriscos ni viñetas con símbolo. Ejemplo: "Ahorras $14 (50% OFF)\nIncluye buffet completo\nUbicación céntrica". 4-8 beneficios. Empezar con el mejor punto de venta. Incluir ahorro en $ o %. Cada línea máximo 100 caracteres, sin punto al final. NO incluyas datos de contacto.`,
@@ -314,6 +318,41 @@ function validateRequiredFields(input: BookingContentInput): { valid: boolean; m
     valid: missingFields.length === 0,
     missingFields,
   }
+}
+
+function parsePricingAmount(value?: string): number | null {
+  if (!value) return null
+
+  const normalized = value.replace(/[^0-9.,]/g, '').replace(/,/g, '')
+  if (!normalized) return null
+
+  const parsed = Number.parseFloat(normalized)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function getTitleAnchorOption(input: BookingContentInput) {
+  if (!input.pricingOptions || input.pricingOptions.length === 0) {
+    return null
+  }
+
+  const pricedOptions = input.pricingOptions
+    .map((option, index) => ({
+      option,
+      index,
+      price: parsePricingAmount(option.price),
+    }))
+    .filter(({ price }) => price != null)
+
+  if (pricedOptions.length === 0) {
+    return { option: input.pricingOptions[0], index: 0 }
+  }
+
+  return pricedOptions.reduce((lowest, current) => {
+    if ((current.price ?? Number.POSITIVE_INFINITY) < (lowest.price ?? Number.POSITIVE_INFINITY)) {
+      return current
+    }
+    return lowest
+  })
 }
 
 function formatBusinessInfo(input: BookingContentInput): string {
@@ -379,6 +418,17 @@ function formatBusinessInfo(input: BookingContentInput): string {
       const giftNum = parseInt(option.maxGiftsPerUser?.trim() || '', 10)
       lines.push(`    - Máx para regalar: ${giftNum > 0 && giftNum <= 10 ? giftNum : 'Ilimitado'}`)
     })
+  }
+
+  const titleAnchor = getTitleAnchorOption(input)
+  if (titleAnchor) {
+    lines.push(`\nOPCIÓN ANCLA PARA TÍTULOS (usar SIEMPRE esta misma opción para nameEs y shortTitle):`)
+    lines.push(`  - Opción seleccionada: ${titleAnchor.index + 1}`)
+    if (titleAnchor.option.title) lines.push(`  - Título: ${titleAnchor.option.title}`)
+    if (titleAnchor.option.description) lines.push(`  - Descripción: ${titleAnchor.option.description}`)
+    if (titleAnchor.option.price) lines.push(`  - Precio: $${titleAnchor.option.price}`)
+    if (titleAnchor.option.realValue) lines.push(`  - Valor real: $${titleAnchor.option.realValue}`)
+    lines.push(`  - Regla: No mezclar datos de otras opciones y no usar "hasta" ni rangos salvo que aparezcan explícitamente en esta opción.`)
   }
   
   lines.push(`\nTérminos y condiciones (RESPETAR EXACTAMENTE):`)
@@ -539,8 +589,8 @@ Responde en formato JSON con las siguientes claves.
 CRÍTICO: TODO el contenido debe ser TEXTO PLANO. NUNCA incluyas etiquetas HTML como <strong>, <ul>, <li>, <p>, <br>, <b>, <i>. Usa saltos de línea para separar, guiones (-) para listas, y MAYÚSCULAS para títulos de sección.
 
 {
-  "nameEs": "texto plano, 60-120 caracteres, formato 'Paga $X por [descripción] en [Negocio] (Valor $Y).'",
-  "shortTitle": "texto plano, máximo 60 caracteres, formato '$PRECIO por DESCRIPCIÓN', sin nombre del negocio",
+  "nameEs": "texto plano, 60-120 caracteres, formato 'Paga $X por [descripción] en [Negocio] (Valor $Y)'. Si hay múltiples opciones, usar siempre la opción ancla de menor precio para X, descripción y Y, sin mezclar datos ni usar 'hasta' salvo que aparezca explícitamente.",
+  "shortTitle": "texto plano, máximo 60 caracteres, formato '$PRECIO por DESCRIPCIÓN', sin nombre del negocio. Si hay múltiples opciones, usar siempre la opción ancla de menor precio para PRECIO y DESCRIPCIÓN, sin mezclar datos.",
   "emailTitle": "texto plano, máximo 30 caracteres, ej: '50% OFF' o 'DESDE $14'",
   "aboutOffer": "texto plano: intro, opciones de compra 'Paga $X por [desc] (Valor $Y)', detalles con guiones (-), cierre con '¡Haz click en comprar!'",
   "whatWeLike": "texto plano: una línea por beneficio separadas por salto de línea. Ej: 'Ahorras $14 (50% OFF)\nIncluye buffet completo\nUbicación céntrica'",

@@ -3,6 +3,8 @@
 Reference document for the AI-generated content fields used in the OfertaSimple deal creation flow.
 These rules govern how the `generate-booking-content` API endpoint produces content for each field.
 
+**Implementation:** `app/api/ai/generate-booking-content/route.ts`
+
 ---
 
 ## 1. nameEs (Título de la oferta)
@@ -11,8 +13,10 @@ The main headline shown on the deal page. Always in Spanish.
 
 **Format:** `Paga $[PRICE] por [description of what they get] en [Business Name] (Valor $[REAL_VALUE]).`
 
-- If multiple pricing options exist, use the FIRST option's price and value.
+- If multiple pricing options exist, always use the option with the LOWEST price.
+- Use that same option for `PRICE`, description, business name, and `REAL_VALUE`. Do not mix data from different options.
 - If discount % is more compelling than the price, lead with that: `[XX]% de descuento en [service/product] en [Business Name].`
+- Do not use `hasta` or value ranges unless that wording is explicitly present in the selected option.
 - Keep it between 60–120 characters.
 - Never use ALL CAPS. Use proper sentence case.
 
@@ -28,6 +32,9 @@ The main headline shown on the deal page. Always in Spanish.
 Short punchy version for cards, tiles, and mobile. **Max 60 characters.**
 
 **Format:** `$[PRICE] por [short description]`
+
+- If multiple pricing options exist, always use the option with the LOWEST price.
+- Use that same option for `PRICE` and description. Do not mix data from different options.
 
 **Examples:**
 - $14 por Rodizio todo incluido

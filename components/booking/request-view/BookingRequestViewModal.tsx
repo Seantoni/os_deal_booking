@@ -149,13 +149,19 @@ export default function BookingRequestViewModal({
     return requestData.eventDays.some((date) => typeof date === 'string' && date.trim().length > 0)
   }, [requestData?.eventDays])
 
+  const hideTentativeCampaignDates = requestData?.status === 'approved' || requestData?.status === 'booked'
+
   const allSections = useMemo((): SectionDefinition[] => {
     const baseSections = BASE_SECTIONS.map((section) => {
       if (section.title !== SECTION_TITLES.CAMPAIGN_DETAILS) return section
 
-      const baseFields = section.fields.filter(
-        (field) => field.key !== 'campaignDuration' && field.key !== 'eventDays'
-      )
+      const baseFields = section.fields.filter((field) => {
+        if (field.key === 'campaignDuration' || field.key === 'eventDays') return false
+        if (hideTentativeCampaignDates && (field.key === 'startDate' || field.key === 'endDate')) {
+          return false
+        }
+        return true
+      })
 
       return {
         ...section,
@@ -183,7 +189,7 @@ export default function BookingRequestViewModal({
       additionalSection.section,
       ...baseSections.slice(additionalInfoIndex),
     ]
-  }, [additionalSection, hasEventDays])
+  }, [additionalSection, hasEventDays, hideTentativeCampaignDates])
 
   const filteredSections = useMemo(() => {
     if (!searchQuery.trim()) {
