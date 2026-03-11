@@ -35,6 +35,7 @@ export type BookingRequest = {
   processedBy: string | null
   rejectionReason: string | null
   sourceType: string // 'internal' | 'public_link' | 'vendor_reactivation'
+  isReplicatedRequest: boolean
   originExternalDealId?: string | null
   originExternalDealName?: string | null
   publicLinkToken: string | null

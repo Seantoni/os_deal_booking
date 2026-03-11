@@ -441,6 +441,16 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
     return 'bg-gray-50 text-gray-700'
   }
 
+  const getReplicatedTag = (request: BookingRequest) => {
+    if (!request.isReplicatedRequest) return null
+
+    return (
+      <span className="inline-flex items-center rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
+        Replicada
+      </span>
+    )
+  }
+
   // Calculate days since a date
   const daysSince = (date: Date | null): number | null => {
     if (!date) return null
@@ -1037,7 +1047,10 @@ export default function BookingRequestsClient({ bookingRequests: initialBookingR
                           )}
                         </TableCell>
                         <TableCell style={getColumnCellStyle('name')}>
-                          <span className="font-medium text-gray-900 truncate block text-[13px]">{request.name}</span>
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="font-medium text-gray-900 truncate block text-[13px]">{request.name}</span>
+                            {getReplicatedTag(request)}
+                          </div>
                         </TableCell>
                         <TableCell className="text-gray-600" style={getColumnCellStyle('email')}>
                           <span className="truncate block w-full text-[13px]">{request.businessEmail}</span>

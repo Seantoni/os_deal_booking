@@ -52,6 +52,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
   startDate: string | null
   endDate: string | null
   eventDays: string[] | null
+  isReplicatedRequest: boolean
   opportunityId: string | null
 
   // Configuración: Configuración General y Vigencia
@@ -152,6 +153,7 @@ export function extractBookingRequestFromFormData(formData: FormData): {
     startDate: getFormDataString(formData, 'startDate'),
     endDate: getFormDataString(formData, 'endDate'),
     eventDays: parseFormDataJsonField(formData, 'eventDays') as string[] | null,
+    isReplicatedRequest: getFormDataString(formData, 'isReplicatedRequest') === 'true',
     opportunityId: getFormDataString(formData, 'opportunityId'),
 
     // Configuración: Configuración General y Vigencia

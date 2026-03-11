@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
+import ContentPasteSearchIcon from '@mui/icons-material/ContentPasteSearch'
 import MicIcon from '@mui/icons-material/Mic'
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked'
 import SmartToyIcon from '@mui/icons-material/SmartToy'
@@ -16,6 +17,7 @@ interface InformacionAdicionalStepProps {
   errors: Record<string, string>
   updateFormData: (field: keyof BookingFormData, value: BookingFormData[keyof BookingFormData]) => void
   isFieldRequired?: (fieldKey: string) => boolean
+  isReplicatedRequest?: boolean
 }
 
 /**
@@ -36,6 +38,7 @@ export default function InformacionAdicionalStep({
   errors,
   updateFormData,
   isFieldRequired = () => false,
+  isReplicatedRequest = false,
 }: InformacionAdicionalStepProps) {
   const { parentCategory, subCategory1, subCategory2, category } = formData
 
@@ -70,6 +73,12 @@ export default function InformacionAdicionalStep({
     assistant.canExtract &&
     Boolean(assistant.assistantInput.trim())
 
+  const canExtractFromContenido =
+    isReplicatedRequest &&
+    assistant.assistantActionState === 'idle' &&
+    assistant.canExtract &&
+    assistant.canExtractFromContenido
+
   const pendingFieldsPreview = assistant.pendingFields.slice(0, 6)
   const hiddenPendingCount = Math.max(assistant.pendingFieldCount - pendingFieldsPreview.length, 0)
 
@@ -95,6 +104,11 @@ export default function InformacionAdicionalStep({
                   <p className="mt-1 text-sm text-slate-600">
                     Describa o dicte la información y la IA completará solo los campos visibles que sigan vacíos.
                   </p>
+                  {isReplicatedRequest && (
+                    <p className="mt-2 text-xs text-slate-500">
+                      También puede reutilizar el contenido replicado del paso Contenido para completar estos campos.
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -119,6 +133,22 @@ export default function InformacionAdicionalStep({
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
+              {isReplicatedRequest && (
+                <Button
+                  type="button"
+                  size="md"
+                  variant="secondary"
+                  className="min-w-[220px] justify-center border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                  onClick={() => {
+                    void assistant.processContenidoStepInput()
+                  }}
+                  disabled={!canExtractFromContenido}
+                  leftIcon={<ContentPasteSearchIcon style={{ fontSize: 16 }} />}
+                >
+                  {assistant.assistantActionState === 'completing' ? 'Analizando...' : 'Completar desde Contenido'}
+                </Button>
+              )}
+
               <Button
                 type="button"
                 size="md"

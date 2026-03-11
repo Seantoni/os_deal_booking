@@ -128,6 +128,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   
   // Get editId from URL (for continuing to edit a draft)
   const editIdFromUrl = searchParams.get('editId')
+  const isReplicatedRequest = Boolean(searchParams.get('replicateKey')) || searchParams.get('replicate') === 'true'
   const initialRequestId = propRequestId || editIdFromUrl || undefined
   const [activeRequestId, setActiveRequestId] = useState<string | undefined>(initialRequestId)
   const [isAutoSavingStep, setIsAutoSavingStep] = useState(false)
@@ -288,6 +289,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
                     .map((date: string) => date.trim())
                     .filter((date: string) => date.length > 0)
                 : [],
+              isReplicatedRequest: Boolean(data.isReplicatedRequest),
               opportunityId: data.opportunityId || '',
               
               // Operatividad
@@ -475,6 +477,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         setFormData(prev => ({
           ...prev,
           ...formPayload as Partial<BookingFormData>,
+          isReplicatedRequest: true,
           ...(Array.isArray(additionalInfo?.bookingAttachments)
             ? { bookingAttachments: additionalInfo.bookingAttachments }
             : {}),
@@ -499,6 +502,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
       
       setFormData(prev => {
         const newData = { ...prev }
+        newData.isReplicatedRequest = true
         
         // Step 1: Configuración
         const businessName = searchParams.get('businessName')
@@ -1281,6 +1285,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
                   errors={errors}
                   updateFormData={updateFormData}
                   isFieldRequired={isFieldRequired}
+                  isReplicatedRequest={isReplicatedRequest}
                 />
               )}
 

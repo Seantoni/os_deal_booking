@@ -65,6 +65,7 @@ export const INITIAL_FORM_DATA: BookingFormData = {
   campaignDurationUnit: 'months',
   eventDays: [],
   internalPeriod: '',
+  isReplicatedRequest: false,
   
   // Operatividad: Operatividad y Pagos
   redemptionMode: 'Canje Simple',

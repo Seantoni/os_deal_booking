@@ -20,6 +20,23 @@ interface AdditionalInfoAiResult {
   total: number
 }
 
+type ExtractTextContent = {
+  assistantInput?: string
+  nameEs?: string
+  shortTitle?: string
+  emailTitle?: string
+  aboutCompany?: string
+  aboutOffer?: string
+  goodToKnow?: string
+  whatWeLike?: string
+  howToUseEs?: string
+  businessReview?: string
+  addressAndHours?: string
+  paymentInstructions?: string
+  contactDetails?: string
+  socialMedia?: string
+}
+
 function isBlank(value: BookingFormData[keyof BookingFormData]): boolean {
   if (Array.isArray(value)) return value.length === 0
   if (typeof value === 'string') return value.trim().length === 0
@@ -62,9 +79,40 @@ export function useAdditionalInfoAiAssistant({
       : []
   ), [formData, template])
 
-  const processAssistantInput = useCallback(async (textToProcess?: string) => {
-    const sourceText = (textToProcess ?? assistantInput).trim()
-    if (!template || !templateName || !sourceText || relevantFields.length === 0) return
+  const contenidoTextContent = useMemo<ExtractTextContent>(() => ({
+    nameEs: formData.nameEs.trim() || undefined,
+    shortTitle: formData.shortTitle.trim() || undefined,
+    emailTitle: formData.emailTitle.trim() || undefined,
+    aboutCompany: formData.aboutCompany.trim() || undefined,
+    aboutOffer: formData.aboutOffer.trim() || undefined,
+    goodToKnow: formData.goodToKnow.trim() || undefined,
+    whatWeLike: formData.whatWeLike.trim() || undefined,
+    howToUseEs: formData.howToUseEs.trim() || undefined,
+    businessReview: formData.businessReview.trim() || undefined,
+    addressAndHours: formData.addressAndHours.trim() || undefined,
+    paymentInstructions: formData.paymentInstructions.trim() || undefined,
+    contactDetails: formData.contactDetails.trim() || undefined,
+    socialMedia: formData.socialMedia.trim() || undefined,
+  }), [
+    formData.aboutCompany,
+    formData.aboutOffer,
+    formData.addressAndHours,
+    formData.businessReview,
+    formData.contactDetails,
+    formData.emailTitle,
+    formData.goodToKnow,
+    formData.howToUseEs,
+    formData.nameEs,
+    formData.paymentInstructions,
+    formData.shortTitle,
+    formData.socialMedia,
+    formData.whatWeLike,
+  ])
+
+  const runExtraction = useCallback(async (textContent: ExtractTextContent, emptyStateMessage: string) => {
+    if (!template || !templateName || relevantFields.length === 0) return
+    const hasText = Object.values(textContent).some((value) => typeof value === 'string' && value.trim().length > 0)
+    if (!hasText) return
 
     setIsExtracting(true)
     setExtractError(null)
@@ -75,9 +123,7 @@ export function useAdditionalInfoAiAssistant({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          textContent: {
-            assistantInput: sourceText,
-          },
+          textContent,
           fields: relevantFields.map((field) => ({
             name: field.name,
             label: field.label,
@@ -121,7 +167,7 @@ export function useAdditionalInfoAiAssistant({
       } else if (data.fieldsFound > 0) {
         toast.success('La IA detectó datos, pero esos campos ya tenían valor y no se sobrescribieron')
       } else {
-        toast('No se encontró información relevante para los campos pendientes', { icon: '🔍' })
+        toast(emptyStateMessage, { icon: '🔍' })
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al procesar con IA'
@@ -130,7 +176,24 @@ export function useAdditionalInfoAiAssistant({
     } finally {
       setIsExtracting(false)
     }
-  }, [assistantInput, formData, relevantFields, template, templateName, updateFormData])
+  }, [formData, relevantFields, template, templateName, updateFormData])
+
+  const processAssistantInput = useCallback(async (textToProcess?: string) => {
+    const sourceText = (textToProcess ?? assistantInput).trim()
+    if (!sourceText) return
+
+    await runExtraction(
+      { assistantInput: sourceText },
+      'No se encontró información relevante para los campos pendientes'
+    )
+  }, [assistantInput, runExtraction])
+
+  const processContenidoStepInput = useCallback(async () => {
+    await runExtraction(
+      contenidoTextContent,
+      'No se encontró información útil en el contenido replicado para los campos pendientes'
+    )
+  }, [contenidoTextContent, runExtraction])
 
   const dictation = useSpeechDictationAssistant({
     currentText: assistantInput,
@@ -184,6 +247,9 @@ export function useAdditionalInfoAiAssistant({
     assistantActionState,
     assistantInput,
     canExtract: relevantFields.length > 0,
+    canExtractFromContenido: Object.values(contenidoTextContent).some(
+      (value) => typeof value === 'string' && value.trim().length > 0
+    ),
     dictationError,
     dictationGuideDialog,
     extractError,
@@ -192,6 +258,7 @@ export function useAdditionalInfoAiAssistant({
     handleGuideStopDictation,
     pendingFieldCount: relevantFields.length,
     pendingFields: relevantFields,
+    processContenidoStepInput,
     processAssistantInput,
     resetAssistantState,
     showFirstDictationAnimation,

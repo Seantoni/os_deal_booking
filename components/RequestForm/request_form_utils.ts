@@ -352,6 +352,7 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
   fd.append('campaignDuration', formData.campaignDuration || '')
   fd.append('campaignDurationUnit', formData.campaignDurationUnit || 'months')
   fd.append('eventDays', JSON.stringify(normalizedEventDays))
+  fd.append('isReplicatedRequest', formData.isReplicatedRequest ? 'true' : 'false')
   
   // Operatividad: Operatividad y Pagos
   fd.append('redemptionMode', formData.redemptionMode || '')

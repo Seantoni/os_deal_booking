@@ -82,6 +82,7 @@ model BookingRequest {
   dealId                        String?              @unique
   publicLinkToken               String?              @unique
   sourceType                    String               @default("internal")
+  isReplicatedRequest           Boolean              @default(false)
   originExternalDealId          String?
   originExternalDealName        String?
   fieldComments                 Json?

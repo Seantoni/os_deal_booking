@@ -29,6 +29,7 @@ export type BookingFormData = {
   campaignDurationUnit: 'days' | 'months' // Unit for campaign duration calculation
   eventDays: string[] // Specific event days for SHOWS Y EVENTOS (YYYY-MM-DD)
   internalPeriod: string
+  isReplicatedRequest: boolean
   
   // Operatividad: Operatividad y Pagos
   redemptionMode: string

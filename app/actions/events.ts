@@ -76,6 +76,7 @@ const calendarPendingRequestSelect = {
   processedBy: true,
   rejectionReason: true,
   sourceType: true,
+  isReplicatedRequest: true,
   publicLinkToken: true,
   createdAt: true,
   updatedAt: true,
@@ -274,6 +275,7 @@ async function fetchCalendarPendingRequests(role: string, userId: string): Promi
     processedAt: request.processedAt ?? null,
     processedBy: request.processedBy ?? null,
     rejectionReason: request.rejectionReason ?? null,
+    isReplicatedRequest: request.isReplicatedRequest,
     publicLinkToken: request.publicLinkToken ?? null,
   }))
 }

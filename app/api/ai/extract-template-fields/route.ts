@@ -13,6 +13,10 @@ interface FieldDefinition {
 interface ExtractRequest {
   textContent: {
     assistantInput?: string
+    nameEs?: string
+    shortTitle?: string
+    emailTitle?: string
+    aboutCompany?: string
     aboutOffer?: string
     goodToKnow?: string
     whatWeLike?: string
@@ -20,6 +24,8 @@ interface ExtractRequest {
     businessReview?: string
     addressAndHours?: string
     paymentInstructions?: string
+    contactDetails?: string
+    socialMedia?: string
   }
   fields: FieldDefinition[]
   templateName: string
@@ -29,6 +35,10 @@ function buildPrompt(textContent: ExtractRequest['textContent'], fields: FieldDe
   const textParts: string[] = []
 
   if (textContent.assistantInput) textParts.push(`INFORMACIÓN PROPORCIONADA POR EL USUARIO:\n${textContent.assistantInput}`)
+  if (textContent.nameEs) textParts.push(`TÍTULO DE LA OFERTA:\n${textContent.nameEs}`)
+  if (textContent.shortTitle) textParts.push(`TÍTULO CORTO:\n${textContent.shortTitle}`)
+  if (textContent.emailTitle) textParts.push(`TÍTULO DE EMAIL:\n${textContent.emailTitle}`)
+  if (textContent.aboutCompany) textParts.push(`ACERCA DE LA EMPRESA:\n${textContent.aboutCompany}`)
   if (textContent.aboutOffer) textParts.push(`ACERCA DE LA OFERTA:\n${textContent.aboutOffer}`)
   if (textContent.goodToKnow) textParts.push(`LO QUE CONVIENE SABER:\n${textContent.goodToKnow}`)
   if (textContent.whatWeLike) textParts.push(`LO QUE NOS GUSTA:\n${textContent.whatWeLike}`)
@@ -36,6 +46,8 @@ function buildPrompt(textContent: ExtractRequest['textContent'], fields: FieldDe
   if (textContent.businessReview) textParts.push(`RESEÑA DEL NEGOCIO:\n${textContent.businessReview}`)
   if (textContent.addressAndHours) textParts.push(`DIRECCIÓN Y HORARIOS:\n${textContent.addressAndHours}`)
   if (textContent.paymentInstructions) textParts.push(`DETALLES DE PAGO:\n${textContent.paymentInstructions}`)
+  if (textContent.contactDetails) textParts.push(`DETALLES DE CONTACTO:\n${textContent.contactDetails}`)
+  if (textContent.socialMedia) textParts.push(`REDES SOCIALES Y WEB:\n${textContent.socialMedia}`)
 
   const fieldDescriptions = fields.map(f => {
     let desc = `- "${f.name}": ${f.label}`
