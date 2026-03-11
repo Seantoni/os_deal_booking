@@ -81,6 +81,103 @@ function buildSearchVariants(
   return [...variants]
 }
 
+function normalizeCompactToken(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+}
+
+function buildHandleCandidates(
+  businessName: string,
+  neighborhood?: string | null,
+): string[] {
+  const normalizedName = businessName.trim()
+  const normalizedNeighborhood = neighborhood?.trim() || ''
+  const brandTokens = normalizedName
+    .split(/[\s/&(),.-]+/)
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .filter((token) => !IG_SEARCH_STOP_WORDS.has(token.toLowerCase()))
+
+  const brandName = brandTokens.join(' ').trim()
+  const compactBases = new Set<string>([
+    normalizeCompactToken(normalizedName),
+    normalizeCompactToken(brandName),
+  ])
+
+  const neighborhoodToken = normalizeCompactToken(normalizedNeighborhood)
+  const candidates = new Set<string>()
+
+  for (const base of compactBases) {
+    if (!base) continue
+    candidates.add(base)
+    candidates.add(`${base}pty`)
+    candidates.add(`${base}panama`)
+    if (neighborhoodToken) {
+      candidates.add(`${base}${neighborhoodToken}`)
+    }
+  }
+
+  return [...candidates].filter((candidate) => candidate.length > 0 && candidate.length <= 30)
+}
+
+function extractHandleFromResponse(text: string): string | null {
+  const strip = (handle: string) => handle.replace(/\.+$/, '')
+
+  const urlMatch = text.match(/instagram\.com\/([a-zA-Z0-9_.]{1,30})\/?/i)
+  if (urlMatch) return strip(urlMatch[1])
+
+  const atMatch = text.match(/@([a-zA-Z0-9_.]{1,30})/)
+  if (atMatch) return strip(atMatch[1])
+
+  const quotedMatch = text.match(/["']([a-zA-Z0-9_.]{1,30})["']/)
+  if (quotedMatch) return strip(quotedMatch[1])
+
+  const isMatch = text.match(/\bis[:\s]+([a-zA-Z0-9_.]{1,30})(?:[.\s,]|$)/i)
+  if (isMatch) return strip(isMatch[1])
+
+  const cleaned = text.replace(/^@/, '').trim()
+  if (/^[a-zA-Z0-9_.]{1,30}$/.test(cleaned)) {
+    return strip(cleaned)
+  }
+
+  return null
+}
+
+async function runInstagramSearch(
+  model: 'gpt-4o-mini' | 'gpt-4o',
+  prompt: string,
+): Promise<string | null> {
+  const openai = getOpenAIClient()
+  const response = await openai.responses.create({
+    model,
+    tools: [
+      {
+        type: 'web_search_preview',
+        user_location: {
+          type: 'approximate',
+          country: 'PA',
+          city: 'Panama City',
+          timezone: 'America/Panama',
+        },
+      },
+    ],
+    input: prompt,
+  })
+
+  const textOutput = response.output.find(
+    (item): item is Extract<typeof item, { type: 'message' }> => item.type === 'message',
+  )
+
+  return textOutput?.content
+    ?.filter((c): c is Extract<typeof c, { type: 'output_text' }> => c.type === 'output_text')
+    .map((c) => c.text)
+    .join('')
+    .trim() || null
+}
+
 /**
  * Uses OpenAI Responses API with web search to find a restaurant's Instagram handle.
  * Returns the handle (without @) or null if not found.
@@ -91,14 +188,13 @@ export async function findInstagramHandle(
   website?: string | null,
 ): Promise<{ handle: string | null; error?: string }> {
   try {
-    const openai = getOpenAIClient()
-
     const normalizedName = restaurantName.trim()
     const normalizedNeighborhood = neighborhood?.trim() || ''
     const domainHint = extractDomainHint(website)
     const searchVariants = buildSearchVariants(normalizedName, normalizedNeighborhood, website)
+    const handleCandidates = buildHandleCandidates(normalizedName, normalizedNeighborhood)
 
-    const prompt = [
+    const firstPassPrompt = [
       `Find the official Instagram account for the business "${normalizedName}" in Panama City, Panama.`,
       normalizedNeighborhood
         ? `Prioritize results that match this neighborhood or area: "${normalizedNeighborhood}".`
@@ -113,61 +209,38 @@ export async function findInstagramHandle(
       `Do not guess or make up handles. Only return handles you find from reliable sources.`,
     ].join('\n')
 
-    const response = await openai.responses.create({
-      model: 'gpt-4o-mini',
-      tools: [
-        {
-          type: 'web_search_preview',
-          user_location: {
-            type: 'approximate',
-            country: 'PA',
-            city: 'Panama City',
-            timezone: 'America/Panama',
-          },
-        },
-      ],
-      input: prompt,
-    })
-
-    const textOutput = response.output.find(
-      (item): item is Extract<typeof item, { type: 'message' }> => item.type === 'message',
-    )
-
-    const text = textOutput?.content
-      ?.filter((c): c is Extract<typeof c, { type: 'output_text' }> => c.type === 'output_text')
-      .map((c) => c.text)
-      .join('')
-      .trim()
-
-    if (!text || text.includes('NOT_FOUND')) {
-      return { handle: null }
+    const firstPassText = await runInstagramSearch('gpt-4o-mini', firstPassPrompt)
+    if (firstPassText) {
+      console.log(`[findInstagramHandle] First-pass AI response for "${restaurantName}":`, firstPassText)
+      const firstPassHandle = extractHandleFromResponse(firstPassText)
+      if (firstPassHandle && !firstPassText.includes('NOT_FOUND')) {
+        return { handle: firstPassHandle }
+      }
     }
 
-    console.log(`[findInstagramHandle] Raw AI response for "${restaurantName}":`, text)
+    const secondPassPrompt = [
+      `Search again for the official Instagram account of "${normalizedName}" in Panama City, Panama.`,
+      `The first search may have failed because the handle is compressed or localized.`,
+      normalizedNeighborhood
+        ? `Area hint: "${normalizedNeighborhood}".`
+        : `Area hint: Panama City, Panama.`,
+      domainHint
+        ? `Website/domain hint: "${domainHint}".`
+        : `The business may use a local Panama account even if it is part of a larger brand.`,
+      `Look carefully for handles that combine the brand with local suffixes such as panama, panamá, or pty.`,
+      `Candidate handle patterns to verify: ${handleCandidates.join(', ')}.`,
+      `If you find the official account, return ONLY the handle without @.`,
+      `If not found, return exactly: NOT_FOUND.`,
+      `Do not explain your reasoning.`,
+    ].join('\n')
 
-    const strip = (h: string) => h.replace(/\.+$/, '')
-
-    // Try to extract a handle from the response using multiple strategies
-    // 1. Full instagram.com URL anywhere in the text
-    const urlMatch = text.match(/instagram\.com\/([a-zA-Z0-9_.]{1,30})\/?/i)
-    if (urlMatch) return { handle: strip(urlMatch[1]) }
-
-    // 2. @handle pattern anywhere in the text
-    const atMatch = text.match(/@([a-zA-Z0-9_.]{1,30})/)
-    if (atMatch) return { handle: strip(atMatch[1]) }
-
-    // 3. Handle in quotes (single or double): "susharkpty" or 'sirenapanama'
-    const quotedMatch = text.match(/["']([a-zA-Z0-9_.]{1,30})["']/)
-    if (quotedMatch) return { handle: strip(quotedMatch[1]) }
-
-    // 4. "is <handle>" or "is: <handle>" pattern (common AI phrasing)
-    const isMatch = text.match(/\bis[:\s]+([a-zA-Z0-9_.]{1,30})(?:[.\s,]|$)/i)
-    if (isMatch) return { handle: strip(isMatch[1]) }
-
-    // 5. If the entire response is short enough, it might be just the handle
-    const cleaned = text.replace(/^@/, '').trim()
-    if (/^[a-zA-Z0-9_.]{1,30}$/.test(cleaned)) {
-      return { handle: strip(cleaned) }
+    const secondPassText = await runInstagramSearch('gpt-4o', secondPassPrompt)
+    if (secondPassText) {
+      console.log(`[findInstagramHandle] Second-pass AI response for "${restaurantName}":`, secondPassText)
+      const secondPassHandle = extractHandleFromResponse(secondPassText)
+      if (secondPassHandle && !secondPassText.includes('NOT_FOUND')) {
+        return { handle: secondPassHandle }
+      }
     }
 
     return { handle: null }
