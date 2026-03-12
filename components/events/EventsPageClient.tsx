@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import toast from 'react-hot-toast'
 import CategoriesSidebar from '@/components/calendar/CategoriesSidebar'
 import PendingRequestsSidebar from '@/components/booking/PendingRequestsSidebar'
 import CalendarView from '@/components/calendar/CalendarView'
@@ -13,6 +14,7 @@ import {
   refreshCalendarData,
   getCalendarPendingRequests,
   getDailyEventCounts,
+  getEventForBookingRequest,
   searchCalendarEvents,
   getValidationEvents,
 } from '@/app/actions/events'
@@ -467,21 +469,28 @@ export default function EventsPageClient({
     setDayModalEvents([])
   }
 
-  const handleRequestClick = (request: BookingRequest) => {
-    // If the request has a linked event, open that event for editing (with Approve/Reject buttons)
-    if (request.eventId) {
-      const linkedEvent = events.find((e) => e.id === request.eventId)
-      if (linkedEvent) {
-        setEventToEdit(linkedEvent)
-        setBookingRequestId(undefined)
-        setSelectedDate(undefined)
-        setSelectedEndDate(undefined)
-        openEventModal()
-        return
-      }
+  const handleRequestClick = async (request: BookingRequest) => {
+    const result = await getEventForBookingRequest(request.id)
+
+    if (!result.success) {
+      toast.error(result.error || 'No se pudo cargar la solicitud')
+      return
     }
 
-    // Fallback: Open the request details in the event modal (create mode)
+    if (result.data) {
+      setEventToEdit(result.data as Event)
+      setBookingRequestId(undefined)
+      setSelectedDate(undefined)
+      setSelectedEndDate(undefined)
+      openEventModal()
+      return
+    }
+
+    if (request.eventId) {
+      toast.error('No se pudo cargar el evento vinculado de esta solicitud')
+      return
+    }
+
     setEventToEdit(null)
     setBookingRequestId(request.id)
     openEventModal()

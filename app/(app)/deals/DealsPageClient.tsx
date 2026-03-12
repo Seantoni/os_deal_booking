@@ -603,6 +603,16 @@ export default function DealsPageClient({
     setSavingMaxValues(prev => ({ ...prev, [editor.clerkId]: false }))
   }, [editorMaxValues])
 
+  const handleBookingRequestMutation = useCallback(async () => {
+    await loadPage(currentPage)
+    if (!isSearching) {
+      refreshCounts()
+    }
+    if (canViewAssignments) {
+      await loadAssignments()
+    }
+  }, [canViewAssignments, currentPage, isSearching, loadAssignments, loadPage, refreshCounts])
+
   async function handleDealSuccess() {
     if (!isSearching) {
       await loadPage(currentPage)
@@ -1390,6 +1400,7 @@ export default function DealsPageClient({
             setSelectedRequestId(null)
           }}
           requestId={selectedRequestId}
+          onRequestMutated={handleBookingRequestMutation}
         />
       )}
 

@@ -73,6 +73,7 @@ interface BookingRequestViewModalProps {
   requestId: string | null
   hideBackdrop?: boolean
   showReplicateAction?: boolean
+  onRequestMutated?: () => void | Promise<void>
 }
 
 export default function BookingRequestViewModal({
@@ -81,6 +82,7 @@ export default function BookingRequestViewModal({
   requestId,
   hideBackdrop = false,
   showReplicateAction = false,
+  onRequestMutated,
 }: BookingRequestViewModalProps) {
   useModalEscape(isOpen, onClose)
 
@@ -453,6 +455,7 @@ export default function BookingRequestViewModal({
     try {
       const replicateKey = persistBookingRequestReplicatePayload(requestData)
       setShowEditConfirm(false)
+      await onRequestMutated?.()
       onClose()
       router.push(`/booking-requests/new?replicateKey=${encodeURIComponent(replicateKey)}`)
     } catch (error) {
@@ -489,6 +492,7 @@ export default function BookingRequestViewModal({
     if (result.success) {
       toast.success('Solicitud cancelada exitosamente')
       setShowCancelConfirm(false)
+      await onRequestMutated?.()
       onClose()
     } else {
       toast.error(result.error || 'Error al cancelar la solicitud')
@@ -516,6 +520,7 @@ export default function BookingRequestViewModal({
     if (result.success) {
       toast.success('Solicitud aprobada exitosamente. Se enviaron notificaciones por correo.')
       setShowApproveConfirm(false)
+      await onRequestMutated?.()
       onClose()
     } else {
       toast.error(result.error || 'Error al aprobar la solicitud')

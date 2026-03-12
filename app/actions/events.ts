@@ -305,18 +305,35 @@ export async function createEvent(formData: FormData) {
     }
 
     let name = (submittedName || '').trim()
+    let linkedBookingRequestStatus: string | null = null
 
     if (bookingRequestId) {
       const bookingRequest = await prisma.bookingRequest.findUnique({
         where: { id: bookingRequestId },
         select: {
+          id: true,
           name: true,
           merchant: true,
           pricingOptions: true,
+          status: true,
+          eventId: true,
         },
       })
 
       if (bookingRequest) {
+        linkedBookingRequestStatus = bookingRequest.status
+
+        if (bookingRequest.eventId) {
+          const existingLinkedEvent = await prisma.event.findUnique({
+            where: { id: bookingRequest.eventId },
+            select: { id: true },
+          })
+
+          if (existingLinkedEvent) {
+            return { success: false, error: 'This booking request already has a linked event' }
+          }
+        }
+
         const generatedName = buildEventNameFromBookingRequest({
           requestName: bookingRequest.name || '',
           merchant: bookingRequest.merchant || null,
@@ -346,8 +363,15 @@ export async function createEvent(formData: FormData) {
     category || null
   )
 
-  // Always persist new calendar events as booked so they appear in the default calendar view.
-  const eventStatus = 'booked'
+  const eventStatus = bookingRequestId
+    ? (
+        linkedBookingRequestStatus === 'pending' ||
+        linkedBookingRequestStatus === 'approved' ||
+        linkedBookingRequestStatus === 'booked'
+          ? linkedBookingRequestStatus
+          : 'approved'
+      )
+    : 'booked'
 
   const event = await prisma.event.create({
     data: {
@@ -367,94 +391,14 @@ export async function createEvent(formData: FormData) {
     },
   })
 
-  // If linked to a booking request, update the request with the event ID and status
+  // If linked to a booking request, only link the event here.
+  // Booking transitions are handled exclusively by bookEvent.
   if (bookingRequestId) {
-    const previousRequest = await prisma.bookingRequest.findUnique({
-      where: { id: bookingRequestId },
-      select: { id: true, name: true, status: true },
-    })
-
     await prisma.bookingRequest.update({
       where: { id: bookingRequestId },
-      data: { 
-        eventId: event.id,
-        status: 'booked',
-        processedAt: new Date(),
-        bookedAt: new Date(),
-      },
+      data: { eventId: event.id },
     })
 
-    if (previousRequest && previousRequest.status !== 'booked') {
-      await logActivity({
-        action: 'STATUS_CHANGE',
-        entityType: 'BookingRequest',
-        entityId: previousRequest.id,
-        entityName: previousRequest.name,
-        details: {
-          statusChange: { from: previousRequest.status, to: 'booked' },
-        },
-      })
-    }
-    
-    // Automatically create a marketing campaign for the booked request
-    try {
-      const { createMarketingCampaign } = await import('./marketing')
-      await createMarketingCampaign(bookingRequestId)
-      logger.info('Marketing campaign created for booking request:', bookingRequestId)
-    } catch (marketingError) {
-      // Log error but don't fail the booking process
-      logger.error('Failed to create marketing campaign:', marketingError)
-    }
-    
-    // Send deal to external OfertaSimple API
-    try {
-      const bookingRequestData = await prisma.bookingRequest.findUnique({
-        where: { id: bookingRequestId },
-        select: {
-          id: true,
-          merchant: true,
-          name: true,
-          businessEmail: true,
-          startDate: true,
-          endDate: true,
-          campaignDuration: true,
-          offerMargin: true,
-          pricingOptions: true,
-          nameEs: true,
-          shortTitle: true,
-          emailTitle: true,
-          aboutOffer: true,
-          whatWeLike: true,
-          goodToKnow: true,
-          howToUseEs: true,
-          businessReview: true,
-          addressAndHours: true,
-          paymentInstructions: true,
-          additionalBankAccounts: true,
-          dealImages: true,
-          socialMedia: true,
-          contactDetails: true,
-          parentCategory: true,
-          subCategory1: true,
-          subCategory2: true,
-          subCategory3: true,
-          opportunityId: true,
-        },
-      })
-      
-      if (bookingRequestData) {
-        const { sendDealToExternalApi } = await import('@/lib/api/external-oferta')
-        await sendDealToExternalApi(bookingRequestData, {
-          userId,
-          triggeredBy: 'system',
-        })
-        logger.info('Deal sent to external API for booking request:', bookingRequestId)
-      }
-    } catch (apiError) {
-      // Log error but don't fail the booking process
-      logger.error('Failed to send deal to external API:', apiError)
-    }
-    
     invalidateEntity('booking-requests')
     invalidateDashboard()
   }
@@ -631,6 +575,54 @@ export async function getCalendarPendingRequests() {
     return { success: true, data: bookingRequests }
   } catch (error) {
     return handleServerActionError(error, 'getCalendarPendingRequests')
+  }
+}
+
+/**
+ * Resolve the canonical event linked to a booking request.
+ * Uses the request's eventId first, then falls back to the latest event row for that request.
+ */
+export async function getEventForBookingRequest(bookingRequestId: string) {
+  const authResult = await requireAuth()
+  if (!('userId' in authResult)) {
+    return authResult
+  }
+
+  try {
+    const bookingRequest = await prisma.bookingRequest.findUnique({
+      where: { id: bookingRequestId },
+      select: { eventId: true },
+    })
+
+    if (!bookingRequest) {
+      return { success: false, error: 'Booking request not found' }
+    }
+
+    const eventById = bookingRequest.eventId
+      ? await prisma.event.findUnique({
+          where: { id: bookingRequest.eventId },
+          select: calendarEventSelect,
+        })
+      : null
+
+    const eventRow = eventById || await prisma.event.findFirst({
+      where: { bookingRequestId },
+      select: calendarEventSelect,
+      orderBy: { updatedAt: 'desc' },
+    })
+
+    if (!eventRow) {
+      return { success: true, data: null as Event | null }
+    }
+
+    const [resolvedEvent] = await resolveBookingLinkedNames([toCalendarEvent(eventRow)])
+
+    return {
+      success: true,
+      data: resolvedEvent || null,
+    }
+  } catch (error) {
+    return handleServerActionError(error, 'getEventForBookingRequest')
   }
 }
 
@@ -972,219 +964,247 @@ export async function bookEvent(eventId: string) {
       | { success: true; externalId?: number; logId?: string }
       | { success: false; error?: string; logId?: string }
       | null = null
+    const warnings: string[] = []
 
-    // Get the event and its linked booking request
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-    })
+    const bookingOutcome = await prisma.$transaction(async (tx) => {
+      const event = await tx.event.findUnique({
+        where: { id: eventId },
+      })
 
-    if (!event) {
-      throw new Error('Event not found')
-    }
+      if (!event) {
+        throw new Error('Event not found')
+      }
 
-    if (event.status !== 'approved' && event.status !== 'pending') {
-      throw new Error('Only pending or approved events can be booked')
-    }
+      if (event.status !== 'approved' && event.status !== 'pending') {
+        throw new Error('Only pending or approved events can be booked')
+      }
 
-    // Update event status to booked
-    const updatedEvent = await prisma.event.update({
-      where: { id: eventId },
-      data: { status: 'booked' },
-    })
+      const updatedEvent = await tx.event.update({
+        where: { id: eventId },
+        data: { status: 'booked' },
+      })
 
-    // Update linked booking request and send confirmation email
-    if (event.bookingRequestId) {
-      const bookingRequest = await prisma.bookingRequest.findUnique({
+      if (!event.bookingRequestId) {
+        return {
+          event,
+          updatedEvent,
+          bookingRequest: null,
+          previousBookingRequestStatus: null as string | null,
+          dealWasCreated: false,
+        }
+      }
+
+      const bookingRequest = await tx.bookingRequest.findUnique({
         where: { id: event.bookingRequestId },
       })
 
-      if (bookingRequest) {
-        await prisma.bookingRequest.update({
-          where: { id: bookingRequest.id },
-          data: { 
-            status: 'booked',
-            processedAt: new Date(),
-            bookedAt: new Date(),
-            processedBy: userId,
+      if (!bookingRequest) {
+        return {
+          event,
+          updatedEvent,
+          bookingRequest: null,
+          previousBookingRequestStatus: null as string | null,
+          dealWasCreated: false,
+        }
+      }
+
+      const previousBookingRequestStatus = bookingRequest.status
+      const existingDeal = await tx.deal.findUnique({
+        where: { bookingRequestId: bookingRequest.id },
+        select: { id: true },
+      })
+
+      const updatedBookingRequest = await tx.bookingRequest.update({
+        where: { id: bookingRequest.id },
+        data: {
+          status: 'booked',
+          processedAt: new Date(),
+          bookedAt: new Date(),
+          processedBy: userId,
+        },
+      })
+
+      await tx.deal.upsert({
+        where: { bookingRequestId: bookingRequest.id },
+        update: {},
+        create: {
+          bookingRequestId: bookingRequest.id,
+          responsibleId: null,
+          status: 'pendiente_por_asignar',
+        },
+      })
+
+      return {
+        event,
+        updatedEvent,
+        bookingRequest: updatedBookingRequest,
+        previousBookingRequestStatus,
+        dealWasCreated: !existingDeal,
+      }
+    })
+
+    if (
+      bookingOutcome.bookingRequest &&
+      bookingOutcome.previousBookingRequestStatus &&
+      bookingOutcome.previousBookingRequestStatus !== 'booked'
+    ) {
+      await logActivity({
+        action: 'STATUS_CHANGE',
+        entityType: 'BookingRequest',
+        entityId: bookingOutcome.bookingRequest.id,
+        entityName: bookingOutcome.bookingRequest.name,
+        details: {
+          statusChange: { from: bookingOutcome.previousBookingRequestStatus, to: 'booked' },
+        },
+      })
+    }
+
+    if (bookingOutcome.bookingRequest?.id) {
+      if (bookingOutcome.dealWasCreated) {
+        logger.info('Deal created automatically for booking request:', bookingOutcome.bookingRequest.id)
+        try {
+          const { sendDealAssignmentReadyEmail } = await import('@/lib/email/services/deal-assignment-ready')
+          await sendDealAssignmentReadyEmail(bookingOutcome.bookingRequest.id)
+        } catch (emailError) {
+          logger.error('Failed to send deal assignment ready email:', emailError)
+        }
+      }
+
+      try {
+        const { createMarketingCampaign } = await import('./marketing')
+        await createMarketingCampaign(bookingOutcome.bookingRequest.id)
+        logger.info('Marketing campaign created for booking request:', bookingOutcome.bookingRequest.id)
+      } catch (marketingError) {
+        logger.error('Failed to create marketing campaign:', marketingError)
+      }
+
+      try {
+        const bookingRequestData = await prisma.bookingRequest.findUnique({
+          where: { id: bookingOutcome.bookingRequest.id },
+          select: {
+            id: true,
+            merchant: true,
+            name: true,
+            businessEmail: true,
+            startDate: true,
+            endDate: true,
+            campaignDuration: true,
+            offerMargin: true,
+            pricingOptions: true,
+            nameEs: true,
+            shortTitle: true,
+            emailTitle: true,
+            aboutOffer: true,
+            whatWeLike: true,
+            goodToKnow: true,
+            howToUseEs: true,
+            businessReview: true,
+            addressAndHours: true,
+            paymentInstructions: true,
+            additionalBankAccounts: true,
+            dealImages: true,
+            socialMedia: true,
+            contactDetails: true,
+            parentCategory: true,
+            subCategory1: true,
+            subCategory2: true,
+            subCategory3: true,
+            opportunityId: true,
           },
         })
 
-        if (bookingRequest.status !== 'booked') {
-          await logActivity({
-            action: 'STATUS_CHANGE',
-            entityType: 'BookingRequest',
-            entityId: bookingRequest.id,
-            entityName: bookingRequest.name,
-            details: {
-              statusChange: { from: bookingRequest.status, to: 'booked' },
-            },
+        if (bookingRequestData) {
+          const { sendDealToExternalApi } = await import('@/lib/api/external-oferta')
+          const apiResult = await sendDealToExternalApi(bookingRequestData, {
+            userId,
+            triggeredBy: 'system',
+            runAt: bookingOutcome.updatedEvent.startDate,
+            endAt: bookingOutcome.updatedEvent.endDate,
           })
-        }
+          externalApiResult = apiResult
+          logger.info('Deal sent to external API for booking request:', bookingOutcome.bookingRequest.id)
 
-        // Automatically create a deal for the booked request
-        try {
-          // Check if deal already exists
-          const existingDeal = await prisma.deal.findUnique({
-            where: { bookingRequestId: bookingRequest.id },
-          })
-
-          if (!existingDeal) {
-            // Create deal automatically
-            await prisma.deal.create({
-              data: {
-                bookingRequestId: bookingRequest.id,
-                responsibleId: null, // Can be assigned later
-              },
+          if (apiResult.success && 'externalId' in apiResult && apiResult.externalId) {
+            await prisma.bookingRequest.update({
+              where: { id: bookingOutcome.bookingRequest.id },
+              data: { dealId: String(apiResult.externalId) },
             })
-            logger.info('Deal created automatically for booking request:', bookingRequest.id)
-            try {
-              const { sendDealAssignmentReadyEmail } = await import('@/lib/email/services/deal-assignment-ready')
-              await sendDealAssignmentReadyEmail(bookingRequest.id)
-            } catch (emailError) {
-              logger.error('Failed to send deal assignment ready email:', emailError)
-            }
+            logger.info(
+              'External deal ID stored on booking request:',
+              bookingOutcome.bookingRequest.id,
+              apiResult.externalId
+            )
           }
-        } catch (dealError) {
-          // Log error but don't fail the booking process
-          logger.error('Failed to create deal automatically:', dealError)
+        } else {
+          externalApiResult = { success: false, error: 'bookingRequestData not found' }
         }
-
-        // Automatically create a marketing campaign for the booked request
-        try {
-          const { createMarketingCampaign } = await import('./marketing')
-          await createMarketingCampaign(bookingRequest.id)
-          logger.info('Marketing campaign created for booking request:', bookingRequest.id)
-        } catch (marketingError) {
-          // Log error but don't fail the booking process
-          logger.error('Failed to create marketing campaign:', marketingError)
+      } catch (apiError) {
+        logger.error('Failed to send deal to external API:', apiError)
+        externalApiResult = {
+          success: false,
+          error: apiError instanceof Error ? apiError.message : 'Failed to send deal to external API',
         }
+      }
 
-        // Send deal to external OfertaSimple API
-        try {
-          const bookingRequestData = await prisma.bookingRequest.findUnique({
-            where: { id: bookingRequest.id },
-            select: {
-              id: true,
-              merchant: true,
-              name: true,
-              businessEmail: true,
-              startDate: true,
-              endDate: true,
-              campaignDuration: true,
-              offerMargin: true,
-              pricingOptions: true,
-              nameEs: true,
-              shortTitle: true,
-              emailTitle: true,
-              aboutOffer: true,
-              whatWeLike: true,
-              goodToKnow: true,
-              howToUseEs: true,
-              businessReview: true,
-              addressAndHours: true,
-              paymentInstructions: true,
-              additionalBankAccounts: true,
-              dealImages: true,
-              socialMedia: true,
-              contactDetails: true,
-              parentCategory: true,
-              subCategory1: true,
-              subCategory2: true,
-              subCategory3: true,
-              opportunityId: true,
-            },
-          })
-          
-          if (bookingRequestData) {
-            const { sendDealToExternalApi } = await import('@/lib/api/external-oferta')
-            const apiResult = await sendDealToExternalApi(bookingRequestData, {
-              userId,
-              triggeredBy: 'system',
-              // OfertaSimple dates should match the final booked event dates
-              runAt: updatedEvent.startDate,
-              endAt: updatedEvent.endDate,
-            })
-            externalApiResult = apiResult
-            logger.info('Deal sent to external API for booking request:', bookingRequest.id)
-            
-            // Store the external deal ID on the booking request for linking
-            if (apiResult.success && 'externalId' in apiResult && apiResult.externalId) {
-              await prisma.bookingRequest.update({
-                where: { id: bookingRequest.id },
-                data: { dealId: String(apiResult.externalId) },
-              })
-              logger.info('External deal ID stored on booking request:', bookingRequest.id, apiResult.externalId)
-            }
-          } else {
-            externalApiResult = { success: false, error: 'bookingRequestData not found' }
-          }
-        } catch (apiError) {
-          // Log error but don't fail the booking process
-          logger.error('Failed to send deal to external API:', apiError)
-          externalApiResult = {
-            success: false,
-            error: apiError instanceof Error ? apiError.message : 'Failed to send deal to external API',
-          }
-        }
+      const { sendBookingConfirmationEmail } = await import('@/lib/email/services/booking-confirmation')
 
-        // Send booking confirmation email to business and original requester
-        const { sendBookingConfirmationEmail } = await import('@/lib/email/services/booking-confirmation')
+      const resolveEmailForUserId = async (clerkId: string): Promise<string | undefined> => {
+        const userProfile = await prisma.userProfile.findUnique({
+          where: { clerkId },
+          select: { email: true },
+        })
+        if (userProfile?.email) return userProfile.email
 
-        const resolveEmailForUserId = async (clerkId: string): Promise<string | undefined> => {
-          const userProfile = await prisma.userProfile.findUnique({
-            where: { clerkId },
-            select: { email: true },
-          })
-          if (userProfile?.email) return userProfile.email
+        const { clerkClient } = await import('@clerk/nextjs/server')
+        const clerk = await clerkClient()
+        const clerkUser = await clerk.users.getUser(clerkId)
+        return (
+          clerkUser.emailAddresses.find((e) => e.id === clerkUser.primaryEmailAddressId)?.emailAddress ||
+          clerkUser.emailAddresses[0]?.emailAddress ||
+          undefined
+        )
+      }
 
-          const { clerkClient } = await import('@clerk/nextjs/server')
-          const clerk = await clerkClient()
-          const clerkUser = await clerk.users.getUser(clerkId)
-          return (
-            clerkUser.emailAddresses.find((e) => e.id === clerkUser.primaryEmailAddressId)?.emailAddress ||
-            clerkUser.emailAddresses[0]?.emailAddress ||
-            undefined
-          )
-        }
+      let requesterEmails: string[] = []
+      try {
+        const creatorEmail = await resolveEmailForUserId(bookingOutcome.bookingRequest.userId)
+        const bookingUserEmail = await resolveEmailForUserId(userId)
+        requesterEmails = [...new Set([creatorEmail, bookingUserEmail].filter((email): email is string => Boolean(email)))]
+      } catch (userError) {
+        logger.warn('Could not resolve booking confirmation CC emails:', userError)
+      }
 
-        let requesterEmails: string[] = []
-        try {
-          const creatorEmail = await resolveEmailForUserId(bookingRequest.userId)
-          const bookingUserEmail = await resolveEmailForUserId(userId)
-          requesterEmails = [...new Set([creatorEmail, bookingUserEmail].filter((email): email is string => Boolean(email)))]
-        } catch (userError) {
-          logger.warn('Could not resolve booking confirmation CC emails:', userError)
-        }
-
+      try {
         await sendBookingConfirmationEmail(
-          updatedEvent,
-          bookingRequest.businessEmail,
+          bookingOutcome.updatedEvent,
+          bookingOutcome.bookingRequest.businessEmail,
           requesterEmails
         )
+      } catch (emailError) {
+        logger.error('Failed to send booking confirmation email:', emailError)
+        warnings.push('La reserva se completó, pero falló el envío del email de confirmación.')
       }
     }
 
-    // Invalidate only affected entities - deals and marketing-campaigns don't need refresh here
-    // since the deal was just created and marketing-campaigns are unrelated
-    invalidateEntities(['events', 'booking-requests'])
+    invalidateEntities(['events', 'booking-requests', 'deals'])
     invalidateDashboard()
 
-    // Log activity
     await logActivity({
       action: 'STATUS_CHANGE',
       entityType: 'Event',
-      entityId: event.id,
-      entityName: event.name,
+      entityId: bookingOutcome.event.id,
+      entityName: bookingOutcome.event.name,
       details: {
-        statusChange: { from: event.status, to: 'booked' }
+        statusChange: { from: bookingOutcome.event.status, to: 'booked' }
       }
     })
 
     return {
       success: true,
       data: {
-        event: updatedEvent,
+        event: bookingOutcome.updatedEvent,
         externalApi: externalApiResult,
+        warnings,
       }
     }
   } catch (error) {

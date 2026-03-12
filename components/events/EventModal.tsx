@@ -1,6 +1,6 @@
 'use client'
 
-import { createEvent, updateEvent, deleteEvent, bookEvent, rejectEvent } from '@/app/actions/events'
+import { createEvent, updateEvent, deleteEvent } from '@/app/actions/events'
 import { useState, useEffect, useCallback, useTransition, useReducer } from 'react'
 import dynamic from 'next/dynamic'
 import CategorySelect from '@/components/shared/CategorySelect'
@@ -644,6 +644,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
               error?: string
               logId?: string
             } | null
+            warnings?: string[]
           }
         }
         if (!result.success) {
@@ -661,6 +662,8 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
         }
 
         const externalApi = result?.data?.externalApi ?? null
+        const warnings = result?.data?.warnings || []
+        const warningMessage = warnings.length > 0 ? `\n\nAdvertencias:\n- ${warnings.join('\n- ')}` : ''
         // Dismiss loader before showing the result dialog
         setIsBooking(false)
 
@@ -674,8 +677,8 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
           await confirmDialog.confirm({
             title: isOk ? 'OfertaSimple: Éxito' : 'OfertaSimple: Error',
             message: isOk 
-              ? `El evento fue reservado y enviado a OfertaSimple exitosamente.\n\nDeal ID: #${externalApi.externalId || 'N/A'}\n\nPuedes ver los detalles en Settings → API Logs.`
-              : `El evento fue reservado pero falló el envío a OfertaSimple.\n\nError: ${externalApi.error || 'Error desconocido'}\n\nRevisa Settings → API Logs para más detalles.`,
+              ? `El evento fue reservado y enviado a OfertaSimple exitosamente.\n\nDeal ID: #${externalApi.externalId || 'N/A'}\n\nPuedes ver los detalles en Settings → API Logs.${warningMessage}`
+              : `El evento fue reservado pero falló el envío a OfertaSimple.\n\nError: ${externalApi.error || 'Error desconocido'}\n\nRevisa Settings → API Logs para más detalles.${warningMessage}`,
             confirmText: 'OK',
             cancelText: '',
             confirmVariant: isOk ? 'success' : 'danger',
@@ -683,7 +686,7 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
         } else {
           await confirmDialog.confirm({
             title: 'Evento Reservado',
-            message: 'El evento fue reservado exitosamente.\n\nNo se realizó envío a OfertaSimple (sin solicitud vinculada o datos faltantes).',
+            message: `El evento fue reservado exitosamente.\n\nNo se realizó envío a OfertaSimple (sin solicitud vinculada o datos faltantes).${warningMessage}`,
             confirmText: 'OK',
             cancelText: '',
             confirmVariant: 'primary',

@@ -1,6 +1,8 @@
 import type { BookingRequest } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getTodayInPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
+import { buildCategoryKey, canonicalizeMainCategory } from '@/lib/category-utils'
+import { buildEventNameFromBookingRequest } from '@/lib/utils/request-name-parsing'
 
 type ApproveBookingRequestParams = {
   requestId: string
@@ -19,6 +21,43 @@ export type ApproveBookingRequestResult =
       code: 'NOT_FOUND' | 'INVALID_STATUS'
       status?: string
     }
+
+function buildApprovedEventData(bookingRequest: BookingRequest) {
+  const normalizedParentCategory = canonicalizeMainCategory(bookingRequest.parentCategory)
+  const standardizedCategory = buildCategoryKey(
+    normalizedParentCategory || null,
+    bookingRequest.subCategory1 || null,
+    bookingRequest.subCategory2 || null,
+    bookingRequest.subCategory3 || null,
+    bookingRequest.subCategory4 || null,
+    bookingRequest.category || null
+  )
+
+  const eventName =
+    buildEventNameFromBookingRequest({
+      requestName: bookingRequest.name || '',
+      merchant: bookingRequest.merchant || null,
+      pricingOptions: bookingRequest.pricingOptions,
+    }) || bookingRequest.name
+
+  return {
+    name: eventName,
+    description: null,
+    category: standardizedCategory,
+    parentCategory: normalizedParentCategory || null,
+    subCategory1: bookingRequest.subCategory1 || null,
+    subCategory2: bookingRequest.subCategory2 || null,
+    subCategory3: bookingRequest.subCategory3 || null,
+    subCategory4: bookingRequest.subCategory4 || null,
+    business: bookingRequest.merchant || null,
+    businessId: bookingRequest.businessId || null,
+    startDate: bookingRequest.startDate,
+    endDate: bookingRequest.endDate,
+    status: 'approved',
+    userId: bookingRequest.userId,
+    bookingRequestId: bookingRequest.id,
+  }
+}
 
 /**
  * Atomically approves a pending booking request and creates a follow-up
@@ -65,7 +104,7 @@ export async function approveBookingRequestWithFollowUp({
       }
     }
 
-    const bookingRequest = await tx.bookingRequest.findUnique({
+    let bookingRequest = await tx.bookingRequest.findUnique({
       where: { id: requestId },
     })
 
@@ -73,10 +112,28 @@ export async function approveBookingRequestWithFollowUp({
       return { success: false, code: 'NOT_FOUND' }
     }
 
-    if (bookingRequest.eventId) {
+    const eventData = buildApprovedEventData(bookingRequest)
+    const linkedEvent = bookingRequest.eventId
+      ? await tx.event.findUnique({
+          where: { id: bookingRequest.eventId },
+          select: { id: true },
+        })
+      : null
+
+    if (linkedEvent) {
       await tx.event.update({
-        where: { id: bookingRequest.eventId },
-        data: { status: 'approved' },
+        where: { id: linkedEvent.id },
+        data: eventData,
+      })
+    } else {
+      const createdEvent = await tx.event.create({
+        data: eventData,
+        select: { id: true },
+      })
+
+      bookingRequest = await tx.bookingRequest.update({
+        where: { id: requestId },
+        data: { eventId: createdEvent.id },
       })
     }
 
