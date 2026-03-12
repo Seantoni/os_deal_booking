@@ -1342,10 +1342,10 @@ export async function deleteDeal(dealId: string) {
   }
 
   try {
-    // Admin and Editor Senior can delete deals
+    // Only admins can delete deals
     const role = await getUserRole()
-    if (role !== 'admin' && role !== 'editor_senior') {
-      return { success: false, error: 'Unauthorized: Admin or Editor Senior access required' }
+    if (role !== 'admin') {
+      return { success: false, error: 'Unauthorized: Admin access required' }
     }
 
     // Get deal info for logging

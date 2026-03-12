@@ -17,6 +17,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import InsertLinkIcon from '@mui/icons-material/InsertLink'
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd'
 import ListAltIcon from '@mui/icons-material/ListAlt'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import toast from 'react-hot-toast'
 import { useUserRole } from '@/hooks/useUserRole'
 import { useSidebar } from '@/components/common/AppClientProviders'
@@ -381,6 +382,7 @@ export default function DealsPageClient({
   const canViewAssignments = canManageDeals
   const canViewOsAdminLink = canManageDeals || isEditor
   const canEditStatus = canManageDeals || isEditor
+  const canDeleteDeals = isAdmin
 
   useEffect(() => {
     if (!canViewAssignments || assignmentsLoaded || assignmentsLoading) return
@@ -626,26 +628,45 @@ export default function DealsPageClient({
   }
 
   async function handleDelete(dealId: string) {
+    if (!canDeleteDeals) {
+      toast.error('Solo admins pueden eliminar ofertas')
+      return
+    }
+
     const confirmed = await confirmDialog.confirm({
-      title: 'Delete Deal',
-      message: 'Are you sure you want to delete this deal? This action cannot be undone.',
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
+      title: 'Eliminar Oferta',
+      message: '¿Está seguro de que desea eliminar esta oferta? Esta acción no se puede deshacer.',
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
       confirmVariant: 'danger',
     })
     if (!confirmed) return
 
     setDeals(prev => prev.filter(d => d.id !== dealId))
+    setAssignmentDeals(prev => prev.filter(d => d.id !== dealId))
     if (searchResults) {
       setSearchResults(prev => prev?.filter(d => d.id !== dealId) || null)
     }
     
     const result = await deleteDeal(dealId)
     if (!result.success) {
-      toast.error(result.error || 'Failed to delete deal')
-      loadPage(currentPage)
+      toast.error(result.error || 'No se pudo eliminar la oferta')
+      await loadPage(currentPage)
+      if (canViewAssignments) {
+        await loadAssignments()
+      }
+      if (!isSearching) {
+        refreshCounts()
+      }
     } else {
-      toast.success('Deal deleted')
+      toast.success('Oferta eliminada')
+      await loadPage(currentPage)
+      if (canViewAssignments) {
+        await loadAssignments()
+      }
+      if (!isSearching) {
+        refreshCounts()
+      }
     }
   }
 
@@ -921,6 +942,20 @@ export default function DealsPageClient({
                                 >
                                   <InsertLinkIcon style={{ fontSize: 18 }} />
                                 </button>
+                                {canDeleteDeals && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleDelete(deal.id)
+                                    }}
+                                    className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-red-600 transition-colors"
+                                    aria-label="Eliminar oferta"
+                                    title="Eliminar oferta"
+                                  >
+                                    <DeleteOutlineIcon style={{ fontSize: 18 }} />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1085,6 +1120,17 @@ export default function DealsPageClient({
                             >
                               <InsertLinkIcon style={{ fontSize: 18 }} />
                             </button>
+                            {canDeleteDeals && (
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(deal.id)}
+                                className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-red-600 transition-colors"
+                                aria-label="Eliminar oferta"
+                                title="Eliminar oferta"
+                              >
+                                <DeleteOutlineIcon style={{ fontSize: 18 }} />
+                              </button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1364,6 +1410,20 @@ export default function DealsPageClient({
                                 >
                                   <InsertLinkIcon style={{ fontSize: 18 }} />
                                 </button>
+                                {canDeleteDeals && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleDelete(deal.id)
+                                    }}
+                                    className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-red-600 transition-colors"
+                                    aria-label="Eliminar oferta"
+                                    title="Eliminar oferta"
+                                  >
+                                    <DeleteOutlineIcon style={{ fontSize: 18 }} />
+                                  </button>
+                                )}
                               </div>
                             </TableCell>
                           </TableRow>
