@@ -770,6 +770,7 @@ export default function EventsPageClient({
               onNewRequestClick={() => setShowNewRequestModal(true)}
               onCreateEventClick={openEventModal}
               userRole={userRole}
+              highlightPendingAssignments={effectiveShowPendingBooking}
             />
           </div>
         </div>

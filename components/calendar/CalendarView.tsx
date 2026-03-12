@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { getDaysDifference, getCategoryColors } from '@/lib/categories'
 import { getEventCategoryKey, normalizeCategoryKeyForMatch } from '@/lib/category-utils'
 import { getDailyLimitStatus } from '@/lib/event-validation'
@@ -46,6 +46,7 @@ interface CalendarViewProps {
   onNewRequestClick?: () => void
   onCreateEventClick?: () => void
   userRole?: UserRole
+  highlightPendingAssignments?: boolean
 }
 
 type EventDateRange = {
@@ -93,7 +94,7 @@ function buildEventCategoryCandidates(event: Event): string[] {
   return Array.from(candidates)
 }
 
-export default function CalendarView({ events, searchEvents = [], isSearchLoading = false, isLoading = false, selectedCategories, categoryFilter, searchQuery = '', draggingRequest, bookingRequests = [], onSearchChange, onRequestDropOnDate, onDateClick, onDateRangeSelect, onEventClick, onEventMove, onEventResize, onDayExpand, readOnly = false, externalDate, externalView, externalRange, onViewChange, onCurrentDateChange, onVisibleRangeChange, onNewRequestClick, onCreateEventClick, userRole }: CalendarViewProps) {
+export default function CalendarView({ events, searchEvents = [], isSearchLoading = false, isLoading = false, selectedCategories, categoryFilter, searchQuery = '', draggingRequest, bookingRequests = [], onSearchChange, onRequestDropOnDate, onDateClick, onDateRangeSelect, onEventClick, onEventMove, onEventResize, onDayExpand, readOnly = false, externalDate, externalView, externalRange, onViewChange, onCurrentDateChange, onVisibleRangeChange, onNewRequestClick, onCreateEventClick, userRole, highlightPendingAssignments = false }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [dragStartDay, setDragStartDay] = useState<number | null>(null)
   const [dragEndDay, setDragEndDay] = useState<number | null>(null)
@@ -108,6 +109,19 @@ export default function CalendarView({ events, searchEvents = [], isSearchLoadin
     })
     return map
   }, [bookingRequests])
+  const actionableBookingRequestIds = useMemo(() => {
+    const ids = new Set<string>()
+
+    if (!highlightPendingAssignments) return ids
+
+    bookingRequests.forEach((request) => {
+      if (request.id) {
+        ids.add(request.id)
+      }
+    })
+
+    return ids
+  }, [bookingRequests, highlightPendingAssignments])
   const [isDragging, setIsDragging] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('launch')
   const [calendarView, setCalendarView] = useState<CalendarViewMode>('month')
@@ -163,6 +177,13 @@ export default function CalendarView({ events, searchEvents = [], isSearchLoadin
       })
     })
   }, [events, selectedCategories, categoryFilter])
+
+  const isActionablePendingEvent = useCallback(
+    (event: Pick<Event, 'bookingRequestId'>) =>
+      highlightPendingAssignments &&
+      Boolean(event.bookingRequestId && actionableBookingRequestIds.has(event.bookingRequestId)),
+    [highlightPendingAssignments, actionableBookingRequestIds]
+  )
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
@@ -426,7 +447,18 @@ export default function CalendarView({ events, searchEvents = [], isSearchLoadin
       })
 
       for (const dateKey of Object.keys(grouped)) {
-        grouped[dateKey].sort(compareEventsByNameAsc)
+        grouped[dateKey].sort((a, b) => {
+          if (calendarView === 'month') {
+            const aIsActionable = isActionablePendingEvent(a)
+            const bIsActionable = isActionablePendingEvent(b)
+
+            if (aIsActionable !== bIsActionable) {
+              return aIsActionable ? -1 : 1
+            }
+          }
+
+          return compareEventsByNameAsc(a, b)
+        })
       }
     } else {
       // Live dates mode: Show as continuous spanning bars
@@ -517,7 +549,7 @@ export default function CalendarView({ events, searchEvents = [], isSearchLoadin
       spanningEvents: visibleSpanningEvents,
       overflowPerDay
     }
-  }, [filteredEventRanges, viewMode, year, month, calendarView, startDay, endDay, viewStartDate, viewEndDate])
+  }, [filteredEventRanges, viewMode, year, month, calendarView, startDay, endDay, viewStartDate, viewEndDate, isActionablePendingEvent])
 
   const getEventsForDay = (day: number) => {
     const dateKey = `${year}-${month}-${day}`
@@ -806,8 +838,7 @@ export default function CalendarView({ events, searchEvents = [], isSearchLoadin
             // Use parentCategory for colors
             const colors = getCategoryColors(event.parentCategory)
             const isPending = event.status === 'pending'
-            const isBooked = event.status === 'booked' || event.status === 'pre-booked'
-            const isNotBooked = !isBooked
+            const isActionablePending = isActionablePendingEvent(event)
             const isPreBooked = event.status === 'pre-booked'
             const sourceType = event.bookingRequestId ? (sourceTypeMap.get(event.bookingRequestId) || 'internal') : 'internal'
             const isPublicLink = sourceType === 'public_link'
@@ -827,14 +858,19 @@ export default function CalendarView({ events, searchEvents = [], isSearchLoadin
                   onEventClick?.(event)
                 }}
                 className={`text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0 h-[15px] ${colors.indicator} text-white rounded cursor-move transition-all flex items-center gap-0.5 event-card shadow-sm hover:shadow-md leading-tight font-semibold truncate ${
-                  isNotBooked ? 'ring-2 ring-yellow-400 pending opacity-70' : ''
+                  isActionablePending ? 'assignment-ready' : ''
                 }`}
-                title={`${event.name}${event.category ? ` - ${event.category}` : ''}${isPending ? ' [PENDING]' : event.status === 'approved' ? ' [APPROVED - Ready to Book]' : isPreBooked ? ' [PRE-BOOKED]' : ''}${showSourceBadge ? ` [${sourceBadgeLabel}]` : ''}`}
+                title={`${event.name}${event.category ? ` - ${event.category}` : ''}${isActionablePending ? ' [PENDING ACTION]' : isPending ? ' [PENDING]' : event.status === 'approved' ? ' [APPROVED - Ready to Book]' : isPreBooked ? ' [PRE-BOOKED]' : ''}${showSourceBadge ? ` [${sourceBadgeLabel}]` : ''}`}
               >
-                {isPending && (
-                  <svg className="w-3 h-3 flex-shrink-0 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                  </svg>
+                {isActionablePending && (
+                  <span className="assignment-ready-badge">
+                    <span className="assignment-ready-badge-icon" aria-hidden="true">
+                      <svg className="w-2 h-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                      </svg>
+                    </span>
+                    <span>PEND</span>
+                  </span>
                 )}
                 <span className="truncate flex-1 leading-tight">{event.name}</span>
                 {showSourceBadge && (
@@ -1119,8 +1155,7 @@ export default function CalendarView({ events, searchEvents = [], isSearchLoadin
             {spanningEvents.map((event) => {
               const colors = getCategoryColors(event.parentCategory)
               const isPending = event.status === 'pending'
-              const isBooked = event.status === 'booked' || event.status === 'pre-booked'
-              const isNotBooked = !isBooked
+              const isActionablePending = isActionablePendingEvent(event)
               const isPreBooked = event.status === 'pre-booked'
               const sourceType = event.bookingRequestId ? (sourceTypeMap.get(event.bookingRequestId) || 'internal') : 'internal'
               const isPublicLink = sourceType === 'public_link'
@@ -1205,16 +1240,21 @@ export default function CalendarView({ events, searchEvents = [], isSearchLoadin
                       onDragEnd={handleEventDragEnd}
                       onClick={() => onEventClick?.(event)}
                       className={`relative h-full px-1 sm:px-1.5 py-0 ${colors.indicator} text-white text-[9px] sm:text-[10px] rounded ${readOnly ? 'cursor-pointer' : 'cursor-move'} transition-all truncate flex items-center gap-0.5 font-semibold shadow-sm hover:shadow-md event-spanning ${
-                        isNotBooked ? 'ring-2 ring-yellow-400 pending opacity-70' : ''
+                        isActionablePending ? 'assignment-ready' : ''
                       }`}
-                      title={`${event.name}${event.category ? ` - ${event.category}` : ''}${isPending ? ' [PENDING]' : event.status === 'approved' ? ' [APPROVED]' : isPreBooked ? ' [PRE-BOOKED]' : ''}${showSourceBadge ? ` [${sourceBadgeLabel}]` : ''}`}
+                      title={`${event.name}${event.category ? ` - ${event.category}` : ''}${isActionablePending ? ' [PENDING ACTION]' : isPending ? ' [PENDING]' : event.status === 'approved' ? ' [APPROVED]' : isPreBooked ? ' [PRE-BOOKED]' : ''}${showSourceBadge ? ` [${sourceBadgeLabel}]` : ''}`}
                     >
                       {segment.isFirst && (
                         <>
-                          {isPending && (
-                            <svg className="w-3 h-3 flex-shrink-0 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                            </svg>
+                          {isActionablePending && (
+                            <span className="assignment-ready-badge">
+                              <span className="assignment-ready-badge-icon" aria-hidden="true">
+                                <svg className="w-2 h-2" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                                </svg>
+                              </span>
+                              <span>PEND</span>
+                            </span>
                           )}
                           <span className="truncate flex-1 leading-tight">{event.name}</span>
                           {showSourceBadge && (
