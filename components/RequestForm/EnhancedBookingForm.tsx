@@ -853,9 +853,9 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     })
   ), [formData, hasReplicatedContext])
 
-  const goToNextStep = useCallback(async () => {
-    const nextIndex = currentStepIndex + 1
-    if (nextIndex >= availableSteps.length) return
+  const autoSaveAndNavigateToStep = useCallback(async (targetStepKey: string) => {
+    const targetStepExists = availableSteps.some((step) => step.key === targetStepKey)
+    if (!targetStepExists || targetStepKey === currentStepKey) return
 
     setIsAutoSavingStep(true)
     try {
@@ -877,8 +877,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         }
       }
 
-      const nextStepKey = availableSteps[nextIndex].key
-      setCurrentStepKey(nextStepKey)
+      setCurrentStepKey(targetStepKey)
       scrollToTop()
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Error desconocido'
@@ -890,12 +889,19 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     activeRequestId,
     availableSteps,
     buildSubmissionFormData,
-    currentStepIndex,
+    currentStepKey,
     pathname,
     propRequestId,
     router,
     scrollToTop,
   ])
+
+  const goToNextStep = useCallback(async () => {
+    const nextIndex = currentStepIndex + 1
+    if (nextIndex >= availableSteps.length) return
+
+    await autoSaveAndNavigateToStep(availableSteps[nextIndex].key)
+  }, [autoSaveAndNavigateToStep, availableSteps, currentStepIndex])
 
   const handleNext = async () => {
     const validationErrors = handleValidateStep(currentStepKey)
@@ -979,21 +985,19 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     }
   }
 
-  const handlePrevious = () => {
+  const handlePrevious = async () => {
     const prevIndex = currentStepIndex - 1
     if (prevIndex >= 0) {
       const prevStepKey = availableSteps[prevIndex].key
-      setCurrentStepKey(prevStepKey)
-      scrollToTop()
+      await autoSaveAndNavigateToStep(prevStepKey)
     }
   }
   
-  const handleStepClick = (stepKey: string) => {
+  const handleStepClick = async (stepKey: string) => {
     const clickedIndex = getStepIndexByKey(stepKey)
     // Only allow clicking on steps that are before the current step
     if (clickedIndex < currentStepIndex) {
-      setCurrentStepKey(stepKey)
-      scrollToTop()
+      await autoSaveAndNavigateToStep(stepKey)
     }
   }
 
