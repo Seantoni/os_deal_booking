@@ -16,7 +16,7 @@ export const AI_PRESETS: Record<AiPresetName, AiPreset> = {
   },
   generation: {
     model: MODEL_STANDARD,
-    temperature: 0.7,
+    temperature: 0,
     maxTokens: 1000,
   },
   'generation-creative': {
