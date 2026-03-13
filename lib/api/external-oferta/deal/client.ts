@@ -134,6 +134,9 @@ interface BookingRequestData {
   startDate?: Date | string
   endDate: Date | string
   campaignDuration?: string | null
+  campaignDurationUnit?: string | null
+  eventDays?: Prisma.JsonValue
+  redemptionMode?: string | null
   offerMargin?: string | null // Comisión OfertaSimple (percentage)
   pricingOptions?: Prisma.JsonValue
   // AI-generated content fields
