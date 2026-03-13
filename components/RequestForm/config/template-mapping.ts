@@ -47,6 +47,8 @@ export const CATEGORY_TEMPLATE_MAP: Record<string, string> = {
   'CURSOS:Cocina': 'CURSO_COCINA',
   'CURSOS:Idiomas': 'CURSOS_ACADEMICOS',
   'CURSOS:Otros': 'CURSOS_ACADEMICOS',
+  'CURSOS:Manejo': 'CLASES_MANEJO',
+  'CURSOS:Clases de Manejo': 'CLASES_MANEJO',
 
   // ============================================================
   // SERVICIOS - by subCategory1
@@ -69,6 +71,9 @@ export const CATEGORY_TEMPLATE_MAP: Record<string, string> = {
   // ============================================================
   'SERVICIOS:Hogar:A/C Hogar': 'AC_CASAS',
   'SERVICIOS:Hogar:Plomería': 'AC_CASAS', // Fallback template for home services
+  'SERVICIOS:Hogar:Limpieza': 'LIMPIEZA_HOGAR',
+  'SERVICIOS:Hogar:Limpieza de muebles': 'LIMPIEZA_MUEBLES',
+  'SERVICIOS:Hogar:Fumigación': 'FUMIGACION',
 
   // ============================================================
   // ACTIVIDADES - by subCategory1
@@ -89,6 +94,15 @@ export const CATEGORY_TEMPLATE_MAP: Record<string, string> = {
   'BIENESTAR Y BELLEZA:Depilación': 'DEPILACION',
   'BIENESTAR Y BELLEZA:Reductores': 'REDUCTORES',
   'BIENESTAR Y BELLEZA:Tratamiento para la piel': 'TRATAMIENTO_PIEL',
+  'BIENESTAR Y BELLEZA:Peeling': 'PEELING',
+  'BIENESTAR Y BELLEZA:Peeling Corporal': 'PEELING',
+  'BIENESTAR Y BELLEZA:Peeling Facial': 'PEELING',
+
+  // ============================================================
+  // SALUD Y NUTRICIÓN
+  // ============================================================
+  'BIENESTAR Y BELLEZA:Salud y Nutrición': 'SALUD_NUTRICION',
+  'LABORATORIOS Y SALUD CLÍNICA:Nutrición': 'SALUD_NUTRICION',
 }
 
 /**

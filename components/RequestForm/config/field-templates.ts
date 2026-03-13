@@ -170,6 +170,7 @@ export const RESTAURANTE_TEMPLATE: FieldTemplate = {
     { name: 'restaurantPrivateEvents', type: 'select', label: '¿Aplica para eventos privados?', options: COMMON_OPTIONS.YES_NO },
     { name: 'restaurantPrivateEventMinPeople', type: 'text', label: '¿A partir de cuántas personas se considera evento privado?', placeholder: 'Ej: 15 personas', showWhen: { field: 'restaurantPrivateEvents', value: 'Sí' } },
     { name: 'restaurantAlcoholSubstitution', type: 'textarea', label: 'En caso que incluya bebida alcohólica, ¿se puede cambiar por otra bebida no alcohólica? ¿Cuál?', placeholder: 'Ej: Sí, por jugo o soda...', fullWidth: true, rows: 2 },
+    { name: 'restaurantValidHolidays', type: 'textarea', label: '¿Válido en feriados? De coincidir el periodo de canje, ¿válido en San Valentín?', placeholder: 'Ej: Válido excepto Navidad y Año Nuevo...', fullWidth: true, rows: 2 },
   ],
 }
 
@@ -261,6 +262,7 @@ export const GIMNASIOS_TEMPLATE: FieldTemplate = {
     { name: 'gymMinAge', type: 'text', label: '¿Desde qué edad es válido?', placeholder: 'Ej: 16 años' },
     { name: 'gymMinMaxPeoplePerClass', type: 'text', label: 'Mínimo y máximo de personas por clase, si aplica:', placeholder: 'Ej: 5 mín, 20 máx' },
     { name: 'gymPackageStartDeadline', type: 'text', label: '¿Hay un último día de inicio de paquete que sea antes de la fecha de expiración?', placeholder: 'Ej: 30 días antes...', fullWidth: true },
+    { name: 'gymValidHolidays', type: 'select', label: '¿Válido en feriados?', options: COMMON_OPTIONS.YES_NO },
   ],
 }
 
@@ -626,6 +628,118 @@ export const ENTRENAMIENTO_TEMPLATE: FieldTemplate = {
 }
 
 // ============================================================
+// LIMPIEZA_HOGAR - Servicios > Hogar > Limpieza
+// ============================================================
+export const LIMPIEZA_HOGAR_TEMPLATE: FieldTemplate = {
+  displayName: 'Limpieza de Hogar u Oficina',
+  fields: [
+    { name: 'cleaningCoverageAreas', type: 'textarea', label: 'Área de cobertura sin costo adicional, con costo adicional (y precios), y áreas que no aplican:', placeholder: 'Ej: Gratis en Ciudad de Panamá, $15 adicional zonas revertidas...', fullWidth: true, rows: 3 },
+    { name: 'cleaningSquareMeters', type: 'text', label: 'Metrajes de limpieza incluidos:', placeholder: 'Ej: Hasta 80m², Hasta 120m²...' },
+    { name: 'cleaningHoursIncluded', type: 'text', label: '¿Cuántas horas de limpieza incluye el servicio?', placeholder: 'Ej: 4 horas, 6 horas...' },
+    { name: 'cleaningIncludesBalcony', type: 'select', label: '¿Incluye limpieza de balcón?', options: COMMON_OPTIONS.YES_NO },
+    { name: 'cleaningIncludesBathrooms', type: 'select', label: '¿Incluye limpieza de baños?', options: COMMON_OPTIONS.YES_NO },
+    { name: 'cleaningMaxVouchers', type: 'text', label: 'Máximo de vouchers por reserva:', placeholder: 'Ej: 1, 2, Sin límite...' },
+    { name: 'cleaningValidHolidays', type: 'select', label: '¿Válido en feriados?', options: COMMON_OPTIONS.YES_NO },
+  ],
+}
+
+// ============================================================
+// LIMPIEZA_MUEBLES - Servicios > Hogar > Limpieza de muebles
+// ============================================================
+export const LIMPIEZA_MUEBLES_TEMPLATE: FieldTemplate = {
+  displayName: 'Limpieza de Muebles',
+  fields: [
+    { name: 'furnitureCoverageAreas', type: 'textarea', label: 'Área de cobertura sin costo adicional, con costo adicional (y precios), y áreas que no aplican:', placeholder: 'Ej: Gratis en Ciudad de Panamá, $15 adicional zonas revertidas...', fullWidth: true, rows: 3 },
+    { name: 'furnitureAppliesToFabricLeather', type: 'select', label: '¿Aplica para tela y cuero?', options: [{ value: 'Tela y cuero', label: 'Tela y cuero' }, { value: 'Solo tela', label: 'Solo tela' }, { value: 'Solo cuero', label: 'Solo cuero' }] },
+    { name: 'furnitureVisitDuration', type: 'text', label: 'Tiempo aproximado de visita:', placeholder: 'Ej: 1-2 horas' },
+    { name: 'furnitureRemovesStains', type: 'select', label: '¿Elimina manchas?', options: COMMON_OPTIONS.YES_NO },
+    { name: 'furnitureStainRemovalCost', type: 'text', label: '¿Costo adicional para quitamanchas?', placeholder: 'Ej: $10 adicional, Incluido...', showWhen: { field: 'furnitureRemovesStains', value: 'Sí' } },
+    { name: 'furnitureRemovesPetDirt', type: 'select', label: '¿Elimina suciedad de mascotas?', options: COMMON_OPTIONS.YES_NO },
+    { name: 'furniturePetDirtCost', type: 'text', label: '¿Costo adicional para eliminarla?', placeholder: 'Ej: $15 adicional, Incluido...', showWhen: { field: 'furnitureRemovesPetDirt', value: 'Sí' } },
+    { name: 'furnitureValidIndoorOutdoor', type: 'select', label: '¿Válido para sillones interiores y exteriores?', options: COMMON_OPTIONS.YES_NO },
+    { name: 'furnitureMattressSides', type: 'select', label: 'Para limpieza de colchones, ¿se incluyen 1 o 2 caras?', options: [{ value: '1 cara', label: '1 cara' }, { value: '2 caras', label: '2 caras' }] },
+    { name: 'furnitureLSofaCounts', type: 'select', label: '¿Un asiento en L cuenta por 2 puestos de sofá?', options: COMMON_OPTIONS.YES_NO },
+    { name: 'furnitureValidHolidays', type: 'select', label: '¿Válido en feriados?', options: COMMON_OPTIONS.YES_NO },
+  ],
+}
+
+// ============================================================
+// FUMIGACION - Servicios > Hogar > Fumigación
+// ============================================================
+export const FUMIGACION_TEMPLATE: FieldTemplate = {
+  displayName: 'Fumigación',
+  fields: [
+    { name: 'fumigationCoverageAreas', type: 'textarea', label: 'Área de cobertura sin costo adicional, con costo adicional (y precios), y áreas que no aplican:', placeholder: 'Ej: Gratis en Ciudad de Panamá, $15 adicional zonas revertidas...', fullWidth: true, rows: 3 },
+    { name: 'fumigationContraindications', type: 'textarea', label: 'Contraindicaciones para mascotas, niños y alérgicos:', placeholder: 'Ej: Mascotas y niños deben estar fuera durante la aplicación...', fullWidth: true, rows: 2 },
+    { name: 'fumigationTimeOutOfHome', type: 'text', label: '¿Cuánto tiempo se debe estar fuera de casa?', placeholder: 'Ej: 2-4 horas' },
+    { name: 'fumigationIndoorOutdoor', type: 'select', label: '¿Se aplica solo para interiores, o también para exteriores?', options: [{ value: 'Solo interiores', label: 'Solo interiores' }, { value: 'Interiores y exteriores', label: 'Interiores y exteriores' }] },
+    { name: 'fumigationCommercialCertificate', type: 'select', label: 'Si aplica para comercios, ¿se brinda certificado?', options: [{ value: 'Sí, incluido', label: 'Sí, incluido' }, { value: 'Sí, con costo adicional', label: 'Sí, con costo adicional' }, { value: 'No aplica para comercios', label: 'No aplica para comercios' }] },
+    { name: 'fumigationInsects', type: 'textarea', label: '¿Qué insectos se eliminan con esta fumigación?', placeholder: 'Ej: Cucarachas, hormigas, termitas...', fullWidth: true, rows: 2 },
+    { name: 'fumigationPreventiveOnly', type: 'select', label: '¿Solo aplica de forma preventiva?', options: COMMON_OPTIONS.YES_NO },
+    { name: 'fumigationValidHolidays', type: 'select', label: '¿Válido en feriados?', options: COMMON_OPTIONS.YES_NO },
+  ],
+  infoNote: 'Si solo aplica de forma preventiva, indicar que infestación es otro tratamiento con costo adicional.',
+}
+
+// ============================================================
+// CLASES_MANEJO - Cursos > Manejo / Clases de Manejo
+// ============================================================
+export const CLASES_MANEJO_TEMPLATE: FieldTemplate = {
+  displayName: 'Clases de Manejo',
+  fields: [
+    { name: 'drivingCertificationIncludes', type: 'textarea', label: '¿Qué incluye la certificación?', placeholder: 'Ej: Curso teórico, curso práctico, prueba de manejo, certificado...', fullWidth: true, rows: 2 },
+    { name: 'drivingRequirements', type: 'textarea', label: 'Requisitos para obtener la certificación:', placeholder: 'Ej: Edad mínima 16 años, saber manejar o no, licencia previa para ampliaciones...', fullWidth: true, rows: 2 },
+    { name: 'drivingPracticalSchedule', type: 'textarea', label: 'Horarios de clases prácticas (si aplica):', placeholder: 'Ej: Lunes a Sábado 8AM-5PM...', fullWidth: true, rows: 2 },
+    { name: 'drivingTheoreticalSchedule', type: 'textarea', label: 'Horarios de clases teóricas:', placeholder: 'Ej: Martes y Jueves 6PM-8PM...', fullWidth: true, rows: 2 },
+    { name: 'drivingTheoreticalFormat', type: 'select', label: '¿Las clases teóricas son presenciales, online o ambas?', options: [{ value: 'Presencial', label: 'Presencial' }, { value: 'Online', label: 'Online' }, { value: 'Ambas', label: 'Ambas' }] },
+    { name: 'drivingPracticalClassCount', type: 'text', label: '¿De cuántas clases consta el curso práctico? (si aplica)', placeholder: 'Ej: 10 clases' },
+    { name: 'drivingPracticalClassDuration', type: 'text', label: 'Duración de cada clase práctica:', placeholder: 'Ej: 1 hora' },
+    { name: 'drivingTheoreticalClassCount', type: 'text', label: '¿De cuántas clases y horas consta el curso teórico?', placeholder: 'Ej: 5 clases de 2 horas' },
+    { name: 'drivingCarAvailable', type: 'select', label: '¿Cuentan con autos para hacer el curso práctico?', options: COMMON_OPTIONS.YES_NO },
+    { name: 'drivingTransmission', type: 'select', label: '¿Manual o automático?', options: [{ value: 'Manual', label: 'Manual' }, { value: 'Automático', label: 'Automático' }, { value: 'Ambos', label: 'Ambos' }], showWhen: { field: 'drivingCarAvailable', value: 'Sí' } },
+    { name: 'drivingCertificateDeliveryTime', type: 'text', label: '¿En cuánto tiempo se entrega el certificado luego de completar el curso?', placeholder: 'Ej: 5 días hábiles', fullWidth: true },
+    { name: 'drivingCertificateValidity', type: 'text', label: 'Tiempo de validez del certificado obtenido:', placeholder: 'Ej: 1 año, 2 años...' },
+    { name: 'drivingValidHolidays', type: 'select', label: '¿Válido en feriados?', options: COMMON_OPTIONS.YES_NO },
+  ],
+}
+
+// ============================================================
+// SALUD_NUTRICION - Salud y Nutrición
+// ============================================================
+export const SALUD_NUTRICION_TEMPLATE: FieldTemplate = {
+  displayName: 'Salud y Nutrición',
+  fields: [
+    { name: 'healthValidForGender', type: 'select', label: '¿Es válido para hombres y mujeres?', options: COMMON_OPTIONS.YES_NO },
+    { name: 'healthGenderDetails', type: 'text', label: 'De responder no, ¿para quién es válido?', placeholder: 'Ej: Solo mujeres...', showWhen: { field: 'healthValidForGender', value: 'No' } },
+    { name: 'healthMinAge', type: 'text', label: '¿Desde qué edad?', placeholder: 'Ej: 18 años' },
+    { name: 'healthAppointmentDuration', type: 'text', label: 'Duración de la cita:', placeholder: 'Ej: 45 minutos, 1 hora...' },
+    { name: 'healthContraindications', type: 'textarea', label: 'Contraindicaciones:', placeholder: 'Ej: No aplica para embarazadas o en periodo de lactancia...', fullWidth: true, rows: 2 },
+    { name: 'healthSendsResults', type: 'select', label: '¿Se envían resultados?', options: COMMON_OPTIONS.YES_NO },
+    { name: 'healthResultsDelivery', type: 'text', label: '¿Por qué medio se entregan y cuánto tiempo toma?', placeholder: 'Ej: Por correo, 48 horas', fullWidth: true, showWhen: { field: 'healthSendsResults', value: 'Sí' } },
+    { name: 'healthPackageStartDeadline', type: 'text', label: '¿Hay un último día de inicio de paquete que sea antes de la fecha de expiración?', placeholder: 'Ej: 30 días antes', fullWidth: true },
+  ],
+}
+
+// ============================================================
+// PEELING - Bienestar y Belleza > Peeling Corporal / Facial
+// ============================================================
+export const PEELING_TEMPLATE: FieldTemplate = {
+  displayName: 'Peeling Corporal / Facial',
+  fields: [
+    { name: 'peelingValidForGender', type: 'select', label: '¿Es válido para hombres y mujeres?', options: COMMON_OPTIONS.YES_NO },
+    { name: 'peelingMinAge', type: 'text', label: '¿Desde qué edad es válido?', placeholder: 'Ej: 18 años' },
+    { name: 'peelingExpectedResults', type: 'textarea', label: 'Detallar información sobre los resultados que se obtendrán con el tratamiento:', placeholder: 'Descripción de resultados...', fullWidth: true, rows: 3 },
+    { name: 'peelingSessionsNeeded', type: 'text', label: 'Cantidad aproximada de sesiones necesarias para ver resultados:', placeholder: 'Ej: 3-5 sesiones' },
+    { name: 'peelingType', type: 'textarea', label: '¿Qué tipo de peeling se aplica?', placeholder: 'Ej: Ácido láctico, ácido glicólico, de frutas...', fullWidth: true, rows: 2 },
+    { name: 'peelingSkinReaction', type: 'textarea', label: '¿Se escama la piel? ¿Se enrojece?', placeholder: 'Ej: Leve descamación por 2-3 días...', fullWidth: true, rows: 2 },
+    { name: 'peelingAftercare', type: 'textarea', label: 'Cuidados después de aplicar el peeling:', placeholder: 'Ej: Evitar sol directo, usar protector solar...', fullWidth: true, rows: 2 },
+    { name: 'peelingContraindications', type: 'textarea', label: 'Contraindicaciones:', placeholder: 'Ej: No aplica para embarazadas o en periodo de lactancia...', fullWidth: true, rows: 2 },
+    { name: 'peelingPackageStartDeadline', type: 'text', label: 'Último día de inicio de paquete (si no corresponde a la fecha de expiración):', placeholder: 'Ej: 30 días antes', fullWidth: true },
+    { name: 'peelingValidHolidays', type: 'select', label: '¿Válido en feriados?', options: COMMON_OPTIONS.YES_NO },
+  ],
+}
+
+// ============================================================
 // ALL TEMPLATES EXPORT
 // ============================================================
 export const FIELD_TEMPLATES: Record<string, FieldTemplate> = {
@@ -662,4 +776,10 @@ export const FIELD_TEMPLATES: Record<string, FieldTemplate> = {
   AC_AUTOS: AC_AUTOS_TEMPLATE,
   AC_CASAS: AC_CASAS_TEMPLATE,
   ENTRENAMIENTO: ENTRENAMIENTO_TEMPLATE,
+  LIMPIEZA_HOGAR: LIMPIEZA_HOGAR_TEMPLATE,
+  LIMPIEZA_MUEBLES: LIMPIEZA_MUEBLES_TEMPLATE,
+  FUMIGACION: FUMIGACION_TEMPLATE,
+  CLASES_MANEJO: CLASES_MANEJO_TEMPLATE,
+  SALUD_NUTRICION: SALUD_NUTRICION_TEMPLATE,
+  PEELING: PEELING_TEMPLATE,
 }
