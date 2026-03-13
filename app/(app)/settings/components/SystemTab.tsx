@@ -14,7 +14,8 @@ export default function SystemTab() {
   const { user } = useUser()
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking')
   const [dbError, setDbError] = useState<string | null>(null)
-  const [openaiStatus, setOpenaiStatus] = useState<ServiceStatus>({ status: 'idle' })
+  const [openaiStandardStatus, setOpenaiStandardStatus] = useState<ServiceStatus>({ status: 'idle' })
+  const [openaiMiniStatus, setOpenaiMiniStatus] = useState<ServiceStatus>({ status: 'idle' })
   const [resendStatus, setResendStatus] = useState<ServiceStatus>({ status: 'idle' })
   const [ofertaApiStatus, setOfertaApiStatus] = useState<ServiceStatus>({ status: 'idle' })
   const [s3Status, setS3Status] = useState<ServiceStatus>({ status: 'idle' })
@@ -75,16 +76,29 @@ export default function SystemTab() {
     }
   }
 
-  async function checkOpenAIStatus() {
-    setOpenaiStatus({ status: 'checking' })
+  async function checkOpenAIStandardStatus() {
+    setOpenaiStandardStatus({ status: 'checking' })
     try {
-      const response = await testOpenAIConnection()
-      setOpenaiStatus(response.success 
+      const response = await testOpenAIConnection('standard')
+      setOpenaiStandardStatus(response.success
         ? { status: 'connected', details: response.model || null }
         : { status: 'error', error: response.error || 'Failed' }
       )
     } catch (error) {
-      setOpenaiStatus({ status: 'error', error: error instanceof Error ? error.message : 'Error' })
+      setOpenaiStandardStatus({ status: 'error', error: error instanceof Error ? error.message : 'Error' })
+    }
+  }
+
+  async function checkOpenAIMiniStatus() {
+    setOpenaiMiniStatus({ status: 'checking' })
+    try {
+      const response = await testOpenAIConnection('lightweight')
+      setOpenaiMiniStatus(response.success
+        ? { status: 'connected', details: response.model || null }
+        : { status: 'error', error: response.error || 'Failed' }
+      )
+    } catch (error) {
+      setOpenaiMiniStatus({ status: 'error', error: error instanceof Error ? error.message : 'Error' })
     }
   }
 
@@ -185,12 +199,20 @@ export default function SystemTab() {
               onTest={checkDatabaseStatus}
             />
             <ServiceRow
-              name="OpenAI"
-              desc="AI Features"
-              status={openaiStatus.status}
-              details={openaiStatus.details}
-              error={openaiStatus.error}
-              onTest={checkOpenAIStatus}
+              name="OpenAI gpt-5.4"
+              desc="AI Features (standard)"
+              status={openaiStandardStatus.status}
+              details={openaiStandardStatus.details}
+              error={openaiStandardStatus.error}
+              onTest={checkOpenAIStandardStatus}
+            />
+            <ServiceRow
+              name="OpenAI gpt-5-mini"
+              desc="AI Features (lightweight)"
+              status={openaiMiniStatus.status}
+              details={openaiMiniStatus.details}
+              error={openaiMiniStatus.error}
+              onTest={checkOpenAIMiniStatus}
             />
           </div>
         </div>

@@ -2,22 +2,31 @@
 
 import { aiComplete } from '@/lib/ai/client'
 import { AI_PRESETS } from '@/lib/ai/config'
+import type { AiPresetName } from '@/lib/ai/types'
 import { logger } from '@/lib/logger'
 import { requireAuth } from '@/lib/utils/server-actions'
 
+const TEST_PRESETS: Record<'standard' | 'lightweight', AiPresetName> = {
+  standard: 'generation',
+  lightweight: 'lightweight',
+}
+
 /**
- * Test OpenAI API connection
- * This is a simple test to verify the API is working
+ * Test OpenAI API connection for a given model tier.
+ * @param tier - 'standard' (gpt-5.4) or 'lightweight' (gpt-5-mini)
  */
-export async function testOpenAIConnection() {
+export async function testOpenAIConnection(tier: 'standard' | 'lightweight' = 'lightweight') {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
     return { success: false, error: 'Unauthorized' }
   }
 
+  const presetName = TEST_PRESETS[tier]
+  const preset = AI_PRESETS[presetName]
+
   try {
     const message = await aiComplete({
-      preset: 'lightweight',
+      preset: presetName,
       messages: [
         {
           role: 'user',
@@ -30,7 +39,7 @@ export async function testOpenAIConnection() {
     return {
       success: true,
       message,
-      model: AI_PRESETS.lightweight.model,
+      model: preset.model,
     }
   } catch (error) {
     logger.error('OpenAI API Error:', error)
