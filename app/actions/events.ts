@@ -191,8 +191,14 @@ function toCalendarEvent(record: CalendarEventRecord): Event {
 }
 
 async function resolveBookingLinkedNames(events: Event[]): Promise<Event[]> {
+  const eventsMissingNames = events.filter(
+    (event) => event.bookingRequestId && !(event.name || '').trim()
+  )
+
+  if (eventsMissingNames.length === 0) return events
+
   const bookingRequestIds = Array.from(
-    new Set(events.map((event) => event.bookingRequestId).filter((id): id is string => Boolean(id)))
+    new Set(eventsMissingNames.map((event) => event.bookingRequestId).filter((id): id is string => Boolean(id)))
   )
 
   if (bookingRequestIds.length === 0) return events
@@ -210,6 +216,7 @@ async function resolveBookingLinkedNames(events: Event[]): Promise<Event[]> {
   const bookingRequestById = new Map(bookingRequests.map((request) => [request.id, request]))
 
   return events.map((event) => {
+    if ((event.name || '').trim()) return event
     if (!event.bookingRequestId) return event
     const bookingRequest = bookingRequestById.get(event.bookingRequestId)
     if (!bookingRequest) return event
@@ -310,6 +317,8 @@ export async function createEvent(formData: FormData) {
     const parentCategory = formData.get('parentCategory') as string
     const subCategory1 = formData.get('subCategory1') as string
     const subCategory2 = formData.get('subCategory2') as string
+    const subCategory3 = formData.get('subCategory3') as string
+    const subCategory4 = formData.get('subCategory4') as string
     const business = formData.get('business') as string
     const businessId = formData.get('businessId') as string | null
     const startDate = formData.get('startDate') as string
@@ -350,12 +359,14 @@ export async function createEvent(formData: FormData) {
           }
         }
 
-        const generatedName = buildEventNameFromBookingRequest({
-          requestName: bookingRequest.name || '',
-          merchant: bookingRequest.merchant || null,
-          pricingOptions: bookingRequest.pricingOptions,
-        })
-        name = generatedName || bookingRequest.name || name
+        if (!name) {
+          const generatedName = buildEventNameFromBookingRequest({
+            requestName: bookingRequest.name || '',
+            merchant: bookingRequest.merchant || null,
+            pricingOptions: bookingRequest.pricingOptions,
+          })
+          name = generatedName || bookingRequest.name || name
+        }
       }
     }
 
@@ -374,8 +385,8 @@ export async function createEvent(formData: FormData) {
     normalizedParentCategory || null,
     subCategory1 || null,
     subCategory2 || null,
-    null, // subCategory3
-    null, // subCategory4
+    subCategory3 || null,
+    subCategory4 || null,
     category || null
   )
 
@@ -397,6 +408,8 @@ export async function createEvent(formData: FormData) {
       parentCategory: normalizedParentCategory || null,
       subCategory1: subCategory1 || null,
       subCategory2: subCategory2 || null,
+      subCategory3: subCategory3 || null,
+      subCategory4: subCategory4 || null,
       business: business || null,
       businessId: businessId || null,
       startDate: startDateTime,
@@ -412,7 +425,18 @@ export async function createEvent(formData: FormData) {
   if (bookingRequestId) {
     await prisma.bookingRequest.update({
       where: { id: bookingRequestId },
-      data: { eventId: event.id },
+      data: {
+        eventId: event.id,
+        category: category || null,
+        parentCategory: normalizedParentCategory || null,
+        subCategory1: subCategory1 || null,
+        subCategory2: subCategory2 || null,
+        subCategory3: subCategory3 || null,
+        subCategory4: subCategory4 || null,
+        merchant: business || null,
+        startDate: startDateTime,
+        endDate: endDateTime,
+      },
     })
 
     invalidateEntity('booking-requests')
@@ -824,6 +848,8 @@ export async function updateEvent(eventId: string, formData: FormData) {
     const parentCategory = formData.get('parentCategory') as string
     const subCategory1 = formData.get('subCategory1') as string
     const subCategory2 = formData.get('subCategory2') as string
+    const subCategory3 = formData.get('subCategory3') as string
+    const subCategory4 = formData.get('subCategory4') as string
     const business = formData.get('business') as string
     const businessId = formData.get('businessId') as string | null
     const startDate = formData.get('startDate') as string
@@ -844,8 +870,8 @@ export async function updateEvent(eventId: string, formData: FormData) {
     normalizedParentCategory || null,
     subCategory1 || null,
     subCategory2 || null,
-    null, // subCategory3
-    null, // subCategory4
+    subCategory3 || null,
+    subCategory4 || null,
     category || null
   )
 
@@ -870,6 +896,8 @@ export async function updateEvent(eventId: string, formData: FormData) {
       parentCategory: normalizedParentCategory || null,
       subCategory1: subCategory1 || null,
       subCategory2: subCategory2 || null,
+      subCategory3: subCategory3 || null,
+      subCategory4: subCategory4 || null,
       business: business || null,
       businessId: businessId || null,
       startDate: startDateTime,
@@ -877,7 +905,24 @@ export async function updateEvent(eventId: string, formData: FormData) {
     },
   })
 
-  invalidateEntity('events')
+  if (currentEvent?.bookingRequestId) {
+    await prisma.bookingRequest.update({
+      where: { id: currentEvent.bookingRequestId },
+      data: {
+        category: category || null,
+        parentCategory: normalizedParentCategory || null,
+        subCategory1: subCategory1 || null,
+        subCategory2: subCategory2 || null,
+        subCategory3: subCategory3 || null,
+        subCategory4: subCategory4 || null,
+        merchant: business || null,
+        startDate: startDateTime,
+        endDate: endDateTime,
+      },
+    })
+  }
+
+  invalidateEntities(['events', 'booking-requests'])
 
   // Calculate changes for logging
   const previousValues: Record<string, unknown> = {}
@@ -898,7 +943,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
     }
 
     // Compare other fields
-    const simpleFields = ['name', 'description', 'category', 'parentCategory', 'subCategory1', 'subCategory2', 'business', 'businessId']
+    const simpleFields = ['name', 'description', 'category', 'parentCategory', 'subCategory1', 'subCategory2', 'subCategory3', 'subCategory4', 'business', 'businessId']
     
     // Helper values map for comparison
     const updateValues: Record<string, unknown> = {
@@ -908,6 +953,8 @@ export async function updateEvent(eventId: string, formData: FormData) {
       parentCategory: normalizedParentCategory || null,
       subCategory1: subCategory1 || null,
       subCategory2: subCategory2 || null,
+      subCategory3: subCategory3 || null,
+      subCategory4: subCategory4 || null,
       business: business || null,
       businessId: businessId || null,
     }

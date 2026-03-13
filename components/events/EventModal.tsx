@@ -175,6 +175,8 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       formData.set('parentCategory', categoryOption.parent)
       if (categoryOption.sub1) formData.set('subCategory1', categoryOption.sub1)
       if (categoryOption.sub2) formData.set('subCategory2', categoryOption.sub2)
+      if (categoryOption.sub3) formData.set('subCategory3', categoryOption.sub3)
+      if (categoryOption.sub4) formData.set('subCategory4', categoryOption.sub4)
     }
 
     return formData
@@ -249,43 +251,48 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
       if (eventToEdit) {
         // Editing mode - pre-fill with event data
         const descriptionToUse = eventToEdit.description || ''
-        const generatedNameFromRequest = linkedBookingRequest
-          ? buildEventNameFromBookingRequest({
-              requestName: linkedBookingRequest.name || '',
-              merchant: linkedBookingRequest.merchant || null,
-              pricingOptions: (linkedBookingRequest as { pricingOptions?: unknown }).pricingOptions,
-            })
-          : ''
         
         setFormData({
-          name: generatedNameFromRequest || linkedBookingRequest?.name || eventToEdit.name,
+          name: eventToEdit.name || buildEventNameFromBookingRequest({
+            requestName: linkedBookingRequest?.name || '',
+            merchant: linkedBookingRequest?.merchant || null,
+            pricingOptions: (linkedBookingRequest as { pricingOptions?: unknown } | null)?.pricingOptions,
+          }) || linkedBookingRequest?.name || '',
           description: descriptionToUse,
-          business: linkedBookingRequest?.merchant || eventToEdit.business || '',
+          business: eventToEdit.business || linkedBookingRequest?.merchant || '',
           businessId: eventToEdit.businessId || '',
           startDate: formatDateForPanama(new Date(eventToEdit.startDate)),
           endDate: formatDateForPanama(new Date(eventToEdit.endDate)),
         })
 
-        // Find matching category option - prefer booking request category data
+        // Find matching category option - prefer current event data, then fall back to linked request data
         const options = getCategoryOptions();
         let match: CategoryOption | undefined;
         
-        const parentCat = linkedBookingRequest?.parentCategory || eventToEdit.parentCategory
-        const sub1Cat = linkedBookingRequest?.subCategory1 || eventToEdit.subCategory1
-        const sub2Cat = linkedBookingRequest?.subCategory2 || eventToEdit.subCategory2
+        const parentCat = eventToEdit.parentCategory || linkedBookingRequest?.parentCategory
+        const sub1Cat = eventToEdit.subCategory1 || linkedBookingRequest?.subCategory1
+        const sub2Cat = eventToEdit.subCategory2 || linkedBookingRequest?.subCategory2
+        const sub3Cat = eventToEdit.subCategory3 || linkedBookingRequest?.subCategory3
+        const sub4Cat = eventToEdit.subCategory4 || linkedBookingRequest?.subCategory4 || null
         
         if (parentCat) {
             match = options.find(opt => {
                 // Normalize values to null for comparison
                 const optSub1 = opt.sub1 || null;
                 const optSub2 = opt.sub2 || null;
+                const optSub3 = opt.sub3 || null;
+                const optSub4 = opt.sub4 || null;
                 const targetSub1 = sub1Cat || null;
                 const targetSub2 = sub2Cat || null;
+                const targetSub3 = sub3Cat || null;
+                const targetSub4 = sub4Cat || null;
                 
                 return (
                     opt.parent === parentCat && 
                     optSub1 === targetSub1 && 
-                    optSub2 === targetSub2
+                    optSub2 === targetSub2 &&
+                    optSub3 === targetSub3 &&
+                    optSub4 === targetSub4
                 );
             });
             
@@ -331,13 +338,19 @@ export default function EventModal({ isOpen, onClose, selectedDate, selectedEndD
           match = options.find(opt => {
             const optSub1 = opt.sub1 || null
             const optSub2 = opt.sub2 || null
+            const optSub3 = opt.sub3 || null
+            const optSub4 = opt.sub4 || null
             const targetSub1 = linkedBookingRequest.subCategory1 || null
             const targetSub2 = linkedBookingRequest.subCategory2 || null
+            const targetSub3 = linkedBookingRequest.subCategory3 || null
+            const targetSub4 = linkedBookingRequest.subCategory4 || null
             
             return (
               opt.parent === linkedBookingRequest.parentCategory &&
               optSub1 === targetSub1 &&
-              optSub2 === targetSub2
+              optSub2 === targetSub2 &&
+              optSub3 === targetSub3 &&
+              optSub4 === targetSub4
             )
           })
           

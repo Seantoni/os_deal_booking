@@ -364,6 +364,7 @@ export default function EventsPageClient({
       formData.set('subCategory1', event.subCategory1 || '')
       formData.set('subCategory2', event.subCategory2 || '')
       formData.set('subCategory3', event.subCategory3 || '')
+      formData.set('subCategory4', event.subCategory4 || '')
       formData.set('business', event.business || '')
       formData.set('businessId', event.businessId || '')
       formData.set('startDate', formatDateForServer(newStartDate))
@@ -399,6 +400,7 @@ export default function EventsPageClient({
       formData.set('subCategory1', event.subCategory1 || '')
       formData.set('subCategory2', event.subCategory2 || '')
       formData.set('subCategory3', event.subCategory3 || '')
+      formData.set('subCategory4', event.subCategory4 || '')
       formData.set('business', event.business || '')
       formData.set('businessId', event.businessId || '')
 
