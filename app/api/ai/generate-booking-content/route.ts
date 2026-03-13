@@ -3,7 +3,6 @@ import { auth } from '@clerk/nextjs/server'
 import { getOpenAIClient } from '@/lib/openai'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import { aiLimiter, applyRateLimit, getClientIp } from '@/lib/rate-limit'
-import { normalizeAdditionalRedemptionContacts } from '@/lib/booking-requests/additional-redemption-contacts'
 
 // Types for the content sections
 interface BookingContentInput {
@@ -45,10 +44,6 @@ interface BookingContentInput {
   cancellationPolicy?: string
   
   // Contact
-  redemptionContactName?: string
-  redemptionContactEmail?: string
-  redemptionContactPhone?: string
-  additionalRedemptionContacts?: unknown
   redemptionMethods?: string[]
   
   // Additional dynamic fields from InformacionAdicionalStep
@@ -75,7 +70,7 @@ REGLAS CRÍTICAS (NUNCA VIOLAR):
 4. NUNCA contradigas los datos proporcionados.
 5. Si una restricción está marcada como "No" o tiene un valor negativo, DEBES mencionarla como restricción, NO como beneficio.
 6. Las fechas blackout, restricciones de feriados, y límites de vouchers son RESTRICCIONES que deben aparecer claramente.
-7. DATOS DE CONTACTO: Solo incluir datos de contacto provenientes de redemptionContactName, redemptionContactEmail, redemptionContactPhone y additionalRedemptionContacts. Estos van ÚNICAMENTE en la sección howToUseEs. NUNCA uses contactDetails, partnerEmail ni datos marcados como internos. NUNCA inventes datos de contacto.
+7. DATOS DE CONTACTO: Solo incluir datos de contacto provenientes de contactDetails. Este va ÚNICAMENTE en la sección howToUseEs. NUNCA uses partnerEmail ni otros datos marcados como internos. NUNCA inventes datos de contacto.
 
 REGLAS DE FORMATO:
 1. Siempre genera contenido en español neutro (Panamá).
@@ -84,7 +79,7 @@ REGLAS DE FORMATO:
 4. Mantén un tono positivo y vendedor, pero SIEMPRE respetando las restricciones.
 5. SOLO menciona información que esté explícitamente proporcionada.
 6. Evita errores de ortografía.
-7. Si hay información de contacto en los datos de entrada, trátala como interna y NO la expongas, excepto los contactos de canje públicos definidos para howToUseEs.
+7. Si hay información de contacto en los datos de entrada, trátala como interna y NO la expongas, excepto contactDetails en howToUseEs.
 8. NUNCA uses etiquetas HTML en el output. Nada de <strong>, <ul>, <li>, <p>, <br>, <b>, <i> ni ninguna otra etiqueta. TODO el contenido debe ser TEXTO PLANO. Usa saltos de línea (\n) para separar párrafos, guiones (-) para listas, y MAYÚSCULAS para títulos de sección.
 
 ═══════════════════════════════════════════════
@@ -200,7 +195,7 @@ DEFINICIONES DE CAMPO (seguir estrictamente)
      - QR: Tu código QR será escaneado en el local.
      - Listado: Presenta tu voucher en [dirección] para validar tu compra.
      Periodo de validez: válido del [fecha de inicio] al [fecha de fin]. [Indicar si es válido o no en feriados].
-     Contacto: [Detalles de contacto]."
+     Contacto: [contactDetails]."
 
    Para eventos:
      "Para canjear tu entrada debes mostrar el voucher impreso o presentar la versión digital desde tu dispositivo móvil en la taquilla del evento el día seleccionado. Si llevas el voucher impreso, se recomienda no doblar el código QR. Válido solamente la fecha escogida al momento de comprar la oferta."
@@ -252,11 +247,8 @@ Periodo de validez:
 - Formato → "Válido del [día] de [mes] al [día] de [mes] de [año]."
 
 Contacto de canje (para howToUseEs):
-- Un contacto con nombre disponible → "Contacto: [nombre] | [teléfono] | [email]."
-- Un contacto con solo teléfono y email → "Contacto: [teléfono] | [email]."
-- Un contacto con solo teléfono → "Contacto: [teléfono]."
-- Un contacto con solo email → "Contacto: [email]."
-- Múltiples contactos → "Contactos: [nombre/medio] | [teléfono] | [email]; [nombre/medio] | [teléfono] | [email]."
+- Si contactDetails tiene valor → "Contacto: [contactDetails]."
+- Si contactDetails está vacío → NO incluir línea de contacto.
 
 Reglas fijas (incluir siempre en restaurantes):
 - "El voucher debe ser canjeado en un solo pedido."
@@ -272,7 +264,7 @@ const SECTION_PROMPTS: Record<keyof BookingContentOutput, string> = {
   aboutOffer: `Genera la sección "ACERCA DE ESTA OFERTA" (aboutOffer/summaryEs). TEXTO PLANO sin etiquetas HTML. Estructura: 1) Redes sociales (nombres de plataformas), 2) Intro del negocio (2-3 oraciones), 3) Opciones de compra: "Paga $X por [descripción] (Valor $Y).", 4) Detalles con guiones (-) para listas, 5) Cierre con "¡Haz click en comprar!". Tono cálido y vendedor. NO incluyas datos de contacto.`,
   whatWeLike: `Genera la sección "LO QUE NOS GUSTA" (whatWeLike/noteworthy). TEXTO PLANO: una línea por beneficio separadas por salto de línea. NUNCA uses etiquetas HTML, asteriscos ni viñetas con símbolo. Ejemplo: "Ahorras $14 (50% OFF)\nIncluye buffet completo\nUbicación céntrica". 4-8 beneficios. Empezar con el mejor punto de venta. Incluir ahorro en $ o %. Cada línea máximo 100 caracteres, sin punto al final. NO incluyas datos de contacto.`,
   goodToKnow: `Genera la sección "LO QUE CONVIENE SABER" (goodToKnow/goodToKnowEs). TEXTO PLANO sin etiquetas HTML. Títulos en MAYÚSCULAS seguidos de salto de línea. Ejemplo: "INFORMACIÓN GENERAL\nImpuestos incluidos...\n\nRESTRICCIONES\nNo válido en feriados...". DEBE tener exactamente 5 secciones: INFORMACIÓN GENERAL, RESTRICCIONES, RESERVACIONES/CANCELACIONES, MÉTODO DE CANJE, PERIODO DE VALIDEZ. Respetar estrictamente las restricciones proporcionadas. Para PERIODO DE VALIDEZ usa SOLO validOnHolidays, startDate, endDate y blackoutDates. NO uses otros campos de categoría en esa subsección. NO incluyas datos de contacto.`,
-  howToUseEs: `Genera la sección "CÓMO USAR" (howToUseEs). TEXTO PLANO sin etiquetas HTML. Instrucciones paso a paso para canjear el voucher. Para QR: mencionar escaneo en local. Para listado: mencionar presentar voucher en dirección. Para eventos: mencionar taquilla y código QR. Incluir periodo de validez y si es válido en feriados. Si hay contactos de canje públicos, usa SOLO redemptionContactName, redemptionContactEmail, redemptionContactPhone y additionalRedemptionContacts. NUNCA uses contactDetails ni otros contactos.`,
+  howToUseEs: `Genera la sección "CÓMO USAR" (howToUseEs). TEXTO PLANO sin etiquetas HTML. Instrucciones paso a paso para canjear el voucher. Para QR: mencionar escaneo en local. Para listado: mencionar presentar voucher en dirección. Para eventos: mencionar taquilla y código QR. Incluir periodo de validez y si es válido en feriados. Si hay contacto para canje, usa SOLO contactDetails. NUNCA uses partnerEmail ni otros contactos.`,
 }
 
 const CONTACT_FIELD_PATTERN = /(email|correo|mail|phone|telefono|teléfono|celular|whatsapp|contact|instagram|facebook|tiktok|linkedin|twitter|url|website|web|sitio)/i
@@ -488,23 +480,9 @@ function formatBusinessInfo(input: BookingContentInput): string {
     lines.push(`  - Política de cancelación: ${input.cancellationPolicy}`)
   }
   
-  // Only expose public redemption contacts in howToUseEs.
-  const publicContacts = [
-    {
-      name: input.redemptionContactName?.trim() || '',
-      email: input.redemptionContactEmail?.trim() || '',
-      phone: input.redemptionContactPhone?.trim() || '',
-    },
-    ...normalizeAdditionalRedemptionContacts(input.additionalRedemptionContacts),
-  ].filter((contact) => contact.name || contact.email || contact.phone)
-
-  if (publicContacts.length > 0) {
-    lines.push(`\nCONTACTO PARA CANJE (PÚBLICO — incluir en howToUseEs):`)
-    publicContacts.forEach((contact, index) => {
-      const label = index === 0 ? 'Contacto principal' : `Contacto adicional ${index}`
-      const parts = [contact.name, contact.phone, contact.email].filter(Boolean)
-      lines.push(`  - ${label}: ${parts.join(' | ')}`)
-    })
+  if (input.contactDetails?.trim()) {
+    lines.push(`\nCONTACTO PARA CANJE (incluir solo en howToUseEs):`)
+    lines.push(`  - ${input.contactDetails.trim()}`)
   }
   if (input.redemptionMethods && input.redemptionMethods.length > 0) {
     lines.push(`  - Métodos de canje: ${input.redemptionMethods.join(', ')}`)
@@ -515,8 +493,7 @@ function formatBusinessInfo(input: BookingContentInput): string {
     'businessName', 'partnerEmail', 'parentCategory', 'subCategory1', 'subCategory2',
     'startDate', 'endDate', 'addressAndHours', 'socialMedia', 'contactDetails',
     'pricingOptions', 'redemptionMode', 'includesTaxes', 'validOnHolidays', 'blackoutDates',
-    'hasOtherBranches', 'cancellationPolicy',
-    'redemptionContactName', 'redemptionContactEmail', 'redemptionContactPhone', 'additionalRedemptionContacts', 'redemptionMethods',
+    'hasOtherBranches', 'cancellationPolicy', 'redemptionMethods',
     // Output fields
     'nameEs', 'shortTitle', 'emailTitle', 'whatWeLike', 'aboutCompany', 'aboutOffer', 'goodToKnow', 'howToUseEs',
     // Non-content form fields
@@ -575,7 +552,7 @@ ${businessInfo}
 
 IMPORTANTE: Si falta información esencial para esta sección, responde con: "No hay información suficiente para generar este contenido. Por favor complete los campos requeridos."
 ${sectionName === 'howToUseEs'
-  ? '- Solo en howToUseEs puedes incluir los contactos de canje públicos construidos desde redemptionContactName, redemptionContactEmail, redemptionContactPhone y additionalRedemptionContacts.'
+  ? '- Solo en howToUseEs puedes incluir el contacto de canje proveniente de contactDetails.'
   : '- NO incluyas datos de contacto visibles (nombres de contacto, emails, teléfonos, WhatsApp, usuarios @ ni enlaces).'}
 
 Genera SOLO la sección solicitada.`
@@ -629,7 +606,7 @@ CRÍTICO: TODO el contenido debe ser TEXTO PLANO. NUNCA incluyas etiquetas HTML 
   "aboutOffer": "texto plano: intro, opciones de compra 'Paga $X por [desc] (Valor $Y)', detalles con guiones (-), cierre con '¡Haz click en comprar!'",
   "whatWeLike": "texto plano: una línea por beneficio separadas por salto de línea. Ej: 'Ahorras $14 (50% OFF)\nIncluye buffet completo\nUbicación céntrica'",
   "goodToKnow": "texto plano: 5 secciones con títulos en MAYÚSCULAS. Ej: 'INFORMACIÓN GENERAL\nImpuestos incluidos...\n\nRESTRICCIONES\nNo válido en feriados...'",
-  "howToUseEs": "texto plano: instrucciones paso a paso para canjear el voucher, método de redención, periodo de validez y si aplica en feriados. Solo aquí se pueden incluir contactos de canje públicos"
+  "howToUseEs": "texto plano: instrucciones paso a paso para canjear el voucher, método de redención, periodo de validez y si aplica en feriados. Solo aquí se puede incluir contactDetails como contacto de canje"
 }
 
 IMPORTANTE: 
@@ -637,8 +614,8 @@ IMPORTANTE:
 - NO excedas los límites de caracteres indicados.
 - NO inventes información. Solo usa la información proporcionada.
 - NO incluyas datos de contacto visibles en nameEs, shortTitle, emailTitle, aboutOffer, whatWeLike ni goodToKnow.
-- Si incluyes contactos en howToUseEs, usa SOLO redemptionContactName, redemptionContactEmail, redemptionContactPhone y additionalRedemptionContacts.
-- NUNCA uses contactDetails como contacto para howToUseEs.
+- Si incluyes contacto en howToUseEs, usa SOLO contactDetails.
+- NUNCA uses partnerEmail ni otros contactos como contacto para howToUseEs.
 - Si falta información importante para una sección, usa el mensaje de error para esa sección.`
       },
     ],

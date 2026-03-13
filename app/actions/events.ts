@@ -101,6 +101,7 @@ const availabilityEventSelect = {
 } as const
 
 const VALIDATION_EVENT_STATUSES = ['booked', 'pre-booked', 'approved', 'pending'] as const
+const ACTIONABLE_EVENT_STATUSES = ['pending', 'approved'] as const
 
 const validationEventSelect = {
   name: true,
@@ -238,18 +239,8 @@ async function fetchCalendarEvents(
 }
 
 async function fetchCalendarPendingRequests(role: string, userId: string): Promise<BookingRequest[]> {
-  if (role !== 'admin' && role !== 'sales') {
-    return []
-  }
-
-  const whereClause: Prisma.BookingRequestWhereInput = role === 'admin'
-    ? { status: 'approved' }
-    : {
-        AND: [
-          await getSalesBookingRequestVisibilityWhere(userId),
-          { status: 'approved' },
-        ],
-      }
+  const whereClause = await buildCalendarPendingRequestAccessWhere(role, userId)
+  if (!whereClause) return []
 
   const pendingRows = await prisma.bookingRequest.findMany({
     where: whereClause,
@@ -278,6 +269,31 @@ async function fetchCalendarPendingRequests(role: string, userId: string): Promi
     isReplicatedRequest: request.isReplicatedRequest,
     publicLinkToken: request.publicLinkToken ?? null,
   }))
+}
+
+async function buildCalendarPendingRequestAccessWhere(
+  role: string,
+  userId: string,
+  filters: Prisma.BookingRequestWhereInput[] = []
+): Promise<Prisma.BookingRequestWhereInput | null> {
+  // Keep pending-request authorization in one place so list/count/detail actions share
+  // the same admin/sales visibility rules.
+  const baseFilters: Prisma.BookingRequestWhereInput[] = [{ status: 'approved' }, ...filters]
+
+  if (role === 'admin') {
+    return baseFilters.length === 1 ? baseFilters[0] : { AND: baseFilters }
+  }
+
+  if (role === 'sales') {
+    return {
+      AND: [
+        await getSalesBookingRequestVisibilityWhere(userId),
+        ...baseFilters,
+      ],
+    }
+  }
+
+  return null
 }
 
 export async function createEvent(formData: FormData) {
@@ -589,8 +605,19 @@ export async function getEventForBookingRequest(bookingRequestId: string) {
   }
 
   try {
-    const bookingRequest = await prisma.bookingRequest.findUnique({
-      where: { id: bookingRequestId },
+    const role = await getUserRole()
+    const bookingRequestWhere = await buildCalendarPendingRequestAccessWhere(
+      role,
+      authResult.userId,
+      [{ id: bookingRequestId }]
+    )
+
+    if (!bookingRequestWhere) {
+      return { success: false, error: 'Unauthorized' }
+    }
+
+    const bookingRequest = await prisma.bookingRequest.findFirst({
+      where: bookingRequestWhere,
       select: { eventId: true },
     })
 
@@ -605,11 +632,33 @@ export async function getEventForBookingRequest(bookingRequestId: string) {
         })
       : null
 
-    const eventRow = eventById || await prisma.event.findFirst({
-      where: { bookingRequestId },
-      select: calendarEventSelect,
-      orderBy: { updatedAt: 'desc' },
-    })
+    const actionableFallback = eventById
+      ? null
+      : await prisma.event.findFirst({
+          where: {
+            bookingRequestId,
+            status: { in: [...ACTIONABLE_EVENT_STATUSES] },
+          },
+          select: calendarEventSelect,
+          orderBy: [
+            { updatedAt: 'desc' },
+            { id: 'desc' },
+          ],
+        })
+
+    const fallbackEvent =
+      eventById || actionableFallback
+        ? null
+        : await prisma.event.findFirst({
+            where: { bookingRequestId },
+            select: calendarEventSelect,
+            orderBy: [
+              { updatedAt: 'desc' },
+              { id: 'desc' },
+            ],
+          })
+
+    const eventRow = eventById || actionableFallback || fallbackEvent
 
     if (!eventRow) {
       return { success: true, data: null as Event | null }
@@ -687,19 +736,8 @@ export async function getCalendarPendingRequestsCount() {
 
   try {
     const role = await getUserRole()
-
-    if (role !== 'admin' && role !== 'sales') {
-      return { success: true, data: 0 }
-    }
-
-    const whereClause: Prisma.BookingRequestWhereInput = role === 'admin'
-      ? { status: 'approved' }
-      : {
-          AND: [
-            await getSalesBookingRequestVisibilityWhere(authResult.userId),
-            { status: 'approved' },
-          ],
-        }
+    const whereClause = await buildCalendarPendingRequestAccessWhere(role, authResult.userId)
+    if (!whereClause) return { success: true, data: 0 }
 
     const pendingCount = await prisma.bookingRequest.count({
       where: whereClause,

@@ -146,7 +146,7 @@ Redención del voucher:
 - Listado: Presenta tu voucher en [dirección] para validar tu compra.
 
 Periodo de validez: válido del [fecha de inicio] al [fecha de fin]. [Indicar si es válido o no en feriados].
-Contacto: [Detalles de contacto].
+Contacto: [contactDetails].
 ```
 
 ### For events:
