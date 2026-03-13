@@ -17,6 +17,7 @@ import { generateRequestName, countBusinessRequests } from '@/lib/utils/request-
 import { extractDisplayName, extractUserEmail } from '@/lib/auth/user-display'
 import { normalizeAdditionalRedemptionContacts } from '@/lib/booking-requests/additional-redemption-contacts'
 import { buildPublicLinkPrefillSearchParams } from '@/lib/booking-requests/public-form-prefill'
+import { renderPublicBookingRequestEmail } from '@/lib/email/templates/public-booking-request'
 
 type AdditionalBankAccount = {
   bankAccountName: string
@@ -101,7 +102,7 @@ export async function generateAndSendPublicLink(
         cc: userEmail ? [userEmail] : [], // Copy to: logged-in user who created the link
         replyTo: userEmail || EMAIL_CONFIG.replyTo,
         subject: 'Complete su Solicitud de Booking - OS Deals',
-        html: renderPublicLinkEmail({
+        html: renderPublicBookingRequestEmail({
           recipientEmail: uniqueEmails.join(', '),
           publicUrl,
           senderName: userName,
@@ -443,56 +444,4 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
       error: error instanceof Error ? error.message : 'Error al enviar la solicitud de booking',
     }
   }
-}
-
-/**
- * Render email HTML for public link
- */
-function renderPublicLinkEmail({
-  recipientEmail,
-  publicUrl,
-  senderName,
-}: {
-  recipientEmail: string
-  publicUrl: string
-  senderName: string
-}): string {
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Complete su Solicitud de Booking</title>
-</head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
-  <div style="background-color: white; border-radius: 8px; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-    <h1 style="color: #2563eb; margin-top: 0; font-size: 24px;">Complete su Solicitud de Booking</h1>
-    
-    <p>Hola,</p>
-    
-    <p>${senderName} le ha invitado a completar un formulario de solicitud de booking para OS Deals.</p>
-
-    <p style="color: #666; font-size: 14px;">Destinatario(s): ${recipientEmail}</p>
-    
-    <p>Haga clic en el botón a continuación para acceder al formulario y enviar su solicitud de booking:</p>
-    
-    <div style="text-align: center; margin: 30px 0;">
-      <a href="${publicUrl}" style="display: inline-block; background-color: #2563eb; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 600; font-size: 16px;">Acceder al Formulario de Solicitud</a>
-    </div>
-    
-    <p style="color: #666; font-size: 14px;">O copie y pegue este enlace en su navegador:</p>
-    <p style="color: #2563eb; font-size: 14px; word-break: break-all; background-color: #f0f0f0; padding: 10px; border-radius: 4px;">${publicUrl}</p>
-    
-    <p style="color: #666; font-size: 14px; margin-top: 30px;">Este enlace le permitirá enviar una solicitud de booking sin necesidad de iniciar sesión.</p>
-    
-    <p style="color: #666; font-size: 14px;">Si no esperaba este correo electrónico, por favor ignórelo o contacte a nuestro equipo.</p>
-    
-    <hr style="border: none; border-top: 1px solid #e5e5e5; margin: 30px 0;">
-    
-    <p style="color: #999; font-size: 12px; margin-bottom: 0;">Este es un mensaje automatizado del Sistema de Booking de OS Deals.</p>
-  </div>
-</body>
-</html>
-  `
 }

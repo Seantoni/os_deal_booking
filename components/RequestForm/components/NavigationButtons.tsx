@@ -30,7 +30,7 @@ export default function NavigationButtons({
   showSaveDraft = true,
 }: NavigationButtonsProps) {
   return (
-    <div className="px-4 py-4 md:px-8 md:pb-8 bg-gray-50 md:rounded-b-2xl border-t border-gray-100 flex flex-col gap-3 mt-0 md:shadow-inner">
+    <div className="px-4 py-4 md:px-8 md:pb-8 bg-gray-50 md:rounded-2xl border-t border-gray-100 md:border md:border-gray-100 flex flex-col gap-3 mt-0">
       {/* Validation Warning */}
       {hasErrors && (
         <p className="text-xs text-amber-600 flex items-center justify-center gap-1.5 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">

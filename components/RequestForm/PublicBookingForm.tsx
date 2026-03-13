@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useRef, useState } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { submitPublicBookingRequest } from '@/app/actions/booking'
@@ -10,6 +11,7 @@ import type { BookingSettings, CategoryOption, RequestFormFieldsConfig } from '@
 import type { BookingFormData } from './types'
 import { INITIAL_FORM_DATA, STEPS, getStepIdByKey, getStepIndexByKey } from './constants'
 import { buildFormDataForSubmit, getErrorFieldLabels, validateStep } from './request_form_utils'
+import { Button } from '@/components/ui'
 import ProgressBar from './components/ProgressBar'
 import NavigationButtons from './components/NavigationButtons'
 import ConfiguracionStep from './steps/ConfiguracionStep'
@@ -22,6 +24,11 @@ import InformacionAdicionalStep from './steps/InformacionAdicionalStep'
 import ContenidoStep from './steps/ContenidoStep'
 import ValidacionStep from './steps/ValidacionStep'
 import { useAutoScroll } from '@/hooks/useAutoScroll'
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
+import LockIcon from '@mui/icons-material/Lock'
+
+const OS_HERO_IMAGE = 'https://oferta-uploads-prod.s3.us-east-1.amazonaws.com/pictures/others/OfertaSimple%20Assets/Asset%2074.png?_t=1743086513'
+const OS_ICON = 'https://oferta-uploads-prod.s3.us-east-1.amazonaws.com/pictures/others/OfertaSimple%20Assets/Asset%2076.png?_t=1743086513'
 
 type DateValidationSettings = Pick<
   BookingSettings,
@@ -43,6 +50,7 @@ export default function PublicBookingForm({
   const formContainerRef = useRef<HTMLDivElement>(null)
   const resolvedSettings = settings ?? DEFAULT_SETTINGS
 
+  const [showWelcome, setShowWelcome] = useState(true)
   const [currentStepKey, setCurrentStepKey] = useState<string>('configuracion')
   const [formData, setFormData] = useState<BookingFormData>({ ...INITIAL_FORM_DATA, ...initialFormData })
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -353,6 +361,118 @@ export default function PublicBookingForm({
     }
   }
 
+  const businessName = formData.businessName || 'su negocio'
+
+  if (showWelcome) {
+    return (
+      <div className="relative min-h-[100dvh] bg-[#f8f9fb] overflow-hidden">
+        {/* Atmospheric background */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-bl from-blue-100/40 via-indigo-50/20 to-transparent rounded-full blur-3xl -translate-y-1/3 translate-x-1/4" />
+          <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-gradient-to-tr from-slate-100/60 via-blue-50/20 to-transparent rounded-full blur-3xl translate-y-1/3 -translate-x-1/4" />
+        </div>
+
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-[100dvh] px-5 py-10">
+          {/* Logo mark */}
+          <div className="animate-[fadeIn_600ms_ease-out] mb-6">
+            <Image
+              src={OS_ICON}
+              alt="OfertaSimple"
+              width={44}
+              height={44}
+              className="opacity-60"
+              priority
+            />
+          </div>
+
+          {/* Hero illustration */}
+          <div className="animate-[slideUpSmall_500ms_ease-out] mb-8">
+            <Image
+              src={OS_HERO_IMAGE}
+              alt="OfertaSimple"
+              width={320}
+              height={200}
+              className="object-contain drop-shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
+              priority
+            />
+          </div>
+
+          {/* Main content card */}
+          <div className="w-full max-w-md animate-[slideUpSmall_600ms_ease-out]">
+            <div className="text-center mb-6">
+              <h1 className="text-[22px] md:text-[26px] font-bold text-gray-900 leading-[1.2] tracking-[-0.01em]">
+                ¡Bienvenido, {businessName}!
+              </h1>
+              <p className="mt-2.5 text-[13px] md:text-sm text-gray-500 leading-relaxed max-w-sm mx-auto">
+                En <span className="font-semibold text-gray-700">OfertaSimple</span> estamos emocionados de colaborar con usted. Complete este formulario para iniciar su solicitud de booking.
+              </p>
+            </div>
+
+            {/* Steps overview */}
+            <div className="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.05)] border border-gray-100/80 p-5 mb-5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-3.5">Antes de comenzar</p>
+
+              <div className="space-y-3.5">
+                <div className="flex items-start gap-3">
+                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-[11px] font-bold flex-shrink-0 shadow-[0_2px_6px_rgba(59,130,246,0.3)]">1</div>
+                  <div className="pt-0.5">
+                    <p className="text-[13px] font-semibold text-gray-900">Complete {availableSteps.length} secciones</p>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                      Información de su negocio, oferta, datos fiscales y bancarios, y más.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-[11px] font-bold flex-shrink-0 shadow-[0_2px_6px_rgba(59,130,246,0.3)]">2</div>
+                  <div className="pt-0.5">
+                    <p className="text-[13px] font-semibold text-gray-900">Tenga a mano sus documentos</p>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                      RUC, datos bancarios y detalles de la oferta que desea publicar.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-[11px] font-bold flex-shrink-0 shadow-[0_2px_6px_rgba(59,130,246,0.3)]">3</div>
+                  <div className="pt-0.5">
+                    <p className="text-[13px] font-semibold text-gray-900">Envíe y nuestro equipo lo revisa</p>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                      Su información es confidencial y será procesada exclusivamente por booking.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* CTA */}
+            <Button
+              onClick={() => {
+                setShowWelcome(false)
+                scrollToTop()
+              }}
+              fullWidth
+              size="lg"
+              rightIcon={<ArrowForwardIcon style={{ fontSize: 20 }} />}
+            >
+              Comenzar Solicitud
+            </Button>
+
+            <div className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-gray-400">
+              <LockIcon style={{ fontSize: 12 }} />
+              <span>Conexión segura · Sus datos están protegidos</span>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="mt-8 text-center text-[10px] text-gray-300 tracking-wide">
+            OfertaSimple Booking System • {new Date().getFullYear()}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       ref={formContainerRef}
@@ -360,13 +480,6 @@ export default function PublicBookingForm({
     >
       <div className="max-w-7xl mx-auto px-0 md:px-4 pt-4 md:pt-8">
         <div className="px-3 md:px-0 max-w-5xl mx-auto">
-          <div className="mb-4 md:mb-6">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Complete su Solicitud de Booking</h1>
-            <p className="mt-2 text-sm md:text-base text-gray-600">
-              Complete el mismo formulario de solicitud de booking usado internamente. Su solicitud se enviará al equipo para procesamiento.
-            </p>
-          </div>
-
           <ProgressBar
             steps={availableSteps}
             currentStepKey={currentStepKey}
@@ -379,9 +492,21 @@ export default function PublicBookingForm({
             </div>
           )}
 
-          <div className="bg-white rounded-xl md:rounded-2xl shadow-md md:shadow-xl border border-gray-100 overflow-visible mt-3 md:mt-6">
-            <div className="p-4 sm:p-6 md:p-10 overflow-visible">
-              <div className="animate-fadeIn overflow-visible">
+          <div className="relative bg-white rounded-xl md:rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04),0_6px_16px_rgba(0,0,0,0.06),0_16px_36px_rgba(0,0,0,0.04)] border border-gray-100 overflow-visible mt-4 md:mt-5">
+            {/* Brand watermark */}
+            <div className="absolute top-3 right-3 md:top-4 md:right-5 opacity-[0.12] pointer-events-none select-none z-0">
+              <Image
+                src={OS_ICON}
+                alt=""
+                width={48}
+                height={48}
+                className="w-10 h-10 md:w-12 md:h-12"
+                aria-hidden="true"
+              />
+            </div>
+
+            <div className="relative z-[1] p-4 sm:p-6 md:p-10 overflow-visible">
+              <div className="animate-[slideUpSmall_250ms_ease-out] overflow-visible">
                 {currentStepKey === 'configuracion' && (
                   <ConfiguracionStep
                     formData={formData}
@@ -488,7 +613,7 @@ export default function PublicBookingForm({
             />
           </div>
 
-          <div className="hidden md:block mt-8 text-center text-sm text-gray-400 pb-8">
+          <div className="hidden md:block mt-6 text-center text-[10px] text-gray-300 pb-6 tracking-wide">
             OfertaSimple Booking System • {new Date().getFullYear()}
           </div>
         </div>

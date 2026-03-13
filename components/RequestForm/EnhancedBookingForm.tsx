@@ -1224,9 +1224,10 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   if (loadingEdit) {
     return (
       <div className="h-full min-h-screen overflow-auto bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-100 px-4 font-sans flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin h-8 w-8 md:h-10 md:w-10 border-3 md:border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
-          <p className="text-gray-600 font-medium text-sm md:text-base">Cargando solicitud...</p>
+        <div className="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04),0_6px_16px_rgba(0,0,0,0.06)] border border-gray-100 px-8 py-10 text-center max-w-xs w-full animate-[fadeIn_300ms_ease-out]">
+          <div className="animate-spin h-8 w-8 border-[2.5px] border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-sm font-semibold text-gray-900">Cargando solicitud</p>
+          <p className="text-xs text-gray-500 mt-1">Recuperando datos del borrador...</p>
         </div>
       </div>
     )
@@ -1247,9 +1248,9 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
             />
 
             {/* Form Content */}
-            <div className="bg-white rounded-xl md:rounded-2xl shadow-md md:shadow-xl border border-gray-100 overflow-visible mt-3 md:mt-6">
+            <div className="bg-white rounded-xl md:rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04),0_6px_16px_rgba(0,0,0,0.06),0_16px_36px_rgba(0,0,0,0.04)] border border-gray-100 overflow-visible mt-4 md:mt-5">
               <div className="p-4 sm:p-6 md:p-10 overflow-visible">
-                <div className="animate-fadeIn overflow-visible">
+                <div className="animate-[slideUpSmall_250ms_ease-out] overflow-visible">
                 {currentStepKey === 'configuracion' && (
                   <ConfiguracionStep 
                     formData={formData}
@@ -1359,7 +1360,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
             </div>
 
             {/* Footer - Desktop only */}
-            <div className="hidden md:block mt-8 text-center text-sm text-gray-400 pb-8">
+            <div className="hidden md:block mt-6 text-center text-[10px] text-gray-300 pb-6 tracking-wide">
               OfertaSimple Booking System • {new Date().getFullYear()}
             </div>
         </div>
