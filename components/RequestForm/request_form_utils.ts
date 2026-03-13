@@ -1,7 +1,12 @@
 import type { BookingFormData } from './types'
 import type { RequestFormFieldsConfig } from '@/types'
 import { normalizeAdditionalRedemptionContacts } from '@/lib/booking-requests/additional-redemption-contacts'
-import { isValidEmail } from '@/lib/utils/validation'
+import {
+  BOOKING_START_DATE_EVENT_DAY_ERROR_ES,
+  isValidEmail,
+  normalizeIsoCalendarDates,
+  validateStartDateAgainstEventDays,
+} from '@/lib/utils/validation'
 import { FIELD_TEMPLATES, getTemplateName } from './config'
 import { REQUEST_FORM_STEPS } from '@/lib/config/request-form-fields'
 
@@ -15,6 +20,7 @@ const buildFieldLabelMap = (): Map<string, string> => {
       map.set(field.key, field.label)
     })
   })
+  map.set('eventDays', 'Días del Evento')
   return map
 }
 
@@ -204,6 +210,9 @@ export const validateStep = (
       if (formData.startDate && formData.endDate && formData.endDate < formData.startDate) {
         newErrors.endDate = 'La fecha final debe ser posterior a la fecha inicial'
       }
+      if (!validateStartDateAgainstEventDays(formData.startDate, formData.eventDays).valid) {
+        newErrors.startDate = BOOKING_START_DATE_EVENT_DAY_ERROR_ES
+      }
       break
     case 2:
       // Operatividad: Operatividad y Pagos
@@ -312,13 +321,7 @@ export const buildFormDataForSubmit = (
   additionalInfoMappings?: Record<string, string>
 ): FormData => {
   const fd = new FormData()
-  const normalizedEventDays = Array.from(
-    new Set(
-      (formData.eventDays || [])
-        .map((date) => date.trim())
-        .filter((date) => date.length > 0)
-    )
-  ).sort()
+  const normalizedEventDays = normalizeIsoCalendarDates(formData.eventDays)
   const normalizedAdditionalBankAccounts = (Array.isArray(formData.additionalBankAccounts) ? formData.additionalBankAccounts : [])
     .map((account) => ({
       bankAccountName: account.bankAccountName?.trim() || '',

@@ -15,7 +15,12 @@ import { generateApprovalToken } from '@/lib/tokens'
 import type { BookingRequestStatus, BookingRequest } from '@/types'
 import { CACHE_REVALIDATE_SECONDS } from '@/lib/constants'
 import { extractBookingRequestFromFormData } from '@/lib/utils/form-data'
-import { isValidEmail, validateDateRange, validateRequiredFields } from '@/lib/utils/validation'
+import {
+  isValidEmail,
+  validateDateRange,
+  validateRequiredFields,
+  validateStartDateAgainstEventDays,
+} from '@/lib/utils/validation'
 import { buildCategoryDisplayString } from '@/lib/utils/category-display'
 import { logger } from '@/lib/logger'
 import { getAppBaseUrl } from '@/lib/config/env'
@@ -93,6 +98,14 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
     if (!dateValidation.valid) {
       return { success: false, error: dateValidation.error! }
     }
+    const eventDayValidation = validateStartDateAgainstEventDays(
+      fields.startDate,
+      fields.eventDays
+    )
+    if (!eventDayValidation.valid) {
+      return { success: false, error: eventDayValidation.error! }
+    }
+    const normalizedEventDays = eventDayValidation.normalizedEventDays
 
     // Store additional emails as JSON array
     const additionalEmailsJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
@@ -144,17 +157,8 @@ export async function saveBookingRequestDraft(formData: FormData, requestId?: st
         : Prisma.JsonNull
 
     const eventDaysJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
-      fields.eventDays &&
-      Array.isArray(fields.eventDays) &&
-      fields.eventDays.length > 0
-        ? (Array.from(
-            new Set(
-              fields.eventDays
-                .filter((date): date is string => typeof date === 'string')
-                .map((date) => date.trim())
-                .filter((date) => date.length > 0)
-            )
-          ) as Prisma.InputJsonValue)
+      normalizedEventDays.length > 0
+        ? (normalizedEventDays as Prisma.InputJsonValue)
         : Prisma.JsonNull
     const linkedBusinessId = (formData.get('linkedBusinessId') as string | null) || null
     const normalizedParentCategory = canonicalizeMainCategory(fields.parentCategory)
@@ -361,6 +365,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
     let dealImages: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
     let additionalInfo: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
     let eventDays: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
+    let rawEventDays: string[] = []
     let additionalBankAccounts: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
     let additionalRedemptionContacts: Prisma.InputJsonValue | typeof Prisma.JsonNull = Prisma.JsonNull
     
@@ -392,17 +397,7 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       if (eventDaysStr) {
         const parsed = JSON.parse(eventDaysStr)
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const normalizedEventDays = Array.from(
-            new Set(
-              parsed
-                .filter((date): date is string => typeof date === 'string')
-                .map((date) => date.trim())
-                .filter((date) => date.length > 0)
-            )
-          )
-          if (normalizedEventDays.length > 0) {
-            eventDays = normalizedEventDays as Prisma.InputJsonValue
-          }
+          rawEventDays = parsed.filter((date): date is string => typeof date === 'string')
         }
       }
       if (additionalBankAccountsStr) {
@@ -421,6 +416,13 @@ export async function sendBookingRequest(formData: FormData, requestId?: string)
       }
     } catch (e) {
       logger.error('Error parsing JSON fields:', e)
+    }
+    const eventDayValidation = validateStartDateAgainstEventDays(startDate, rawEventDays)
+    if (!eventDayValidation.valid) {
+      return { success: false, error: eventDayValidation.error! }
+    }
+    if (eventDayValidation.normalizedEventDays.length > 0) {
+      eventDays = eventDayValidation.normalizedEventDays as Prisma.InputJsonValue
     }
 
     const opportunityId = (formData.get('opportunityId') as string) || null
@@ -1336,17 +1338,15 @@ export async function updateBookingRequest(requestId: string, formData: FormData
         return { success: false, error: dateValidation.error! }
       }
     }
+    const eventDayValidation = validateStartDateAgainstEventDays(
+      fields.startDate,
+      fields.eventDays
+    )
+    if (!eventDayValidation.valid) {
+      return { success: false, error: eventDayValidation.error! }
+    }
 
-    const normalizedEventDays = Array.isArray(fields.eventDays)
-      ? Array.from(
-          new Set(
-            fields.eventDays
-              .filter((date): date is string => typeof date === 'string')
-              .map((date) => date.trim())
-              .filter((date) => date.length > 0)
-          )
-        )
-      : null
+    const normalizedEventDays = eventDayValidation.normalizedEventDays
     const normalizedParentCategory = canonicalizeMainCategory(fields.parentCategory)
 
     const bookingRequest = await prisma.bookingRequest.update({
@@ -1363,7 +1363,7 @@ export async function updateBookingRequest(requestId: string, formData: FormData
         startDate: startDateTime || undefined,
         endDate: endDateTime || undefined,
         eventDays:
-          normalizedEventDays !== null
+          Array.isArray(fields.eventDays)
             ? normalizedEventDays.length > 0
               ? (normalizedEventDays as Prisma.InputJsonValue)
               : Prisma.JsonNull

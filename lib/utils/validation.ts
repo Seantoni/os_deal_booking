@@ -8,6 +8,10 @@
  */
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const ISO_CALENDAR_DATE_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/
+export const BOOKING_START_DATE_EVENT_DAY_ERROR =
+  'Start date must be on or before all event dates'
+export const BOOKING_START_DATE_EVENT_DAY_ERROR_ES =
+  'La fecha de lanzamiento debe ser igual o anterior al primer día del evento'
 
 /**
  * Validate email format
@@ -34,6 +38,57 @@ export function validateDateRange(
   }
 
   return { valid: true }
+}
+
+export function normalizeIsoCalendarDates(
+  values: readonly string[] | null | undefined
+): string[] {
+  if (!Array.isArray(values)) return []
+
+  return Array.from(
+    new Set(
+      values
+        .filter((value): value is string => typeof value === 'string')
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0 && isValidIsoCalendarDate(value))
+    )
+  ).sort()
+}
+
+export function validateStartDateAgainstEventDays(
+  startDate: string | null | undefined,
+  eventDays: readonly string[] | null | undefined
+): {
+  valid: boolean
+  error?: string
+  earliestEventDay: string | null
+  normalizedEventDays: string[]
+} {
+  const normalizedEventDays = normalizeIsoCalendarDates(eventDays)
+  const earliestEventDay = normalizedEventDays[0] ?? null
+
+  if (!startDate || !isValidIsoCalendarDate(startDate) || !earliestEventDay) {
+    return {
+      valid: true,
+      earliestEventDay,
+      normalizedEventDays,
+    }
+  }
+
+  if (earliestEventDay < startDate) {
+    return {
+      valid: false,
+      error: BOOKING_START_DATE_EVENT_DAY_ERROR,
+      earliestEventDay,
+      normalizedEventDays,
+    }
+  }
+
+  return {
+    valid: true,
+    earliestEventDay,
+    normalizedEventDays,
+  }
 }
 
 /**

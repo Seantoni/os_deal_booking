@@ -19,6 +19,7 @@ export {
   // Display formatting
   formatRequestNameDate,
   formatShortDate,
+  formatShortDateCompact,
   formatDateShort,      // @deprecated - use formatShortDate
   formatFullDate,
   formatDateTime,

@@ -13,6 +13,22 @@ import {
 } from './timezone'
 import { ONE_DAY_MS } from '@/lib/constants'
 
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+
+function parseDisplayDate(date: Date | string | null | undefined): Date | null {
+  if (!date) return null
+
+  const parsed =
+    typeof date === 'string'
+      ? DATE_ONLY_PATTERN.test(date)
+        ? parseDateInPanamaTime(date)
+        : new Date(date)
+      : date
+
+  if (isNaN(parsed.getTime())) return null
+  return parsed
+}
+
 // ============================================================================
 // Display Formatting
 // ============================================================================
@@ -39,9 +55,8 @@ export function formatRequestNameDate(date: Date = new Date()): string {
  * Uses Panama timezone
  */
 export function formatShortDate(date: Date | string | null | undefined): string {
-  if (!date) return '—'
-  const d = typeof date === 'string' ? new Date(date) : date
-  if (isNaN(d.getTime())) return '—'
+  const d = parseDisplayDate(date)
+  if (!d) return '—'
   
   return d.toLocaleDateString('en-US', {
     timeZone: PANAMA_TIMEZONE,
@@ -49,6 +64,27 @@ export function formatShortDate(date: Date | string | null | undefined): string 
     day: 'numeric',
     year: 'numeric',
   })
+}
+
+/**
+ * Format date as compact short display: "Dec 15 2025" or "15 dic 2025"
+ * Uses Panama timezone and keeps date-only strings stable
+ */
+export function formatShortDateCompact(
+  date: Date | string | null | undefined,
+  locale: string = 'en-US'
+): string {
+  const d = parseDisplayDate(date)
+  if (!d) return '—'
+
+  const formatted = d.toLocaleDateString(locale, {
+    timeZone: PANAMA_TIMEZONE,
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+
+  return formatted.replace(',', '')
 }
 
 /**
@@ -275,7 +311,7 @@ export function formatDateRange(
   
   const startStr = formatDateForPanama(start)
   const endStr = formatDateForPanama(end)
-  const [startYear, startMonth, startDay] = startStr.split('-').map(Number)
+  const [startYear, startMonth] = startStr.split('-').map(Number)
   const [endYear, endMonth, endDay] = endStr.split('-').map(Number)
   
   const sameYear = startYear === endYear

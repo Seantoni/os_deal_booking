@@ -8,7 +8,12 @@ import { resend, EMAIL_CONFIG } from '@/lib/email/config'
 import { handleServerActionError, requireAuth } from '@/lib/utils/server-actions'
 import { invalidateDashboard, invalidateEntities } from '@/lib/cache'
 import { extractBookingRequestFromFormData } from '@/lib/utils/form-data'
-import { validateRequiredFields, isValidEmail, validateDateRange } from '@/lib/utils/validation'
+import {
+  validateRequiredFields,
+  isValidEmail,
+  validateDateRange,
+  validateStartDateAgainstEventDays,
+} from '@/lib/utils/validation'
 import { parseDateInPanamaTime, parseEndDateInPanamaTime } from '@/lib/date/timezone'
 import { buildCategoryKey, canonicalizeMainCategory } from '@/lib/category-utils'
 import { getAppBaseUrl } from '@/lib/config/env'
@@ -221,6 +226,14 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
     if (!dateValidation.valid) {
       return { success: false, error: dateValidation.error! }
     }
+    const eventDayValidation = validateStartDateAgainstEventDays(
+      fields.startDate,
+      fields.eventDays
+    )
+    if (!eventDayValidation.valid) {
+      return { success: false, error: eventDayValidation.error! }
+    }
+    const normalizedEventDays = eventDayValidation.normalizedEventDays
 
     // Build standardized category key
     const normalizedParentCategory = canonicalizeMainCategory(fields.parentCategory)
@@ -268,15 +281,8 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
         : Prisma.JsonNull
 
     const eventDaysJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
-      fields.eventDays && Array.isArray(fields.eventDays) && fields.eventDays.length > 0
-        ? (Array.from(
-            new Set(
-              fields.eventDays
-                .filter((date): date is string => typeof date === 'string')
-                .map((date) => date.trim())
-                .filter((date) => date.length > 0)
-            )
-          ) as Prisma.InputJsonValue)
+      normalizedEventDays.length > 0
+        ? (normalizedEventDays as Prisma.InputJsonValue)
         : Prisma.JsonNull
     const normalizedAdditionalBankAccounts = normalizeAdditionalBankAccounts(fields.additionalBankAccounts)
     const additionalBankAccountsJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =

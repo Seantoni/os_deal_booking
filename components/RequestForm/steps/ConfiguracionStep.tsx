@@ -8,6 +8,10 @@ import { getAllBookedEvents } from '@/app/actions/events'
 import { formatDateForDisplay, calculateDaysDifference } from '@/lib/date'
 import { ONE_DAY_MS } from '@/lib/constants'
 import type { EventForValidation } from '@/lib/event-validation'
+import {
+  BOOKING_START_DATE_EVENT_DAY_ERROR_ES,
+  validateStartDateAgainstEventDays,
+} from '@/lib/utils/validation'
 import type { BookingSettings, CategoryOption } from '@/types'
 import type { BookingFormData } from '../types'
 import { Input } from '@/components/ui'
@@ -57,7 +61,7 @@ export default function ConfiguracionStep({
     Array.isArray(formData.eventDays) &&
     formData.eventDays.some((date) => date.trim().length > 0)
   const isCampaignDurationDisabled = hasActiveEventDays
-  
+
   // Format date string (YYYY-MM-DD) for display
   // Uses T00:00:00 suffix to create local date without timezone shifting
   const formatDate = (dateString: string): string => {
@@ -66,6 +70,24 @@ export default function ConfiguracionStep({
     if (isNaN(date.getTime())) return dateString
     return formatDateForDisplay(date, 'es-PA')
   }
+  const startDateEventDayValidation = validateStartDateAgainstEventDays(
+    formData.startDate,
+    formData.eventDays
+  )
+  const earliestEventDay = startDateEventDayValidation.earliestEventDay
+  const startDateError =
+    errors.startDate === BOOKING_START_DATE_EVENT_DAY_ERROR_ES &&
+    startDateEventDayValidation.valid
+      ? undefined
+      : errors.startDate ||
+        (!startDateEventDayValidation.valid
+          ? BOOKING_START_DATE_EVENT_DAY_ERROR_ES
+          : undefined)
+  const startDateHelperText = calculatingDate
+    ? 'Calculando fecha disponible...'
+    : earliestEventDay
+      ? `Debe ser el ${formatDate(earliestEventDay)} o antes.`
+      : undefined
 
   // Auto-calculate next available date when category is selected or changes
   // Skip for public forms (no date calculation)
@@ -410,13 +432,16 @@ export default function ConfiguracionStep({
           <Input
             label="Fecha de lanzamiento estimada"
             required={isFieldRequired('startDate')}
+            name="startDate"
+            data-field="startDate"
             type="date"
             value={formData.startDate}
             onChange={(e) => handleStartDateChange(e.target.value)}
             disabled={calculatingDate}
             className={calculatingDate ? 'opacity-60 cursor-wait' : ''}
-            error={errors.startDate}
-            helperText={calculatingDate ? 'Calculando fecha disponible...' : undefined}
+            max={earliestEventDay || undefined}
+            error={startDateError}
+            helperText={startDateHelperText}
           />
         </div>
 
@@ -440,9 +465,12 @@ export default function ConfiguracionStep({
               {eventDayRows.map((eventDay, index) => (
                 <div key={`event-day-${index}`} className="flex items-center gap-2">
                   <Input
+                    name={`eventDays.${index}`}
+                    data-field="eventDays"
                     type="date"
                     value={eventDay}
                     onChange={(e) => handleEventDayChange(index, e.target.value)}
+                    min={formData.startDate || undefined}
                     className="flex-1"
                   />
                   {Array.isArray(formData.eventDays) && formData.eventDays.length > 1 && (
@@ -462,6 +490,17 @@ export default function ConfiguracionStep({
             <p className="text-xs text-gray-500 mt-1.5">
               Agrega uno o más días específicos cuando la oferta es para funciones/eventos puntuales.
             </p>
+            {formData.startDate && (
+              <p
+                className={`text-xs mt-1 ${
+                  startDateEventDayValidation.valid ? 'text-gray-500' : 'text-red-600'
+                }`}
+              >
+                {startDateEventDayValidation.valid
+                  ? `Los días del evento deben ser el ${formatDate(formData.startDate)} o posteriores.`
+                  : BOOKING_START_DATE_EVENT_DAY_ERROR_ES}
+              </p>
+            )}
           </div>
         )}
 

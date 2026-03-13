@@ -10,8 +10,9 @@ import LightbulbIcon from '@mui/icons-material/Lightbulb'
 import InfoIcon from '@mui/icons-material/Info'
 import BuildIcon from '@mui/icons-material/Build'
 import RefreshIcon from '@mui/icons-material/Refresh'
-import type { BookingFormData, PricingOption } from '../types'
+import type { BookingFormData } from '../types'
 import { Button } from '@/components/ui'
+import { calculateDaysDifference, formatShortDateCompact } from '@/lib/date'
 
 const AI_REVIEW_ENABLED = false
 
@@ -42,7 +43,7 @@ interface ValidacionStepProps {
   isFieldRequired?: (fieldKey: string) => boolean
 }
 
-export default function ValidacionStep({ formData, errors, updateFormData, updatePricingOption, isFieldRequired = () => false }: ValidacionStepProps) {
+export default function ValidacionStep({ formData, updateFormData, updatePricingOption }: ValidacionStepProps) {
   const [aiReviewLoading, setAiReviewLoading] = useState(false)
   const [aiReviewResult, setAiReviewResult] = useState<AIReviewResult | null>(null)
   const [aiReviewError, setAiReviewError] = useState<string | null>(null)
@@ -178,8 +179,59 @@ export default function ValidacionStep({ formData, errors, updateFormData, updat
   }
 
   // Calculate summary stats
+  const pricingOptions = Array.isArray(formData.pricingOptions) ? formData.pricingOptions : []
+  const commissionPercent = parseFloat(formData.offerMargin || '0') || 0
   const hasPricingOptions = formData.pricingOptions && formData.pricingOptions.length > 0
   const hasRequiredFields = formData.businessName && formData.partnerEmail && formData.startDate && formData.endDate
+  const runAtDisplay = formData.startDate ? formatShortDateCompact(formData.startDate, 'es-PA') : '—'
+  const endAtDisplay = formData.endDate ? formatShortDateCompact(formData.endDate, 'es-PA') : '—'
+  const totalRunDays =
+    formData.startDate && formData.endDate
+      ? calculateDaysDifference(formData.startDate, formData.endDate)
+      : null
+  const currencyFormatter = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+  const parseMoneyValue = (value: string | number | undefined): number => {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : 0
+    if (!value) return 0
+
+    const parsed = parseFloat(String(value).replace(/[^\d.-]/g, ''))
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  const formatMoney = (value: number): string => currencyFormatter.format(value)
+
+  const pricingOptionSummaries = pricingOptions
+    .map((option, index) => {
+      const price = parseMoneyValue(option.price)
+      const total = parseMoneyValue(option.realValue)
+      const rawTitle = (option.title || option.description || '').trim()
+      const discountPercent =
+        price > 0 && total > price
+          ? Math.round(((total - price) / total) * 100)
+          : null
+      const title = rawTitle || `Opción ${index + 1}`
+
+      if (!rawTitle && price <= 0 && total <= 0) return null
+
+      return {
+        index,
+        title: title || `Opción ${index + 1}`,
+        price,
+        total,
+        discountPercent,
+      }
+    })
+    .filter((option): option is {
+      index: number
+      title: string
+      price: number
+      total: number
+      discountPercent: number | null
+    } => option !== null)
 
   return (
     <div className="space-y-8" ref={sectionRef}>
@@ -211,11 +263,17 @@ export default function ValidacionStep({ formData, errors, updateFormData, updat
             </p>
           </div>
           <div>
-            <p className="text-gray-500">Vigencia</p>
+            <p className="text-gray-500">Inicio</p>
+            <p className="font-medium text-gray-900">{runAtDisplay}</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Fin</p>
+            <p className="font-medium text-gray-900">{endAtDisplay}</p>
+          </div>
+          <div>
+            <p className="text-gray-500">Días totales</p>
             <p className="font-medium text-gray-900">
-              {formData.startDate && formData.endDate 
-                ? `${formData.startDate} - ${formData.endDate}`
-                : '—'}
+              {totalRunDays !== null ? `${totalRunDays} ${totalRunDays === 1 ? 'día' : 'días'}` : '—'}
             </p>
           </div>
           <div>
@@ -232,6 +290,55 @@ export default function ValidacionStep({ formData, errors, updateFormData, updat
           </div>
         </div>
       </div>
+
+      {pricingOptionSummaries.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+          <div className="flex flex-col gap-1 mb-4">
+            <h3 className="font-semibold text-gray-900">Resumen del Deal</h3>
+            <p className="text-sm text-gray-500">
+              Revisión rápida de títulos, precios, descuentos y comisión antes de enviar.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2 mb-4 text-sm">
+            <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5">
+              <span className="text-gray-500">Comisión</span>
+              <span className="font-semibold text-gray-900">
+                {commissionPercent > 0 ? `${commissionPercent}%` : '—'}
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {pricingOptionSummaries.map((option) => (
+              <div
+                key={option.index}
+                className="rounded-xl border border-gray-200 bg-gray-50/70 px-3 py-2.5"
+              >
+                <div className="flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between">
+                  <div className="min-w-0 md:flex-1">
+                    <p className="font-medium text-gray-900 truncate" title={option.title}>
+                      {`${option.index + 1}. ${option.title}`}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm md:justify-end">
+                    <span className="text-gray-600">
+                      Precio <span className="font-semibold text-gray-900">{option.price > 0 ? formatMoney(option.price) : '—'}</span>
+                    </span>
+                    <span className="text-gray-600">
+                      Valor <span className="font-semibold text-gray-900">{option.total > 0 ? formatMoney(option.total) : '—'}</span>
+                    </span>
+                    <span className="text-gray-600">
+                      Descuento <span className="font-semibold text-rose-600">{option.discountPercent !== null ? `${option.discountPercent}%` : '—'}</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* AI Contract Review Section */}
       {AI_REVIEW_ENABLED && isRestaurantCategory && (
