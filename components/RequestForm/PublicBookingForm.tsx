@@ -373,52 +373,40 @@ export default function PublicBookingForm({
         </div>
 
         <div className="relative z-10 flex flex-col items-center justify-center min-h-[100dvh] px-5 py-10">
-          {/* Logo mark */}
-          <div className="animate-[fadeIn_600ms_ease-out] mb-6">
-            <Image
-              src={OS_ICON}
-              alt="OfertaSimple"
-              width={44}
-              height={44}
-              className="opacity-60"
-              priority
-            />
-          </div>
-
           {/* Hero illustration */}
           <div className="animate-[slideUpSmall_500ms_ease-out] mb-8">
             <Image
               src={OS_HERO_IMAGE}
               alt="OfertaSimple"
-              width={320}
-              height={200}
+              width={300}
+              height={190}
               className="object-contain drop-shadow-[0_8px_24px_rgba(0,0,0,0.06)]"
               priority
             />
           </div>
 
-          {/* Main content card */}
+          {/* Main content */}
           <div className="w-full max-w-md animate-[slideUpSmall_600ms_ease-out]">
             <div className="text-center mb-6">
               <h1 className="text-[22px] md:text-[26px] font-bold text-gray-900 leading-[1.2] tracking-[-0.01em]">
-                ¡Bienvenido, {businessName}!
+                ¡Hola, {businessName}!
               </h1>
               <p className="mt-2.5 text-[13px] md:text-sm text-gray-500 leading-relaxed max-w-sm mx-auto">
-                En <span className="font-semibold text-gray-700">OfertaSimple</span> estamos emocionados de colaborar con usted. Complete este formulario para iniciar su solicitud de booking.
+                Nos emociona que quieras ser parte de <span className="font-semibold text-gray-700">OfertaSimple</span>. Solo necesitamos algunos datos para armar tu oferta.
               </p>
             </div>
 
             {/* Steps overview */}
             <div className="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.05)] border border-gray-100/80 p-5 mb-5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-3.5">Antes de comenzar</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-3.5">Así funciona</p>
 
               <div className="space-y-3.5">
                 <div className="flex items-start gap-3">
                   <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-[11px] font-bold flex-shrink-0 shadow-[0_2px_6px_rgba(59,130,246,0.3)]">1</div>
                   <div className="pt-0.5">
-                    <p className="text-[13px] font-semibold text-gray-900">Complete {availableSteps.length} secciones</p>
+                    <p className="text-[13px] font-semibold text-gray-900">Completa el formulario paso a paso</p>
                     <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                      Información de su negocio, oferta, datos fiscales y bancarios, y más.
+                      Info de tu negocio, oferta, datos fiscales y bancarios.
                     </p>
                   </div>
                 </div>
@@ -426,9 +414,9 @@ export default function PublicBookingForm({
                 <div className="flex items-start gap-3">
                   <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-[11px] font-bold flex-shrink-0 shadow-[0_2px_6px_rgba(59,130,246,0.3)]">2</div>
                   <div className="pt-0.5">
-                    <p className="text-[13px] font-semibold text-gray-900">Tenga a mano sus documentos</p>
+                    <p className="text-[13px] font-semibold text-gray-900">Ten a mano tus documentos</p>
                     <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                      RUC, datos bancarios y detalles de la oferta que desea publicar.
+                      RUC, cuenta bancaria y los detalles de lo que quieres ofrecer.
                     </p>
                   </div>
                 </div>
@@ -436,9 +424,9 @@ export default function PublicBookingForm({
                 <div className="flex items-start gap-3">
                   <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-[11px] font-bold flex-shrink-0 shadow-[0_2px_6px_rgba(59,130,246,0.3)]">3</div>
                   <div className="pt-0.5">
-                    <p className="text-[13px] font-semibold text-gray-900">Envíe y nuestro equipo lo revisa</p>
+                    <p className="text-[13px] font-semibold text-gray-900">Envía y nosotros nos encargamos</p>
                     <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                      Su información es confidencial y será procesada exclusivamente por booking.
+                      Nuestro equipo revisa todo y te contacta para los próximos pasos.
                     </p>
                   </div>
                 </div>
@@ -455,12 +443,12 @@ export default function PublicBookingForm({
               size="lg"
               rightIcon={<ArrowForwardIcon style={{ fontSize: 20 }} />}
             >
-              Comenzar Solicitud
+              ¡Vamos!
             </Button>
 
             <div className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-gray-400">
               <LockIcon style={{ fontSize: 12 }} />
-              <span>Conexión segura · Sus datos están protegidos</span>
+              <span>Conexión segura · Tus datos están protegidos</span>
             </div>
           </div>
 
@@ -494,13 +482,13 @@ export default function PublicBookingForm({
 
           <div className="relative bg-white rounded-xl md:rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04),0_6px_16px_rgba(0,0,0,0.06),0_16px_36px_rgba(0,0,0,0.04)] border border-gray-100 overflow-visible mt-4 md:mt-5">
             {/* Brand watermark */}
-            <div className="absolute top-3 right-3 md:top-4 md:right-5 opacity-[0.12] pointer-events-none select-none z-0">
+            <div className="absolute top-3 right-3 md:top-4 md:right-5 opacity-[0.10] pointer-events-none select-none z-0">
               <Image
                 src={OS_ICON}
                 alt=""
-                width={48}
-                height={48}
-                className="w-10 h-10 md:w-12 md:h-12"
+                width={100}
+                height={40}
+                className="w-auto h-6 md:h-7 object-contain"
                 aria-hidden="true"
               />
             </div>

@@ -54,21 +54,16 @@ export function renderPublicBookingRequestEmail({
     </div>
 
     <p style="margin: 0 0 24px 0; font-size: 14px; line-height: 1.6; color: ${EMAIL_STYLES.colors.text}; text-align: center;">
-      Use el boton anterior para completar y enviar su solicitud. Este enlace funciona sin iniciar sesion.
+      Use el botón anterior para completar y enviar su solicitud. Este enlace funciona sin iniciar sesión.
     </p>
 
     ${renderDivider()}
 
-    <div style="padding: 20px 0;">
-      <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 600; color: ${EMAIL_STYLES.colors.text};">
-        Si el boton no abre el formulario
+    <div style="padding: 20px 0; text-align: center;">
+      <p style="margin: 0 0 12px 0; font-size: 13px; line-height: 1.5; color: ${EMAIL_STYLES.colors.secondary};">
+        ¿El botón no funciona? Use este enlace alternativo:
       </p>
-      <p style="margin: 0 0 10px 0; font-size: 12px; line-height: 1.5; color: ${EMAIL_STYLES.colors.secondary};">
-        Copie y pegue este enlace en su navegador:
-      </p>
-      <div style="font-size: 12px; line-height: 1.6; color: ${EMAIL_STYLES.colors.accent}; background-color: #f5f5f7; border-radius: 10px; padding: 12px; word-break: break-all;">
-        ${escapeHtml(publicUrl)}
-      </div>
+      ${renderButton('Abrir Formulario', publicUrl, 'secondary')}
     </div>
 
     <div style="margin-top: 16px; font-size: 11px; color: ${EMAIL_STYLES.colors.secondary}; text-align: center;">
