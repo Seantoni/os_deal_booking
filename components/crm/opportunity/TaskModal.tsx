@@ -8,6 +8,7 @@ import SmartToyIcon from '@mui/icons-material/SmartToy'
 import MicIcon from '@mui/icons-material/Mic'
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked'
 import FactCheckIcon from '@mui/icons-material/FactCheck'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh'
 import EditNoteIcon from '@mui/icons-material/EditNote'
 import type { Task } from '@/types'
@@ -253,8 +254,7 @@ export default function TaskModal({
   }, [task, isOpen, businessName, forCompletion, resetAssistantState, taskAi.resetAssistantState, prefillData])
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function submitTask(markCompleted = false) {
     setValidationError(null)
     
     if (taskCategory === 'meeting') {
@@ -292,8 +292,8 @@ export default function TaskModal({
         date: taskDate,
         notes: serializeMeetingData(meetingData),
       }, {
-        // If today's meeting already happened, complete it immediately after save.
-        markCompleted: isDateToday && meetingHappened === 'si',
+        // If today's meeting already happened or the user explicitly chose to complete it, complete after save.
+        markCompleted: markCompleted || (isDateToday && meetingHappened === 'si'),
       })
     } else {
       await onSubmit({
@@ -301,12 +301,21 @@ export default function TaskModal({
         title: taskTitle,
         date: taskDate,
         notes: taskNotes,
+      }, {
+        markCompleted,
       })
     }
   }
 
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    await submitTask(false)
+  }
+
   const isMeeting = taskCategory === 'meeting'
   const showObjectionFields = isMeeting && reachedAgreement === 'no'
+  const showCompleteAction = !task?.completed
+  const completeActionLabel = task ? 'Guardar y completar' : 'Crear y completar'
 
   // Show meeting outcome fields based on date and meeting happened status
   // OR when opening for completion (must fill outcome fields to complete)
@@ -645,6 +654,21 @@ export default function TaskModal({
           submitLoading={loading}
           submitDisabled={loading || !isFormValid}
           submitVariant={isMeeting ? 'primary' : 'primary'}
+          additionalActions={
+            showCompleteAction ? (
+              <Button
+                type="button"
+                onClick={() => void submitTask(true)}
+                disabled={loading || !isFormValid}
+                loading={loading}
+                size="sm"
+                className="bg-gradient-to-b from-green-500 to-green-600 text-white shadow-[0_1px_2px_rgba(0,0,0,0.05),0_1px_3px_rgba(34,197,94,0.2),inset_0_1px_0_rgba(255,255,255,0.1)] hover:from-green-600 hover:to-green-700 hover:shadow-[0_2px_4px_rgba(0,0,0,0.08),0_2px_6px_rgba(34,197,94,0.25)] active:from-green-700 active:to-green-800 focus-visible:ring-green-500/40 disabled:from-green-300 disabled:to-green-300 disabled:shadow-none disabled:text-green-100"
+                leftIcon={<CheckCircleIcon fontSize="small" />}
+              >
+                {completeActionLabel}
+              </Button>
+            ) : null
+          }
           formId="task-modal-form"
         />
       }
