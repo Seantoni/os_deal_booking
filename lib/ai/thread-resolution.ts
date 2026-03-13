@@ -1,4 +1,4 @@
-import { getOpenAIClient } from '@/lib/openai'
+import { aiComplete } from './client'
 import { logger } from '@/lib/logger'
 
 const MAX_THREAD_TITLE_CHARS = 200
@@ -71,11 +71,8 @@ export async function generateThreadResolutionOneLiner(
       .map((comment, index) => `${index + 1}. ${comment.authorName}: ${comment.content}`)
       .join('\n')
 
-    const openai = getOpenAIClient()
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4.1',
-      temperature: 0.2,
-      max_tokens: 80,
+    const raw = await aiComplete({
+      preset: 'analysis',
       messages: [
         {
           role: 'system',
@@ -87,9 +84,8 @@ export async function generateThreadResolutionOneLiner(
           content: `Genera la resolución para este item de chat.\nTítulo: ${normalizedTitle || 'Item sin título'}\nMensajes:\n${commentsText || 'Sin mensajes'}\n\nReglas:\n- Una sola línea.\n- Lo más breve posible.\n- Claro y accionable.\n- Máximo 120 caracteres.\n- Solo una decisión final breve, sin siguiente paso.`,
         },
       ],
+      maxTokens: 80,
     })
-
-    const raw = completion.choices[0]?.message?.content || ''
     const normalizedOutput = normalizeResolutionOneLiner(raw)
 
     if (!normalizedOutput) {

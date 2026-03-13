@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/Button'
 import { getSalesDailyAgenda, type SalesDailyAgendaData } from '@/app/actions/daily-agenda'
 import { useAutoCreateOpportunity } from '@/hooks/useAutoCreateOpportunity'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import OpportunityCreatedTaskFlow from '@/components/crm/opportunity/OpportunityCreatedTaskFlow'
 import { getTodayInPanama } from '@/lib/date/timezone'
+import type { Opportunity } from '@/types'
 import TodayIcon from '@mui/icons-material/Today'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import GroupsIcon from '@mui/icons-material/Groups'
@@ -61,6 +63,8 @@ export default function DailyAgendaModal({ isOpen, onClose }: DailyAgendaModalPr
   const [agenda, setAgenda] = useState<SalesDailyAgendaData | null>(null)
   const { autoCreate, creatingForBusinessId: creatingOpportunityForBusinessId } = useAutoCreateOpportunity()
   const [opportunityDialog, setOpportunityDialog] = useState<AgendaOpportunityDialogState>({ isOpen: false })
+  const [createdOpportunityTaskFlow, setCreatedOpportunityTaskFlow] = useState<Opportunity | null>(null)
+  const [pendingOpportunityDialogAfterTaskFlow, setPendingOpportunityDialogAfterTaskFlow] = useState<AgendaOpportunityDialogState | null>(null)
 
   const loadAgenda = useCallback(async (force = false) => {
     if (!force && agenda && agenda.today.date === getTodayInPanama()) {
@@ -154,7 +158,7 @@ export default function DailyAgendaModal({ isOpen, onClose }: DailyAgendaModalPr
       }
     })
 
-    setOpportunityDialog({
+    const successDialogState: AgendaOpportunityDialogState = {
       isOpen: true,
       mode: 'success',
       title: result.created ? 'Oportunidad creada' : 'Oportunidad ya existente',
@@ -162,7 +166,26 @@ export default function DailyAgendaModal({ isOpen, onClose }: DailyAgendaModalPr
         ? 'La oportunidad se creó en segundo plano. Puedes abrirla ahora.'
         : 'Ya existía una oportunidad abierta para este negocio. Puedes abrirla ahora.',
       opportunityId: result.opportunity.id,
+    }
+
+    if (result.created) {
+      setPendingOpportunityDialogAfterTaskFlow(successDialogState)
+      setCreatedOpportunityTaskFlow(result.opportunity)
+      return
+    }
+
+    setOpportunityDialog({
+      ...successDialogState,
     })
+  }
+
+  const handleCloseCreatedOpportunityTaskFlow = () => {
+    setCreatedOpportunityTaskFlow(null)
+
+    if (pendingOpportunityDialogAfterTaskFlow?.isOpen) {
+      setOpportunityDialog(pendingOpportunityDialogAfterTaskFlow)
+      setPendingOpportunityDialogAfterTaskFlow(null)
+    }
   }
 
   return (
@@ -553,6 +576,12 @@ export default function DailyAgendaModal({ isOpen, onClose }: DailyAgendaModalPr
         onConfirm={handleGoToOpportunity}
         onCancel={handleCloseOpportunityDialog}
         zIndex={90}
+      />
+
+      <OpportunityCreatedTaskFlow
+        isOpen={!!createdOpportunityTaskFlow}
+        opportunity={createdOpportunityTaskFlow}
+        onClose={handleCloseCreatedOpportunityTaskFlow}
       />
     </>
   )

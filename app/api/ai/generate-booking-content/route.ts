@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
-import { getOpenAIClient } from '@/lib/openai'
+import { aiComplete } from '@/lib/ai/client'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
 import { aiLimiter, applyRateLimit, getClientIp } from '@/lib/rate-limit'
 
@@ -535,12 +535,10 @@ async function generateSection(
     return `No hay información suficiente para generar este contenido. Por favor complete los siguientes campos requeridos: ${validation.missingFields.join(', ')}.`
   }
   
-  const openai = getOpenAIClient()
-  
   const businessInfo = formatBusinessInfo(input)
   
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4.1',
+  return await aiComplete({
+    preset: 'generation',
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
       { 
@@ -558,11 +556,7 @@ ${sectionName === 'howToUseEs'
 Genera SOLO la sección solicitada.`
       },
     ],
-    temperature: 0.7,
-    max_tokens: 1000,
   })
-
-  return response.choices[0]?.message?.content || ''
 }
 
 async function generateAllSections(input: BookingContentInput): Promise<BookingContentOutput> {
@@ -580,12 +574,10 @@ async function generateAllSections(input: BookingContentInput): Promise<BookingC
     }
   }
   
-  const openai = getOpenAIClient()
-  
   const businessInfo = formatBusinessInfo(input)
   
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4.1',
+  const content = await aiComplete({
+    preset: 'generation',
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
       { 
@@ -619,12 +611,9 @@ IMPORTANTE:
 - Si falta información importante para una sección, usa el mensaje de error para esa sección.`
       },
     ],
-    temperature: 0.7,
-    max_tokens: 4000,
-    response_format: { type: 'json_object' },
-  })
-
-  const content = response.choices[0]?.message?.content || '{}'
+    maxTokens: 4000,
+    responseFormat: { type: 'json_object' },
+  }) || '{}'
   
   try {
     const parsed = JSON.parse(content) as BookingContentOutput

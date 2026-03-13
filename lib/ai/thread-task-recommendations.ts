@@ -1,4 +1,4 @@
-import { getOpenAIClient } from '@/lib/openai'
+import { aiComplete } from './client'
 import { logger } from '@/lib/logger'
 import { isValidIsoCalendarDate } from '@/lib/utils/validation'
 
@@ -165,12 +165,8 @@ export async function generateThreadTaskRecommendations(
         .join('\n')
       : 'Sin tareas abiertas'
 
-    const openai = getOpenAIClient()
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4.1',
-      temperature: 0.2,
-      max_tokens: 700,
-      response_format: { type: 'json_object' },
+    const content = await aiComplete({
+      preset: 'analysis',
       messages: [
         {
           role: 'system',
@@ -211,9 +207,9 @@ export async function generateThreadTaskRecommendations(
             '- No inventar datos críticos.\n',
         },
       ],
+      maxTokens: 700,
+      responseFormat: { type: 'json_object' },
     })
-
-    const content = completion.choices[0]?.message?.content?.trim() || ''
     if (!content) {
       throw new Error('AI recommendation response was empty')
     }

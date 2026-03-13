@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
-import { getOpenAIClient } from '@/lib/openai'
+import { aiComplete } from '@/lib/ai/client'
 import { logger } from '@/lib/logger'
 import { aiLimiter, applyRateLimit, getClientIp } from '@/lib/rate-limit'
 
@@ -129,20 +129,14 @@ Crea un guion cálido y atractivo que cuente la historia del negocio y sus ofert
 Asegúrate de incluir TODOS los precios y lo que incluye cada oferta.
 Termina siempre con "Compra ahora en ofertasimple.com o en nuestra app."`
 
-    const openai = getOpenAIClient()
-    
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+    const script = await aiComplete({
+      preset: 'generation-creative',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.7,
-      max_tokens: 800,
     })
-
-    // Clean up the response
-    const script = response.choices[0]?.message?.content?.trim() || ''
 
     return NextResponse.json({ script })
   } catch (error) {

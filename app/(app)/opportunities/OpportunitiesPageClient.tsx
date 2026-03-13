@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
-import { getOpportunitiesPaginated, searchOpportunities, getOpportunityCounts } from '@/app/actions/opportunities'
+import { getOpportunitiesPaginated, searchOpportunities, getOpportunityCounts, getOpportunity } from '@/app/actions/opportunities'
 import { getOpportunityProjectionSummaryMap } from '@/app/actions/revenue-projections'
 import { deleteOpportunity } from '@/app/actions/crm'
 import type { Opportunity, Business } from '@/types'
@@ -41,6 +41,7 @@ import { EntityTable, StatusPill, TableRow, TableCell } from '@/components/share
 import { Button } from '@/components/ui'
 import { OpportunityMobileCard } from './components'
 import { buildBookingRequestBusinessPrefillParams } from '@/lib/booking-requests/business-prefill'
+import OpportunityCreatedTaskFlow from '@/components/crm/opportunity/OpportunityCreatedTaskFlow'
 
 // Lazy load heavy modal components
 const OpportunityFormModal = dynamic(() => import('@/components/crm/opportunity/OpportunityFormModal'), {
@@ -184,6 +185,7 @@ export default function OpportunitiesPageClient({
   const [opportunityModalOpen, setOpportunityModalOpen] = useState(false)
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null)
   const [initialBusinessId, setInitialBusinessId] = useState<string | undefined>(undefined)
+  const [createdOpportunityTaskFlow, setCreatedOpportunityTaskFlow] = useState<Opportunity | null>(null)
   
   // New request modal state
   const [showNewRequestModal, setShowNewRequestModal] = useState(false)
@@ -422,6 +424,22 @@ export default function OpportunitiesPageClient({
 
     setNewRequestQueryParams(params)
     setShowNewRequestModal(true)
+  }
+
+  async function refreshCreatedOpportunityAfterTask() {
+    if (!createdOpportunityTaskFlow) return
+
+    const result = await getOpportunity(createdOpportunityTaskFlow.id)
+    if (result.success && result.data) {
+      const updatedOpportunity = result.data
+      setOpportunities(prev => prev.map(o => o.id === updatedOpportunity.id ? updatedOpportunity : o))
+      setSearchResults(prev => prev?.map(o => o.id === updatedOpportunity.id ? updatedOpportunity : o) || null)
+      return
+    }
+
+    if (!isSearching) {
+      loadPage(currentPage)
+    }
   }
 
   function handleDownloadCsv() {
@@ -772,6 +790,8 @@ export default function OpportunitiesPageClient({
         }}
         opportunity={selectedOpportunity}
         onSuccess={(newOpportunity) => {
+          const wasCreating = !selectedOpportunity
+
           if (selectedOpportunity) {
             setOpportunities(prev => prev.map(o => o.id === selectedOpportunity.id ? newOpportunity : o))
             if (searchResults) {
@@ -783,6 +803,9 @@ export default function OpportunitiesPageClient({
           if (!isSearching) {
             loadPage(currentPage)
           }
+          if (wasCreating) {
+            setCreatedOpportunityTaskFlow(newOpportunity)
+          }
         }}
         initialTab={initialModalTab}
         initialChatThreadId={initialChatThreadId}
@@ -790,6 +813,13 @@ export default function OpportunitiesPageClient({
         preloadedBusinesses={businessesFromOpportunities}
         preloadedCategories={categories}
         preloadedUsers={users}
+      />
+
+      <OpportunityCreatedTaskFlow
+        isOpen={!!createdOpportunityTaskFlow}
+        opportunity={createdOpportunityTaskFlow}
+        onClose={() => setCreatedOpportunityTaskFlow(null)}
+        onTaskCreated={refreshCreatedOpportunityAfterTask}
       />
 
       {/* New Request Modal */}

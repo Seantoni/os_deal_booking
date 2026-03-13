@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
-import { getOpenAIClient } from '@/lib/openai'
+import { aiComplete } from '@/lib/ai/client'
 import { logger } from '@/lib/logger'
 import { aiLimiter, applyRateLimit } from '@/lib/rate-limit'
 
@@ -23,8 +23,6 @@ export async function POST(req: Request) {
     const { description } = await req.json()
     const safeDescription = typeof description === 'string' ? description.trim() : ''
 
-    const openai = getOpenAIClient()
-
     const prompt = `Genera el titulo de una opcion de oferta en espanol.
 
 Reglas:
@@ -44,17 +42,15 @@ Si la descripción original está vacía:
 Descripción original:
 ${safeDescription || '(vacía)'}`
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4.1',
+    const generatedTitle = await aiComplete({
+      preset: 'generation',
       messages: [
         { role: 'system', content: 'Eres un editor experto en redacción comercial de ofertas en español.' },
         { role: 'user', content: prompt },
       ],
       temperature: 0.2,
-      max_tokens: 180,
-    })
-
-    const generatedTitle = completion.choices[0]?.message?.content?.trim()
+      maxTokens: 180,
+    }) || null
     if (!generatedTitle) {
       return NextResponse.json({ error: 'No se pudo generar el título.' }, { status: 500 })
     }

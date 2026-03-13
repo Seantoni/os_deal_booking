@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
-import { getOpenAIClient } from '@/lib/openai'
+import { aiComplete } from '@/lib/ai/client'
 import { logger } from '@/lib/logger'
 import { aiLimiter, applyRateLimit } from '@/lib/rate-limit'
 import type { BookingFormData } from '@/components/RequestForm/types'
@@ -121,22 +121,17 @@ export async function POST(req: Request) {
       })
     }
 
-    const openai = getOpenAIClient()
-    
-    // Build a comprehensive summary of the form data for review
     const contractSummary = buildContractSummary(formData)
     
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4.1',
+    const responseText = await aiComplete({
+      preset: 'analysis',
       messages: [
         { role: 'system', content: RESTAURANT_REVIEW_PROMPT },
         { role: 'user', content: `Revisa el siguiente contrato de promoción de restaurante y responde SOLO con JSON válido:\n\n${contractSummary}` },
       ],
       temperature: 0.3,
-      max_tokens: 2000,
-    })
-
-    const responseText = completion.choices[0]?.message?.content?.trim()
+      maxTokens: 2000,
+    }) || null
     if (!responseText) {
       return NextResponse.json({ error: 'No se pudo generar la revisión.' }, { status: 500 })
     }

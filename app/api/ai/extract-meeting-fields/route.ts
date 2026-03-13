@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
-import { getOpenAIClient } from '@/lib/openai'
+import { aiComplete } from '@/lib/ai/client'
 import { logger } from '@/lib/logger'
 import { aiLimiter, applyRateLimit } from '@/lib/rate-limit'
 
@@ -95,9 +95,8 @@ export async function POST(req: Request) {
       )
     }
 
-    const openai = getOpenAIClient()
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4.1',
+    const content = await aiComplete({
+      preset: 'extraction',
       messages: [
         {
           role: 'system',
@@ -126,11 +125,7 @@ Texto:
 ${normalizedText}`,
         },
       ],
-      temperature: 0.1,
-      max_tokens: 600,
     })
-
-    const content = completion.choices[0]?.message?.content?.trim() || ''
     if (!content) {
       return NextResponse.json({ error: 'No se pudo extraer información.' }, { status: 500 })
     }

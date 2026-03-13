@@ -1,6 +1,7 @@
 'use server'
 
-import { getOpenAIClient } from '@/lib/openai'
+import { aiComplete } from '@/lib/ai/client'
+import { AI_PRESETS } from '@/lib/ai/config'
 import { logger } from '@/lib/logger'
 import { requireAuth } from '@/lib/utils/server-actions'
 
@@ -15,26 +16,21 @@ export async function testOpenAIConnection() {
   }
 
   try {
-    const openai = getOpenAIClient()
-    
-    // Simple test call to verify connection
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4.1',
+    const message = await aiComplete({
+      preset: 'lightweight',
       messages: [
         {
           role: 'user',
           content: 'Say "OpenAI API connection successful" in one sentence.',
         },
       ],
-      max_tokens: 20,
-    })
-
-    const message = response.choices[0]?.message?.content || 'No response'
+      maxTokens: 20,
+    }) || 'No response'
     
     return {
       success: true,
       message,
-      model: response.model,
+      model: AI_PRESETS.lightweight.model,
     }
   } catch (error) {
     logger.error('OpenAI API Error:', error)

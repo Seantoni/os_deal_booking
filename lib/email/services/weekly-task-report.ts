@@ -9,7 +9,7 @@ import {
   type WeeklyTaskReportPerformer,
 } from '../templates/weekly-task-report'
 import { getAppBaseUrl } from '@/lib/config/env'
-import { getOpenAIClient } from '@/lib/openai'
+import { aiComplete } from '@/lib/ai/client'
 import { formatDateForPanama, formatDateTimeForPanama } from '@/lib/date/timezone'
 import { logger } from '@/lib/logger'
 
@@ -589,11 +589,9 @@ function buildFallbackInsights(payload: AiInputPayload): WeeklyTaskReportInsight
 }
 
 async function generateAiInsights(payload: AiInputPayload): Promise<WeeklyTaskReportInsights> {
-  const openai = getOpenAIClient()
   const startedAt = Date.now()
 
   logger.info('[WeeklyTaskReport] OpenAI analysis request started', {
-    model: 'gpt-4.1',
     periodLabel: payload.periodLabel,
     meetingsCompleted: payload.metrics.completedMeetings,
     todosCompleted: payload.metrics.completedTodos,
@@ -604,10 +602,8 @@ async function generateAiInsights(payload: AiInputPayload): Promise<WeeklyTaskRe
     objections: payload.objections.length,
   })
 
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4.1',
-    temperature: 0.2,
-    max_tokens: 1500,
+  const rawContent = await aiComplete({
+    preset: 'analysis',
     messages: [
       {
         role: 'system',
@@ -621,14 +617,11 @@ async function generateAiInsights(payload: AiInputPayload): Promise<WeeklyTaskRe
     ],
   })
 
-  const rawContent = completion.choices[0]?.message?.content?.trim() || ''
   const durationMs = Date.now() - startedAt
 
   logger.info('[WeeklyTaskReport] OpenAI analysis response received', {
-    model: 'gpt-4.1',
     durationMs,
     outputChars: rawContent.length,
-    finishReason: completion.choices[0]?.finish_reason || null,
   })
 
   const parsed = rawContent ? extractJsonObject(rawContent) : null

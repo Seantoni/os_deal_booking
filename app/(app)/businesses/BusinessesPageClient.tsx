@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { getBusinessesPaginated, searchBusinesses, getBusinessCounts, fetchEditableBusinessIds } from '@/app/actions/businesses'
 import { getBusinessProjectionSummaryMap } from '@/app/actions/revenue-projections'
-import type { Business } from '@/types'
+import type { Business, Opportunity } from '@/types'
 import type { ProjectionEntitySummary } from '@/lib/projections/summary'
 import TableSkeleton from '@/components/shared/TableSkeleton'
 import AddIcon from '@mui/icons-material/Add'
@@ -41,6 +41,7 @@ import {
 } from '@/components/shared'
 import { Button } from '@/components/ui'
 import { buildBookingRequestBusinessPrefillParams } from '@/lib/booking-requests/business-prefill'
+import OpportunityCreatedTaskFlow from '@/components/crm/opportunity/OpportunityCreatedTaskFlow'
 
 // Local hooks and components
 import { useBusinessTableCounts, useBusinessPageState } from './hooks'
@@ -176,6 +177,7 @@ export default function BusinessesPageClient({
   // Track which businesses the current user can edit
   // null = can edit all (admin/editor), string[] = specific IDs
   const [editableBusinessIds, setEditableBusinessIds] = useState<string[] | null>(null)
+  const [createdOpportunityTaskFlow, setCreatedOpportunityTaskFlow] = useState<Opportunity | null>(null)
   const editableIdsLoadedRef = useRef(false)
   
   // Fetch editable business IDs on mount
@@ -253,6 +255,17 @@ export default function BusinessesPageClient({
     pageSize: 50,
     entityName: 'negocios',
   })
+
+  const handleCloseCreatedOpportunityTaskFlow = useCallback(() => {
+    if (!createdOpportunityTaskFlow) {
+      return
+    }
+
+    const createdOpportunityId = createdOpportunityTaskFlow.id
+    setCreatedOpportunityTaskFlow(null)
+    sessionStorage.setItem('openOpportunityId', createdOpportunityId)
+    router.push('/opportunities')
+  }, [createdOpportunityTaskFlow, router])
 
   // Filter state (managed by paginated search hook)
   const opportunityFilter = (filters.opportunityFilter as 'all' | 'with-open' | 'without-open') || 'all'
@@ -1004,15 +1017,19 @@ export default function BusinessesPageClient({
             toast.success('Opportunity created successfully')
             pageState.closeOpportunityModal()
             refreshTableCounts()
-            // Redirect to opportunities page with the new opportunity open
-            sessionStorage.setItem('openOpportunityId', opportunity.id)
-            router.push('/opportunities')
+            setCreatedOpportunityTaskFlow(opportunity)
           }}
           preloadedBusinesses={businesses}
           preloadedCategories={categories}
           preloadedUsers={users}
         />
       )}
+
+      <OpportunityCreatedTaskFlow
+        isOpen={!!createdOpportunityTaskFlow}
+        opportunity={createdOpportunityTaskFlow}
+        onClose={handleCloseCreatedOpportunityTaskFlow}
+      />
 
       {/* Focus Period Modal */}
       {pageState.focusModalOpen && pageState.selectedBusinessForFocus && (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import BusinessIcon from '@mui/icons-material/Business'
@@ -47,6 +47,7 @@ import { getDealsByBusiness } from '@/app/actions/deals'
 import { fetchEditableBusinessIds } from '@/app/actions/businesses'
 import type { Business, Opportunity, BookingRequest, Deal } from '@/types'
 import type { OpportunityModalSuccessMeta } from '@/components/crm/opportunity/opportunityModalTypes'
+import OpportunityCreatedTaskFlow from '@/components/crm/opportunity/OpportunityCreatedTaskFlow'
 import { useSharedData } from '@/hooks/useSharedData'
 import { buildBookingRequestBusinessPrefillParams } from '@/lib/booking-requests/business-prefill'
 
@@ -113,6 +114,7 @@ export default function BusinessDetailClient({
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [requests, setRequests] = useState<BookingRequest[]>([])
   const [deals, setDeals] = useState<Deal[]>([])
+  const [createdOpportunityTaskFlow, setCreatedOpportunityTaskFlow] = useState<Opportunity | null>(null)
   const [dealMetricsMarginPct, setDealMetricsMarginPct] = useState<number | null>(initialCommissionPct)
   const [loadingData, setLoadingData] = useState(true)
   
@@ -186,6 +188,13 @@ export default function BusinessDetailClient({
     setSelectedOpportunity(opportunity)
     setIsOpportunityModalOpen(true)
   }
+
+  const reloadOpportunities = useCallback(async () => {
+    const result = await getOpportunitiesByBusiness(business.id)
+    if (result.success && result.data) {
+      setOpportunities(result.data)
+    }
+  }, [business.id])
 
   const handleCreateNewOpportunity = () => {
     // Only allow if user has edit permission
@@ -294,15 +303,15 @@ export default function BusinessDetailClient({
   }
 
   const handleOpportunitySuccess = async (opportunity: Opportunity, meta?: OpportunityModalSuccessMeta) => {
+    const wasCreatedFromForm = !selectedOpportunity && meta?.source === 'submit'
+
     if (meta?.source !== 'stage') {
       setIsOpportunityModalOpen(false)
       setSelectedOpportunity(null)
     }
-    // Reload opportunities
-    const result = await getOpportunitiesByBusiness(business.id)
-    if (result.success && result.data) {
-      setOpportunities(result.data)
-    }
+
+    await reloadOpportunities()
+
     // Reload requests in case a new one was created
     const reqResult = await getRequestsByBusiness(business.id)
     if (reqResult.success && reqResult.data) {
@@ -311,6 +320,10 @@ export default function BusinessDetailClient({
     const dealResult = await getDealsByBusiness(business.id)
     if (dealResult.success && dealResult.data) {
       setDeals(dealResult.data)
+    }
+
+    if (wasCreatedFromForm) {
+      setCreatedOpportunityTaskFlow(opportunity)
     }
   }
 
@@ -698,6 +711,13 @@ export default function BusinessDetailClient({
           hideBackdrop={false}
         />
       )}
+
+      <OpportunityCreatedTaskFlow
+        isOpen={!!createdOpportunityTaskFlow}
+        opportunity={createdOpportunityTaskFlow}
+        onClose={() => setCreatedOpportunityTaskFlow(null)}
+        onTaskCreated={reloadOpportunities}
+      />
     </div>
   )
 }

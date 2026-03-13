@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
-import { getOpenAIClient } from '@/lib/openai'
+import { aiComplete } from '@/lib/ai/client'
 import { aiLimiter, applyRateLimit, getClientIp } from '@/lib/rate-limit'
 
 interface FieldDefinition {
@@ -99,11 +99,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No text content to analyze' }, { status: 400 })
     }
 
-    const openai = getOpenAIClient()
     const prompt = buildPrompt(body.textContent, body.fields)
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4.1-mini',
+    const content = await aiComplete({
+      preset: 'lightweight',
       messages: [
         {
           role: 'system',
@@ -112,11 +111,9 @@ export async function POST(request: NextRequest) {
         { role: 'user', content: prompt },
       ],
       temperature: 0.2,
-      max_tokens: 2000,
-      response_format: { type: 'json_object' },
-    })
-
-    const content = response.choices[0]?.message?.content || '{}'
+      maxTokens: 2000,
+      responseFormat: { type: 'json_object' },
+    }) || '{}'
 
     try {
       const extracted = JSON.parse(content) as Record<string, string>

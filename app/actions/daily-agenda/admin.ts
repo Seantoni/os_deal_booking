@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { getUserProfile } from '@/lib/auth/roles'
-import { getOpenAIClient } from '@/lib/openai'
+import { aiComplete } from '@/lib/ai/client'
 import { formatDateForPanama, getLastNDaysRangeInPanama, getTodayInPanama, parseDateInPanamaTime, parseEndDateInPanamaTime } from '@/lib/date/timezone'
 import { ONE_DAY_MS } from '@/lib/constants/time'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
@@ -154,11 +154,8 @@ async function categorizeObjectionsWithAi(
   }
 
   try {
-    const openai = getOpenAIClient()
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4.1-mini',
-      temperature: 0.1,
-      max_tokens: 600,
+    const raw = await aiComplete({
+      preset: 'lightweight',
       messages: [
         {
           role: 'system',
@@ -170,8 +167,6 @@ async function categorizeObjectionsWithAi(
         },
       ],
     })
-
-    const raw = completion.choices[0]?.message?.content?.trim() || ''
     const start = raw.indexOf('[')
     const end = raw.lastIndexOf(']')
     if (start < 0 || end <= start) throw new Error('No JSON array in response')

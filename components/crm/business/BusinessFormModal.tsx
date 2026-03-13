@@ -36,6 +36,7 @@ import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useBusinessForm } from './useBusinessForm'
 import { useAutoCreateOpportunity } from '@/hooks/useAutoCreateOpportunity'
 import type { OpportunityModalSuccessMeta } from '../opportunity/opportunityModalTypes'
+import OpportunityCreatedTaskFlow from '../opportunity/OpportunityCreatedTaskFlow'
 import ReferenceInfoBar from '@/components/shared/ReferenceInfoBar'
 import DynamicFormSection from '@/components/shared/DynamicFormSection'
 import ModalShell, { ModalFooter } from '@/components/shared/ModalShell'
@@ -463,6 +464,8 @@ export default function BusinessFormModal({
   // React 19: useTransition for non-blocking UI during form actions
   const [isPending, startTransition] = useTransition()
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null)
+  const [createdOpportunityTaskFlow, setCreatedOpportunityTaskFlow] = useState<Opportunity | null>(null)
+  const [openOpportunityModalAfterTaskFlow, setOpenOpportunityModalAfterTaskFlow] = useState(false)
   const [requestViewModalOpen, setRequestViewModalOpen] = useState(false)
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
   const [dealModalOpen, setDealModalOpen] = useState(false)
@@ -815,10 +818,11 @@ export default function BusinessFormModal({
         const opportunityResult = await createOpportunity(opportunityFormData)
 
         if (opportunityResult.success && businessResult.data && opportunityResult.data) {
-          // Store the created business and open opportunity modal
+          // Store the created business and continue with the post-create task flow.
           setCreatedBusiness(businessResult.data)
           setSelectedOpportunity(opportunityResult.data)
-          setOpportunityModalOpen(true)
+          setOpenOpportunityModalAfterTaskFlow(true)
+          setCreatedOpportunityTaskFlow(opportunityResult.data)
           return { success: true, error: null }
         } else {
           const errorMsg = 'Negocio creado pero falló al crear la oportunidad: ' + (opportunityResult.error || 'Error desconocido')
@@ -842,6 +846,8 @@ export default function BusinessFormModal({
     if (!isOpen) {
       setError('')
       setUnlockedFields({})
+      setCreatedOpportunityTaskFlow(null)
+      setOpenOpportunityModalAfterTaskFlow(false)
     }
   }, [isOpen])
 
@@ -901,7 +907,21 @@ export default function BusinessFormModal({
 
     // Refresh the opportunities list so the new one appears in the section
     await loadFormData()
+
+    if (result.created) {
+      setOpenOpportunityModalAfterTaskFlow(false)
+      setCreatedOpportunityTaskFlow(result.opportunity)
+    }
   }
+
+  const handleCloseCreatedOpportunityTaskFlow = useCallback(() => {
+    setCreatedOpportunityTaskFlow(null)
+
+    if (openOpportunityModalAfterTaskFlow) {
+      setOpenOpportunityModalAfterTaskFlow(false)
+      setOpportunityModalOpen(true)
+    }
+  }, [openOpportunityModalAfterTaskFlow])
 
   function handleViewRequest(request: BookingRequest) {
     setSelectedRequestId(request.id)
@@ -1727,6 +1747,17 @@ export default function BusinessFormModal({
         />
       </Suspense>
     )}
+
+    <OpportunityCreatedTaskFlow
+      isOpen={!!createdOpportunityTaskFlow}
+      opportunity={createdOpportunityTaskFlow}
+      onClose={handleCloseCreatedOpportunityTaskFlow}
+      onTaskCreated={async () => {
+        if (!openOpportunityModalAfterTaskFlow) {
+          await loadFormData()
+        }
+      }}
+    />
 
     {/* Pre-confirmation dialog for vendor creation - z-80 to be above ModalShell (z-70) */}
     <ConfirmDialog

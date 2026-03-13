@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
-import { getOpenAIClient } from '@/lib/openai'
+import { aiComplete } from '@/lib/ai/client'
 import { logger } from '@/lib/logger'
 import { aiLimiter, applyRateLimit } from '@/lib/rate-limit'
 
@@ -102,9 +102,8 @@ export async function POST(req: Request) {
       })
     }
 
-    const openai = getOpenAIClient()
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4.1',
+    const responseText = await aiComplete({
+      preset: 'classification',
       messages: [
         { role: 'system', content: TITLE_REVIEW_PROMPT },
         {
@@ -114,12 +113,9 @@ export async function POST(req: Request) {
           }, null, 2),
         },
       ],
-      temperature: 0.1,
-      max_tokens: 1200,
-      response_format: { type: 'json_object' },
-    })
-
-    const responseText = completion.choices[0]?.message?.content?.trim()
+      maxTokens: 1200,
+      responseFormat: { type: 'json_object' },
+    }) || null
     if (!responseText) {
       return NextResponse.json({ error: 'No se pudo revisar los titulos.' }, { status: 500 })
     }

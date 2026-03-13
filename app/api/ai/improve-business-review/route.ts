@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
-import { getOpenAIClient } from '@/lib/openai'
+import { aiComplete } from '@/lib/ai/client'
 import { logger } from '@/lib/logger'
 import { aiLimiter, applyRateLimit } from '@/lib/rate-limit'
 
@@ -22,8 +22,6 @@ export async function POST(req: Request) {
 
     const { text, businessName, searchInternet, addressAndHours } = await req.json()
 
-    const openai = getOpenAIClient()
-    
     let prompt: string
     let systemPrompt: string
 
@@ -101,17 +99,15 @@ ${text}`
       return NextResponse.json({ error: 'Texto o nombre del negocio requerido' }, { status: 400 })
     }
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4.1',
+    let result = await aiComplete({
+      preset: 'analysis',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt },
       ],
       temperature: 0.7,
-      max_tokens: 800, // Allow enough tokens for ~1,000 characters (Spanish: ~2.5 chars/token, so 800 tokens ≈ 2,000 chars max, but we'll truncate to 1,000)
+      maxTokens: 800,
     })
-
-    let result = completion.choices[0]?.message?.content?.trim() || ''
     
     // Ensure it's exactly 1,000 characters or less
     if (result.length > 1000) {

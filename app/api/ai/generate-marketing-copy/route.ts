@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
-import { getOpenAIClient } from '@/lib/openai'
+import { aiComplete } from '@/lib/ai/client'
 import { logger } from '@/lib/logger'
 import { aiLimiter, applyRateLimit, getClientIp } from '@/lib/rate-limit'
 
@@ -101,20 +101,14 @@ ${contextParts.join('\n')}
 
 Recuerda: máximo 280 caracteres, sin hashtags, corto y atractivo.`
 
-    const openai = getOpenAIClient()
-    
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
+    const copy = await aiComplete({
+      preset: 'generation-creative',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userPrompt },
       ],
-      temperature: 0.8,
-      max_tokens: 200,
+      maxTokens: 200,
     })
-
-    // Clean up the response
-    const copy = response.choices[0]?.message?.content?.trim() || ''
 
     return NextResponse.json({ copy })
   } catch (error) {
