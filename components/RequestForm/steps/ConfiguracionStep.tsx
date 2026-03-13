@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import CategorySelect from '@/components/shared/CategorySelect'
 import BusinessSelect from '@/components/shared/BusinessSelect'
 import MultiEmailInput from '@/components/shared/MultiEmailInput'
+import { calculateUsageValidityRange } from '@/lib/booking-requests/usage-validity'
 import { getMaxDuration } from '@/lib/categories'
 import { calculateNextAvailableDate } from '@/lib/event-validation'
 import { getAllBookedEvents } from '@/app/actions/events'
@@ -207,8 +208,22 @@ export default function ConfiguracionStep({
 
   const campaignDuration = formData.campaignDuration || '3'
   const campaignDurationUnit = formData.campaignDurationUnit || 'months'
-  const startDateFormatted = formData.startDate ? formatDate(formData.startDate) : 'X'
-  const endDateFormatted = formData.endDate ? formatDate(formData.endDate) : 'Y'
+  const startDateFormatted = formData.startDate ? formatDate(formData.startDate) : '—'
+  const endDateFormatted = formData.endDate ? formatDate(formData.endDate) : '—'
+  const usageValidity = calculateUsageValidityRange({
+    startDate: formData.startDate || null,
+    endDate: formData.endDate || null,
+    redemptionMode: formData.redemptionMode || null,
+    campaignDuration,
+    campaignDurationUnit,
+    eventDays: formData.eventDays,
+  })
+  const firstUsageDateFormatted = usageValidity.firstUsageDate
+    ? formatDate(usageValidity.firstUsageDate)
+    : '—'
+  const lastUsageDateFormatted = usageValidity.lastUsageDate
+    ? formatDate(usageValidity.lastUsageDate)
+    : '—'
 
   const handleEventDayChange = (index: number, value: string) => {
     const nextEventDays = Array.isArray(formData.eventDays) ? [...formData.eventDays] : []
@@ -231,25 +246,6 @@ export default function ConfiguracionStep({
     )
     updateFormData('eventDays', nextEventDays)
   }
-  
-  // Calculate redemption validity date (end date + campaign duration in days or months)
-  const calculateRedemptionDate = (): string => {
-    if (isCampaignDurationDisabled) return '—'
-    if (!formData.endDate) return 'Z'
-    const endDate = new Date(formData.endDate + 'T00:00:00')
-    if (isNaN(endDate.getTime())) return '—'
-    const duration = parseInt(campaignDuration) || 3
-    const redemptionDate = new Date(endDate)
-    
-    if (campaignDurationUnit === 'days') {
-      redemptionDate.setDate(redemptionDate.getDate() + duration)
-    } else {
-      redemptionDate.setMonth(redemptionDate.getMonth() + duration)
-    }
-    return formatDate(redemptionDate.toISOString().split('T')[0])
-  }
-  
-  const redemptionDateFormatted = calculateRedemptionDate()
   
   // Calculate total active days using utility
   const calculateTotalDays = (): number => {
@@ -525,7 +521,7 @@ export default function ConfiguracionStep({
 
         {(formData.startDate || formData.endDate) && (
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-center">
               {daysUntilLaunch !== null && daysUntilLaunch >= 0 ? (
                 <div className="bg-white/60 rounded-lg px-3 py-2">
                   <p className="text-xs text-gray-500">Lanza en</p>
@@ -538,12 +534,16 @@ export default function ConfiguracionStep({
                 </div>
               )}
               <div className="bg-white/60 rounded-lg px-3 py-2">
-                <p className="text-xs text-gray-500">Inicio</p>
+                <p className="text-xs text-gray-500">Publica desde</p>
                 <p className="text-sm font-semibold text-gray-800">{startDateFormatted || '—'}</p>
               </div>
               <div className="bg-white/60 rounded-lg px-3 py-2">
-                <p className="text-xs text-gray-500">Fin</p>
+                <p className="text-xs text-gray-500">Publica hasta</p>
                 <p className="text-sm font-semibold text-gray-800">{endDateFormatted || '—'}</p>
+              </div>
+              <div className="bg-white/60 rounded-lg px-3 py-2">
+                <p className="text-xs text-gray-500">Canje desde</p>
+                <p className="text-sm font-semibold text-gray-800">{firstUsageDateFormatted}</p>
               </div>
               <div className="bg-white/60 rounded-lg px-3 py-2">
                 <p className="text-xs text-gray-500">Días activos</p>
@@ -551,7 +551,7 @@ export default function ConfiguracionStep({
               </div>
               <div className="bg-white/60 rounded-lg px-3 py-2">
                 <p className="text-xs text-gray-500">Canje hasta</p>
-                <p className="text-sm font-semibold text-green-700">{redemptionDateFormatted || '—'}</p>
+                <p className="text-sm font-semibold text-green-700">{lastUsageDateFormatted}</p>
               </div>
             </div>
           </div>

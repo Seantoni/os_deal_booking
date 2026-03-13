@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { aiComplete } from '@/lib/ai/client'
+import {
+  calculateUsageValidityDays,
+  calculateUsageValidityRange,
+} from '@/lib/booking-requests/usage-validity'
 import { logger } from '@/lib/logger'
 import { aiLimiter, applyRateLimit } from '@/lib/rate-limit'
 import type { BookingFormData } from '@/components/RequestForm/types'
@@ -146,7 +150,7 @@ export async function POST(req: Request) {
       } else {
         throw new Error('No JSON found in response')
       }
-    } catch (parseError) {
+    } catch {
       logger.error('Failed to parse AI response as JSON:', responseText)
       // Fallback to legacy text response
       return NextResponse.json({ 
@@ -176,16 +180,32 @@ function buildContractSummary(formData: Partial<BookingFormData>): string {
 - Categoría: ${formData.parentCategory || ''} > ${formData.subCategory1 || ''} > ${formData.subCategory2 || ''} > ${formData.category || ''}
 - Email: ${formData.partnerEmail || 'No especificado'}`)
 
-  // Calculate validity days from campaignDuration
-  let validityDays = 0
-  let validityDaysText = 'No calculable'
-  
-  if (formData.campaignDuration) {
-    const campaignMonths = parseFloat(formData.campaignDuration) || 0
-    // Approximate: 1 month = 30 days
-    validityDays = Math.round(campaignMonths * 30)
-    validityDaysText = `${validityDays} días (${campaignMonths} ${campaignMonths === 1 ? 'mes' : 'meses'})`
-  }
+  const usageValidity = calculateUsageValidityRange({
+    startDate: formData.startDate ?? null,
+    endDate: formData.endDate ?? null,
+    redemptionMode: formData.redemptionMode ?? null,
+    campaignDuration: formData.campaignDuration ?? null,
+    campaignDurationUnit: formData.campaignDurationUnit ?? null,
+    eventDays: formData.eventDays ?? null,
+  })
+  const validityDays = calculateUsageValidityDays(usageValidity)
+  const durationValue = formData.campaignDuration ? String(formData.campaignDuration).trim() : ''
+  const durationNumber = Number.parseInt(durationValue, 10)
+  const campaignDurationLabel = durationValue
+    ? `${durationValue} ${
+        usageValidity.durationUnit === 'days'
+          ? durationNumber === 1 ? 'día' : 'días'
+          : durationNumber === 1 ? 'mes' : 'meses'
+      }`
+    : 'No especificada'
+  const validityRangeText =
+    usageValidity.firstUsageDate && usageValidity.lastUsageDate
+      ? `${usageValidity.firstUsageDate} al ${usageValidity.lastUsageDate}${
+          validityDays ? ` (${validityDays} días)` : ''
+        }`
+      : usageValidity.firstUsageDate
+        ? `Desde ${usageValidity.firstUsageDate}`
+        : 'No calculable'
   
   // Calculate days between start and end date (publication period)
   let publicationDays = 0
@@ -195,18 +215,18 @@ function buildContractSummary(formData: Partial<BookingFormData>): string {
       const end = new Date(formData.endDate + 'T00:00:00')
       const diffTime = Math.abs(end.getTime() - start.getTime())
       publicationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1 // +1 to include both start and end days
-    } catch (e) {
+    } catch {
       // Ignore date calculation errors
     }
   }
 
   // Dates & Duration
   sections.push(`## Fechas y Duración
-- Fecha de Inicio: ${formData.startDate || 'No especificada'}
-- Fecha Final: ${formData.endDate || 'No especificada'}
-- Duración de Campaña: ${formData.campaignDuration || 'No especificada'} meses
+- Fecha de Inicio de Publicación: ${formData.startDate || 'No especificada'}
+- Fecha Final de Publicación: ${formData.endDate || 'No especificada'}
+- Duración de Canje Configurada: ${campaignDurationLabel}
 - Período de Publicación (días activos en el sitio): ${publicationDays > 0 ? `${publicationDays} días` : 'No calculable'}
-- Período de Validez para Canje: ${validityDaysText}`)
+- Período de Validez para Canje: ${validityRangeText}`)
 
   // Pricing Options
   const pricingOptions = Array.isArray(formData.pricingOptions) ? formData.pricingOptions : []

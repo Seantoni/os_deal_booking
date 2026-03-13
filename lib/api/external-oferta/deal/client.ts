@@ -10,6 +10,7 @@ import { EXTERNAL_DEAL_API_URL, EXTERNAL_API_TOKEN, DEFAULT_SECTION_MAPPINGS } f
 import { mapBookingFormToApi } from './mapper'
 import type { ExternalOfertaDealRequest, ExternalOfertaDealResponse, ExternalOfertaPriceOption, ExternalOfertaDeal, GetDealByIdResult, SendDealResult } from './types'
 import type { BookingFormData } from '@/components/RequestForm/types'
+import { calculateUsageValidityRange } from '@/lib/booking-requests/usage-validity'
 import type { Prisma } from '@prisma/client'
 import { formatDateForPanama, parseDateInPanamaTime } from '@/lib/date/timezone'
 import { extractBusinessName } from '@/lib/utils/request-name-parsing'
@@ -49,13 +50,10 @@ function formatLaunchDateSlug(startDate?: Date | string): string | null {
 }
 
 /**
- * Calculate expiration date based on end date and campaign duration
+ * Format an expiration boundary in Panama time
  */
-function calculateExpiresOn(endDate: Date, campaignDurationMonths: number): string {
-  // Do the month math using Panama dates to avoid UTC shifts (off-by-one day)
-  const endYmd = formatDateForPanama(endDate) // YYYY-MM-DD in Panama
-  const expiresDate = parseDateInPanamaTime(endYmd) // midnight Panama in UTC
-  expiresDate.setUTCMonth(expiresDate.getUTCMonth() + campaignDurationMonths)
+function formatExpiresOn(dateString: string): string {
+  const expiresDate = parseDateInPanamaTime(dateString)
   return `${formatDateForPanama(expiresDate)} 23:59:59`
 }
 
@@ -99,33 +97,6 @@ function resolveSection(
   }
   
   return null
-}
-
-/**
- * Parse campaign duration string to get months
- * Examples: "3 meses", "6 meses", "1 año" -> 3, 6, 12
- */
-function parseCampaignDuration(duration: string | null | undefined): number {
-  if (!duration) return 3 // Default 3 months
-  
-  const lower = duration.toLowerCase()
-  
-  // Handle "X meses" format
-  const monthsMatch = lower.match(/(\d+)\s*mes/)
-  if (monthsMatch) return parseInt(monthsMatch[1], 10)
-  
-  // Handle "X año(s)" format
-  const yearsMatch = lower.match(/(\d+)\s*año/)
-  if (yearsMatch) return parseInt(yearsMatch[1], 10) * 12
-  
-  // Handle common durations
-  if (lower.includes('trimestre') || lower === '3') return 3
-  if (lower.includes('semestre') || lower === '6') return 6
-  if (lower.includes('año') || lower === '12') return 12
-  
-  // Try to parse as number
-  const num = parseInt(duration, 10)
-  return isNaN(num) ? 3 : num
 }
 
 function normalizeAdditionalBankAccounts(value: Prisma.JsonValue | null | undefined): BookingFormData['additionalBankAccounts'] {
@@ -374,8 +345,35 @@ export async function sendDealToExternalApi(
       : options.endAt
         ? (typeof options.endAt === 'string' ? new Date(options.endAt) : options.endAt)
         : null
-  
-  const campaignMonths = parseCampaignDuration(bookingRequest.campaignDuration)
+
+  let eventDays: string[] = []
+  if (Array.isArray(bookingRequest.eventDays)) {
+    eventDays = bookingRequest.eventDays
+      .filter((date): date is string => typeof date === 'string')
+      .map((date) => date.trim())
+      .filter((date) => date.length > 0)
+  } else if (typeof bookingRequest.eventDays === 'string') {
+    try {
+      const parsed = JSON.parse(bookingRequest.eventDays)
+      if (Array.isArray(parsed)) {
+        eventDays = parsed
+          .filter((date): date is string => typeof date === 'string')
+          .map((date) => date.trim())
+          .filter((date) => date.length > 0)
+      }
+    } catch {
+      eventDays = []
+    }
+  }
+
+  const usageValidity = calculateUsageValidityRange({
+    startDate: finalRunAt ? formatDateForPanama(finalRunAt) : startDate ? formatDateForPanama(startDate) : null,
+    endDate: finalEndAt ? formatDateForPanama(finalEndAt) : formatDateForPanama(endDate),
+    redemptionMode: bookingRequest.redemptionMode || null,
+    campaignDuration: bookingRequest.campaignDuration || '3',
+    campaignDurationUnit: bookingRequest.campaignDurationUnit || 'months',
+    eventDays,
+  })
   
   // Get business name (merchant field in DB, fallback to name), and normalize
   // any formatted request-name values like "Business | Feb-27-2026 | #5".
@@ -493,7 +491,9 @@ export async function sendDealToExternalApi(
   // Use mapper to build the payload (includes all pricing options properly)
   const payload = mapBookingFormToApi(formData as BookingFormData, {
     slug: generateSlug(businessName, finalRunAt ?? startDate ?? undefined),
-    expiresOn: calculateExpiresOn(finalEndAt || endDate, campaignMonths),
+    expiresOn: formatExpiresOn(
+      usageValidity.lastUsageDate || formatDateForPanama(finalEndAt || endDate)
+    ),
     categoryId: 17, // Hardcoded for now
     vendorId: resolvedVendorId ?? undefined,
     // API requirement: day boundaries (00:00 and 23:59) in Panama time

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { aiComplete } from '@/lib/ai/client'
-import { PANAMA_TIMEZONE } from '@/lib/date/timezone'
+import { calculateUsageValidityRange } from '@/lib/booking-requests/usage-validity'
+import { PANAMA_TIMEZONE, parseDateInPanamaTime } from '@/lib/date/timezone'
 import { aiLimiter, applyRateLimit, getClientIp } from '@/lib/rate-limit'
 
 // Types for the content sections
@@ -18,6 +19,9 @@ interface BookingContentInput {
   // Dates
   startDate?: string
   endDate?: string
+  campaignDuration?: string
+  campaignDurationUnit?: 'days' | 'months'
+  eventDays?: string[]
   
   // Business details
   addressAndHours?: string
@@ -143,14 +147,14 @@ DEFINICIONES DE CAMPO (seguir estrictamente)
    Estructura EXACTA con 5 secciones separadas por doble salto de línea:
 
    EJEMPLO de output esperado para goodToKnow:
-   "INFORMACIÓN GENERAL\nMúltiples vouchers pueden ser comprados y usados por persona. Impuestos incluidos. 1 voucher = 1 Rodizio todo incluido.\n\nRESTRICCIONES\nNo es válido con otras promociones o descuentos. No válido en días feriados.\n\nRESERVACIONES/CANCELACIONES\nSe recomienda reservar con 24 horas de anticipación. Cancelaciones deben realizarse con al menos 12 horas de anticipación.\n\nMÉTODO DE CANJE\nPresenta el voucher impreso o la versión digital desde tu dispositivo móvil. El código QR será escaneado en el local.\n\nPERIODO DE VALIDEZ\nVálido desde el 10 de marzo hasta el 10 de junio de 2026. No es válido en feriados."
+   "INFORMACIÓN GENERAL\nMúltiples vouchers pueden ser comprados y usados por persona. Impuestos incluidos. 1 voucher = 1 Rodizio todo incluido.\n\nRESTRICCIONES\nNo es válido con otras promociones o descuentos. No válido en días feriados.\n\nRESERVACIONES/CANCELACIONES\nSe recomienda reservar con 24 horas de anticipación. Cancelaciones deben realizarse con al menos 12 horas de anticipación.\n\nMÉTODO DE CANJE\nPresenta el voucher impreso o la versión digital desde tu dispositivo móvil. El código QR será escaneado en el local.\n\nPERIODO DE VALIDEZ\nVálido del 17 de marzo al 17 de junio de 2026. No es válido en feriados."
 
    Contenido por sección:
    - INFORMACIÓN GENERAL: Límites de cantidad, inclusión de impuestos, qué equivale 1 voucher, garantía si es producto.
    - RESTRICCIONES: Lo que NO incluye, fechas blackout, "No es válido con otras promociones o descuentos", restricciones específicas.
    - RESERVACIONES/CANCELACIONES: Si requiere reservación: anticipación y política. Si NO requiere: "Sujeto a disponibilidad." Si no aplica (productos): omitir contenido pero mantener título.
    - MÉTODO DE CANJE: QR → escaneo en local. Listado → presentar en dirección. Productos → información de entrega.
-   - PERIODO DE VALIDEZ: SOLO usar validOnHolidays, startDate, endDate y blackoutDates. NO usar horarios, deadlines, vacaciones escolares, ventanas de retiro ni otros campos de categoría. Escribir únicamente validez en feriados, rango de fechas y, si existe, la excepción de blackout.
+   - PERIODO DE VALIDEZ: SOLO usar validOnHolidays, la primera fecha de canje, la última fecha de canje y blackoutDates. NO usar fechas de publicación, horarios, deadlines, vacaciones escolares, ventanas de retiro ni otros campos de categoría. Escribir únicamente validez en feriados, rango de fechas de uso/canje y, si existe, la excepción de blackout.
 
    Por tipo de oferta:
 
@@ -177,7 +181,7 @@ DEFINICIONES DE CAMPO (seguir estrictamente)
        - "Para canjear esta oferta debes mostrar el voucher impreso o presentar la versión digital desde tu dispositivo móvil. Si llevas el voucher impreso, se recomienda no doblar el código QR."
      PERIODO DE VALIDEZ:
        - Feriados (validOnHolidays): "Válido en días feriados" o "No es válido en feriados."
-       - Fechas: "Válido del [fecha inicio] al [fecha fin]."
+       - Fechas: "Válido del [primera fecha de canje] al [última fecha de canje]."
        - BlackoutDates: si existe, añadir una oración adicional de excepción. Ej: "No válido: [blackoutDates]."
 
    • HOTELES: check-in/check-out, comidas, política de niños, mascotas, máx personas por habitación.
@@ -194,7 +198,7 @@ DEFINICIONES DE CAMPO (seguir estrictamente)
      Redención del voucher:
      - QR: Tu código QR será escaneado en el local.
      - Listado: Presenta tu voucher en [dirección] para validar tu compra.
-     Periodo de validez: válido del [fecha de inicio] al [fecha de fin]. [Indicar si es válido o no en feriados].
+     Periodo de validez: válido del [primera fecha de canje] al [última fecha de canje]. [Indicar si es válido o no en feriados].
      Contacto: [contactDetails]."
 
    Para eventos:
@@ -263,8 +267,8 @@ const SECTION_PROMPTS: Record<keyof BookingContentOutput, string> = {
   emailTitle: `Genera el TÍTULO DEL EMAIL (emailTitle). Gancho de marketing corto para newsletter. Opciones: "[XX]% OFF", "DESDE $[PRICE]", "2x1 en [servicio]", o frase corta llamativa. Máximo 30 caracteres. Solo el título, sin comillas ni explicación.`,
   aboutOffer: `Genera la sección "ACERCA DE ESTA OFERTA" (aboutOffer/summaryEs). TEXTO PLANO sin etiquetas HTML. Estructura: 1) Redes sociales (nombres de plataformas), 2) Intro del negocio (2-3 oraciones), 3) Opciones de compra: "Paga $X por [descripción] (Valor $Y).", 4) Detalles con guiones (-) para listas, 5) Cierre con "¡Haz click en comprar!". Tono cálido y vendedor. NO incluyas datos de contacto.`,
   whatWeLike: `Genera la sección "LO QUE NOS GUSTA" (whatWeLike/noteworthy). TEXTO PLANO: una línea por beneficio separadas por salto de línea. NUNCA uses etiquetas HTML, asteriscos ni viñetas con símbolo. Ejemplo: "Ahorras $14 (50% OFF)\nIncluye buffet completo\nUbicación céntrica". 4-8 beneficios. Empezar con el mejor punto de venta. Incluir ahorro en $ o %. Cada línea máximo 100 caracteres, sin punto al final. NO incluyas datos de contacto.`,
-  goodToKnow: `Genera la sección "LO QUE CONVIENE SABER" (goodToKnow/goodToKnowEs). TEXTO PLANO sin etiquetas HTML. Títulos en MAYÚSCULAS seguidos de salto de línea. Ejemplo: "INFORMACIÓN GENERAL\nImpuestos incluidos...\n\nRESTRICCIONES\nNo válido en feriados...". DEBE tener exactamente 5 secciones: INFORMACIÓN GENERAL, RESTRICCIONES, RESERVACIONES/CANCELACIONES, MÉTODO DE CANJE, PERIODO DE VALIDEZ. Respetar estrictamente las restricciones proporcionadas. Para PERIODO DE VALIDEZ usa SOLO validOnHolidays, startDate, endDate y blackoutDates. NO uses otros campos de categoría en esa subsección. NO incluyas datos de contacto.`,
-  howToUseEs: `Genera la sección "CÓMO USAR" (howToUseEs). TEXTO PLANO sin etiquetas HTML. Instrucciones paso a paso para canjear el voucher. Para QR: mencionar escaneo en local. Para listado: mencionar presentar voucher en dirección. Para eventos: mencionar taquilla y código QR. Incluir periodo de validez y si es válido en feriados. Si hay contacto para canje, usa SOLO contactDetails. NUNCA uses partnerEmail ni otros contactos.`,
+  goodToKnow: `Genera la sección "LO QUE CONVIENE SABER" (goodToKnow/goodToKnowEs). TEXTO PLANO sin etiquetas HTML. Títulos en MAYÚSCULAS seguidos de salto de línea. Ejemplo: "INFORMACIÓN GENERAL\nImpuestos incluidos...\n\nRESTRICCIONES\nNo válido en feriados...". DEBE tener exactamente 5 secciones: INFORMACIÓN GENERAL, RESTRICCIONES, RESERVACIONES/CANCELACIONES, MÉTODO DE CANJE, PERIODO DE VALIDEZ. Respetar estrictamente las restricciones proporcionadas. Para PERIODO DE VALIDEZ usa SOLO validOnHolidays, la primera fecha de canje, la última fecha de canje y blackoutDates. NO uses fechas de publicación ni otros campos de categoría en esa subsección. NO incluyas datos de contacto.`,
+  howToUseEs: `Genera la sección "CÓMO USAR" (howToUseEs). TEXTO PLANO sin etiquetas HTML. Instrucciones paso a paso para canjear el voucher. Para QR: mencionar escaneo en local. Para listado: mencionar presentar voucher en dirección. Para eventos: mencionar taquilla y código QR. Incluir periodo de validez usando SOLO la primera y última fecha de canje, y si es válido en feriados. Si hay contacto para canje, usa SOLO contactDetails. NUNCA uses partnerEmail ni otros contactos.`,
 }
 
 const CONTACT_FIELD_PATTERN = /(email|correo|mail|phone|telefono|teléfono|celular|whatsapp|contact|instagram|facebook|tiktok|linkedin|twitter|url|website|web|sitio)/i
@@ -375,6 +379,14 @@ function getAdditionalTitleOptions(
 
 function formatBusinessInfo(input: BookingContentInput): string {
   const lines: string[] = []
+  const usageValidity = calculateUsageValidityRange({
+    startDate: input.startDate ?? null,
+    endDate: input.endDate ?? null,
+    redemptionMode: input.redemptionMode ?? null,
+    campaignDuration: input.campaignDuration ?? null,
+    campaignDurationUnit: input.campaignDurationUnit ?? null,
+    eventDays: Array.isArray(input.eventDays) ? input.eventDays : null,
+  })
   
   lines.push(`Nombre del negocio: ${input.businessName || 'No especificado'}`)
   lines.push('Datos de contacto: [INTERNOS - NO MOSTRAR EN EL CONTENIDO FINAL]')
@@ -390,25 +402,25 @@ function formatBusinessInfo(input: BookingContentInput): string {
   }
   
   if (input.startDate) {
-    const startDate = new Date(input.startDate)
-    lines.push(`Fecha de inicio: ${startDate.toLocaleDateString('es-ES', { timeZone: PANAMA_TIMEZONE })}`)
+    const startDate = parseDateInPanamaTime(input.startDate)
+    lines.push(`Fecha de inicio de publicación: ${startDate.toLocaleDateString('es-ES', { timeZone: PANAMA_TIMEZONE })}`)
   }
   if (input.endDate) {
-    const endDate = new Date(input.endDate)
-    lines.push(`Fecha de fin: ${endDate.toLocaleDateString('es-ES', { timeZone: PANAMA_TIMEZONE })}`)
+    const endDate = parseDateInPanamaTime(input.endDate)
+    lines.push(`Fecha de fin de publicación: ${endDate.toLocaleDateString('es-ES', { timeZone: PANAMA_TIMEZONE })}`)
   }
-  if (input.startDate || input.endDate || input.validOnHolidays || input.blackoutDates) {
-    lines.push(`\nDATOS PARA PERIODO DE VALIDEZ (usar SOLO estos en la subsección PERIODO DE VALIDEZ de goodToKnow):`)
+  if (usageValidity.firstUsageDate || usageValidity.lastUsageDate || input.validOnHolidays || input.blackoutDates) {
+    lines.push(`\nDATOS PARA PERIODO DE VALIDEZ Y CANJE (usar SOLO estos al redactar el periodo de validez/canje):`)
     if (input.validOnHolidays) {
       lines.push(`  - Válido en feriados: ${input.validOnHolidays}`)
     }
-    if (input.startDate) {
-      const startDate = new Date(input.startDate)
-      lines.push(`  - Fecha de inicio de validez: ${startDate.toLocaleDateString('es-ES', { timeZone: PANAMA_TIMEZONE, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`)
+    if (usageValidity.firstUsageDate) {
+      const firstUsageDate = parseDateInPanamaTime(usageValidity.firstUsageDate)
+      lines.push(`  - Primera fecha de canje: ${firstUsageDate.toLocaleDateString('es-ES', { timeZone: PANAMA_TIMEZONE, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`)
     }
-    if (input.endDate) {
-      const endDate = new Date(input.endDate)
-      lines.push(`  - Fecha de fin de validez: ${endDate.toLocaleDateString('es-ES', { timeZone: PANAMA_TIMEZONE, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`)
+    if (usageValidity.lastUsageDate) {
+      const lastUsageDate = parseDateInPanamaTime(usageValidity.lastUsageDate)
+      lines.push(`  - Última fecha de canje: ${lastUsageDate.toLocaleDateString('es-ES', { timeZone: PANAMA_TIMEZONE, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`)
     }
     if (input.blackoutDates) {
       lines.push(`  - Fechas blackout: ${input.blackoutDates}`)
