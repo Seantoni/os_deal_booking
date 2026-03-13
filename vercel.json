@@ -43,14 +43,17 @@
   ],
   "functions": {
     "app/api/cron/market-intelligence-scan/route.ts": {
+      "regions": ["bom1"],
       "memory": 1024,
       "maxDuration": 300
     },
     "app/api/cron/deal-metrics-sync/route.ts": {
+      "regions": ["bom1"],
       "memory": 1024,
       "maxDuration": 300
     },
     "app/api/cron/event-leads-sync/route.ts": {
+      "regions": ["bom1"],
       "memory": 1024,
       "maxDuration": 300
     }
