@@ -67,6 +67,8 @@ type DateValidationSettings = Pick<
   'minDailyLaunches' | 'maxDailyLaunches' | 'merchantRepeatDays' | 'businessExceptions' | 'categoryDurations'
 >
 
+type AdditionalInfoMappings = NonNullable<BookingSettings['additionalInfoMappings']>
+
 export default function EnhancedBookingForm({ requestId: propRequestId, initialFormData }: EnhancedBookingFormProps = {}) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -88,6 +90,9 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     businessExceptions: DEFAULT_SETTINGS.businessExceptions,
     categoryDurations: DEFAULT_SETTINGS.categoryDurations,
   })
+  const [additionalInfoMappings, setAdditionalInfoMappings] = useState<AdditionalInfoMappings>(
+    DEFAULT_SETTINGS.additionalInfoMappings ?? {}
+  )
   const [loadingEdit, setLoadingEdit] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [isReviewingTitles, setIsReviewingTitles] = useState(false)
@@ -235,6 +240,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
               categoryDurations:
                 result.data.categoryDurations ?? DEFAULT_SETTINGS.categoryDurations,
             })
+            setAdditionalInfoMappings(result.data.additionalInfoMappings ?? {})
           }
         }
       } catch (error) {
@@ -788,7 +794,13 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
 
   const handleValidateStep = (stepKey: string): Record<string, string> => {
     const stepId = getStepIdByKey(stepKey) || 1
-    const newErrors = validateStep(stepId, formData, requiredFields, stepKey)
+    const newErrors = validateStep(
+      stepId,
+      formData,
+      requiredFields,
+      stepKey,
+      additionalInfoMappings
+    )
     setErrors(newErrors)
     return newErrors
   }
@@ -847,11 +859,14 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
   }, [])
 
   const buildSubmissionFormData = useCallback(() => (
-    buildFormDataForSubmit({
-      ...formData,
-      isReplicatedRequest: formData.isReplicatedRequest || hasReplicatedContext,
-    })
-  ), [formData, hasReplicatedContext])
+    buildFormDataForSubmit(
+      {
+        ...formData,
+        isReplicatedRequest: formData.isReplicatedRequest || hasReplicatedContext,
+      },
+      additionalInfoMappings
+    )
+  ), [additionalInfoMappings, formData, hasReplicatedContext])
 
   const autoSaveAndNavigateToStep = useCallback(async (targetStepKey: string) => {
     const targetStepExists = availableSteps.some((step) => step.key === targetStepKey)
@@ -1283,6 +1298,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
                   updateFormData={updateFormData}
                   isFieldRequired={isFieldRequired}
                   isReplicatedRequest={hasReplicatedContext}
+                  additionalInfoMappings={additionalInfoMappings}
                 />
               )}
 

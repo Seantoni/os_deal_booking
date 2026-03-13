@@ -18,6 +18,7 @@ interface InformacionAdicionalStepProps {
   updateFormData: (field: keyof BookingFormData, value: BookingFormData[keyof BookingFormData]) => void
   isFieldRequired?: (fieldKey: string) => boolean
   isReplicatedRequest?: boolean
+  additionalInfoMappings?: Record<string, string>
 }
 
 /**
@@ -39,10 +40,17 @@ export default function InformacionAdicionalStep({
   updateFormData,
   isFieldRequired = () => false,
   isReplicatedRequest = false,
+  additionalInfoMappings,
 }: InformacionAdicionalStepProps) {
   const { parentCategory, subCategory1, subCategory2, category } = formData
 
-  const templateName = getTemplateName(parentCategory, subCategory1, subCategory2, category)
+  const templateName = getTemplateName(
+    parentCategory,
+    subCategory1,
+    subCategory2,
+    category,
+    additionalInfoMappings
+  )
   const template = templateName ? FIELD_TEMPLATES[templateName] : null
 
   const assistant = useAdditionalInfoAiAssistant({

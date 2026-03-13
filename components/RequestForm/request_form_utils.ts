@@ -88,7 +88,8 @@ export const validateStep = (
   step: number,
   formData: BookingFormData,
   requiredFields?: RequestFormFieldsConfig,
-  stepKey?: string
+  stepKey?: string,
+  additionalInfoMappings?: Record<string, string>
 ): Record<string, string> => {
   const newErrors: Record<string, string> = {}
   // Use truthy check (not strict equality) to handle both boolean true and string "true"
@@ -97,7 +98,8 @@ export const validateStep = (
     formData.parentCategory,
     formData.subCategory1,
     formData.subCategory2,
-    formData.category
+    formData.category,
+    additionalInfoMappings
   )
 
   // Find step definition by key (more reliable than by ID due to misalignment)
@@ -305,7 +307,10 @@ export const validateStep = (
   return newErrors
 }
 
-export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
+export const buildFormDataForSubmit = (
+  formData: BookingFormData,
+  additionalInfoMappings?: Record<string, string>
+): FormData => {
   const fd = new FormData()
   const normalizedEventDays = Array.from(
     new Set(
@@ -418,7 +423,8 @@ export const buildFormDataForSubmit = (formData: BookingFormData): FormData => {
     formData.parentCategory,
     formData.subCategory1,
     formData.subCategory2,
-    formData.category
+    formData.category,
+    additionalInfoMappings
   )
 
   const additionalInfoPayload: {

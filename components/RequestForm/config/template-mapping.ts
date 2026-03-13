@@ -61,6 +61,7 @@ export const CATEGORY_TEMPLATE_MAP: Record<string, string> = {
   // ============================================================
   'SERVICIOS:Automóviles:A/C Carros': 'AC_AUTOS',
   'SERVICIOS:Automóviles:Lavado de autos': 'SERVICIO_AUTOS',
+  'SERVICIOS:Automóviles:Otros servicios para automóviles': 'SERVICIO_AUTOS',
   'SERVICIOS:Automóviles:Alquiler de autos': 'ALQUILER_AUTOS',
 
   // ============================================================
@@ -93,17 +94,23 @@ export const CATEGORY_TEMPLATE_MAP: Record<string, string> = {
 /**
  * Internal helper to try lookups in order of specificity.
  */
-function lookupTemplate(keyParts: string[]): string | null {
+function lookupTemplate(
+  keyParts: string[],
+  additionalInfoMappings?: Record<string, string>
+): string | null {
   if (keyParts.length >= 3) {
     const key3 = keyParts.slice(0, 3).join(':')
+    if (additionalInfoMappings?.[key3]) return additionalInfoMappings[key3]
     if (CATEGORY_TEMPLATE_MAP[key3]) return CATEGORY_TEMPLATE_MAP[key3]
   }
   if (keyParts.length >= 2) {
     const key2 = keyParts.slice(0, 2).join(':')
+    if (additionalInfoMappings?.[key2]) return additionalInfoMappings[key2]
     if (CATEGORY_TEMPLATE_MAP[key2]) return CATEGORY_TEMPLATE_MAP[key2]
   }
   if (keyParts.length >= 1) {
     const key1 = keyParts[0]
+    if (additionalInfoMappings?.[key1]) return additionalInfoMappings[key1]
     if (CATEGORY_TEMPLATE_MAP[key1]) return CATEGORY_TEMPLATE_MAP[key1]
   }
   return null
@@ -118,7 +125,8 @@ export function getTemplateName(
   parentCategory: string,
   subCategory1?: string,
   subCategory2?: string,
-  categoryKey?: string
+  categoryKey?: string,
+  additionalInfoMappings?: Record<string, string>
 ): string | null {
   // 1) Try explicit args (parent/sub1/sub2)
   const keyParts: string[] = []
@@ -126,19 +134,19 @@ export function getTemplateName(
   if (subCategory1) keyParts.push(subCategory1)
   if (subCategory2) keyParts.push(subCategory2)
 
-  const directMatch = lookupTemplate(keyParts)
+  const directMatch = lookupTemplate(keyParts, additionalInfoMappings)
   if (directMatch) return directMatch
 
   // 2) Try categoryKey if provided (e.g., "HOTELES:Hotel de Playa:Pasadía")
   if (categoryKey && categoryKey.includes(':')) {
     const parts = categoryKey.split(':').filter(Boolean)
-    const keyMatch = lookupTemplate(parts)
+    const keyMatch = lookupTemplate(parts, additionalInfoMappings)
     if (keyMatch) return keyMatch
   }
 
   // 3) Fallback: try parent only
   if (parentCategory) {
-    const parentOnly = lookupTemplate([parentCategory])
+    const parentOnly = lookupTemplate([parentCategory], additionalInfoMappings)
     if (parentOnly) return parentOnly
   }
 
@@ -152,7 +160,8 @@ export function hasTemplate(
   parentCategory: string,
   subCategory1?: string,
   subCategory2?: string,
-  categoryKey?: string
+  categoryKey?: string,
+  additionalInfoMappings?: Record<string, string>
 ): boolean {
-  return getTemplateName(parentCategory, subCategory1, subCategory2, categoryKey) !== null
+  return getTemplateName(parentCategory, subCategory1, subCategory2, categoryKey, additionalInfoMappings) !== null
 }
