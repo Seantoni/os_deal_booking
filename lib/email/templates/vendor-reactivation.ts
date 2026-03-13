@@ -67,7 +67,7 @@ function renderDealCard(deal: VendorReactivationTemplateDeal): string {
             <tr>
               <td align="center" style="background-color: ${EMAIL_STYLES.colors.brand}; border-radius: 99px; padding: 15px 32px;">
                 <a href="${deal.replicateUrl}" target="_blank" style="display: block; font-size: 15px; font-weight: 700; color: #ffffff; text-decoration: none; letter-spacing: 0.01em;">
-                  Relanzar este deal &rarr;
+                  Solicitar relanzamiento &rarr;
                 </a>
               </td>
             </tr>

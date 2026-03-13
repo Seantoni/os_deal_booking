@@ -1,6 +1,6 @@
 'use server'
 
-import { auth, currentUser } from '@clerk/nextjs/server'
+import { currentUser } from '@clerk/nextjs/server'
 import { prisma } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { generatePublicLinkToken } from '@/lib/tokens'
@@ -16,6 +16,7 @@ import { logger } from '@/lib/logger'
 import { generateRequestName, countBusinessRequests } from '@/lib/utils/request-naming'
 import { extractDisplayName, extractUserEmail } from '@/lib/auth/user-display'
 import { normalizeAdditionalRedemptionContacts } from '@/lib/booking-requests/additional-redemption-contacts'
+import { buildPublicLinkPrefillSearchParams } from '@/lib/booking-requests/public-form-prefill'
 
 type AdditionalBankAccount = {
   bankAccountName: string
@@ -42,7 +43,10 @@ function normalizeAdditionalBankAccounts(value: unknown): AdditionalBankAccount[
  * Generate a public request link and send it via email
  * Supports sending to multiple email addresses
  */
-export async function generateAndSendPublicLink(recipientEmails: string | string[]) {
+export async function generateAndSendPublicLink(
+  recipientEmails: string | string[],
+  prefillQueryParams?: Record<string, string>
+) {
   const authResult = await requireAuth()
   if (!('userId' in authResult)) {
     return authResult
@@ -84,7 +88,10 @@ export async function generateAndSendPublicLink(recipientEmails: string | string
 
     // Build public URL
     const baseUrl = getAppBaseUrl()
-    const publicUrl = `${baseUrl}/booking-request/${token}`
+    const publicUrlSearchParams = buildPublicLinkPrefillSearchParams(uniqueEmails, prefillQueryParams)
+    const publicUrl = publicUrlSearchParams.toString().length > 0
+      ? `${baseUrl}/booking-request/${token}?${publicUrlSearchParams.toString()}`
+      : `${baseUrl}/booking-request/${token}`
 
     // Send email with link to all recipients
     try {
@@ -229,6 +236,15 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
     const existingCount = await countBusinessRequests(fields.name!)
     const requestName = generateRequestName(fields.name!, existingCount)
 
+    const additionalEmailsJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
+      fields.additionalEmails &&
+      Array.isArray(fields.additionalEmails) &&
+      fields.additionalEmails.length > 0
+        ? (fields.additionalEmails.filter(
+            (email: string) => email && email.trim() && email.includes('@')
+          ) as Prisma.InputJsonValue)
+        : Prisma.JsonNull
+
     // Convert JSON array fields to Prisma-compatible format (null -> Prisma.JsonNull)
     const redemptionMethodsJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
       fields.redemptionMethods && Array.isArray(fields.redemptionMethods) && fields.redemptionMethods.length > 0
@@ -243,6 +259,11 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
     const dealImagesJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
       fields.dealImages && Array.isArray(fields.dealImages) && fields.dealImages.length > 0
         ? (fields.dealImages as Prisma.InputJsonValue)
+        : Prisma.JsonNull
+
+    const additionalInfoJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
+      fields.additionalInfo && typeof fields.additionalInfo === 'object'
+        ? (fields.additionalInfo as Prisma.InputJsonValue)
         : Prisma.JsonNull
 
     const eventDaysJson: Prisma.InputJsonValue | typeof Prisma.JsonNull =
@@ -276,8 +297,10 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
         parentCategory: normalizedParentCategory,
         subCategory1: fields.subCategory1,
         subCategory2: fields.subCategory2,
+        subCategory3: fields.subCategory3,
         merchant: fields.merchant,
         businessEmail: fields.businessEmail!,
+        additionalEmails: additionalEmailsJson,
         startDate: startDateTime,
         endDate: endDateTime,
         status: 'approved', // Public submissions are automatically approved
@@ -289,7 +312,9 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
         processedAt: new Date(),
         // Configuración: Configuración General y Vigencia
         campaignDuration: fields.campaignDuration,
+        campaignDurationUnit: fields.campaignDurationUnit || 'months',
         eventDays: eventDaysJson,
+        isReplicatedRequest: fields.isReplicatedRequest,
         // Operatividad: Operatividad y Pagos
         redemptionMode: fields.redemptionMode,
         isRecurring: fields.isRecurring,
@@ -323,17 +348,24 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
         contactDetails: fields.contactDetails,
         socialMedia: fields.socialMedia,
         // Contenido: AI-Generated Content Fields
+        nameEs: fields.nameEs,
+        shortTitle: fields.shortTitle,
+        emailTitle: fields.emailTitle,
         whatWeLike: fields.whatWeLike,
         aboutCompany: fields.aboutCompany,
         aboutOffer: fields.aboutOffer,
         goodToKnow: fields.goodToKnow,
+        howToUseEs: fields.howToUseEs,
         // Estructura: Estructura de la Oferta
+        offerMargin: fields.offerMargin,
         pricingOptions: pricingOptionsJson,
         dealImages: dealImagesJson,
         // Políticas: Políticas Generales
         cancellationPolicy: fields.cancellationPolicy,
         marketValidation: fields.marketValidation,
         additionalComments: fields.additionalComments,
+        // Información Adicional (Dynamic template-based)
+        additionalInfo: additionalInfoJson,
       },
     })
 
@@ -347,6 +379,7 @@ export async function submitPublicBookingRequest(token: string, formData: FormDa
         parentCategory: normalizedParentCategory,
         subCategory1: bookingRequest.subCategory1,
         subCategory2: bookingRequest.subCategory2,
+        subCategory3: bookingRequest.subCategory3,
         business: bookingRequest.merchant,
         startDate: startDateTime,
         endDate: endDateTime,
@@ -439,6 +472,8 @@ function renderPublicLinkEmail({
     <p>Hola,</p>
     
     <p>${senderName} le ha invitado a completar un formulario de solicitud de booking para OS Deals.</p>
+
+    <p style="color: #666; font-size: 14px;">Destinatario(s): ${recipientEmail}</p>
     
     <p>Haga clic en el botón a continuación para acceder al formulario y enviar su solicitud de booking:</p>
     

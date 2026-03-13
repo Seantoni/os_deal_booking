@@ -223,6 +223,9 @@ export function getChangedVendorFields(
     // Skip fields not present in newValues — missing means "not changed"
     if (!(fieldKey in newValues)) continue
 
+    // email is immutable after POST — never include in PATCH payloads
+    if (apiKey === 'email') continue
+
     // Get current value from business
     const currentValue = getBusinessFieldValue(currentBusiness, fieldKey)
     // Get new value from form
@@ -253,30 +256,6 @@ export function getChangedVendorFields(
   }
 
   return { changes, apiPayload }
-}
-
-/**
- * Vendor PATCH requires email even when the email field itself did not change.
- * Rehydrate required baseline fields from the current business when possible.
- */
-export function withRequiredVendorUpdateFields(
-  currentBusiness: Pick<Business, 'contactEmail'>,
-  payload: ExternalOfertaVendorUpdateRequest
-): ExternalOfertaVendorUpdateRequest {
-  const nextPayload: ExternalOfertaVendorUpdateRequest = { ...payload }
-  const emailSource = Object.prototype.hasOwnProperty.call(payload, 'email')
-    ? payload.email
-    : currentBusiness.contactEmail
-  const resolvedEmail = sanitizeEmail(emailSource)
-
-  if (!resolvedEmail) {
-    return nextPayload
-  }
-
-  nextPayload.email = resolvedEmail
-  nextPayload.emailContact = resolvedEmail
-
-  return nextPayload
 }
 
 /**

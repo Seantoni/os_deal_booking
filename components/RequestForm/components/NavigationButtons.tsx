@@ -2,7 +2,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import SaveIcon from '@mui/icons-material/Save'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import type { StepConfig } from '../constants'
 import { Button } from '@/components/ui'
 
 interface NavigationButtonsProps {
@@ -11,10 +10,11 @@ interface NavigationButtonsProps {
   saving: boolean
   onPrevious: () => void
   onNext: () => void
-  onSaveDraft: () => void
+  onSaveDraft?: () => void
   onSubmit: () => void
   onGoBack?: () => void // Optional handler for going back to previous page
   hasErrors?: boolean // Whether the current step has validation errors
+  showSaveDraft?: boolean
 }
 
 export default function NavigationButtons({
@@ -26,7 +26,8 @@ export default function NavigationButtons({
   onSaveDraft,
   onSubmit,
   onGoBack,
-  hasErrors
+  hasErrors,
+  showSaveDraft = true,
 }: NavigationButtonsProps) {
   return (
     <div className="px-4 py-4 md:px-8 md:pb-8 bg-gray-50 md:rounded-b-2xl border-t border-gray-100 flex flex-col gap-3 mt-0 md:shadow-inner">
@@ -71,18 +72,19 @@ export default function NavigationButtons({
 
       {/* Primary Actions */}
       <div className="flex gap-2 sm:gap-4 order-1 sm:order-2">
-        {/* Save Draft - Icon only on mobile */}
-        <Button
-          variant="secondary"
-          onClick={onSaveDraft}
-          disabled={saving}
-          size="sm"
-          className="flex-1 sm:flex-none flex items-center justify-center gap-2"
-          leftIcon={<SaveIcon style={{ fontSize: 18 }} />}
-        >
-          <span className="hidden md:inline">{saving ? 'Guardando...' : 'Guardar Borrador'}</span>
-          <span className="md:hidden">{saving ? '...' : 'Guardar'}</span>
-        </Button>
+        {showSaveDraft && onSaveDraft && (
+          <Button
+            variant="secondary"
+            onClick={onSaveDraft}
+            disabled={saving}
+            size="sm"
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2"
+            leftIcon={<SaveIcon style={{ fontSize: 18 }} />}
+          >
+            <span className="hidden md:inline">{saving ? 'Guardando...' : 'Guardar Borrador'}</span>
+            <span className="md:hidden">{saving ? '...' : 'Guardar'}</span>
+          </Button>
+        )}
 
         {/* Next/Submit Button */}
         {currentStepIndex < totalSteps - 1 ? (

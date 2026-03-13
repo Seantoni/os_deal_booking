@@ -55,6 +55,7 @@ interface ChatThreadProps {
   readOnlyMessage?: string
   headerActions?: ReactNode
   initialScrollPosition?: 'top' | 'bottom'
+  onCommentsChange?: (comments: ChatComment[]) => void
 }
 
 type MentionableUser = {
@@ -86,6 +87,7 @@ export default function ChatThread({
   readOnlyMessage = 'Solo el responsable o administradores pueden comentar',
   headerActions,
   initialScrollPosition = 'top',
+  onCommentsChange,
 }: ChatThreadProps) {
   const [comments, setComments] = useState<ChatComment[]>([])
   const [loading, setLoading] = useState(true)
@@ -143,6 +145,11 @@ export default function ChatThread({
   useEffect(() => {
     didInitialAutoScrollRef.current = false
   }, [entityId])
+
+  useEffect(() => {
+    if (loading) return
+    onCommentsChange?.(comments)
+  }, [comments, loading, onCommentsChange])
 
   // Optional first-load auto-scroll for threads where latest messages should be shown by default.
   useEffect(() => {

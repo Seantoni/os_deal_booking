@@ -48,6 +48,7 @@ import { fetchEditableBusinessIds } from '@/app/actions/businesses'
 import type { Business, Opportunity, BookingRequest, Deal } from '@/types'
 import type { OpportunityModalSuccessMeta } from '@/components/crm/opportunity/opportunityModalTypes'
 import { useSharedData } from '@/hooks/useSharedData'
+import { buildBookingRequestBusinessPrefillParams } from '@/lib/booking-requests/business-prefill'
 
 function InfoRow({ label, value, icon, isLink, href }: { label: string; value?: string | null; icon?: React.ReactNode; isLink?: boolean; href?: string }) {
   if (!value && value !== '0') return null
@@ -198,56 +199,13 @@ export default function BusinessDetailClient({
     // Only allow if user has edit permission
     if (canEdit === false || business.reassignmentStatus === 'archived') return
 
-    // Build query parameters with business data (matching OpportunityFormModal behavior)
-    const params = new URLSearchParams()
-    
-    // Flag to trigger pre-fill logic in EnhancedBookingForm
-    params.set('fromOpportunity', 'business')
-    params.set('businessId', business.id) // Pass businessId for backfill tracking
-    
-    // Basic business info
-    params.set('businessName', business.name)
-    params.set('businessEmail', business.contactEmail)
-    params.set('contactName', business.contactName || '')
-    params.set('contactPhone', business.contactPhone || '')
-    
-    // Category info
-    if (business.category) {
-      params.set('categoryId', business.category.id)
-      params.set('parentCategory', business.category.parentCategory)
-      if (business.category.subCategory1) params.set('subCategory1', business.category.subCategory1)
-      if (business.category.subCategory2) params.set('subCategory2', business.category.subCategory2)
-    }
-    
-    // Legal/Tax info
-    if (business.razonSocial) params.set('legalName', business.razonSocial)
-    if (business.ruc) params.set('ruc', business.ruc)
-    
-    // Location info
-    if (business.provinceDistrictCorregimiento) params.set('provinceDistrictCorregimiento', business.provinceDistrictCorregimiento)
-    if (business.address) params.set('address', business.address)
-    if (business.neighborhood) params.set('neighborhood', business.neighborhood)
-    
-    // Bank/Payment info
-    if (business.bank) params.set('bank', business.bank)
-    if (business.beneficiaryName) params.set('bankAccountName', business.beneficiaryName)
-    if (business.accountNumber) params.set('accountNumber', business.accountNumber)
-    if (business.accountType) params.set('accountType', business.accountType)
-    if (business.paymentPlan) params.set('paymentPlan', business.paymentPlan)
-    
-    // Additional info
-    if (business.description) params.set('description', business.description)
-    if (business.website) params.set('website', business.website)
-    if (business.instagram) params.set('instagram', business.instagram)
-    
-    // Payment contact emails
-    if (business.emailPaymentContacts) {
-      const paymentEmails = business.emailPaymentContacts.split(/[;,\s]+/).filter(Boolean)
-      if (paymentEmails.length > 0) {
-        params.set('paymentEmails', JSON.stringify(paymentEmails))
-      }
-    }
-    
+    const params = new URLSearchParams(
+      buildBookingRequestBusinessPrefillParams(business, {
+        fromOpportunity: 'business',
+        includeBusinessId: true,
+      })
+    )
+
     router.push(`/booking-requests/new?${params.toString()}`)
   }
 

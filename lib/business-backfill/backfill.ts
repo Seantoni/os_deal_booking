@@ -9,7 +9,6 @@ import { prisma } from '@/lib/prisma'
 import { findLinkedBusinessFull } from '@/lib/business'
 import { REQUEST_TO_BUSINESS_FIELD_MAP, getVendorApiField } from './mapping'
 import { updateVendorInExternalApi } from '@/lib/api/external-oferta/vendor/client'
-import { withRequiredVendorUpdateFields } from '@/lib/api/external-oferta/vendor'
 import type { ExternalOfertaVendorUpdateRequest, UpdateVendorResult } from '@/lib/api/external-oferta/vendor/types'
 import type { Business } from '@/types'
 
@@ -267,26 +266,16 @@ export async function executeBackfillFromRequest(
       const vendorPayload: ExternalOfertaVendorUpdateRequest = {}
       
       for (const change of changes) {
-        if (change.vendorApiField) {
+        if (change.vendorApiField && change.vendorApiField !== 'email') {
           ;(vendorPayload as Record<string, string>)[change.vendorApiField] = change.newValue
-          
-          // Special case: When email is updated, also update emailContact (both should be the same)
-          if (change.vendorApiField === 'email') {
-            vendorPayload.emailContact = change.newValue
-          }
         }
       }
 
       // Only call API if there are fields to sync
       if (Object.keys(vendorPayload).length > 0) {
-        const preparedPayload = withRequiredVendorUpdateFields(
-          business as Pick<Business, 'contactEmail'>,
-          vendorPayload
-        )
-
         vendorSyncResult = await updateVendorInExternalApi(
           business.osAdminVendorId,
-          preparedPayload,
+          vendorPayload,
           {
             userId: options?.userId,
             triggeredBy: 'system',

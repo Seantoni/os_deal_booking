@@ -11,6 +11,7 @@ interface ContenidoStepProps {
   errors: Record<string, string>
   updateFormData: (field: keyof BookingFormData, value: BookingFormData[keyof BookingFormData]) => void
   isFieldRequired?: (fieldKey: string) => boolean
+  aiFeaturesEnabled?: boolean
 }
 
 // AI field configuration — matches docs/ai-content-field-definitions.md
@@ -70,7 +71,13 @@ const AI_FIELDS = {
 
 type AIFieldKey = keyof typeof AI_FIELDS
 
-export default function ContenidoStep({ formData, errors, updateFormData, isFieldRequired = () => false }: ContenidoStepProps) {
+export default function ContenidoStep({
+  formData,
+  errors,
+  updateFormData,
+  isFieldRequired = () => false,
+  aiFeaturesEnabled = true,
+}: ContenidoStepProps) {
   const [isGenerating, setIsGenerating] = useState(false)
 
   const handleGenerateAll = async () => {
@@ -152,21 +159,23 @@ export default function ContenidoStep({ formData, errors, updateFormData, isFiel
             <h3 className="text-lg font-semibold text-gray-800">Contenido para Página de Oferta</h3>
             <p className="text-xs text-gray-500 mt-0.5">Contenido que se mostrará en la página pública de la oferta</p>
           </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            disabled={isGenerating || !formData.businessName?.trim()}
-            onClick={handleGenerateAll}
-            className="whitespace-nowrap bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 hover:text-white focus-visible:ring-purple-500 shadow-sm hover:shadow-md flex items-center gap-2"
-          >
-            {isGenerating ? (
-              <RefreshIcon fontSize="small" className="animate-spin" />
-            ) : (
-              <AutoFixHighIcon fontSize="small" />
-            )}
-            {isGenerating ? 'Generando...' : 'Generar con IA'}
-          </Button>
+          {aiFeaturesEnabled && (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={isGenerating || !formData.businessName?.trim()}
+              onClick={handleGenerateAll}
+              className="whitespace-nowrap bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 hover:text-white focus-visible:ring-purple-500 shadow-sm hover:shadow-md flex items-center gap-2"
+            >
+              {isGenerating ? (
+                <RefreshIcon fontSize="small" className="animate-spin" />
+              ) : (
+                <AutoFixHighIcon fontSize="small" />
+              )}
+              {isGenerating ? 'Generando...' : 'Generar con IA'}
+            </Button>
+          )}
         </div>
 
         {isGenerating && (
@@ -193,7 +202,9 @@ export default function ContenidoStep({ formData, errors, updateFormData, isFiel
             <div key={fieldKey}>
               <label className="block text-xs font-medium text-slate-600 mb-0.5 flex items-center gap-1">
                 <span>{config.label}</span>
-                <span className="text-xs text-purple-500 font-normal">(IA)</span>
+                {aiFeaturesEnabled && (
+                  <span className="text-xs text-purple-500 font-normal">(IA)</span>
+                )}
               </label>
               {'hint' in config && (
                 <p className="text-[11px] text-gray-400 mb-1.5">{config.hint}</p>

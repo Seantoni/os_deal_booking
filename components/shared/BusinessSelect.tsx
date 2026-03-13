@@ -14,6 +14,7 @@ export interface BusinessWithStatus {
   contactName: string | null
   contactPhone: string | null
   contactEmail: string | null
+  emailPaymentContacts: string | null
   categoryId: string | null
   category?: {
     id: string

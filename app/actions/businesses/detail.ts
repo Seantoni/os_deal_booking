@@ -296,6 +296,7 @@ export async function getBusinessesWithBookingStatus() {
         contactName: true,
         contactPhone: true,
         contactEmail: true,
+        emailPaymentContacts: true,
         categoryId: true,
         category: {
           select: {

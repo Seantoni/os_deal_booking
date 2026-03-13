@@ -30,6 +30,7 @@ import { useOpportunityMeetingAutomation } from './useOpportunityMeetingAutomati
 import { useOpportunityTaskActions } from './useOpportunityTaskActions'
 import { useOpportunityActivitySummary } from './useOpportunityActivitySummary'
 import type { OpportunityModalSuccessMeta } from './opportunityModalTypes'
+import { buildBookingRequestBusinessPrefillParams } from '@/lib/booking-requests/business-prefill'
 
 const BookingRequestViewModal = lazy(() => import('@/components/booking/request-view/BookingRequestViewModal'))
 const TaskModal = lazy(() => import('./TaskModal'))
@@ -200,35 +201,12 @@ export default function OpportunityFormModal({
       return
     }
 
-    const params = new URLSearchParams()
-    params.set('fromOpportunity', opportunity.id)
-    params.set('businessId', linkedBusiness.id)
-    params.set('businessName', linkedBusiness.name || '')
-    if (linkedBusiness.contactEmail) params.set('businessEmail', linkedBusiness.contactEmail)
-    if (linkedBusiness.contactName) params.set('contactName', linkedBusiness.contactName)
-    if (linkedBusiness.contactPhone) params.set('contactPhone', linkedBusiness.contactPhone)
-
-    if (linkedBusiness.category) {
-      if (linkedBusiness.category.parentCategory) params.set('parentCategory', linkedBusiness.category.parentCategory)
-      if (linkedBusiness.category.subCategory1) params.set('subCategory1', linkedBusiness.category.subCategory1)
-      if (linkedBusiness.category.subCategory2) params.set('subCategory2', linkedBusiness.category.subCategory2)
-    }
-
-    if (linkedBusiness.razonSocial) params.set('legalName', linkedBusiness.razonSocial)
-    if (linkedBusiness.ruc) params.set('ruc', linkedBusiness.ruc)
-
-    if (linkedBusiness.provinceDistrictCorregimiento) params.set('provinceDistrictCorregimiento', linkedBusiness.provinceDistrictCorregimiento)
-    if (linkedBusiness.address) params.set('address', linkedBusiness.address)
-    if (linkedBusiness.neighborhood) params.set('neighborhood', linkedBusiness.neighborhood)
-
-    if (linkedBusiness.bank) params.set('bank', linkedBusiness.bank)
-    if (linkedBusiness.beneficiaryName) params.set('bankAccountName', linkedBusiness.beneficiaryName)
-    if (linkedBusiness.accountNumber) params.set('accountNumber', linkedBusiness.accountNumber)
-    if (linkedBusiness.accountType) params.set('accountType', linkedBusiness.accountType)
-    if (linkedBusiness.paymentPlan) params.set('paymentPlan', linkedBusiness.paymentPlan)
-
-    if (linkedBusiness.website) params.set('website', linkedBusiness.website)
-    if (linkedBusiness.instagram) params.set('instagram', linkedBusiness.instagram)
+    const params = new URLSearchParams(
+      buildBookingRequestBusinessPrefillParams(linkedBusiness, {
+        fromOpportunity: opportunity.id,
+        includeBusinessId: true,
+      })
+    )
 
     handleClose()
     router.push(`/booking-requests/new?${params.toString()}`)

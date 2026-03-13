@@ -60,6 +60,8 @@ export default function OpportunityChatThread({
     [threads]
   )
 
+  const canResolveOpenThread = canEdit && !!openThread && openThread.commentCount > 0
+
   const resolvedThreads = useMemo(
     () =>
       threads
@@ -121,13 +123,13 @@ export default function OpportunityChatThread({
   }, [initialThreadId, loadThreads])
 
   const openResolveDialog = useCallback(() => {
-    if (!openThread) return
+    if (!openThread || openThread.commentCount === 0) return
 
     setResolveDialogOpen(true)
   }, [openThread])
 
   const handleResolveThread = useCallback(async () => {
-    if (!openThread || resolvingThread) return
+    if (!openThread || openThread.commentCount === 0 || resolvingThread) return
 
     setResolvingThread(true)
     try {
@@ -172,6 +174,38 @@ export default function OpportunityChatThread({
       setResolvingThread(false)
     }
   }, [canEdit, loadThreads, onApplyTaskRecommendation, openThread, resolvingThread])
+
+  const handleOpenThreadCommentsChange = useCallback((comments: ChatComment[]) => {
+    if (!openThread) return
+
+    const nextCommentCount = comments.length
+    const nextLastCommentAt = comments.length > 0 ? comments[comments.length - 1].createdAt : null
+
+    setThreads((previousThreads) => {
+      let changed = false
+
+      const nextThreads = previousThreads.map((thread) => {
+        if (thread.id !== openThread.id) return thread
+
+        const sameCommentCount = thread.commentCount === nextCommentCount
+        const sameLastCommentAt =
+          (thread.lastCommentAt?.getTime() ?? null) === (nextLastCommentAt?.getTime() ?? null)
+
+        if (sameCommentCount && sameLastCommentAt) {
+          return thread
+        }
+
+        changed = true
+        return {
+          ...thread,
+          commentCount: nextCommentCount,
+          lastCommentAt: nextLastCommentAt,
+        }
+      })
+
+      return changed ? nextThreads : previousThreads
+    })
+  }, [openThread])
 
   const buildActions = useCallback((threadId: string | null): ChatThreadActions => {
     return {
@@ -391,7 +425,7 @@ export default function OpportunityChatThread({
         title={openThread?.title || 'Sin item activo'}
         initialScrollPosition="bottom"
         headerActions={
-          canEdit && openThread ? (
+          canResolveOpenThread ? (
             <Button type="button" size="sm" variant="destructive" onClick={openResolveDialog}>
               Resolver Item
             </Button>
@@ -408,6 +442,7 @@ export default function OpportunityChatThread({
         pollingInterval={openThread ? 15000 : 0}
         enableReplyAction={true}
         readOnlyMessage="Solo el responsable o administradores pueden comentar"
+        onCommentsChange={handleOpenThreadCommentsChange}
       />
 
       <ConfirmDialog

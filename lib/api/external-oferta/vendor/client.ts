@@ -295,30 +295,6 @@ export async function updateVendorInExternalApi(
     }
   }
 
-  const email = typeof changedFields.email === 'string' ? changedFields.email.trim() : ''
-  if (!email) {
-    const error = 'Vendor PATCH requires email'
-    const logId = await logApiCall({
-      endpoint,
-      method: 'PATCH',
-      requestBody: changedFields,
-      userId: options?.userId,
-      triggeredBy: options?.triggeredBy || 'manual',
-      durationMs: Date.now() - startTime,
-      response: {
-        statusCode: 0,
-        success: false,
-        errorMessage: error,
-      },
-    })
-    return {
-      success: false,
-      error,
-      logId,
-      externalVendorId: parseInt(vendorId, 10) || undefined,
-    }
-  }
-
   try {
     const response = await fetch(endpoint, {
       method: 'PATCH',

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import CategorySelect from '@/components/shared/CategorySelect'
-import BusinessSelect, { type BusinessWithStatus } from '@/components/shared/BusinessSelect'
+import BusinessSelect from '@/components/shared/BusinessSelect'
 import MultiEmailInput from '@/components/shared/MultiEmailInput'
 import { getMaxDuration } from '@/lib/categories'
 import { calculateNextAvailableDate } from '@/lib/event-validation'
@@ -45,7 +45,6 @@ export default function ConfiguracionStep({
 }: ConfiguracionStepProps) {
   const [daysUntilLaunch, setDaysUntilLaunch] = useState<number | null>(null)
   const [calculatingDate, setCalculatingDate] = useState(false)
-  const [selectedBusiness, setSelectedBusiness] = useState<BusinessWithStatus | null>(null)
   const isShowsCategory = formData.parentCategory === 'SHOWS Y EVENTOS'
   const eventDayRows =
     isShowsCategory && Array.isArray(formData.eventDays) && formData.eventDays.length > 0
@@ -70,6 +69,7 @@ export default function ConfiguracionStep({
 
   // Auto-calculate next available date when category is selected or changes
   // Skip for public forms (no date calculation)
+  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     if (isPublicForm) return // Skip date calculation for public forms
     
@@ -156,6 +156,7 @@ export default function ConfiguracionStep({
     loadingBookedEvents,
     dateValidationSettings,
   ])
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   const handleStartDateChange = (date: string) => {
     updateFormData('startDate', date)
@@ -245,62 +246,72 @@ export default function ConfiguracionStep({
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="group">
-          <BusinessSelect
-            value={formData.businessName}
-            onChange={(businessName, business) => {
-              updateFormData('businessName', businessName)
-              setSelectedBusiness(business)
-              
-              // Notify parent of business selection for backfill tracking
-              onBusinessSelect?.(business?.id || null)
-              
-              // Auto-fill related fields when a business is selected
-              if (business) {
-                // Contact info
-                if (business.contactEmail) {
-                  updateFormData('partnerEmail', business.contactEmail)
-                  updateFormData('redemptionContactEmail', business.contactEmail)
-                  updateFormData('approverEmail', business.contactEmail)
+          {isPublicForm ? (
+            <Input
+              label="Nombre del Negocio"
+              required={isFieldRequired('businessName')}
+              value={formData.businessName}
+              onChange={(e) => updateFormData('businessName', e.target.value)}
+              placeholder="Ingrese el nombre del negocio"
+              error={errors.businessName}
+            />
+          ) : (
+            <BusinessSelect
+              value={formData.businessName}
+              onChange={(businessName, business) => {
+                updateFormData('businessName', businessName)
+
+                // Notify parent of business selection for backfill tracking
+                onBusinessSelect?.(business?.id || null)
+
+                // Auto-fill related fields when a business is selected
+                if (business) {
+                  // Contact info
+                  if (business.contactEmail) {
+                    updateFormData('partnerEmail', business.contactEmail)
+                    updateFormData('redemptionContactEmail', business.contactEmail)
+                    updateFormData('approverEmail', business.contactEmail)
+                  }
+                  if (business.contactName) {
+                    updateFormData('redemptionContactName', business.contactName)
+                    updateFormData('approverName', business.contactName)
+                  }
+                  if (business.contactPhone) {
+                    updateFormData('redemptionContactPhone', business.contactPhone)
+                  }
+
+                  // Category is NOT auto-filled - user must select manually
+
+                  // Fiscal info
+                  if (business.razonSocial) updateFormData('legalName', business.razonSocial)
+                  if (business.ruc) updateFormData('rucDv', business.ruc)
+                  if (business.provinceDistrictCorregimiento) updateFormData('provinceDistrictCorregimiento', business.provinceDistrictCorregimiento)
+
+                  // Bank info
+                  if (business.bank) updateFormData('bank', business.bank)
+                  if (business.beneficiaryName) updateFormData('bankAccountName', business.beneficiaryName)
+                  if (business.accountNumber) updateFormData('accountNumber', business.accountNumber)
+                  if (business.accountType) updateFormData('accountType', business.accountType)
+                  if (business.paymentPlan) updateFormData('paymentType', business.paymentPlan)
+
+                  // Address
+                  const addressParts = [business.address, business.neighborhood].filter(Boolean)
+                  if (addressParts.length > 0) updateFormData('addressAndHours', addressParts.join(', '))
+
+                  // Social / website
+                  const socialParts = [business.instagram, business.website].filter(Boolean)
+                  if (socialParts.length > 0) updateFormData('socialMedia', socialParts.join(' | '))
+                  if (business.website) updateFormData('contactDetails', business.website)
+                  if (business.description) updateFormData('businessReview', business.description)
+                  if (business.razonSocial || businessName) updateFormData('approverBusinessName', business.razonSocial || businessName)
                 }
-                if (business.contactName) {
-                  updateFormData('redemptionContactName', business.contactName)
-                  updateFormData('approverName', business.contactName)
-                }
-                if (business.contactPhone) {
-                  updateFormData('redemptionContactPhone', business.contactPhone)
-                }
-                
-                // Category is NOT auto-filled - user must select manually
-                
-                // Fiscal info
-                if (business.razonSocial) updateFormData('legalName', business.razonSocial)
-                if (business.ruc) updateFormData('rucDv', business.ruc)
-                if (business.provinceDistrictCorregimiento) updateFormData('provinceDistrictCorregimiento', business.provinceDistrictCorregimiento)
-                
-                // Bank info
-                if (business.bank) updateFormData('bank', business.bank)
-                if (business.beneficiaryName) updateFormData('bankAccountName', business.beneficiaryName)
-                if (business.accountNumber) updateFormData('accountNumber', business.accountNumber)
-                if (business.accountType) updateFormData('accountType', business.accountType)
-                if (business.paymentPlan) updateFormData('paymentType', business.paymentPlan)
-                
-                // Address
-                const addressParts = [business.address, business.neighborhood].filter(Boolean)
-                if (addressParts.length > 0) updateFormData('addressAndHours', addressParts.join(', '))
-                
-                // Social / website
-                const socialParts = [business.instagram, business.website].filter(Boolean)
-                if (socialParts.length > 0) updateFormData('socialMedia', socialParts.join(' | '))
-                if (business.website) updateFormData('contactDetails', business.website)
-                if (business.description) updateFormData('businessReview', business.description)
-                if (business.razonSocial || businessName) updateFormData('approverBusinessName', business.razonSocial || businessName)
-              }
-            }}
-            label="Nombre del Negocio"
-            required={isFieldRequired('businessName')}
-            placeholder="Buscar y seleccionar negocio"
-            error={errors.businessName}
-          />
+              }}
+              label="Nombre del Negocio"
+              required={isFieldRequired('businessName')}
+              placeholder="Buscar y seleccionar negocio"
+              error={errors.businessName}
+            />
+          )}
         </div>
 
         <MultiEmailInput

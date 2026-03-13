@@ -430,6 +430,7 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     const fromOpportunity = searchParams.get('fromOpportunity')
     const businessIdParam = searchParams.get('businessId') // Direct business link for backfill
     const partnerEmail = searchParams.get('partnerEmail')
+    const additionalEmailsParam = searchParams.get('additionalEmails') || searchParams.get('paymentEmails')
     const legalName = searchParams.get('legalName')
     const ruc = searchParams.get('ruc')
     const provinceDistrictCorregimiento = searchParams.get('provinceDistrictCorregimiento')
@@ -443,6 +444,21 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
     // Note: description field has been removed from BookingRequest
     const website = searchParams.get('website')
     const instagram = searchParams.get('instagram')
+    let normalizedAdditionalEmailsFromUrl: string[] = []
+
+    if (additionalEmailsParam) {
+      try {
+        const parsed = JSON.parse(additionalEmailsParam)
+        if (Array.isArray(parsed)) {
+          normalizedAdditionalEmailsFromUrl = parsed
+            .filter((email): email is string => typeof email === 'string')
+            .map((email) => email.trim().toLowerCase())
+            .filter((email) => email.length > 0)
+        }
+      } catch {
+        normalizedAdditionalEmailsFromUrl = []
+      }
+    }
     
     // Track linked business ID for backfill
     if (businessIdParam) {
@@ -731,8 +747,8 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         return {
         ...prev,
         businessName: businessName || prev.businessName,
-        // Only use the primary contact email from business, don't auto-populate additional emails
         partnerEmail: businessEmail || partnerEmail || prev.partnerEmail,
+        additionalEmails: normalizedAdditionalEmailsFromUrl.length > 0 ? normalizedAdditionalEmailsFromUrl : prev.additionalEmails,
         redemptionContactName: contactName || prev.redemptionContactName,
         redemptionContactPhone: contactPhone || prev.redemptionContactPhone,
         redemptionContactEmail: businessEmail || partnerEmail || prev.redemptionContactEmail,
@@ -763,6 +779,9 @@ export default function EnhancedBookingForm({ requestId: propRequestId, initialF
         return {
         ...prev,
         partnerEmail: partnerEmail || prev.partnerEmail,
+        additionalEmails: normalizedAdditionalEmailsFromUrl.length > 0
+          ? normalizedAdditionalEmailsFromUrl
+          : prev.additionalEmails,
         }
       })
     }

@@ -40,6 +40,7 @@ import {
   type ColumnConfig,
 } from '@/components/shared'
 import { Button } from '@/components/ui'
+import { buildBookingRequestBusinessPrefillParams } from '@/lib/booking-requests/business-prefill'
 
 // Local hooks and components
 import { useBusinessTableCounts, useBusinessPageState } from './hooks'
@@ -519,42 +520,13 @@ export default function BusinessesPageClient({
 
   // Create request (navigates to booking request form)
   function handleCreateRequest(business: Business) {
-    const params = new URLSearchParams()
-    params.set('fromOpportunity', 'business')
-    params.set('businessId', business.id) // Pass businessId for backfill tracking
-    params.set('businessName', business.name)
-    params.set('businessEmail', business.contactEmail)
-    params.set('contactName', business.contactName || '')
-    params.set('contactPhone', business.contactPhone || '')
-    
-    if (business.category) {
-      params.set('categoryId', business.category.id)
-      params.set('parentCategory', business.category.parentCategory)
-      if (business.category.subCategory1) params.set('subCategory1', business.category.subCategory1)
-      if (business.category.subCategory2) params.set('subCategory2', business.category.subCategory2)
-    }
-    
-    if (business.razonSocial) params.set('legalName', business.razonSocial)
-    if (business.ruc) params.set('ruc', business.ruc)
-    if (business.provinceDistrictCorregimiento) params.set('provinceDistrictCorregimiento', business.provinceDistrictCorregimiento)
-    if (business.address) params.set('address', business.address)
-    if (business.neighborhood) params.set('neighborhood', business.neighborhood)
-    if (business.bank) params.set('bank', business.bank)
-    if (business.beneficiaryName) params.set('bankAccountName', business.beneficiaryName)
-    if (business.accountNumber) params.set('accountNumber', business.accountNumber)
-    if (business.accountType) params.set('accountType', business.accountType)
-    if (business.paymentPlan) params.set('paymentPlan', business.paymentPlan)
-    if (business.description) params.set('description', business.description)
-    if (business.website) params.set('website', business.website)
-    if (business.instagram) params.set('instagram', business.instagram)
-    
-    if (business.emailPaymentContacts) {
-      const paymentEmails = business.emailPaymentContacts.split(/[;,\s]+/).filter(Boolean)
-      if (paymentEmails.length > 0) {
-        params.set('paymentEmails', JSON.stringify(paymentEmails))
-      }
-    }
-    
+    const params = new URLSearchParams(
+      buildBookingRequestBusinessPrefillParams(business, {
+        fromOpportunity: 'business',
+        includeBusinessId: true,
+      })
+    )
+
     router.push(`/booking-requests/new?${params.toString()}`)
   }
 

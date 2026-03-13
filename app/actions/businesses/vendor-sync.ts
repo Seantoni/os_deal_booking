@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth, handleServerActionError } from '@/lib/utils/server-actions'
 import { isAdmin } from '@/lib/auth/roles'
 import { logActivity } from '@/lib/activity-log'
-import { updateVendorInExternalApi, getChangedVendorFields, withRequiredVendorUpdateFields } from '@/lib/api/external-oferta'
+import { updateVendorInExternalApi, getChangedVendorFields } from '@/lib/api/external-oferta'
 
 import type { VendorFieldChange, UpdateVendorResult } from '@/lib/api/external-oferta/vendor/types'
 import type { Business } from '@/types'
@@ -167,14 +167,9 @@ export async function syncVendorToExternal(
     }
 
     // Step 2: Send PATCH to external API
-    const preparedPayload = withRequiredVendorUpdateFields(
-      currentBusiness as Pick<Business, 'contactEmail'>,
-      apiPayload
-    )
-
     const syncResult = await updateVendorInExternalApi(
       currentBusiness.osAdminVendorId,
-      preparedPayload,
+      apiPayload,
       {
         userId,
         triggeredBy: 'manual',

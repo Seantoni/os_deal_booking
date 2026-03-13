@@ -30,6 +30,7 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import SearchIcon from '@mui/icons-material/Search'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import { getActiveFocus, getFocusInfo, FOCUS_PERIOD_LABELS, type FocusPeriod } from '@/lib/utils/focus-period'
+import { buildBookingRequestBusinessPrefillParams } from '@/lib/booking-requests/business-prefill'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useBusinessForm } from './useBusinessForm'
@@ -914,56 +915,14 @@ export default function BusinessFormModal({
 
   function handleCreateRequest() {
     if (!business || !canEdit) return
-    
-    // Build query parameters with business data for pre-filling
-    const params = new URLSearchParams()
-    
-    // Flag to trigger pre-fill logic in EnhancedBookingForm
-    params.set('fromOpportunity', 'business')
-    params.set('businessId', business.id) // Pass businessId for backfill tracking
-    
-    // Basic business info
-    params.set('businessName', business.name)
-    params.set('businessEmail', business.contactEmail || '')
-    params.set('contactName', business.contactName || '')
-    params.set('contactPhone', business.contactPhone || '')
-    
-    // Category info
-    if (business.category) {
-      if (business.category.parentCategory) params.set('parentCategory', business.category.parentCategory)
-      if (business.category.subCategory1) params.set('subCategory1', business.category.subCategory1)
-      if (business.category.subCategory2) params.set('subCategory2', business.category.subCategory2)
-    }
-    
-    // Legal/Tax info
-    if (business.razonSocial) params.set('legalName', business.razonSocial)
-    if (business.ruc) params.set('ruc', business.ruc)
-    
-    // Location info
-    if (business.provinceDistrictCorregimiento) params.set('provinceDistrictCorregimiento', business.provinceDistrictCorregimiento)
-    if (business.address) params.set('address', business.address)
-    if (business.neighborhood) params.set('neighborhood', business.neighborhood)
-    
-    // Bank/Payment info
-    if (business.bank) params.set('bank', business.bank)
-    if (business.beneficiaryName) params.set('bankAccountName', business.beneficiaryName)
-    if (business.accountNumber) params.set('accountNumber', business.accountNumber)
-    if (business.accountType) params.set('accountType', business.accountType)
-    if (business.paymentPlan) params.set('paymentPlan', business.paymentPlan)
-    
-    // Additional info
-    if (business.website) params.set('website', business.website)
-    if (business.instagram) params.set('instagram', business.instagram)
-    if (business.description) params.set('description', business.description)
-    
-    // Email payment contacts
-    if (business.emailPaymentContacts) {
-      const paymentEmails = (business.emailPaymentContacts as string).split(/[;,\\s]+/).filter(Boolean)
-      if (paymentEmails.length > 0) {
-        params.set('paymentEmails', JSON.stringify(paymentEmails))
-      }
-    }
-    
+
+    const params = new URLSearchParams(
+      buildBookingRequestBusinessPrefillParams(business, {
+        fromOpportunity: 'business',
+        includeBusinessId: true,
+      })
+    )
+
     // Navigate to new request form with pre-filled data
     router.push(`/booking-requests/new?${params.toString()}`)
     onClose() // Close the business modal

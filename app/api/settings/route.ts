@@ -34,11 +34,13 @@ export async function GET() {
               requestFormFields: data?.requestFormFields || {},
               customCategories: data?.customCategories,
               hiddenCategoryPaths: data?.hiddenCategoryPaths || {},
+              additionalInfoMappings: data?.additionalInfoMappings || {},
               minDailyLaunches: data?.minDailyLaunches,
               maxDailyLaunches: data?.maxDailyLaunches,
               merchantRepeatDays: data?.merchantRepeatDays,
               vendorReactivationCooldownDays: data?.vendorReactivationCooldownDays,
               businessExceptions: data?.businessExceptions || [],
+              categoryDurations: data?.categoryDurations,
             },
           },
           {

@@ -40,6 +40,7 @@ import {
 import { EntityTable, StatusPill, TableRow, TableCell } from '@/components/shared/table'
 import { Button } from '@/components/ui'
 import { OpportunityMobileCard } from './components'
+import { buildBookingRequestBusinessPrefillParams } from '@/lib/booking-requests/business-prefill'
 
 // Lazy load heavy modal components
 const OpportunityFormModal = dynamic(() => import('@/components/crm/opportunity/OpportunityFormModal'), {
@@ -414,40 +415,10 @@ export default function OpportunitiesPageClient({
     const business = opportunity.business
     if (!business) return
 
-    const params: Record<string, string> = {
+    const params = buildBookingRequestBusinessPrefillParams(business, {
       fromOpportunity: opportunity.id,
-      businessName: business.name,
-      businessEmail: business.contactEmail,
-      contactName: business.contactName,
-      contactPhone: business.contactPhone,
-    }
-    
-    if (business.category) {
-      params.categoryId = business.category.id
-      params.parentCategory = business.category.parentCategory
-      if (business.category.subCategory1) params.subCategory1 = business.category.subCategory1
-      if (business.category.subCategory2) params.subCategory2 = business.category.subCategory2
-    }
-
-    if (business.razonSocial) params.legalName = business.razonSocial
-    if (business.ruc) params.ruc = business.ruc
-    if (business.provinceDistrictCorregimiento) params.provinceDistrictCorregimiento = business.provinceDistrictCorregimiento
-    if (business.bank) params.bank = business.bank
-    if (business.beneficiaryName) params.bankAccountName = business.beneficiaryName
-    if (business.accountNumber) params.accountNumber = business.accountNumber
-    if (business.accountType) params.accountType = business.accountType
-    if (business.paymentPlan) params.paymentPlan = business.paymentPlan
-    if (business.address) params.address = business.address
-    if (business.neighborhood) params.neighborhood = business.neighborhood
-    if (business.description) params.description = business.description
-    if (business.website) params.website = business.website
-    if (business.instagram) params.instagram = business.instagram
-    if (business.emailPaymentContacts) {
-      const paymentEmails = business.emailPaymentContacts.split(/[;,\\s]+/).filter(Boolean)
-      if (paymentEmails.length > 0) {
-        params.paymentEmails = JSON.stringify(paymentEmails)
-      }
-    }
+      includeBusinessId: true,
+    })
 
     setNewRequestQueryParams(params)
     setShowNewRequestModal(true)
