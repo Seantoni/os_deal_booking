@@ -4,7 +4,6 @@ import { useEffect, useState, useMemo, useCallback, useActionState, useTransitio
 import { useRouter } from 'next/navigation'
 import { useUser } from '@clerk/nextjs'
 import { createBusiness, updateBusiness, createOpportunity, deleteBusiness } from '@/app/actions/crm'
-import { findInstagramHandle } from '@/app/actions/find-instagram'
 import { previewVendorSync, syncVendorToExternal } from '@/app/actions/businesses'
 import { formatValueForDisplay } from '@/lib/api/external-oferta/vendor/mapper'
 import type { VendorFieldChange } from '@/lib/api/external-oferta/vendor/types'
@@ -27,8 +26,6 @@ import LockIcon from '@mui/icons-material/Lock'
 import LockOpenIcon from '@mui/icons-material/LockOpen'
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
-import SearchIcon from '@mui/icons-material/Search'
-import RefreshIcon from '@mui/icons-material/Refresh'
 import { getActiveFocus, getFocusInfo, FOCUS_PERIOD_LABELS, type FocusPeriod } from '@/lib/utils/focus-period'
 import { buildBookingRequestBusinessPrefillParams } from '@/lib/booking-requests/business-prefill'
 import { useConfirmDialog } from '@/hooks/useConfirmDialog'
@@ -456,7 +453,6 @@ export default function BusinessFormModal({
   const { user } = useUser()
   const { isAdmin } = useUserRole()
   const [error, setError] = useState('')
-  const [igSearching, setIgSearching] = useState(false)
   const [opportunityModalOpen, setOpportunityModalOpen] = useState(false)
   const [focusModalOpen, setFocusModalOpen] = useState(false)
   const { autoCreate: autoCreateOpportunity, isCreating: isCreatingOpportunity } = useAutoCreateOpportunity()
@@ -859,35 +855,6 @@ export default function BusinessFormModal({
     }))
   }, [])
 
-  const handleInstagramSearch = useCallback(async () => {
-    const name = dynamicForm.getValue('name')
-    const neighborhood = dynamicForm.getValue('neighborhood')
-    const website = dynamicForm.getValue('website')
-    if (!name) {
-      toast.error('Ingrese el nombre del negocio primero')
-      return
-    }
-    setIgSearching(true)
-    const toastId = toast.loading('Buscando Instagram con AI...')
-    try {
-      const { handle, error } = await findInstagramHandle(name, neighborhood, website)
-      toast.dismiss(toastId)
-      if (handle) {
-        dynamicForm.setValue('instagram', `https://www.instagram.com/${handle}`)
-        toast.success(`Instagram encontrado: @${handle}`, { duration: 3000 })
-      } else if (error) {
-        toast.error(`Error buscando Instagram: ${error}`, { duration: 4000 })
-      } else {
-        toast('Instagram no encontrado', { icon: '🔍', duration: 3000 })
-      }
-    } catch {
-      toast.dismiss(toastId)
-      toast.error('Error inesperado buscando Instagram')
-    } finally {
-      setIgSearching(false)
-    }
-  }, [dynamicForm])
-
   function handleEditOpportunity(opportunity: Opportunity) {
     // Open opportunity modal inside this business modal
     setSelectedOpportunity(opportunity)
@@ -1252,26 +1219,8 @@ export default function BusinessFormModal({
       }
     }
 
-    // Instagram AI search button (always available when editable)
-    if (canEdit) {
-      addons['instagram'] = (
-        <button
-          type="button"
-          onClick={handleInstagramSearch}
-          disabled={igSearching}
-          className="p-2 rounded-md transition-colors bg-purple-50 text-purple-500 hover:bg-purple-100 hover:text-purple-700 disabled:opacity-50"
-          title="Buscar Instagram con AI"
-        >
-          {igSearching
-            ? <RefreshIcon fontSize="small" className="animate-spin" />
-            : <SearchIcon fontSize="small" />
-          }
-        </button>
-      )
-    }
-    
     return addons
-  }, [isEditMode, isAdmin, lockedFieldKeys, initialValues, unlockedFields, toggleFieldUnlock, canEdit, igSearching, handleInstagramSearch])
+  }, [isEditMode, isAdmin, lockedFieldKeys, initialValues, unlockedFields, toggleFieldUnlock, canEdit])
 
   // Early return if modal is not open - saves rendering work
   if (!isOpen) return null
