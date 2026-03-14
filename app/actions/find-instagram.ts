@@ -147,7 +147,7 @@ function extractHandleFromResponse(text: string): string | null {
 }
 
 async function runInstagramSearch(
-  model: 'gpt-5-mini' | 'gpt-5.4',
+  model: 'gpt-4o-mini-search-preview',
   prompt: string,
 ): Promise<string | null> {
   const openai = getOpenAIClient()
@@ -209,7 +209,7 @@ export async function findInstagramHandle(
       `Do not guess or make up handles. Only return handles you find from reliable sources.`,
     ].join('\n')
 
-    const firstPassText = await runInstagramSearch('gpt-5-mini', firstPassPrompt)
+    const firstPassText = await runInstagramSearch('gpt-4o-mini-search-preview', firstPassPrompt)
     if (firstPassText) {
       console.log(`[findInstagramHandle] First-pass AI response for "${restaurantName}":`, firstPassText)
       const firstPassHandle = extractHandleFromResponse(firstPassText)
@@ -234,7 +234,7 @@ export async function findInstagramHandle(
       `Do not explain your reasoning.`,
     ].join('\n')
 
-    const secondPassText = await runInstagramSearch('gpt-5.4', secondPassPrompt)
+    const secondPassText = await runInstagramSearch('gpt-4o-mini-search-preview', secondPassPrompt)
     if (secondPassText) {
       console.log(`[findInstagramHandle] Second-pass AI response for "${restaurantName}":`, secondPassText)
       const secondPassHandle = extractHandleFromResponse(secondPassText)
